@@ -10,7 +10,7 @@
 
 **Design doc:** `docs/devel/plans/2026-02-15-probe-management-design.md`
 
-**Status:** Phases 1-2 complete. Phase 3 tasks 3.1-3.3 complete (probe overlay skeleton, status subjects, BLTouch panel). Tasks 3.4-3.6 and Phases 4-5 remaining. All work on `feature/probe-management` branch.
+**Status:** ✅ ALL PHASES COMPLETE. Phases 1-5 implemented on `feature/probe-management` branch. Probe sensor select wizard step removed entirely — probe detection now handled by consolidated Detected Hardware step.
 
 **Key docs to read before starting:**
 - `docs/devel/LVGL9_XML_GUIDE.md` — XML widget patterns, bindings, event callbacks
@@ -1173,27 +1173,15 @@ git commit -m "feat(wizard): replace AMS + probe steps with consolidated Detecte
 |-------|-------|--------|
 | 1. Probe Detection | 1.1–1.4 | ✅ COMPLETE |
 | 2. Config Editor | 2.1–2.5 | ✅ COMPLETE |
-| 3. Probe Overlay | 3.1–3.3 | ✅ COMPLETE |
-| 3. Probe Overlay | 3.4–3.6 | ⏳ REMAINING |
-| 4. Config Editing UI | 4.1 | ⏳ REMAINING |
-| 5. Wizard Step | 5.1 | ⏳ REMAINING |
+| 3. Probe Overlay | 3.1–3.6 | ✅ COMPLETE |
+| 4. Config Editing UI | 4.1 | ✅ COMPLETE |
+| 5. Wizard Step | 5.1 | ✅ COMPLETE |
 
-**Remaining work (5 tasks):**
-- Task 3.4: Cartographer type-specific panel (model select, calibrate, touch calibrate, coil temp)
-- Task 3.5: Beacon type-specific panel (model select, auto-calibrate, temp comp)
-- Task 3.6: Generic/Klicky fallback panel (type info + Klicky deploy/dock macros)
-- Task 4.1: Wire KlipperConfigEditor to probe overlay for live config editing
-- Task 5.1: Consolidated "Detected Hardware" wizard step (replaces separate AMS + probe steps)
+**All phases complete.** Branch: `feature/probe-management` (5 commits).
 
-**Key implementation notes for remaining work:**
-- All XML files go in `ui_xml/` (flat directory, no subdirectories)
-- Overlay C++ file is `src/ui/ui_probe_overlay.cpp` (not `src/ui/overlays/`)
-- `load_type_panel()` in ProbeOverlay already switches on probe type — just need to create the XML components and register them
-- Mock probe type is controlled by `HELIX_MOCK_PROBE_TYPE` env var (default: `cartographer`)
-- Probe Management row in Advanced panel is gated by `<beta_feature>` wrapper
-- String subjects use `lv_subject_copy_string()` (NOT `lv_subject_set_string`)
-
-**Dependencies:**
-- Tasks 3.4-3.6 are independent of each other (can be done in any order)
-- Task 4.1 depends on Phase 2 (config editor) + Phase 3 (overlay)
-- Task 5.1 depends on Phase 1 (probe detection) — no dependency on overlay
+**Implementation notes:**
+- Wizard probe sensor select step was **removed entirely** (not just replaced) — probe detection is now handled by the consolidated Detected Hardware step at wizard step 7
+- Wizard is now 11 steps (0–10), down from 12. Step renumbering: Input Shaper moved from 11→10, Summary from 12→11
+- `wizard_probe_sensor_select.{h,cpp}` and `wizard_probe_sensor_select.xml` deleted
+- `WizardSkipFlags.probe` field removed
+- All 4921 test assertions pass across 132 test cases

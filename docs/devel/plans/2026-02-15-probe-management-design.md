@@ -1,7 +1,7 @@
 # Probe Management System Design
 
 **Date**: 2026-02-15
-**Status**: Draft
+**Status**: ✅ Implemented on `feature/probe-management` branch
 
 ## Problem
 
@@ -27,7 +27,7 @@ Users with bed probes (Cartographer, Beacon, BLTouch, Klicky, Tap, etc.) find th
 
 ### 1. Wizard: Detected Hardware Step
 
-**Replaces**: Current step 7 (AMS Identify) and step 10 (Probe Sensor Select)
+**Replaces**: Former step 7 (AMS Identify). Former step 10 (Probe Sensor Select) was **deleted entirely** — its files (`wizard_probe_sensor_select.{h,cpp,xml}`) removed from the codebase.
 
 A single confirmational step that shows all auto-detected hardware add-ons after printer identification:
 
@@ -245,22 +245,34 @@ Ported from Kalico's `configfile.py` (`/Users/pbrown/Code/Printing/kalico/klippy
 ## Files Affected
 
 **New files:**
-- `src/ui/overlays/probe_overlay.cpp` / `.h` — Probe management overlay
-- `src/system/klipper_config_editor.cpp` / `.h` — Config editor infrastructure
+- `src/ui/ui_probe_overlay.cpp` + `include/ui_probe_overlay.h` — Probe management overlay (NOTE: `src/ui/`, not `src/ui/overlays/` — Makefile wildcard only goes one level deep)
+- `src/system/klipper_config_editor.cpp` + `include/klipper_config_editor.h` — Config editor infrastructure
 - `ui_xml/probe_overlay.xml` — Main probe overlay layout
-- `ui_xml/components/probe_bltouch_panel.xml` — BLTouch-specific controls
-- `ui_xml/components/probe_cartographer_panel.xml` — Cartographer-specific controls
-- `ui_xml/components/probe_beacon_panel.xml` — Beacon-specific controls
-- `ui_xml/components/probe_generic_panel.xml` — Fallback for simple probes
+- `ui_xml/probe_bltouch_panel.xml` — BLTouch-specific controls
+- `ui_xml/probe_cartographer_panel.xml` — Cartographer-specific controls
+- `ui_xml/probe_beacon_panel.xml` — Beacon-specific controls
+- `ui_xml/probe_generic_panel.xml` — Fallback for simple probes
+- `ui_xml/probe_config_edit_modal.xml` — Config editing confirmation modal
 - `ui_xml/wizard_detected_hardware.xml` — New wizard step
+- `src/ui/ui_wizard_detected_hardware.cpp` + `include/ui_wizard_detected_hardware.h` — Wizard step class
 
 **Modified files:**
-- `include/probe_sensor_types.h` — New probe type enum values
+- `include/probe_sensor_types.h` — New probe type enum values + display strings
 - `src/sensors/probe_sensor_manager.cpp` — Expanded detection logic
-- `src/ui/ui_wizard.cpp` — Replace AMS + probe steps with detected hardware step
-- `src/ui/ui_wizard_probe_sensor_select.cpp` — Refactor or remove
-- `include/moonraker_api.h` / `src/api/moonraker_api_config.cpp` — May need new queries for probe-specific objects
+- `src/ui/ui_wizard.cpp` — Replaced AMS identify step with detected hardware, removed probe sensor select step, renumbered 12→11 steps
+- `include/wizard_step_logic.h` + `src/system/wizard_step_logic.cpp` — Removed probe skip flag, updated step count 13→12
+- `src/xml_registration.cpp` — Registered new XML components, removed wizard_probe_sensor_select
+- `src/application/application.cpp` — Probe overlay callback registration
+- `src/application/subject_initializer.cpp` — Probe row handler init
+- `src/api/moonraker_client_mock.cpp` — Mock probe type support (`HELIX_MOCK_PROBE_TYPE` env var)
+- `include/printer_discovery.h` — Extended probe detection for Cartographer/Beacon/Smart Effector
+
+**Deleted files:**
+- `src/ui/ui_wizard_probe_sensor_select.cpp` — Wizard probe select step (replaced by detected hardware)
+- `include/ui_wizard_probe_sensor_select.h` — Header for above
+- `ui_xml/wizard_probe_sensor_select.xml` — XML layout for above
 
 **Test files:**
-- `tests/test_klipper_config_editor.cpp` — Unit tests for config parser/editor
-- `tests/test_probe_detection.cpp` — Probe type detection tests
+- `tests/unit/test_klipper_config_editor.cpp` — Unit tests for config parser/editor
+- `tests/unit/test_probe_sensor_manager.cpp` — Probe type detection tests
+- `tests/unit/test_android_platform.cpp` — Updated wizard step counts (12→11 steps)
