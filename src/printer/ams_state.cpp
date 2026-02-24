@@ -331,6 +331,16 @@ void AmsState::deinit_subjects() {
 
     spdlog::trace("[AMS State] Deinitializing subjects");
 
+    // Clear dangling API pointer — the MoonrakerAPI is destroyed during teardown
+    // before AmsState re-initializes. Without this, sync_from_backend() would
+    // dereference a freed pointer on the next init_subjects() cycle.
+    api_ = nullptr;
+
+    // Reset observer guards BEFORE deiniting subjects — the observer points to
+    // a subject that subjects_.deinit_all() will destroy. If we deinit first,
+    // the guard's reset() would call lv_observer_remove() on a freed observer.
+    print_state_observer_.reset();
+
     // IMPORTANT: clear_backends() MUST precede subjects_.deinit_all() because
     // BackendSlotSubjects are managed outside SubjectManager for lifetime reasons
     clear_backends();

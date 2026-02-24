@@ -55,8 +55,10 @@
 #include "ui_icon_loader.h"
 #include "ui_keyboard_manager.h"
 #include "ui_nav_manager.h"
+#include "ui_notification.h"
 #include "ui_notification_history.h"
 #include "ui_notification_manager.h"
+#include "ui_observer_guard.h"
 #include "ui_overlay_network_settings.h"
 #include "ui_panel_ams.h"
 #include "ui_panel_ams_overview.h"
@@ -100,6 +102,7 @@
 #include "ui_wizard_touch_calibration.h"
 #include "ui_wizard_wifi.h"
 
+#include "active_print_media_manager.h"
 #include "android_asset_extractor.h"
 #include "data_root_resolver.h"
 #include "display_settings_manager.h"
@@ -2287,19 +2290,8 @@ void Application::switch_printer(const std::string& printer_id) {
     }
     m_config->save();
 
-    // Show switching splash (simple label on screen)
-    auto* splash = lv_label_create(m_screen);
-    lv_label_set_text(splash, "Switching printer...");
-    lv_obj_center(splash);
-    lv_refr_now(nullptr); // Force immediate render
-
     tear_down_printer_state();
     init_printer_state();
-
-    // Clean up splash (it survived because it's a direct child of screen, not app_layout)
-    if (splash) {
-        lv_obj_del(splash);
-    }
 
     // Navigate to home
     NavigationManager::instance().set_active(PanelId::Home);
@@ -2310,10 +2302,10 @@ void Application::switch_printer(const std::string& printer_id) {
 void Application::tear_down_printer_state() {
     spdlog::info("[Application] Tearing down printer state...");
 
-    // 1. Deactivate overlays and clear navigation registries
-    NavigationManager::instance().shutdown();
+    // Teardown mirrors shutdown() ordering. Subjects stay alive until step 12
+    // so ObserverGuards can properly call lv_observer_remove() during destruction.
 
-    // 2. Clear app_globals BEFORE destroying managers to prevent
+    // 1. Clear app_globals BEFORE destroying managers to prevent
     //    destructors from accessing destroyed objects
     set_moonraker_manager(nullptr);
     set_moonraker_api(nullptr);
@@ -2321,25 +2313,41 @@ void Application::tear_down_printer_state() {
     set_print_history_manager(nullptr);
     set_temperature_history_manager(nullptr);
 
-    // 3. Unload plugins (may hold refs to managers)
+    // 2. Deactivate overlays and clear navigation registries
+    NavigationManager::instance().shutdown();
+
+    // 3. Stop UpdateChecker auto-check timer (fires API calls on background thread)
+    if (!helix::is_android_platform()) {
+        UpdateChecker::instance().stop_auto_check();
+    }
+
+    // 4. Unload plugins (may hold refs to managers)
     if (m_plugin_manager) {
         m_plugin_manager->unload_all();
         m_plugin_manager.reset();
     }
 
-    // 4. Disconnect WebSocket thread FIRST to prevent callback races
+    // 5. Disconnect WebSocket thread to stop background callbacks
     if (m_moonraker && m_moonraker->client()) {
         m_moonraker->client()->disconnect();
     }
 
-    // 5. Release history managers
+    // 6. Discard pending async callbacks queued by background threads.
+    //    Must happen AFTER disconnect (no more producers) and BEFORE destroying
+    //    objects referenced by queued callbacks.
+    helix::ui::update_queue_shutdown();
+
+    // 7. Release history managers
     m_history_manager.reset();
     m_temp_history_manager.reset();
 
-    // 6. Clear AMS backends before subjects (hold subscription guards)
-    AmsState::instance().clear_backends();
+    // 8. Unregister timelapse event callback
+    if (m_moonraker && m_moonraker->client()) {
+        m_moonraker->client()->unregister_method_callback("notify_timelapse_event",
+                                                          "timelapse_state");
+    }
 
-    // 7. Release action prompt system
+    // 9. Unregister action prompt callback
     if (m_moonraker && m_moonraker->client() && m_action_prompt_manager) {
         m_moonraker->client()->unregister_method_callback("notify_gcode_response",
                                                           "action_prompt_manager");
@@ -2349,28 +2357,41 @@ void Application::tear_down_printer_state() {
     helix::ActionPromptManager::set_instance(nullptr);
     m_action_prompt_manager.reset();
 
-    // 8. Release PanelFactory (panel widget pointers)
-    m_panels.reset();
+    // 10. Clear AMS backends (hold subscription guards with raw client pointers)
+    AmsState::instance().clear_backends();
 
-    // 9. Release SubjectInitializer (releases observer guards, TempControlPanel, UsbManager)
+    // 11. Deinit LedController (holds API/client pointers about to be freed)
+    helix::led::LedController::instance().deinit();
+
+    // 12. Release PanelFactory and SubjectInitializer
+    m_panels.reset();
     m_subjects.reset();
 
-    // 10. Flush pending async callbacks BEFORE destroying panels
-    helix::ui::update_queue_shutdown();
-
-    // 11. Kill all LVGL animations (hold widget pointers)
+    // 13. Kill all LVGL animations (hold widget pointers)
     lv_anim_delete_all();
 
-    // 12. Destroy all static panel/overlay globals (releases observers)
+    // 14. Destroy all static panel/overlay globals (releases ObserverGuards).
+    //     Subjects are still alive here, so lv_observer_remove() works correctly.
     StaticPanelRegistry::instance().destroy_all();
 
-    // 13. Deinit core singleton subjects (LIFO order via StaticSubjectRegistry)
+    // 15. Release global observer guards that observe subjects about to be freed
+    ui_notification_deinit();
+    helix::deinit_active_print_media_manager();
+
+    // 16. Deinit core singleton subjects (LIFO order via StaticSubjectRegistry).
+    //     lv_subject_deinit() removes+frees all remaining observers from each subject.
     StaticSubjectRegistry::instance().deinit_all();
 
-    // 14. Release MoonrakerManager
+    // 17. Invalidate all observer guards. From this point, any ObserverGuard::reset()
+    //     in surviving singletons (not destroyed by StaticPanelRegistry) will release
+    //     instead of calling lv_observer_remove() on freed observer pointers.
+    //     This protects the reinit path where old guards get reassigned.
+    ObserverGuard::invalidate_all();
+
+    // 18. Release MoonrakerManager
     m_moonraker.reset();
 
-    // 15. Delete LVGL widget tree (panels already released references)
+    // 19. Delete LVGL widget tree (panels already released references)
     //     DO NOT call lv_deinit() — display stays alive
     if (m_app_layout) {
         lv_obj_del(m_app_layout);
@@ -2384,53 +2405,68 @@ void Application::tear_down_printer_state() {
 void Application::init_printer_state() {
     spdlog::info("[Application] Initializing printer state...");
 
-    // 1. Initialize core subjects (PrinterState, AmsState, etc.)
+    // NOTE: ObserverGuard::invalidate_all() was called at the end of teardown.
+    // Guards in surviving singletons hold freed observer pointers. When they get
+    // reassigned (guard = observe_*()), the move-assignment calls reset() which
+    // safely releases instead of calling lv_observer_remove() on freed memory.
+    // We revalidate at the END of init after all old guards have been cleared.
+
+    // 1. Reinitialize update queue BEFORE moonraker so background thread callbacks
+    //    (hardware discovery, WebSocket messages) have a functioning queue.
+    helix::ui::update_queue_init();
+
+    // 2. Initialize core subjects (PrinterState, AmsState, etc.)
     if (!init_core_subjects()) {
         spdlog::error("[Application] Failed to reinitialize core subjects");
+        ObserverGuard::revalidate_all();
         return;
     }
 
-    // 2. Initialize Moonraker (creates client + API + history managers)
+    // 3. Initialize Moonraker (creates client + API + history managers)
     if (!init_moonraker()) {
         spdlog::error("[Application] Failed to reinitialize Moonraker");
+        ObserverGuard::revalidate_all();
         return;
     }
 
-    // 3. Initialize panel subjects with API injection + post-init
+    // 4. Initialize panel subjects with API injection + post-init
     if (!init_panel_subjects()) {
         spdlog::error("[Application] Failed to reinitialize panel subjects");
+        ObserverGuard::revalidate_all();
         return;
     }
 
-    // 4. Recreate UI (app_layout from XML, wire navigation)
+    // 5. Recreate UI (app_layout from XML, wire navigation)
     if (!init_ui()) {
         spdlog::error("[Application] Failed to reinitialize UI");
+        ObserverGuard::revalidate_all();
         return;
     }
 
-    // 5. Run wizard if needed for new printer
+    // 6. Run wizard if needed for new printer
     if (run_wizard()) {
         m_wizard_active = true;
         set_wizard_active(true);
     }
 
-    // 6. Create CLI overlay panels (if any)
+    // 7. Create CLI overlay panels (if any)
     if (!m_wizard_active) {
         create_overlays();
     }
 
-    // 7. Reload plugins
+    // 8. Reload plugins
     if (!init_plugins()) {
         spdlog::warn("[Application] Plugin reinitialization had errors (non-fatal)");
     }
 
-    // 8. Connect to new printer's Moonraker
+    // 9. Connect to new printer's Moonraker
     if (!connect_moonraker()) {
         spdlog::warn("[Application] Running without printer connection after switch");
     }
 
-    // Reinitialize update queue for new session
-    helix::ui::update_queue_init();
+    // 10. Revalidate observer guards — all old guards have been reassigned (released)
+    //     during init, and all new observers are attached to live subjects.
+    ObserverGuard::revalidate_all();
 
     // Force full screen refresh
     lv_obj_update_layout(m_screen);
