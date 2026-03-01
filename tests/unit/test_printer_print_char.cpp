@@ -514,6 +514,7 @@ TEST_CASE("Print characterization: layer tracking from JSON", "[characterization
 
     SECTION("set_print_layer_total API updates subject") {
         state.set_print_layer_total(200);
+        UpdateQueueTestAccess::drain(helix::ui::UpdateQueue::instance());
 
         REQUIRE(lv_subject_get_int(state.get_print_layer_total_subject()) == 200);
     }
@@ -521,6 +522,7 @@ TEST_CASE("Print characterization: layer tracking from JSON", "[characterization
     SECTION("null layer values are ignored") {
         // Set initial value
         state.set_print_layer_total(100);
+        UpdateQueueTestAccess::drain(helix::ui::UpdateQueue::instance());
 
         // Moonraker sometimes sends null for layer info
         json status = {{"print_stats", {{"info", {{"current_layer", nullptr}}}}}};

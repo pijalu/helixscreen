@@ -1392,6 +1392,14 @@ bool NavigationManager::go_back() {
             }
         }
         lv_obj_remove_flag(prev, LV_OBJ_FLAG_HIDDEN);
+
+        // Lifecycle: Re-activate the panel being restored
+        auto it = mgr.overlay_instances_.find(prev);
+        if (it != mgr.overlay_instances_.end() && it->second) {
+            spdlog::trace("[NavigationManager] Re-activating restored overlay {}",
+                          it->second->get_name());
+            it->second->on_activate();
+        }
     });
     return true;
 }

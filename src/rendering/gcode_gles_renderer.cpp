@@ -1345,13 +1345,15 @@ void GCodeGLESRenderer::blit_to_lvgl(lv_layer_t* layer, const lv_area_t* widget_
     auto* dest = static_cast<uint8_t*>(draw_buf_->data);
     const auto* src = readback_buf_.data();
     bool needs_scale = (fbo_width_ != widget_w || fbo_height_ != widget_h);
+    // Use actual draw buffer stride (aligned to LV_DRAW_BUF_STRIDE_ALIGN)
+    uint32_t dst_stride = draw_buf_->header.stride;
 
     // Row-based conversion: RGBA→BGR with Y-flip
     for (int dy = 0; dy < widget_h; ++dy) {
         int sy = needs_scale ? (dy * fbo_height_ / widget_h) : dy;
         int gl_row = fbo_height_ - 1 - sy;
         const auto* src_row = src + static_cast<size_t>(gl_row * fbo_width_) * 4;
-        auto* dst_row = dest + static_cast<size_t>(dy * widget_w) * 3;
+        auto* dst_row = dest + static_cast<size_t>(dy) * dst_stride;
 
         if (needs_scale) {
             for (int dx = 0; dx < widget_w; ++dx) {

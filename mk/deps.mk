@@ -324,15 +324,38 @@ ifneq ($(CROSS_COMPILE),)
 	# This is critical: mixing native and cross-compiled objects causes subtle runtime bugs
 	$(Q)echo "$(YELLOW)→ Cleaning libhv for cross-compilation...$(RESET)"
 	$(Q)find $(LIBHV_DIR) -type f \( -name '*.o' -o -name '*.a' -o -name '*.so' -o -name '*.dylib' \) -delete 2>/dev/null || true
-	# Pass cross-compiler to configure and make
-	# SSL support: when ENABLE_SSL=yes, add --with-openssl and point to toolchain sysroot
-	$(Q)cd $(LIBHV_DIR) && \
+	# Pass cross-compiler to configure and make.
+	# When SSL is enabled, map target -> toolchain OpenSSL prefix.
+	$(Q)OPENSSL_PREFIX=""; \
+	OPENSSL_INC=""; \
+	OPENSSL_LIB_DIR=""; \
+	OPENSSL_ARCHIVES=""; \
+	if [ "$(ENABLE_SSL)" = "yes" ]; then \
+		case "$(PLATFORM_TARGET)" in \
+			ad5m|cc1) OPENSSL_PREFIX="/opt/arm-toolchain/arm-none-linux-gnueabihf" ;; \
+			mips|k1) OPENSSL_PREFIX="/opt/mips-toolchain/mipsel-buildroot-linux-musl/sysroot/usr" ;; \
+		esac; \
+		if [ -n "$$OPENSSL_PREFIX" ]; then \
+			OPENSSL_INC=" -I$$OPENSSL_PREFIX/include"; \
+			OPENSSL_LIB_DIR="-L$$OPENSSL_PREFIX/lib"; \
+			if [ -f "$$OPENSSL_PREFIX/lib/libssl.a" ] && [ -f "$$OPENSSL_PREFIX/lib/libcrypto.a" ]; then \
+				OPENSSL_ARCHIVES="$$OPENSSL_PREFIX/lib/libssl.a $$OPENSSL_PREFIX/lib/libcrypto.a"; \
+			fi; \
+		fi; \
+	fi; \
+	(cd $(LIBHV_DIR) && \
 		CC=$(CC) CXX=$(CXX) AR=$(AR) \
-		CFLAGS="$(TARGET_CFLAGS)$(if $(filter yes,$(ENABLE_SSL)), -I/opt/arm-toolchain/arm-none-linux-gnueabihf/include)" \
-		CXXFLAGS="$(TARGET_CFLAGS)$(if $(filter yes,$(ENABLE_SSL)), -I/opt/arm-toolchain/arm-none-linux-gnueabihf/include)" \
-		LDFLAGS="$(if $(filter yes,$(ENABLE_SSL)),-L/opt/arm-toolchain/arm-none-linux-gnueabihf/lib)" \
-		./configure --with-http-client $(if $(filter yes,$(ENABLE_SSL)),--with-openssl)
-	$(Q)CC=$(CC) CXX=$(CXX) AR=$(AR) $(MAKE) -C $(LIBHV_DIR) libhv
+		CFLAGS="$(TARGET_CFLAGS)$$OPENSSL_INC" \
+		CXXFLAGS="$(TARGET_CFLAGS)$$OPENSSL_INC" \
+		LDFLAGS="$$OPENSSL_LIB_DIR" \
+		./configure --with-http-client $(if $(filter yes,$(ENABLE_SSL)),--with-openssl)); \
+	# libhv's nested make has been flaky under cross toolchains when run with
+	# inherited/parallel jobserver flags; keep only this sub-build serialized.
+	if [ -n "$$OPENSSL_ARCHIVES" ]; then \
+		CC=$(CC) CXX=$(CXX) AR=$(AR) MAKEFLAGS= $(MAKE) -j1 -C $(LIBHV_DIR) LIBHV_TARGET_TYPE=STATIC OPENSSL_LIBS="$$OPENSSL_ARCHIVES" libhv; \
+	else \
+		CC=$(CC) CXX=$(CXX) AR=$(AR) MAKEFLAGS= $(MAKE) -j1 -C $(LIBHV_DIR) LIBHV_TARGET_TYPE=STATIC libhv; \
+	fi
 else ifeq ($(UNAME_S),Darwin)
 	$(Q)cd $(LIBHV_DIR) && \
 		MACOSX_DEPLOYMENT_TARGET=$(MACOS_MIN_VERSION) \

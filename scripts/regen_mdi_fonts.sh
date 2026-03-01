@@ -211,6 +211,7 @@ MDI_ICONS+=",0xF0BEC"    # alpha-a-circle (auto indicator)
 MDI_ICONS+=",0xF0BC2"    # script-text (macro buttons)
 MDI_ICONS+=",0xF0D3B"    # tortoise (AFC/Box Turtle logo)
 MDI_ICONS+=",0xF0D49"    # axis-arrow (all 3 axes)
+MDI_ICONS+=",0xF07F4"    # television-classic (screensaver)
 MDI_ICONS+=",0xF0D91"    # motion-sensor (sensor placeholder)
 MDI_ICONS+=",0xF0D4C"    # axis-x-arrow
 MDI_ICONS+=",0xF0D51"    # axis-y-arrow
@@ -233,6 +234,7 @@ MDI_ICONS+=",0xF1A54"    # lightbulb-on-70
 MDI_ICONS+=",0xF1A55"    # lightbulb-on-80
 MDI_ICONS+=",0xF1A56"    # lightbulb-on-90
 MDI_ICONS+=",0xF06E8"    # lightbulb-on (100%)
+MDI_ICONS+=",0xF07D6"    # led-strip (LED controls widget)
 
 MDI_ICONS+=",0xF0E5B"    # printer-3d-nozzle (extruder)
 MDI_ICONS+=",0xF11C0"    # printer-3d-nozzle-alert (filament sensor empty)

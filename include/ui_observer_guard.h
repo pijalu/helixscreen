@@ -18,6 +18,7 @@
 
 #include "lvgl/lvgl.h"
 
+#include <atomic>
 #include <functional>
 #include <memory>
 #include <utility>
@@ -156,6 +157,8 @@ class ObserverGuard {
     }
 
   private:
+    static inline std::atomic<bool> s_subjects_valid{true};
+
     lv_observer_t* observer_ = nullptr;
     std::weak_ptr<bool> alive_token_; ///< Tracks dynamic subject lifetime
     /// Distinguishes "token never set" from "token expired". Required because a

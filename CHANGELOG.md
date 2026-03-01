@@ -5,6 +5,89 @@ All notable changes to HelixScreen will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.95.2] - 2026-03-01
+
+### Added
+- Clog detection arc meter on loaded AMS card for real-time filament flow monitoring
+- Starfield and 3D Pipes screensavers with selection dropdown
+- Buffer detail info modal accessible by tapping filament path coil
+- Filament buffer visualization on AMS path canvas
+- Full-screen color picker layout with tab switching for tiny screens
+
+### Fixed
+- Re-entrancy guard for fan arc resize preventing concurrent animation crashes
+- Color picker HSV sizing and bottom-pinned buttons for responsive layouts
+- G-code viewer reload after destroy-on-close cycle on print status panel
+- NEON alignment, empty vector, and stale widget crashes identified from telemetry
+- Telemetry active device count now uses separate query for correct COUNT(DISTINCT)
+
+### Changed
+- Build system: static-link libhv OpenSSL for K1/MIPS, avoid double-wrapping compilers with ccache
+
+## [0.95.1] - 2026-03-01
+
+### Added
+- Widget catalog now shows icons and descriptions for each widget type
+- LED Controls widget for quick access to LED settings from the dashboard
+- Configure button in edit mode for widgets that support settings (macros, temperature stacks)
+- ZMOD firmware detection for AD5M/AD5M Pro installer (#251)
+
+### Fixed
+- Use-after-free crash during WebSocket reconnection (#255)
+- SIGSEGV from wrong-pointer lv_anim_delete on bar animations (#259)
+- Font linked-list validation to prevent SIGSEGV on corrupted font data (#244)
+- Fan button states not updating when animations are disabled (#258)
+- AD5X platform key missing from update checker (#253)
+- SIGSEGV when registering XML event callbacks after XML parsing
+- SIGSEGV from stale input device reference after grid rebuild
+- Dangling observer pointer in AMS cross-singleton cleanup during reconnection
+- Backlight stays on during sleep mode for AD5X/CC1 displays (#235)
+- Job queue fetch race condition at startup before WebSocket is connected
+- Spoolman spool editing: vendor, material, color, and filament_id now sync correctly
+- Happy Hare gate_spool_id parsing for Spoolman fill gauge display
+- AMS slot editing from overview panel context menu
+- Internal macros (underscore-prefixed) hidden from macro picker
+- Fan panel: temperature_fan classified as auto-controlled, knob hidden; primary color for arc indicator; dial clipping fixed
+- Navigation: overlays restored via go_back() now receive on_activate()
+- OpenGL ES rendering stride alignment for blit operations
+- E-stop button repositioned to top center of print status widget
+- Humidity sensor log spam reduced to display-precision changes only
+- Pressed feedback added to favorite macro widgets
+- Widget auto-shrinks to fit when default size exceeds available space
+- Toast notification when no room for widget placement
+
+### Changed
+- Translations updated: 47 new strings across all 8 languages
+- Home Widgets settings overlay removed (replaced by widget catalog)
+- Removed static linking on AD5X platform
+
+## [0.95.0] - 2026-03-01
+
+The biggest release yet — HelixScreen's home panel is now a fully customizable grid dashboard. Drag widgets to reposition, resize from any edge, add new widgets from a catalog, and remove what you don't need. The layout persists per-breakpoint and survives restarts. Also includes significant memory optimizations, a new screensaver, material temperature presets, and a standalone About overlay.
+
+### Added
+- Customizable grid dashboard replaces the fixed home panel layout — drag to reposition, resize from any edge, and persist per-breakpoint
+- Widget catalog overlay for browsing and adding widgets to the dashboard
+- Digital Clock widget with responsive font scaling
+- Job Queue widget with queue management actions (start, pause, cancel)
+- Shutdown/Reboot widget with modal confirmation
+- Material temperature overrides with per-material nozzle and bed customization
+- Flying Toasters screensaver (After Dark, 1989)
+- Standalone About overlay extracted from settings panel
+- Default widget layouts defined in runtime JSON with per-breakpoint anchors
+
+### Fixed
+- Job queue filename contrast and empty state visibility
+- Clock widget centering and font scaling across breakpoints
+- Printer image snapshot transparency (ARGB8888 instead of RGB565)
+- Tips widget accent bar sizing and content centering
+- Widget click targets improved to prevent use-after-free on child elements
+
+### Changed
+- Memory optimizations: ~2.5MB savings from overlay destroy-on-close, observer suspension, and RGB565 color depth option
+- Gate observer rebuilds coalesced (300ms window) reducing startup from 4x to 2x
+- Over 1000 lines of dead HomePanel code removed after widget extraction
+
 ## [0.13.13] - 2026-02-28
 
 ### Fixed
@@ -1327,6 +1410,9 @@ Initial tagged release. Foundation for all subsequent development.
 - Automated GitHub Actions release pipeline
 - One-liner installation script with platform auto-detection
 
+[0.95.2]: https://github.com/prestonbrown/helixscreen/compare/v0.95.1...v0.95.2
+[0.95.1]: https://github.com/prestonbrown/helixscreen/compare/v0.95.0...v0.95.1
+[0.95.0]: https://github.com/prestonbrown/helixscreen/compare/v0.13.13...v0.95.0
 [0.13.13]: https://github.com/prestonbrown/helixscreen/compare/v0.13.12...v0.13.13
 [0.13.12]: https://github.com/prestonbrown/helixscreen/compare/v0.13.11...v0.13.12
 [0.13.11]: https://github.com/prestonbrown/helixscreen/compare/v0.13.10...v0.13.11

@@ -24,6 +24,8 @@ class TempStackWidget : public PanelWidget {
     std::string get_component_name() const override;
     void attach(lv_obj_t* widget_obj, lv_obj_t* parent_screen) override;
     void detach() override;
+    bool has_edit_configure() const override { return true; }
+    bool on_edit_configure() override;
     const char* id() const override {
         return "temp_stack";
     }

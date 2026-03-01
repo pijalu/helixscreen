@@ -160,10 +160,23 @@ void DisplaySettingsManager::init_subjects() {
     UI_MANAGED_SUBJECT_INT(time_format_subject_, time_format, "settings_time_format", subjects_);
 
 #ifdef HELIX_ENABLE_SCREENSAVER
-    // Screensaver enabled (default: true)
-    bool screensaver = config->get<bool>("/display/screensaver_enabled", true);
-    UI_MANAGED_SUBJECT_INT(screensaver_enabled_subject_, screensaver ? 1 : 0,
-                           "settings_screensaver_enabled", subjects_);
+    // Screensaver type (default: 1 = Flying Toasters)
+    // Migrate from old bool setting if new int setting doesn't exist
+    int screensaver_type = 1; // default to Flying Toasters
+    if (config->exists("/display/screensaver_type")) {
+        screensaver_type = config->get<int>("/display/screensaver_type", 1);
+    } else if (config->exists("/display/screensaver_enabled")) {
+        // Migrate: true → 1 (Flying Toasters), false → 0 (Off)
+        bool old_enabled = config->get<bool>("/display/screensaver_enabled", true);
+        screensaver_type = old_enabled ? 1 : 0;
+        config->set<int>("/display/screensaver_type", screensaver_type);
+        config->save();
+        spdlog::info("[DisplaySettingsManager] Migrated screensaver_enabled={} → screensaver_type={}",
+                     old_enabled, screensaver_type);
+    }
+    screensaver_type = std::clamp(screensaver_type, 0, 3);
+    UI_MANAGED_SUBJECT_INT(screensaver_type_subject_, screensaver_type,
+                           "settings_screensaver_type", subjects_);
 #endif
 
     subjects_initialized_ = true;
@@ -523,18 +536,23 @@ const char* DisplaySettingsManager::get_time_format_options() {
 // =============================================================================
 
 #ifdef HELIX_ENABLE_SCREENSAVER
-bool DisplaySettingsManager::get_screensaver_enabled() const {
-    return lv_subject_get_int(const_cast<lv_subject_t*>(&screensaver_enabled_subject_)) != 0;
+int DisplaySettingsManager::get_screensaver_type() const {
+    return lv_subject_get_int(const_cast<lv_subject_t*>(&screensaver_type_subject_));
 }
 
-void DisplaySettingsManager::set_screensaver_enabled(bool enabled) {
-    spdlog::info("[DisplaySettingsManager] set_screensaver_enabled({})", enabled);
+void DisplaySettingsManager::set_screensaver_type(int type) {
+    type = std::clamp(type, 0, 3);
+    spdlog::info("[DisplaySettingsManager] set_screensaver_type({})", type);
 
-    lv_subject_set_int(&screensaver_enabled_subject_, enabled ? 1 : 0);
+    lv_subject_set_int(&screensaver_type_subject_, type);
 
     Config* config = Config::get_instance();
-    config->set<bool>("/display/screensaver_enabled", enabled);
+    config->set<int>("/display/screensaver_type", type);
     config->save();
+}
+
+const char* DisplaySettingsManager::get_screensaver_type_options() {
+    return "Off\nFlying Toasters\nStarfield\n3D Pipes";
 }
 #endif
 

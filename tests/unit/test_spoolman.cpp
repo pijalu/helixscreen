@@ -1165,3 +1165,43 @@ TEST_CASE("parse_spool_info fallback: filament.weight for initial_weight", "[fil
         REQUIRE(initial == Catch::Approx(1200.0));
     }
 }
+
+TEST_CASE("SpoolInfo vendor_id populated from mock spool", "[filament][spoolman]") {
+    PrinterState state;
+    MoonrakerClientMock client;
+    MoonrakerAPIMock api(client, state);
+
+    // Use unique ID to avoid collision with other tests' mock data
+    auto& spools = api.spoolman_mock().get_mock_spools();
+    SpoolInfo test_spool;
+    test_spool.id = 99901;
+    test_spool.filament_id = 99910;
+    test_spool.vendor = "TestVendor";
+    test_spool.vendor_id = 77;
+    test_spool.material = "PLA";
+    test_spool.color_hex = "FF0000";
+    spools.push_back(test_spool);
+
+    bool fetched = false;
+    api.spoolman().get_spoolman_spool(
+        99901,
+        [&](const std::optional<SpoolInfo>& spool) {
+            REQUIRE(spool.has_value());
+            REQUIRE(spool->vendor == "TestVendor");
+            REQUIRE(spool->filament_id == 99910);
+            REQUIRE(spool->vendor_id == 77);
+            fetched = true;
+        },
+        [](const MoonrakerError&) {});
+    REQUIRE(fetched);
+}
+
+TEST_CASE("SpoolInfo vendor_id defaults to 0 when not set", "[filament][spoolman]") {
+    SpoolInfo spool;
+    REQUIRE(spool.vendor_id == 0);
+}
+
+TEST_CASE("SlotInfo spoolman_vendor_id defaults to 0", "[ams][spoolman]") {
+    SlotInfo slot;
+    REQUIRE(slot.spoolman_vendor_id == 0);
+}

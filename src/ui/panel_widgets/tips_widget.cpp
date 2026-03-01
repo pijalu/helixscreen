@@ -55,6 +55,9 @@ namespace helix {
 void register_tips_widget() {
     register_widget_factory("tips", []() { return std::make_unique<TipsWidget>(); });
     register_widget_subjects("tips", tips_widget_init_subjects);
+
+    // Register XML event callbacks at startup (before any XML is parsed)
+    lv_xml_register_event_cb(nullptr, "tip_text_clicked_cb", TipsWidget::tip_text_clicked_cb);
 }
 } // namespace helix
 
@@ -79,9 +82,6 @@ void TipsWidget::attach(lv_obj_t* widget_obj, lv_obj_t* parent_screen) {
     if (tip_container) {
         lv_obj_set_user_data(tip_container, this);
     }
-
-    // Register XML callback
-    lv_xml_register_event_cb(nullptr, "tip_text_clicked_cb", tip_text_clicked_cb);
 
     // Cache tip label for fade animation
     tip_label_ = lv_obj_find_by_name(widget_obj_, "status_text_label");

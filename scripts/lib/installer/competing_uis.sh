@@ -81,6 +81,7 @@ stop_competing_uis() {
     case "$AD5M_FIRMWARE" in
         forge_x)    stop_forgex_competing_uis ;;
         klipper_mod) stop_kmod_competing_uis ;;
+        zmod)       ;; # ZMOD: no platform-specific UIs, generic loop below handles it
     esac
 
     # Handle the specific previous UI if we know it (for clean reversibility)

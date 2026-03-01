@@ -48,10 +48,7 @@ void PrinterPluginStatusState::deinit_subjects() {
     subjects_initialized_ = false;
 }
 
-void PrinterPluginStatusState::set_installed_sync(bool installed) {
-    // Synchronous update - caller must ensure this runs on UI thread
-    // PrinterState wraps this in helix::ui::queue_update() and calls
-    // update_gcode_modification_visibility() afterward
+void PrinterPluginStatusState::set_installed(bool installed) {
     lv_subject_set_int(&helix_plugin_installed_, installed ? 1 : 0);
     spdlog::info("[PrinterPluginStatusState] HelixPrint plugin installed: {}", installed);
 }

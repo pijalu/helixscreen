@@ -1581,6 +1581,11 @@ void ControlsPanel::subscribe_to_secondary_fan_speeds() {
 void ControlsPanel::update_secondary_fan_speed(const std::string& object_name, int speed_pct) {
     for (const auto& row : secondary_fan_rows_) {
         if (row.object_name == object_name && row.speed_label) {
+            if (!lv_obj_is_valid(row.speed_label)) {
+                spdlog::debug("[{}] Stale speed_label for fan '{}', skipping update", get_name(),
+                              object_name);
+                break;
+            }
             char speed_buf[16];
             if (speed_pct > 0) {
                 helix::format::format_percent(speed_pct, speed_buf, sizeof(speed_buf));

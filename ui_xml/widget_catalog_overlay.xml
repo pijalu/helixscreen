@@ -4,7 +4,7 @@
 <!-- Widget Catalog Overlay: half-width panel listing available widgets for grid placement -->
 <component>
   <view name="widget_catalog_overlay"
-        extends="overlay_panel" width="50%" title="Add Widget" title_tag="Add Widget"
+        extends="overlay_panel" width="70%" title="Add Widget" title_tag="Add Widget"
         bg_color="#screen_bg">
     <lv_obj name="catalog_scroll" width="100%" flex_grow="1"
             scrollable="true" flex_flow="column" style_pad_gap="#space_xs"

@@ -16,10 +16,10 @@ _HELIX_COMMON_SOURCED=1
 : "${SERVICE_NAME:=helixscreen}"
 
 # Well-known paths (used by uninstall, clean, stop_service)
-# AD5M: /opt/helixscreen or /root/printer_software/helixscreen
+# AD5M: /opt/helixscreen, /root/printer_software/helixscreen, /srv/helixscreen (ZMOD)
 # K1: /usr/data/helixscreen
 # Pi: /opt/helixscreen
-HELIX_INSTALL_DIRS="/root/printer_software/helixscreen /opt/helixscreen /usr/data/helixscreen"
+HELIX_INSTALL_DIRS="/root/printer_software/helixscreen /opt/helixscreen /usr/data/helixscreen /srv/helixscreen"
 
 # Init script locations vary by platform/firmware
 # AD5M Klipper Mod: S80, AD5M Forge-X: S90, K1: S99

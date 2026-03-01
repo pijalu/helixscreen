@@ -1295,7 +1295,7 @@ void GCodeLayerRenderer::start_background_ghost_render() {
         ghost_raw_buffer_ = std::make_unique<uint8_t[]>(buffer_size);
         ghost_raw_width_ = width;
         ghost_raw_height_ = height;
-        ghost_raw_stride_ = static_cast<int>(stride);
+        ghost_raw_stride_ = stride;
     }
 
     // Clear buffer to transparent black (ARGB = 0x00000000)
@@ -1509,9 +1509,9 @@ void GCodeLayerRenderer::copy_raw_to_ghost_buf() {
     // LVGL 9: stride is in the header struct
     uint32_t lvgl_stride = ghost_buf_->header.stride;
 
-    if (static_cast<int>(lvgl_stride) == ghost_raw_stride_) {
+    if (static_cast<size_t>(lvgl_stride) == ghost_raw_stride_) {
         // Fast path: strides match, single memcpy
-        size_t buffer_size = static_cast<size_t>(ghost_raw_stride_) * ghost_raw_height_;
+        size_t buffer_size = ghost_raw_stride_ * static_cast<size_t>(ghost_raw_height_);
         std::memcpy(ghost_buf_->data, ghost_raw_buffer_.get(), buffer_size);
     } else {
         // Slow path: strides differ, copy row by row

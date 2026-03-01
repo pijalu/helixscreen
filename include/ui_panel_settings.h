@@ -185,7 +185,6 @@ class SettingsPanel : public PanelBase {
     void handle_discord_clicked();
     void handle_docs_clicked();
     void handle_display_settings_clicked();
-    void handle_panel_widgets_clicked();
     void handle_filament_sensors_clicked();
     void handle_ams_settings_clicked();
     void handle_spoolman_settings_clicked();
@@ -236,7 +235,6 @@ class SettingsPanel : public PanelBase {
     static void on_docs_clicked(lv_event_t* e);
     static void on_telemetry_changed(lv_event_t* e);
     static void on_display_settings_clicked(lv_event_t* e);
-    static void on_panel_widgets_clicked(lv_event_t* e);
     static void on_filament_sensors_clicked(lv_event_t* e);
     static void on_ams_settings_clicked(lv_event_t* e);
     static void on_spoolman_settings_clicked(lv_event_t* e);

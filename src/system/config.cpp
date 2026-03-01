@@ -662,7 +662,8 @@ void Config::init(const std::string& config_path) {
     }
 
     spdlog::debug("[Config] initialized: moonraker={}:{}",
-                  get<std::string>(df() + "moonraker_host"), get<int>(df() + "moonraker_port"));
+                  get<std::string>(df() + "moonraker_host", "127.0.0.1"),
+                  get<int>(df() + "moonraker_port", 7125));
 }
 
 std::string Config::df() {

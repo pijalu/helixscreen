@@ -283,6 +283,19 @@ void ui_filament_path_canvas_set_bypass_callback(lv_obj_t* obj, filament_path_by
                                                  void* user_data);
 
 /**
+ * @brief Set click callback for buffer coil element
+ *
+ * When user taps on the buffer coil, this callback is invoked.
+ *
+ * @param obj The filament_path_canvas widget
+ * @param cb Callback function (user_data)
+ * @param user_data User data passed to callback
+ */
+typedef void (*filament_path_buffer_cb_t)(void* user_data);
+void ui_filament_path_canvas_set_buffer_callback(lv_obj_t* obj, filament_path_buffer_cb_t cb,
+                                                 void* user_data);
+
+/**
  * @brief Set hub-only rendering mode
  *
  * When enabled, only draws slots → prep sensors → hub. Skips everything
@@ -328,6 +341,18 @@ void ui_filament_path_canvas_set_heat_active(lv_obj_t* obj, bool active);
  * @param state Buffer fault state (0=healthy, 1=warning, 2=fault)
  */
 void ui_filament_path_canvas_set_buffer_fault_state(lv_obj_t* obj, int state);
+
+/**
+ * @brief Set buffer element info (presence and state)
+ *
+ * Shows a small buffer/spring icon on the path between hub output and toolhead.
+ * Used for AFC TurtleNeck buffers and Happy Hare sync feedback (eSpooler).
+ *
+ * @param obj The filament_path_canvas widget
+ * @param present true to draw the buffer element
+ * @param state 0=neutral (even coil), 1=compressed (tight coil), 2=tension (stretched coil)
+ */
+void ui_filament_path_canvas_set_buffer_info(lv_obj_t* obj, bool present, int state);
 
 /**
  * @brief Set bypass entry filament color

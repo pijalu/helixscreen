@@ -41,20 +41,9 @@ static void on_print_state_changed_for_navigation(lv_observer_t* observer, lv_su
         }
 
         // A print just started - auto-navigate to print status from any panel
-        auto& nav = NavigationManager::instance();
-        lv_obj_t* print_status_widget = get_global_print_status_panel().get_panel();
-
-        if (print_status_widget) {
-            // Only navigate if print status isn't already showing
-            if (!nav.is_panel_in_stack(print_status_widget)) {
-                spdlog::info("[PrintStartNav] Auto-navigating to print status (print started)");
-                nav.push_overlay(print_status_widget);
-            } else {
-                spdlog::debug("[PrintStartNav] Print status already showing, skipping navigation");
-            }
-        } else {
-            spdlog::warn("[PrintStartNav] Print status panel widget not available");
-        }
+        // Use push_overlay() which handles lazy widget creation and duplicate-push guard
+        spdlog::info("[PrintStartNav] Auto-navigating to print status (print started)");
+        PrintStatusPanel::push_overlay(lv_display_get_screen_active(nullptr));
     }
 
     prev_print_state = current;

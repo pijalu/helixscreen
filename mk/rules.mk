@@ -140,12 +140,22 @@ endif
 $(LIBHV_LIB):
 	$(Q)$(MAKE) libhv-build
 
+ifneq ($(LIBHV_JSON_HEADER),)
+# Ensure generated libhv headers exist even if the archive is already present.
+$(LIBHV_JSON_HEADER): $(LIBHV_LIB)
+	$(Q)if [ ! -f "$@" ]; then \
+		echo "$(YELLOW)→ libhv generated headers missing; rebuilding libhv...$(RESET)"; \
+		$(MAKE) libhv-build; \
+	fi
+endif
+
 # Link binary (SDL2_LIB is empty if using system SDL2)
-# Note: Filter out library archives from $^ to avoid duplicate linking, then add via LDFLAGS
-$(TARGET): $(SDL2_LIB) $(LIBHV_LIB) $(CONTRIBUTORS_H) $(APP_C_OBJS) $(APP_OBJS) $(APP_MODULE_OBJS) $(OBJCPP_OBJS) $(LVGL_OBJS) $(HELIX_XML_OBJS) $(THORVG_OBJS) $(LVGL_OPENGLES_OBJS) $(LV_MARKDOWN_OBJS) $(FONT_OBJS) $(TRANS_OBJS) $(WPA_DEPS)
+# Keep broad filtering so non-object prerequisites can be added safely later.
+$(TARGET): $(SDL2_LIB) $(LIBHV_LIB) $(LIBHV_JSON_HEADER) $(CONTRIBUTORS_H) $(APP_C_OBJS) $(APP_OBJS) $(APP_MODULE_OBJS) $(OBJCPP_OBJS) $(LVGL_OBJS) $(HELIX_XML_OBJS) $(THORVG_OBJS) $(LVGL_OPENGLES_OBJS) $(LV_MARKDOWN_OBJS) $(FONT_OBJS) $(TRANS_OBJS) $(WPA_DEPS)
 	$(Q)mkdir -p $(BIN_DIR)
 	$(ECHO) "$(MAGENTA)$(BOLD)[LD]$(RESET) $@"
-	$(Q)$(CXX) $(CXXFLAGS) $(filter-out %.a,$^) -o $@ $(LDFLAGS) || { \
+	# Exclude header prerequisites (including .hpp generated deps like hv/json.hpp).
+	$(Q)$(CXX) $(CXXFLAGS) $(filter-out %.a %.h %.hh %.hpp %.hxx,$^) -o $@ $(LDFLAGS) || { \
 		echo "$(RED)$(BOLD)✗ Linking failed!$(RESET)"; \
 		echo "$(YELLOW)Command:$(RESET) $(CXX) $(CXXFLAGS) [objects] -o $@ $(LDFLAGS)"; \
 		exit 1; \
@@ -181,7 +191,7 @@ endef
 # Project headers are NOT included - changing app headers should not invalidate PCH
 # The PCH contains only stable, rarely-changing includes (see include/lvgl_pch.h)
 # CRITICAL: lv_conf.h must be listed - it controls LVGL feature flags
-$(PCH): $(PCH_HEADER) $(LIBHV_LIB) lv_conf.h
+$(PCH): $(PCH_HEADER) $(LIBHV_LIB) $(LIBHV_JSON_HEADER) lv_conf.h
 	$(Q)mkdir -p $(dir $@)
 	$(ECHO) "$(MAGENTA)$(BOLD)[PCH]$(RESET) $<"
 ifeq ($(V),1)
@@ -195,7 +205,7 @@ endif
 # Compile app C sources
 # Uses DEPFLAGS to generate .d files for header dependency tracking
 # Emits .ccj fragment for incremental compile_commands.json generation
-$(OBJ_DIR)/%.o: $(SRC_DIR)/%.c $(LIBHV_LIB)
+$(OBJ_DIR)/%.o: $(SRC_DIR)/%.c $(LIBHV_LIB) $(LIBHV_JSON_HEADER)
 	$(Q)mkdir -p $(dir $@)
 	$(ECHO) "$(BLUE)[CC]$(RESET) $<"
 ifeq ($(V),1)
@@ -211,7 +221,7 @@ endif
 # Compile app C++ sources (depend on libhv and PCH)
 # Uses DEPFLAGS to generate .d files for header dependency tracking
 # Emits .ccj fragment for incremental compile_commands.json generation
-$(OBJ_DIR)/%.o: $(SRC_DIR)/%.cpp $(LIBHV_LIB) $(PCH)
+$(OBJ_DIR)/%.o: $(SRC_DIR)/%.cpp $(LIBHV_LIB) $(LIBHV_JSON_HEADER) $(PCH)
 	$(Q)mkdir -p $(dir $@)
 	$(ECHO) "$(BLUE)[CXX]$(RESET) $<"
 ifeq ($(V),1)
@@ -227,7 +237,7 @@ endif
 # Compile app Objective-C++ sources (macOS .mm files)
 # Uses DEPFLAGS to generate .d files for header dependency tracking
 # Emits .ccj fragment for incremental compile_commands.json generation
-$(OBJ_DIR)/%.o: $(SRC_DIR)/%.mm $(LIBHV_LIB) $(PCH)
+$(OBJ_DIR)/%.o: $(SRC_DIR)/%.mm $(LIBHV_LIB) $(LIBHV_JSON_HEADER) $(PCH)
 	$(Q)mkdir -p $(dir $@)
 	$(ECHO) "$(BLUE)[OBJCXX]$(RESET) $<"
 ifeq ($(V),1)

@@ -102,6 +102,15 @@ Use `ObserverGuard` for RAII cleanup. See `observer_factory.h` for `observe_int_
 
 **Observer safety:** `observe_int_sync` and `observe_string` **defer callbacks** via `ui_queue_update()` to prevent re-entrant observer destruction crashes (issue #82). Use `observe_int_immediate` / `observe_string_immediate` ONLY if you're certain the callback won't modify observer lifecycle (no reassignment, no widget destruction).
 
+**UpdateQueue ScopedFreeze (MANDATORY for drain+destroy):** When destroying widgets that may have pending deferred callbacks, always freeze the queue around the drain+destroy sequence. This closes the race window where the WebSocket background thread can enqueue new callbacks between `drain()` and widget destruction.
+
+```cpp
+auto freeze = helix::ui::UpdateQueue::instance().scoped_freeze();
+helix::ui::UpdateQueue::instance().drain();
+lv_obj_clean(container);  // or safe_delete(), lv_obj_delete()
+// freeze thaws when it goes out of scope
+```
+
 **Subject shutdown safety (MANDATORY):** Any class that creates LVGL subjects MUST self-register its cleanup inside `init_subjects()`. This prevents shutdown crashes (observer removal on freed subjects during `lv_deinit`). See `static_subject_registry.h` for full docs.
 
 ```cpp

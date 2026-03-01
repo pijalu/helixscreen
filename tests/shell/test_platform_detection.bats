@@ -404,3 +404,91 @@ _detect_platform_with_mocks() {
 @test "platform.sh returns ad5x in detect_platform docstring" {
     grep -q '"ad5x"' "$WORKTREE_ROOT/scripts/lib/installer/platform.sh"
 }
+
+# --- AD5M ZMOD firmware detection tests ---
+
+@test "AD5M: detect_ad5m_firmware returns zmod when /ZMOD exists" {
+    detect_ad5m_firmware() {
+        local mock_root="$BATS_TEST_TMPDIR"
+        if [ -f "$mock_root/ZMOD" ]; then
+            echo "zmod"
+            return
+        fi
+        if [ -d "$mock_root/root/printer_software" ] || [ -d "$mock_root/mnt/data/.klipper_mod" ]; then
+            echo "klipper_mod"
+            return
+        fi
+        echo "forge_x"
+    }
+
+    touch "$BATS_TEST_TMPDIR/ZMOD"
+    run detect_ad5m_firmware
+    [ "$status" -eq 0 ]
+    [ "$output" = "zmod" ]
+}
+
+@test "AD5M: detect_ad5m_firmware returns klipper_mod when no /ZMOD" {
+    detect_ad5m_firmware() {
+        local mock_root="$BATS_TEST_TMPDIR"
+        if [ -f "$mock_root/ZMOD" ]; then
+            echo "zmod"
+            return
+        fi
+        if [ -d "$mock_root/root/printer_software" ] || [ -d "$mock_root/mnt/data/.klipper_mod" ]; then
+            echo "klipper_mod"
+            return
+        fi
+        echo "forge_x"
+    }
+
+    mkdir -p "$BATS_TEST_TMPDIR/root/printer_software"
+    run detect_ad5m_firmware
+    [ "$status" -eq 0 ]
+    [ "$output" = "klipper_mod" ]
+}
+
+@test "AD5M: detect_ad5m_firmware prefers zmod over klipper_mod" {
+    detect_ad5m_firmware() {
+        local mock_root="$BATS_TEST_TMPDIR"
+        if [ -f "$mock_root/ZMOD" ]; then
+            echo "zmod"
+            return
+        fi
+        if [ -d "$mock_root/root/printer_software" ] || [ -d "$mock_root/mnt/data/.klipper_mod" ]; then
+            echo "klipper_mod"
+            return
+        fi
+        echo "forge_x"
+    }
+
+    # Both /ZMOD and klipper_mod indicators present — ZMOD wins
+    touch "$BATS_TEST_TMPDIR/ZMOD"
+    mkdir -p "$BATS_TEST_TMPDIR/root/printer_software"
+    run detect_ad5m_firmware
+    [ "$status" -eq 0 ]
+    [ "$output" = "zmod" ]
+}
+
+@test "AD5M: set_install_paths sets correct paths for zmod" {
+    detect_tmp_dir() { TMP_DIR="/tmp/helixscreen-install"; }
+
+    set_install_paths "ad5m" "zmod"
+
+    [ "$INSTALL_DIR" = "/srv/helixscreen" ]
+    [ "$INIT_SCRIPT_DEST" = "/etc/init.d/S80helixscreen" ]
+    [ "$PREVIOUS_UI_SCRIPT" = "" ]
+}
+
+@test "platform.sh detect_ad5m_firmware docstring mentions zmod" {
+    grep -q '"zmod"' "$WORKTREE_ROOT/scripts/lib/installer/platform.sh"
+}
+
+@test "platform.sh checks /ZMOD before forge_x default" {
+    local platform_sh="$WORKTREE_ROOT/scripts/lib/installer/platform.sh"
+    local zmod_line forge_x_line
+    zmod_line=$(grep -n '/ZMOD' "$platform_sh" | grep -v 'AD5X\|mips\|usr/data' | head -1 | cut -d: -f1)
+    forge_x_line=$(grep -n 'opt/config/mod/.root' "$platform_sh" | head -1 | cut -d: -f1)
+    [ -n "$zmod_line" ]
+    [ -n "$forge_x_line" ]
+    [ "$zmod_line" -lt "$forge_x_line" ]
+}

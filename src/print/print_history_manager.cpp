@@ -172,7 +172,8 @@ std::vector<PrintHistoryJob> PrintHistoryManager::get_jobs_since(double since) c
 }
 
 void PrintHistoryManager::notify_observers() {
-    for (auto* cb : observers_) {
+    auto observers_copy = observers_;
+    for (auto* cb : observers_copy) {
         if (cb && *cb) {
             (*cb)();
         }

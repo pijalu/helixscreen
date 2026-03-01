@@ -58,10 +58,14 @@ MoonrakerFileTransferAPI::~MoonrakerFileTransferAPI() {
             continue;
         }
 
+        // Copy structured binding for lambda capture (GCC on Ubuntu doesn't
+        // allow capturing structured bindings in lambdas per C++17 rules)
+        auto& thread_ref = t;
+
         // Launch helper thread to do the join
         std::atomic<bool> joined{false};
-        std::thread join_helper([&t, &joined]() {
-            t.join();
+        std::thread join_helper([&thread_ref, &joined]() {
+            thread_ref.join();
             joined.store(true);
         });
 

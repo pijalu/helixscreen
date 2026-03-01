@@ -60,8 +60,9 @@ void close_catalog() {
 // Row creation
 // ============================================================================
 
-lv_obj_t* WidgetCatalogOverlay::create_row(lv_obj_t* parent, const char* name, int colspan,
-                                           int rowspan, bool already_placed) {
+lv_obj_t* WidgetCatalogOverlay::create_row(lv_obj_t* parent, const char* name, const char* icon,
+                                           const char* description, int colspan, int rowspan,
+                                           bool already_placed, bool hardware_gated) {
     // Row container: horizontal, fixed height
     lv_obj_t* row = lv_obj_create(parent);
     lv_obj_set_width(row, LV_PCT(100));
@@ -78,7 +79,14 @@ lv_obj_t* WidgetCatalogOverlay::create_row(lv_obj_t* parent, const char* name, i
     lv_obj_set_style_flex_main_place(row, LV_FLEX_ALIGN_SPACE_BETWEEN, 0);
     lv_obj_remove_flag(row, LV_OBJ_FLAG_SCROLLABLE);
 
-    if (already_placed) {
+    // Icon
+    if (icon && icon[0] != '\0') {
+        const char* variant = (already_placed || hardware_gated) ? "muted" : "secondary";
+        const char* icon_attrs[] = {"src", icon, "size", "sm", "variant", variant, nullptr};
+        lv_xml_create(row, "icon", icon_attrs);
+    }
+
+    if (already_placed || hardware_gated) {
         lv_obj_set_style_opa(row, LV_OPA_40, 0);
         lv_obj_remove_flag(row, LV_OBJ_FLAG_CLICKABLE);
     } else {
@@ -88,12 +96,30 @@ lv_obj_t* WidgetCatalogOverlay::create_row(lv_obj_t* parent, const char* name, i
         lv_obj_set_style_bg_opa(row, LV_OPA_20, LV_PART_MAIN | LV_STATE_PRESSED);
     }
 
-    // Left side: widget name
-    lv_obj_t* name_label = lv_label_create(row);
+    // Left side: name + description column
+    lv_obj_t* text_col = lv_obj_create(row);
+    lv_obj_set_width(text_col, LV_SIZE_CONTENT);
+    lv_obj_set_height(text_col, LV_SIZE_CONTENT);
+    lv_obj_set_style_pad_all(text_col, 0, 0);
+    lv_obj_set_style_bg_opa(text_col, LV_OPA_TRANSP, 0);
+    lv_obj_set_style_border_width(text_col, 0, 0);
+    lv_obj_set_layout(text_col, LV_LAYOUT_FLEX);
+    lv_obj_set_flex_flow(text_col, LV_FLEX_FLOW_COLUMN);
+    lv_obj_set_flex_grow(text_col, 1);
+    lv_obj_remove_flag(text_col, LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_remove_flag(text_col, LV_OBJ_FLAG_SCROLLABLE);
+
+    lv_obj_t* name_label = lv_label_create(text_col);
     lv_label_set_text(name_label, name);
     lv_obj_set_style_text_font(name_label, &noto_sans_16, 0);
     lv_obj_set_style_text_color(name_label, theme_manager_get_color("text"), 0);
-    lv_obj_set_flex_grow(name_label, 1);
+
+    if (description && description[0] != '\0') {
+        lv_obj_t* desc_label = lv_label_create(text_col);
+        lv_label_set_text(desc_label, description);
+        lv_obj_set_style_text_font(desc_label, &noto_sans_12, 0);
+        lv_obj_set_style_text_color(desc_label, theme_manager_get_color("text_muted"), 0);
+    }
 
     // Right side: size badge + optional "Placed" label
     lv_obj_t* right_group = lv_obj_create(row);
@@ -153,9 +179,25 @@ void WidgetCatalogOverlay::populate_rows(lv_obj_t* scroll, const PanelWidgetConf
 
         const char* display_name = def.display_name ? def.display_name : def.id;
 
-        lv_obj_t* row = create_row(scroll, display_name, def.colspan, def.rowspan, already_placed);
+        // Check hardware gate
+        bool hardware_gated = false;
+        if (def.hardware_gate_subject) {
+            lv_subject_t* gate = lv_xml_get_subject(nullptr, def.hardware_gate_subject);
+            if (gate && lv_subject_get_int(gate) == 0) {
+                hardware_gated = true;
+            }
+        }
 
-        if (!already_placed) {
+        // Build display name with "(not detected)" suffix if hardware-gated
+        std::string name_str(display_name);
+        if (hardware_gated) {
+            name_str += " (not detected)";
+        }
+
+        lv_obj_t* row = create_row(scroll, name_str.c_str(), def.icon, def.description,
+                                   def.colspan, def.rowspan, already_placed, hardware_gated);
+
+        if (!already_placed && !hardware_gated) {
             // Store widget ID in user data for the click handler.
             // The ID string comes from the static widget def table, so the pointer is stable.
             lv_obj_set_user_data(row, const_cast<char*>(def.id));
@@ -256,6 +298,9 @@ void WidgetCatalogOverlay::show(lv_obj_t* parent_screen, const PanelWidgetConfig
     }
 
     populate_rows(scroll, config, g_catalog_state.on_select);
+
+    // Register with nullptr lifecycle — this overlay is function-based, not class-based
+    NavigationManager::instance().register_overlay_instance(overlay, nullptr);
 
     // Push onto navigation stack — keep the home panel visible behind the catalog
     NavigationManager::instance().push_overlay(overlay, /*hide_previous=*/false);

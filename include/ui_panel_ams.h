@@ -215,6 +215,9 @@ class AmsPanel : public PanelBase {
      */
     void handle_bypass_spool_click();
 
+    static void on_buffer_clicked(void* user_data);
+    void handle_buffer_click();
+
     // === Spoolman Integration ===
 
     void sync_spoolman_active_spool();

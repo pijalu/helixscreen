@@ -378,6 +378,7 @@ class DisplayManager {
 
     // Hardware vs software blank strategy
     bool m_use_hardware_blank = false;
+    bool m_sleep_backlight_off = true; // Whether to power off backlight during sleep
     lv_obj_t* m_sleep_overlay = nullptr;
 
     // Original pointer read callback (before sleep-aware wrapper)

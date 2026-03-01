@@ -5,6 +5,7 @@
 
 #include "runtime_config.h"
 #include "subject_debug_registry.h"
+#include "system/telemetry_manager.h"
 
 #include <spdlog/spdlog.h>
 
@@ -253,10 +254,26 @@ void lvgl_log_callback(lv_log_level_t level, const char* buf) {
             spdlog::debug("[LVGL] {}", msg);
         } else {
             spdlog::warn("[LVGL] {}", msg);
+            // Detect NULL guard hits from our safety patches (blend, draw, label)
+            // These indicate a near-crash that was prevented — worth tracking
+            if (msg.find("NULL dest_buf") != std::string::npos ||
+                msg.find("NULL font") != std::string::npos ||
+                msg.find("goto_xy returned NULL") != std::string::npos ||
+                msg.find("draw_buf is NULL") != std::string::npos) {
+                TelemetryManager::instance().record_error("display", "null_guard_hit", msg);
+            }
         }
         break;
     case LV_LOG_LEVEL_ERROR:
         spdlog::error("[LVGL] {}", msg);
+        // Detect heap corruption reports from lv_xml_get_font() and fire telemetry
+        if (msg.find("HEAP_CORRUPTION") != std::string::npos) {
+            TelemetryManager::instance().record_error("memory", "heap_corruption", msg);
+        }
+        // Detect render buffer failures from our safety patches
+        if (msg.find("reshape failed") != std::string::npos) {
+            TelemetryManager::instance().record_error("display", "render_failure", msg);
+        }
         break;
     case LV_LOG_LEVEL_USER:
         spdlog::info("[LVGL:USER] {}", msg);

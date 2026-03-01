@@ -4,7 +4,7 @@
 
 The Home Panel is your printer dashboard — a fully customizable grid of widgets showing everything you need at a glance. You choose what appears, where it goes, how big each widget is, and can rearrange everything with drag-and-drop.
 
-<!-- TODO: Screenshot — default home panel layout at 800x480, idle printer -->
+<!-- Screenshot: default home panel layout, idle printer -->
 
 ---
 
@@ -35,7 +35,7 @@ Edit Mode is how you customize your dashboard layout. While in Edit Mode, all no
 
 The widget you long-pressed is automatically selected and ready to drag. You can start moving it immediately without lifting your finger.
 
-<!-- TODO: Screenshot — edit mode active: grid dots visible, one widget selected with corner brackets, toolbar at top -->
+![Edit Mode — widget selected with gear and trash icons, toolbar at top](../../images/user/home-edit-mode.png)
 
 ### Selecting a Widget
 
@@ -56,7 +56,6 @@ The widget you long-pressed is automatically selected and ready to drag. You can
 
 A faint outline stays at the widget's original position while dragging so you can see where it came from.
 
-<!-- TODO: Screenshot — mid-drag: widget floating, blue snap preview at target cell, faint origin ghost -->
 
 ### Resizing a Widget
 
@@ -76,19 +75,13 @@ Not all widgets are resizable — some (like Power and Shutdown) are always 1x1.
 
 Some widgets adapt their content based on size. For example, the Digital Clock shows just the time at 1x1, adds the date at 2x1, and shows uptime too at 2x2 or larger.
 
-<!-- TODO: Screenshot — widget being resized: edge handle visible, grid-snap preview showing new size -->
 
 ### Adding a Widget
 
 There are two ways to add widgets:
 
-**Method 1: Long-press empty space**
 1. While in Edit Mode, **long-press on an empty area** of the grid
 2. The Widget Catalog opens
-
-**Method 2: Via Settings**
-1. Go to **Settings > Home Widgets**
-2. Toggle widgets on or off
 
 **The Widget Catalog** shows all available widgets in a scrollable list. Each entry shows:
 - Widget name and description
@@ -97,7 +90,7 @@ There are two ways to add widgets:
 
 Tap any available widget to add it. HelixScreen places it near where you long-pressed, or finds the best available spot if that area is occupied. If the grid is completely full, you'll need to remove a widget first.
 
-<!-- TODO: Screenshot — widget catalog open: scrollable list with widget names, descriptions, size badges, dimmed "Placed" entries -->
+![Widget Catalog — scrollable list with size badges and dimmed "Placed" entries](../../images/user/home-widget-catalog.png)
 
 ### Removing a Widget
 
@@ -107,7 +100,31 @@ Tap any available widget to add it. HelixScreen places it near where you long-pr
 
 Removing a widget doesn't delete any data — you can always add it back from the Widget Catalog.
 
-<!-- TODO: Screenshot — widget selected with trash icon visible in corner -->
+![Widget selected with trash icon in upper-right corner](../../images/user/home-widget-trash.png)
+
+### Configuring a Widget
+
+Some widgets have settings you can change directly from Edit Mode. When you select one of these configurable widgets, a **gear icon** appears in the upper-left corner (the trash icon is in the upper-right).
+
+**Configurable widgets:**
+
+| Widget | What the gear button does |
+|--------|--------------------------|
+| **Temperatures** | Toggles between Stack and Carousel display mode |
+| **Fan Speeds** | Toggles between Stack and Carousel display mode |
+| **Macro Button 1** | Opens the macro picker — choose which macro to assign |
+| **Macro Button 2** | Opens the macro picker — choose which macro to assign |
+
+**To configure a widget:**
+
+1. Enter Edit Mode (long-press the widget grid)
+2. **Tap** the widget you want to configure — corner brackets and action buttons appear
+3. **Tap the gear icon** in the upper-left corner
+4. For Temperatures/Fan Speeds: the widget immediately switches between Stack and Carousel mode. Tap the gear again to switch back.
+5. For Macro Buttons: a picker overlay opens listing all available Klipper macros. Tap a macro to assign it — the button updates immediately.
+
+![Configurable widget selected — gear icon (upper-left) and trash icon (upper-right)](../../images/user/home-edit-mode.png)
+![Macro picker — select from available Klipper macros](../../images/user/home-macro-picker.png)
 
 ### Resetting to Defaults
 
@@ -152,13 +169,12 @@ Every widget available for your dashboard, with sizing constraints:
 | **Humidity** | Enclosure humidity reading from a connected sensor. | 1x1 | 1x1 | 2x2 | Yes | Humidity sensor |
 | **Width Sensor** | Live filament width reading from a diameter sensor. | 1x1 | 1x1 | 2x2 | Yes | Width sensor |
 | **Thermistor** | Monitor a custom temperature sensor (chamber, enclosure heater, etc.). | 1x1 | 1x1 | 2x1 | Horizontal only | Extra temp sensors |
-| **Macro Button 1** | One-tap button to run a configured macro. Set which macro to run in **Settings > Home Widgets**. | 1x1 | 1x1 | 2x1 | Horizontal only | — |
+| **Macro Button 1** | One-tap button to run a configured macro. Assign a macro via the gear icon in Edit Mode. | 1x1 | 1x1 | 2x1 | Horizontal only | — |
 | **Macro Button 2** | A second one-tap macro button, independently configurable. | 1x1 | 1x1 | 2x1 | Horizontal only | — |
 | **Job Queue** | Shows the number of queued print jobs. Tap to open the Job Queue Manager modal (see [Job Queue Manager](#job-queue-manager) below). | 2x2 | 2x1 | 4x3 | Yes | — |
 
 > **Sizes** are listed as columns x rows. For example, "2x1" means 2 columns wide and 1 row tall.
 
-<!-- TODO: Screenshot montage — 4-6 individual widget examples at their default sizes: clock (2x1), job queue (2x2), temp stack (1x1), fan carousel, print status (2x2), tips (4x2) -->
 
 ### Hardware-Gated Widgets
 
@@ -196,12 +212,12 @@ Full-size swipeable pages with one item per page. Indicator dots at the bottom s
 
 **Fan Speeds carousel** — each fan gets an interactive page with a **270-degree arc slider**. Drag the arc to change fan speed directly, without opening a separate control panel. The fan icon spins at a speed proportional to the actual fan RPM.
 
-<!-- TODO: Screenshot side-by-side — temp stack mode (compact rows) vs temp carousel mode (single page with large icon) -->
-<!-- TODO: Screenshot — fan carousel with arc slider dial -->
+![Carousel mode — fan carousel with arc slider (left), temp carousel with large readout (right)](../../images/user/home-carousel-modes.png)
+![Fan carousel mode — arc slider for direct speed control, page indicator dots](../../images/user/home-fan-carousel.png)
 
 ### Switching Modes
 
-Go to **Settings > Home Widgets** and find the Temperatures or Fan Speeds widget. Change the display mode setting. Your preference is saved per widget and persists across restarts.
+Long-press the grid to enter Edit Mode, select the Temperatures or Fan Speeds widget, and tap the **gear icon** in the upper-left corner. Each tap toggles the mode. Your preference is saved per widget and persists across restarts.
 
 ---
 
@@ -263,7 +279,7 @@ Below the state indicator, all queued jobs are listed with:
 
 **Close:** Tap the **X** button in the top-right corner to close the modal.
 
-<!-- TODO: Screenshot — job queue modal open: header with queue state, job list with filenames and time queued, trash icons -->
+![Job Queue modal — queue state, Start button, job list](../../images/user/home-job-queue.png)
 
 ### Sync with Other Interfaces
 
@@ -304,20 +320,6 @@ If you downgrade and a widget type no longer exists, it's silently removed from 
 
 ---
 
-## Configuring Widgets in Settings
-
-Go to **Settings > Home Widgets** for additional widget configuration:
-
-- **Toggle widgets** on and off — disabled widgets free up their grid space
-- **Display mode** — switch between Stack and Carousel for Temperatures and Fan Speeds widgets
-- **Macro assignment** — choose which macro to run for Macro Button 1 and 2
-
-Changes in Settings take effect when you return to the Home Panel.
-
-<!-- TODO: Screenshot — Settings > Home Widgets panel: toggle switches, display mode options -->
-
----
-
 ## Active Tool Badge
 
 On printers with a toolchanger (IDEX, multi-head, tool-changing systems), the Home Panel displays an active tool badge:
@@ -353,7 +355,7 @@ For neopixel, dotstar, and other Klipper-native strips:
 - **Color swatch**: Shows the actual output color (base color adjusted by current brightness)
 - **Turn Off**: Stops any active effects and turns off the selected strip
 
-<!-- TODO: Screenshot — LED control overlay: color presets, custom color picker, brightness slider -->
+![LED Control — strip selector, color presets, brightness slider, effects](../../images/user/home-led-control.png)
 
 ### Output Pin Lights
 
@@ -416,7 +418,7 @@ The name defaults to "My Printer" if left empty. It's saved to your config file 
    - **Custom Images** — Your own images (see below)
 5. Tap an image to select it — your choice takes effect immediately
 
-<!-- TODO: Screenshot — printer image picker: scrollable list on left, live preview on right -->
+![Printer image picker — scrollable list on left, live preview on right](../../images/user/home-image-picker.png)
 
 ### Using Custom Printer Images
 
@@ -466,7 +468,7 @@ Below the identity card, the overlay displays current software versions for Klip
 
 A row of chips shows detected hardware capabilities: Probe, Bed Mesh, Heated Bed, LEDs, ADXL, QGL, Z-Tilt, and others depending on your Klipper configuration.
 
-<!-- TODO: Screenshot — printer manager overlay: name, image, versions, hardware capability chips -->
+![Printer Manager — name, image, software versions](../../images/user/home-printer-manager.png)
 
 ---
 

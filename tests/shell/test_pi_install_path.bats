@@ -125,6 +125,13 @@ setup() {
     [ "$INSTALL_DIR" = "/opt/helixscreen" ]
 }
 
+@test "AD5M zmod path is /srv/helixscreen" {
+    set_install_paths "ad5m" "zmod"
+    [ "$INSTALL_DIR" = "/srv/helixscreen" ]
+    [ "$INIT_SCRIPT_DEST" = "/etc/init.d/S80helixscreen" ]
+    [ "$PREVIOUS_UI_SCRIPT" = "" ]
+}
+
 @test "K1 simple_af path unchanged" {
     set_install_paths "k1" "simple_af"
     [ "$INSTALL_DIR" = "/usr/data/helixscreen" ]

@@ -375,14 +375,20 @@ export function releasesQueries(versions: string[]): string[] {
   const cleanVersions = versions.map((v) => v.replace(/^v/, ""));
   const versionList = cleanVersions.map((v) => `'${v}'`).join(", ");
   return [
-    // Per-version stats: sessions, crashes, active devices
+    // Per-version stats: sessions, crashes
     `SELECT
       blob2 as ver,
       sumIf(1, index1 = 'session') as total_sessions,
-      sumIf(1, index1 = 'crash') as total_crashes,
-      countIf(DISTINCT blob1, index1 = 'session') as active_devices
+      sumIf(1, index1 = 'crash') as total_crashes
     FROM ${dataset}
     WHERE blob2 IN (${versionList})
+    GROUP BY ver`,
+    // Per-version active devices (count distinct requires separate query)
+    `SELECT
+      blob2 as ver,
+      count(DISTINCT blob1) as active_devices
+    FROM ${dataset}
+    WHERE index1 = 'session' AND blob2 IN (${versionList})
     GROUP BY ver`,
     // Per-version print stats
     `SELECT

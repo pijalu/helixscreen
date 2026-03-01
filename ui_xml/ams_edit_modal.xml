@@ -152,11 +152,11 @@
                   style_pad_gap="#space_lg" scrollable="false">
             <lv_obj height="content" style_pad_all="0" flex_flow="row" style_pad_gap="#space_xs" scrollable="false">
               <text_small text="Nozzle:" translation_tag="Nozzle:"/>
-              <text_small name="temp_nozzle_label" text="200-230°C" translation_tag="200-230°C"/>
+              <text_small name="temp_nozzle_label" text="200-230°C"/>
             </lv_obj>
             <lv_obj height="content" style_pad_all="0" flex_flow="row" style_pad_gap="#space_xs" scrollable="false">
               <text_small text="Bed:" translation_tag="Bed:"/>
-              <text_small name="temp_bed_label" text="60°C" translation_tag="60°C"/>
+              <text_small name="temp_bed_label" text="60°C"/>
             </lv_obj>
           </lv_obj>
           <!-- Spoolman actions: only shown when Spoolman is available -->

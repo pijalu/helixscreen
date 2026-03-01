@@ -711,6 +711,78 @@ TEST_CASE("Happy Hare parses spoolman_support and pending_spool_id", "[ams][happ
     REQUIRE(info.pending_spool_id == 42);
 }
 
+// --- Phase 2C: gate_spool_id parsing ---
+
+TEST_CASE("Happy Hare parses gate_spool_id into slot spoolman_id", "[ams][happy_hare][v4]") {
+    AmsBackendHappyHareTestHelper helper;
+    helper.initialize_test_gates(4);
+
+    nlohmann::json mmu_data = {{"gate_spool_id", {5, 0, 12, 99}}};
+    helper.test_parse_mmu_state(mmu_data);
+
+    auto slot0 = helper.get_slot_info(0);
+    REQUIRE(slot0.spoolman_id == 5);
+
+    auto slot1 = helper.get_slot_info(1);
+    REQUIRE(slot1.spoolman_id == 0);
+
+    auto slot2 = helper.get_slot_info(2);
+    REQUIRE(slot2.spoolman_id == 12);
+
+    auto slot3 = helper.get_slot_info(3);
+    REQUIRE(slot3.spoolman_id == 99);
+}
+
+TEST_CASE("Happy Hare gate_spool_id skips non-integer values", "[ams][happy_hare][v4]") {
+    AmsBackendHappyHareTestHelper helper;
+    helper.initialize_test_gates(3);
+
+    // Slot 0 is string (skip), slot 1 is valid, slot 2 is null (skip)
+    nlohmann::json mmu_data = {{"gate_spool_id", {"bad", 7, nullptr}}};
+    helper.test_parse_mmu_state(mmu_data);
+
+    auto slot0 = helper.get_slot_info(0);
+    REQUIRE(slot0.spoolman_id == 0); // Unchanged default
+
+    auto slot1 = helper.get_slot_info(1);
+    REQUIRE(slot1.spoolman_id == 7);
+
+    auto slot2 = helper.get_slot_info(2);
+    REQUIRE(slot2.spoolman_id == 0); // Unchanged default
+}
+
+TEST_CASE("Happy Hare gate_spool_id with negative values clears spool link",
+          "[ams][happy_hare][v4]") {
+    AmsBackendHappyHareTestHelper helper;
+    helper.initialize_test_gates(2);
+
+    // First set valid IDs
+    nlohmann::json mmu_data = {{"gate_spool_id", {10, 20}}};
+    helper.test_parse_mmu_state(mmu_data);
+    REQUIRE(helper.get_slot_info(0).spoolman_id == 10);
+
+    // Negative means "unlinked" in Happy Hare — treat as 0
+    mmu_data = {{"gate_spool_id", {-1, 20}}};
+    helper.test_parse_mmu_state(mmu_data);
+    REQUIRE(helper.get_slot_info(0).spoolman_id == 0);
+    REQUIRE(helper.get_slot_info(1).spoolman_id == 20);
+}
+
+TEST_CASE("Happy Hare gate_spool_id partial array only updates provided slots",
+          "[ams][happy_hare][v4]") {
+    AmsBackendHappyHareTestHelper helper;
+    helper.initialize_test_gates(4);
+
+    // Only 2 elements for 4 gates — slots 2,3 should remain at default
+    nlohmann::json mmu_data = {{"gate_spool_id", {3, 8}}};
+    helper.test_parse_mmu_state(mmu_data);
+
+    REQUIRE(helper.get_slot_info(0).spoolman_id == 3);
+    REQUIRE(helper.get_slot_info(1).spoolman_id == 8);
+    REQUIRE(helper.get_slot_info(2).spoolman_id == 0);
+    REQUIRE(helper.get_slot_info(3).spoolman_id == 0);
+}
+
 // --- Phase 3: Dissimilar multi-unit ---
 
 TEST_CASE("Happy Hare dissimilar multi-unit initialization from num_gates string",
@@ -1778,4 +1850,172 @@ TEST_CASE_METHOD(AmsBackendHappyHareTestHelper, "Full EMU status integration",
     REQUIRE(info.sync_feedback_state == "neutral");
     REQUIRE(info.spoolman_mode == SpoolmanMode::PUSH);
     REQUIRE(info.encoder_flow_rate == -1);  // null encoder
+}
+
+// ============================================================================
+// Encoder Clog Info Struct Tests
+// ============================================================================
+
+TEST_CASE("EncoderClogInfo: get_clog_pct zero detection_length returns 0", "[ams][clog]") {
+    EncoderClogInfo info;
+    info.detection_length = 0;
+    info.headroom = 5.0f;
+    REQUIRE(info.get_clog_pct() == 0);
+}
+
+TEST_CASE("EncoderClogInfo: get_clog_pct full headroom returns 0", "[ams][clog]") {
+    EncoderClogInfo info;
+    info.detection_length = 12.4f;
+    info.headroom = 12.4f;
+    REQUIRE(info.get_clog_pct() == 0);
+}
+
+TEST_CASE("EncoderClogInfo: get_clog_pct no headroom returns 100", "[ams][clog]") {
+    EncoderClogInfo info;
+    info.detection_length = 12.4f;
+    info.headroom = 0.0f;
+    REQUIRE(info.get_clog_pct() == 100);
+}
+
+TEST_CASE("EncoderClogInfo: get_clog_pct normal case", "[ams][clog]") {
+    EncoderClogInfo info;
+    info.detection_length = 10.0f;
+    info.headroom = 3.0f;  // 7mm used = 70%
+    REQUIRE(info.get_clog_pct() == 70);
+}
+
+TEST_CASE("EncoderClogInfo: get_clog_pct clamps negative headroom to 100", "[ams][clog]") {
+    EncoderClogInfo info;
+    info.detection_length = 10.0f;
+    info.headroom = -1.0f;
+    REQUIRE(info.get_clog_pct() == 100);
+}
+
+TEST_CASE("EncoderClogInfo: is_warning when min below desired", "[ams][clog]") {
+    EncoderClogInfo info;
+    info.desired_headroom = 5.0f;
+    info.min_headroom = 3.0f;
+    REQUIRE(info.is_warning() == true);
+}
+
+TEST_CASE("EncoderClogInfo: is_warning false when min above desired", "[ams][clog]") {
+    EncoderClogInfo info;
+    info.desired_headroom = 5.0f;
+    info.min_headroom = 6.0f;
+    REQUIRE(info.is_warning() == false);
+}
+
+TEST_CASE("EncoderClogInfo: is_warning false when desired is 0", "[ams][clog]") {
+    EncoderClogInfo info;
+    info.desired_headroom = 0.0f;
+    info.min_headroom = 0.0f;
+    REQUIRE(info.is_warning() == false);
+}
+
+// ============================================================================
+// Encoder + Flowguard JSON Parsing Tests
+// ============================================================================
+
+TEST_CASE("Happy Hare: parse full encoder object into encoder_info", "[ams][happy_hare][clog]") {
+    AmsBackendHappyHareTestHelper helper;
+    helper.initialize_test_gates(4);
+
+    nlohmann::json mmu_data;
+    mmu_data["clog_detection_enabled"] = 2;
+    mmu_data["encoder"] = {
+        {"flow_rate", 85},
+        {"desired_headroom", 5.0},
+        {"detection_length", 12.4},
+        {"headroom", 8.0},
+        {"min_headroom", 4.2}
+    };
+    helper.test_parse_mmu_state(mmu_data);
+
+    auto info = helper.get_system_info();
+    REQUIRE(info.encoder_info.enabled == true);
+    REQUIRE(info.encoder_info.flow_rate == 85);
+    REQUIRE(info.encoder_info.detection_mode == 2);
+    REQUIRE(info.encoder_info.desired_headroom == Catch::Approx(5.0f));
+    REQUIRE(info.encoder_info.detection_length == Catch::Approx(12.4f));
+    REQUIRE(info.encoder_info.headroom == Catch::Approx(8.0f));
+    REQUIRE(info.encoder_info.min_headroom == Catch::Approx(4.2f));
+}
+
+TEST_CASE("Happy Hare: partial encoder object defaults missing fields", "[ams][happy_hare][clog]") {
+    AmsBackendHappyHareTestHelper helper;
+    helper.initialize_test_gates(4);
+
+    nlohmann::json mmu_data;
+    mmu_data["encoder"] = {{"flow_rate", 92}};
+    helper.test_parse_mmu_state(mmu_data);
+
+    auto info = helper.get_system_info();
+    REQUIRE(info.encoder_info.flow_rate == 92);
+    // Not enabled because clog_detection_enabled not set
+    REQUIRE(info.encoder_info.enabled == false);
+    REQUIRE(info.encoder_info.detection_length == Catch::Approx(0.0f));
+    REQUIRE(info.encoder_info.headroom == Catch::Approx(0.0f));
+}
+
+TEST_CASE("Happy Hare: missing encoder object leaves defaults", "[ams][happy_hare][clog]") {
+    AmsBackendHappyHareTestHelper helper;
+    helper.initialize_test_gates(4);
+
+    nlohmann::json mmu_data;
+    mmu_data["action"] = "Idle";
+    helper.test_parse_mmu_state(mmu_data);
+
+    auto info = helper.get_system_info();
+    REQUIRE(info.encoder_info.enabled == false);
+    REQUIRE(info.encoder_info.flow_rate == -1);
+}
+
+TEST_CASE("Happy Hare: parse flowguard object", "[ams][happy_hare][clog]") {
+    AmsBackendHappyHareTestHelper helper;
+    helper.initialize_test_gates(4);
+
+    nlohmann::json mmu_data;
+    mmu_data["flowguard"] = {
+        {"is_enabled", true},
+        {"is_active", true},
+        {"clog_or_tangle", "CLOG"},
+        {"flow_rate_level", 0.35},
+        {"max_clog", 0.8},
+        {"max_tangle", -0.6}
+    };
+    helper.test_parse_mmu_state(mmu_data);
+
+    auto info = helper.get_system_info();
+    REQUIRE(info.flowguard_info.enabled == true);
+    REQUIRE(info.flowguard_info.active == true);
+    REQUIRE(info.flowguard_info.trigger == "CLOG");
+    REQUIRE(info.flowguard_info.level == Catch::Approx(0.35f));
+    REQUIRE(info.flowguard_info.max_clog == Catch::Approx(0.8f));
+    REQUIRE(info.flowguard_info.max_tangle == Catch::Approx(-0.6f));
+}
+
+TEST_CASE("Happy Hare: missing flowguard object leaves defaults", "[ams][happy_hare][clog]") {
+    AmsBackendHappyHareTestHelper helper;
+    helper.initialize_test_gates(4);
+
+    nlohmann::json mmu_data;
+    mmu_data["action"] = "Idle";
+    helper.test_parse_mmu_state(mmu_data);
+
+    auto info = helper.get_system_info();
+    REQUIRE(info.flowguard_info.enabled == false);
+    REQUIRE(info.flowguard_info.active == false);
+    REQUIRE(info.flowguard_info.trigger.empty());
+}
+
+TEST_CASE("Happy Hare: parse sync_feedback_flow_rate", "[ams][happy_hare][clog]") {
+    AmsBackendHappyHareTestHelper helper;
+    helper.initialize_test_gates(4);
+
+    nlohmann::json mmu_data;
+    mmu_data["sync_feedback"] = {{"flow_rate", 92.5}};
+    helper.test_parse_mmu_state(mmu_data);
+
+    auto info = helper.get_system_info();
+    REQUIRE(info.sync_feedback_flow_rate == Catch::Approx(92.5f));
 }

@@ -75,6 +75,12 @@ void SpoolmanSlotSaver::save(const SlotInfo& original, const SlotInfo& edited,
                      "(filament_id={}, brand={}, material={}, color={:#08x})",
                      spool_id, filament_id, edited.brand, edited.material, edited.color_rgb);
 
+        if (original.brand != edited.brand && edited.spoolman_vendor_id == 0) {
+            spdlog::warn("[SpoolmanSlotSaver] Vendor changed to '{}' but no vendor_id available, "
+                         "vendor will not be updated in Spoolman",
+                         edited.brand);
+        }
+
         if (!filament_id) {
             spdlog::error("[SpoolmanSlotSaver] No filament_id for spool {}, cannot update",
                           spool_id);
@@ -123,9 +129,13 @@ void SpoolmanSlotSaver::update_filament(int filament_id, const SlotInfo& edited,
     nlohmann::json filament_data;
     filament_data["material"] = edited.material;
     filament_data["color_hex"] = color_to_hex(edited.color_rgb);
+    if (edited.spoolman_vendor_id > 0) {
+        filament_data["vendor_id"] = edited.spoolman_vendor_id;
+    }
 
-    spdlog::info("[SpoolmanSlotSaver] PATCHing filament {} (material={}, color={})", filament_id,
-                 edited.material, filament_data["color_hex"].get<std::string>());
+    spdlog::info("[SpoolmanSlotSaver] PATCHing filament {} (material={}, color={}, vendor_id={})",
+                 filament_id, edited.material, filament_data["color_hex"].get<std::string>(),
+                 edited.spoolman_vendor_id);
 
     api_->spoolman().update_spoolman_filament(
         filament_id, filament_data,

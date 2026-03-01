@@ -100,12 +100,13 @@
       <!-- ================================================================== -->
       <!-- SCREENSAVER (only visible when compiled with HELIX_ENABLE_SCREENSAVER) -->
       <!-- ================================================================== -->
-      <setting_toggle_row name="row_screensaver"
-                          label="Screensaver" label_tag="Screensaver" icon="television_classic"
-                          description="Show flying toasters instead of dimming"
-                          description_tag="Show flying toasters instead of dimming"
-                          subject="settings_screensaver_enabled"
-                          callback="on_screensaver_changed"/>
+      <setting_dropdown_row name="row_screensaver"
+                            label="Screensaver" label_tag="Screensaver" icon="television_classic"
+                            description="Show instead of dimming"
+                            description_tag="Show instead of dimming"
+                            options="Off&#10;Flying Toasters&#10;Starfield&#10;3D Pipes"
+                            options_tag="Off&#10;Flying Toasters&#10;Starfield&#10;3D Pipes"
+                            callback="on_screensaver_changed"/>
       <!-- ================================================================== -->
       <!-- SLEEP WHILE PRINTING -->
       <!-- ================================================================== -->

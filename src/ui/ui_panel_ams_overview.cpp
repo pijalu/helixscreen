@@ -756,7 +756,9 @@ void AmsOverviewPanel::show_overview() {
 void AmsOverviewPanel::update_detail_header(const AmsUnit& unit, const AmsSystemInfo& info) {
     // Update logo
     lv_obj_t* logo = lv_obj_find_by_name(panel_, "detail_logo");
-    ams_draw::apply_logo(logo, unit, info);
+    if (logo) {
+        ams_draw::apply_logo(logo, unit, info);
+    }
 
     // Update name
     lv_obj_t* name = lv_obj_find_by_name(panel_, "detail_unit_name");
@@ -930,6 +932,7 @@ void destroy_ams_overview_panel_ui() {
         // panel/sidebar pointers. If subject changes fired observers between
         // the last timer tick and now, those lambdas are pending. Processing
         // them here prevents use-after-free when the panel is destroyed below.
+        auto freeze = helix::ui::UpdateQueue::instance().scoped_freeze();
         helix::ui::UpdateQueue::instance().drain();
 
         NavigationManager::instance().unregister_overlay_close_callback(s_ams_overview_panel_obj);
@@ -1057,16 +1060,8 @@ void AmsOverviewPanel::show_detail_context_menu(int slot_index, lv_obj_t* near_w
                 break;
 
             case helix::ui::AmsContextMenu::MenuAction::EDIT:
-                // Navigate to the full AMS panel for edit/spoolman features
-                spdlog::info("[{}] Edit requested for slot {} - navigating to AMS panel",
-                             get_name(), slot);
-                NOTIFY_INFO("Use the AMS detail panel for slot editing");
-                break;
-
             case helix::ui::AmsContextMenu::MenuAction::SPOOLMAN:
-                spdlog::info("[{}] Spoolman requested for slot {} - navigating to AMS panel",
-                             get_name(), slot);
-                NOTIFY_INFO("Use the AMS detail panel for Spoolman assignment");
+                show_edit_modal(slot);
                 break;
 
             case helix::ui::AmsContextMenu::MenuAction::CANCELLED:
@@ -1193,8 +1188,27 @@ void AmsOverviewPanel::show_edit_modal(int slot_index) {
         return;
     }
 
-    spdlog::warn("[{}] show_edit_modal called with unsupported slot_index={}", get_name(),
-                 slot_index);
+    // Regular AMS slot
+    AmsBackend* backend = AmsState::instance().get_backend();
+    if (!backend) {
+        NOTIFY_WARNING("AMS not available");
+        return;
+    }
+
+    SlotInfo initial_info = backend->get_slot_info(slot_index);
+
+    edit_modal_->set_completion_callback([this](const helix::ui::AmsEditModal::EditResult& result) {
+        if (result.saved && result.slot_index >= 0) {
+            AmsBackend* backend = AmsState::instance().get_backend();
+            if (backend) {
+                backend->set_slot_info(result.slot_index, result.slot_info);
+                AmsState::instance().sync_from_backend();
+                NOTIFY_INFO("Slot {} updated", result.slot_index + 1);
+            }
+        }
+    });
+
+    edit_modal_->show_for_slot(parent_screen_, slot_index, initial_info, api_);
 }
 
 // ============================================================================

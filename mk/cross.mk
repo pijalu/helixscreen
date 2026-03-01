@@ -228,7 +228,6 @@ else ifeq ($(PLATFORM_TARGET),ad5x)
     # AD5X: Ingenic X2600, 800x480, multi-color IFS
     # Specs: 800x480 display
     # -------------------------------------------------------------------------
-    # FULLY STATIC BUILD
     CROSS_COMPILE ?= mipsel-buildroot-linux-gnu-
     TARGET_ARCH := mips32r5
     TARGET_TRIPLE := mipsel-buildroot-linux-gnu
@@ -244,18 +243,13 @@ else ifeq ($(PLATFORM_TARGET),ad5x)
         -Wno-error=conversion -Wno-error=sign-conversion -DHELIX_RELEASE_BUILD -DHELIX_PLATFORM_AD5X
     # -Wl,--gc-sections: Remove unused sections during linking (works with -ffunction-sections)
     # -flto: Must match compiler flag for LTO to work
-    # -static: Fully static binary - no runtime dependencies on system libs
-    # Toolchain glibc 2.40 vs device glibc — static avoids any version mismatch
-    TARGET_LDFLAGS := -Wl,--gc-sections -flto -static
+    TARGET_LDFLAGS := -Wl,--gc-sections -flto
     # SSL enabled for HTTPS/WSS support with Moonraker
     ENABLE_SSL := yes
     DISPLAY_BACKEND := fbdev
     ENABLE_SDL := no
     ENABLE_GLES_3D := no
     ENABLE_SCREENSAVER := no
-    # Disable TinyGL for ad5x - CPU too weak for software 3D (3-4 FPS)
-    # Uses 2D layer preview fallback instead
-    ENABLE_TINYGL_3D := no
     ENABLE_EVDEV := yes
     BUILD_SUBDIR := ad5x
     # Strip binary for size on memory-constrained device
@@ -344,8 +338,8 @@ else ifneq ($(filter mips k1,$(PLATFORM_TARGET)),)
     # -Wl,-O2: Linker optimization level
     # -Wl,--as-needed: Only link libraries that are actually used
     TARGET_LDFLAGS := -Wl,--gc-sections -Wl,-O2 -Wl,--as-needed -flto=auto -static
-    # SSL disabled for embedded - Moonraker communication is local/plaintext
-    ENABLE_SSL := no
+    # SSL enabled for HTTPS/WSS support (updates, remote Moonraker)
+    ENABLE_SSL := yes
     DISPLAY_BACKEND := fbdev
     ENABLE_SDL := no
     ENABLE_GLES_3D := no
@@ -842,8 +836,14 @@ mips-docker: ensure-docker
 		$(MAKE) docker-toolchain-k1; \
 	fi
 	$(call ensure-ccache-dir,k1)
-	$(Q)docker run --rm --user $$(id -u):$$(id -g) -v "$(PWD)":/src -w /src $(call docker-ccache-args,k1) helixscreen/toolchain-k1 \
+	# Do not inherit host jobserver flags into containerized make.
+	$(Q)docker run --rm --user $$(id -u):$$(id -g) -e MAKEFLAGS= -v "$(PWD)":/src -w /src $(call docker-ccache-args,k1) helixscreen/toolchain-k1 \
 		make PLATFORM_TARGET=mips SKIP_OPTIONAL_DEPS=1 -j$$(nproc)
+	@# Extract CA certificates from Docker image for HTTPS verification on device
+	@mkdir -p build/mips/certs
+	@docker run --rm helixscreen/toolchain-k1 cat /etc/ssl/certs/ca-certificates.crt > build/mips/certs/ca-certificates.crt 2>/dev/null \
+		&& echo "$(GREEN)✓ CA certificates extracted$(RESET)" \
+		|| echo "$(YELLOW)⚠ Could not extract CA certificates (HTTPS may rely on device certs)$(RESET)"
 	@$(MAKE) --no-print-directory maybe-stop-colima
 
 k1-docker: mips-docker
@@ -2114,6 +2114,12 @@ release-k1: | build/mips/bin/helix-screen build/mips/bin/helix-splash
 	@if [ -d "build/assets/images/printers/prerendered" ]; then \
 		mkdir -p $(RELEASE_DIR)/helixscreen/assets/images/printers/prerendered; \
 		cp -r build/assets/images/printers/prerendered/* $(RELEASE_DIR)/helixscreen/assets/images/printers/prerendered/; \
+	fi
+	@# Bundle CA certificates for HTTPS verification (fallback if device lacks system certs)
+	@if [ -f "build/mips/certs/ca-certificates.crt" ]; then \
+		mkdir -p $(RELEASE_DIR)/helixscreen/certs; \
+		cp build/mips/certs/ca-certificates.crt $(RELEASE_DIR)/helixscreen/certs/; \
+		echo "  $(DIM)Included CA certificates for HTTPS$(RESET)"; \
 	fi
 	@find $(RELEASE_DIR)/helixscreen -name '.DS_Store' -delete 2>/dev/null || true
 	$(call release-clean-assets,$(RELEASE_DIR)/helixscreen)

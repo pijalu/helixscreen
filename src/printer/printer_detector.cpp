@@ -913,9 +913,11 @@ void build_filtered_list(const std::string& kinematics_filter) {
         if (name.empty())
             continue;
 
-        // Apply kinematics filter
+        // Apply kinematics filter (contains-match to handle variants like
+        // limited_corexy, hybrid_corexz, generic_cartesian, etc.)
         std::string printer_kin = extract_kinematics(printer);
-        if (!filter_lower.empty() && !printer_kin.empty() && printer_kin != filter_lower) {
+        if (!filter_lower.empty() && !printer_kin.empty() &&
+            filter_lower.find(printer_kin) == std::string::npos) {
             continue; // Kinematics doesn't match filter, skip
         }
         // Printers with no kinematics heuristic are always included

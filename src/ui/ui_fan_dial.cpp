@@ -382,6 +382,7 @@ void FanDial::animate_speed_label(int from, int to) {
     // Skip animation when value unchanged or animations disabled
     if (from == to || !DisplaySettingsManager::instance().get_animations_enabled()) {
         update_speed_label(to);
+        update_button_states(to);
         if (arc_) {
             lv_arc_set_value(arc_, to);
         }
@@ -450,9 +451,9 @@ void FanDial::set_read_only(bool read_only) {
         lv_obj_set_style_bg_opa(arc_, LV_OPA_TRANSP, LV_PART_KNOB);
         lv_obj_set_style_shadow_opa(arc_, LV_OPA_TRANSP, LV_PART_KNOB);
 
-        // Muted indicator color (matches fan_status_card.xml)
-        lv_color_t muted = theme_manager_get_color("text_muted");
-        lv_obj_set_style_arc_color(arc_, muted, LV_PART_INDICATOR);
+        // Primary indicator color (matches fan_status_card.xml)
+        lv_color_t primary = theme_manager_get_color("primary");
+        lv_obj_set_style_arc_color(arc_, primary, LV_PART_INDICATOR);
 
         // Hide Off/On buttons, show "Auto" label instead
         if (btn_off_)

@@ -142,7 +142,7 @@ class AmsEditModal : public Modal {
     std::string material_options_;           ///< Newline-separated material names for dropdown
     std::vector<std::string> material_list_; ///< Material names for index lookup
     std::string vendor_options_;             ///< Newline-separated vendor names for dropdown
-    std::vector<std::string> vendor_list_;   ///< Vendor names for index lookup
+    std::vector<VendorInfo> vendor_list_;    ///< Vendor info (name + ID) for index lookup
     bool vendors_loaded_ = false;            ///< True once Spoolman vendors have been fetched
 
     // === Picker state (Spoolman spool selection) ===

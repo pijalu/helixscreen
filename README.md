@@ -24,7 +24,7 @@ Fast, beautiful, and built for every Klipper printer — from a Creality K1 to a
 
 > **Release Candidate — v0.95**
 >
-> Approaching 1.0 — customizable grid dashboard, full widget system, and comprehensive printer support. Looking for testers across different printer setups.
+> Approaching 1.0 with a customizable grid dashboard, full widget system, and comprehensive printer support. Looking for testers across different printer setups.
 >
 > **Tested on:** Voron 2.4 (Raspberry Pi 5), Voron 0.2, Doron Velta, RatRig V-Core, Flashforge AD5M Pro ([Forge-X](https://github.com/DrA1ex/ff5m) firmware), QIDI Q1 Pro, Sovol SV06, Sovol SV08
 >
@@ -48,7 +48,8 @@ Fast, beautiful, and built for every Klipper printer — from a Creality K1 to a
 
 ## Why HelixScreen?
 
-- **Every feature at your fingertips** — 30 panels, 18 overlays, 13 modals, 225 XML layouts
+- **Customizable dashboard** — Drag, resize, and arrange widgets on a grid that persists across restarts
+- **Every feature at your fingertips** — 30+ panels, 18 overlays, 13 modals, 233 XML layouts
 - **Runs on anything** — ~10MB RAM, from a Creality K1 to a Raspberry Pi 5
 - **68 printers in the database** — Auto-detects your hardware and configures itself
 - **Multi-material ready** — AFC, Happy Hare, ValgACE, ViViD, tool changers, Spoolman
@@ -67,7 +68,7 @@ Fast, beautiful, and built for every Klipper printer — from a Creality K1 to a
 | Multi-Material | 5 backends | Limited | Basic |
 | Printer Database | 68 models | — | Manual config |
 | Display Layouts | Auto-detecting (tiny to ultrawide) | Fixed | Configurable |
-| Status | Beta (active) | Inactive | Mature (maintenance) |
+| Status | Release Candidate (active) | Inactive | Mature (maintenance) |
 | Language | C++17 | C | Python 3 |
 
 </details>
@@ -113,7 +114,9 @@ See [docs/devel/GALLERY.md](docs/devel/GALLERY.md) for the full gallery.
 
 ## Features
 
-**Printer Control** — Print management with G-code preview, motion controls, temperature presets, multi-fan control, Z-offset, speed/flow tuning, live filament consumption tracking, power device management
+**Dashboard** — Customizable grid layout with drag-to-reposition, edge resize, widget catalog, per-breakpoint persistence. Includes clock, job queue, shutdown/reboot, temperature, fan, network, power, and more.
+
+**Printer Control** — Print management with G-code preview, motion controls, temperature presets with per-material overrides, multi-fan control, Z-offset, speed/flow tuning, live filament consumption tracking, power device management
 
 **Multi-Material** — 5 filament system backends: AFC (Box Turtle), Happy Hare (ERCF, 3MS, Tradrack), ValgACE, ViViD, and tool changers. Multi-unit and multi-backend support. Full Spoolman integration with spool creation wizard.
 
@@ -123,7 +126,7 @@ See [docs/devel/GALLERY.md](docs/devel/GALLERY.md) for the full gallery.
 
 **Integrations** — HelixPrint plugin, power devices with quick-toggle, print history with dashboard, timelapse (Moonraker plugin), exclude objects with per-object thumbnails, LED control (5 backends), sound alerts (SDL/PWM/M300)
 
-**Display** — Auto-detecting layout system (480x320, 800x480, 1024x600, 1920x480 ultrawide), display rotation (0/90/180/270) with auto-detection, light/dark themes with 14 presets and live theme editor, GPU-accelerated backdrop blur
+**Display** — Auto-detecting layout system (480x320, 800x480, 1024x600, 1920x480 ultrawide), display rotation (0/90/180/270) with auto-detection, light/dark themes with 14 presets and live theme editor, GPU-accelerated backdrop blur, screensavers
 
 **System** — 13-step first-run wizard, 68 printer models with auto-detection, opt-in crash reporting with debug bundles, KIAUH installer, versioned config migration, i18n translation system
 
@@ -189,14 +192,14 @@ make test-run
 
 **Controls:** Click navigation icons, press 'S' for screenshot, use `-v` (INFO), `-vv` (DEBUG), or `-vvv` (TRACE) for logging.
 
-**Test suite:** 331 test files with comprehensive coverage of printer state, UI components, XML parsing, and more.
+**Test suite:** 317 test files with comprehensive coverage of printer state, UI components, XML parsing, and more.
 
 See [docs/devel/DEVELOPMENT.md](docs/devel/DEVELOPMENT.md) for detailed setup, cross-compilation, and contributing guidelines.
 
 ## FAQ
 
 **Is HelixScreen production-ready?**
-Beta status. Core features are stable and improving with each release. Suitable for enthusiasts willing to provide feedback.
+Release candidate status, approaching 1.0. Core features are stable with 317 test files and opt-in crash reporting. Suitable for daily use on any Klipper printer.
 
 **How is this different from GuppyScreen/KlipperScreen?**
 More features, way less resource usage (~10MB RAM vs ~50MB for KlipperScreen), and actively developed. See the [comparison table](#why-helixscreen).

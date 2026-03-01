@@ -94,7 +94,7 @@ void PrinterFanState::update_from_status(const nlohmann::json& status) {
     for (const auto& [key, value] : status.items()) {
         // Skip non-fan objects
         if (key.rfind("heater_fan ", 0) == 0 || key.rfind("fan_generic ", 0) == 0 ||
-            key.rfind("controller_fan ", 0) == 0) {
+            key.rfind("controller_fan ", 0) == 0 || key.rfind("temperature_fan ", 0) == 0) {
             if (value.is_object() && value.contains("speed") && value["speed"].is_number()) {
                 double speed = value["speed"].get<double>();
                 update_fan_speed(key, speed);
@@ -124,6 +124,8 @@ FanType PrinterFanState::classify_fan_type(const std::string& object_name) const
         return FanType::HEATER_FAN;
     } else if (object_name.rfind("controller_fan ", 0) == 0) {
         return FanType::CONTROLLER_FAN;
+    } else if (object_name.rfind("temperature_fan ", 0) == 0) {
+        return FanType::TEMPERATURE_FAN;
     } else {
         return FanType::GENERIC_FAN;
     }

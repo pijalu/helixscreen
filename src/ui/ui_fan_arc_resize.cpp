@@ -16,10 +16,19 @@ void fan_arc_resize_to_fit(lv_obj_t* card_root) {
     if (!card_root)
         return;
 
+    // Re-entrancy guard: lv_obj_update_layout() below can fire SIZE_CHANGED
+    // which calls back into this function via the event callback
+    static bool in_resize = false;
+    if (in_resize)
+        return;
+    in_resize = true;
+
     lv_obj_t* container = lv_obj_find_by_name(card_root, "dial_container");
     lv_obj_t* arc = lv_obj_find_by_name(card_root, "dial_arc");
-    if (!container || !arc)
+    if (!container || !arc) {
+        in_resize = false;
         return;
+    }
 
     // Force layout computation so flex_grow children have real sizes
     lv_obj_update_layout(card_root);
@@ -32,8 +41,10 @@ void fan_arc_resize_to_fit(lv_obj_t* card_root) {
     arc_size = LV_MAX(arc_size, MIN_ARC_SIZE);
 
     // Skip if already at target size (avoids re-entrancy from child layout changes)
-    if (lv_obj_get_width(arc) == arc_size && lv_obj_get_height(arc) == arc_size)
+    if (lv_obj_get_width(arc) == arc_size && lv_obj_get_height(arc) == arc_size) {
+        in_resize = false;
         return;
+    }
 
     lv_obj_set_size(arc, arc_size, arc_size);
 
@@ -44,6 +55,7 @@ void fan_arc_resize_to_fit(lv_obj_t* card_root) {
 
     spdlog::trace("[FanArcResize] card_w={} container_h={} -> arc={}x{} track_w={}", content_w,
                   container_h, arc_size, arc_size, track_w);
+    in_resize = false;
 }
 
 static void on_card_size_changed(lv_event_t* e) {

@@ -76,6 +76,10 @@ void register_printer_image_widget() {
     register_widget_factory("printer_image",
                             []() { return std::make_unique<PrinterImageWidget>(); });
     register_widget_subjects("printer_image", printer_image_widget_init_subjects);
+
+    // Register XML event callbacks at startup (before any XML is parsed)
+    lv_xml_register_event_cb(nullptr, "printer_manager_clicked_cb",
+                             PrinterImageWidget::printer_manager_clicked_cb);
 }
 } // namespace helix
 
@@ -100,9 +104,6 @@ void PrinterImageWidget::attach(lv_obj_t* widget_obj, lv_obj_t* parent_screen) {
     if (container) {
         lv_obj_set_user_data(container, this);
     }
-
-    // Register XML callback
-    lv_xml_register_event_cb(nullptr, "printer_manager_clicked_cb", printer_manager_clicked_cb);
 
     // Load printer image and info from config
     reload_from_config();

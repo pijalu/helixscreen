@@ -602,15 +602,24 @@ export default {
           }
 
           const queries = releasesQueries(versions);
-          const [statsRes, printStatsRes] =
+          const [statsRes, devicesRes, printStatsRes] =
             await Promise.all(queries.map((q) => executeQuery(queryConfig, q)));
 
           const statsData = statsRes as {
-            data: Array<{ ver: string; total_sessions: number; total_crashes: number; active_devices: number }>;
+            data: Array<{ ver: string; total_sessions: number; total_crashes: number }>;
+          };
+          const devicesData = devicesRes as {
+            data: Array<{ ver: string; active_devices: number }>;
           };
           const printStatsData = printStatsRes as {
             data: Array<{ ver: string; print_successes: number; print_total: number }>;
           };
+
+          // Build device count lookup
+          const deviceMap = new Map<string, number>();
+          for (const row of devicesData.data ?? []) {
+            deviceMap.set(row.ver, row.active_devices);
+          }
 
           // Build print stats lookup
           const printMap = new Map<string, { successes: number; total: number }>();
@@ -623,7 +632,7 @@ export default {
               const prints = printMap.get(r.ver) ?? { successes: 0, total: 0 };
               return {
                 version: r.ver,
-                active_devices: r.active_devices,
+                active_devices: deviceMap.get(r.ver) ?? 0,
                 crash_rate: r.total_sessions > 0 ? r.total_crashes / r.total_sessions : 0,
                 print_success_rate: prints.total > 0 ? prints.successes / prints.total : 0,
                 total_sessions: r.total_sessions,

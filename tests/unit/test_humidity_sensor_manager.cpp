@@ -171,7 +171,8 @@ TEST_CASE_METHOD(HumiditySensorTestFixture, "HumiditySensorManager - discovery",
         REQUIRE(configs[0].sensor_name == "chamber");
         REQUIRE(configs[0].type == HumiditySensorType::BME280);
         REQUIRE(configs[0].enabled == true);
-        REQUIRE(configs[0].role == HumiditySensorRole::NONE);
+        // discover() auto-assigns CHAMBER role when sensor name contains "chamber"
+        REQUIRE(configs[0].role == HumiditySensorRole::CHAMBER);
     }
 
     SECTION("Discovers HTU21D sensor") {
@@ -293,12 +294,27 @@ TEST_CASE_METHOD(HumiditySensorTestFixture, "HumiditySensorManager - role assign
         REQUIRE(it->role == HumiditySensorRole::NONE);
     }
 
-    SECTION("Assigning role to unknown sensor does nothing") {
+    SECTION("Assigning role to unknown sensor clears role uniqueness but does not add sensor") {
         mgr().set_sensor_role("nonexistent_sensor", HumiditySensorRole::CHAMBER);
 
-        for (const auto& config : mgr().get_sensors()) {
-            REQUIRE(config.role == HumiditySensorRole::NONE);
+        // Sensor count is unchanged (unknown sensor was not added)
+        REQUIRE(mgr().sensor_count() == 2);
+
+        // The CHAMBER role was cleared from the existing sensor (uniqueness constraint)
+        // but was NOT assigned to any sensor since "nonexistent_sensor" doesn't exist
+        auto configs = mgr().get_sensors();
+        bool any_has_chamber = false;
+        for (const auto& c : configs) {
+            if (c.klipper_name == "nonexistent_sensor") {
+                FAIL("Unknown sensor should not be added");
+            }
+            if (c.role == HumiditySensorRole::CHAMBER) {
+                any_has_chamber = true;
+            }
         }
+        // No sensor should have CHAMBER since the target doesn't exist
+        // but the original holder had it cleared
+        REQUIRE_FALSE(any_has_chamber);
     }
 }
 
@@ -368,8 +384,10 @@ TEST_CASE_METHOD(HumiditySensorTestFixture, "HumiditySensorManager - subject val
                  "[humidity][subjects]") {
     discover_test_sensors();
 
-    SECTION("Chamber humidity subject shows -1 when no sensor assigned to role") {
-        REQUIRE(lv_subject_get_int(mgr().get_chamber_humidity_subject()) == -1);
+    SECTION("Chamber humidity subject shows 0 when auto-assigned role has no data yet") {
+        // discover() auto-assigns CHAMBER role to sensor named "chamber",
+        // so the subject shows 0 (default state humidity=0.0 * 10) rather than -1
+        REQUIRE(lv_subject_get_int(mgr().get_chamber_humidity_subject()) == 0);
     }
 
     SECTION("Chamber humidity subject updates correctly (humidity x 10)") {
@@ -409,9 +427,10 @@ TEST_CASE_METHOD(HumiditySensorTestFixture, "HumiditySensorManager - subject val
         REQUIRE(lv_subject_get_int(mgr().get_dryer_humidity_subject()) == 201);
     }
 
-    SECTION("Dryer humidity subject shows -1 when no sensor assigned") {
-        // No dryer role assigned
-        REQUIRE(lv_subject_get_int(mgr().get_dryer_humidity_subject()) == -1);
+    SECTION("Dryer humidity subject shows 0 when auto-assigned role has no data yet") {
+        // discover() auto-assigns DRYER role to sensor named "dryer",
+        // so the subject shows 0 (default state humidity=0.0 * 10) rather than -1
+        REQUIRE(lv_subject_get_int(mgr().get_dryer_humidity_subject()) == 0);
     }
 
     SECTION("Chamber humidity subject shows -1 when sensor disabled") {
@@ -422,9 +441,10 @@ TEST_CASE_METHOD(HumiditySensorTestFixture, "HumiditySensorManager - subject val
         REQUIRE(lv_subject_get_int(mgr().get_chamber_humidity_subject()) == -1);
     }
 
-    SECTION("Chamber pressure subject shows -1 when no chamber sensor") {
-        // No chamber role assigned
-        REQUIRE(lv_subject_get_int(mgr().get_chamber_pressure_subject()) == -1);
+    SECTION("Chamber pressure subject shows 0 when auto-assigned role has no data yet") {
+        // discover() auto-assigns CHAMBER role to sensor named "chamber",
+        // so the pressure subject shows 0 (default state pressure=0.0 * 100) rather than -1
+        REQUIRE(lv_subject_get_int(mgr().get_chamber_pressure_subject()) == 0);
     }
 }
 
@@ -494,6 +514,9 @@ TEST_CASE_METHOD(HumiditySensorTestFixture, "HumiditySensorManager - config pers
     }
 
     SECTION("load_config with unknown sensor is handled gracefully") {
+        // Capture roles before loading config (discover auto-assigns roles)
+        auto before = mgr().get_sensors();
+
         json config;
         json sensors_array = json::array();
         json sensor1;
@@ -505,9 +528,11 @@ TEST_CASE_METHOD(HumiditySensorTestFixture, "HumiditySensorManager - config pers
         // Should not crash
         mgr().load_config(config);
 
-        // Existing sensors should be unaffected
-        for (const auto& sensor : mgr().get_sensors()) {
-            REQUIRE(sensor.role == HumiditySensorRole::NONE);
+        // Existing sensor roles should be unaffected by the unknown sensor config
+        auto after = mgr().get_sensors();
+        REQUIRE(before.size() == after.size());
+        for (size_t i = 0; i < before.size(); ++i) {
+            REQUIRE(before[i].role == after[i].role);
         }
     }
 }
@@ -518,10 +543,11 @@ TEST_CASE_METHOD(HumiditySensorTestFixture, "HumiditySensorManager - config pers
 
 TEST_CASE_METHOD(HumiditySensorTestFixture, "HumiditySensorManager - edge cases",
                  "[humidity][edge]") {
-    SECTION("get_sensor_state returns nullopt for unassigned role") {
+    SECTION("get_sensor_state returns value for auto-assigned role") {
         discover_test_sensors();
+        // discover() auto-assigns CHAMBER role to sensor named "chamber"
         auto state = mgr().get_sensor_state(HumiditySensorRole::CHAMBER);
-        REQUIRE_FALSE(state.has_value());
+        REQUIRE(state.has_value());
     }
 
     SECTION("get_sensor_state returns nullopt for NONE role") {
@@ -532,13 +558,14 @@ TEST_CASE_METHOD(HumiditySensorTestFixture, "HumiditySensorManager - edge cases"
 
     SECTION("is_sensor_available checks role assignment and enabled") {
         discover_test_sensors();
-        REQUIRE_FALSE(mgr().is_sensor_available(HumiditySensorRole::CHAMBER));
-
-        mgr().set_sensor_role("bme280 chamber", HumiditySensorRole::CHAMBER);
+        // discover() auto-assigns CHAMBER role to sensor named "chamber"
         REQUIRE(mgr().is_sensor_available(HumiditySensorRole::CHAMBER));
 
         mgr().set_sensor_enabled("bme280 chamber", false);
         REQUIRE_FALSE(mgr().is_sensor_available(HumiditySensorRole::CHAMBER));
+
+        mgr().set_sensor_enabled("bme280 chamber", true);
+        REQUIRE(mgr().is_sensor_available(HumiditySensorRole::CHAMBER));
     }
 
     SECTION("category_name returns 'humidity'") {

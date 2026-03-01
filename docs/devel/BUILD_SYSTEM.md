@@ -462,7 +462,7 @@ cd .worktrees/my-feature
 The script optimizes for **fast builds** by sharing artifacts from the main tree:
 
 1. **Symlinks lib/** - All submodules symlinked (no clone/configure time)
-2. **Symlinks compiled libraries** - `libhv.a`, `libTinyGL.a` from main tree
+2. **Symlinks compiled libraries** - `libhv.a` from main tree
 3. **Symlinks precompiled header** - `lvgl_pch.h.gch` (22MB saved)
 4. **Symlinks tools** - `node_modules/`, `.venv/`
 5. **Configures git** - Uses `--skip-worktree` for clean `git status`
@@ -564,25 +564,6 @@ make compile_commands    # Merge existing fragments (~1-2s)
 ### Build Configuration Options
 
 The build system supports several configuration flags to customize the build:
-
-**TinyGL 3D Rendering** (default: enabled)
-```bash
-# Build with TinyGL 3D rendering support (default)
-make -j
-
-# Build without TinyGL 3D rendering
-make -j ENABLE_TINYGL_3D=no
-```
-
-When `ENABLE_TINYGL_3D=yes` (default):
-- TinyGL library is built from integrated source (`tinygl/`)
-- 3D rendering code is compiled in
-- `ENABLE_TINYGL_3D` preprocessor define is set
-
-When `ENABLE_TINYGL_3D=no`:
-- TinyGL library is not built
-- 3D rendering code is excluded via `#ifdef ENABLE_TINYGL_3D` guards
-- Smaller binary size, faster builds
 
 **Verbosity Control** (default: quiet)
 ```bash

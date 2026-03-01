@@ -49,15 +49,14 @@ class PrinterPluginStatusState {
     // ========================================================================
 
     /**
-     * @brief Set helix plugin installed status (synchronous, must be on UI thread)
+     * @brief Set helix plugin installed status
      *
-     * This is a synchronous setter intended to be called from within
-     * helix::ui::queue_update() by PrinterState, which handles the async
-     * dispatch and the subsequent visibility update.
+     * Called from within helix::ui::queue_update() by PrinterState, which
+     * handles the async dispatch and the subsequent visibility update.
      *
      * @param installed True if HelixPrint plugin is installed
      */
-    void set_installed_sync(bool installed);
+    void set_installed(bool installed);
 
     /**
      * @brief Set phase tracking enabled status (async update)

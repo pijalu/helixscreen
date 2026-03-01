@@ -258,14 +258,6 @@ The 2D layer renderer (`GCodeLayerRenderer`) is the default rendering mode. It s
 - **Selection brackets**: Highlighted objects show corner bracket wireframes around their 3D bounding box (20% of shortest edge, capped at 5mm). 8 corners x 3 axes = 24 bracket lines per object.
 - **Long-press detection**: In 2D mode, mouse/touch micro-jitter during pressing events is ignored (the `pressing` callback returns early in 2D mode), which prevents accidental cancellation of the long-press timer.
 
-### 3D TinyGL Renderer
-
-The 3D renderer (dev/testing only, too slow for production) also supports:
-
-- Object picking via ray-polygon intersection
-- Corner bracket wireframes around object bounding boxes
-- Excluded object visual styling via `GCodeRenderer::set_excluded_objects()`
-
 ### Streaming Mode
 
 In streaming mode (`GCodeStreamingController`), the layer renderer operates on per-layer segment data fetched on demand rather than the full parsed file. Object picking still works because `pick_object_at()` checks if a streaming controller is available and queries its segment data for the current layer.

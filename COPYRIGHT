@@ -40,6 +40,6 @@ This project includes third-party components with their own licenses:
 - GLM (lib/glm) - MIT License
 - OpenVDB (lib/openvdb) - Mozilla Public License 2.0
 - wpa_supplicant (lib/wpa_supplicant) - BSD License
-- TinyGL (lib/tinygl) - MIT License
+- stb libraries (lib/stb) - MIT License / Public Domain
 
 See individual library directories for their respective license texts.

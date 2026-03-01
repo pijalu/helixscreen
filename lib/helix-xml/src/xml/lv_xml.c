@@ -448,26 +448,74 @@ lv_result_t lv_xml_register_font(lv_xml_component_scope_t * scope, const char * 
     return LV_RESULT_OK;
 }
 
-const lv_font_t * lv_xml_get_font(lv_xml_component_scope_t * scope, const char * name)
+/**
+ * Check if a pointer looks like a valid user-space address.
+ * Catches corrupted pointers (e.g., garbage values from heap corruption)
+ * that would crash in lv_strcmp/lv_streq.
+ */
+static bool lv_xml_ptr_looks_valid(const void * p)
+{
+    if(p == NULL) return false;
+#ifdef LV_ARCH_64
+    /* 64-bit user-space pointers have upper 16 bits clear (48-bit addressing) */
+    return ((lv_uintptr_t)p >> 48) == 0;
+#else
+    return true;
+#endif
+}
+
+/**
+ * Iterate a font linked list searching for a font by name.
+ * Validates each node's name pointer before access to survive heap corruption.
+ * Returns the font if found, NULL otherwise. Sets *corruption_detected if a bad node is found.
+ */
+static const lv_font_t * lv_xml_search_font_ll(lv_ll_t * font_ll, const char * scope_name,
+                                                 const char * name, bool * corruption_detected)
 {
     lv_xml_font_t * f;
-    if(scope) {
-        LV_LL_READ(&scope->font_ll, f) {
-            if(lv_streq(f->name, name)) return f->font;
+    int node_index = 0;
+    LV_LL_READ(font_ll, f) {
+        if(!lv_xml_ptr_looks_valid(f->name)) {
+            LV_LOG_ERROR("HEAP_CORRUPTION: font_ll node[%d] at %p has corrupted name pointer %p "
+                         "(font_ptr=%p, scope=%s, searching for \"%s\")",
+                         node_index, (void *)f, f->name, (void *)f->font,
+                         scope_name ? scope_name : "NULL", name);
+            if(corruption_detected) *corruption_detected = true;
+            node_index++;
+            continue;
         }
+        if(lv_streq(f->name, name)) return f->font;
+        node_index++;
+    }
+    return NULL;
+}
+
+const lv_font_t * lv_xml_get_font(lv_xml_component_scope_t * scope, const char * name)
+{
+    bool corruption_detected = false;
+    const lv_font_t * result;
+
+    if(scope) {
+        result = lv_xml_search_font_ll(&scope->font_ll, scope->name, name, &corruption_detected);
+        if(result) return result;
     }
 
     /*If not found in the component check the global space*/
     if((scope == NULL || scope->name == NULL) || !lv_streq(scope->name, "globals")) {
         scope = lv_xml_component_get_scope("globals");
         if(scope) {
-            LV_LL_READ(&scope->font_ll, f) {
-                if(lv_streq(f->name, name)) return f->font;
-            }
+            result = lv_xml_search_font_ll(&scope->font_ll, "globals", name, &corruption_detected);
+            if(result) return result;
         }
     }
 
-    LV_LOG_WARN("No font was found with name \"%s\". Using LV_FONT_DEFAULT instead.", name);
+    if(corruption_detected) {
+        LV_LOG_ERROR("HEAP_CORRUPTION: font \"%s\" not found after skipping corrupted node(s) — "
+                     "returning default font to prevent crash", name);
+    }
+    else {
+        LV_LOG_WARN("No font was found with name \"%s\". Using LV_FONT_DEFAULT instead.", name);
+    }
     return lv_font_get_default();
 }
 

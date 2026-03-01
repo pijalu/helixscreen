@@ -1164,7 +1164,9 @@ void TempControlPanel::rebuild_extruder_segments_impl() {
     auto& tool_state = helix::ToolState::instance();
 
     for (const auto& ext_name : names) {
-        const auto& info = extruders.at(ext_name);
+        auto ext_it = extruders.find(ext_name);
+        if (ext_it == extruders.end()) continue;
+        const auto& info = ext_it->second;
         lv_obj_t* btn = lv_button_create(selector);
         lv_obj_set_flex_grow(btn, 1);
         lv_obj_set_height(btn, LV_SIZE_CONTENT);

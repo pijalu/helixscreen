@@ -108,6 +108,9 @@
 #include "android_asset_extractor.h"
 #include "data_root_resolver.h"
 #include "display_settings_manager.h"
+#ifdef HELIX_ENABLE_SCREENSAVER
+#include "screensaver.h"
+#endif
 #include "led/ui_led_control_overlay.h"
 #include "platform_info.h"
 #include "printer_detector.h"
@@ -1191,7 +1194,6 @@ bool Application::init_moonraker() {
         std::make_unique<JobQueueState>(m_moonraker->api(), get_moonraker_client());
     m_job_queue_state->init_subjects();
     set_job_queue_state(m_job_queue_state.get());
-    m_job_queue_state->fetch();
     spdlog::debug("[Application] JobQueueState created");
 
     // Initialize macro modification manager (for PRINT_START wizard)
@@ -1795,7 +1797,9 @@ void Application::setup_discovery_callbacks() {
             c->client->register_method_callback(
                 "notify_history_changed", "AboutOverlay_print_hours",
                 [](const nlohmann::json& /*data*/) {
-                    helix::settings::get_about_settings_overlay().fetch_print_hours();
+                    helix::ui::queue_update([]() {
+                        helix::settings::get_about_settings_overlay().fetch_print_hours();
+                    });
                 });
 
             // Register for timelapse events when timelapse is detected
@@ -1857,6 +1861,11 @@ void Application::setup_discovery_callbacks() {
                     // Silently treat errors as "plugin not installed"
                     get_printer_state().set_helix_plugin_installed(false);
                 });
+
+            // Fetch job queue now that WebSocket is actually connected
+            if (c->app->m_job_queue_state) {
+                c->app->m_job_queue_state->fetch();
+            }
 
             // Notify plugins that Moonraker is connected
             if (c->app->m_plugin_manager) {
@@ -2419,6 +2428,25 @@ void Application::handle_keyboard_shortcuts() {
                 m_action_prompt_manager->trigger_test_notify();
             },
             [this]() { return get_runtime_config()->is_test_mode() && m_action_prompt_manager; });
+
+#ifdef HELIX_ENABLE_SCREENSAVER
+        // Z key - cycle through screensavers (Off → Toasters → Starfield → Pipes → Off)
+        shortcuts.register_key(SDL_SCANCODE_Z, []() {
+            auto& mgr = ScreensaverManager::instance();
+            if (mgr.is_active()) {
+                mgr.stop();
+                spdlog::info("[Application] Z key - screensaver stopped");
+            } else {
+                auto type = ScreensaverManager::configured_type();
+                if (type == ScreensaverType::OFF) {
+                    type = ScreensaverType::FLYING_TOASTERS;
+                }
+                mgr.start(type);
+                spdlog::info("[Application] Z key - screensaver started (type {})",
+                             static_cast<int>(type));
+            }
+        });
+#endif
 
         shortcuts_initialized = true;
     }

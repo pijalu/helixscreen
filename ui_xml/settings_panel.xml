@@ -34,11 +34,6 @@
                           description="Theme, brightness, and sleep settings"
                           description_tag="Theme, brightness, and sleep settings" callback="on_display_settings_clicked"/>
     </lv_obj>
-    <!-- Panel Widgets (toggle and reorder status widgets on the home panel) -->
-    <setting_action_row name="row_panel_widgets"
-                        label="Home Widgets" label_tag="Home Widgets" icon="view_grid"
-                        description="Toggle and reorder status widgets"
-                        description_tag="Toggle and reorder status widgets" callback="on_panel_widgets_clicked"/>
     <!-- ================================================================== -->
     <!-- PRINTER SECTION -->
     <!-- ================================================================== -->

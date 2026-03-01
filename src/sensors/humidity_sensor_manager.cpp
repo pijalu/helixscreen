@@ -10,6 +10,7 @@
 #include "static_subject_registry.h"
 
 #include <algorithm>
+#include <cmath>
 #include <cstring>
 
 // CRITICAL: Subject updates trigger lv_obj_invalidate() which asserts if called
@@ -167,15 +168,21 @@ void HumiditySensorManager::update_from_status(const nlohmann::json& status) {
                 state.pressure = sensor_data["pressure"].get<float>();
             }
 
-            // Check for state change
+            // Check for state change (compare at display precision to avoid log spam)
             if (state.humidity != old_state.humidity ||
                 state.temperature != old_state.temperature ||
                 state.pressure != old_state.pressure) {
                 any_changed = true;
-                spdlog::debug(
-                    "[HumiditySensorManager] Sensor {} updated: humidity={:.1f}%, temp={:.1f}C, "
-                    "pressure={:.1f}hPa",
-                    sensor.sensor_name, state.humidity, state.temperature, state.pressure);
+                // Only log when the formatted values actually differ
+                if (std::lround(state.humidity * 10) != std::lround(old_state.humidity * 10) ||
+                    std::lround(state.temperature * 10) !=
+                        std::lround(old_state.temperature * 10) ||
+                    std::lround(state.pressure * 10) != std::lround(old_state.pressure * 10)) {
+                    spdlog::debug(
+                        "[HumiditySensorManager] Sensor {} updated: humidity={:.1f}%, "
+                        "temp={:.1f}C, pressure={:.1f}hPa",
+                        sensor.sensor_name, state.humidity, state.temperature, state.pressure);
+                }
             }
         }
 
@@ -184,7 +191,7 @@ void HumiditySensorManager::update_from_status(const nlohmann::json& status) {
                 spdlog::debug("[HumiditySensorManager] sync_mode: updating subjects synchronously");
                 update_subjects();
             } else {
-                spdlog::debug("[HumiditySensorManager] async_mode: deferring via ui_queue_update");
+                spdlog::trace("[HumiditySensorManager] async_mode: deferring via ui_queue_update");
                 helix::ui::queue_update(
                     [] { HumiditySensorManager::instance().update_subjects_on_main_thread(); });
             }

@@ -42,6 +42,7 @@
 
 #include <spdlog/spdlog.h>
 
+#include <atomic>
 #include <functional>
 #include <memory>
 #include <mutex>
@@ -109,6 +110,7 @@ class UpdateQueue {
      * @param callback Function to execute
      */
     void queue(UpdateCallback callback) {
+        if (frozen_.load(std::memory_order_relaxed)) return;
         std::lock_guard<std::mutex> lock(mutex_);
         if (shut_down_) {
             // Silently discard — queue is shut down, panels may be destroyed.
@@ -153,6 +155,32 @@ class UpdateQueue {
     void drain() {
         process_pending();
     }
+
+    /**
+     * @brief RAII guard that silently discards queued callbacks
+     *
+     * Use around drain()+destroy sequences to prevent the WebSocket background
+     * thread from queueing new callbacks between drain() and widget destruction.
+     * While frozen, queue() silently discards callbacks (same as shut_down_).
+     */
+    class ScopedFreeze {
+    public:
+        explicit ScopedFreeze(UpdateQueue& q) : q_(q) { q_.frozen_.store(true, std::memory_order_relaxed); }
+        ~ScopedFreeze() { q_.frozen_.store(false, std::memory_order_relaxed); }
+        ScopedFreeze(const ScopedFreeze&) = delete;
+        ScopedFreeze& operator=(const ScopedFreeze&) = delete;
+    private:
+        UpdateQueue& q_;
+    };
+
+    /**
+     * @brief Create a scoped freeze guard
+     *
+     * While the returned guard is alive, queue() silently discards all callbacks.
+     * Use before drain()+destroy to close the race window where background threads
+     * can enqueue callbacks targeting widgets about to be destroyed.
+     */
+    [[nodiscard]] ScopedFreeze scoped_freeze() { return ScopedFreeze(*this); }
 
     /**
      * @brief Pause the update queue timer
@@ -230,6 +258,7 @@ class UpdateQueue {
     lv_timer_t* timer_ = nullptr;
     bool initialized_ = false;
     bool shut_down_ = false;
+    std::atomic<bool> frozen_{false};
 };
 
 /**

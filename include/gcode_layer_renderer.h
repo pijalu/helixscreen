@@ -610,7 +610,7 @@ class GCodeLayerRenderer {
     std::unique_ptr<uint8_t[]> ghost_raw_buffer_;
     int ghost_raw_width_ = 0;
     int ghost_raw_height_ = 0;
-    int ghost_raw_stride_ = 0; // Bytes per row
+    size_t ghost_raw_stride_ = 0; // Bytes per row
 
     /// Background thread management (works for both streaming and non-streaming modes)
     std::thread ghost_thread_;

@@ -509,6 +509,19 @@ void WizardPrinterIdentifyStep::cleanup() {
         spdlog::debug("[{}] Saving printer type to config: '{}' (index {})", get_name(), type_name,
                       type_index);
 
+        // Apply platform-specific display config overrides.
+        // Some Allwinner platforms can't recover from backlight power-off during
+        // sleep — wake-on-touch fails because the display controller loses state.
+        // AD5X: issue #235, CC1: backlight_enable_ioctl already disabled in preset
+        if (type_name == "FlashForge Adventurer 5X" ||
+            type_name == "Elegoo Centauri Carbon") {
+            config->set<bool>("/display/backlight_enable_ioctl", false);
+            config->set<int>("/display/hardware_blank", 0);
+            config->set<bool>("/display/sleep_backlight_off", false);
+            spdlog::info("[{}] Applied {} display overrides (no backlight disable during sleep)",
+                         get_name(), type_name);
+        }
+
         // Persist config changes
         if (config->save()) {
             spdlog::debug("[{}] Saved printer identification settings", get_name());

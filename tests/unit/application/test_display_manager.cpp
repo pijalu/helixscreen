@@ -11,7 +11,13 @@
  */
 
 #include "application_test_fixture.h"
+#include "config.h"
 #include "display_manager.h"
+
+#include "hv/json.hpp"
+
+#include <filesystem>
+#include <fstream>
 
 #include "../../catch_amalgamated.hpp"
 
@@ -322,4 +328,104 @@ TEST_CASE("DisplayManager restore_display_on_shutdown is safe when not sleeping"
     mgr.restore_display_on_shutdown();
 
     REQUIRE_FALSE(mgr.is_display_sleeping());
+}
+
+// ============================================================================
+// AD5X Preset Validation Tests
+// ============================================================================
+
+// Resolve project root from __FILE__ (tests/unit/application/test_display_manager.cpp)
+static std::string get_project_root() {
+    namespace fs = std::filesystem;
+    fs::path src(__FILE__);
+    if (src.is_relative()) {
+        src = fs::current_path() / src;
+    }
+    // Go up 3 levels: application/ -> unit/ -> tests/ -> project root
+    return src.parent_path().parent_path().parent_path().parent_path().string();
+}
+
+TEST_CASE("AD5X preset has required display sleep config", "[application][display][ad5x]") {
+    // Verify the AD5X preset JSON has the keys needed to prevent wake-on-touch
+    // failure (issue #235)
+    std::string preset_path = get_project_root() + "/config/presets/ad5x.json";
+
+    std::ifstream f(preset_path);
+    REQUIRE(f.is_open());
+
+    nlohmann::json preset;
+    REQUIRE_NOTHROW(preset = nlohmann::json::parse(f));
+
+    // AD5X must NOT use backlight enable/disable ioctls (causes wake failure)
+    REQUIRE(preset.contains("display"));
+    auto& display = preset["display"];
+    REQUIRE(display.value("backlight_enable_ioctl", true) == false);
+
+    // AD5X must use software overlay (hardware_blank = 0)
+    REQUIRE(display.value("hardware_blank", -1) == 0);
+
+    // AD5X must keep backlight on during sleep
+    REQUIRE(display.value("sleep_backlight_off", true) == false);
+}
+
+TEST_CASE("CC1 preset has required display sleep config", "[application][display][cc1]") {
+    std::string preset_path = get_project_root() + "/config/presets/cc1.json";
+
+    std::ifstream f(preset_path);
+    REQUIRE(f.is_open());
+
+    nlohmann::json preset;
+    REQUIRE_NOTHROW(preset = nlohmann::json::parse(f));
+
+    REQUIRE(preset.contains("display"));
+    auto& display = preset["display"];
+    REQUIRE(display.value("backlight_enable_ioctl", true) == false);
+    REQUIRE(display.value("hardware_blank", -1) == 0);
+    REQUIRE(display.value("sleep_backlight_off", true) == false);
+}
+
+TEST_CASE("AD5M preset does NOT disable backlight during sleep",
+          "[application][display][ad5m]") {
+    // Verify the AD5M preset does NOT set sleep_backlight_off=false
+    // (AD5M sleep/wake works correctly with current hardware blank path)
+    std::string preset_path = get_project_root() + "/config/presets/ad5m.json";
+
+    std::ifstream f(preset_path);
+    REQUIRE(f.is_open());
+
+    nlohmann::json preset;
+    REQUIRE_NOTHROW(preset = nlohmann::json::parse(f));
+
+    // AD5M should not have display.sleep_backlight_off set at all (uses default=true)
+    if (preset.contains("display")) {
+        REQUIRE_FALSE(preset["display"].contains("sleep_backlight_off"));
+    }
+}
+
+TEST_CASE("sleep_backlight_off config controls backlight behavior during sleep",
+          "[application][display][sleep]") {
+    // Verify that Config correctly reads sleep_backlight_off
+    // Write a temp config with sleep_backlight_off = false
+    namespace fs = std::filesystem;
+    auto tmp_dir = fs::temp_directory_path() / ("helix_test_cfg_" + std::to_string(getpid()));
+    fs::create_directories(tmp_dir);
+    auto tmp_cfg = tmp_dir / "helixconfig.json";
+
+    {
+        nlohmann::json cfg;
+        cfg["display"]["sleep_backlight_off"] = false;
+        std::ofstream f(tmp_cfg);
+        f << cfg.dump(2);
+    }
+
+    helix::Config config;
+    config.init(tmp_cfg.string());
+
+    REQUIRE(config.get<bool>("/display/sleep_backlight_off", true) == false);
+
+    // Default when not set should be true
+    helix::Config config2;
+    REQUIRE(config2.get<bool>("/display/sleep_backlight_off", true) == true);
+
+    fs::remove_all(tmp_dir);
 }

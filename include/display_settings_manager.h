@@ -159,11 +159,14 @@ class DisplaySettingsManager {
     // =========================================================================
 
 #ifdef HELIX_ENABLE_SCREENSAVER
-    /** @brief Get screensaver enabled state */
-    bool get_screensaver_enabled() const;
+    /** @brief Get screensaver type (0=Off, 1=Flying Toasters, 2=Starfield, 3=3D Pipes) */
+    int get_screensaver_type() const;
 
-    /** @brief Set screensaver enabled state (updates subject + persists) */
-    void set_screensaver_enabled(bool enabled);
+    /** @brief Set screensaver type (updates subject + persists) */
+    void set_screensaver_type(int type);
+
+    /** @brief Get dropdown options string for screensaver types */
+    static const char* get_screensaver_type_options();
 #endif
 
     // =========================================================================
@@ -275,9 +278,9 @@ class DisplaySettingsManager {
     }
 
 #ifdef HELIX_ENABLE_SCREENSAVER
-    /** @brief Screensaver enabled subject (integer: 0=off, 1=on) */
-    lv_subject_t* subject_screensaver_enabled() {
-        return &screensaver_enabled_subject_;
+    /** @brief Screensaver type subject (integer: 0=off, 1=toasters, 2=starfield, 3=pipes) */
+    lv_subject_t* subject_screensaver_type() {
+        return &screensaver_type_subject_;
     }
 #endif
 
@@ -302,7 +305,7 @@ class DisplaySettingsManager {
     lv_subject_t time_format_subject_;
 
 #ifdef HELIX_ENABLE_SCREENSAVER
-    lv_subject_t screensaver_enabled_subject_;
+    lv_subject_t screensaver_type_subject_;
 #endif
 
     bool subjects_initialized_ = false;

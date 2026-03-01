@@ -1675,6 +1675,8 @@ std::string UpdateChecker::get_platform_key() {
     return "ad5m";
 #elif defined(HELIX_PLATFORM_CC1)
     return "cc1";
+#elif defined(HELIX_PLATFORM_AD5X)
+    return "ad5x";
 #elif defined(HELIX_PLATFORM_MIPS)
     // Same binary runs on K1 and AD5X — detect at runtime.
     // AD5X has /usr/prog dir (FlashForge layout) or /ZMOD file; K1 has neither.

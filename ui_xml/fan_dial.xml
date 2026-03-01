@@ -24,7 +24,7 @@
     <!-- Arc dial container - flexes to fill remaining vertical space -->
     <lv_obj name="dial_container"
             width="100%" flex_grow="1"
-            style_pad_all="0" scrollable="false"
+            style_pad_all="0" style_pad_top="#space_sm" scrollable="false"
             style_flex_main_place="center" style_flex_cross_place="center">
       <!-- 270-degree arc dial (size set dynamically by C++ SIZE_CHANGED callback) -->
       <lv_arc name="dial_arc"
@@ -34,8 +34,8 @@
               min_value="0" max_value="100" value="$initial_value"
               rotation="0" mode="normal"
               style_arc_color="#border"
-              style_arc_color:indicator="#primary"
-              style_arc_rounded="true" style_arc_rounded:indicator="true"
+              style_arc_color-indicator="#primary"
+              style_arc_rounded="true" style_arc_rounded-indicator="true"
               style_bg_opa="0" style_border_width="0">
         <event_cb trigger="value_changed" callback="on_fan_dial_value_changed"/>
       </lv_arc>

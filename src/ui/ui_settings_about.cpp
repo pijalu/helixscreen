@@ -19,7 +19,13 @@
 
 #include "app_globals.h"
 #include "config.h"
+#if __has_include("contributors.h")
 #include "contributors.h"
+#else
+// Fallback when contributors.h is not generated (e.g., Android CMake builds)
+inline constexpr const char* kContributors[] = {"HelixScreen Contributors"};
+inline constexpr int kContributorCount = 1;
+#endif
 #include "format_utils.h"
 #include "helix_version.h"
 #include "lvgl/src/others/translation/lv_translation.h"

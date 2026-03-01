@@ -2,36 +2,38 @@
 <!-- Copyright (C) 2025-2026 356C LLC -->
 <!-- SPDX-License-Identifier: GPL-3.0-or-later -->
 <component>
-  <consts>
-    <px name="swatch_size" value="24"/>
-  </consts>
   <!--
-    AMS Currently Loaded Card - Shows current filament info.
+    AMS Currently Loaded Card - Shows current filament info + optional clog meter.
 
     Binds to AmsState subjects:
     - ams_current_material_text: Material name (e.g., "Red PLA")
     - ams_current_weight_text: Remaining weight (e.g., "750g")
     - ams_current_has_weight: Show/hide weight (0 = hidden)
+    - clog_meter_mode: 0=hidden, 1=encoder, 2=flowguard, 3=afc_buffer
+    - clog_meter_value_text: Flow rate or status text
+    - clog_meter_mode_text: Detection mode text
 
     Slot info is shown in the section header above (bound to ams_current_slot_text).
     Color swatch updated by C++ via lv_obj_find_by_name(sidebar, "loaded_swatch").
+    Clog arc size/stroke/color dynamically set by UiClogMeter C++ class via
+    SIZE_CHANGED callback — no fixed pixel sizes in XML.
   -->
   <view name="ams_loaded_card" extends="ui_card"
         width="100%" height="content" style_radius="#border_radius"
-        style_pad_all="#space_sm" flex_flow="row"
+        style_pad_all="#space_md" flex_flow="row"
         style_flex_main_place="start" style_flex_cross_place="center"
         style_pad_gap="#space_sm">
-    <!-- Color swatch (left side) -->
+    <!-- Color swatch (left side, stretches to row height) -->
     <lv_obj name="loaded_swatch"
-            width="#swatch_size" height="#swatch_size" style_radius="#border_radius"
+            width="15%" height="100%" style_radius="#border_radius"
             style_bg_color="#text_muted" style_bg_opa="255" style_border_width="#space_xxs"
             style_border_color="#text_muted" style_border_opa="80"
             scrollable="false" clickable="false"/>
-    <!-- Details column (right side) -->
+    <!-- Details column (center, flex-grows to fill) -->
     <lv_obj height="content" style_pad_all="0" flex_flow="column"
             style_flex_main_place="center" style_flex_cross_place="start"
             style_pad_gap="0" scrollable="false" width="1" flex_grow="1">
-      <!-- Material name (wraps for long names) -->
+      <!-- Material name -->
       <text_small name="loaded_material" width="100%"
                   bind_text="ams_current_material_text" long_mode="scroll_circular"/>
       <!-- Weight (hidden when not available) -->
@@ -39,6 +41,35 @@
                  style_text_color="#text_muted">
         <bind_flag_if_eq subject="ams_current_has_weight" flag="hidden" ref_value="0"/>
       </text_tiny>
+    </lv_obj>
+    <!-- Clog detection mini-meter (right side, auto-hides when mode=0).
+         Arc size set dynamically by UiClogMeter C++ SIZE_CHANGED callback. -->
+    <lv_obj name="clog_meter" width="content" height="content"
+            style_pad_all="0" scrollable="false" flex_flow="column"
+            style_flex_main_place="center" style_flex_cross_place="center"
+            style_pad_gap="0">
+      <bind_flag_if_eq subject="clog_meter_mode" flag="hidden" ref_value="0"/>
+      <!-- Mini arc (sized by C++) -->
+      <lv_obj name="clog_arc_container"
+              style_pad_all="0" scrollable="false">
+        <lv_arc name="clog_arc" align="center"
+                bg_start_angle="135" bg_end_angle="45"
+                start_angle="135" end_angle="135"
+                min_value="0" max_value="100" value="0"
+                mode="normal" clickable="false"
+                style_arc_color="#border" style_arc_color-indicator="#primary"
+                style_arc_rounded="true" style_arc_rounded-indicator="true"
+                style_bg_opa="0" style_border_width="0"
+                style_bg_opa-knob="0" style_shadow_width-knob="0"
+                style_outline_width-knob="0"/>
+        <!-- Center: flow value -->
+        <text_tiny name="clog_value_text" align="center"
+                   bind_text="clog_meter_value_text"
+                   style_text_align="center"/>
+      </lv_obj>
+      <!-- Mode label below arc -->
+      <text_tiny name="clog_mode_text" bind_text="clog_meter_mode_text"
+                 style_text_color="#text_muted" style_text_align="center"/>
     </lv_obj>
   </view>
 </component>

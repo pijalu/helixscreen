@@ -212,6 +212,7 @@ TEST_CASE("Layer tracking: progress-based estimation fallback", "[layer_tracking
 
     // Set total layers from metadata (this is how it works in practice)
     state.set_print_layer_total(320);
+    UpdateQueueTestAccess::drain(helix::ui::UpdateQueue::instance());
 
     SECTION("estimates layer from progress when no real layer data") {
         REQUIRE_FALSE(state.has_real_layer_data());
@@ -243,6 +244,7 @@ TEST_CASE("Layer tracking: progress-based estimation fallback", "[layer_tracking
 
     SECTION("does not estimate when total_layers is 0") {
         state.set_print_layer_total(0);
+        UpdateQueueTestAccess::drain(helix::ui::UpdateQueue::instance());
 
         json progress = {{"virtual_sdcard", {{"progress", 0.50}}}};
         state.update_from_status(progress);

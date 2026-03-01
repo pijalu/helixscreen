@@ -133,8 +133,13 @@ endif
 # Ccache integration - auto-detect and use if available (10x faster rebuilds)
 CCACHE := $(shell command -v ccache 2>/dev/null)
 ifneq ($(CCACHE),)
-    CC := ccache $(CC)
-    CXX := ccache $(CXX)
+    # Avoid double-wrapping when CC/CXX already include ccache (common in CI env).
+    ifneq ($(notdir $(firstword $(CC))),ccache)
+        CC := ccache $(CC)
+    endif
+    ifneq ($(notdir $(firstword $(CXX))),ccache)
+        CXX := ccache $(CXX)
+    endif
 endif
 
 # Dependency generation flags for proper header tracking
@@ -299,6 +304,9 @@ endif
 # Exclude screensaver when not enabled
 ifneq ($(ENABLE_SCREENSAVER),yes)
     APP_SRCS := $(filter-out $(SRC_DIR)/ui/ui_screensaver.cpp,$(APP_SRCS))
+    APP_SRCS := $(filter-out $(SRC_DIR)/ui/screensaver_manager.cpp,$(APP_SRCS))
+    APP_SRCS := $(filter-out $(SRC_DIR)/ui/screensaver_starfield.cpp,$(APP_SRCS))
+    APP_SRCS := $(filter-out $(SRC_DIR)/ui/screensaver_pipes.cpp,$(APP_SRCS))
 endif
 APP_OBJS := $(patsubst $(SRC_DIR)/%.cpp,$(OBJ_DIR)/%.o,$(APP_SRCS))
 
@@ -365,6 +373,14 @@ else
     LIBHV_INC := -isystem $(LIBHV_DIR)/include -isystem $(LIBHV_DIR)/cpputil -isystem $(LIBHV_DIR)
     LIBHV_LIB := $(BUILD_DIR)/lib/libhv.a
     LIBHV_LIBS := $(LIBHV_LIB)
+endif
+
+# libhv generates include/hv headers during libhv-build. Track json.hpp so a
+# stale archive cannot be reused when generated headers are missing.
+ifneq ($(LIBHV_LIB),)
+    LIBHV_JSON_HEADER := $(LIBHV_DIR)/include/hv/json.hpp
+else
+    LIBHV_JSON_HEADER :=
 endif
 
 # spdlog (logging library) - Use system version if available, otherwise use submodule
@@ -472,7 +488,7 @@ PCH_FLAGS := -include $(PCH_HEADER)
 # Project includes use -I (warnings enabled), library includes use -isystem (warnings suppressed)
 # This allows `make strict` to catch issues in project code while ignoring third-party header warnings
 # stb_image headers (used for thumbnail processing)
-STB_INC := -isystem lib/tinygl/include-demo
+STB_INC := -isystem lib/stb
 INCLUDES := -I. -I$(INC_DIR) -Isrc/generated -I$(BUILD_DIR)/generated -isystem lib -isystem lib/glm $(LVGL_INC) $(LIBHV_INC) $(SPDLOG_INC) $(STB_INC) $(LV_MARKDOWN_INC) $(WPA_INC) $(SDL2_INC)
 
 # Common linker flags (used by both macOS and Linux)

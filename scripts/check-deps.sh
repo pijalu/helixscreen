@@ -217,13 +217,19 @@ check_libraries() {
             # but OpenSSL installs to <prefix>/<triple>/include (one level up from libc)
             SSL_FOUND=0
             SYSROOT=$("$CC" -print-sysroot 2>/dev/null || true)
-            if [ -n "$SYSROOT" ] && [ -f "$SYSROOT/include/openssl/ssl.h" ]; then
+            if [ -n "$SYSROOT" ] && [ -f "$SYSROOT/usr/include/openssl/ssl.h" ]; then
+                ok "OpenSSL found (cross-compiler sysroot/usr)"
+                SSL_FOUND=1
+            elif [ -n "$SYSROOT" ] && [ -f "$SYSROOT/include/openssl/ssl.h" ]; then
                 ok "OpenSSL found (cross-compiler sysroot)"
                 SSL_FOUND=1
             elif [ -n "$SYSROOT" ]; then
                 TOOLCHAIN_PREFIX=$(dirname "$SYSROOT")
                 if [ -f "$TOOLCHAIN_PREFIX/include/openssl/ssl.h" ]; then
                     ok "OpenSSL found (toolchain: $TOOLCHAIN_PREFIX)"
+                    SSL_FOUND=1
+                elif [ -f "$TOOLCHAIN_PREFIX/sysroot/usr/include/openssl/ssl.h" ]; then
+                    ok "OpenSSL found (toolchain sysroot/usr: $TOOLCHAIN_PREFIX)"
                     SSL_FOUND=1
                 fi
             fi

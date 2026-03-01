@@ -153,6 +153,7 @@ static const IconMapping ICON_MAP[] = {
     {"lan",                "\xF3\xB0\x8C\x97"},  // F0317 lan
     {"layers",             "\xF3\xB0\x8C\xA8"},  // F0328 layers
     {"leaf",               "\xF3\xB0\x8C\xAA"},  // F032A leaf
+    {"led_strip",          "\xF3\xB0\x9F\x96"},  // F07D6 led-strip
     {"light",              "\xF3\xB0\x8C\xB5"},  // F0335 lightbulb
     {"light_off",          "\xF3\xB0\xB9\x8F"},  // F0E4F lightbulb-off
     {"lightbulb_on",       "\xF3\xB0\x9B\xA8"},  // F06E8 lightbulb-on (100%)
@@ -228,6 +229,7 @@ static const IconMapping ICON_MAP[] = {
     {"sync",               "\xF3\xB0\x93\xA6"},  // F04E6 sync (auto-detect)
     {"sysinfo",            "\xF3\xB0\x8B\xBC"},  // F02FC information
     {"target",             "\xF3\xB0\x93\xBE"},  // F04FE target (touch calibration)
+    {"television_classic", "\xF3\xB0\x9F\xB4"},  // F07F4 television-classic (screensaver)
 
     // Temperature
     {"thermometer",        "\xF3\xB0\x94\x8F"},  // F050F thermometer

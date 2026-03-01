@@ -51,6 +51,7 @@ void OverlayBase::destroy_overlay_ui(lv_obj_t*& cached_panel) {
     // Drain deferred observer callbacks while all pointers are still valid.
     // observe_int_sync queues lambdas via queue_update() that capture raw
     // panel pointers. Processing them here prevents use-after-free.
+    auto freeze = helix::ui::UpdateQueue::instance().scoped_freeze();
     helix::ui::UpdateQueue::instance().drain();
 
     // Unregister from NavigationManager before deleting the widget

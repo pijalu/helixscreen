@@ -35,6 +35,13 @@ void register_favorite_macro_widgets() {
     register_widget_factory("favorite_macro_2", []() {
         return std::make_unique<FavoriteMacroWidget>("favorite_macro_2");
     });
+    // Register XML callbacks early — before any XML is parsed
+    lv_xml_register_event_cb(nullptr, "favorite_macro_1_clicked_cb",
+                             FavoriteMacroWidget::clicked_1_cb);
+    lv_xml_register_event_cb(nullptr, "favorite_macro_2_clicked_cb",
+                             FavoriteMacroWidget::clicked_2_cb);
+    lv_xml_register_event_cb(nullptr, "fav_macro_picker_backdrop_cb",
+                             FavoriteMacroWidget::picker_backdrop_cb);
 }
 } // namespace helix
 
@@ -140,12 +147,14 @@ void FavoriteMacroWidget::attach(lv_obj_t* widget_obj, lv_obj_t* parent_screen) 
 
     if (widget_obj_) {
         lv_obj_set_user_data(widget_obj_, this);
-    }
 
-    // Register XML event callbacks
-    lv_xml_register_event_cb(nullptr, "favorite_macro_1_clicked_cb", clicked_1_cb);
-    lv_xml_register_event_cb(nullptr, "favorite_macro_2_clicked_cb", clicked_2_cb);
-    lv_xml_register_event_cb(nullptr, "fav_macro_picker_backdrop_cb", picker_backdrop_cb);
+        // Apply pressed feedback — show a translucent overlay on press.
+        // Scale transform doesn't work on flex_grow children (layout fights it).
+        lv_obj_set_style_bg_color(widget_obj_, theme_manager_get_color("text_muted"),
+                                  LV_PART_MAIN | LV_STATE_PRESSED);
+        lv_obj_set_style_bg_opa(widget_obj_, LV_OPA_20,
+                                LV_PART_MAIN | LV_STATE_PRESSED);
+    }
 
     // Cache label pointers from XML
     icon_label_ = lv_obj_find_by_name(widget_obj_, "fav_macro_icon");
@@ -195,6 +204,12 @@ void FavoriteMacroWidget::on_size_changed(int colspan, int rowspan, int /*width_
         if (text_font)
             lv_obj_set_style_text_font(name_label_, text_font, 0);
     }
+}
+
+bool FavoriteMacroWidget::on_edit_configure() {
+    spdlog::info("[FavoriteMacroWidget] {} configure requested - showing picker", widget_id_);
+    show_macro_picker();
+    return false; // no rebuild needed — picker updates display in select_macro()
 }
 
 void FavoriteMacroWidget::handle_clicked() {
@@ -421,8 +436,10 @@ void FavoriteMacroWidget::show_macro_picker() {
     std::vector<std::string> sorted_macros(macros.begin(), macros.end());
     std::sort(sorted_macros.begin(), sorted_macros.end());
 
-    // Populate macro rows
+    // Populate macro rows (skip internal macros prefixed with '_')
     for (const auto& macro : sorted_macros) {
+        if (!macro.empty() && macro[0] == '_')
+            continue;
         bool is_selected = (macro == macro_name_);
         std::string display = helix::get_display_name(macro, helix::DeviceType::MACRO);
 

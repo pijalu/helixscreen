@@ -85,7 +85,8 @@ MoonrakerRestAPI::~MoonrakerRestAPI() {
     constexpr auto kJoinTimeout = std::chrono::seconds(2);
     constexpr auto kPollInterval = std::chrono::milliseconds(10);
 
-    for (auto& [t, _] : threads_to_join) {
+    for (auto& thread_entry : threads_to_join) {
+        auto& t = thread_entry.first;
         if (!t.joinable()) {
             continue;
         }

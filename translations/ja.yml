@@ -38,6 +38,7 @@ translations:
   4. Paper should move but with resistance: 4. 紙が抵抗を感じながら動く状態が適切です
   4. Repeat until bed is level: 4. ベッドが水平になるまで繰り返してください
   5 minutes: 5分
+  50W: 50W
   5V: 5V
   60 seconds: 60秒
   = Loosen: = 緩める
@@ -62,6 +63,7 @@ translations:
   Abort: 中止
   Abort failed: 中止に失敗
   Aborting AFC operation...: AFC操作を中止中...
+  About: バージョン情報
   Accel to Decel: 加速から減速
   Acceleration to deceleration limit (mm/s²): 加速から減速の制限値 (mm/s²)
   Accelerometers: 加速度センサー
@@ -74,6 +76,7 @@ translations:
   Add Filament: フィラメントを追加
   Add Hidden Network: 非公開ネットワークを追加
   Add Vendor: ベンダーを追加
+  Add Widget: ウィジェットを追加
   Adjust screen brightness level: 画面の明るさを調整します
   Adjust screws, then re-probe.: ネジを調整して、再度プローブしてください。
   Adjustments stay active until restart. Save after print completes.: 調整は再起動まで有効です。印刷完了後に保存してください。
@@ -85,6 +88,7 @@ translations:
   All screws are within tolerance.: すべてのネジが許容範囲内です。
   Allow display to sleep during active prints: 印刷中のスリープを許可
   Allwinner: Allwinner
+  Ambient Transfer: 環境熱伝達
   An accelerometer was detected on your printer.: プリンターで加速度センサーが検出されました。
   An error occurred during calibration.: キャリブレーション中にエラーが発生しました。
   An error occurred during probing.: プローブ中にエラーが発生しました。
@@ -127,6 +131,7 @@ translations:
   Bed Screw Adjustment: ベッドネジ調整
   Bed Screws: ベッドネジ
   Bed Temp: ベッド温度
+  Bed Temp (°C): ベッド温度 (°C)
   Bed is Level!: ベッドが水平です！
   Bed °C: ベッド °C
   'Bed:': 'ベッド:'
@@ -185,6 +190,7 @@ translations:
   Check Again: 再確認
   Check for Updates: 更新を確認
   Check the filament path and try again.: フィラメント経路を確認して、もう一度お試しください。
+  Check your heater's rating (typically 40-60W for hotends): ヒーターの定格を確認してください（ホットエンドは通常40〜60W）
   Checking accelerometer...: 加速度センサーを確認中...
   Checking for plugin...: プラグインを確認中...
   Checking slots...: スロットを確認中...
@@ -279,6 +285,7 @@ translations:
   Currently printing: 印刷中
   Custom: カスタム
   Custom...: カスタム...
+  Customize preset temperatures: プリセット温度をカスタマイズ
   Cutting filament...: フィラメントを切断中...
   DIAGNOSTICS: 診断
   DISABLED: 無効
@@ -298,6 +305,7 @@ translations:
   Delete Video?: 動画を削除しますか？
   'Delta:': '差分:'
   Deploy: 展開
+  Detailed: 詳細
   Dev: 開発版
   Dev channel requires dev_url in config: 開発チャンネルには設定にdev_urlが必要です
   Device name is required: デバイス名は必須です
@@ -380,6 +388,7 @@ translations:
   Extrude Speed: 押し出し速度
   Extrude/retract feedrate (Saved): 押し出し/引き戻し速度（保存済み）
   Extruder: エクストルーダー
+  Extruder MPC Calibration: エクストルーダー MPCキャリブレーション
   Extruder PID Tuning: エクストルーダー PID チューニング
   Extruder heats automatically based on material: 素材に基づいてエクストルーダーが自動加熱
   Extrusion rate: 押し出し速度
@@ -407,6 +416,8 @@ translations:
   Failed to set active spool: アクティブスプールの設定に失敗しました
   Failed to update configuration.\nCheck printer connection.: 設定の更新に失敗しました。\nプリンター接続を確認してください。
   Failed to update phase tracking: フェーズトラッキングの更新に失敗しました
+  Fan Calibration: ファンキャリブレーション
+  Fan Transfer: ファン熱伝達
   Fans: ファン
   Farther: 遠く
   Feed filament directly to extruder: フィラメントをエクストルーダーに直接供給
@@ -443,6 +454,7 @@ translations:
   Guides and reference: ガイドとリファレンス
   H: H
   HELP & SUPPORT: ヘルプとサポート
+  Hang on, we'll be right back!: しばらくお待ちください。すぐに戻ります！
   Happy Hare MMU: Happy Hare MMU
   Hardware: ハードウェア
   Hardware Health: ハードウェア状態
@@ -455,11 +467,15 @@ translations:
   ? Have your bed adjustment tool (screwdriver, hex-key, etc.) ready if your bed isn't adjusted with                              thumb wheels or some other built-in mechanism.
   : ベッドがサムホイールなどの内蔵機構で調整できない場合は、ベッド調整ツール（ドライバー、六角レンチなど）を用意してください。
   Heading: 見出し
+  Heat Capacity: 熱容量
   Heat Soak: ヒートソーク
   Heat bed before calibrating for accurate offset with thermal expansion.: 熱膨張を考慮した正確なオフセットのため、キャリブレーション前にベッドを加熱してください。
   Heatbed Temperature: ヒートベッド温度
   Heated Bed: 加熱ベッド
+  Heated Bed MPC Calibration: ヒートベッド MPCキャリブレーション
+  Heated Bed PID Tuning: ヒートベッド PIDチューニング
   Heater: ヒーター
+  Heater Power: ヒーター出力
   Heating (%d°C below minimum): "加熱中（最低温度より%d°C低い）"
   Heating Bed...: ベッド加熱中...
   Heating Nozzle...: ノズル加熱中...
@@ -519,6 +535,7 @@ translations:
   Interactive probe calibration: インタラクティブプローブキャリブレーション
   Interactive probe offset adjustment: 対話型プローブオフセット調整
   Issue description: 問題の説明
+  Job Queue: ジョブキュー
   Just now: たった今
   Keep Printing: 印刷を続行
   Keep Required: 必須を維持
@@ -530,6 +547,7 @@ translations:
   Klipper will restart to apply changes: 変更を適用するために Klipper が再起動します
   Klipper will restart to apply changes.: 変更を適用するために Klipper が再起動します。
   Klipper will restart to apply new PID values.: 新しい PID 値を適用するために Klipper が再起動します。
+  Klipper will restart to apply new settings.: 新しい設定を適用するためKlipperが再起動します。
   LED SELECTION: LED選択
   LED Settings: LED設定
   LED Strip: LEDストリップ
@@ -578,6 +596,7 @@ translations:
   MDI Icons: MDI アイコン
   MISSING CONFIGURED: 設定済みが見つかりません
   MOTION: 動作
+  MPC: MPC
   Machine Limits: 機械制限
   Macro Browser: マクロブラウザ
   Macro Buttons: マクロボタン
@@ -603,6 +622,7 @@ translations:
   Match your typical print fan speed: 通常の印刷ファン速度に合わせてください
   Material: 素材
   Material Design Spinner: マテリアルデザインスピナー
+  Material Temperatures: 素材温度
   Max: 最大
   Max Accel: 最大加速
   Max Acceleration: 最大加速度
@@ -614,14 +634,17 @@ translations:
   Maximum of 10 widgets can be enabled at once: 一度に有効にできるウィジェットは最大10個です
   Maximum toolhead speed (mm/s): ツールヘッドの最大速度 (mm/s)
   Measured: 測定値
+  Measuring thermal response...: 熱応答を測定中...
   Memory (MB): メモリ (MB)
   Mesh Complete: メッシュ完了
+  Method: 方法
   Min: 最小
   Mode: モード
   Modified: 変更日時
   Month: 月
   Moonraker: Moonraker
   Moonraker restarting...\nWaiting for reconnection...: Moonraker再起動中...\n再接続を待機中...
+  More points = more accurate, but takes longer.: ポイント数が多いほど精度が上がりますが、時間がかかります。
   Motion: 動作
   'Motion: XYZ': '動作: XYZ'
   Motors Off: モーターオフ
@@ -670,6 +693,7 @@ translations:
   No file loaded: ファイルが読み込まれていません
   No files available for printing: 印刷可能なファイルがありません
   No images found on USB drive: USBドライブに画像が見つかりません
+  No jobs in queue: キューにジョブがありません
   No macros available: 利用可能なマクロがありません
   No matching prints: 一致する印刷なし
   No mesh data: メッシュデータなし
@@ -703,7 +727,10 @@ translations:
   Notify when print finishes: 印刷完了時に通知
   Nozzle: ノズル
   'Nozzle ': 'ノズル '
+  Nozzle / Bed: ノズル / ベッド
   Nozzle Clean: ノズル清掃
+  Nozzle Max (°C): ノズル最高温度 (°C)
+  Nozzle Min (°C): ノズル最低温度 (°C)
   Nozzle Moves: ノズル移動
   Nozzle Priming: ノズルプライミング
   Nozzle Temp: ノズル温度
@@ -722,10 +749,12 @@ translations:
   Optimize Your Printing: 印刷を最適化
   Optimizes temperature control for stable, consistent heating.: 安定した一貫性のある加熱のために温度制御を最適化します。
   Or Enter Manually: または手動で入力
+  Oscillating around target...: 目標値付近で振動中...
   Output Mode: 出力モード
   P: P
   PA: PA
   PETG: PETG
+  PID: PID
   PLA: PLA
   PLA - Black: PLA - ブラック
   POWER: 電源
@@ -750,6 +779,7 @@ translations:
   Place PNG or JPEG files in config/custom_images/ to add custom images: カスタム画像を追加するには config/custom_images/ に PNG または JPEG ファイルを配置してください
   'Place image files (PNG, JPEG, BMP, GIF) in config/custom_images/. Max size: 2048×2048 pixels.': '画像ファイル (PNG, JPEG, BMP, GIF) を config/custom_images/ に配置してください。最大サイズ: 2048×2048 ピクセル。'
   Place plugins in the plugins directory to extend HelixScreen: HelixScreen を拡張するには、プラグインディレクトリにプラグインを配置してください
+  Placed: 配置済み
   Play a test beep: テストビープ音を再生
   Please enter a theme name: テーマ名を入力してください
   Please wait while the printer homes and probes.: プリンターがホーミングとプローブを行う間お待ちください。
@@ -828,6 +858,8 @@ translations:
   QUEUED EVENTS: キュー内のイベント
   QUICK BUTTONS: クイックボタン
   Quad Gantry Level: クアッドガントリーレベル
+  'Queue: Ready': 'キュー: 準備完了'
+  Quick: 簡易
   Quick Actions: クイックアクション
   Quick Button 1: クイックボタン1
   Quick Button 2: クイックボタン2
@@ -848,6 +880,7 @@ translations:
   Red: 赤
   Reduce ringing and ghosting artifacts: リンギングとゴーストのアーティファクトを軽減
   Reduce vibration artifacts like ringing and ghosting: リンギングやゴーストなどの振動アーティファクトを軽減
+  Refining stability...: 安定性を調整中...
   Refresh Interval: 更新間隔
   Release all stepper motors. Position will be lost.: すべてのステッピングモーターを解放します。位置情報は失われます。
   Remaining: 残り
@@ -864,6 +897,7 @@ translations:
   Reset: リセット
   Reset Speed & Flow to 100%: 速度とフローを100%にリセット
   Reset all settings and restart wizard: すべての設定をリセットしてウィザードを再開
+  Reset to Default: デフォルトにリセット
   Reset to original values: 元の値にリセット
   Resetting...: リセット中...
   Response (Kp): 応答 (Kp)
@@ -878,6 +912,7 @@ translations:
   Restarting HelixScreen...: HelixScreenを再起動中...
   Restarting Klipper...: Klipper を再起動中...
   Restarting Moonraker...: Moonrakerを再起動中...
+  Restarting with the new version...: 新しいバージョンで再起動中...
   Restarting...: 再起動中...
   Resume: 再開
   Resume Print: 印刷を再開
@@ -901,6 +936,7 @@ translations:
   STOP: 停止
   STYLE PROPERTIES: スタイルプロパティ
   SYSTEM: システム
+  Sample %d/%d: サンプル %d/%d
   Sample Dialog: サンプルダイアログ
   Save: 保存
   Save & Restart: 保存して再起動
@@ -922,6 +958,7 @@ translations:
   Screen Dim: 画面減光
   Screen dims to lower brightness after period of inactivity: 一定時間操作がないと画面の明るさが下がります
   Screen will dim after the selected period of inactivity: 選択した時間操作がないと画面が減光します
+  Screensaver: スクリーンセーバー
   Screws Tilt: ネジ傾き
   Scroll Speed: スクロール速度
   Search filename...: ファイル名を検索...
@@ -951,6 +988,7 @@ translations:
   Send commands directly to printer: プリンターに直接コマンドを送信
   Send this crash report to help improve HelixScreen.: HelixScreen の改善にこのクラッシュレポートを送信してください。
   Sending...: 送信中...
+  Sensor Response: センサー応答
   Sensors: センサー
   Separate on/off macros. HelixScreen tracks the state.: 個別のオン/オフマクロ。HelixScreenが状態を追跡します。
   'Set ': '設定 '
@@ -963,6 +1001,7 @@ translations:
   'Share this code in Discord or support:': 'このコードをDiscordまたはサポートで共有してください:'
   'Shininess:': '光沢:'
   Show detailed print preparation status: 詳細な印刷準備ステータスを表示
+  Show flying toasters instead of dimming: 画面を暗くする代わりにフライングトースターを表示
   Shutdown: シャットダウン
   Shutdown / Reboot: シャットダウン / 再起動
   Shutting down...: シャットダウン中...
@@ -1020,6 +1059,8 @@ translations:
   Switch Sensors: センサーを切り替え
   Switch Tests: スイッチテスト
   Switch between light and dark themes: ライトテーマとダークテーマを切り替え
+  Switching heater control to MPC. Klipper will restart.: ヒーター制御をMPCに切り替えます。Klipperが再起動します。
+  Switching to MPC requires a config change and Klipper restart.: MPCへの切り替えには設定変更とKlipperの再起動が必要です。
   Sync with Spoolman: Spoolman と同期
   Sysfs: Sysfs
   System: システム
@@ -1078,6 +1119,7 @@ translations:
   This will reset all settings to defaults. This action cannot be undone.: これはすべての設定をデフォルトにリセットします。この操作は元に戻せません。
   This will restart Klipper firmware. Any active operations will be interrupted.: Klipperファームウェアを再起動します。実行中の操作は中断されます。
   This will restart Klipper.: これにより Klipper が再起動します。
+  Thorough: 徹底的
   Thumbnail Only: サムネイルのみ
   Time: 時間
   Time Format: 時間形式
@@ -1109,6 +1151,7 @@ translations:
   Try adjusting your search or filters: 検索やフィルターを調整してみてください
   Tune: チューニング
   Tune at the temperature you print most often.: 最もよく印刷する温度でチューニングしてください。
+  Tuning control parameters...: 制御パラメーターを調整中...
   Tuning tower enabled - start a print to test: チューニングタワー有効 - 印刷を開始してテストしてください
   Turn Off: オフにする
   Turn On: オンにする
@@ -1133,6 +1176,8 @@ translations:
   Update Available: 更新あり
   Update Channel: 更新チャンネル
   Update Failed: 更新失敗
+  Update installed!: アップデートをインストールしました！
+  Updating Configuration...: 設定を更新中...
   Upload: アップロード
   Upload Debug Bundle: デバッグバンドルをアップロード
   Upload Failed: アップロード失敗
@@ -1148,6 +1193,7 @@ translations:
   Verifying timelapse plugin...: タイムラプスプラグインを確認中...
   Verifying...: 検証中...
   Version: バージョン
+  Version, updates, and printer info: バージョン、アップデート、プリンター情報
   Vertical Progress (Retract Wizard): 垂直プログレス（リトラクトウィザード）
   Vibration: 振動
   Vibration compensation active: 振動補正が有効です
@@ -1212,6 +1258,7 @@ translations:
   'Z:': 'Z:'
   'Z: 0.000': 'Z: 0.000'
   Zoom: ズーム
+  by Preston Brown: by Preston Brown
   disable: 無効化
   disabled: 無効
   e.g. Jet Black: 例：ジェットブラック

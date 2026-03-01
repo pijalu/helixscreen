@@ -72,7 +72,7 @@ static void async_message_callback(void* user_data) {
     AsyncMessageData* data = (AsyncMessageData*)user_data;
     if (data && data->message[0] != '\0') {
         // Format display message with title if present
-        char display_buf[320]; // title + ": " + message
+        char display_buf[324]; // title(64) + ": "(2) + message(256) + null
         if (data->has_title) {
             snprintf(display_buf, sizeof(display_buf), "%s: %s", data->title, data->message);
         } else {

@@ -358,7 +358,8 @@ void ThermistorWidget::show_sensor_picker() {
                 // get_global_home_panel But simpler: use static active instance
                 // pattern Actually, just use a static pointer set before showing
                 // picker
-                if (ThermistorWidget::s_active_picker_) {
+                if (ThermistorWidget::s_active_picker_ &&
+                    *ThermistorWidget::s_active_picker_->alive_) {
                     std::string sensor_name = *name_ptr;
                     ThermistorWidget::s_active_picker_->select_sensor(sensor_name);
                     ThermistorWidget::s_active_picker_->dismiss_sensor_picker();
@@ -474,7 +475,7 @@ void ThermistorWidget::thermistor_clicked_cb(lv_event_t* e) {
 void ThermistorWidget::thermistor_picker_backdrop_cb(lv_event_t* e) {
     LVGL_SAFE_EVENT_CB_BEGIN("[ThermistorWidget] thermistor_picker_backdrop_cb");
     (void)e;
-    if (s_active_picker_) {
+    if (s_active_picker_ && *s_active_picker_->alive_) {
         s_active_picker_->dismiss_sensor_picker();
     }
     LVGL_SAFE_EVENT_CB_END();

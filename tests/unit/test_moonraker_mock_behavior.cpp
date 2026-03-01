@@ -440,7 +440,7 @@ TEST_CASE("MoonrakerClientMock initial state dispatch", "[connection][slow][init
 // Notification Format Tests
 // ============================================================================
 
-TEST_CASE("MoonrakerClientMock notification format matches real Moonraker", "[connection]") {
+TEST_CASE("MoonrakerClientMock notification format matches real Moonraker", "[connection][slow]") {
     MockBehaviorTestFixture fixture;
 
     SECTION("notifications use notify_status_update method") {
@@ -942,7 +942,7 @@ TEST_CASE("MoonrakerClientMock connection state", "[connection][slow][connection
 // Temperature Simulation Tests
 // ============================================================================
 
-TEST_CASE("MoonrakerClientMock temperature simulation", "[connection]") {
+TEST_CASE("MoonrakerClientMock temperature simulation", "[connection][slow]") {
     MockBehaviorTestFixture fixture;
 
     SECTION("temperature approaches target over time") {
@@ -1393,7 +1393,7 @@ TEST_CASE("PrinterHardware guessing methods work with mock hardware data", "[pri
 // G-code Motion Simulation Tests (Phase 1.6a)
 // ============================================================================
 
-TEST_CASE("MoonrakerClientMock G28 homing updates homed_axes", "[api][homing]") {
+TEST_CASE("MoonrakerClientMock G28 homing updates homed_axes", "[api][homing][slow]") {
     MockBehaviorTestFixture fixture;
 
     SECTION("G28 homes all axes and sets position to 0") {
@@ -1520,7 +1520,7 @@ TEST_CASE("MoonrakerClientMock G28 homing updates homed_axes", "[api][homing]") 
     }
 }
 
-TEST_CASE("MoonrakerClientMock G0/G1 movement updates position", "[api][movement]") {
+TEST_CASE("MoonrakerClientMock G0/G1 movement updates position", "[api][movement][slow]") {
     MockBehaviorTestFixture fixture;
 
     SECTION("G0 absolute movement updates position") {
@@ -1698,7 +1698,7 @@ TEST_CASE("MoonrakerClientMock G0/G1 movement updates position", "[api][movement
     }
 }
 
-TEST_CASE("MoonrakerClientMock homed_axes in notifications", "[api][notifications]") {
+TEST_CASE("MoonrakerClientMock homed_axes in notifications", "[api][notifications][slow]") {
     MockBehaviorTestFixture fixture;
 
     SECTION("Initial state has empty homed_axes") {
@@ -1844,7 +1844,7 @@ TEST_CASE("MoonrakerClientMock SDCARD_PRINT_FILE starts print", "[slow][print][s
     }
 }
 
-TEST_CASE("MoonrakerClientMock PAUSE/RESUME state transitions", "[print][pause_resume]") {
+TEST_CASE("MoonrakerClientMock PAUSE/RESUME state transitions", "[print][pause_resume][slow]") {
     MockBehaviorTestFixture fixture;
 
     SECTION("PAUSE transitions from printing to paused") {
@@ -1952,7 +1952,7 @@ TEST_CASE("MoonrakerClientMock PAUSE/RESUME state transitions", "[print][pause_r
     }
 }
 
-TEST_CASE("MoonrakerClientMock CANCEL_PRINT resets to standby", "[print][cancel]") {
+TEST_CASE("MoonrakerClientMock CANCEL_PRINT resets to standby", "[print][cancel][slow]") {
     MockBehaviorTestFixture fixture;
 
     SECTION("CANCEL_PRINT transitions to cancelled then standby") {
@@ -2105,7 +2105,7 @@ TEST_CASE("MoonrakerClientMock print progress increments during printing",
     }
 }
 
-TEST_CASE("MoonrakerClientMock print completion triggers complete state", "[print][complete]") {
+TEST_CASE("MoonrakerClientMock print completion triggers complete state", "[print][complete][slow]") {
     MockBehaviorTestFixture fixture;
 
     SECTION("print state transitions through phases correctly") {
@@ -2199,7 +2199,7 @@ TEST_CASE("MoonrakerClientMock print completion triggers complete state", "[prin
     }
 }
 
-TEST_CASE("MoonrakerClientMock M112 emergency stop sets error state", "[print][emergency]") {
+TEST_CASE("MoonrakerClientMock M112 emergency stop sets error state", "[print][emergency][slow]") {
     MockBehaviorTestFixture fixture;
 
     SECTION("M112 sets print state to error") {
@@ -2271,7 +2271,7 @@ TEST_CASE("MoonrakerClientMock M112 emergency stop sets error state", "[print][e
 // ============================================================================
 
 TEST_CASE("MoonrakerClientMock BED_MESH_CALIBRATE generates new mesh",
-          "[mock][calibration][gcode]") {
+          "[mock][calibration][gcode][slow]") {
     MockBehaviorTestFixture fixture;
 
     SECTION("BED_MESH_CALIBRATE triggers mesh regeneration and notification") {
@@ -2341,7 +2341,7 @@ TEST_CASE("MoonrakerClientMock BED_MESH_CALIBRATE generates new mesh",
 }
 
 TEST_CASE("MoonrakerClientMock BED_MESH_PROFILE LOAD changes active profile",
-          "[mock][calibration][gcode]") {
+          "[mock][calibration][gcode][slow]") {
     MockBehaviorTestFixture fixture;
 
     SECTION("BED_MESH_PROFILE LOAD loads existing profile") {
@@ -2379,7 +2379,7 @@ TEST_CASE("MoonrakerClientMock BED_MESH_PROFILE LOAD changes active profile",
     }
 }
 
-TEST_CASE("MoonrakerClientMock BED_MESH_CLEAR clears active mesh", "[mock][calibration][gcode]") {
+TEST_CASE("MoonrakerClientMock BED_MESH_CLEAR clears active mesh", "[mock][calibration][gcode][slow]") {
     MockBehaviorTestFixture fixture;
 
     SECTION("BED_MESH_CLEAR clears active mesh and sends notification") {

@@ -62,6 +62,10 @@ SpoolEditModal::~SpoolEditModal() {
     if (active_instance_ == this) {
         active_instance_ = nullptr;
     }
+    if (subjects_initialized_ && lv_is_initialized()) {
+        lv_subject_deinit(&save_button_text_subject_);
+        subjects_initialized_ = false;
+    }
     spdlog::trace("[SpoolEditModal] Destroyed");
 }
 

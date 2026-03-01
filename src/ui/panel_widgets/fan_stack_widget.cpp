@@ -16,6 +16,8 @@
 #include "display_settings_manager.h"
 #include "moonraker_api.h"
 #include "observer_factory.h"
+#include "panel_widget_config.h"
+#include "panel_widget_manager.h"
 #include "panel_widget_registry.h"
 #include "printer_fan_state.h"
 #include "printer_state.h"
@@ -55,6 +57,21 @@ std::string FanStackWidget::get_component_name() const {
         return "panel_widget_fan_carousel";
     }
     return "panel_widget_fan_stack";
+}
+
+bool FanStackWidget::on_edit_configure() {
+    bool was_carousel = is_carousel_mode();
+    nlohmann::json new_config = config_;
+    if (was_carousel) {
+        new_config.erase("display_mode");
+    } else {
+        new_config["display_mode"] = "carousel";
+    }
+    spdlog::info("[FanStackWidget] Toggling display_mode: {} → {}",
+                 was_carousel ? "carousel" : "stack", was_carousel ? "stack" : "carousel");
+    PanelWidgetManager::instance().get_widget_config("home").set_widget_config("fan_stack",
+                                                                               new_config);
+    return true;
 }
 
 bool FanStackWidget::is_carousel_mode() const {
@@ -126,6 +143,10 @@ void FanStackWidget::attach_stack(lv_obj_t* /*widget_obj*/) {
             self->bind_fans();
         });
 
+    // Bind immediately with current fan data (the deferred observer callback
+    // may be dropped if the update queue is frozen during populate_widgets).
+    bind_fans();
+
     spdlog::debug("[FanStackWidget] Attached stack (animations={})", animations_enabled_);
 }
 
@@ -145,6 +166,10 @@ void FanStackWidget::attach_carousel(lv_obj_t* widget_obj) {
                 return;
             self->bind_carousel_fans();
         });
+
+    // Bind immediately with current fan data (the deferred observer callback
+    // may be dropped if the update queue is frozen during populate_widgets).
+    bind_carousel_fans();
 
     spdlog::debug("[FanStackWidget] Attached carousel");
 }
@@ -327,6 +352,7 @@ void FanStackWidget::bind_fans() {
             }
             break;
         case FanType::CONTROLLER_FAN:
+        case FanType::TEMPERATURE_FAN:
         case FanType::GENERIC_FAN:
             if (aux_fan_name_.empty()) {
                 aux_fan_name_ = fan.object_name;
@@ -353,6 +379,13 @@ void FanStackWidget::bind_fans() {
                     self->update_fan_animation(self->part_icon_, speed);
                 },
                 lifetime);
+
+            // Read current value directly — the deferred observer initial fire
+            // is dropped when populate_widgets() freezes the update queue.
+            int current = lv_subject_get_int(subject);
+            part_speed_ = current;
+            update_label(part_label_, current);
+            update_fan_animation(part_icon_, current);
         }
     }
 
@@ -371,6 +404,11 @@ void FanStackWidget::bind_fans() {
                     self->update_fan_animation(self->hotend_icon_, speed);
                 },
                 lifetime);
+
+            int current = lv_subject_get_int(subject);
+            hotend_speed_ = current;
+            update_label(hotend_label_, current);
+            update_fan_animation(hotend_icon_, current);
         }
     }
 
@@ -392,6 +430,11 @@ void FanStackWidget::bind_fans() {
                     self->update_fan_animation(self->aux_icon_, speed);
                 },
                 lifetime);
+
+            int current = lv_subject_get_int(subject);
+            aux_speed_ = current;
+            update_label(aux_label_, current);
+            update_fan_animation(aux_icon_, current);
         }
     } else {
         if (aux_row_) {
@@ -533,6 +576,10 @@ void FanStackWidget::bind_carousel_fans() {
                     dial_ptr->set_speed(speed);
                 },
                 lifetime);
+
+            // Read current value immediately — deferred initial fire is
+            // dropped when populate_widgets() freezes the update queue.
+            dial_ptr->set_speed(lv_subject_get_int(subject));
 
             carousel_observers_.push_back(std::move(obs));
         }

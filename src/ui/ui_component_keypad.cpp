@@ -133,6 +133,9 @@ void ui_keypad_show(const ui_keypad_config_t* config) {
         lv_label_set_text(unit_label, config->unit_label ? config->unit_label : "");
     }
 
+    // Register with nullptr lifecycle — keypad is function-based, not class-based
+    NavigationManager::instance().register_overlay_instance(keypad_widget, nullptr);
+
     // Show via overlay navigation, but keep previous panel visible (transparent overlay)
     NavigationManager::instance().push_overlay(keypad_widget, false /* hide_previous */);
 

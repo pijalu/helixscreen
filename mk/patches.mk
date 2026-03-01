@@ -40,6 +40,8 @@ LVGL_PATCHED_FILES := \
 
 # Files modified by libhv patches
 LIBHV_PATCHED_FILES := \
+	Makefile \
+	Makefile.in \
 	http/client/requests.h \
 	base/hsocket.c \
 	base/dns_resolv.c \
@@ -185,7 +187,7 @@ $(PATCHES_STAMP): $(PATCH_FILES) $(LVGL_HEAD) $(LIBHV_HEAD)
 	else \
 		echo "$(GREEN)✓ LVGL blend NULL guard patch already applied$(RESET)"; \
 	fi
-	$(Q)if ! grep -q 'buf_area' $(LVGL_DIR)/src/draw/sw/blend/lv_draw_sw_blend.c 2>/dev/null; then \
+	$(Q)if ! grep -q 'Clip blend_area to the layer' $(LVGL_DIR)/src/draw/sw/blend/lv_draw_sw_blend.c 2>/dev/null; then \
 		echo "$(YELLOW)→ Applying LVGL blend buffer bounds clip patch...$(RESET)"; \
 		if git -C $(LVGL_DIR) apply --check ../../patches/lvgl_blend_buf_bounds_clip.patch 2>/dev/null; then \
 			git -C $(LVGL_DIR) apply ../../patches/lvgl_blend_buf_bounds_clip.patch && \
@@ -296,6 +298,17 @@ $(PATCHES_STAMP): $(PATCH_FILES) $(LVGL_HEAD) $(LIBHV_HEAD)
 		echo "$(GREEN)✓ LVGL draw_buf OOM guard patch already applied$(RESET)"; \
 	fi
 	$(ECHO) "$(CYAN)Checking libhv patches...$(RESET)"
+	$(Q)if git -C $(LIBHV_DIR) diff --quiet Makefile.in 2>/dev/null; then \
+		echo "$(YELLOW)→ Applying libhv OpenSSL/static build hook patch...$(RESET)"; \
+		if git -C $(LIBHV_DIR) apply --check ../../patches/libhv-openssl-static-link.patch 2>/dev/null; then \
+			git -C $(LIBHV_DIR) apply ../../patches/libhv-openssl-static-link.patch && \
+			echo "$(GREEN)✓ libhv OpenSSL/static build hook patch applied$(RESET)"; \
+		else \
+			echo "$(YELLOW)⚠ Cannot apply patch (already applied or conflicts)$(RESET)"; \
+		fi \
+	else \
+		echo "$(GREEN)✓ libhv OpenSSL/static build hook patch already applied$(RESET)"; \
+	fi
 	$(Q)if git -C $(LIBHV_DIR) diff --quiet http/client/requests.h 2>/dev/null; then \
 		echo "$(YELLOW)→ Applying libhv streaming upload patch...$(RESET)"; \
 		if git -C $(LIBHV_DIR) apply --check ../../patches/libhv-streaming-upload.patch 2>/dev/null; then \

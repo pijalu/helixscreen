@@ -150,6 +150,19 @@ AmsBackendMock::AmsBackendMock(int slot_count) {
     unit_meta.has_slot_sensors = true;
     system_info_.units.push_back(unit_meta);
 
+    // Mock encoder clog detection (auto mode, 85% flow, realistic headroom values)
+    system_info_.clog_detection = 2; // Auto mode
+    system_info_.encoder_flow_rate = 85;
+    system_info_.encoder_info = {
+        true,   // enabled
+        85,     // flow_rate (%)
+        2,      // detection_mode (auto)
+        5.0f,   // desired_headroom (mm)
+        12.4f,  // detection_length (mm)
+        8.0f,   // headroom (mm)
+        4.2f,   // min_headroom (mm)
+    };
+
     // Start with slot 0 loaded for realistic demo appearance
     if (slot_count > 0) {
         auto* entry = slots_.get_mut(0);
@@ -337,6 +350,13 @@ AmsSystemInfo AmsBackendMock::get_system_info() const {
         info.units[u].has_slot_sensors = system_info_.units[u].has_slot_sensors;
         info.units[u].firmware_version = system_info_.units[u].firmware_version;
     }
+
+    // Copy clog detection / encoder / flowguard fields
+    info.clog_detection = system_info_.clog_detection;
+    info.encoder_flow_rate = system_info_.encoder_flow_rate;
+    info.encoder_info = system_info_.encoder_info;
+    info.flowguard_info = system_info_.flowguard_info;
+    info.sync_feedback_flow_rate = system_info_.sync_feedback_flow_rate;
 
     return info;
 }
@@ -1288,6 +1308,30 @@ void AmsBackendMock::set_afc_mode(bool enabled) {
         unit_meta.has_encoder = false;
         unit_meta.has_toolhead_sensor = true;
         unit_meta.has_slot_sensors = true;
+
+        // TurtleNeck buffer — cycle state via HELIX_MOCK_BUFFER_STATE env var
+        // Values: "neutral" (default), "advancing", "trailing", "fault"
+        BufferHealth buf_health;
+        buf_health.fault_detection_enabled = true;
+        std::string buf_env;
+        if (const char* env = std::getenv("HELIX_MOCK_BUFFER_STATE")) {
+            buf_env = env;
+        }
+        if (buf_env == "advancing") {
+            buf_health.state = "Advancing";
+            buf_health.distance_to_fault = 25.0f;
+        } else if (buf_env == "trailing") {
+            buf_health.state = "Trailing";
+            buf_health.distance_to_fault = 25.0f;
+        } else if (buf_env == "fault") {
+            buf_health.state = "Trailing";
+            buf_health.distance_to_fault = 50.0f;
+        } else {
+            buf_health.state = "Neutral";
+            buf_health.distance_to_fault = 0.0f;
+        }
+        unit_meta.buffer_health = buf_health;
+
         system_info_.units.push_back(unit_meta);
 
         // Start with lane 0 loaded

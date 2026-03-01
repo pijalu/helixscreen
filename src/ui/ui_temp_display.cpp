@@ -183,12 +183,18 @@ static void on_delete(lv_event_t* e) {
         std::unique_ptr<TempDisplayData> data(it->second);
         s_registry.erase(it);
 
-        // Deinitialize subjects to properly remove all attached observers.
-        // lv_subject_deinit() removes observers from the subject side, which
-        // also removes their unsubscribe_on_delete_cb from child widgets.
-        // This is safe because we own these subjects. Manual lv_observer_remove()
-        // would free the observer, but LVGL's child-delete would then try to
-        // fire unsubscribe_on_delete_cb on the freed observer → crash.
+        // Detach child labels from ALL subjects (both external and owned) FIRST.
+        // This removes observers AND their unsubscribe_on_delete_cb events from
+        // each label, preventing event chain corruption during cascading deletion.
+        // Without this, deiniting owned subjects below frees TempDisplayData's
+        // observer memory while external-subject observers on the same labels
+        // are still registered — LVGL's child-delete then walks freed memory.
+        if (data->current_label)
+            lv_obj_remove_from_subject(data->current_label, nullptr);
+        if (data->target_label)
+            lv_obj_remove_from_subject(data->target_label, nullptr);
+
+        // Now safe to deinit owned subjects — all observers already removed
         lv_subject_deinit(&data->current_text_subject);
         if (data->target_subjects_initialized) {
             lv_subject_deinit(&data->target_text_subject);

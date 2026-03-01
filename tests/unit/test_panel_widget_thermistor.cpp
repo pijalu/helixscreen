@@ -57,11 +57,14 @@ TEST_CASE("ThermistorWidget: registered in widget registry", "[thermistor][panel
 TEST_CASE_METHOD(helix::ThermistorConfigFixture,
                  "ThermistorWidget: config field round-trips through save/load",
                  "[thermistor][panel_widget]") {
+    // Include grid coords to prevent pre-grid migration reset
     json widgets = json::array({
         {{"id", "thermistor"},
          {"enabled", true},
-         {"config", {{"sensor", "temperature_sensor mcu_temp"}}}},
-        {{"id", "power"}, {"enabled", true}},
+         {"config", {{"sensor", "temperature_sensor mcu_temp"}}},
+         {"col", 0},
+         {"row", 0}},
+        {{"id", "power"}, {"enabled", true}, {"col", 1}, {"row", 0}},
     });
     setup_with_widgets(widgets);
 
@@ -154,11 +157,14 @@ TEST_CASE_METHOD(helix::ThermistorConfigFixture,
 TEST_CASE_METHOD(helix::ThermistorConfigFixture,
                  "ThermistorWidget: config preserves unknown fields (forward compatibility)",
                  "[thermistor][panel_widget]") {
+    // Include grid coords to prevent pre-grid migration reset
     json widgets = json::array({
         {{"id", "thermistor"},
          {"enabled", true},
          {"config",
-          {{"sensor", "temperature_sensor mcu_temp"}, {"color", "#FF0000"}, {"threshold", 80}}}},
+          {{"sensor", "temperature_sensor mcu_temp"}, {"color", "#FF0000"}, {"threshold", 80}}},
+         {"col", 0},
+         {"row", 0}},
     });
     setup_with_widgets(widgets);
 

@@ -23,6 +23,9 @@ namespace helix {
 void register_print_status_widget() {
     register_widget_factory("print_status", []() { return std::make_unique<PrintStatusWidget>(); });
     // No init_subjects needed — this widget uses subjects owned by PrinterState
+
+    // Register XML event callbacks at startup (before any XML is parsed)
+    lv_xml_register_event_cb(nullptr, "print_card_clicked_cb", PrintStatusWidget::print_card_clicked_cb);
 }
 } // namespace helix
 
@@ -49,9 +52,6 @@ void PrintStatusWidget::attach(lv_obj_t* widget_obj, lv_obj_t* parent_screen) {
     print_card_thumb_ = lv_obj_find_by_name(widget_obj_, "print_card_thumb");
     print_card_active_thumb_ = lv_obj_find_by_name(widget_obj_, "print_card_active_thumb");
     print_card_label_ = lv_obj_find_by_name(widget_obj_, "print_card_label");
-
-    // Register XML callback
-    lv_xml_register_event_cb(nullptr, "print_card_clicked_cb", print_card_clicked_cb);
 
     // Set up observers (after widget references are cached and widget_obj_ is set)
     print_state_observer_ =
@@ -151,13 +151,8 @@ void PrintStatusWidget::handle_print_card_clicked() {
         spdlog::info(
             "[PrintStatusWidget] Print card clicked - showing print status (print in progress)");
 
-        lv_obj_t* status_panel = ::get_global_print_status_panel().get_panel();
-        if (status_panel) {
-            NavigationManager::instance().register_overlay_instance(
-                status_panel, &::get_global_print_status_panel());
-            NavigationManager::instance().push_overlay(status_panel);
-        } else {
-            spdlog::error("[PrintStatusWidget] Print status panel not available");
+        if (!PrintStatusPanel::push_overlay(parent_screen_)) {
+            spdlog::error("[PrintStatusWidget] Failed to push print status overlay");
         }
     } else {
         // No print in progress - navigate to print select panel

@@ -1191,6 +1191,14 @@ void InputShaperPanel::populate_chart(char axis, const InputShaperResult& result
         amps.push_back(a);
     }
 
+    // Guard against empty data (max_element on empty range is UB / SIGSEGV)
+    if (amps.empty()) {
+        spdlog::warn("[InputShaper] {} axis: freq_response non-empty but produced no amplitude data",
+                     axis);
+        lv_subject_set_int(&has_freq_data, 0);
+        return;
+    }
+
     // Find max amplitude for Y range
     float max_amp = *std::max_element(amps.begin(), amps.end());
     ui_frequency_response_chart_set_amplitude_range(chart_data.chart, 0.0f, max_amp * 1.1f);

@@ -285,10 +285,9 @@ Auto-detection finds the first device with dumb buffer support and a connected d
 ### `gcode_render_mode`
 **Type:** integer
 **Default:** `2`
-**Values:** `0` (Auto/2D), `1` (3D TinyGL), `2` (2D Layer)
+**Values:** `0` (Auto/2D), `2` (2D Layer)
 **Description:** G-code visualization mode:
 - `0` - Auto (currently uses 2D)
-- `1` - 3D TinyGL (development only, ~3 FPS)
 - `2` - 2D Layer view (default, recommended)
 
 Can also be overridden via `HELIX_GCODE_MODE` env var (`3D` or `2D`).

@@ -133,6 +133,8 @@ AmsState::AmsState() {
     std::memset(current_material_text_buf_, 0, sizeof(current_material_text_buf_));
     std::memset(current_slot_text_buf_, 0, sizeof(current_slot_text_buf_));
     std::memset(current_weight_text_buf_, 0, sizeof(current_weight_text_buf_));
+    std::memset(clog_meter_value_text_buf_, 0, sizeof(clog_meter_value_text_buf_));
+    std::memset(clog_meter_mode_text_buf_, 0, sizeof(clog_meter_mode_text_buf_));
 }
 
 AmsState::~AmsState() {
@@ -280,6 +282,13 @@ void AmsState::init_subjects(bool register_xml) {
 
     INIT_SUBJECT_INT(current_color, 0x505050, subjects_, register_xml);
 
+    // Clog detection meter subjects
+    INIT_SUBJECT_INT(clog_meter_mode, 0, subjects_, register_xml);
+    INIT_SUBJECT_INT(clog_meter_value, 0, subjects_, register_xml);
+    INIT_SUBJECT_INT(clog_meter_warning, 0, subjects_, register_xml);
+    INIT_SUBJECT_STRING(clog_meter_value_text, "", subjects_, register_xml);
+    INIT_SUBJECT_STRING(clog_meter_mode_text, "", subjects_, register_xml);
+
     // Per-slot subjects (dynamic names require manual init)
     char name_buf[32];
     for (int i = 0; i < MAX_SLOTS; ++i) {
@@ -348,9 +357,9 @@ void AmsState::deinit_subjects() {
     // dereference a freed pointer on the next init_subjects() cycle.
     api_ = nullptr;
 
-    // Reset observer guards BEFORE deiniting subjects — the observer points to
-    // a subject that subjects_.deinit_all() will destroy. If we deinit first,
-    // the guard's reset() would call lv_observer_remove() on a freed observer.
+    // Reset cross-singleton observer FIRST — it observes PrinterState's
+    // print_state_enum_ subject, which lives outside our SubjectManager.
+    // Must be cleaned up while PrinterState subjects are still alive.
     print_state_observer_.reset();
 
     // IMPORTANT: clear_backends() MUST precede subjects_.deinit_all() because
@@ -881,6 +890,9 @@ void AmsState::sync_from_backend() {
     // Sync dryer state (for systems with integrated drying like ValgACE)
     sync_dryer_from_backend();
 
+    // Sync clog detection meter subjects
+    sync_clog_meter_from_info(info);
+
     // Sync "Currently Loaded" display subjects (pass info to avoid re-fetching)
     sync_current_loaded_from_backend(info);
 
@@ -1078,6 +1090,113 @@ void AmsState::sync_dryer_from_backend() {
     spdlog::trace("[AMS State] Synced dryer - supported={}, active={}, temp={}→{}°C, {}min left",
                   dryer.supported, dryer.active, static_cast<int>(dryer.current_temp_c),
                   static_cast<int>(dryer.target_temp_c), dryer.remaining_min);
+}
+
+void AmsState::sync_clog_meter_from_info(const AmsSystemInfo& info) {
+    // Priority: flowguard > encoder > afc_buffer > legacy > none
+    int mode = 0;
+    int value = 0;
+    int warning = 0;
+    char value_text[16] = "";
+    char mode_text[24] = "";
+
+    if (info.flowguard_info.enabled) {
+        // Flowguard mode: bidirectional (-100 to +100)
+        mode = 2;
+        value = static_cast<int>(info.flowguard_info.level * 100.0f);
+        value = std::clamp(value, -100, 100);
+
+        if (!info.flowguard_info.trigger.empty()) {
+            // Active trigger — show trigger name
+            snprintf(value_text, sizeof(value_text), "%s", info.flowguard_info.trigger.c_str());
+            warning = 1;
+        } else if (info.flowguard_info.active) {
+            snprintf(value_text, sizeof(value_text), "ACTIVE");
+        } else {
+            snprintf(value_text, sizeof(value_text), "OFF");
+        }
+
+        if (info.encoder_info.flow_rate >= 0) {
+            snprintf(mode_text, sizeof(mode_text), "Flow: %d%%", info.encoder_info.flow_rate);
+        } else {
+            snprintf(mode_text, sizeof(mode_text), "Flowguard");
+        }
+
+    } else if (info.encoder_info.enabled) {
+        // Encoder mode: 0-100 clog percentage
+        mode = 1;
+        value = info.encoder_info.get_clog_pct();
+        warning = info.encoder_info.is_warning() ? 1 : 0;
+
+        if (info.encoder_info.flow_rate >= 0) {
+            snprintf(value_text, sizeof(value_text), "%d%%", info.encoder_info.flow_rate);
+        } else {
+            snprintf(value_text, sizeof(value_text), "---");
+        }
+
+        // Detection mode text
+        if (info.encoder_info.detection_mode == 2) {
+            snprintf(mode_text, sizeof(mode_text), "Auto");
+        } else if (info.encoder_info.detection_mode == 1) {
+            snprintf(mode_text, sizeof(mode_text), "Manual");
+        }
+
+    } else {
+        // Check AFC buffer fault detection (buffer_health is per-unit, not per-slot)
+        for (const auto& unit : info.units) {
+            if (unit.buffer_health && unit.buffer_health->fault_detection_enabled) {
+                mode = 3;
+                // Value: proximity to fault (0=safe, 100=imminent)
+                // TODO: compute from sensitivity when available: (11 - sensitivity) * 10
+                float max_dist = 60.0f;
+                float dist = unit.buffer_health->distance_to_fault;
+                value = 100 - static_cast<int>((dist / max_dist) * 100.0f);
+                value = std::clamp(value, 0, 100);
+                warning = (value > 75) ? 1 : 0;
+
+                snprintf(value_text, sizeof(value_text), "%.0fmm", dist);
+                snprintf(mode_text, sizeof(mode_text), "%s",
+                         unit.buffer_health->state.c_str());
+                break; // Use first unit with fault detection
+            }
+        }
+
+        // Legacy fallback: clog_detection enabled but no encoder_info
+        if (mode == 0 && info.clog_detection > 0) {
+            mode = 1;
+            if (info.encoder_flow_rate >= 0) {
+                value = 0; // No headroom data for clog%, just show flow rate
+                snprintf(value_text, sizeof(value_text), "%d%%", info.encoder_flow_rate);
+            } else {
+                snprintf(value_text, sizeof(value_text), "---");
+            }
+            if (info.clog_detection == 2) {
+                snprintf(mode_text, sizeof(mode_text), "Auto");
+            } else {
+                snprintf(mode_text, sizeof(mode_text), "Manual");
+            }
+        }
+    }
+
+    // Update subjects only when changed
+    if (lv_subject_get_int(&clog_meter_mode_) != mode) {
+        lv_subject_set_int(&clog_meter_mode_, mode);
+    }
+    if (lv_subject_get_int(&clog_meter_value_) != value) {
+        lv_subject_set_int(&clog_meter_value_, value);
+    }
+    if (lv_subject_get_int(&clog_meter_warning_) != warning) {
+        lv_subject_set_int(&clog_meter_warning_, warning);
+    }
+    if (strcmp(lv_subject_get_string(&clog_meter_value_text_), value_text) != 0) {
+        lv_subject_copy_string(&clog_meter_value_text_, value_text);
+    }
+    if (strcmp(lv_subject_get_string(&clog_meter_mode_text_), mode_text) != 0) {
+        lv_subject_copy_string(&clog_meter_mode_text_, mode_text);
+    }
+
+    spdlog::trace("[AMS State] Synced clog meter - mode={}, value={}, warning={}",
+                  mode, value, warning);
 }
 
 void AmsState::set_action_detail(const std::string& detail) {

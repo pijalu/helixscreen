@@ -38,6 +38,7 @@ translations:
   4. Paper should move but with resistance: 4. El papel debe moverse pero con resistencia
   4. Repeat until bed is level: 4. Repita hasta que la cama esté nivelada
   5 minutes: 5 minutos
+  50W: 50W
   5V: 5V
   60 seconds: 60 segundos
   = Loosen: = Aflojar
@@ -62,6 +63,7 @@ translations:
   Abort: Abortar
   Abort failed: Error al cancelar
   Aborting AFC operation...: Cancelando operación AFC...
+  About: Acerca de
   Accel to Decel: Acel a Desacel
   Acceleration to deceleration limit (mm/s²): Límite de aceleración a desaceleración (mm/s²)
   Accelerometers: Acelerómetros
@@ -74,6 +76,7 @@ translations:
   Add Filament: Agregar Filamento
   Add Hidden Network: Agregar Red Oculta
   Add Vendor: Agregar Proveedor
+  Add Widget: Agregar widget
   Adjust screen brightness level: Ajustar el nivel de brillo de la pantalla
   Adjust screws, then re-probe.: Ajuste los tornillos, luego vuelva a sondear.
   Adjustments stay active until restart. Save after print completes.: Los ajustes permanecen activos hasta reiniciar. Guarde después de que termine la impresión.
@@ -85,6 +88,7 @@ translations:
   All screws are within tolerance.: Todos los tornillos están dentro de la tolerancia.
   Allow display to sleep during active prints: Permitir que la pantalla se apague durante impresiones activas
   Allwinner: Allwinner
+  Ambient Transfer: Transferencia ambiente
   An accelerometer was detected on your printer.: Se detectó un acelerómetro en su impresora.
   An error occurred during calibration.: Ocurrió un error durante la calibración.
   An error occurred during probing.: Ocurrió un error durante el sondeo.
@@ -127,6 +131,7 @@ translations:
   Bed Screw Adjustment: Ajuste de Tornillos de Cama
   Bed Screws: Tornillos de Cama
   Bed Temp: Temp. Cama
+  Bed Temp (°C): Temp. cama (°C)
   Bed is Level!: ¡La Cama está Nivelada!
   Bed °C: Cama °C
   'Bed:': 'Cama:'
@@ -185,6 +190,7 @@ translations:
   Check Again: Verificar de nuevo
   Check for Updates: Buscar actualizaciones
   Check the filament path and try again.: Verifique la ruta del filamento e intente de nuevo.
+  Check your heater's rating (typically 40-60W for hotends): Consulte la potencia de su calentador (normalmente 40-60W para hotends)
   Checking accelerometer...: Verificando acelerómetro...
   Checking for plugin...: Buscando plugin...
   Checking slots...: Verificando ranuras...
@@ -279,6 +285,7 @@ translations:
   Currently printing: Imprimiendo actualmente
   Custom: Personalizado
   Custom...: Personalizado...
+  Customize preset temperatures: Personalizar temperaturas preestablecidas
   Cutting filament...: Cortando filamento...
   DIAGNOSTICS: DIAGNÓSTICOS
   DISABLED: DESACTIVADO
@@ -298,6 +305,7 @@ translations:
   Delete Video?: ¿Eliminar vídeo?
   'Delta:': 'Delta:'
   Deploy: Desplegar
+  Detailed: Detallado
   Dev: Dev
   Dev channel requires dev_url in config: Canal de desarrollo requiere dev_url en la configuración
   Device name is required: El nombre del dispositivo es requerido
@@ -380,6 +388,7 @@ translations:
   Extrude Speed: Velocidad de extrusión
   Extrude/retract feedrate (Saved): Velocidad de extrusión/retracción (Guardada)
   Extruder: Extrusor
+  Extruder MPC Calibration: Calibración MPC del extrusor
   Extruder PID Tuning: Ajuste PID del Extrusor
   Extruder heats automatically based on material: El extrusor calienta automáticamente según el material
   Extrusion rate: Tasa de extrusión
@@ -407,6 +416,8 @@ translations:
   Failed to set active spool: Error al establecer bobina activa
   Failed to update configuration.\nCheck printer connection.: Error al actualizar configuración.\nCompruebe la conexión.
   Failed to update phase tracking: Error al actualizar seguimiento de fase
+  Fan Calibration: Calibración del ventilador
+  Fan Transfer: Transferencia del ventilador
   Fans: Ventiladores
   Farther: Más lejos
   Feed filament directly to extruder: Alimentar filamento directamente al extrusor
@@ -443,6 +454,7 @@ translations:
   Guides and reference: Guías y referencia
   H: H
   HELP & SUPPORT: AYUDA Y SOPORTE
+  Hang on, we'll be right back!: '¡Un momento, ya volvemos!'
   Happy Hare MMU: Happy Hare MMU
   Hardware: Hardware
   Hardware Health: Estado del Hardware
@@ -455,11 +467,15 @@ translations:
   ? Have your bed adjustment tool (screwdriver, hex-key, etc.) ready if your bed isn't adjusted with                              thumb wheels or some other built-in mechanism.
   : Tenga lista su herramienta de ajuste de cama (destornillador, llave Allen, etc.) si su cama no se ajusta con ruedas de pulgar u otro mecanismo integrado.
   Heading: Encabezado
+  Heat Capacity: Capacidad calorífica
   Heat Soak: Estabilización Térmica
   Heat bed before calibrating for accurate offset with thermal expansion.: Caliente la cama antes de calibrar para un offset preciso con expansión térmica.
   Heatbed Temperature: Temperatura de Cama Caliente
   Heated Bed: Cama Caliente
+  Heated Bed MPC Calibration: Calibración MPC de la cama caliente
+  Heated Bed PID Tuning: Ajuste PID de la cama caliente
   Heater: Calentador
+  Heater Power: Potencia del calentador
   Heating (%d°C below minimum): "Calentando (%d°C por debajo del mínimo)"
   Heating Bed...: Calentando cama...
   Heating Nozzle...: Calentando boquilla...
@@ -519,6 +535,7 @@ translations:
   Interactive probe calibration: Calibración interactiva de sonda
   Interactive probe offset adjustment: Ajuste interactivo de desplazamiento de sonda
   Issue description: Descripción del problema
+  Job Queue: Cola de trabajos
   Just now: Justo ahora
   Keep Printing: Continuar Imprimiendo
   Keep Required: Mantener Requerido
@@ -530,6 +547,7 @@ translations:
   Klipper will restart to apply changes: Klipper se reiniciará para aplicar los cambios
   Klipper will restart to apply changes.: Klipper se reiniciará para aplicar los cambios.
   Klipper will restart to apply new PID values.: Klipper se reiniciará para aplicar los nuevos valores PID.
+  Klipper will restart to apply new settings.: Klipper se reiniciará para aplicar la nueva configuración.
   LED SELECTION: SELECCIÓN DE LED
   LED Settings: Configuración de LED
   LED Strip: Tira LED
@@ -578,6 +596,7 @@ translations:
   MDI Icons: Iconos MDI
   MISSING CONFIGURED: CONFIGURADO FALTANTE
   MOTION: MOVIMIENTO
+  MPC: MPC
   Machine Limits: Límites de la Máquina
   Macro Browser: Explorador de Macros
   Macro Buttons: Botones de Macro
@@ -603,6 +622,7 @@ translations:
   Match your typical print fan speed: Ajuste a su velocidad típica de ventilador de impresión
   Material: Material
   Material Design Spinner: Indicador de Carga Material Design
+  Material Temperatures: Temperaturas de material
   Max: Máx
   Max Accel: Acel Máx
   Max Acceleration: Aceleración Máxima
@@ -614,14 +634,17 @@ translations:
   Maximum of 10 widgets can be enabled at once: Se pueden activar un máximo de 10 widgets a la vez
   Maximum toolhead speed (mm/s): Velocidad máxima del cabezal (mm/s)
   Measured: Medido
+  Measuring thermal response...: Midiendo respuesta térmica...
   Memory (MB): Memoria (MB)
   Mesh Complete: Malla Completa
+  Method: Método
   Min: Mín
   Mode: Modo
   Modified: Modificado
   Month: Mes
   Moonraker: Moonraker
   Moonraker restarting...\nWaiting for reconnection...: Reiniciando Moonraker...\nEsperando reconexión...
+  More points = more accurate, but takes longer.: Más puntos = más preciso, pero tarda más.
   Motion: Movimiento
   'Motion: XYZ': 'Movimiento: XYZ'
   Motors Off: Motores Apagados
@@ -670,6 +693,7 @@ translations:
   No file loaded: Sin archivo cargado
   No files available for printing: No hay archivos disponibles para imprimir
   No images found on USB drive: No se encontraron imágenes en la unidad USB
+  No jobs in queue: Sin trabajos en cola
   No macros available: No hay macros disponibles
   No matching prints: Sin impresiones coincidentes
   No mesh data: Sin datos de malla
@@ -703,7 +727,10 @@ translations:
   Notify when print finishes: Notificar cuando termine la impresión
   Nozzle: Boquilla
   'Nozzle ': 'Boquilla '
+  Nozzle / Bed: Boquilla / Cama
   Nozzle Clean: Limpieza de Boquilla
+  Nozzle Max (°C): Boquilla máx. (°C)
+  Nozzle Min (°C): Boquilla mín. (°C)
   Nozzle Moves: Boquilla se mueve
   Nozzle Priming: Cebado de Boquilla
   Nozzle Temp: Temp. Boquilla
@@ -722,10 +749,12 @@ translations:
   Optimize Your Printing: Optimice su Impresión
   Optimizes temperature control for stable, consistent heating.: Optimiza el control de temperatura para un calentamiento estable y consistente.
   Or Enter Manually: O Ingrese Manualmente
+  Oscillating around target...: Oscilando alrededor del objetivo...
   Output Mode: Modo de Salida
   P: P
   PA: PA
   PETG: PETG
+  PID: PID
   PLA: PLA
   PLA - Black: PLA - Negro
   POWER: ENERGÍA
@@ -750,6 +779,7 @@ translations:
   Place PNG or JPEG files in config/custom_images/ to add custom images: Coloque archivos PNG o JPEG en config/custom_images/ para agregar imágenes personalizadas
   'Place image files (PNG, JPEG, BMP, GIF) in config/custom_images/. Max size: 2048×2048 pixels.': 'Coloque archivos de imagen (PNG, JPEG, BMP, GIF) en config/custom_images/. Tamaño máx.: 2048×2048 píxeles.'
   Place plugins in the plugins directory to extend HelixScreen: Coloque plugins en el directorio de plugins para extender HelixScreen
+  Placed: En cola
   Play a test beep: Reproducir un pitido de prueba
   Please enter a theme name: Por favor ingrese un nombre de tema
   Please wait while the printer homes and probes.: Por favor espere mientras la impresora hace origen y sondea.
@@ -828,6 +858,8 @@ translations:
   QUEUED EVENTS: EVENTOS EN COLA
   QUICK BUTTONS: BOTONES RÁPIDOS
   Quad Gantry Level: Nivelación de Pórtico Cuádruple
+  'Queue: Ready': 'Cola: Lista'
+  Quick: Rápido
   Quick Actions: Acciones Rápidas
   Quick Button 1: Botón Rápido 1
   Quick Button 2: Botón Rápido 2
@@ -848,6 +880,7 @@ translations:
   Red: Rojo
   Reduce ringing and ghosting artifacts: Reducir artefactos de resonancia y fantasma
   Reduce vibration artifacts like ringing and ghosting: Reducir artefactos de vibración como resonancia y fantasma
+  Refining stability...: Refinando estabilidad...
   Refresh Interval: Intervalo de Actualización
   Release all stepper motors. Position will be lost.: Liberar todos los motores paso a paso. Se perderá la posición.
   Remaining: Restante
@@ -864,6 +897,7 @@ translations:
   Reset: Restablecer
   Reset Speed & Flow to 100%: Restablecer Velocidad y Flujo a 100%
   Reset all settings and restart wizard: Restablecer todos los ajustes y reiniciar asistente
+  Reset to Default: Restablecer valores predeterminados
   Reset to original values: Restaurar valores originales
   Resetting...: Restableciendo...
   Response (Kp): Respuesta (Kp)
@@ -878,6 +912,7 @@ translations:
   Restarting HelixScreen...: Reiniciando HelixScreen...
   Restarting Klipper...: Reiniciando Klipper...
   Restarting Moonraker...: Reiniciando Moonraker...
+  Restarting with the new version...: Reiniciando con la nueva versión...
   Restarting...: Reiniciando...
   Resume: Reanudar
   Resume Print: Reanudar Impresión
@@ -901,6 +936,7 @@ translations:
   STOP: DETENER
   STYLE PROPERTIES: PROPIEDADES DE ESTILO
   SYSTEM: SISTEMA
+  Sample %d/%d: Muestra %d/%d
   Sample Dialog: Diálogo de Ejemplo
   Save: Guardar
   Save & Restart: Guardar y Reiniciar
@@ -922,6 +958,7 @@ translations:
   Screen Dim: Atenuación de Pantalla
   Screen dims to lower brightness after period of inactivity: La pantalla atenúa el brillo después de un período de inactividad
   Screen will dim after the selected period of inactivity: La pantalla se atenuará después del período de inactividad seleccionado
+  Screensaver: Salvapantallas
   Screws Tilt: Inclinación de Tornillos
   Scroll Speed: Velocidad de Desplazamiento
   Search filename...: Buscar archivo...
@@ -951,6 +988,7 @@ translations:
   Send commands directly to printer: Enviar comandos directamente a la impresora
   Send this crash report to help improve HelixScreen.: Envíe este reporte de fallo para ayudar a mejorar HelixScreen.
   Sending...: Enviando...
+  Sensor Response: Respuesta del sensor
   Sensors: Sensores
   Separate on/off macros. HelixScreen tracks the state.: Macros separados de encendido/apagado. HelixScreen rastrea el estado.
   'Set ': 'Establecer '
@@ -963,6 +1001,7 @@ translations:
   'Share this code in Discord or support:': 'Comparte este código en Discord o soporte:'
   'Shininess:': 'Brillo:'
   Show detailed print preparation status: Mostrar estado detallado de preparación de impresión
+  Show flying toasters instead of dimming: Mostrar tostadoras voladoras en lugar de atenuar
   Shutdown: Apagar
   Shutdown / Reboot: Apagar / Reiniciar
   Shutting down...: Apagando...
@@ -1020,6 +1059,8 @@ translations:
   Switch Sensors: Sensores de Interruptor
   Switch Tests: Pruebas de Interruptores
   Switch between light and dark themes: Cambiar entre temas claro y oscuro
+  Switching heater control to MPC. Klipper will restart.: Cambiando control del calentador a MPC. Klipper se reiniciará.
+  Switching to MPC requires a config change and Klipper restart.: Cambiar a MPC requiere modificar la configuración y reiniciar Klipper.
   Sync with Spoolman: Sincronizar con Spoolman
   Sysfs: Sysfs
   System: Sistema
@@ -1078,6 +1119,7 @@ translations:
   This will reset all settings to defaults. This action cannot be undone.: Esto restablecerá todos los ajustes a los valores predeterminados. Esta acción no se puede deshacer.
   This will restart Klipper firmware. Any active operations will be interrupted.: Se reiniciará el firmware de Klipper. Las operaciones activas se interrumpirán.
   This will restart Klipper.: Esto reiniciará Klipper.
+  Thorough: Exhaustivo
   Thumbnail Only: Solo miniatura
   Time: Hora
   Time Format: Formato de Hora
@@ -1109,6 +1151,7 @@ translations:
   Try adjusting your search or filters: Intente ajustar su búsqueda o filtros
   Tune: Ajustar
   Tune at the temperature you print most often.: Ajuste a la temperatura con la que imprime más a menudo.
+  Tuning control parameters...: Ajustando parámetros de control...
   Tuning tower enabled - start a print to test: Torre de ajuste activada - inicie una impresión para probar
   Turn Off: Apagar
   Turn On: Encender
@@ -1133,6 +1176,8 @@ translations:
   Update Available: Actualización disponible
   Update Channel: Canal de actualización
   Update Failed: Actualización fallida
+  Update installed!: '¡Actualización instalada!'
+  Updating Configuration...: Actualizando configuración...
   Upload: Subir
   Upload Debug Bundle: Subir paquete de diagnóstico
   Upload Failed: Error al subir
@@ -1148,6 +1193,7 @@ translations:
   Verifying timelapse plugin...: Verificando plugin de timelapse...
   Verifying...: Verificando...
   Version: Versión
+  Version, updates, and printer info: Versión, actualizaciones e información de la impresora
   Vertical Progress (Retract Wizard): Progreso Vertical (Asistente de Retracción)
   Vibration: Vibración
   Vibration compensation active: Compensación de vibración activa
@@ -1212,6 +1258,7 @@ translations:
   'Z:': 'Z:'
   'Z: 0.000': 'Z: 0.000'
   Zoom: Zoom
+  by Preston Brown: by Preston Brown
   disable: deshabilitar
   disabled: desactivado
   e.g. Jet Black: p. ej. Negro Azabache

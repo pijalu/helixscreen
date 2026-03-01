@@ -19,7 +19,9 @@
 
 #include <algorithm>
 #include <cstring>
+#include <queue>
 #include <unordered_map>
+#include <unordered_set>
 
 namespace helix {
 
@@ -395,6 +397,73 @@ PanelWidgetManager::populate_widgets(const std::string& panel_id, lv_obj_t* cont
 
     spdlog::debug("[PanelWidgetManager] Grid layout: {}cols x {}rows (bp={}) for '{}'",
                   GridLayout::get_cols(breakpoint), max_row_used, breakpoint, panel_id);
+
+    // Create merged card backgrounds behind adjacent 1x1 widgets.
+    // BFS flood-fill finds connected components of 1x1 cells, then a single
+    // card object spans each component's bounding rectangle.
+    {
+        // Collect all placed 1x1 cells into a set for O(1) lookup
+        struct CellHash {
+            size_t operator()(const std::pair<int, int>& p) const {
+                return std::hash<int>()(p.first) ^ (std::hash<int>()(p.second) << 16);
+            }
+        };
+        std::unordered_set<std::pair<int, int>, CellHash> single_cells;
+        for (const auto& p : placed) {
+            if (p.colspan == 1 && p.rowspan == 1) {
+                single_cells.insert({p.col, p.row});
+            }
+        }
+
+        // BFS flood-fill to find connected components (4-directional adjacency)
+        std::unordered_set<std::pair<int, int>, CellHash> visited;
+        for (const auto& cell : single_cells) {
+            if (visited.count(cell)) {
+                continue;
+            }
+
+            // BFS from this cell
+            std::queue<std::pair<int, int>> q;
+            q.push(cell);
+            visited.insert(cell);
+
+            int min_col = cell.first, max_col = cell.first;
+            int min_row = cell.second, max_row_card = cell.second;
+
+            while (!q.empty()) {
+                auto [c, r] = q.front();
+                q.pop();
+                min_col = std::min(min_col, c);
+                max_col = std::max(max_col, c);
+                min_row = std::min(min_row, r);
+                max_row_card = std::max(max_row_card, r);
+
+                const std::pair<int, int> neighbors[] = {{c - 1, r}, {c + 1, r}, {c, r - 1}, {c, r + 1}};
+                for (const auto& n : neighbors) {
+                    if (single_cells.count(n) && !visited.count(n)) {
+                        visited.insert(n);
+                        q.push(n);
+                    }
+                }
+            }
+
+            int card_colspan = max_col - min_col + 1;
+            int card_rowspan = max_row_card - min_row + 1;
+
+            // Create a plain lv_obj with Card styling as the background
+            lv_obj_t* card_bg = lv_obj_create(container);
+            lv_obj_remove_style(card_bg, nullptr, LV_PART_MAIN);
+            lv_obj_add_style(card_bg, ThemeManager::instance().get_style(StyleRole::Card), LV_PART_MAIN);
+            lv_obj_set_style_pad_all(card_bg, 0, 0);
+            lv_obj_remove_flag(card_bg, LV_OBJ_FLAG_CLICKABLE);
+            lv_obj_remove_flag(card_bg, LV_OBJ_FLAG_SCROLLABLE);
+            lv_obj_set_grid_cell(card_bg, LV_GRID_ALIGN_STRETCH, min_col, card_colspan,
+                                 LV_GRID_ALIGN_STRETCH, min_row, card_rowspan);
+
+            spdlog::debug("[PanelWidgetManager] Card background at ({},{} {}x{})",
+                          min_col, min_row, card_colspan, card_rowspan);
+        }
+    }
 
     // Second pass: create XML components and place in grid cells
     std::vector<std::unique_ptr<PanelWidget>> result;

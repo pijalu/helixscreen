@@ -482,6 +482,7 @@
     <str name="icon_folder_arrow_up" value="󱧰"/>
     <str name="icon_folder_open" value="󰝰"/>
     <str name="icon_folder_upload" value="󰉙"/>
+    <str name="icon_fridge_industrial" value="󱗮"/>
     <str name="icon_grid_large" value="󰝘"/>
     <str name="icon_grid_off" value="󰋂"/>
     <str name="icon_grid_view" value="󰕰"/>
@@ -504,6 +505,7 @@
     <str name="icon_lan" value="󰌗"/>
     <str name="icon_layers" value="󰌨"/>
     <str name="icon_leaf" value="󰌪"/>
+    <str name="icon_led_strip" value="󰟖"/>
     <str name="icon_light" value="󰌵"/>
     <str name="icon_light_off" value="󰹏"/>
     <str name="icon_lightbulb_on" value="󰛨"/>
@@ -570,6 +572,7 @@
     <str name="icon_sync" value="󰓦"/>
     <str name="icon_sysinfo" value="󰋼"/>
     <str name="icon_target" value="󰓾"/>
+    <str name="icon_television_classic" value="󰟴"/>
     <str name="icon_thermometer" value="󰔏"/>
     <str name="icon_thermometer_minus" value="󰸄"/>
     <str name="icon_thermometer_plus" value="󰸅"/>

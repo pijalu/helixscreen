@@ -27,6 +27,9 @@ class PrintStatusWidget : public PanelWidget {
     /// Re-check runout condition after wizard completion
     void trigger_idle_runout_check();
 
+    /// XML event callback — opens print status panel or file browser
+    static void print_card_clicked_cb(lv_event_t* e);
+
   private:
     lv_obj_t* widget_obj_ = nullptr;
     lv_obj_t* parent_screen_ = nullptr;
@@ -63,8 +66,6 @@ class PrintStatusWidget : public PanelWidget {
     void check_and_show_idle_runout_modal();
     void show_idle_runout_modal();
 
-    // Static trampolines for XML event callbacks
-    static void print_card_clicked_cb(lv_event_t* e);
 };
 
 } // namespace helix

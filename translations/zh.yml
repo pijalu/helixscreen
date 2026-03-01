@@ -38,6 +38,7 @@ translations:
   4. Paper should move but with resistance: 4. 纸张应能移动但有阻力
   4. Repeat until bed is level: 4. 重复直到热床水平
   5 minutes: 5 分钟
+  50W: 50W
   5V: 5V
   60 seconds: 60 秒
   = Loosen: = 松开
@@ -62,6 +63,7 @@ translations:
   Abort: 中止
   Abort failed: 中止失败
   Aborting AFC operation...: 正在中止AFC操作...
+  About: 关于
   Accel to Decel: 加速到减速
   Acceleration to deceleration limit (mm/s²): 加速到减速限制 (mm/s²)
   Accelerometers: 加速度计
@@ -74,6 +76,7 @@ translations:
   Add Filament: 添加耗材
   Add Hidden Network: 添加隐藏网络
   Add Vendor: 添加供应商
+  Add Widget: 添加小组件
   Adjust screen brightness level: 调整屏幕亮度
   Adjust screws, then re-probe.: 调整螺丝，然后重新探测。
   Adjustments stay active until restart. Save after print completes.: 调整在重启前保持有效。打印完成后保存。
@@ -85,6 +88,7 @@ translations:
   All screws are within tolerance.: 所有螺丝都在公差范围内。
   Allow display to sleep during active prints: 打印时允许屏幕休眠
   Allwinner: Allwinner
+  Ambient Transfer: 环境传热
   An accelerometer was detected on your printer.: 在您的打印机上检测到加速度计。
   An error occurred during calibration.: 校准过程中发生错误。
   An error occurred during probing.: 探测过程中发生错误。
@@ -127,6 +131,7 @@ translations:
   Bed Screw Adjustment: 热床螺丝调整
   Bed Screws: 热床螺丝
   Bed Temp: 热床温度
+  Bed Temp (°C): 热床温度 (°C)
   Bed is Level!: 热床已水平！
   Bed °C: 热床 °C
   'Bed:': 热床：
@@ -185,6 +190,7 @@ translations:
   Check Again: 重新检查
   Check for Updates: 检查更新
   Check the filament path and try again.: 检查耗材路径并重试。
+  Check your heater's rating (typically 40-60W for hotends): 检查加热器功率（热端通常为 40-60W）
   Checking accelerometer...: 正在检查加速度计...
   Checking for plugin...: 正在检查插件...
   Checking slots...: 正在检查料仓...
@@ -279,6 +285,7 @@ translations:
   Currently printing: 正在打印
   Custom: 自定义
   Custom...: 自定义...
+  Customize preset temperatures: 自定义预设温度
   Cutting filament...: 正在切断耗材...
   DIAGNOSTICS: 诊断
   DISABLED: 已禁用
@@ -298,6 +305,7 @@ translations:
   Delete Video?: 删除视频？
   'Delta:': 差值：
   Deploy: 部署
+  Detailed: 详细
   Dev: 开发版
   Dev channel requires dev_url in config: 开发频道需要在配置中设置 dev_url
   Device name is required: 设备名称为必填项
@@ -380,6 +388,7 @@ translations:
   Extrude Speed: 挤出速度
   Extrude/retract feedrate (Saved): 挤出/回抽速度（已保存）
   Extruder: 挤出机
+  Extruder MPC Calibration: 挤出机 MPC 校准
   Extruder PID Tuning: 挤出机 PID 调优
   Extruder heats automatically based on material: 挤出机根据材料自动加热
   Extrusion rate: 挤出速率
@@ -407,6 +416,8 @@ translations:
   Failed to set active spool: 设置活动料盘失败
   Failed to update configuration.\nCheck printer connection.: 更新配置失败。\n请检查打印机连接。
   Failed to update phase tracking: 更新相位跟踪失败
+  Fan Calibration: 风扇校准
+  Fan Transfer: 风扇传热
   Fans: 风扇
   Farther: 更远
   Feed filament directly to extruder: 将耗材直接送入挤出机
@@ -443,6 +454,7 @@ translations:
   Guides and reference: 指南与参考
   H: 头
   HELP & SUPPORT: 帮助与支持
+  Hang on, we'll be right back!: 请稍候，马上回来！
   Happy Hare MMU: Happy Hare MMU
   Hardware: 硬件
   Hardware Health: 硬件状态
@@ -455,11 +467,15 @@ translations:
   ? Have your bed adjustment tool (screwdriver, hex-key, etc.) ready if your bed isn't adjusted with                              thumb wheels or some other built-in mechanism.
   : 如果您的热床不是用旋钮或其他内置机构调整的，请准备好热床调整工具（螺丝刀、内六角扳手等）。
   Heading: 标题
+  Heat Capacity: 热容量
   Heat Soak: 预热浸泡
   Heat bed before calibrating for accurate offset with thermal expansion.: 校准前加热热床，以获得考虑热膨胀的精确偏移。
   Heatbed Temperature: 热床温度
   Heated Bed: 加热床
+  Heated Bed MPC Calibration: 热床 MPC 校准
+  Heated Bed PID Tuning: 热床 PID 调优
   Heater: 加热器
+  Heater Power: 加热器功率
   Heating (%d°C below minimum): "加热中（低于最低温度 %d°C）"
   Heating Bed...: 正在加热热床...
   Heating Nozzle...: 正在加热喷嘴...
@@ -519,6 +535,7 @@ translations:
   Interactive probe calibration: 交互式探针校准
   Interactive probe offset adjustment: 交互式探针偏移调整
   Issue description: 问题描述
+  Job Queue: 任务队列
   Just now: 刚刚
   Keep Printing: 继续打印
   Keep Required: 保持必需
@@ -530,6 +547,7 @@ translations:
   Klipper will restart to apply changes: Klipper 将重启以应用更改
   Klipper will restart to apply changes.: Klipper 将重启以应用更改。
   Klipper will restart to apply new PID values.: Klipper 将重启以应用新的 PID 值。
+  Klipper will restart to apply new settings.: Klipper 将重启以应用新设置。
   LED SELECTION: LED 选择
   LED Settings: LED 设置
   LED Strip: LED 灯带
@@ -578,6 +596,7 @@ translations:
   MDI Icons: MDI 图标
   MISSING CONFIGURED: 缺少配置
   MOTION: 运动
+  MPC: MPC
   Machine Limits: 机器限制
   Macro Browser: 宏浏览器
   Macro Buttons: 宏按钮
@@ -603,6 +622,7 @@ translations:
   Match your typical print fan speed: 匹配您常用的打印风扇速度
   Material: 材料
   Material Design Spinner: Material Design 加载动画
+  Material Temperatures: 材料温度
   Max: 最大
   Max Accel: 最大加速
   Max Acceleration: 最大加速度
@@ -614,14 +634,17 @@ translations:
   Maximum of 10 widgets can be enabled at once: 最多可同时启用10个小组件
   Maximum toolhead speed (mm/s): 打印头最大速度 (mm/s)
   Measured: 已测量
+  Measuring thermal response...: 正在测量热响应...
   Memory (MB): 内存 (MB)
   Mesh Complete: 网格完成
+  Method: 方法
   Min: 最小
   Mode: 模式
   Modified: 已修改
   Month: 月
   Moonraker: Moonraker
   Moonraker restarting...\nWaiting for reconnection...: Moonraker 重启中...\n等待重新连接...
+  More points = more accurate, but takes longer.: 点数越多越精确，但耗时更长。
   Motion: 运动
   'Motion: XYZ': 运动：XYZ
   Motors Off: 关闭电机
@@ -670,6 +693,7 @@ translations:
   No file loaded: 未加载文件
   No files available for printing: 没有可用于打印的文件
   No images found on USB drive: USB驱动器上未找到图片
+  No jobs in queue: 队列中无任务
   No macros available: 无可用宏
   No matching prints: 没有匹配的打印
   No mesh data: 没有网格数据
@@ -703,7 +727,10 @@ translations:
   Notify when print finishes: 打印完成时通知
   Nozzle: 喷嘴
   'Nozzle ': '喷嘴 '
+  Nozzle / Bed: 喷嘴 / 热床
   Nozzle Clean: 喷嘴清洁
+  Nozzle Max (°C): 喷嘴最高温度 (°C)
+  Nozzle Min (°C): 喷嘴最低温度 (°C)
   Nozzle Moves: 喷嘴移动
   Nozzle Priming: 喷嘴预挤
   Nozzle Temp: 喷嘴温度
@@ -722,10 +749,12 @@ translations:
   Optimize Your Printing: 优化您的打印
   Optimizes temperature control for stable, consistent heating.: 优化温度控制，实现稳定一致的加热。
   Or Enter Manually: 或手动输入
+  Oscillating around target...: 正在围绕目标振荡...
   Output Mode: 输出模式
   P: 件
   PA: PA
   PETG: PETG
+  PID: PID
   PLA: PLA
   PLA - Black: PLA - 黑色
   POWER: 电源
@@ -750,6 +779,7 @@ translations:
   Place PNG or JPEG files in config/custom_images/ to add custom images: 将 PNG 或 JPEG 文件放在 config/custom_images/ 中以添加自定义图片
   'Place image files (PNG, JPEG, BMP, GIF) in config/custom_images/. Max size: 2048×2048 pixels.': '将图片文件 (PNG, JPEG, BMP, GIF) 放入 config/custom_images/。最大尺寸: 2048×2048 像素。'
   Place plugins in the plugins directory to extend HelixScreen: 将插件放在 plugins 目录中以扩展 HelixScreen
+  Placed: 已放置
   Play a test beep: 播放测试提示音
   Please enter a theme name: 请输入主题名称
   Please wait while the printer homes and probes.: 请等待打印机归位和探测。
@@ -828,6 +858,8 @@ translations:
   QUEUED EVENTS: 排队事件
   QUICK BUTTONS: 快捷按钮
   Quad Gantry Level: 四角龙门调平
+  'Queue: Ready': '队列：就绪'
+  Quick: 快速
   Quick Actions: 快捷操作
   Quick Button 1: 快捷按钮 1
   Quick Button 2: 快捷按钮 2
@@ -848,6 +880,7 @@ translations:
   Red: 红色
   Reduce ringing and ghosting artifacts: 减少振纹和残影
   Reduce vibration artifacts like ringing and ghosting: 减少振纹和残影等振动伪影
+  Refining stability...: 正在精细调整稳定性...
   Refresh Interval: 刷新间隔
   Release all stepper motors. Position will be lost.: 释放所有步进电机。位置信息将丢失。
   Remaining: 剩余
@@ -864,6 +897,7 @@ translations:
   Reset: 重置
   Reset Speed & Flow to 100%: 重置速度和流量为 100%
   Reset all settings and restart wizard: 重置所有设置并重新启动向导
+  Reset to Default: 重置为默认
   Reset to original values: 重置为原始值
   Resetting...: 正在重置...
   Response (Kp): 响应 (Kp)
@@ -878,6 +912,7 @@ translations:
   Restarting HelixScreen...: 正在重启 HelixScreen…
   Restarting Klipper...: 正在重启 Klipper...
   Restarting Moonraker...: 正在重启 Moonraker...
+  Restarting with the new version...: 正在以新版本重启...
   Restarting...: 重启中...
   Resume: 恢复
   Resume Print: 恢复打印
@@ -901,6 +936,7 @@ translations:
   STOP: 停止
   STYLE PROPERTIES: 样式属性
   SYSTEM: 系统
+  Sample %d/%d: 样本 %d/%d
   Sample Dialog: 示例对话框
   Save: 保存
   Save & Restart: 保存并重启
@@ -922,6 +958,7 @@ translations:
   Screen Dim: 屏幕变暗
   Screen dims to lower brightness after period of inactivity: 一段时间不活动后屏幕会降低亮度
   Screen will dim after the selected period of inactivity: 在选定的不活动时间后屏幕将变暗
+  Screensaver: 屏保
   Screws Tilt: 螺丝倾斜
   Scroll Speed: 滚动速度
   Search filename...: 搜索文件名...
@@ -951,6 +988,7 @@ translations:
   Send commands directly to printer: 直接向打印机发送命令
   Send this crash report to help improve HelixScreen.: 发送此崩溃报告以帮助改进 HelixScreen。
   Sending...: 正在发送...
+  Sensor Response: 传感器响应
   Sensors: 传感器
   Separate on/off macros. HelixScreen tracks the state.: 独立的开/关宏。HelixScreen 跟踪状态。
   'Set ': '设置 '
@@ -963,6 +1001,7 @@ translations:
   'Share this code in Discord or support:': 请将此代码分享至 Discord 或支持渠道：
   'Shininess:': 光泽度：
   Show detailed print preparation status: 显示详细的打印准备状态
+  Show flying toasters instead of dimming: 显示飞行烤面包机而非屏幕变暗
   Shutdown: 关机
   Shutdown / Reboot: 关机 / 重启
   Shutting down...: 正在关机...
@@ -1020,6 +1059,8 @@ translations:
   Switch Sensors: 开关传感器
   Switch Tests: 开关测试
   Switch between light and dark themes: 切换浅色和深色主题
+  Switching heater control to MPC. Klipper will restart.: 正在将加热控制切换为 MPC。Klipper 将重启。
+  Switching to MPC requires a config change and Klipper restart.: 切换到 MPC 需要修改配置并重启 Klipper。
   Sync with Spoolman: 与 Spoolman 同步
   Sysfs: Sysfs
   System: 系统
@@ -1078,6 +1119,7 @@ translations:
   This will reset all settings to defaults. This action cannot be undone.: 这将把所有设置重置为默认值。此操作无法撤销。
   This will restart Klipper firmware. Any active operations will be interrupted.: 将重启Klipper固件。所有正在进行的操作将被中断。
   This will restart Klipper.: 这将重启 Klipper。
+  Thorough: 全面
   Thumbnail Only: 仅缩略图
   Time: 时间
   Time Format: 时间格式
@@ -1109,6 +1151,7 @@ translations:
   Try adjusting your search or filters: 尝试调整搜索或筛选条件
   Tune: 调优
   Tune at the temperature you print most often.: 在您最常打印的温度下进行调优。
+  Tuning control parameters...: 正在调整控制参数...
   Tuning tower enabled - start a print to test: 调优塔已启用 - 开始打印以测试
   Turn Off: 关闭
   Turn On: 开启
@@ -1133,6 +1176,8 @@ translations:
   Update Available: 有可用更新
   Update Channel: 更新通道
   Update Failed: 更新失败
+  Update installed!: 更新已安装！
+  Updating Configuration...: 正在更新配置...
   Upload: 上传
   Upload Debug Bundle: 上传调试捆绑包
   Upload Failed: 上传失败
@@ -1148,6 +1193,7 @@ translations:
   Verifying timelapse plugin...: 正在验证延时摄影插件...
   Verifying...: 验证中...
   Version: 版本
+  Version, updates, and printer info: 版本、更新和打印机信息
   Vertical Progress (Retract Wizard): 垂直进度（回抽向导）
   Vibration: 振动
   Vibration compensation active: 振动补偿已启用
@@ -1212,6 +1258,7 @@ translations:
   'Z:': 'Z:'
   'Z: 0.000': 'Z: 0.000'
   Zoom: 缩放
+  by Preston Brown: by Preston Brown
   disable: 禁用
   disabled: 已禁用
   e.g. Jet Black: 例如 炭黑

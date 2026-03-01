@@ -493,9 +493,11 @@ void PrinterPrintState::set_print_display_filename(const std::string& name) {
 }
 
 void PrinterPrintState::set_print_layer_total(int total) {
-    if (lv_subject_get_int(&print_layer_total_) != total) {
-        lv_subject_set_int(&print_layer_total_, total);
-    }
+    helix::ui::queue_update([this, total]() {
+        if (lv_subject_get_int(&print_layer_total_) != total) {
+            lv_subject_set_int(&print_layer_total_, total);
+        }
+    });
 }
 
 void PrinterPrintState::set_print_layer_current(int layer) {

@@ -37,8 +37,9 @@ class WidgetCatalogOverlay {
                               WidgetSelectedCallback on_select);
 
     /// Create a single catalog row widget
-    static lv_obj_t* create_row(lv_obj_t* parent, const char* name, int colspan, int rowspan,
-                                bool already_placed);
+    static lv_obj_t* create_row(lv_obj_t* parent, const char* name, const char* icon,
+                                const char* description, int colspan, int rowspan,
+                                bool already_placed, bool hardware_gated);
 };
 
 } // namespace helix

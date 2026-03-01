@@ -21,10 +21,11 @@ namespace helix {
 
 /// Fan type classification for display and control
 enum class FanType {
-    PART_COOLING,   ///< Main part cooling fan ("fan" or configured part fan)
-    HEATER_FAN,     ///< Hotend cooling fan (auto-controlled, not user-adjustable)
-    CONTROLLER_FAN, ///< Electronics cooling (auto-controlled)
-    GENERIC_FAN     ///< User-controllable generic fan (fan_generic)
+    PART_COOLING,    ///< Main part cooling fan ("fan" or configured part fan)
+    HEATER_FAN,      ///< Hotend cooling fan (auto-controlled, not user-adjustable)
+    CONTROLLER_FAN,  ///< Electronics cooling (auto-controlled)
+    TEMPERATURE_FAN, ///< Thermostatically controlled fan (auto-controlled)
+    GENERIC_FAN      ///< User-controllable generic fan (fan_generic)
 };
 
 /**

@@ -56,8 +56,10 @@ HistoryDashboardPanel::HistoryDashboardPanel() : history_manager_(get_print_hist
 // Destructor - cleanup subjects and observers
 HistoryDashboardPanel::~HistoryDashboardPanel() {
     deinit_subjects();
-    if (history_manager_ && history_observer_) {
-        history_manager_->remove_observer(&history_observer_);
+    auto* mgr = get_print_history_manager();
+    if (mgr && history_observer_) {
+        mgr->remove_observer(&history_observer_);
+        history_observer_ = nullptr;
     }
     // Guard against static destruction order fiasco (spdlog may be gone)
     if (!StaticPanelRegistry::is_destroyed()) {

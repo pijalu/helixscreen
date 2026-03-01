@@ -66,7 +66,7 @@ jobs:
 3. Verify submodule initialization
 4. Install Node.js dependencies (font converters)
 5. Generate fonts (platform-conditional)
-6. Build dependencies (libhv, wpa_supplicant, TinyGL)
+6. Build dependencies (libhv, wpa_supplicant)
 7. Build HelixScreen
 8. Upload binary artifacts (7-day retention)
 
@@ -150,13 +150,7 @@ HelixScreen depends on several libraries that must be built in order:
    make -C wpa_supplicant/wpa_supplicant -j$(nproc) libwpa_client.a
    ```
 
-3. **TinyGL** - Software 3D rasterizer
-   ```bash
-   cd tinygl
-   make -j$(nproc)
-   ```
-
-4. **HelixScreen** - Main application
+3. **HelixScreen** - Main application
    ```bash
    make -j$(nproc)
    ```
@@ -175,12 +169,6 @@ HelixScreen depends on several libraries that must be built in order:
   run: |
     make -C wpa_supplicant/wpa_supplicant -j$(nproc) libwpa_client.a
     echo "✓ wpa_supplicant client library built successfully"
-
-- name: Build TinyGL
-  run: |
-    cd tinygl
-    make -j$(nproc)
-    echo "✓ TinyGL built successfully"
 
 - name: Build HelixScreen
   run: |
@@ -256,10 +244,6 @@ cd ..
 
 make -C wpa_supplicant/wpa_supplicant -j$(nproc) libwpa_client.a
 
-cd tinygl
-make -j$(nproc)
-cd ..
-
 # Build project
 npm install
 npm run convert-fonts-ci
@@ -278,10 +262,6 @@ make clean
 # Build dependencies
 cd libhv
 ./configure --with-http-client
-make -j$(sysctl -n hw.ncpu)
-cd ..
-
-cd tinygl
 make -j$(sysctl -n hw.ncpu)
 cd ..
 
@@ -458,7 +438,7 @@ git submodule update --init --recursive
 ✅ **Parallel platform builds** - Ubuntu and macOS build simultaneously
 ✅ **Platform-conditional scripts** - Different font generation per platform
 ✅ **Shared quality script** - Same checks locally and in CI
-✅ **Explicit dependency order** - Build libhv → wpa_supplicant → TinyGL → HelixScreen
+✅ **Explicit dependency order** - Build libhv → wpa_supplicant → HelixScreen
 ✅ **Clear error messages** - Include helpful context in build output
 ✅ **Test locally first** - Simulate CI builds before pushing
 ✅ **Artifact retention** - 7 days for development builds

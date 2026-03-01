@@ -38,6 +38,7 @@ translations:
   4. Paper should move but with resistance: 4. Paper should move but with resistance
   4. Repeat until bed is level: 4. Repeat until bed is level
   5 minutes: 5 minutes
+  50W: 50W
   5V: 5V
   60 seconds: 60 seconds
   = Loosen: = Loosen
@@ -62,6 +63,7 @@ translations:
   Abort: Abort
   Abort failed: Abort failed
   Aborting AFC operation...: Aborting AFC operation...
+  About: About
   Accel to Decel: Accel to Decel
   Acceleration to deceleration limit (mm/s²): Acceleration to deceleration limit (mm/s²)
   Accelerometers: Accelerometers
@@ -74,6 +76,7 @@ translations:
   Add Filament: Add Filament
   Add Hidden Network: Add Hidden Network
   Add Vendor: Add Vendor
+  Add Widget: Add Widget
   Adjust screen brightness level: Adjust screen brightness level
   Adjust screws, then re-probe.: Adjust screws, then re-probe.
   Adjustments stay active until restart. Save after print completes.: Adjustments stay active until restart. Save after print completes.
@@ -85,6 +88,7 @@ translations:
   All screws are within tolerance.: All screws are within tolerance.
   Allow display to sleep during active prints: Allow display to sleep during active prints
   Allwinner: Allwinner
+  Ambient Transfer: Ambient Transfer
   An accelerometer was detected on your printer.: An accelerometer was detected on your printer.
   An error occurred during calibration.: An error occurred during calibration.
   An error occurred during probing.: An error occurred during probing.
@@ -127,6 +131,7 @@ translations:
   Bed Screw Adjustment: Bed Screw Adjustment
   Bed Screws: Bed Screws
   Bed Temp: Bed Temp
+  Bed Temp (°C): Bed Temp (°C)
   Bed is Level!: Bed is Level!
   Bed °C: Bed °C
   'Bed:': 'Bed:'
@@ -185,6 +190,7 @@ translations:
   Check Again: Check Again
   Check for Updates: Check for Updates
   Check the filament path and try again.: Check the filament path and try again.
+  Check your heater's rating (typically 40-60W for hotends): Check your heater's rating (typically 40-60W for hotends)
   Checking accelerometer...: Checking accelerometer...
   Checking for plugin...: Checking for plugin...
   Checking slots...: Checking slots...
@@ -279,6 +285,7 @@ translations:
   Currently printing: Currently printing
   Custom: Custom
   Custom...: Custom...
+  Customize preset temperatures: Customize preset temperatures
   Cutting filament...: Cutting filament...
   DIAGNOSTICS: DIAGNOSTICS
   DISABLED: DISABLED
@@ -298,6 +305,7 @@ translations:
   Delete Video?: Delete Video?
   'Delta:': 'Delta:'
   Deploy: Deploy
+  Detailed: Detailed
   Dev: Dev
   Dev channel requires dev_url in config: Dev channel requires dev_url in config
   Device name is required: Device name is required
@@ -380,6 +388,7 @@ translations:
   Extrude Speed: Extrude Speed
   Extrude/retract feedrate (Saved): Extrude/retract feedrate (Saved)
   Extruder: Extruder
+  Extruder MPC Calibration: Extruder MPC Calibration
   Extruder PID Tuning: Extruder PID Tuning
   Extruder heats automatically based on material: Extruder heats automatically based on material
   Extrusion rate: Extrusion rate
@@ -407,6 +416,8 @@ translations:
   Failed to set active spool: Failed to set active spool
   Failed to update configuration.\nCheck printer connection.: Failed to update configuration.\nCheck printer connection.
   Failed to update phase tracking: Failed to update phase tracking
+  Fan Calibration: Fan Calibration
+  Fan Transfer: Fan Transfer
   Fans: Fans
   Farther: Farther
   Feed filament directly to extruder: Feed filament directly to extruder
@@ -443,6 +454,7 @@ translations:
   Guides and reference: Guides and reference
   H: H
   HELP & SUPPORT: HELP & SUPPORT
+  Hang on, we'll be right back!: Hang on, we'll be right back!
   Happy Hare MMU: Happy Hare MMU
   Hardware: Hardware
   Hardware Health: Hardware Health
@@ -455,11 +467,15 @@ translations:
   ? Have your bed adjustment tool (screwdriver, hex-key, etc.) ready if your bed isn't adjusted with                              thumb wheels or some other built-in mechanism.
   : Have your bed adjustment tool (screwdriver, hex-key, etc.) ready if your bed isn't adjusted with                              thumb wheels or some other built-in mechanism.
   Heading: Heading
+  Heat Capacity: Heat Capacity
   Heat Soak: Heat Soak
   Heat bed before calibrating for accurate offset with thermal expansion.: Heat bed before calibrating for accurate offset with thermal expansion.
   Heatbed Temperature: Heatbed Temperature
   Heated Bed: Heated Bed
+  Heated Bed MPC Calibration: Heated Bed MPC Calibration
+  Heated Bed PID Tuning: Heated Bed PID Tuning
   Heater: Heater
+  Heater Power: Heater Power
   Heating (%d°C below minimum): Heating (%d°C below minimum)
   Heating Bed...: Heating Bed...
   Heating Nozzle...: Heating Nozzle...
@@ -519,6 +535,7 @@ translations:
   Interactive probe calibration: Interactive probe calibration
   Interactive probe offset adjustment: Interactive probe offset adjustment
   Issue description: Issue description
+  Job Queue: Job Queue
   Just now: Just now
   Keep Printing: Keep Printing
   Keep Required: Keep Required
@@ -530,6 +547,7 @@ translations:
   Klipper will restart to apply changes: Klipper will restart to apply changes
   Klipper will restart to apply changes.: Klipper will restart to apply changes.
   Klipper will restart to apply new PID values.: Klipper will restart to apply new PID values.
+  Klipper will restart to apply new settings.: Klipper will restart to apply new settings.
   LED SELECTION: LED SELECTION
   LED Settings: LED Settings
   LED Strip: LED Strip
@@ -578,6 +596,7 @@ translations:
   MDI Icons: MDI Icons
   MISSING CONFIGURED: MISSING CONFIGURED
   MOTION: MOTION
+  MPC: MPC
   Machine Limits: Machine Limits
   Macro Browser: Macro Browser
   Macro Buttons: Macro Buttons
@@ -603,6 +622,7 @@ translations:
   Match your typical print fan speed: Match your typical print fan speed
   Material: Material
   Material Design Spinner: Material Design Spinner
+  Material Temperatures: Material Temperatures
   Max: Max
   Max Accel: Max Accel
   Max Acceleration: Max Acceleration
@@ -614,14 +634,17 @@ translations:
   Maximum of 10 widgets can be enabled at once: Maximum of 10 widgets can be enabled at once
   Maximum toolhead speed (mm/s): Maximum toolhead speed (mm/s)
   Measured: Measured
+  Measuring thermal response...: Measuring thermal response...
   Memory (MB): Memory (MB)
   Mesh Complete: Mesh Complete
+  Method: Method
   Min: Min
   Mode: Mode
   Modified: Modified
   Month: Month
   Moonraker: Moonraker
   Moonraker restarting...\nWaiting for reconnection...: Moonraker restarting...\nWaiting for reconnection...
+  More points = more accurate, but takes longer.: More points = more accurate, but takes longer.
   Motion: Motion
   'Motion: XYZ': 'Motion: XYZ'
   Motors Off: Motors Off
@@ -670,6 +693,7 @@ translations:
   No file loaded: No file loaded
   No files available for printing: No files available for printing
   No images found on USB drive: No images found on USB drive
+  No jobs in queue: No jobs in queue
   No macros available: No macros available
   No matching prints: No matching prints
   No mesh data: No mesh data
@@ -703,7 +727,10 @@ translations:
   Notify when print finishes: Notify when print finishes
   Nozzle: Nozzle
   'Nozzle ': 'Nozzle '
+  Nozzle / Bed: Nozzle / Bed
   Nozzle Clean: Nozzle Clean
+  Nozzle Max (°C): Nozzle Max (°C)
+  Nozzle Min (°C): Nozzle Min (°C)
   Nozzle Moves: Nozzle Moves
   Nozzle Priming: Nozzle Priming
   Nozzle Temp: Nozzle Temp
@@ -722,10 +749,12 @@ translations:
   Optimize Your Printing: Optimize Your Printing
   Optimizes temperature control for stable, consistent heating.: Optimizes temperature control for stable, consistent heating.
   Or Enter Manually: Or Enter Manually
+  Oscillating around target...: Oscillating around target...
   Output Mode: Output Mode
   P: P
   PA: PA
   PETG: PETG
+  PID: PID
   PLA: PLA
   PLA - Black: PLA - Black
   POWER: POWER
@@ -750,6 +779,7 @@ translations:
   Place PNG or JPEG files in config/custom_images/ to add custom images: Place PNG or JPEG files in config/custom_images/ to add custom images
   'Place image files (PNG, JPEG, BMP, GIF) in config/custom_images/. Max size: 2048×2048 pixels.': 'Place image files (PNG, JPEG, BMP, GIF) in config/custom_images/. Max size: 2048×2048 pixels.'
   Place plugins in the plugins directory to extend HelixScreen: Place plugins in the plugins directory to extend HelixScreen
+  Placed: Placed
   Play a test beep: Play a test beep
   Please enter a theme name: Please enter a theme name
   Please wait while the printer homes and probes.: Please wait while the printer homes and probes.
@@ -828,6 +858,8 @@ translations:
   QUEUED EVENTS: QUEUED EVENTS
   QUICK BUTTONS: QUICK BUTTONS
   Quad Gantry Level: Quad Gantry Level
+  'Queue: Ready': 'Queue: Ready'
+  Quick: Quick
   Quick Actions: Quick Actions
   Quick Button 1: Quick Button 1
   Quick Button 2: Quick Button 2
@@ -848,6 +880,7 @@ translations:
   Red: Red
   Reduce ringing and ghosting artifacts: Reduce ringing and ghosting artifacts
   Reduce vibration artifacts like ringing and ghosting: Reduce vibration artifacts like ringing and ghosting
+  Refining stability...: Refining stability...
   Refresh Interval: Refresh Interval
   Release all stepper motors. Position will be lost.: Release all stepper motors. Position will be lost.
   Remaining: Remaining
@@ -864,6 +897,7 @@ translations:
   Reset: Reset
   Reset Speed & Flow to 100%: Reset Speed & Flow to 100%
   Reset all settings and restart wizard: Reset all settings and restart wizard
+  Reset to Default: Reset to Default
   Reset to original values: Reset to original values
   Resetting...: Resetting...
   Response (Kp): Response (Kp)
@@ -878,6 +912,7 @@ translations:
   Restarting HelixScreen...: Restarting HelixScreen...
   Restarting Klipper...: Restarting Klipper...
   Restarting Moonraker...: Restarting Moonraker...
+  Restarting with the new version...: Restarting with the new version...
   Restarting...: Restarting...
   Resume: Resume
   Resume Print: Resume Print
@@ -901,6 +936,7 @@ translations:
   STOP: STOP
   STYLE PROPERTIES: STYLE PROPERTIES
   SYSTEM: SYSTEM
+  Sample %d/%d: Sample %d/%d
   Sample Dialog: Sample Dialog
   Save: Save
   Save & Restart: Save & Restart
@@ -922,6 +958,7 @@ translations:
   Screen Dim: Screen Dim
   Screen dims to lower brightness after period of inactivity: Screen dims to lower brightness after period of inactivity
   Screen will dim after the selected period of inactivity: Screen will dim after the selected period of inactivity
+  Screensaver: Screensaver
   Screws Tilt: Screws Tilt
   Scroll Speed: Scroll Speed
   Search filename...: Search filename...
@@ -951,6 +988,7 @@ translations:
   Send commands directly to printer: Send commands directly to printer
   Send this crash report to help improve HelixScreen.: Send this crash report to help improve HelixScreen.
   Sending...: Sending...
+  Sensor Response: Sensor Response
   Sensors: Sensors
   Separate on/off macros. HelixScreen tracks the state.: Separate on/off macros. HelixScreen tracks the state.
   'Set ': 'Set '
@@ -963,6 +1001,7 @@ translations:
   'Share this code in Discord or support:': 'Share this code in Discord or support:'
   'Shininess:': 'Shininess:'
   Show detailed print preparation status: Show detailed print preparation status
+  Show flying toasters instead of dimming: Show flying toasters instead of dimming
   Shutdown: Shutdown
   Shutdown / Reboot: Shutdown / Reboot
   Shutting down...: Shutting down...
@@ -1020,6 +1059,8 @@ translations:
   Switch Sensors: Switch Sensors
   Switch Tests: Switch Tests
   Switch between light and dark themes: Switch between light and dark themes
+  Switching heater control to MPC. Klipper will restart.: Switching heater control to MPC. Klipper will restart.
+  Switching to MPC requires a config change and Klipper restart.: Switching to MPC requires a config change and Klipper restart.
   Sync with Spoolman: Sync with Spoolman
   Sysfs: Sysfs
   System: System
@@ -1078,6 +1119,7 @@ translations:
   This will reset all settings to defaults. This action cannot be undone.: This will reset all settings to defaults. This action cannot be undone.
   This will restart Klipper firmware. Any active operations will be interrupted.: This will restart Klipper firmware. Any active operations will be interrupted.
   This will restart Klipper.: This will restart Klipper.
+  Thorough: Thorough
   Thumbnail Only: Thumbnail Only
   Time: Time
   Time Format: Time Format
@@ -1109,6 +1151,7 @@ translations:
   Try adjusting your search or filters: Try adjusting your search or filters
   Tune: Tune
   Tune at the temperature you print most often.: Tune at the temperature you print most often.
+  Tuning control parameters...: Tuning control parameters...
   Tuning tower enabled - start a print to test: Tuning tower enabled - start a print to test
   Turn Off: Turn Off
   Turn On: Turn On
@@ -1133,6 +1176,8 @@ translations:
   Update Available: Update Available
   Update Channel: Update Channel
   Update Failed: Update Failed
+  Update installed!: Update installed!
+  Updating Configuration...: Updating Configuration...
   Upload: Upload
   Upload Debug Bundle: Upload Debug Bundle
   Upload Failed: Upload Failed
@@ -1148,6 +1193,7 @@ translations:
   Verifying timelapse plugin...: Verifying timelapse plugin...
   Verifying...: Verifying...
   Version: Version
+  Version, updates, and printer info: Version, updates, and printer info
   Vertical Progress (Retract Wizard): Vertical Progress (Retract Wizard)
   Vibration: Vibration
   Vibration compensation active: Vibration compensation active
@@ -1212,6 +1258,7 @@ translations:
   'Z:': 'Z:'
   'Z: 0.000': 'Z: 0.000'
   Zoom: Zoom
+  by Preston Brown: by Preston Brown
   disable: disable
   disabled: disabled
   e.g. Jet Black: e.g. Jet Black

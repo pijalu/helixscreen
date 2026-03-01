@@ -47,7 +47,7 @@ ifdef SPLASH_BUILD
 
 # Compile splash source (with dependency tracking for header changes)
 # Depends on LIBHV_LIB to ensure libhv headers are installed before compilation
-$(BUILD_DIR)/splash/%.o: src/%.cpp $(LIBHV_LIB) | $(BUILD_DIR)/splash
+$(BUILD_DIR)/splash/%.o: src/%.cpp $(LIBHV_LIB) $(LIBHV_JSON_HEADER) | $(BUILD_DIR)/splash
 	@echo "[CXX] $< (splash)"
 	$(Q)$(CXX) $(SPLASH_CXXFLAGS) $(DEPFLAGS) -c $< -o $@
 
@@ -58,17 +58,17 @@ $(BUILD_DIR)/splash/%.o: src/%.cpp $(LIBHV_LIB) | $(BUILD_DIR)/splash
 SPLASH_EXTRA_OBJS := $(BUILD_DIR)/splash/config.o $(BUILD_DIR)/splash/backlight_backend.o $(BUILD_DIR)/splash/ui_notification_stub.o
 
 # Compile config for splash (with HELIX_SPLASH_ONLY to guard get_runtime_config dependency)
-$(BUILD_DIR)/splash/config.o: src/system/config.cpp $(LIBHV_LIB) | $(BUILD_DIR)/splash
+$(BUILD_DIR)/splash/config.o: src/system/config.cpp $(LIBHV_LIB) $(LIBHV_JSON_HEADER) | $(BUILD_DIR)/splash
 	@echo "[CXX] $< (splash)"
 	$(Q)$(CXX) $(SPLASH_CXXFLAGS) $(DEPFLAGS) -c $< -o $@
 
 # Compile backlight backend for splash (with HELIX_SPLASH_ONLY to skip runtime_config dependency)
-$(BUILD_DIR)/splash/backlight_backend.o: src/api/backlight_backend.cpp $(LIBHV_LIB) | $(BUILD_DIR)/splash
+$(BUILD_DIR)/splash/backlight_backend.o: src/api/backlight_backend.cpp $(LIBHV_LIB) $(LIBHV_JSON_HEADER) | $(BUILD_DIR)/splash
 	@echo "[CXX] $< (splash)"
 	$(Q)$(CXX) $(SPLASH_CXXFLAGS) $(DEPFLAGS) -c $< -o $@
 
 # Compile notification stub for splash (with dependency tracking)
-$(BUILD_DIR)/splash/ui_notification_stub.o: tools/ui_notification_stub.cpp $(LIBHV_LIB) | $(BUILD_DIR)/splash
+$(BUILD_DIR)/splash/ui_notification_stub.o: tools/ui_notification_stub.cpp $(LIBHV_LIB) $(LIBHV_JSON_HEADER) | $(BUILD_DIR)/splash
 	@echo "[CXX] $< (splash stub)"
 	$(Q)$(CXX) $(SPLASH_CXXFLAGS) $(DEPFLAGS) -c $< -o $@
 

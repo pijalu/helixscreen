@@ -61,6 +61,24 @@ RUN wget -q "https://toolchains.bootlin.com/downloads/releases/toolchains/mips32
     mv "mips32el--musl--stable-2024.02-1" mips-toolchain
 
 # ==============================================================================
+# OpenSSL 1.1.1w - Static Cross-Compiled Libraries
+# ==============================================================================
+# Build OpenSSL for MIPS with static linking. The libraries install into the
+# toolchain sysroot so cross-compilation finds them automatically.
+WORKDIR /tmp
+RUN export PATH="/opt/mips-toolchain/bin:$PATH" && \
+    wget -q https://www.openssl.org/source/openssl-1.1.1w.tar.gz && \
+    tar xzf openssl-1.1.1w.tar.gz && \
+    cd openssl-1.1.1w && \
+    ./Configure linux-mips32 no-shared \
+        --cross-compile-prefix=mipsel-buildroot-linux-musl- \
+        --prefix=/opt/mips-toolchain/mipsel-buildroot-linux-musl/sysroot/usr && \
+    make -j$(nproc) && \
+    make install_sw && \
+    cd .. && \
+    rm -rf openssl-1.1.1w openssl-1.1.1w.tar.gz
+
+# ==============================================================================
 # zlib 1.3.2 - Static Cross-Compiled Library
 # ==============================================================================
 # Required for debug bundle gzip compression (debug_bundle_collector.cpp).

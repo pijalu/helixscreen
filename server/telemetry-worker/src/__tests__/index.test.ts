@@ -1206,7 +1206,10 @@ describe("Dashboard endpoints", () => {
     it("returns release comparison data", async () => {
       mockExecuteQuery
         .mockResolvedValueOnce({
-          data: [{ ver: "0.9.19", total_sessions: 200, total_crashes: 4, active_devices: 50 }],
+          data: [{ ver: "0.9.19", total_sessions: 200, total_crashes: 4 }],
+        })
+        .mockResolvedValueOnce({
+          data: [{ ver: "0.9.19", active_devices: 50 }],
         })
         .mockResolvedValueOnce({
           data: [{ ver: "0.9.19", print_successes: 88, print_total: 100 }],

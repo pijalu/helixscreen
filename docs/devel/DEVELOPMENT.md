@@ -43,7 +43,7 @@ npm install && make venv-setup
 |----------|------------|-------|
 | **Required** | clang, cmake 3.16+, make, python3, node/npm | Core build tools |
 | **Auto-built** | SDL2, spdlog, libhv | Built from submodules if not system-installed |
-| **Always submodule** | lvgl, TinyGL | Project-specific patches required |
+| **Always submodule** | lvgl | Project-specific patches required |
 | **Optional** | bear, imagemagick, shellcheck, bats-core | IDE support, screenshots, shell linting/testing |
 
 ```bash
@@ -85,12 +85,6 @@ make compile_commands  # Generate compile_commands.json for IDE/LSP
 | `--real-files` | Use real printer files |
 
 **Test mode keyboard shortcuts:** S=screenshot, P=test prompt, N=test notification, Q/Esc=quit
-
-### Build Options
-
-```bash
-make -j ENABLE_TINYGL_3D=no  # Disable 3D rendering (smaller/faster)
-```
 
 For cross-compilation, patches, and advanced options, see **[BUILD_SYSTEM.md](BUILD_SYSTEM.md)**.
 

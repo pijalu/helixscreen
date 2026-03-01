@@ -38,6 +38,7 @@ translations:
   4. Paper should move but with resistance: 4. Бумага должна двигаться, но с сопротивлением
   4. Repeat until bed is level: 4. Повторяйте, пока стол не выровняется
   5 minutes: 5 минут
+  50W: 50W
   5V: 5V
   60 seconds: 60 секунд
   = Loosen: = Ослабить
@@ -62,6 +63,7 @@ translations:
   Abort: Прервать
   Abort failed: Ошибка прерывания
   Aborting AFC operation...: Прерывание операции AFC...
+  About: О программе
   Accel to Decel: Ускорение к торможению
   Acceleration to deceleration limit (mm/s²): Предел ускорения к торможению (мм/с²)
   Accelerometers: Акселерометры
@@ -74,6 +76,7 @@ translations:
   Add Filament: Добавить филамент
   Add Hidden Network: Добавить скрытую сеть
   Add Vendor: Добавить производителя
+  Add Widget: Добавить виджет
   Adjust screen brightness level: Настроить уровень яркости экрана
   Adjust screws, then re-probe.: Отрегулируйте винты, затем перепроверьте.
   Adjustments stay active until restart. Save after print completes.: Настройки активны до перезагрузки. Сохраните после завершения печати.
@@ -85,6 +88,7 @@ translations:
   All screws are within tolerance.: Все винты в пределах допуска.
   Allow display to sleep during active prints: Разрешить спящий режим дисплея во время печати
   Allwinner: Allwinner
+  Ambient Transfer: Теплообмен с окружающей средой
   An accelerometer was detected on your printer.: На вашем принтере обнаружен акселерометр.
   An error occurred during calibration.: Во время калибровки произошла ошибка.
   An error occurred during probing.: Во время зондирования произошла ошибка.
@@ -127,6 +131,7 @@ translations:
   Bed Screw Adjustment: Регулировка винтов стола
   Bed Screws: Винты стола
   Bed Temp: Темп. стола
+  Bed Temp (°C): Температура стола (°C)
   Bed is Level!: Стол выровнен!
   Bed °C: Стол °C
   'Bed:': 'Стол:'
@@ -185,6 +190,7 @@ translations:
   Check Again: Проверить снова
   Check for Updates: Проверить обновления
   Check the filament path and try again.: Проверьте путь филамента и попробуйте снова.
+  Check your heater's rating (typically 40-60W for hotends): Проверьте мощность нагревателя (обычно 40–60W для хотэндов)
   Checking accelerometer...: Проверка акселерометра...
   Checking for plugin...: Поиск плагина...
   Checking slots...: Проверка слотов...
@@ -279,6 +285,7 @@ translations:
   Currently printing: Сейчас печатается
   Custom: Свой
   Custom...: Настроить...
+  Customize preset temperatures: Настройка пресетов температур
   Cutting filament...: Обрезка филамента...
   DIAGNOSTICS: ДИАГНОСТИКА
   DISABLED: ОТКЛЮЧЕНО
@@ -298,6 +305,7 @@ translations:
   Delete Video?: Удалить видео?
   'Delta:': 'Дельта:'
   Deploy: Развернуть
+  Detailed: Подробно
   Dev: Разработка
   Dev channel requires dev_url in config: Dev-канал требует dev_url в конфиге
   Device name is required: Требуется название устройства
@@ -380,6 +388,7 @@ translations:
   Extrude Speed: Скорость экструзии
   Extrude/retract feedrate (Saved): Скорость экструзии/ретракции (Сохранено)
   Extruder: Экструдер
+  Extruder MPC Calibration: Калибровка MPC экструдера
   Extruder PID Tuning: Настройка PID экструдера
   Extruder heats automatically based on material: Экструдер нагревается автоматически в зависимости от материала
   Extrusion rate: Скорость экструзии
@@ -407,6 +416,8 @@ translations:
   Failed to set active spool: Не удалось установить активную катушку
   Failed to update configuration.\nCheck printer connection.: Не удалось обновить конфигурацию.\nПроверьте подключение принтера.
   Failed to update phase tracking: Не удалось обновить отслеживание фазы
+  Fan Calibration: Калибровка вентилятора
+  Fan Transfer: Теплообмен с вентилятором
   Fans: Вентиляторы
   Farther: Дальше
   Feed filament directly to extruder: Подать филамент напрямую в экструдер
@@ -443,6 +454,7 @@ translations:
   Guides and reference: Руководства и справка
   H: Х
   HELP & SUPPORT: ПОМОЩЬ И ПОДДЕРЖКА
+  Hang on, we'll be right back!: Подождите, мы скоро вернёмся!
   Happy Hare MMU: Happy Hare MMU
   Hardware: Оборудование
   Hardware Health: Состояние оборудования
@@ -455,11 +467,15 @@ translations:
   ? Have your bed adjustment tool (screwdriver, hex-key, etc.) ready if your bed isn't adjusted with                              thumb wheels or some other built-in mechanism.
   : Подготовьте инструмент для регулировки стола (отвёртку, шестигранник и т.д.), если стол не регулируется                              барашками или другим встроенным механизмом.
   Heading: Заголовок
+  Heat Capacity: Теплоёмкость
   Heat Soak: Прогрев
   Heat bed before calibrating for accurate offset with thermal expansion.: Нагрейте стол перед калибровкой для точного смещения с учётом теплового расширения.
   Heatbed Temperature: Температура стола
   Heated Bed: Подогреваемый стол
+  Heated Bed MPC Calibration: Калибровка MPC стола
+  Heated Bed PID Tuning: Настройка PID стола
   Heater: Нагреватель
+  Heater Power: Мощность нагревателя
   Heating (%d°C below minimum): "Нагрев (%d°C ниже минимума)"
   Heating Bed...: Нагрев стола...
   Heating Nozzle...: Нагрев сопла...
@@ -519,6 +535,7 @@ translations:
   Interactive probe calibration: Интерактивная калибровка зонда
   Interactive probe offset adjustment: Интерактивная настройка смещения датчика
   Issue description: Описание проблемы
+  Job Queue: Очередь заданий
   Just now: Только что
   Keep Printing: Продолжить печать
   Keep Required: Оставить обязательным
@@ -530,6 +547,7 @@ translations:
   Klipper will restart to apply changes: Klipper перезапустится для применения изменений
   Klipper will restart to apply changes.: Klipper перезапустится для применения изменений.
   Klipper will restart to apply new PID values.: Klipper перезапустится для применения новых значений PID.
+  Klipper will restart to apply new settings.: Klipper перезапустится для применения новых настроек.
   LED SELECTION: ВЫБОР LED
   LED Settings: Настройки LED
   LED Strip: LED-лента
@@ -578,6 +596,7 @@ translations:
   MDI Icons: Иконки MDI
   MISSING CONFIGURED: ОТСУТСТВУЕТ НАСТРОЕННОЕ
   MOTION: ДВИЖЕНИЕ
+  MPC: MPC
   Machine Limits: Ограничения принтера
   Macro Browser: Обзор макросов
   Macro Buttons: Кнопки макросов
@@ -603,6 +622,7 @@ translations:
   Match your typical print fan speed: Настройте типичную скорость вентилятора печати
   Material: Материал
   Material Design Spinner: Индикатор загрузки Material Design
+  Material Temperatures: Температуры материалов
   Max: Макс
   Max Accel: Макс. ускор.
   Max Acceleration: Макс. ускорение
@@ -614,14 +634,17 @@ translations:
   Maximum of 10 widgets can be enabled at once: Одновременно можно включить не более 10 виджетов
   Maximum toolhead speed (mm/s): Максимальная скорость печатающей головки (мм/с)
   Measured: Измерено
+  Measuring thermal response...: Измерение тепловой реакции...
   Memory (MB): Память (МБ)
   Mesh Complete: Сетка завершена
+  Method: Метод
   Min: Мин
   Mode: Режим
   Modified: Изменён
   Month: Месяц
   Moonraker: Moonraker
   Moonraker restarting...\nWaiting for reconnection...: Moonraker перезапускается...\nОжидание переподключения...
+  More points = more accurate, but takes longer.: Больше точек — точнее, но дольше.
   Motion: Движение
   'Motion: XYZ': 'Движение: XYZ'
   Motors Off: Отключить моторы
@@ -670,6 +693,7 @@ translations:
   No file loaded: Файл не загружен
   No files available for printing: Нет файлов для печати
   No images found on USB drive: Изображения на USB-накопителе не найдены
+  No jobs in queue: Очередь пуста
   No macros available: Нет доступных макросов
   No matching prints: Нет совпадающих печатей
   No mesh data: Нет данных сетки
@@ -703,7 +727,10 @@ translations:
   Notify when print finishes: Уведомить о завершении печати
   Nozzle: Сопло
   'Nozzle ': 'Сопло '
+  Nozzle / Bed: Сопло / Стол
   Nozzle Clean: Очистка сопла
+  Nozzle Max (°C): Макс. сопло (°C)
+  Nozzle Min (°C): Мин. сопло (°C)
   Nozzle Moves: Сопло движется
   Nozzle Priming: Подготовка сопла
   Nozzle Temp: Темп. сопла
@@ -722,10 +749,12 @@ translations:
   Optimize Your Printing: Оптимизируйте вашу печать
   Optimizes temperature control for stable, consistent heating.: Оптимизирует контроль температуры для стабильного и равномерного нагрева.
   Or Enter Manually: Или введите вручную
+  Oscillating around target...: Колебания вокруг цели...
   Output Mode: Режим вывода
   P: Д
   PA: PA
   PETG: PETG
+  PID: PID
   PLA: PLA
   PLA - Black: PLA - Чёрный
   POWER: ПИТАНИЕ
@@ -750,6 +779,7 @@ translations:
   Place PNG or JPEG files in config/custom_images/ to add custom images: Поместите PNG или JPEG файлы в config/custom_images/ для добавления изображений
   'Place image files (PNG, JPEG, BMP, GIF) in config/custom_images/. Max size: 2048×2048 pixels.': 'Поместите файлы изображений (PNG, JPEG, BMP, GIF) в config/custom_images/. Макс. размер: 2048×2048 пикселей.'
   Place plugins in the plugins directory to extend HelixScreen: Поместите плагины в директорию plugins для расширения HelixScreen
+  Placed: Добавлено
   Play a test beep: Воспроизвести тестовый сигнал
   Please enter a theme name: Введите название темы
   Please wait while the printer homes and probes.: Пожалуйста, подождите, пока принтер паркуется и зондирует.
@@ -828,6 +858,8 @@ translations:
   QUEUED EVENTS: ОЧЕРЕДЬ СОБЫТИЙ
   QUICK BUTTONS: БЫСТРЫЕ КНОПКИ
   Quad Gantry Level: Выравнивание портала
+  'Queue: Ready': 'Очередь: Готово'
+  Quick: Быстро
   Quick Actions: Быстрые действия
   Quick Button 1: Быстрая кнопка 1
   Quick Button 2: Быстрая кнопка 2
@@ -848,6 +880,7 @@ translations:
   Red: Красный
   Reduce ringing and ghosting artifacts: Уменьшить артефакты звона и двоения
   Reduce vibration artifacts like ringing and ghosting: Уменьшить артефакты вибрации, такие как звон и двоение
+  Refining stability...: Уточнение стабильности...
   Refresh Interval: Интервал обновления
   Release all stepper motors. Position will be lost.: Отпустить все шаговые моторы. Позиция будет потеряна.
   Remaining: Осталось
@@ -864,6 +897,7 @@ translations:
   Reset: Сброс
   Reset Speed & Flow to 100%: Сбросить скорость и поток на 100%
   Reset all settings and restart wizard: Сбросить все настройки и перезапустить мастер
+  Reset to Default: Сбросить до умолчания
   Reset to original values: Сбросить к исходным значениям
   Resetting...: Сброс...
   Response (Kp): Отклик (Kp)
@@ -878,6 +912,7 @@ translations:
   Restarting HelixScreen...: Перезапуск HelixScreen...
   Restarting Klipper...: Перезапуск Klipper...
   Restarting Moonraker...: Перезапуск Moonraker...
+  Restarting with the new version...: Перезапуск с новой версией...
   Restarting...: Перезапуск...
   Resume: Продолжить
   Resume Print: Продолжить печать
@@ -901,6 +936,7 @@ translations:
   STOP: СТОП
   STYLE PROPERTIES: СВОЙСТВА СТИЛЯ
   SYSTEM: СИСТЕМА
+  Sample %d/%d: Образец %d/%d
   Sample Dialog: Пример диалога
   Save: Сохранить
   Save & Restart: Сохранить и перезапустить
@@ -922,6 +958,7 @@ translations:
   Screen Dim: Затемнение экрана
   Screen dims to lower brightness after period of inactivity: Экран затемняется после периода простоя
   Screen will dim after the selected period of inactivity: Экран затемнится после выбранного периода простоя
+  Screensaver: Заставка
   Screws Tilt: Наклон винтов
   Scroll Speed: Скорость прокрутки
   Search filename...: Поиск файла...
@@ -951,6 +988,7 @@ translations:
   Send commands directly to printer: Отправлять команды напрямую принтеру
   Send this crash report to help improve HelixScreen.: Отправьте этот отчёт об ошибке, чтобы помочь улучшить HelixScreen.
   Sending...: Отправка...
+  Sensor Response: Отклик датчика
   Sensors: Датчики
   Separate on/off macros. HelixScreen tracks the state.: Отдельные макросы вкл/выкл. HelixScreen отслеживает состояние.
   'Set ': 'Установить '
@@ -963,6 +1001,7 @@ translations:
   'Share this code in Discord or support:': 'Поделитесь этим кодом в Discord или с поддержкой:'
   'Shininess:': 'Блеск:'
   Show detailed print preparation status: Показывать детальный статус подготовки к печати
+  Show flying toasters instead of dimming: Показывать летающие тостеры вместо затемнения
   Shutdown: Выключение
   Shutdown / Reboot: Выключение / Перезагрузка
   Shutting down...: Выключение...
@@ -1020,6 +1059,8 @@ translations:
   Switch Sensors: Переключить датчики
   Switch Tests: Тесты переключателей
   Switch between light and dark themes: Переключение между светлой и тёмной темами
+  Switching heater control to MPC. Klipper will restart.: Переключение управления нагревом на MPC. Klipper перезапустится.
+  Switching to MPC requires a config change and Klipper restart.: Переход на MPC требует изменения конфига и перезапуска Klipper.
   Sync with Spoolman: Синхронизация со Spoolman
   Sysfs: Sysfs
   System: Система
@@ -1078,6 +1119,7 @@ translations:
   This will reset all settings to defaults. This action cannot be undone.: Это сбросит все настройки к значениям по умолчанию. Это действие нельзя отменить.
   This will restart Klipper firmware. Any active operations will be interrupted.: Прошивка Klipper будет перезапущена. Активные операции будут прерваны.
   This will restart Klipper.: Это перезапустит Klipper.
+  Thorough: Тщательно
   Thumbnail Only: Только миниатюра
   Time: Время
   Time Format: Формат времени
@@ -1109,6 +1151,7 @@ translations:
   Try adjusting your search or filters: Попробуйте изменить поиск или фильтры
   Tune: Настройка
   Tune at the temperature you print most often.: Настраивайте при температуре, при которой вы печатаете чаще всего.
+  Tuning control parameters...: Настройка параметров управления...
   Tuning tower enabled - start a print to test: Башня настройки включена — начните печать для теста
   Turn Off: Выключить
   Turn On: Включить
@@ -1133,6 +1176,8 @@ translations:
   Update Available: Доступно обновление
   Update Channel: Канал обновлений
   Update Failed: Ошибка обновления
+  Update installed!: Обновление установлено!
+  Updating Configuration...: Обновление конфигурации...
   Upload: Отправить
   Upload Debug Bundle: Отправить пакет диагностики
   Upload Failed: Ошибка отправки
@@ -1148,6 +1193,7 @@ translations:
   Verifying timelapse plugin...: Проверка плагина таймлапса...
   Verifying...: Проверка...
   Version: Версия
+  Version, updates, and printer info: Версия, обновления и сведения о принтере
   Vertical Progress (Retract Wizard): Вертикальный прогресс (мастер ретракта)
   Vibration: Вибрация
   Vibration compensation active: Компенсация вибраций активна
@@ -1212,6 +1258,7 @@ translations:
   'Z:': 'Z:'
   'Z: 0.000': 'Z: 0.000'
   Zoom: Масштаб
+  by Preston Brown: by Preston Brown
   disable: отключить
   disabled: отключено
   e.g. Jet Black: напр. Чёрный

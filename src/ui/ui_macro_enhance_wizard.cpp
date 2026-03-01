@@ -29,7 +29,21 @@ MacroEnhanceWizard::MacroEnhanceWizard() : callback_guard_(std::make_shared<bool
 
 MacroEnhanceWizard::~MacroEnhanceWizard() {
     *callback_guard_ = false;
-    // Modal base class handles hide() in destructor
+    if (subjects_initialized_ && lv_is_initialized()) {
+        lv_subject_deinit(&step_title_subject_);
+        lv_subject_deinit(&step_progress_subject_);
+        lv_subject_deinit(&description_subject_);
+        lv_subject_deinit(&diff_preview_subject_);
+        lv_subject_deinit(&summary_subject_);
+        lv_subject_deinit(&backup_text_subject_);
+        lv_subject_deinit(&state_subject_);
+        lv_subject_deinit(&show_operation_subject_);
+        lv_subject_deinit(&show_summary_subject_);
+        lv_subject_deinit(&show_applying_subject_);
+        lv_subject_deinit(&show_success_subject_);
+        lv_subject_deinit(&show_error_subject_);
+        subjects_initialized_ = false;
+    }
 }
 
 void MacroEnhanceWizard::init_subjects() {
@@ -215,6 +229,7 @@ void MacroEnhanceWizard::on_hide() {
     lv_subject_deinit(&show_applying_subject_);
     lv_subject_deinit(&show_success_subject_);
     lv_subject_deinit(&show_error_subject_);
+    subjects_initialized_ = false;
 }
 
 void MacroEnhanceWizard::bind_subjects_to_widgets() {

@@ -12,7 +12,9 @@
     "touch_device": "/dev/input/event1"
   },
   "display": {
-    "backlight_enable_ioctl": false
+    "backlight_enable_ioctl": false,
+    "hardware_blank": 0,
+    "sleep_backlight_off": false
   },
   "printer": {
     "moonraker_host": "127.0.0.1",

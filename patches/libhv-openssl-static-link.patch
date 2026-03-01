@@ -1,0 +1,38 @@
+diff --git a/Makefile b/Makefile
+index c06b8a7..c50b3ec 100644
+--- a/Makefile
++++ b/Makefile
+@@ -2,6 +2,9 @@ include config.mk
+ include Makefile.vars
+ 
+ MAKEF=$(MAKE) -f Makefile.in
++# Allow callers to force static-only outputs (used by cross builds that only
++# consume libhv.a and may ship static-only OpenSSL toolchains).
++LIBHV_TARGET_TYPE ?= SHARED|STATIC
+ ALL_SRCDIRS=. base ssl event event/kcp util cpputil evpp protocol http http/client http/server mqtt
+ CORE_SRCDIRS=. base ssl event
+ ifeq ($(WITH_KCP), yes)
+@@ -84,7 +87,7 @@ prepare:
+ 
+ libhv:
+ 	$(MKDIR) lib
+-	$(MAKEF) TARGET=$@ TARGET_TYPE="SHARED|STATIC" SRCDIRS="$(LIBHV_SRCDIRS)"
++	$(MAKEF) TARGET=$@ TARGET_TYPE="$(LIBHV_TARGET_TYPE)" SRCDIRS="$(LIBHV_SRCDIRS)"
+ 	$(MKDIR) include/hv
+ 	$(CP) $(LIBHV_HEADERS) include/hv
+ 	@echo "make libhv done."
+diff --git a/Makefile.in b/Makefile.in
+index cceb29d..2ec47e0 100644
+--- a/Makefile.in
++++ b/Makefile.in
+@@ -180,7 +180,9 @@ endif
+ 
+ ifeq ($(WITH_OPENSSL), yes)
+ 	CPPFLAGS += -DWITH_OPENSSL
+-	LDFLAGS += -lssl -lcrypto
++	# Allow downstream build systems to force static archives or alternate paths.
++	OPENSSL_LIBS ?= -lssl -lcrypto
++	LDFLAGS += $(OPENSSL_LIBS)
+ else
+ ifeq ($(WITH_GNUTLS), yes)
+ 	CPPFLAGS += -DWITH_GNUTLS

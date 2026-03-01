@@ -121,7 +121,7 @@ target_include_directories(main PRIVATE
     "${PROJECT_ROOT}/lib/libhv/cpputil"     # For json.hpp (nlohmann)
     "${PROJECT_ROOT}/lib/libhv"             # For hv/ includes
     "${PROJECT_ROOT}/lib/spdlog/include"
-    "${PROJECT_ROOT}/lib/tinygl/include-demo" # For stb_image.h
+    "${PROJECT_ROOT}/lib/stb" # For stb_image.h
     "${PROJECT_ROOT}/lib/glm"
     "${PROJECT_ROOT}/lib/lv_markdown/src"
     "${PROJECT_ROOT}/lib/lv_markdown/deps/md4c"

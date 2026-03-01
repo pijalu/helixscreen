@@ -149,6 +149,9 @@ bool AmsOperationSidebar::setup(lv_obj_t* panel) {
     }
     dryer_card_->setup(panel);
 
+    // Setup clog detection meter
+    clog_meter_ = std::make_unique<UiClogMeter>(sidebar_root_);
+
     // Hide settings button if no device sections
     update_settings_visibility();
 
@@ -282,10 +285,11 @@ void AmsOperationSidebar::cleanup() {
     color_observer_.reset();
     extruder_temp_observer_.reset();
 
-    // Reset dryer card AFTER observers — dryer_card_ may have its own observers
-    // that reference widget pointers; resetting it before our observers could
+    // Reset extracted modules AFTER observers — they may have their own observers
+    // that reference widget pointers; resetting before our observers could
     // trigger callbacks on already-null widget pointers.
     dryer_card_.reset();
+    clog_meter_.reset();
 
     // Clear all pending state
     pending_bypass_enable_ = false;

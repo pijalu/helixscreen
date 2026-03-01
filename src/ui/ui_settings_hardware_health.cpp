@@ -334,7 +334,7 @@ void HardwareHealthOverlay::handle_hardware_action(const char* hardware_name, bo
         pending_hardware_save_ = hw_name;
 
         // Static message buffer (safe since we close existing dialogs first)
-        static char message_buf[256];
+        char message_buf[256];
         snprintf(message_buf, sizeof(message_buf),
                  "Add '%s' to expected hardware?\n\nYou'll be notified if it's removed later.",
                  hw_name.c_str());

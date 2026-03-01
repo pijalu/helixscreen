@@ -123,8 +123,13 @@ uninstall() {
         fi
     fi
 
+    # ZMOD - no UI restore needed; S80guppyscreen is managed by ZMOD
+    if [ "$AD5M_FIRMWARE" = "zmod" ]; then
+        log_info "ZMOD firmware: no previous UI to restore (managed by ZMOD)"
+    fi
+
     # Check for K1/Simple AF GuppyScreen
-    if [ -z "$restored_ui" ] && [ -f "/etc/init.d/S99guppyscreen" ]; then
+    if [ -z "$restored_ui" ] && [ "$AD5M_FIRMWARE" != "zmod" ] && [ -f "/etc/init.d/S99guppyscreen" ]; then
         $SUDO chmod +x "/etc/init.d/S99guppyscreen" 2>/dev/null || true
         restored_ui="GuppyScreen (/etc/init.d/S99guppyscreen)"
     fi

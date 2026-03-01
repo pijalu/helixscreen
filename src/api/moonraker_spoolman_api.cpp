@@ -63,6 +63,7 @@ static SpoolInfo parse_spool_info(const nlohmann::json& spool_json) {
         // Nested vendor
         if (filament.contains("vendor") && filament["vendor"].is_object()) {
             info.vendor = safe_string(filament["vendor"], "name");
+            info.vendor_id = filament["vendor"].value("id", 0);
         }
     }
 

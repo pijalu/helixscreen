@@ -697,7 +697,7 @@ TEST_CASE("MoonrakerClientMock G28 homing commands", "[slow][api][homing]") {
 // Position Reporting Tests
 // ============================================================================
 
-TEST_CASE("MoonrakerClientMock position in status updates", "[api][position_reporting]") {
+TEST_CASE("MoonrakerClientMock position in status updates", "[api][position_reporting][slow]") {
     MockMotionTestFixture fixture;
 
     SECTION("Position updates are reflected in status notifications") {

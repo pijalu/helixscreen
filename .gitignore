@@ -3,10 +3,6 @@
 # ============================================================================
 build/
 lib/sdl2/build/
-lib/tinygl/lib/
-lib/tinygl/Raw_Demos/gears
-lib/tinygl/Raw_Demos/t2i
-lib/tinygl/Raw_Demos/bigfont
 *.o
 *.a
 
@@ -92,14 +88,6 @@ IMPLEMENTATION_PLAN.md
 # ============================================================================
 # Test Artifacts
 # ============================================================================
-# TinyGL test outputs
-tests/tinygl/output/
-tests/tinygl/reference/
-tests/tinygl/*.ppm
-tests/tinygl/*.png
-tests/tinygl/test_*
-tests/tinygl/tinygl_test_runner
-
 # Unit test binaries
 tests/unit/test_*
 !tests/unit/test_*.cpp

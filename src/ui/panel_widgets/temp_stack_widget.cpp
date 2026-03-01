@@ -16,6 +16,7 @@
 
 #include "app_globals.h"
 #include "observer_factory.h"
+#include "panel_widget_config.h"
 #include "panel_widget_manager.h"
 #include "panel_widget_registry.h"
 #include "printer_state.h"
@@ -82,6 +83,21 @@ std::string TempStackWidget::get_component_name() const {
     return "panel_widget_temp_stack";
 }
 
+bool TempStackWidget::on_edit_configure() {
+    bool was_carousel = is_carousel_mode();
+    nlohmann::json new_config = config_;
+    if (was_carousel) {
+        new_config.erase("display_mode");
+    } else {
+        new_config["display_mode"] = "carousel";
+    }
+    spdlog::info("[TempStackWidget] Toggling display_mode: {} → {}",
+                 was_carousel ? "carousel" : "stack", was_carousel ? "stack" : "carousel");
+    PanelWidgetManager::instance().get_widget_config("home").set_widget_config("temp_stack",
+                                                                               new_config);
+    return true;
+}
+
 bool TempStackWidget::is_carousel_mode() const {
     if (config_.contains("display_mode") && config_["display_mode"].is_string()) {
         return config_["display_mode"].get<std::string>() == "carousel";
@@ -94,6 +110,7 @@ void TempStackWidget::attach(lv_obj_t* widget_obj, lv_obj_t* parent_screen) {
     parent_screen_ = parent_screen;
     *alive_ = true;
     s_active_instance = this;
+    lv_obj_set_user_data(widget_obj_, this);
 
     if (is_carousel_mode()) {
         attach_carousel(widget_obj);
@@ -376,6 +393,8 @@ void TempStackWidget::detach() {
         s_active_instance = nullptr;
     }
 
+    if (widget_obj_)
+        lv_obj_set_user_data(widget_obj_, nullptr);
     widget_obj_ = nullptr;
     parent_screen_ = nullptr;
 

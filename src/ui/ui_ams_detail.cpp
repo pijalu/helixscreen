@@ -278,12 +278,53 @@ void ams_detail_setup_path_canvas(lv_obj_t* canvas, lv_obj_t* slot_grid, int uni
     if (effective_unit < static_cast<int>(info.units.size())) {
         const auto& unit = info.units[effective_unit];
         if (unit.buffer_health.has_value() && unit.buffer_health->fault_detection_enabled) {
-            if (unit.buffer_health->distance_to_fault > 0.0f) {
+            if (unit.buffer_health->distance_to_fault >= 50.0f) {
+                buffer_fault = 2; // At or past fault threshold — red tint
+            } else if (unit.buffer_health->distance_to_fault > 0.0f) {
                 buffer_fault = 1; // Approaching fault — yellow tint
             }
         }
     }
+    // HH sync feedback → fault state (compressed/tension = warning)
+    if (buffer_fault == 0 && info.type == AmsType::HAPPY_HARE) {
+        const auto& sf = info.sync_feedback_state;
+        if (sf == "compressed" || sf == "tension") {
+            buffer_fault = 1;
+        }
+    }
+
     ui_filament_path_canvas_set_buffer_fault_state(canvas, buffer_fault);
+
+    // Determine buffer presence and state for path canvas visualization
+    bool buffer_present = false;
+    int buffer_state = 0; // 0=neutral, 1=compressed, 2=tension
+
+    // AFC: buffer present when buffer_health populated
+    if (effective_unit < static_cast<int>(info.units.size())) {
+        const auto& unit = info.units[effective_unit];
+        if (unit.buffer_health.has_value()) {
+            buffer_present = true;
+            const auto& st = unit.buffer_health->state;
+            if (st == "Advancing")
+                buffer_state = 1; // Compressed/tight
+            else if (st == "Trailing")
+                buffer_state = 2; // Tension/stretched
+        }
+    }
+
+    // HH: sync_feedback_state indicates buffer
+    if (!buffer_present && info.type == AmsType::HAPPY_HARE) {
+        const auto& sf = info.sync_feedback_state;
+        if (!sf.empty() && sf != "disabled") {
+            buffer_present = true;
+            if (sf == "compressed")
+                buffer_state = 1;
+            else if (sf == "tension")
+                buffer_state = 2;
+        }
+    }
+
+    ui_filament_path_canvas_set_buffer_info(canvas, buffer_present, buffer_state);
 
     // Set external spool color and assignment state
     auto ext_spool = AmsState::instance().get_external_spool_info();

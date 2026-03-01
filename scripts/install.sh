@@ -45,10 +45,10 @@ SERVICE_NAME="helixscreen"
 : "${SERVICE_NAME:=helixscreen}"
 
 # Well-known paths (used by uninstall, clean, stop_service)
-# AD5M: /opt/helixscreen or /root/printer_software/helixscreen
+# AD5M: /opt/helixscreen, /root/printer_software/helixscreen, /srv/helixscreen (ZMOD)
 # K1: /usr/data/helixscreen
 # Pi: /opt/helixscreen
-HELIX_INSTALL_DIRS="/root/printer_software/helixscreen /opt/helixscreen /usr/data/helixscreen"
+HELIX_INSTALL_DIRS="/root/printer_software/helixscreen /opt/helixscreen /usr/data/helixscreen /srv/helixscreen"
 
 # Init script locations vary by platform/firmware
 # AD5M Klipper Mod: S80, AD5M Forge-X: S90, K1: S99
@@ -434,10 +434,17 @@ detect_klipper_user() {
     return 0
 }
 
-# Detect AD5M firmware variant (Klipper Mod vs Forge-X)
+# Detect AD5M firmware variant (Klipper Mod vs Forge-X vs ZMOD)
 # Only called when platform is "ad5m"
-# Returns: "klipper_mod" or "forge_x"
+# Returns: "klipper_mod", "forge_x", or "zmod"
 detect_ad5m_firmware() {
+    # ZMOD indicator - check for /ZMOD marker file
+    # ZMOD is used on AD5M, AD5M Pro, and AD5X (FlashForge series)
+    if [ -f "/ZMOD" ]; then
+        echo "zmod"
+        return
+    fi
+
     # Klipper Mod indicators - check for its specific directory structure
     # Klipper Mod runs in a chroot on /mnt/data/.klipper_mod/chroot
     # and puts printer software in /root/printer_software/
@@ -587,6 +594,13 @@ set_install_paths() {
                 INIT_SCRIPT_DEST="/etc/init.d/S80helixscreen"
                 PREVIOUS_UI_SCRIPT="/etc/init.d/S80klipperscreen"
                 log_info "AD5M firmware: Klipper Mod"
+                log_info "Install directory: ${INSTALL_DIR}"
+                ;;
+            zmod)
+                INSTALL_DIR="/srv/helixscreen"
+                INIT_SCRIPT_DEST="/etc/init.d/S80helixscreen"
+                PREVIOUS_UI_SCRIPT=""
+                log_info "AD5M firmware: ZMOD"
                 log_info "Install directory: ${INSTALL_DIR}"
                 ;;
             forge_x|*)
@@ -1609,6 +1623,7 @@ stop_competing_uis() {
     case "$AD5M_FIRMWARE" in
         forge_x)    stop_forgex_competing_uis ;;
         klipper_mod) stop_kmod_competing_uis ;;
+        zmod)       ;; # ZMOD: no platform-specific UIs, generic loop below handles it
     esac
 
     # Handle the specific previous UI if we know it (for clean reversibility)
@@ -3075,8 +3090,13 @@ uninstall() {
         fi
     fi
 
+    # ZMOD - no UI restore needed; S80guppyscreen is managed by ZMOD
+    if [ "$AD5M_FIRMWARE" = "zmod" ]; then
+        log_info "ZMOD firmware: no previous UI to restore (managed by ZMOD)"
+    fi
+
     # Check for K1/Simple AF GuppyScreen
-    if [ -z "$restored_ui" ] && [ -f "/etc/init.d/S99guppyscreen" ]; then
+    if [ -z "$restored_ui" ] && [ "$AD5M_FIRMWARE" != "zmod" ] && [ -f "/etc/init.d/S99guppyscreen" ]; then
         $SUDO chmod +x "/etc/init.d/S99guppyscreen" 2>/dev/null || true
         restored_ui="GuppyScreen (/etc/init.d/S99guppyscreen)"
     fi

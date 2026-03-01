@@ -101,6 +101,49 @@ static void register_color_picker_responsive_constants() {
 }
 
 /**
+ * Register responsive constants into the color_picker component scope.
+ * Must be called AFTER register_xml("color_picker.xml") so the scope exists.
+ */
+static void register_color_picker_component_constants() {
+    lv_display_t* display = lv_display_get_default();
+    int32_t ver_res = lv_display_get_vertical_resolution(display);
+
+    // Swatch size: smaller on compact screens
+    const char* swatch_size = ver_res <= UI_BREAKPOINT_SMALL_MAX ? "28" : "32";
+
+    // HSV picker: size proportionally to screen height
+    // On TINY (full-screen modal), chrome is ~142px (header+tabs+padding+dividers+buttons)
+    // On larger screens (modal popup), use ~38% of screen height
+    static char sv_buf[8];
+    static char hue_buf[8];
+    int32_t computed_sv;
+    if (ver_res <= UI_BREAKPOINT_TINY_MAX) {
+        // Full-screen: fill available vertical space
+        // Chrome: header(48) + divider(1) + tabs(36) + content pad(16) + spacer divider(1) + buttons(40)
+        constexpr int32_t chrome = 142;
+        int32_t available = ver_res - chrome;
+        // sv_size + gap(4) + hue_height, where hue = sv/8
+        computed_sv = (available - 4) * 8 / 9;
+    } else {
+        computed_sv = ver_res * 38 / 100;
+    }
+    computed_sv = LV_CLAMP(48, computed_sv, 240);
+    int32_t computed_hue = LV_MAX(computed_sv / 9, 8);
+    snprintf(sv_buf, sizeof(sv_buf), "%d", computed_sv);
+    snprintf(hue_buf, sizeof(hue_buf), "%d", computed_hue);
+
+    lv_xml_component_scope_t* scope = lv_xml_component_get_scope("color_picker");
+    if (scope) {
+        lv_xml_register_const(scope, "swatch_size", swatch_size);
+        lv_xml_register_const(scope, "sv_size", sv_buf);
+        lv_xml_register_const(scope, "hue_height", hue_buf);
+        spdlog::debug("[Color Picker] Registered swatch_size={}, sv_size={}, hue_height={} "
+                      "for height {}px",
+                      swatch_size, sv_buf, hue_buf, ver_res);
+    }
+}
+
+/**
  * Toggle password visibility on a sibling textarea.
  * Finds "password_input" by walking up to the shared parent container,
  * then swaps the eye/eye_off icon on the button.
@@ -254,6 +297,7 @@ void register_xml_components() {
     register_xml("macro_enhance_modal.xml");
     register_xml("action_prompt_modal.xml");
     register_xml("color_picker.xml");
+    register_color_picker_component_constants();
 
     // Print file components
     register_xml("print_file_card.xml");
@@ -271,6 +315,7 @@ void register_xml_components() {
     register_xml("components/panel_widget_temp_stack.xml");
     register_xml("components/panel_widget_temp_carousel.xml");
     register_xml("components/panel_widget_led.xml");
+    register_xml("components/panel_widget_led_controls.xml");
     register_xml("components/panel_widget_humidity.xml");
     register_xml("components/panel_widget_width_sensor.xml");
     register_xml("components/panel_widget_filament.xml");
@@ -377,9 +422,7 @@ void register_xml_components() {
 
     // Settings overlay panels
     register_xml("display_settings_overlay.xml");
-    register_xml("panel_widget_row.xml");
-    register_xml("panel_widgets_overlay.xml");
-    register_xml("sound_settings_overlay.xml");
+register_xml("sound_settings_overlay.xml");
     register_xml("led_settings_overlay.xml");
     register_xml("theme_editor_overlay.xml");
     register_xml("theme_preview_overlay.xml");

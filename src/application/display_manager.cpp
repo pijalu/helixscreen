@@ -34,7 +34,7 @@
 #include "printer_state.h"
 #include "runtime_config.h"
 #ifdef HELIX_ENABLE_SCREENSAVER
-#include "ui_screensaver.h"
+#include "screensaver.h"
 #endif
 
 #include <spdlog/spdlog.h>
@@ -391,6 +391,15 @@ bool DisplayManager::init(const Config& config) {
     spdlog::debug("[DisplayManager] Display dim: {}s timeout, {}% brightness", m_dim_timeout_sec,
                   m_dim_brightness_percent);
 
+    // Whether to power off the backlight during display sleep.
+    // Default true (most platforms). Set to false on platforms where backlight
+    // power-off prevents wake-on-touch (e.g. AD5X). When false, the software
+    // overlay makes the screen appear off while the backlight stays powered.
+    m_sleep_backlight_off = cfg->get<bool>("/display/sleep_backlight_off", true);
+    if (!m_sleep_backlight_off) {
+        spdlog::info("[DisplayManager] Backlight will stay on during sleep (config override)");
+    }
+
     // Debug touch visualization: draw ripple at each touch point
     if (RuntimeConfig::debug_touches() && m_pointer) {
         spdlog::info("[DisplayManager] Debug touch visualization enabled");
@@ -541,7 +550,7 @@ void DisplayManager::enter_sleep(int timeout_sec) {
 #ifdef HELIX_ENABLE_SCREENSAVER
     // Stop screensaver before entering full sleep
     if (m_screensaver_active) {
-        FlyingToasterScreensaver::instance().stop();
+        ScreensaverManager::instance().stop();
         m_screensaver_active = false;
     }
 #endif
@@ -550,16 +559,24 @@ void DisplayManager::enter_sleep(int timeout_sec) {
         if (m_backend) {
             m_backend->blank_display();
         }
-        if (m_backlight) {
+        if (m_backlight && m_sleep_backlight_off) {
             m_backlight->set_brightness(0);
         }
-        spdlog::info("[DisplayManager] Display sleeping (hardware blank) after {}s", timeout_sec);
+        spdlog::info("[DisplayManager] Display sleeping (hardware blank{}) after {}s",
+                     m_sleep_backlight_off ? "" : ", backlight kept on", timeout_sec);
     } else {
         create_sleep_overlay();
-        if (m_backlight && m_backlight->is_available()) {
+        // Also FBIOBLANK the framebuffer if the backend supports it — provides
+        // additional blanking beyond the software overlay (useful on AD5X where
+        // the backlight stays powered during sleep).
+        if (m_backend) {
+            m_backend->blank_display();
+        }
+        if (m_backlight && m_backlight->is_available() && m_sleep_backlight_off) {
             m_backlight->set_brightness(0);
         }
-        spdlog::info("[DisplayManager] Display sleeping (software overlay) after {}s", timeout_sec);
+        spdlog::info("[DisplayManager] Display sleeping (software overlay{}) after {}s",
+                     m_sleep_backlight_off ? "" : ", backlight kept on", timeout_sec);
     }
 }
 
@@ -596,15 +613,29 @@ void DisplayManager::destroy_sleep_overlay() {
 
 void DisplayManager::check_display_sleep() {
 #ifdef HELIX_ENABLE_SCREENSAVER
-    // HELIX_SCREENSAVER_NOW=1 — force-start screensaver immediately (for testing)
+    // HELIX_SCREENSAVER_NOW — force-start screensaver immediately (for testing)
+    // Values: "1" (configured type, defaults to toasters), "starfield", "pipes"
     static bool screensaver_force_checked = false;
     if (!screensaver_force_checked) {
         screensaver_force_checked = true;
         const char* env = std::getenv("HELIX_SCREENSAVER_NOW");
-        if (env && std::string(env) == "1") {
-            spdlog::info("[DisplayManager] HELIX_SCREENSAVER_NOW=1, forcing screensaver");
+        if (env) {
+            std::string val(env);
+            ScreensaverType force_type = ScreensaverType::FLYING_TOASTERS;
+            if (val == "starfield") {
+                force_type = ScreensaverType::STARFIELD;
+            } else if (val == "pipes") {
+                force_type = ScreensaverType::PIPES_3D;
+            } else {
+                // "1" or any other value: use configured type, fallback to toasters
+                auto configured = ScreensaverManager::configured_type();
+                force_type = (configured != ScreensaverType::OFF) ? configured
+                                                                   : ScreensaverType::FLYING_TOASTERS;
+            }
+            spdlog::info("[DisplayManager] HELIX_SCREENSAVER_NOW={}, forcing screensaver type {}",
+                         val, static_cast<int>(force_type));
             m_display_dimmed = true;
-            FlyingToasterScreensaver::instance().start();
+            ScreensaverManager::instance().start(force_type);
             m_screensaver_active = true;
             return;
         }
@@ -671,10 +702,10 @@ void DisplayManager::check_display_sleep() {
             // Dim the display
             m_display_dimmed = true;
 #ifdef HELIX_ENABLE_SCREENSAVER
-            // Start screensaver instead of just dimming (if enabled)
+            // Start screensaver instead of just dimming (if configured)
             if (!m_screensaver_active &&
-                helix::DisplaySettingsManager::instance().get_screensaver_enabled()) {
-                FlyingToasterScreensaver::instance().start();
+                ScreensaverManager::configured_type() != ScreensaverType::OFF) {
+                ScreensaverManager::instance().start(ScreensaverManager::configured_type());
                 m_screensaver_active = true;
                 if (m_backlight) {
                     // Screensaver needs enough brightness to see the toasters,
@@ -712,7 +743,7 @@ void DisplayManager::wake_display() {
 #ifdef HELIX_ENABLE_SCREENSAVER
     // Stop screensaver on wake
     if (m_screensaver_active) {
-        FlyingToasterScreensaver::instance().stop();
+        ScreensaverManager::instance().stop();
         m_screensaver_active = false;
     }
 #endif
@@ -722,14 +753,14 @@ void DisplayManager::wake_display() {
     if (was_sleeping) {
         disable_input_briefly();
 
-        if (m_use_hardware_blank) {
-            // Unblank framebuffer when waking from full sleep (not just dim).
-            // On AD5M, the FBIOBLANK ioctl is needed to actually turn on the display.
-            if (m_backend) {
-                m_backend->unblank_display();
-            }
-        } else {
-            // Remove software sleep overlay
+        // Unblank framebuffer when waking from full sleep.
+        // Both paths call blank_display() during sleep, so both need unblank.
+        if (m_backend) {
+            m_backend->unblank_display();
+        }
+
+        if (!m_use_hardware_blank) {
+            // Also remove software sleep overlay
             destroy_sleep_overlay();
         }
 

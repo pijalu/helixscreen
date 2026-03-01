@@ -409,6 +409,88 @@ TEST_CASE("SpoolmanSlotSaver save PATCHes existing filament when material change
     REQUIRE(updates[0].data["material"] == "PETG");
 }
 
+TEST_CASE("SpoolmanSlotSaver save includes vendor_id in filament PATCH when available",
+          "[spoolman][slot_saver]") {
+    PrinterState state;
+    MoonrakerClientMock client;
+    MoonrakerAPIMock api(client, state);
+
+    auto& spools = api.spoolman_mock().get_mock_spools();
+    SpoolInfo test_spool;
+    test_spool.id = 42;
+    test_spool.filament_id = 100;
+    test_spool.vendor = "Polymaker";
+    test_spool.material = "PLA";
+    test_spool.color_hex = "FF0000";
+    test_spool.remaining_weight_g = 800.0;
+    spools.push_back(test_spool);
+
+    SpoolmanSlotSaver saver(&api);
+
+    SlotInfo original = make_test_slot();
+    SlotInfo edited = original;
+    edited.brand = "eSUN";
+    edited.spoolman_vendor_id = 7; // Vendor ID from Spoolman
+
+    bool callback_called = false;
+    bool callback_success = false;
+
+    saver.save(original, edited, [&](bool success) {
+        callback_called = true;
+        callback_success = success;
+    });
+
+    REQUIRE(callback_called);
+    REQUIRE(callback_success);
+
+    auto& updates = api.spoolman_mock().filament_updates;
+    REQUIRE(updates.size() == 1);
+    REQUIRE(updates[0].data.contains("vendor_id"));
+    REQUIRE(updates[0].data["vendor_id"] == 7);
+    REQUIRE(updates[0].data["material"] == "PLA"); // Other fields still present
+}
+
+TEST_CASE("SpoolmanSlotSaver save omits vendor_id from PATCH when zero",
+          "[spoolman][slot_saver]") {
+    PrinterState state;
+    MoonrakerClientMock client;
+    MoonrakerAPIMock api(client, state);
+
+    auto& spools = api.spoolman_mock().get_mock_spools();
+    SpoolInfo test_spool;
+    test_spool.id = 42;
+    test_spool.filament_id = 100;
+    test_spool.vendor = "Polymaker";
+    test_spool.material = "PLA";
+    test_spool.color_hex = "FF0000";
+    test_spool.remaining_weight_g = 800.0;
+    spools.push_back(test_spool);
+
+    SpoolmanSlotSaver saver(&api);
+
+    SlotInfo original = make_test_slot();
+    SlotInfo edited = original;
+    edited.brand = "eSUN";
+    // spoolman_vendor_id remains 0
+
+    bool callback_called = false;
+    bool callback_success = false;
+
+    saver.save(original, edited, [&](bool success) {
+        callback_called = true;
+        callback_success = success;
+    });
+
+    REQUIRE(callback_called);
+    REQUIRE(callback_success);
+
+    auto& updates = api.spoolman_mock().filament_updates;
+    REQUIRE(updates.size() == 1);
+    REQUIRE_FALSE(updates[0].data.contains("vendor_id")); // Not sent when 0
+    REQUIRE(updates[0].data.contains("material"));        // Other fields still present
+    REQUIRE(updates[0].data.contains("color_hex"));
+}
+
 TEST_CASE("SpoolmanSlotSaver save PATCHes filament with correct color_hex format",
           "[spoolman][slot_saver]") {
     PrinterState state;

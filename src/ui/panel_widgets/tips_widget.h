@@ -20,6 +20,9 @@ class TipsWidget : public PanelWidget {
         return "tips";
     }
 
+    /// XML event callback — shows full tip detail
+    static void tip_text_clicked_cb(lv_event_t* e);
+
   private:
     lv_obj_t* widget_obj_ = nullptr;
     lv_obj_t* parent_screen_ = nullptr;
@@ -42,8 +45,6 @@ class TipsWidget : public PanelWidget {
     void handle_tip_text_clicked();
     void handle_tip_rotation_timer();
 
-    // Static callbacks
-    static void tip_text_clicked_cb(lv_event_t* e);
     static void tip_rotation_timer_cb(lv_timer_t* timer);
 };
 

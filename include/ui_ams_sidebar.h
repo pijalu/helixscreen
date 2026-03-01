@@ -4,6 +4,7 @@
 #pragma once
 
 #include "ui_ams_dryer_card.h"
+#include "ui_clog_meter.h"
 #include "ui_observer_guard.h"
 
 #include "ams_step_operation.h"
@@ -109,6 +110,7 @@ class AmsOperationSidebar {
 
     // Extracted UI modules
     std::unique_ptr<AmsDryerCard> dryer_card_;
+    std::unique_ptr<UiClogMeter> clog_meter_;
 
     // Bypass spool observer (updates sidebar if needed)
     ObserverGuard bypass_spool_observer_;

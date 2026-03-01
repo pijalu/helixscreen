@@ -206,17 +206,11 @@ PrintStatusPanel::~PrintStatusPanel() {
     // CRITICAL: Check if LVGL is still initialized before calling LVGL functions.
     // During static destruction, LVGL may already be torn down.
     if (lv_is_initialized()) {
-        // Cancel in-flight animations (safety net for destruction without deactivate)
-        if (progress_bar_)
-            lv_anim_delete(progress_bar_, nullptr);
-        if (preparing_progress_bar_)
-            lv_anim_delete(preparing_progress_bar_, nullptr);
-        if (success_badge_)
-            lv_anim_delete(success_badge_, nullptr);
-        if (cancel_badge_)
-            lv_anim_delete(cancel_badge_, nullptr);
-        if (error_badge_)
-            lv_anim_delete(error_badge_, nullptr);
+        // Note: lv_anim_delete() is NOT called here for bar widgets because
+        // LVGL bar animations use var=&bar->cur_value_anim (internal struct),
+        // not the bar object pointer. Passing the bar pointer misses the
+        // animation entirely. lv_bar_destructor() handles cancellation
+        // correctly using the internal pointers when lv_obj_delete() runs.
 
         // Deinit exclude manager before LVGL teardown
         if (exclude_manager_) {
@@ -570,6 +564,19 @@ void PrintStatusPanel::on_activate() {
         pending_gcode_filename_.clear();
     }
 
+    // After destroy-on-close, the gcode viewer widget was recreated empty.
+    // Re-feed the current print filename to trigger gcode + thumbnail reload.
+    if (lifecycle_.want_viewer() && !gcode_loaded_ && gcode_viewer_ &&
+        pending_gcode_filename_.empty()) {
+        const char* filename =
+            lv_subject_get_string(printer_state_.get_print_filename_subject());
+        if (filename && filename[0] != '\0') {
+            spdlog::info("[{}] Re-loading G-code after overlay recreate: {}", get_name(),
+                         filename);
+            on_print_filename_changed(filename);
+        }
+    }
+
     // Restore G-code viewer state based on current print conditions
     // This ensures the viewer is properly restored when returning from overlays like Tune panel
     show_gcode_viewer(lifecycle_.want_viewer() && gcode_loaded_);
@@ -594,17 +601,9 @@ void PrintStatusPanel::on_deactivate() {
     is_active_ = false;
     spdlog::debug("[{}] on_deactivate()", get_name());
 
-    // Cancel in-flight animations to prevent use-after-free callbacks
-    if (progress_bar_)
-        lv_anim_delete(progress_bar_, nullptr);
-    if (preparing_progress_bar_)
-        lv_anim_delete(preparing_progress_bar_, nullptr);
-    if (success_badge_)
-        lv_anim_delete(success_badge_, nullptr);
-    if (cancel_badge_)
-        lv_anim_delete(cancel_badge_, nullptr);
-    if (error_badge_)
-        lv_anim_delete(error_badge_, nullptr);
+    // Note: bar animation cancellation is handled by lv_bar_destructor()
+    // when widgets are deleted. Manual lv_anim_delete(bar_ptr) uses the wrong
+    // var pointer (bar animations use &bar->cur_value_anim internally).
 
     // Pause G-code viewer rendering when panel is hidden (CPU optimization)
     if (gcode_viewer_) {
@@ -653,6 +652,8 @@ void PrintStatusPanel::on_ui_destroyed() {
     resize_registered_ = false;
     is_active_ = false;
     gcode_loaded_ = false;
+    // Clear dedup guard so gcode reload isn't blocked on next open
+    requested_gcode_filename_.clear();
 }
 
 // Cached widget pointer for lazy creation (separate from overlay_root_ which

@@ -54,6 +54,7 @@ JobQueueModal::~JobQueueModal() {
     if (s_active_instance_ == this) {
         s_active_instance_ = nullptr;
     }
+    if (alive_guard_) *alive_guard_ = false;
     alive_guard_.reset();
 }
 

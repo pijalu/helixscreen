@@ -56,8 +56,8 @@
                  style_border_width="0">
           <text_body text="Zoom" translation_tag="Zoom"/>
           <lv_obj width="100%" flex_flow="row" style_pad_all="0" style_pad_gap="#space_sm">
-            <ui_button name="btn_zoom_in" flex_grow="1" text="+" translation_tag="+"/>
-            <ui_button name="btn_zoom_out" flex_grow="1" text="-" translation_tag="-"/>
+            <ui_button name="btn_zoom_in" flex_grow="1" text="+"/>
+            <ui_button name="btn_zoom_out" flex_grow="1" text="-"/>
           </lv_obj>
         </ui_card>
         <!-- Layer Progress Section (Ghost Layer Test) -->

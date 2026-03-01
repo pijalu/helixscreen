@@ -23,7 +23,6 @@
 #include "ui_settings_machine_limits.h"
 #include "ui_settings_macro_buttons.h"
 #include "ui_settings_material_temps.h"
-#include "ui_settings_panel_widgets.h"
 #include "ui_settings_plugins.h"
 #include "ui_settings_sensors.h"
 #include "ui_settings_sound.h"
@@ -300,7 +299,6 @@ void SettingsPanel::init_subjects() {
 
         // Action rows
         {"on_display_settings_clicked", on_display_settings_clicked},
-        {"on_panel_widgets_clicked", SettingsPanel::on_panel_widgets_clicked},
         // Note: on_printer_image_clicked moved to PrinterManagerOverlay
         {"on_filament_sensors_clicked", on_filament_sensors_clicked},
     });
@@ -702,13 +700,6 @@ void SettingsPanel::handle_display_settings_clicked() {
     overlay.show(parent_screen_);
 }
 
-void SettingsPanel::handle_panel_widgets_clicked() {
-    spdlog::debug("[{}] Home Widgets clicked - delegating to PanelWidgetsOverlay", get_name());
-
-    auto& overlay = helix::settings::get_panel_widgets_overlay();
-    overlay.show(parent_screen_);
-}
-
 void SettingsPanel::handle_filament_sensors_clicked() {
     spdlog::debug("[{}] Sensors clicked - delegating to SensorSettingsOverlay", get_name());
 
@@ -1085,12 +1076,6 @@ void SettingsPanel::on_display_settings_clicked(lv_event_t* /*e*/) {
     LVGL_SAFE_EVENT_CB_END();
 }
 
-void SettingsPanel::on_panel_widgets_clicked(lv_event_t* /*e*/) {
-    LVGL_SAFE_EVENT_CB_BEGIN("[SettingsPanel] on_panel_widgets_clicked");
-    get_global_settings_panel().handle_panel_widgets_clicked();
-    LVGL_SAFE_EVENT_CB_END();
-}
-
 void SettingsPanel::on_filament_sensors_clicked(lv_event_t* /*e*/) {
     LVGL_SAFE_EVENT_CB_BEGIN("[SettingsPanel] on_filament_sensors_clicked");
     get_global_settings_panel().handle_filament_sensors_clicked();
@@ -1254,7 +1239,6 @@ void register_settings_panel_callbacks() {
 
         // Action row callbacks used in settings_panel.xml
         {"on_display_settings_clicked", SettingsPanel::on_display_settings_clicked},
-        {"on_panel_widgets_clicked", SettingsPanel::on_panel_widgets_clicked},
         {"on_filament_sensors_clicked", SettingsPanel::on_filament_sensors_clicked},
         {"on_macro_buttons_clicked", SettingsPanel::on_macro_buttons_clicked},
         {"on_machine_limits_clicked", SettingsPanel::on_machine_limits_clicked},

@@ -347,18 +347,13 @@ Force the G-code preview rendering mode.
 | Property | Value |
 |----------|-------|
 | **Values** | `2D`, `3D` |
-| **Default** | `2D` (TinyGL 3D renderer disabled by default) |
+| **Default** | `2D` |
 | **Files** | `src/ui_gcode_viewer.cpp`, `src/ui_panel_print_status.cpp`, `src/ui_panel_gcode_test.cpp` |
 
 ```bash
-# Enable 3D G-code preview (requires TinyGL/OpenGL ES)
-HELIX_GCODE_MODE=3D ./build/bin/helix-screen
-
 # Force 2D layer view
 HELIX_GCODE_MODE=2D ./build/bin/helix-screen
 ```
-
-**Note:** 3D mode requires the build to include TinyGL or OpenGL ES support. On platforms without GPU acceleration, 2D mode is recommended for performance.
 
 ### `HELIX_FORCE_GCODE_MEMORY_FAIL`
 

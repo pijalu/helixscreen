@@ -114,6 +114,7 @@ class GridEditMode {
     void create_selection_chrome(lv_obj_t* widget);
     void destroy_selection_chrome();
     void remove_selected_widget();
+    void configure_selected_widget();
 
     /// Find the config entry index for a given container child widget.
     /// Returns -1 if not found.
@@ -148,7 +149,8 @@ class GridEditMode {
     lv_obj_t* dots_overlay_ = nullptr;
     lv_obj_t* selected_ = nullptr;
     lv_obj_t* selection_overlay_ = nullptr;
-    lv_obj_t* remove_btn_ = nullptr; // Trash button (container child, not overlay child)
+    lv_obj_t* remove_btn_ = nullptr;    // Trash button (container child, not overlay child)
+    lv_obj_t* configure_btn_ = nullptr; // Configure button (upper-left, shown if widget supports it)
     PanelWidgetConfig* config_ = nullptr;
     SaveCallback save_cb_;
     RebuildCallback rebuild_cb_;

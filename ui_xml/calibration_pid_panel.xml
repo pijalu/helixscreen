@@ -129,13 +129,13 @@
               <lv_obj width="100%"
                       height="#button_height" style_pad_all="0" flex_flow="row" style_flex_main_place="center"
                       style_flex_cross_place="center" style_pad_gap="#space_md" scrollable="false">
-                <ui_button name="btn_temp_down" width="#button_height" height="#button_height" text="-" translation_tag="-">
+                <ui_button name="btn_temp_down" width="#button_height" height="#button_height" text="-">
                   <event_cb trigger="clicked" callback="on_pid_temp_down"/>
                 </ui_button>
                 <lv_label name="temp_display"
-                          flex_grow="1" text="200°C" translation_tag="200°C" style_text_font="#font_heading"
+                          flex_grow="1" text="200°C" style_text_font="#font_heading"
                           style_text_align="center" bind_text="pid_temp_display"/>
-                <ui_button name="btn_temp_up" width="#button_height" height="#button_height" text="+" translation_tag="+">
+                <ui_button name="btn_temp_up" width="#button_height" height="#button_height" text="+">
                   <event_cb trigger="clicked" callback="on_pid_temp_up"/>
                 </ui_button>
               </lv_obj>
@@ -206,13 +206,13 @@
                 <lv_obj width="100%"
                         height="#button_height" style_pad_all="0" flex_flow="row" style_flex_main_place="center"
                         style_flex_cross_place="center" style_pad_gap="#space_md" scrollable="false">
-                  <ui_button name="btn_wattage_down" width="#button_height" height="#button_height" text="-" translation_tag="-">
+                  <ui_button name="btn_wattage_down" width="#button_height" height="#button_height" text="-">
                     <event_cb trigger="clicked" callback="on_cal_wattage_down"/>
                   </ui_button>
                   <lv_label name="wattage_display"
                             flex_grow="1" text="50W" style_text_font="#font_heading" style_text_align="center"
                             bind_text="cal_wattage_display"/>
-                  <ui_button name="btn_wattage_up" width="#button_height" height="#button_height" text="+" translation_tag="+">
+                  <ui_button name="btn_wattage_up" width="#button_height" height="#button_height" text="+">
                     <event_cb trigger="clicked" callback="on_cal_wattage_up"/>
                   </ui_button>
                 </lv_obj>

@@ -68,7 +68,6 @@ make PLATFORM_TARGET=k2 -j
 | Display backend | fbdev (`/dev/fb0`) |
 | Input | evdev (auto-detected) |
 | SSL | Disabled (Moonraker is local on port 4408) |
-| TinyGL 3D | Disabled (untested) |
 | Optimization | `-Os` with LTO (size-optimized) |
 | Platform define | `HELIX_PLATFORM_K2` |
 

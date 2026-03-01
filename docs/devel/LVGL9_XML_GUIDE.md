@@ -360,6 +360,25 @@ static void on_delete(lv_event_t* e) {
 }
 ```
 
+### Custom Widget on_delete Cleanup Ordering
+
+When a custom widget owns subjects AND has child labels bound to external subjects, the `on_delete` handler **must** detach children from all subjects before deiniting owned subjects:
+
+```cpp
+static void on_delete(lv_event_t* e) {
+    // 1. Detach child labels from ALL subjects (external + owned)
+    if (data->current_label)
+        lv_obj_remove_from_subject(data->current_label, nullptr);
+    if (data->target_label)
+        lv_obj_remove_from_subject(data->target_label, nullptr);
+
+    // 2. NOW safe to deinit owned subjects
+    lv_subject_deinit(&data->owned_subject);
+}
+```
+
+**Why:** `lv_subject_deinit()` frees observer memory. If child labels still have `unsubscribe_on_delete_cb` events referencing those observers, LVGL's cascading child deletion will walk freed memory. `lv_obj_remove_from_subject(label, nullptr)` removes ALL observer connections from a label, including the `unsubscribe_on_delete_cb` events.
+
 ---
 
 ## Layouts & Positioning

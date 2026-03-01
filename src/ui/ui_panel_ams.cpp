@@ -18,6 +18,9 @@
 #include "ui_panel_common.h"
 #include "ui_spool_canvas.h"
 #include "ui_utils.h"
+#include "ui_modal.h"
+
+#include "lvgl/src/others/translation/lv_translation.h"
 
 #include "ams_backend.h"
 #include "ams_state.h"
@@ -667,6 +670,7 @@ void AmsPanel::setup_path_canvas() {
 
     // Set bypass spool click callback (opens edit modal for external spool)
     ui_filament_path_canvas_set_bypass_callback(path_canvas_, on_bypass_spool_clicked, this);
+    ui_filament_path_canvas_set_buffer_callback(path_canvas_, on_buffer_clicked, this);
 
     // Configure from backend using shared helper
     ams_detail_setup_path_canvas(path_canvas_, slot_grid_, scoped_unit_index_, false);
@@ -1089,6 +1093,79 @@ void AmsPanel::handle_bypass_spool_click() {
     // Position menu at click point, show for external spool
     context_menu_->set_click_point(click_pt);
     context_menu_->show_for_external_spool(parent_screen_, path_canvas_);
+}
+
+void AmsPanel::on_buffer_clicked(void* user_data) {
+    auto* self = static_cast<AmsPanel*>(user_data);
+    if (self) {
+        self->handle_buffer_click();
+    }
+}
+
+void AmsPanel::handle_buffer_click() {
+    auto* backend = AmsState::instance().get_backend();
+    if (!backend)
+        return;
+
+    auto info = backend->get_system_info();
+
+    // Find the effective unit for buffer health
+    int effective_unit = (scoped_unit_index_ >= 0) ? scoped_unit_index_ : 0;
+
+    std::string message;
+    const char* title = lv_tr("Buffer Status");
+
+    if (info.type == AmsType::AFC) {
+        // AFC: Show buffer health from the unit (one buffer per unit)
+        bool found_health = false;
+        if (effective_unit >= 0 && effective_unit < static_cast<int>(info.units.size())) {
+            const auto& unit = info.units[effective_unit];
+            if (unit.buffer_health.has_value()) {
+                const auto& bh = unit.buffer_health.value();
+                message += fmt::format("{}: {}\n", lv_tr("State"),
+                                       bh.state.empty() ? lv_tr("Unknown") : bh.state.c_str());
+                message += fmt::format("{}: {:.1f} mm\n", lv_tr("Distance to Fault"),
+                                       bh.distance_to_fault);
+                message += fmt::format("{}: {}", lv_tr("Fault Detection"),
+                                       bh.fault_detection_enabled ? lv_tr("Enabled")
+                                                                  : lv_tr("Disabled"));
+                found_health = true;
+            }
+        }
+        if (!found_health) {
+            message = lv_tr("No buffer data available");
+        }
+    } else if (info.type == AmsType::HAPPY_HARE) {
+        title = lv_tr("Sync Feedback");
+        // Happy Hare: Show sync feedback info from system info
+        if (!info.sync_feedback_state.empty() && info.sync_feedback_state != "disabled") {
+            message += fmt::format("{}: {}\n", lv_tr("Sync Feedback"),
+                                   info.sync_feedback_state);
+        }
+        if (!info.espooler_state.empty()) {
+            message += fmt::format("{}: {}\n", lv_tr("eSpooler"), info.espooler_state);
+        }
+        message += fmt::format("{}: {}\n", lv_tr("Sync Drive"),
+                               info.sync_drive ? lv_tr("Active") : lv_tr("Inactive"));
+        if (info.clog_detection > 0) {
+            message += fmt::format("{}: {}\n", lv_tr("Clog Detection"),
+                                   info.clog_detection == 2 ? lv_tr("Auto") : lv_tr("Manual"));
+        }
+        if (info.encoder_flow_rate >= 0) {
+            message += fmt::format("{}: {}%", lv_tr("Flow Rate"), info.encoder_flow_rate);
+        }
+        // Trim trailing newline
+        if (!message.empty() && message.back() == '\n') {
+            message.pop_back();
+        }
+        if (message.empty()) {
+            message = lv_tr("No sync feedback data available");
+        }
+    } else {
+        message = lv_tr("Buffer information not available for this backend");
+    }
+
+    helix::ui::modal_show_alert(title, message.c_str(), ModalSeverity::Info);
 }
 
 void AmsPanel::on_path_slot_clicked(int slot_index, void* user_data) {

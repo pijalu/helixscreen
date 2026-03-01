@@ -565,6 +565,7 @@ struct SlotInfo {
     // Spoolman integration
     int spoolman_id = 0;           ///< Spoolman spool ID (0=not tracked)
     int spoolman_filament_id = 0;  ///< Spoolman filament definition ID (0=unknown)
+    int spoolman_vendor_id = 0;    ///< Spoolman vendor ID (0=unknown)
     std::string spool_name;        ///< Spool name from Spoolman
     float remaining_weight_g = -1; ///< Remaining filament weight in grams (-1=unknown)
     float total_weight_g = -1;     ///< Total spool weight in grams (-1=unknown)
@@ -732,6 +733,40 @@ inline SpoolmanMode spoolman_mode_from_string(std::string_view str) {
     return SpoolmanMode::OFF;
 }
 
+/// Encoder-based clog detection (Happy Hare mmu.encoder.*)
+struct EncoderClogInfo {
+    bool enabled = false;
+    int flow_rate = -1;          // 0-100% (-1=unavailable)
+    int detection_mode = 0;      // 0=unknown, 1=manual, 2=auto
+    float desired_headroom = 0;  // target headroom (mm)
+    float detection_length = 0;  // total detection distance (mm)
+    float headroom = 0;          // current headroom (mm)
+    float min_headroom = 0;      // minimum headroom reached (mm)
+
+    /// Get clog percentage: 0=full headroom, 100=clogged
+    [[nodiscard]] int get_clog_pct() const {
+        if (detection_length <= 0) return 0;
+        float used = detection_length - headroom;
+        int pct = static_cast<int>((used / detection_length) * 100.0f + 0.5f);
+        return std::clamp(pct, 0, 100);
+    }
+
+    /// Warning: min_headroom has dipped below desired_headroom
+    [[nodiscard]] bool is_warning() const {
+        return desired_headroom > 0 && min_headroom < desired_headroom;
+    }
+};
+
+/// Flowguard clog/tangle detection (Happy Hare mmu.flowguard.*)
+struct FlowguardInfo {
+    bool enabled = false;
+    bool active = false;
+    std::string trigger;      // "CLOG", "TANGLE", or ""
+    float level = 0;          // -1.0 (tangle) to +1.0 (clog)
+    float max_clog = 0;
+    float max_tangle = 0;     // negative value
+};
+
 /**
  * @brief Complete AMS system state
  *
@@ -772,6 +807,9 @@ struct AmsSystemInfo {
     bool sync_drive = false;         ///< Gear synced to extruder motor
     int clog_detection = 0;          ///< Clog detection: 0=off, 1=manual, 2=auto
     int encoder_flow_rate = -1;      ///< Encoder flow rate (-1=unavailable)
+    EncoderClogInfo encoder_info;    ///< Encoder-based clog detection state
+    FlowguardInfo flowguard_info;    ///< Flowguard clog/tangle detection state
+    float sync_feedback_flow_rate = -1; ///< Sync feedback flow rate
     float toolchange_purge_volume = 0; ///< Slicer purge volume for toolchanges
 
     // Tool-to-slot mapping (Happy Hare uses "gate" internally)

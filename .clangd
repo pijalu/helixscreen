@@ -13,8 +13,7 @@ CompileFlags:
     - -Ilib/libhv/cpputil
     - -Ilib/spdlog/include
     - -Ilib/glm
-    - -Ilib/tinygl/include
-    - -Ilib/tinygl/include-demo
+    - -Ilib/stb
     - -Ilib/wpa_supplicant/src/common
     - -Ilib/wpa_supplicant/src/utils
     # SDL2 includes
@@ -27,7 +26,6 @@ CompileFlags:
     - -DLV_CONF_INCLUDE_SIMPLE
     - -DLV_LVGL_H_INCLUDE_SIMPLE
     - -DHELIX_DISPLAY_SDL
-    - -DENABLE_TINYGL_3D
     # NOTE: Don't add -std=c++17 here - compile_commands.json has correct per-file standards
     # (C files use -std=c11, C++ files use -std=c++17)
 

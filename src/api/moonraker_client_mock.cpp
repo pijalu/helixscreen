@@ -3355,6 +3355,16 @@ void MoonrakerClientMock::temperature_simulation_loop() {
         fan_speed_.store(fan);
 
         // ========== Build and Dispatch Status Notification ==========
+        // Only dispatch notifications every NOTIFICATION_INTERVAL_TICKS to reduce log spam
+        // Physics still runs every tick for smooth temperature changes
+        if (tick % NOTIFICATION_INTERVAL_TICKS != 0) {
+            // Sleep and continue without dispatching
+            std::unique_lock<std::mutex> lock(sim_mutex_);
+            sim_cv_.wait_for(lock, std::chrono::milliseconds(SIMULATION_INTERVAL_MS),
+                             [this] { return !simulation_running_.load(); });
+            continue;
+        }
+
         std::string print_state_str = get_print_state_string();
         std::string filename;
         {

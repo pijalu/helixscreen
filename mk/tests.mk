@@ -18,20 +18,32 @@
 # Supports: Linux (nproc), macOS (sysctl), fallback to 4 cores
 NPROCS := $(shell echo $$(( $$(nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 4) * 2 )))
 
+# Per-shard timeout in seconds — safety net for infinite hangs only.
+# Must be generous: some shards with threading tests take 60-90s under load.
+SHARD_TIMEOUT := 300
+
 # Run tests in parallel using Catch2 sharding
 # Args: $(1) = test filter (e.g., "~[.] ~[slow]")
 # Collects PIDs and waits for all, failing if any shard fails
+# Each shard is wrapped in a timeout to prevent infinite hangs
 # Output is prefixed with [shard N] for clarity
 define run_tests_parallel
-	echo "$(CYAN)Running $(NPROCS) test shards in parallel...$(RESET)"; \
+	echo "$(CYAN)Running $(NPROCS) test shards in parallel (timeout=$(SHARD_TIMEOUT)s)...$(RESET)"; \
 	pids=""; \
 	for i in $$(seq 0 $$(($(NPROCS)-1))); do \
-		$(TEST_BIN) $(1) --shard-count $(NPROCS) --shard-index $$i 2>&1 | sed "s/^/[shard $$i] /" & \
+		timeout $(SHARD_TIMEOUT) $(TEST_BIN) $(1) --shard-count $(NPROCS) --shard-index $$i 2>&1 | sed "s/^/[shard $$i] /" & \
 		pids="$$pids $$!"; \
 	done; \
 	failed=0; \
 	for pid in $$pids; do \
-		wait $$pid || failed=1; \
+		wait $$pid; \
+		status=$$?; \
+		if [ $$status -eq 124 ]; then \
+			echo "$(RED)$(BOLD)✗ A test shard timed out after $(SHARD_TIMEOUT)s!$(RESET)"; \
+			failed=1; \
+		elif [ $$status -ne 0 ]; then \
+			failed=1; \
+		fi; \
 	done; \
 	if [ $$failed -eq 1 ]; then \
 		echo "$(RED)$(BOLD)✗ One or more test shards failed!$(RESET)"; \
@@ -556,21 +568,21 @@ $(CATCH2_OBJ): $(TEST_DIR)/catch_amalgamated.cpp
 $(UI_TEST_UTILS_OBJ): $(TEST_DIR)/ui_test_utils.cpp
 	$(Q)mkdir -p $(dir $@)
 	$(ECHO) "$(CYAN)[UI-TEST]$(RESET) $<"
-	$(Q)$(CXX) $(CXXFLAGS) $(DEPFLAGS) $(PCH_FLAGS) -I$(TEST_DIR) $(INCLUDES) -c $< -o $@
+	$(Q)$(CXX) $(CXXFLAGS) $(DEPFLAGS) $(PCH_FLAGS) -I$(TEST_DIR) $(INCLUDES) $(LV_CONF) -c $< -o $@
 
 # Compile LVGL test fixture (shared base class for UI tests)
 # Uses DEPFLAGS to track header dependencies
 $(LVGL_TEST_FIXTURE_OBJ): $(TEST_DIR)/lvgl_test_fixture.cpp
 	$(Q)mkdir -p $(dir $@)
 	$(ECHO) "$(CYAN)[LVGL-FIXTURE]$(RESET) $<"
-	$(Q)$(CXX) $(CXXFLAGS) $(DEPFLAGS) $(PCH_FLAGS) -I$(TEST_DIR) $(INCLUDES) -c $< -o $@
+	$(Q)$(CXX) $(CXXFLAGS) $(DEPFLAGS) $(PCH_FLAGS) -I$(TEST_DIR) $(INCLUDES) $(LV_CONF) -c $< -o $@
 
 # Compile test fixtures (reusable fixtures with mock initialization helpers)
 # Uses DEPFLAGS to track header dependencies
 $(TEST_FIXTURES_OBJ): $(TEST_DIR)/test_fixtures.cpp
 	$(Q)mkdir -p $(dir $@)
 	$(ECHO) "$(CYAN)[TEST-FIXTURE]$(RESET) $<"
-	$(Q)$(CXX) $(CXXFLAGS) $(DEPFLAGS) $(PCH_FLAGS) -I$(TEST_DIR) $(INCLUDES) -c $< -o $@
+	$(Q)$(CXX) $(CXXFLAGS) $(DEPFLAGS) $(PCH_FLAGS) -I$(TEST_DIR) $(INCLUDES) $(LV_CONF) -c $< -o $@
 
 # Compile LVGL UI test fixture (full UI integration test fixture)
 # Uses DEPFLAGS to track header dependencies
@@ -578,8 +590,8 @@ $(TEST_FIXTURES_OBJ): $(TEST_DIR)/test_fixtures.cpp
 $(LVGL_UI_TEST_FIXTURE_OBJ): $(TEST_DIR)/lvgl_ui_test_fixture.cpp
 	$(Q)mkdir -p $(dir $@)
 	$(ECHO) "$(CYAN)[UI-FIXTURE]$(RESET) $<"
-	$(Q)$(CXX) $(CXXFLAGS) $(DEPFLAGS) $(PCH_FLAGS) -I$(TEST_DIR) $(INCLUDES) -c $< -o $@
-	$(call emit-compile-command,$(CXX),$(CXXFLAGS) $(PCH_FLAGS) -I$(TEST_DIR) $(INCLUDES),$<,$@)
+	$(Q)$(CXX) $(CXXFLAGS) $(DEPFLAGS) $(PCH_FLAGS) -I$(TEST_DIR) $(INCLUDES) $(LV_CONF) -c $< -o $@
+	$(call emit-compile-command,$(CXX),$(CXXFLAGS) $(PCH_FLAGS) -I$(TEST_DIR) $(INCLUDES) $(LV_CONF),$<,$@)
 
 # Compile test sources
 # Uses DEPFLAGS to track header dependencies for incremental rebuilds
@@ -587,16 +599,16 @@ $(LVGL_UI_TEST_FIXTURE_OBJ): $(TEST_DIR)/lvgl_ui_test_fixture.cpp
 $(OBJ_DIR)/tests/%.o: $(TEST_UNIT_DIR)/%.cpp
 	$(Q)mkdir -p $(dir $@)
 	$(ECHO) "$(BLUE)[TEST]$(RESET) $<"
-	$(Q)$(CXX) $(CXXFLAGS) $(DEPFLAGS) $(PCH_FLAGS) -I$(TEST_DIR) $(INCLUDES) -c $< -o $@
-	$(call emit-compile-command,$(CXX),$(CXXFLAGS) $(PCH_FLAGS) -I$(TEST_DIR) $(INCLUDES),$<,$@)
+	$(Q)$(CXX) $(CXXFLAGS) $(DEPFLAGS) $(PCH_FLAGS) -I$(TEST_DIR) $(INCLUDES) $(LV_CONF) -c $< -o $@
+	$(call emit-compile-command,$(CXX),$(CXXFLAGS) $(PCH_FLAGS) -I$(TEST_DIR) $(INCLUDES) $(LV_CONF),$<,$@)
 
 # Compile application subdirectory test sources
 # Emits .ccj fragment for incremental compile_commands.json generation
 $(OBJ_DIR)/tests/application/%.o: $(TEST_UNIT_DIR)/application/%.cpp
 	$(Q)mkdir -p $(dir $@)
 	$(ECHO) "$(BLUE)[TEST-APP]$(RESET) $<"
-	$(Q)$(CXX) $(CXXFLAGS) $(DEPFLAGS) $(PCH_FLAGS) -I$(TEST_DIR) -I$(TEST_UNIT_DIR)/application $(INCLUDES) -c $< -o $@
-	$(call emit-compile-command,$(CXX),$(CXXFLAGS) $(PCH_FLAGS) -I$(TEST_DIR) -I$(TEST_UNIT_DIR)/application $(INCLUDES),$<,$@)
+	$(Q)$(CXX) $(CXXFLAGS) $(DEPFLAGS) $(PCH_FLAGS) -I$(TEST_DIR) -I$(TEST_UNIT_DIR)/application $(INCLUDES) $(LV_CONF) -c $< -o $@
+	$(call emit-compile-command,$(CXX),$(CXXFLAGS) $(PCH_FLAGS) -I$(TEST_DIR) -I$(TEST_UNIT_DIR)/application $(INCLUDES) $(LV_CONF),$<,$@)
 
 # Compile libhv dns_resolv.c for test_dns_resolver
 $(DNS_RESOLV_OBJ): $(LIBHV_DIR)/base/dns_resolv.c
@@ -610,8 +622,8 @@ $(DNS_RESOLV_OBJ): $(LIBHV_DIR)/base/dns_resolv.c
 $(OBJ_DIR)/tests/mocks/%.o: $(TEST_MOCK_DIR)/%.cpp
 	$(Q)mkdir -p $(dir $@)
 	$(ECHO) "$(YELLOW)[MOCK]$(RESET) $<"
-	$(Q)$(CXX) $(CXXFLAGS) $(DEPFLAGS) $(PCH_FLAGS) -I$(TEST_MOCK_DIR) $(INCLUDES) -c $< -o $@
-	$(call emit-compile-command,$(CXX),$(CXXFLAGS) $(PCH_FLAGS) -I$(TEST_MOCK_DIR) $(INCLUDES),$<,$@)
+	$(Q)$(CXX) $(CXXFLAGS) $(DEPFLAGS) $(PCH_FLAGS) -I$(TEST_MOCK_DIR) $(INCLUDES) $(LV_CONF) -c $< -o $@
+	$(call emit-compile-command,$(CXX),$(CXXFLAGS) $(PCH_FLAGS) -I$(TEST_MOCK_DIR) $(INCLUDES) $(LV_CONF),$<,$@)
 
 # Dynamic card instantiation test
 TEST_CARDS_BIN := $(BIN_DIR)/test_dynamic_cards

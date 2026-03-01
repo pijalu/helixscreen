@@ -88,6 +88,9 @@ void NotificationManager::notification_history_clicked([[maybe_unused]] lv_event
     // Setup panel (wires buttons, refreshes list)
     panel.setup(panel_obj, parent);
 
+    // Register with nullptr lifecycle — notification history extends PanelBase, not OverlayBase
+    NavigationManager::instance().register_overlay_instance(panel_obj, nullptr);
+
     NavigationManager::instance().push_overlay(panel_obj);
 }
 

@@ -528,6 +528,28 @@ class AmsState {
         return &dryer_modal_duration_text_;
     }
 
+    // ========================================================================
+    // Clog Detection Meter Subjects
+    // ========================================================================
+
+    /**
+     * @brief Get clog meter mode subject
+     * @return Subject holding mode (0=none, 1=encoder, 2=flowguard, 3=afc_buffer)
+     */
+    lv_subject_t* get_clog_meter_mode_subject() { return &clog_meter_mode_; }
+
+    /**
+     * @brief Get clog meter value subject
+     * @return Subject holding 0-100 (encoder/afc) or -100..+100 (flowguard)
+     */
+    lv_subject_t* get_clog_meter_value_subject() { return &clog_meter_value_; }
+
+    /**
+     * @brief Get clog meter warning subject
+     * @return Subject holding 0=ok, 1=warning
+     */
+    lv_subject_t* get_clog_meter_warning_subject() { return &clog_meter_warning_; }
+
     /**
      * @brief Get current modal target temperature
      * @return Temperature in degrees C
@@ -828,6 +850,9 @@ class AmsState {
     /** @brief Set "Currently Loaded" subjects to default/empty state with guards */
     void set_current_loaded_defaults();
 
+    /** @brief Sync clog detection meter subjects from system info */
+    void sync_clog_meter_from_info(const AmsSystemInfo& info);
+
     AmsState();
     ~AmsState();
 
@@ -958,6 +983,15 @@ class AmsState {
     char dryer_modal_duration_text_buf_[16];
     int modal_target_temp_c_ = DEFAULT_DRYER_TEMP_C;      ///< Modal's target temp (default PETG)
     int modal_duration_min_ = DEFAULT_DRYER_DURATION_MIN; ///< Modal's duration (default)
+
+    // Clog detection meter subjects
+    lv_subject_t clog_meter_mode_;       // 0=none, 1=encoder, 2=flowguard, 3=afc_buffer
+    lv_subject_t clog_meter_value_;      // 0-100 (encoder/afc) or -100..+100 (flowguard)
+    lv_subject_t clog_meter_warning_;    // 0=ok, 1=warning
+    lv_subject_t clog_meter_value_text_;
+    char clog_meter_value_text_buf_[16]{};
+    lv_subject_t clog_meter_mode_text_;
+    char clog_meter_mode_text_buf_[24]{};
 
     // Currently Loaded display subjects (reactive binding for "Currently Loaded" card)
     lv_subject_t current_material_text_;

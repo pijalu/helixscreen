@@ -1691,8 +1691,8 @@ void TelemetryManager::record_error(const std::string& category, const std::stri
     }
 
     // Validate category against allow-list to prevent unbounded map growth
-    static const std::array<std::string_view, 4> ALLOWED_CATEGORIES = {"moonraker_api", "websocket",
-                                                                       "file_io", "display"};
+    static const std::array<std::string_view, 5> ALLOWED_CATEGORIES = {"moonraker_api", "websocket",
+                                                                       "file_io", "display", "memory"};
     if (std::find(ALLOWED_CATEGORIES.begin(), ALLOWED_CATEGORIES.end(), category) ==
         ALLOWED_CATEGORIES.end()) {
         spdlog::trace("[TelemetryManager] Ignoring error with unknown category: {}", category);

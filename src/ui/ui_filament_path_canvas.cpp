@@ -49,7 +49,7 @@ static constexpr float MERGE_Y_RATIO = 0.20f;    // Where lanes merge
 static constexpr float HUB_Y_RATIO = 0.30f;      // Hub/selector center
 static constexpr float HUB_HEIGHT_RATIO = 0.10f; // Hub box height
 // Note: output sensor Y is computed as hub_bottom (butted against hub, no separate ratio)
-static constexpr float TOOLHEAD_Y_RATIO = 0.54f; // Toolhead sensor
+static constexpr float TOOLHEAD_Y_RATIO = 0.57f; // Toolhead sensor
 static constexpr float NOZZLE_Y_RATIO =
     0.75f; // Nozzle/extruder center (needs more room for larger extruder)
 
@@ -57,7 +57,9 @@ static constexpr float NOZZLE_Y_RATIO =
 static constexpr float BYPASS_X_RATIO = 0.85f; // Right side for bypass spool
 // Bypass merge point: where bypass path joins the center path, BELOW the hub output sensor.
 // This is where a physical or virtual bypass sensor lives.
-static constexpr float BYPASS_MERGE_Y_RATIO = 0.44f;
+static constexpr float BYPASS_MERGE_Y_RATIO = 0.47f;
+// Buffer element position (between hub output and bypass merge)
+static constexpr float BUFFER_Y_RATIO = 0.40f;
 
 // Line widths (scaled by space_xs for responsiveness)
 static constexpr int LINE_WIDTH_IDLE_BASE = 2;
@@ -137,6 +139,10 @@ struct FilamentPathData {
     // Buffer fault state (0=healthy, 1=warning/approaching, 2=fault)
     int buffer_fault_state = 0;
 
+    // Buffer element (TurtleNeck / eSpooler visualization)
+    bool buffer_present = false; // true = draw buffer box between hub and toolhead
+    int buffer_state = 0;        // 0=neutral, 1=compressed, 2=tension (coil icon spacing)
+
     // Heat glow state
     bool heat_active = false;               // true when nozzle is actively heating
     bool heat_pulse_active = false;         // Animation running
@@ -156,6 +162,8 @@ struct FilamentPathData {
     void* slot_user_data = nullptr;
     filament_path_bypass_cb_t bypass_callback = nullptr;
     void* bypass_user_data = nullptr;
+    filament_path_buffer_cb_t buffer_callback = nullptr;
+    void* buffer_user_data = nullptr;
 
     // Theme-derived colors (cached for performance)
     lv_color_t color_idle;
@@ -1169,6 +1177,134 @@ static void draw_hub_box(lv_layer_t* layer, int32_t cx, int32_t cy, int32_t widt
     }
 }
 
+// Draw buffer coil element (spring/zigzag icon inside a rounded box)
+// Represents TurtleNeck buffer (AFC) or eSpooler sync feedback (Happy Hare)
+static void draw_buffer_coil(lv_layer_t* layer, int32_t cx, int32_t cy, int32_t hub_w,
+                              int32_t hub_h, int buffer_state, int buffer_fault_state,
+                              lv_color_t bg_color, int32_t radius, bool has_filament,
+                              lv_color_t filament_color) {
+    // Box dimensions: ~40% hub width, ~55% hub height
+    int32_t box_w = hub_w * 2 / 5;
+    int32_t box_h = hub_h * 55 / 100;
+    if (box_w < 16) box_w = 16;
+    if (box_h < 10) box_h = 10;
+
+    // Border/coil color based on fault state
+    lv_color_t border_color;
+    lv_color_t coil_bg = bg_color;
+    if (buffer_fault_state >= 2) {
+        border_color = lv_color_hex(0xEF4444); // Red — fault
+        coil_bg = lv_color_hex(0x3F1111);      // Red-tinted background
+    } else if (buffer_fault_state == 1 || buffer_state != 0) {
+        border_color = lv_color_hex(0xF59E0B); // Orange — warning/non-neutral
+        if (has_filament) {
+            coil_bg = ph_blend(bg_color, filament_color, 0.33f);
+        }
+    } else {
+        border_color = lv_color_hex(0x22C55E); // Green — healthy/neutral
+        if (has_filament) {
+            coil_bg = ph_blend(bg_color, filament_color, 0.33f);
+        }
+    }
+
+    // Background fill
+    lv_draw_fill_dsc_t fill_dsc;
+    lv_draw_fill_dsc_init(&fill_dsc);
+    fill_dsc.color = coil_bg;
+    fill_dsc.opa = LV_OPA_COVER;
+    fill_dsc.radius = radius;
+
+    lv_area_t box_area = {cx - box_w / 2, cy - box_h / 2, cx + box_w / 2, cy + box_h / 2};
+    lv_draw_fill(layer, &fill_dsc, &box_area);
+
+    // Border
+    lv_draw_border_dsc_t border_dsc;
+    lv_draw_border_dsc_init(&border_dsc);
+    border_dsc.color = border_color;
+    border_dsc.width = 1;
+    border_dsc.radius = radius;
+    lv_draw_border(layer, &border_dsc, &box_area);
+
+    // Draw horizontal spring/coil inside the box
+    // Runs left-to-right with vertical zigzag peaks (reads naturally as a spring)
+    int32_t pad = 3;
+    int32_t coil_left = cx - box_w / 2 + pad;
+    int32_t coil_right = cx + box_w / 2 - pad;
+    int32_t coil_top = cy - box_h / 2 + pad;
+    int32_t coil_bot = cy + box_h / 2 - pad;
+
+    int32_t coil_width = coil_right - coil_left;
+    int32_t coil_height = coil_bot - coil_top;
+    if (coil_width < 6 || coil_height < 4)
+        return;
+
+    // Number of full zigzag cycles (peak-to-peak) depends on state
+    int num_peaks;
+    if (buffer_state == 1) {
+        num_peaks = 5; // Compressed — tight coils
+    } else if (buffer_state == 2) {
+        num_peaks = 2; // Tension — stretched coils
+    } else {
+        num_peaks = 3; // Neutral — balanced
+    }
+
+    lv_draw_line_dsc_t line_dsc;
+    lv_draw_line_dsc_init(&line_dsc);
+    line_dsc.color = border_color;
+    line_dsc.width = 1;
+    line_dsc.round_end = true;
+    line_dsc.round_start = true;
+
+    // Lead-in: horizontal line from left edge to first peak
+    // Lead-out: horizontal line from last peak to right edge
+    int32_t lead_in = coil_width / (num_peaks * 2 + 2);
+    int32_t zigzag_left = coil_left + lead_in;
+    int32_t zigzag_right = coil_right - lead_in;
+    int32_t zigzag_width = zigzag_right - zigzag_left;
+
+    // Total zigzag segments = num_peaks * 2 (each peak is up-then-down)
+    int total_segments = num_peaks * 2;
+    int32_t seg_width = zigzag_width / (total_segments > 0 ? total_segments : 1);
+
+    // Lead-in line (left edge to zigzag start, at vertical center)
+    line_dsc.p1.x = coil_left;
+    line_dsc.p1.y = cy;
+    line_dsc.p2.x = zigzag_left;
+    line_dsc.p2.y = cy;
+    lv_draw_line(layer, &line_dsc);
+
+    // Zigzag: alternating top/bottom peaks
+    int32_t prev_x = zigzag_left;
+    int32_t prev_y = cy;
+
+    for (int i = 0; i < total_segments; i++) {
+        int32_t next_x = zigzag_left + (i + 1) * seg_width;
+        int32_t next_y = (i % 2 == 0) ? coil_top : coil_bot;
+
+        line_dsc.p1.x = prev_x;
+        line_dsc.p1.y = prev_y;
+        line_dsc.p2.x = next_x;
+        line_dsc.p2.y = next_y;
+        lv_draw_line(layer, &line_dsc);
+
+        prev_x = next_x;
+        prev_y = next_y;
+    }
+
+    // Final segment back to center, then lead-out
+    line_dsc.p1.x = prev_x;
+    line_dsc.p1.y = prev_y;
+    line_dsc.p2.x = zigzag_right;
+    line_dsc.p2.y = cy;
+    lv_draw_line(layer, &line_dsc);
+
+    line_dsc.p1.x = zigzag_right;
+    line_dsc.p1.y = cy;
+    line_dsc.p2.x = coil_right;
+    line_dsc.p2.y = cy;
+    lv_draw_line(layer, &line_dsc);
+}
+
 // ============================================================================
 // Isometric Print Head Drawing
 // ============================================================================
@@ -1869,6 +2005,22 @@ static void filament_path_draw_cb(lv_event_t* e) {
     }
 
     // ========================================================================
+    // Draw filament buffer element (TurtleNeck / eSpooler)
+    // Passive device overlay — does NOT affect path segments or animation
+    // ========================================================================
+    if (!data->hub_only && data->buffer_present) {
+        int32_t buffer_y = y_off + (int32_t)(height * BUFFER_Y_RATIO);
+        bool buffer_has_filament =
+            (data->active_slot >= 0 && is_segment_active(PathSegment::OUTPUT, fil_seg)) ||
+            data->bypass_active;
+        lv_color_t buf_fil_color = data->bypass_active ? lv_color_hex(data->bypass_color)
+                                                       : active_color;
+        draw_buffer_coil(layer, center_x, buffer_y, data->hub_width, hub_h, data->buffer_state,
+                         data->buffer_fault_state, bg_color, data->border_radius,
+                         buffer_has_filament, buf_fil_color);
+    }
+
+    // ========================================================================
     // Draw toolhead section (bypass merge → toolhead)
     // Active when ANY filament is flowing (AMS or bypass)
     // Skipped when bypass is hidden — output section draws directly to toolhead
@@ -2209,6 +2361,21 @@ static void filament_path_click_cb(lv_event_t* e) {
                     return;
                 }
             }
+        }
+    }
+
+    // Check if buffer coil was clicked
+    if (data->buffer_present && data->buffer_callback) {
+        int32_t buffer_y = y_off + (int32_t)(height * BUFFER_Y_RATIO);
+        int32_t hub_h = (int32_t)(height * HUB_HEIGHT_RATIO);
+        int32_t box_w = data->hub_width * 2 / 5;
+        int32_t box_h = hub_h * 55 / 100;
+        int32_t center_x = x_off + width / 2;
+        if (abs(point.x - center_x) < box_w / 2 + 4 &&
+            abs(point.y - buffer_y) < box_h / 2 + 4) {
+            spdlog::debug("[FilamentPath] Buffer coil clicked");
+            data->buffer_callback(data->buffer_user_data);
+            return;
         }
     }
 
@@ -2704,6 +2871,15 @@ void ui_filament_path_canvas_set_bypass_callback(lv_obj_t* obj, filament_path_by
     }
 }
 
+void ui_filament_path_canvas_set_buffer_callback(lv_obj_t* obj, filament_path_buffer_cb_t cb,
+                                                 void* user_data) {
+    auto* data = get_data(obj);
+    if (data) {
+        data->buffer_callback = cb;
+        data->buffer_user_data = user_data;
+    }
+}
+
 void ui_filament_path_canvas_set_hub_only(lv_obj_t* obj, bool hub_only) {
     auto* data = get_data(obj);
     if (!data)
@@ -2756,6 +2932,20 @@ void ui_filament_path_canvas_set_buffer_fault_state(lv_obj_t* obj, int state) {
     if (data->buffer_fault_state != state) {
         data->buffer_fault_state = state;
         spdlog::debug("[FilamentPath] Buffer fault state: {}", state);
+        lv_obj_invalidate(obj);
+    }
+}
+
+void ui_filament_path_canvas_set_buffer_info(lv_obj_t* obj, bool present, int state) {
+    auto* data = get_data(obj);
+    if (!data)
+        return;
+
+    state = LV_CLAMP(0, state, 2);
+    if (data->buffer_present != present || data->buffer_state != state) {
+        data->buffer_present = present;
+        data->buffer_state = state;
+        spdlog::debug("[FilamentPath] Buffer info: present={}, state={}", present, state);
         lv_obj_invalidate(obj);
     }
 }

@@ -27,6 +27,9 @@ class PrinterImageWidget : public PanelWidget {
     /// Re-check printer image setting and update the displayed image
     void refresh_printer_image();
 
+    /// XML event callback — opens printer manager overlay
+    static void printer_manager_clicked_cb(lv_event_t* e);
+
   private:
     lv_obj_t* widget_obj_ = nullptr;
     lv_obj_t* parent_screen_ = nullptr;
@@ -39,8 +42,6 @@ class PrinterImageWidget : public PanelWidget {
     void take_printer_image_snapshot();
 
     void handle_printer_manager_clicked();
-
-    static void printer_manager_clicked_cb(lv_event_t* e);
 };
 
 } // namespace helix

@@ -52,9 +52,6 @@ lib/libhv/docs/
 lib/libhv/examples/
 lib/libhv/unittest/
 lib/openvdb/doc/
-lib/tinygl/Raw_Demos/
-lib/tinygl/SDL_Examples/
-
 # Generated font files (large C arrays)
 assets/fonts/*.c
 

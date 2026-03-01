@@ -211,10 +211,17 @@ detect_klipper_user() {
     return 0
 }
 
-# Detect AD5M firmware variant (Klipper Mod vs Forge-X)
+# Detect AD5M firmware variant (Klipper Mod vs Forge-X vs ZMOD)
 # Only called when platform is "ad5m"
-# Returns: "klipper_mod" or "forge_x"
+# Returns: "klipper_mod", "forge_x", or "zmod"
 detect_ad5m_firmware() {
+    # ZMOD indicator - check for /ZMOD marker file
+    # ZMOD is used on AD5M, AD5M Pro, and AD5X (FlashForge series)
+    if [ -f "/ZMOD" ]; then
+        echo "zmod"
+        return
+    fi
+
     # Klipper Mod indicators - check for its specific directory structure
     # Klipper Mod runs in a chroot on /mnt/data/.klipper_mod/chroot
     # and puts printer software in /root/printer_software/
@@ -364,6 +371,13 @@ set_install_paths() {
                 INIT_SCRIPT_DEST="/etc/init.d/S80helixscreen"
                 PREVIOUS_UI_SCRIPT="/etc/init.d/S80klipperscreen"
                 log_info "AD5M firmware: Klipper Mod"
+                log_info "Install directory: ${INSTALL_DIR}"
+                ;;
+            zmod)
+                INSTALL_DIR="/srv/helixscreen"
+                INIT_SCRIPT_DEST="/etc/init.d/S80helixscreen"
+                PREVIOUS_UI_SCRIPT=""
+                log_info "AD5M firmware: ZMOD"
                 log_info "Install directory: ${INSTALL_DIR}"
                 ;;
             forge_x|*)

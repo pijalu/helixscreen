@@ -2637,6 +2637,79 @@ TEST_CASE("PrinterDetector: Filtered list is smaller than unfiltered",
     REQUIRE(corexy.size() < all.size());
 }
 
+TEST_CASE("PrinterDetector: Kalico limited_corexy filter includes corexy printers",
+          "[printer][kinematics_filter]") {
+    PrinterDetector::reload();
+
+    const auto& names = PrinterDetector::get_list_names("limited_corexy");
+
+    // limited_corexy should match corexy printers (contains "corexy")
+    bool has_voron24 = false;
+    bool has_voron_trident = false;
+    for (const auto& name : names) {
+        if (name == "Voron 2.4")
+            has_voron24 = true;
+        if (name == "Voron Trident")
+            has_voron_trident = true;
+    }
+    REQUIRE(has_voron24);
+    REQUIRE(has_voron_trident);
+
+    // Should NOT contain delta printers
+    bool has_flsun_v400 = false;
+    for (const auto& name : names) {
+        if (name == "FLSUN V400")
+            has_flsun_v400 = true;
+    }
+    REQUIRE_FALSE(has_flsun_v400);
+}
+
+TEST_CASE("PrinterDetector: hybrid_corexy filter includes corexy printers",
+          "[printer][kinematics_filter]") {
+    PrinterDetector::reload();
+
+    const auto& names = PrinterDetector::get_list_names("hybrid_corexy");
+
+    // hybrid_corexy should match corexy printers (contains "corexy")
+    bool has_voron24 = false;
+    for (const auto& name : names) {
+        if (name == "Voron 2.4")
+            has_voron24 = true;
+    }
+    REQUIRE(has_voron24);
+
+    // Should NOT contain delta printers
+    bool has_flsun_v400 = false;
+    for (const auto& name : names) {
+        if (name == "FLSUN V400")
+            has_flsun_v400 = true;
+    }
+    REQUIRE_FALSE(has_flsun_v400);
+}
+
+TEST_CASE("PrinterDetector: Kalico limited_cartesian filter includes cartesian printers",
+          "[printer][kinematics_filter]") {
+    PrinterDetector::reload();
+
+    const auto& names = PrinterDetector::get_list_names("limited_cartesian");
+
+    // limited_cartesian should match cartesian printers (contains "cartesian")
+    bool has_ender3 = false;
+    for (const auto& name : names) {
+        if (name == "Creality Ender 3")
+            has_ender3 = true;
+    }
+    REQUIRE(has_ender3);
+
+    // Should NOT contain corexy printers
+    bool has_voron24 = false;
+    for (const auto& name : names) {
+        if (name == "Voron 2.4")
+            has_voron24 = true;
+    }
+    REQUIRE_FALSE(has_voron24);
+}
+
 // ============================================================================
 // tool_count Heuristic Tests
 // ============================================================================

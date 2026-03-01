@@ -54,7 +54,6 @@ make PLATFORM_TARGET=snapmaker-u1 -j
 | Display backend | fbdev (`/dev/fb0`) |
 | Input | evdev (auto-detected) |
 | SSL | Enabled |
-| TinyGL 3D | Disabled |
 | Optimization | `-Os` (size-optimized) |
 | Platform define | `HELIX_PLATFORM_SNAPMAKER_U1` |
 
