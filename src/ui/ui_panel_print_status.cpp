@@ -564,6 +564,19 @@ void PrintStatusPanel::on_activate() {
         pending_gcode_filename_.clear();
     }
 
+    // After destroy-on-close, the gcode viewer widget was recreated empty.
+    // Re-feed the current print filename to trigger gcode + thumbnail reload.
+    if (lifecycle_.want_viewer() && !gcode_loaded_ && gcode_viewer_ &&
+        pending_gcode_filename_.empty()) {
+        const char* filename =
+            lv_subject_get_string(printer_state_.get_print_filename_subject());
+        if (filename && filename[0] != '\0') {
+            spdlog::info("[{}] Re-loading G-code after overlay recreate: {}", get_name(),
+                         filename);
+            on_print_filename_changed(filename);
+        }
+    }
+
     // Restore G-code viewer state based on current print conditions
     // This ensures the viewer is properly restored when returning from overlays like Tune panel
     show_gcode_viewer(lifecycle_.want_viewer() && gcode_loaded_);
@@ -639,6 +652,8 @@ void PrintStatusPanel::on_ui_destroyed() {
     resize_registered_ = false;
     is_active_ = false;
     gcode_loaded_ = false;
+    // Clear dedup guard so gcode reload isn't blocked on next open
+    requested_gcode_filename_.clear();
 }
 
 // Cached widget pointer for lazy creation (separate from overlay_root_ which
