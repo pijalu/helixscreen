@@ -105,18 +105,23 @@ class ColorPicker : public Modal {
 
     // === Subjects for XML binding ===
     SubjectManager subjects_;
-    lv_subject_t hex_subject_;
     lv_subject_t name_subject_;
     char hex_buf_[16] = {0};
     char name_buf_[64] = {0};
     bool subjects_initialized_ = false;
 
-    // === Observer tracking for cleanup ===
-    lv_observer_t* name_label_observer_ = nullptr;
-
-    // === Hex input field ===
-    lv_obj_t* hex_input_ = nullptr;
+    // === Hex input state ===
     bool hex_input_updating_ = false; // Prevent feedback loop
+
+    // === Cached widget pointers (set in on_show, cleared in on_hide) ===
+    lv_obj_t* preview_ = nullptr;
+    lv_obj_t* preview_tiny_ = nullptr;
+    lv_obj_t* hex_input_ = nullptr;
+    lv_obj_t* hex_input_tiny_ = nullptr;
+    lv_obj_t* hsv_picker_ = nullptr;
+    lv_obj_t* hsv_picker_tiny_ = nullptr;
+    lv_obj_t* name_label_ = nullptr;
+    lv_obj_t* name_label_tiny_ = nullptr;
 
     // === TINY mode tab switching ===
     bool is_tiny_mode_ = false;

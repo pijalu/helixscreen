@@ -68,6 +68,9 @@ ColorPicker::ColorPicker(ColorPicker&& other) noexcept
 
     // Subjects are not movable - they stay with original
     other.subjects_initialized_ = false;
+
+    is_tiny_mode_ = other.is_tiny_mode_;
+    other.is_tiny_mode_ = false;
 }
 
 ColorPicker& ColorPicker::operator=(ColorPicker&& other) noexcept {
@@ -80,6 +83,9 @@ ColorPicker& ColorPicker::operator=(ColorPicker&& other) noexcept {
         std::memcpy(hex_buf_, other.hex_buf_, sizeof(hex_buf_));
         std::memcpy(name_buf_, other.name_buf_, sizeof(name_buf_));
         other.subjects_initialized_ = false;
+
+        is_tiny_mode_ = other.is_tiny_mode_;
+        other.is_tiny_mode_ = false;
     }
     return *this;
 }
@@ -123,29 +129,34 @@ bool ColorPicker::show_with_color(lv_obj_t* parent, uint32_t initial_color) {
 // ============================================================================
 
 void ColorPicker::on_show() {
-    // Get hex input field
+    // Cache all widget pointers up front
+    preview_ = find_widget("selected_color_preview");
+    preview_tiny_ = find_widget("selected_color_preview_tiny");
     hex_input_ = find_widget("hex_input");
+    hex_input_tiny_ = find_widget("hex_input_tiny");
+    hsv_picker_ = find_widget("hsv_picker");
+    hsv_picker_tiny_ = find_widget("hsv_picker_tiny");
+    name_label_ = find_widget("selected_name_label");
+    name_label_tiny_ = find_widget("selected_name_label_tiny");
 
     // Register keyboard for hex input so software keyboard appears on touch
     if (hex_input_ && dialog_) {
         helix::ui::modal_register_keyboard(dialog_, hex_input_);
     }
 
-    // Bind name label to subject (save observer for cleanup)
-    lv_obj_t* name_label = find_widget("selected_name_label");
-    if (name_label) {
-        name_label_observer_ = lv_label_bind_text(name_label, &name_subject_, nullptr);
+    // Bind name label to subject
+    if (name_label_) {
+        lv_label_bind_text(name_label_, &name_subject_, nullptr);
     }
 
     // Initialize preview with current color
     update_preview(selected_color_);
 
     // Initialize HSV picker with current color and set callback
-    lv_obj_t* hsv_picker = find_widget("hsv_picker");
-    if (hsv_picker) {
-        ui_hsv_picker_set_color_rgb(hsv_picker, selected_color_);
+    if (hsv_picker_) {
+        ui_hsv_picker_set_color_rgb(hsv_picker_, selected_color_);
         ui_hsv_picker_set_callback(
-            hsv_picker,
+            hsv_picker_,
             [](uint32_t rgb, void* user_data) {
                 auto* self = static_cast<ColorPicker*>(user_data);
                 self->update_preview(rgb, true); // from HSV picker
@@ -170,11 +181,10 @@ void ColorPicker::on_show() {
         btn_tab_custom_ = find_widget("btn_tab_custom");
 
         // Wire up TINY-mode HSV picker
-        lv_obj_t* hsv_picker_tiny = find_widget("hsv_picker_tiny");
-        if (hsv_picker_tiny) {
-            ui_hsv_picker_set_color_rgb(hsv_picker_tiny, selected_color_);
+        if (hsv_picker_tiny_) {
+            ui_hsv_picker_set_color_rgb(hsv_picker_tiny_, selected_color_);
             ui_hsv_picker_set_callback(
-                hsv_picker_tiny,
+                hsv_picker_tiny_,
                 [](uint32_t rgb, void* user_data) {
                     auto* self = static_cast<ColorPicker*>(user_data);
                     self->update_preview(rgb, true);
@@ -183,19 +193,17 @@ void ColorPicker::on_show() {
         }
 
         // Wire up TINY-mode hex input
-        lv_obj_t* hex_input_tiny = find_widget("hex_input_tiny");
-        if (hex_input_tiny && dialog_) {
-            helix::ui::modal_register_keyboard(dialog_, hex_input_tiny);
+        if (hex_input_tiny_ && dialog_) {
+            helix::ui::modal_register_keyboard(dialog_, hex_input_tiny_);
         }
 
         // Bind TINY name label to subject
-        lv_obj_t* name_label_tiny = find_widget("selected_name_label_tiny");
-        if (name_label_tiny) {
-            lv_label_bind_text(name_label_tiny, &name_subject_, nullptr);
+        if (name_label_tiny_) {
+            lv_label_bind_text(name_label_tiny_, &name_subject_, nullptr);
         }
 
         // Override hex_input_ to point to TINY version so existing handlers work
-        hex_input_ = find_widget("hex_input_tiny");
+        hex_input_ = hex_input_tiny_;
 
         // Start on presets tab
         switch_tab(false);
@@ -212,7 +220,15 @@ void ColorPicker::on_hide() {
 
     spdlog::debug("[ColorPicker] on_hide()");
 
-    // Clean up TINY mode state
+    // Clear all cached widget pointers
+    preview_ = nullptr;
+    preview_tiny_ = nullptr;
+    hex_input_ = nullptr;
+    hex_input_tiny_ = nullptr;
+    hsv_picker_ = nullptr;
+    hsv_picker_tiny_ = nullptr;
+    name_label_ = nullptr;
+    name_label_tiny_ = nullptr;
     presets_content_ = nullptr;
     custom_content_ = nullptr;
     btn_tab_presets_ = nullptr;
@@ -240,11 +256,7 @@ void ColorPicker::init_subjects() {
     }
 
     // Initialize string subjects with empty buffers (local binding only, not XML registered)
-    hex_buf_[0] = '\0';
     name_buf_[0] = '\0';
-
-    lv_subject_init_string(&hex_subject_, hex_buf_, nullptr, sizeof(hex_buf_), "");
-    subjects_.register_subject(&hex_subject_);
 
     lv_subject_init_string(&name_subject_, name_buf_, nullptr, sizeof(name_buf_), "");
     subjects_.register_subject(&name_subject_);
@@ -274,51 +286,39 @@ void ColorPicker::update_preview(uint32_t color_rgb, bool from_hsv_picker, bool 
 
     selected_color_ = color_rgb;
 
-    // Update the preview swatch
-    lv_obj_t* preview = find_widget("selected_color_preview");
-    if (preview) {
-        lv_obj_set_style_bg_color(preview, lv_color_hex(color_rgb), 0);
-    }
+    // Update preview swatches
+    if (preview_)
+        lv_obj_set_style_bg_color(preview_, lv_color_hex(color_rgb), 0);
+    if (preview_tiny_)
+        lv_obj_set_style_bg_color(preview_tiny_, lv_color_hex(color_rgb), 0);
 
-    // Update TINY preview swatch too
-    lv_obj_t* preview_tiny = find_widget("selected_color_preview_tiny");
-    if (preview_tiny) {
-        lv_obj_set_style_bg_color(preview_tiny, lv_color_hex(color_rgb), 0);
-    }
-
-    // Update the hex input (unless change came from hex input itself)
-    if (!from_hex_input && hex_input_) {
-        hex_input_updating_ = true;
+    // Update hex input (unless change came from hex input itself)
+    if (!from_hex_input) {
         snprintf(hex_buf_, sizeof(hex_buf_), "#%06X", color_rgb);
-        lv_textarea_set_text(hex_input_, hex_buf_);
-        lv_obj_set_style_text_color(hex_input_, theme_manager_get_color("text"), LV_PART_MAIN);
-        hex_input_updating_ = false;
+        auto text_color = theme_manager_get_color("text");
+        if (hex_input_) {
+            hex_input_updating_ = true;
+            lv_textarea_set_text(hex_input_, hex_buf_);
+            lv_obj_set_style_text_color(hex_input_, text_color, LV_PART_MAIN);
+            hex_input_updating_ = false;
+        }
+        if (hex_input_tiny_ && hex_input_tiny_ != hex_input_) {
+            lv_textarea_set_text(hex_input_tiny_, hex_buf_);
+            lv_obj_set_style_text_color(hex_input_tiny_, text_color, LV_PART_MAIN);
+        }
     }
 
-    // Update TINY hex input too (if it's a different widget from hex_input_)
-    lv_obj_t* hex_input_tiny = find_widget("hex_input_tiny");
-    if (!from_hex_input && hex_input_tiny && hex_input_tiny != hex_input_) {
-        lv_textarea_set_text(hex_input_tiny, hex_buf_);
-        lv_obj_set_style_text_color(hex_input_tiny, theme_manager_get_color("text"), LV_PART_MAIN);
-    }
-
-    // Update the color name label via subject
+    // Update color name via subject (both labels bound to same subject)
     std::string name = helix::get_color_name_from_hex(color_rgb);
     snprintf(name_buf_, sizeof(name_buf_), "%s", name.c_str());
     lv_subject_copy_string(&name_subject_, name_buf_);
 
-    // Sync HSV picker if change came from preset swatch (not from HSV picker itself)
+    // Sync HSV pickers (unless change came from HSV picker)
     if (!from_hsv_picker) {
-        lv_obj_t* hsv_picker = find_widget("hsv_picker");
-        if (hsv_picker) {
-            ui_hsv_picker_set_color_rgb(hsv_picker, color_rgb);
-        }
-
-        // Sync TINY HSV picker too
-        lv_obj_t* hsv_picker_tiny = find_widget("hsv_picker_tiny");
-        if (hsv_picker_tiny) {
-            ui_hsv_picker_set_color_rgb(hsv_picker_tiny, color_rgb);
-        }
+        if (hsv_picker_)
+            ui_hsv_picker_set_color_rgb(hsv_picker_, color_rgb);
+        if (hsv_picker_tiny_)
+            ui_hsv_picker_set_color_rgb(hsv_picker_tiny_, color_rgb);
     }
 }
 
