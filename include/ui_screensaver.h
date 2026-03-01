@@ -4,6 +4,8 @@
 
 #ifdef HELIX_ENABLE_SCREENSAVER
 
+#include "screensaver.h"
+
 #include <lvgl.h>
 
 #include <cstdint>
@@ -23,25 +25,27 @@
  * Uses lv_anim_t for flight (diagonal top-right to bottom-left) and
  * lv_timer_t for wing flap frame cycling.
  */
-class FlyingToasterScreensaver {
+class FlyingToasterScreensaver : public Screensaver {
   public:
-    static FlyingToasterScreensaver& instance();
+    FlyingToasterScreensaver() = default;
+    ~FlyingToasterScreensaver() override = default;
 
     FlyingToasterScreensaver(const FlyingToasterScreensaver&) = delete;
     FlyingToasterScreensaver& operator=(const FlyingToasterScreensaver&) = delete;
 
     /** @brief Start the screensaver (creates overlay, spawns objects, starts animations) */
-    void start();
+    void start() override;
 
     /** @brief Stop the screensaver (clean shutdown, deletes everything) */
-    void stop();
+    void stop() override;
 
     /** @brief Check if screensaver is currently active */
-    bool is_active() const { return m_active; }
+    bool is_active() const override { return m_active; }
+
+    /** @brief Return FLYING_TOASTERS type */
+    ScreensaverType type() const override { return ScreensaverType::FLYING_TOASTERS; }
 
   private:
-    FlyingToasterScreensaver() = default;
-    ~FlyingToasterScreensaver() = default;
 
     struct FlyingObject {
         lv_obj_t* img;

@@ -124,11 +124,6 @@ static constexpr ObjectDef OBJECTS[] = {
 };
 static constexpr int NUM_OBJECTS = sizeof(OBJECTS) / sizeof(OBJECTS[0]);
 
-FlyingToasterScreensaver& FlyingToasterScreensaver::instance() {
-    static FlyingToasterScreensaver inst;
-    return inst;
-}
-
 int FlyingToasterScreensaver::get_scale_factor() const {
     lv_display_t* disp = lv_display_get_default();
     if (!disp) return 256; // 1x in LVGL 256 = 100%

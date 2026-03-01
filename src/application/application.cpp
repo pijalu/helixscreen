@@ -105,6 +105,9 @@
 #include "android_asset_extractor.h"
 #include "data_root_resolver.h"
 #include "display_settings_manager.h"
+#ifdef HELIX_ENABLE_SCREENSAVER
+#include "screensaver.h"
+#endif
 #include "led/ui_led_control_overlay.h"
 #include "platform_info.h"
 #include "printer_detector.h"
@@ -2402,6 +2405,25 @@ void Application::handle_keyboard_shortcuts() {
                 m_action_prompt_manager->trigger_test_notify();
             },
             [this]() { return get_runtime_config()->is_test_mode() && m_action_prompt_manager; });
+
+#ifdef HELIX_ENABLE_SCREENSAVER
+        // Z key - cycle through screensavers (Off → Toasters → Starfield → Pipes → Off)
+        shortcuts.register_key(SDL_SCANCODE_Z, []() {
+            auto& mgr = ScreensaverManager::instance();
+            if (mgr.is_active()) {
+                mgr.stop();
+                spdlog::info("[Application] Z key - screensaver stopped");
+            } else {
+                auto type = ScreensaverManager::configured_type();
+                if (type == ScreensaverType::OFF) {
+                    type = ScreensaverType::FLYING_TOASTERS;
+                }
+                mgr.start(type);
+                spdlog::info("[Application] Z key - screensaver started (type {})",
+                             static_cast<int>(type));
+            }
+        });
+#endif
 
         shortcuts_initialized = true;
     }

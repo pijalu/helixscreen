@@ -304,6 +304,9 @@ endif
 # Exclude screensaver when not enabled
 ifneq ($(ENABLE_SCREENSAVER),yes)
     APP_SRCS := $(filter-out $(SRC_DIR)/ui/ui_screensaver.cpp,$(APP_SRCS))
+    APP_SRCS := $(filter-out $(SRC_DIR)/ui/screensaver_manager.cpp,$(APP_SRCS))
+    APP_SRCS := $(filter-out $(SRC_DIR)/ui/screensaver_starfield.cpp,$(APP_SRCS))
+    APP_SRCS := $(filter-out $(SRC_DIR)/ui/screensaver_pipes.cpp,$(APP_SRCS))
 endif
 APP_OBJS := $(patsubst $(SRC_DIR)/%.cpp,$(OBJ_DIR)/%.o,$(APP_SRCS))
 

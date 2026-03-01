@@ -244,6 +244,13 @@ class DisplaySettingsOverlay : public OverlayBase {
      */
     void init_time_format_dropdown();
 
+#ifdef HELIX_ENABLE_SCREENSAVER
+    /**
+     * @brief Initialize screensaver type dropdown
+     */
+    void init_screensaver_dropdown();
+#endif
+
     //
     // === State ===
     //

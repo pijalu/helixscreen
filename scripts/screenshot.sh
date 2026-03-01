@@ -37,7 +37,7 @@ Output:
   BMP files are automatically converted to PNG and cleaned up.
 
 Dependencies:
-  - ImageMagick (brew install imagemagick)
+  - ImageMagick (apt install imagemagick / brew install imagemagick)
 EOF
     exit 0
 }
@@ -120,10 +120,15 @@ fi
 # Skip splash screen for faster automation
 EXTRA_ARGS="--display $HELIX_SCREENSHOT_DISPLAY --screenshot $SCREENSHOT_DELAY --timeout $SCREENSHOT_TIMEOUT --skip-splash $EXTRA_ARGS"
 
-# Check dependencies
+# Check dependencies — ImageMagick v7 uses 'magick', v6 uses 'convert'
 info "Checking dependencies..."
-if ! command -v magick &> /dev/null; then
-    error "ImageMagick not found (install with: brew install imagemagick)"
+MAGICK_CMD=""
+if command -v magick &> /dev/null; then
+    MAGICK_CMD="magick"
+elif command -v convert &> /dev/null; then
+    MAGICK_CMD="convert"
+else
+    error "ImageMagick not found (install with: sudo apt install imagemagick)"
     exit 1
 fi
 
@@ -189,7 +194,7 @@ success "Screenshot captured: $BMP_FILE ($BMP_SIZE)"
 
 # Convert to PNG
 info "Converting BMP to PNG..."
-if ! magick "$BMP_FILE" "$PNG_FILE" 2>/dev/null; then
+if ! $MAGICK_CMD "$BMP_FILE" "$PNG_FILE" 2>/dev/null; then
     error "PNG conversion failed"
     warn "BMP file available at: $BMP_FILE"
     exit 1
@@ -208,8 +213,12 @@ echo "  Panel: ${PANEL:-default}"
 echo "  Display: $HELIX_SCREENSHOT_DISPLAY"
 echo ""
 
-# Optional: open in Preview (macOS)
+# Optional: open screenshot in viewer
 if [ -n "$HELIX_SCREENSHOT_OPEN" ]; then
-    info "Opening in Preview..."
-    open "$PNG_FILE"
+    info "Opening screenshot..."
+    if command -v open &> /dev/null; then
+        open "$PNG_FILE"
+    elif command -v xdg-open &> /dev/null; then
+        xdg-open "$PNG_FILE"
+    fi
 fi

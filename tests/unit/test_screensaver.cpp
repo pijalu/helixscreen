@@ -14,49 +14,80 @@ using namespace helix;
 
 #ifdef HELIX_ENABLE_SCREENSAVER
 
-TEST_CASE_METHOD(LVGLTestFixture, "Screensaver setting defaults to true when compiled in",
+TEST_CASE_METHOD(LVGLTestFixture, "Screensaver setting defaults to Flying Toasters when compiled in",
                  "[screensaver][display_settings]") {
     Config::get_instance();
     DisplaySettingsManager::instance().init_subjects();
 
-    REQUIRE(DisplaySettingsManager::instance().get_screensaver_enabled() == true);
+    REQUIRE(DisplaySettingsManager::instance().get_screensaver_type() == 1);
 
     DisplaySettingsManager::instance().deinit_subjects();
 }
 
-TEST_CASE_METHOD(LVGLTestFixture, "Screensaver setting set/get round trip",
+TEST_CASE_METHOD(LVGLTestFixture, "Screensaver type set/get round trip",
                  "[screensaver][display_settings]") {
     Config::get_instance();
     DisplaySettingsManager::instance().init_subjects();
 
-    SECTION("disable screensaver") {
-        DisplaySettingsManager::instance().set_screensaver_enabled(false);
-        REQUIRE(DisplaySettingsManager::instance().get_screensaver_enabled() == false);
+    SECTION("set to Off") {
+        DisplaySettingsManager::instance().set_screensaver_type(0);
+        REQUIRE(DisplaySettingsManager::instance().get_screensaver_type() == 0);
     }
 
-    SECTION("re-enable screensaver") {
-        DisplaySettingsManager::instance().set_screensaver_enabled(false);
-        DisplaySettingsManager::instance().set_screensaver_enabled(true);
-        REQUIRE(DisplaySettingsManager::instance().get_screensaver_enabled() == true);
+    SECTION("set to Starfield") {
+        DisplaySettingsManager::instance().set_screensaver_type(2);
+        REQUIRE(DisplaySettingsManager::instance().get_screensaver_type() == 2);
+    }
+
+    SECTION("set to 3D Pipes") {
+        DisplaySettingsManager::instance().set_screensaver_type(3);
+        REQUIRE(DisplaySettingsManager::instance().get_screensaver_type() == 3);
+    }
+
+    SECTION("set back to Flying Toasters") {
+        DisplaySettingsManager::instance().set_screensaver_type(0);
+        DisplaySettingsManager::instance().set_screensaver_type(1);
+        REQUIRE(DisplaySettingsManager::instance().get_screensaver_type() == 1);
+    }
+
+    SECTION("out of range clamped") {
+        DisplaySettingsManager::instance().set_screensaver_type(99);
+        REQUIRE(DisplaySettingsManager::instance().get_screensaver_type() == 3);
+
+        DisplaySettingsManager::instance().set_screensaver_type(-1);
+        REQUIRE(DisplaySettingsManager::instance().get_screensaver_type() == 0);
     }
 
     DisplaySettingsManager::instance().deinit_subjects();
 }
 
-TEST_CASE_METHOD(LVGLTestFixture, "Screensaver subject reflects setter",
+TEST_CASE_METHOD(LVGLTestFixture, "Screensaver type subject reflects setter",
                  "[screensaver][display_settings]") {
     Config::get_instance();
     DisplaySettingsManager::instance().init_subjects();
 
-    DisplaySettingsManager::instance().set_screensaver_enabled(false);
-    REQUIRE(lv_subject_get_int(DisplaySettingsManager::instance().subject_screensaver_enabled()) ==
-            0);
+    DisplaySettingsManager::instance().set_screensaver_type(0);
+    REQUIRE(lv_subject_get_int(DisplaySettingsManager::instance().subject_screensaver_type()) == 0);
 
-    DisplaySettingsManager::instance().set_screensaver_enabled(true);
-    REQUIRE(lv_subject_get_int(DisplaySettingsManager::instance().subject_screensaver_enabled()) ==
-            1);
+    DisplaySettingsManager::instance().set_screensaver_type(2);
+    REQUIRE(lv_subject_get_int(DisplaySettingsManager::instance().subject_screensaver_type()) == 2);
+
+    DisplaySettingsManager::instance().set_screensaver_type(1);
+    REQUIRE(lv_subject_get_int(DisplaySettingsManager::instance().subject_screensaver_type()) == 1);
 
     DisplaySettingsManager::instance().deinit_subjects();
+}
+
+TEST_CASE_METHOD(LVGLTestFixture, "Screensaver type options string is valid",
+                 "[screensaver][display_settings]") {
+    const char* options = DisplaySettingsManager::get_screensaver_type_options();
+    REQUIRE(options != nullptr);
+    std::string opts(options);
+    // Should contain all 4 options separated by newlines
+    REQUIRE(opts.find("Off") != std::string::npos);
+    REQUIRE(opts.find("Flying Toasters") != std::string::npos);
+    REQUIRE(opts.find("Starfield") != std::string::npos);
+    REQUIRE(opts.find("3D Pipes") != std::string::npos);
 }
 
 // ============================================================================
@@ -67,12 +98,13 @@ TEST_CASE_METHOD(LVGLTestFixture, "Screensaver subject reflects setter",
 
 TEST_CASE_METHOD(LVGLTestFixture, "FlyingToasterScreensaver starts inactive",
                  "[screensaver]") {
-    REQUIRE(FlyingToasterScreensaver::instance().is_active() == false);
+    FlyingToasterScreensaver ss;
+    REQUIRE(ss.is_active() == false);
 }
 
 TEST_CASE_METHOD(LVGLTestFixture, "FlyingToasterScreensaver start/stop lifecycle",
                  "[screensaver]") {
-    auto& ss = FlyingToasterScreensaver::instance();
+    FlyingToasterScreensaver ss;
 
     SECTION("start activates screensaver") {
         ss.start();
@@ -108,7 +140,7 @@ TEST_CASE_METHOD(LVGLTestFixture, "FlyingToasterScreensaver start/stop lifecycle
 
 TEST_CASE_METHOD(LVGLTestFixture, "FlyingToasterScreensaver creates overlay on lv_layer_top",
                  "[screensaver]") {
-    auto& ss = FlyingToasterScreensaver::instance();
+    FlyingToasterScreensaver ss;
 
     int children_before = lv_obj_get_child_count(lv_layer_top());
     ss.start();
@@ -118,6 +150,64 @@ TEST_CASE_METHOD(LVGLTestFixture, "FlyingToasterScreensaver creates overlay on l
     ss.stop();
     int children_final = lv_obj_get_child_count(lv_layer_top());
     REQUIRE(children_final == children_before);
+}
+
+// ============================================================================
+// ScreensaverManager Tests
+// ============================================================================
+
+#include "screensaver.h"
+
+TEST_CASE_METHOD(LVGLTestFixture, "ScreensaverManager starts inactive",
+                 "[screensaver]") {
+    REQUIRE(ScreensaverManager::instance().is_active() == false);
+}
+
+TEST_CASE_METHOD(LVGLTestFixture, "ScreensaverManager start/stop lifecycle",
+                 "[screensaver]") {
+    auto& mgr = ScreensaverManager::instance();
+
+    SECTION("start OFF does nothing") {
+        mgr.start(ScreensaverType::OFF);
+        REQUIRE(mgr.is_active() == false);
+    }
+
+    SECTION("start and stop Flying Toasters") {
+        mgr.start(ScreensaverType::FLYING_TOASTERS);
+        REQUIRE(mgr.is_active() == true);
+        mgr.stop();
+        REQUIRE(mgr.is_active() == false);
+    }
+
+    SECTION("start and stop Starfield") {
+        mgr.start(ScreensaverType::STARFIELD);
+        REQUIRE(mgr.is_active() == true);
+        mgr.stop();
+        REQUIRE(mgr.is_active() == false);
+    }
+
+    SECTION("start and stop 3D Pipes") {
+        mgr.start(ScreensaverType::PIPES_3D);
+        REQUIRE(mgr.is_active() == true);
+        mgr.stop();
+        REQUIRE(mgr.is_active() == false);
+    }
+
+    SECTION("switching types stops previous") {
+        mgr.start(ScreensaverType::FLYING_TOASTERS);
+        REQUIRE(mgr.is_active() == true);
+        mgr.start(ScreensaverType::STARFIELD);
+        REQUIRE(mgr.is_active() == true);
+        mgr.stop();
+        REQUIRE(mgr.is_active() == false);
+    }
+
+    SECTION("double stop is safe") {
+        mgr.start(ScreensaverType::FLYING_TOASTERS);
+        mgr.stop();
+        mgr.stop();
+        REQUIRE(mgr.is_active() == false);
+    }
 }
 
 #endif // HELIX_ENABLE_SCREENSAVER

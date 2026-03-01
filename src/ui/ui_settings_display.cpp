@@ -177,8 +177,10 @@ void DisplaySettingsOverlay::on_activate() {
     init_gcode_dropdown();
     init_time_format_dropdown();
 
-#ifndef HELIX_ENABLE_SCREENSAVER
-    // Hide screensaver toggle row (feature not compiled in)
+#ifdef HELIX_ENABLE_SCREENSAVER
+    init_screensaver_dropdown();
+#else
+    // Hide screensaver row (feature not compiled in)
     lv_obj_t* ss_row = lv_obj_find_by_name(overlay_root_, "row_screensaver");
     if (ss_row) {
         lv_obj_add_flag(ss_row, LV_OBJ_FLAG_HIDDEN);
@@ -347,6 +349,22 @@ void DisplaySettingsOverlay::init_time_format_dropdown() {
                       current_format == TimeFormat::HOUR_12 ? "12H" : "24H");
     }
 }
+
+#ifdef HELIX_ENABLE_SCREENSAVER
+void DisplaySettingsOverlay::init_screensaver_dropdown() {
+    if (!overlay_root_)
+        return;
+
+    lv_obj_t* ss_row = lv_obj_find_by_name(overlay_root_, "row_screensaver");
+    lv_obj_t* ss_dropdown = ss_row ? lv_obj_find_by_name(ss_row, "dropdown") : nullptr;
+    if (ss_dropdown) {
+        int current_type = DisplaySettingsManager::instance().get_screensaver_type();
+        lv_dropdown_set_selected(ss_dropdown, current_type);
+
+        spdlog::debug("[{}] Screensaver dropdown initialized to type {}", get_name(), current_type);
+    }
+}
+#endif
 
 // ============================================================================
 // EVENT HANDLERS
@@ -673,10 +691,10 @@ void DisplaySettingsOverlay::on_preview_open_modal(lv_event_t* e) {
 #ifdef HELIX_ENABLE_SCREENSAVER
 void DisplaySettingsOverlay::on_screensaver_changed(lv_event_t* e) {
     LVGL_SAFE_EVENT_CB_BEGIN("[DisplaySettingsOverlay] on_screensaver_changed");
-    auto* toggle = static_cast<lv_obj_t*>(lv_event_get_current_target(e));
-    bool enabled = lv_obj_has_state(toggle, LV_STATE_CHECKED);
-    spdlog::info("[DisplaySettingsOverlay] Screensaver toggled: {}", enabled ? "ON" : "OFF");
-    DisplaySettingsManager::instance().set_screensaver_enabled(enabled);
+    auto* dropdown = static_cast<lv_obj_t*>(lv_event_get_current_target(e));
+    int index = lv_dropdown_get_selected(dropdown);
+    spdlog::info("[DisplaySettingsOverlay] Screensaver changed to type {}", index);
+    DisplaySettingsManager::instance().set_screensaver_type(index);
     LVGL_SAFE_EVENT_CB_END();
 }
 #endif

@@ -34,7 +34,7 @@
 #include "printer_state.h"
 #include "runtime_config.h"
 #ifdef HELIX_ENABLE_SCREENSAVER
-#include "ui_screensaver.h"
+#include "screensaver.h"
 #endif
 
 #include <spdlog/spdlog.h>
@@ -550,7 +550,7 @@ void DisplayManager::enter_sleep(int timeout_sec) {
 #ifdef HELIX_ENABLE_SCREENSAVER
     // Stop screensaver before entering full sleep
     if (m_screensaver_active) {
-        FlyingToasterScreensaver::instance().stop();
+        ScreensaverManager::instance().stop();
         m_screensaver_active = false;
     }
 #endif
@@ -613,15 +613,29 @@ void DisplayManager::destroy_sleep_overlay() {
 
 void DisplayManager::check_display_sleep() {
 #ifdef HELIX_ENABLE_SCREENSAVER
-    // HELIX_SCREENSAVER_NOW=1 — force-start screensaver immediately (for testing)
+    // HELIX_SCREENSAVER_NOW — force-start screensaver immediately (for testing)
+    // Values: "1" (configured type, defaults to toasters), "starfield", "pipes"
     static bool screensaver_force_checked = false;
     if (!screensaver_force_checked) {
         screensaver_force_checked = true;
         const char* env = std::getenv("HELIX_SCREENSAVER_NOW");
-        if (env && std::string(env) == "1") {
-            spdlog::info("[DisplayManager] HELIX_SCREENSAVER_NOW=1, forcing screensaver");
+        if (env) {
+            std::string val(env);
+            ScreensaverType force_type = ScreensaverType::FLYING_TOASTERS;
+            if (val == "starfield") {
+                force_type = ScreensaverType::STARFIELD;
+            } else if (val == "pipes") {
+                force_type = ScreensaverType::PIPES_3D;
+            } else {
+                // "1" or any other value: use configured type, fallback to toasters
+                auto configured = ScreensaverManager::configured_type();
+                force_type = (configured != ScreensaverType::OFF) ? configured
+                                                                   : ScreensaverType::FLYING_TOASTERS;
+            }
+            spdlog::info("[DisplayManager] HELIX_SCREENSAVER_NOW={}, forcing screensaver type {}",
+                         val, static_cast<int>(force_type));
             m_display_dimmed = true;
-            FlyingToasterScreensaver::instance().start();
+            ScreensaverManager::instance().start(force_type);
             m_screensaver_active = true;
             return;
         }
@@ -688,10 +702,10 @@ void DisplayManager::check_display_sleep() {
             // Dim the display
             m_display_dimmed = true;
 #ifdef HELIX_ENABLE_SCREENSAVER
-            // Start screensaver instead of just dimming (if enabled)
+            // Start screensaver instead of just dimming (if configured)
             if (!m_screensaver_active &&
-                helix::DisplaySettingsManager::instance().get_screensaver_enabled()) {
-                FlyingToasterScreensaver::instance().start();
+                ScreensaverManager::configured_type() != ScreensaverType::OFF) {
+                ScreensaverManager::instance().start(ScreensaverManager::configured_type());
                 m_screensaver_active = true;
                 if (m_backlight) {
                     // Screensaver needs enough brightness to see the toasters,
@@ -729,7 +743,7 @@ void DisplayManager::wake_display() {
 #ifdef HELIX_ENABLE_SCREENSAVER
     // Stop screensaver on wake
     if (m_screensaver_active) {
-        FlyingToasterScreensaver::instance().stop();
+        ScreensaverManager::instance().stop();
         m_screensaver_active = false;
     }
 #endif
