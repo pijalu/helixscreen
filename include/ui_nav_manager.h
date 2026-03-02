@@ -403,6 +403,10 @@ class NavigationManager {
     ObserverGuard active_panel_observer_;
     ObserverGuard connection_state_observer_;
     ObserverGuard klippy_state_observer_;
+    ObserverGuard printer_dot_observer_;
+
+    // Printer connection status dot widget
+    lv_obj_t* printer_dot_widget_ = nullptr;
 
     // Track previous states for detecting transitions
     int previous_connection_state_ = -1;

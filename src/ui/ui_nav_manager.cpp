@@ -901,6 +901,30 @@ void NavigationManager::wire_events(lv_obj_t* navbar) {
             LV_EVENT_CLICKED, nullptr);
     }
 
+    // Connection status dot — color reflects WebSocket connection state
+    printer_dot_widget_ = lv_obj_find_by_name(navbar, "nav_printer_dot");
+    if (printer_dot_widget_) {
+        printer_dot_observer_ = observe_int_sync<NavigationManager>(
+            get_printer_state().get_printer_connection_state_subject(), this,
+            [](NavigationManager* mgr, int state) {
+                if (!mgr->printer_dot_widget_) return;
+                lv_color_t color;
+                switch (state) {
+                    case 2: // connected
+                        color = theme_manager_get_color("success");
+                        break;
+                    case 1: // connecting
+                    case 3: // reconnecting
+                        color = theme_manager_get_color("warning");
+                        break;
+                    default: // disconnected, failed
+                        color = theme_manager_get_color("danger");
+                        break;
+                }
+                lv_obj_set_style_bg_color(mgr->printer_dot_widget_, color, 0);
+            });
+    }
+
     spdlog::trace(
         "[NavigationManager] Navigation button events wired (with connection/klippy gating)");
 }
@@ -1446,6 +1470,10 @@ void NavigationManager::shutdown() {
     for (auto& panel : panel_instances_) {
         panel = nullptr;
     }
+
+    // Clear connection status dot observer
+    printer_dot_observer_.reset();
+    printer_dot_widget_ = nullptr;
 
     // Clear panel stack and zoom state
     panel_stack_.clear();
