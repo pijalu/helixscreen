@@ -105,6 +105,7 @@ class Application {
     // Soft restart (printer switching)
     void switch_printer(const std::string& printer_id);
     void add_printer_via_wizard();
+    void cancel_add_printer_wizard();
     void tear_down_printer_state();
     void init_printer_state();
 

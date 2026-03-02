@@ -457,6 +457,11 @@ int Application::run(int argc, char** argv) {
         m_wizard_active = false;
     });
 
+    // Register wizard cancel callback for add-printer back-out recovery
+    set_wizard_cancel_callback([this]() {
+        cancel_add_printer_wizard();
+    });
+
     // Phase 12: Run wizard if needed
     if (run_wizard()) {
         // Wizard is active - it handles its own flow
@@ -2556,11 +2561,35 @@ void Application::add_printer_via_wizard() {
     NavigationManager::instance().set_active(PanelId::Home);
 }
 
+void Application::cancel_add_printer_wizard() {
+    if (m_wizard_previous_printer_id.empty()) {
+        spdlog::debug("[Application] No add-printer recovery state — ignoring cancel");
+        return;
+    }
+
+    std::string failed_id = m_config->get_active_printer_id();
+    spdlog::info("[Application] Cancelling add-printer wizard — removing '{}', restoring '{}'",
+                 failed_id, m_wizard_previous_printer_id);
+
+    m_config->remove_printer(failed_id);
+    m_config->set_active_printer(m_wizard_previous_printer_id);
+    m_config->save();
+    m_wizard_previous_printer_id.clear();
+
+    // Soft restart back to previous printer
+    tear_down_printer_state();
+    init_printer_state();
+    NavigationManager::instance().set_active(PanelId::Home);
+}
+
 void Application::tear_down_printer_state() {
     spdlog::info("[Application] Tearing down printer state...");
 
     // Teardown mirrors shutdown() ordering. Subjects stay alive until step 12
     // so ObserverGuards can properly call lv_observer_remove() during destruction.
+
+    // 0. Clear wizard cancel callback (prevent stale captures across soft restart)
+    set_wizard_cancel_callback(nullptr);
 
     // 1. Clear app_globals BEFORE destroying managers to prevent
     //    destructors from accessing destroyed objects

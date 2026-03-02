@@ -466,7 +466,8 @@ void ui_wizard_navigate_to_step(int step) {
         min_step = 2;
     if (min_step == 2 && wifi_step_skipped)
         min_step = 3;
-    lv_subject_set_int(&wizard_back_visible, (step > min_step) ? 1 : 0);
+    bool has_cancel = (get_wizard_cancel_callback() != nullptr);
+    lv_subject_set_int(&wizard_back_visible, (step > min_step || has_cancel) ? 1 : 0);
 
     // Determine if this is the last step (summary is always step 12 internally)
     bool is_last_step = (step == 12);
@@ -1018,7 +1019,12 @@ static void on_back_clicked(lv_event_t* e) {
 
         // Skip touch calibration step (0) when going back if it was skipped
         if (prev_step == 0 && touch_cal_step_skipped) {
-            // Can't go back further - touch cal was skipped
+            // At first step — invoke cancel callback if registered (add-printer mode)
+            auto cancel_cb = get_wizard_cancel_callback();
+            if (cancel_cb) {
+                spdlog::info("[Wizard] Back from first step — invoking cancel callback");
+                cancel_cb();
+            }
             navigating = false;
             return;
         }
@@ -1026,6 +1032,12 @@ static void on_back_clicked(lv_event_t* e) {
         ui_wizard_navigate_to_step(prev_step);
         spdlog::debug("[Wizard] Back button clicked, step: {}", prev_step);
     } else {
+        // Already at first step — invoke cancel callback if registered (add-printer mode)
+        auto cancel_cb = get_wizard_cancel_callback();
+        if (cancel_cb) {
+            spdlog::info("[Wizard] Back from first step — invoking cancel callback");
+            cancel_cb();
+        }
         navigating = false;
     }
 }

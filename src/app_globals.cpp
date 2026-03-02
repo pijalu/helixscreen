@@ -61,6 +61,7 @@ static volatile sig_atomic_t g_quit_requested = 0;
 // Wizard active flag
 static bool g_wizard_active = false;
 static std::function<void()> g_wizard_completion_cb;
+static std::function<void()> g_wizard_cancel_cb;
 
 // Stored command-line arguments for restart capability
 static std::vector<char*> g_stored_argv;
@@ -307,6 +308,14 @@ void set_wizard_active(bool active) {
 
 void set_wizard_completion_callback(std::function<void()> cb) {
     g_wizard_completion_cb = std::move(cb);
+}
+
+void set_wizard_cancel_callback(std::function<void()> cb) {
+    g_wizard_cancel_cb = std::move(cb);
+}
+
+std::function<void()> get_wizard_cancel_callback() {
+    return g_wizard_cancel_cb;
 }
 
 // ============================================================================
