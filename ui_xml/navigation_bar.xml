@@ -128,5 +128,24 @@
         <bind_flag_if_eq subject="active_panel" flag="hidden" ref_value="5"/>
       </icon>
     </ui_button>
+    <!-- Printer switcher badge — visible only when multiple printers configured -->
+    <lv_obj name="nav_printer_badge"
+            width="100%" height="content"
+            style_pad_all="#space_xs" style_pad_gap="#space_xs"
+            style_bg_color="#elevated_bg" style_bg_opa="255"
+            style_radius="#border_radius"
+            style_border_width="1" style_border_color="#card_border"
+            flex_flow="row" style_flex_cross_place="center"
+            clickable="true">
+      <bind_flag_if_eq subject="multi_printer_enabled" flag="hidden" ref_value="0"/>
+      <lv_obj name="nav_printer_dot" width="8" height="8"
+              style_radius="4" style_bg_opa="255"
+              style_bg_color="#success"
+              clickable="false" event_bubble="true"/>
+      <text_tiny name="nav_printer_name" bind_text="active_printer_name"
+                 style_text_color="#text_secondary"
+                 flex_grow="1" long_mode="dot"
+                 clickable="false" event_bubble="true"/>
+    </lv_obj>
   </view>
 </component>
