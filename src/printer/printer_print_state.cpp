@@ -524,6 +524,15 @@ void PrinterPrintState::set_print_start_state(PrintStartPhase phase, const char*
     std::string msg = message ? message : "";
     int clamped_progress = std::clamp(progress, 0, 100);
     helix::ui::queue_update([this, phase, msg, clamped_progress]() {
+        // Guard: reject non-IDLE phase updates when print is no longer active.
+        // This prevents a deferred COMPLETE callback from arriving after the print
+        // has ended and the safety reset has already cleared the phase to IDLE.
+        if (phase != PrintStartPhase::IDLE && lv_subject_get_int(&print_active_) == 0) {
+            spdlog::debug("[PrinterPrintState] Ignoring stale phase {} (print inactive)",
+                          static_cast<int>(phase));
+            return;
+        }
+
         // Reset print progress when transitioning from IDLE to a preparing phase
         // IMPORTANT: Read old_phase inside lambda for thread safety - avoids race
         // condition where another callback could modify print_start_phase_ between

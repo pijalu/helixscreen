@@ -159,6 +159,7 @@ void PrintStartCollector::start() {
                 auto* collector = static_cast<PrintStartCollector*>(lv_timer_get_user_data(timer));
                 if (collector) {
                     collector->update_eta_display();
+                    collector->check_fallback_completion();
                 }
             },
             ETA_UPDATE_INTERVAL_MS, this);
