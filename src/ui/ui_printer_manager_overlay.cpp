@@ -133,6 +133,8 @@ void PrinterManagerOverlay::register_callbacks() {
         {"pm_printer_name_clicked", pm_printer_name_clicked_cb},
         // Image click callback (opens printer image picker)
         {"on_change_printer_image_clicked", change_printer_image_clicked_cb},
+        // Manage printers callback (opens printer list)
+        {"pm_manage_printers_clicked", pm_manage_printers_clicked_cb},
     });
 }
 
@@ -248,6 +250,21 @@ void PrinterManagerOverlay::on_chip_speaker_clicked(lv_event_t* e) {
     spdlog::debug("[Printer Manager] Speaker chip clicked");
     auto& overlay = helix::settings::get_sound_settings_overlay();
     overlay.show(lv_display_get_screen_active(nullptr));
+}
+
+// =============================================================================
+// Manage Printers
+// =============================================================================
+
+void PrinterManagerOverlay::pm_manage_printers_clicked_cb(lv_event_t* /*e*/) {
+    LVGL_SAFE_EVENT_CB_BEGIN("[PrinterManagerOverlay] manage_printers_clicked");
+    get_printer_manager_overlay().handle_manage_printers_clicked();
+    LVGL_SAFE_EVENT_CB_END();
+}
+
+void PrinterManagerOverlay::handle_manage_printers_clicked() {
+    spdlog::info("[{}] Manage Printers clicked", get_name());
+    // TODO: Push PrinterListOverlay (Task 4)
 }
 
 // =============================================================================
