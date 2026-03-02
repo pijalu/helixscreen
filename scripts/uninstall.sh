@@ -726,6 +726,23 @@ check_permissions() {
     fi
 }
 
+# Check if deployed permission rules contain un-substituted templates
+_permission_rules_need_repair() {
+    local helix_user="$1"
+    local pkla="/etc/polkit-1/localauthority/50-local.d/helixscreen-network.pkla"
+    local rules="/etc/polkit-1/rules.d/50-helixscreen-network.rules"
+
+    # Check pkla file for literal placeholder
+    if [ -f "$pkla" ] && grep -q '@@HELIX_USER@@' "$pkla" 2>/dev/null; then
+        return 0
+    fi
+    # Check JS rules file for literal placeholder
+    if [ -f "$rules" ] && grep -q '@@HELIX_USER@@' "$rules" 2>/dev/null; then
+        return 0
+    fi
+    return 1
+}
+
 # Install system permission rules for non-root operation
 # - udev rule: backlight brightness write access for video group
 # - polkit rule: NetworkManager access for service user
@@ -740,10 +757,16 @@ install_permission_rules() {
         return 0
     fi
 
-    # Under NoNewPrivileges (self-update), sudo is blocked.  The rules were
-    # already installed during the initial install — skip silently.
+    # Under NoNewPrivileges (self-update), sudo is blocked.  Check if rules
+    # are already correctly deployed before skipping.
     if _has_no_new_privs; then
-        log_info "Skipping permission rules (NoNewPrivileges; already installed)"
+        if _permission_rules_need_repair "$helix_user"; then
+            log_warn "Permission rules need repair (pkla/polkit file has un-substituted template)."
+            log_warn "Wi-Fi may not work. Fix with:  sudo sed -i 's|@@HELIX_USER@@|${helix_user}|g' /etc/polkit-1/localauthority/50-local.d/helixscreen-network.pkla"
+            log_warn "Or re-run the installer:  curl -fsSL https://install.helixscreen.org | bash"
+        else
+            log_info "Skipping permission rules (NoNewPrivileges; already installed)"
+        fi
         return 0
     fi
 
@@ -791,7 +814,13 @@ POLKIT_EOF
             # Template the user
             $SUDO sed -i "s|@@HELIX_USER@@|${helix_user}|g" "$pkla_dest" 2>/dev/null || \
             $SUDO sed -i '' "s|@@HELIX_USER@@|${helix_user}|g" "$pkla_dest" 2>/dev/null || true
-            log_info "Installed NetworkManager polkit rule (.pkla)"
+            # Verify substitution succeeded
+            if $SUDO grep -q '@@HELIX_USER@@' "$pkla_dest" 2>/dev/null; then
+                log_warn "Failed to template pkla file — Wi-Fi scanning may not work as non-root"
+                log_warn "Manual fix: sudo sed -i 's|@@HELIX_USER@@|${helix_user}|g' $pkla_dest"
+            else
+                log_info "Installed NetworkManager polkit rule (.pkla)"
+            fi
         else
             log_warn "polkit rules directory not found — Wi-Fi may not work as non-root"
         fi
