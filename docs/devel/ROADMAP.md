@@ -242,7 +242,6 @@ Remaining items for production readiness:
 
 | Feature | Effort | Notes |
 |---------|--------|-------|
-| **Lazy panel initialization** | Medium | Defer `init_subjects()` until first nav; blocked on LVGL XML subject timing |
 | **Camera/Webcam** | Low | Lower priority for local touchscreen use case |
 | **Belt tension visualization** | Future | Accelerometer-based CoreXY belt comparison; reuses frequency chart |
 | **OTA updates** | Future | UpdateChecker downloads + installs; needs auto-apply without user interaction |
