@@ -31,13 +31,14 @@ bool PrintSelectUsbSource::setup(lv_obj_t* panel) {
         return false;
     }
 
-    // Hide USB tab by default - will be shown when USB drive is inserted
+    // Hide both source buttons by default - only show when USB drive is present
+    lv_obj_add_flag(source_printer_btn_, LV_OBJ_FLAG_HIDDEN);
     lv_obj_add_flag(source_usb_btn_, LV_OBJ_FLAG_HIDDEN);
 
     // Set initial state - Printer is selected by default
     update_button_states();
 
-    spdlog::debug("[UsbSource] Source selector buttons configured (USB tab hidden until drive "
+    spdlog::debug("[UsbSource] Source selector buttons configured (hidden until USB drive "
                   "inserted)");
     return true;
 }
@@ -93,20 +94,21 @@ void PrintSelectUsbSource::select_usb_source() {
 // ============================================================================
 
 void PrintSelectUsbSource::on_drive_inserted() {
-    if (!source_usb_btn_) {
+    if (!source_printer_btn_ || !source_usb_btn_) {
         return;
     }
 
-    // If Moonraker has symlink access to USB files, don't show the USB tab
+    // If Moonraker has symlink access to USB files, don't show the source selector
     // (files are already accessible via the Printer source)
     if (moonraker_has_usb_access_) {
         spdlog::debug(
-            "[UsbSource] USB drive inserted - but Moonraker has symlink access, keeping USB "
-            "tab hidden");
+            "[UsbSource] USB drive inserted - but Moonraker has symlink access, keeping "
+            "source selector hidden");
         return;
     }
 
-    spdlog::debug("[UsbSource] USB drive inserted - showing USB tab");
+    spdlog::debug("[UsbSource] USB drive inserted - showing source selector");
+    lv_obj_remove_flag(source_printer_btn_, LV_OBJ_FLAG_HIDDEN);
     lv_obj_remove_flag(source_usb_btn_, LV_OBJ_FLAG_HIDDEN);
 }
 
@@ -114,8 +116,11 @@ void PrintSelectUsbSource::set_moonraker_has_usb_access(bool has_access) {
     moonraker_has_usb_access_ = has_access;
 
     if (has_access && source_usb_btn_) {
-        // Hide USB tab permanently - files are accessible via Printer source
-        spdlog::debug("[UsbSource] Moonraker has USB symlink access - hiding USB tab permanently");
+        // Hide both source buttons permanently - files are accessible via Printer source
+        spdlog::debug("[UsbSource] Moonraker has USB symlink access - hiding source selector permanently");
+        if (source_printer_btn_) {
+            lv_obj_add_flag(source_printer_btn_, LV_OBJ_FLAG_HIDDEN);
+        }
         lv_obj_add_flag(source_usb_btn_, LV_OBJ_FLAG_HIDDEN);
 
         // If currently viewing USB source, switch to Printer
@@ -130,9 +135,12 @@ void PrintSelectUsbSource::set_moonraker_has_usb_access(bool has_access) {
 }
 
 void PrintSelectUsbSource::on_drive_removed() {
-    spdlog::info("[UsbSource] USB drive removed - hiding USB tab");
+    spdlog::info("[UsbSource] USB drive removed - hiding source selector");
 
-    // Hide the USB tab
+    // Hide both source buttons
+    if (source_printer_btn_) {
+        lv_obj_add_flag(source_printer_btn_, LV_OBJ_FLAG_HIDDEN);
+    }
     if (source_usb_btn_) {
         lv_obj_add_flag(source_usb_btn_, LV_OBJ_FLAG_HIDDEN);
     }

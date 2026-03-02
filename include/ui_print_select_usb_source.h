@@ -88,7 +88,7 @@ class PrintSelectUsbSource {
      * @brief Initialize with source selector buttons
      *
      * Finds buttons by name and sets up initial state.
-     * USB button is hidden by default until a drive is inserted.
+     * Both source buttons are hidden by default until a USB drive is inserted.
      *
      * @param panel Root panel widget (for button lookup)
      * @return true if buttons found successfully
@@ -151,7 +151,7 @@ class PrintSelectUsbSource {
     /**
      * @brief Handle USB drive insertion
      *
-     * Shows the USB tab in the source selector, unless Moonraker has
+     * Shows both source selector buttons, unless Moonraker has
      * symlink access to USB files (same-host setup).
      */
     void on_drive_inserted();
@@ -159,8 +159,8 @@ class PrintSelectUsbSource {
     /**
      * @brief Handle USB drive removal
      *
-     * Hides the USB tab. If USB source is active, switches to Printer
-     * and invokes source changed callback.
+     * Hides both source selector buttons. If USB source is active,
+     * switches to Printer and invokes source changed callback.
      */
     void on_drive_removed();
 
