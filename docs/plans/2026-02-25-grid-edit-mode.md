@@ -28,7 +28,7 @@
 | Task 8: Double-Tap Migration | DONE | `36272c90` |
 | Task 9: Code Review Fixes | DONE | `1601228b` |
 | Dynamic bottom-right packing + config persistence | DONE | `4d50706e` |
-| Phase 5: Polish & Edge Cases | TODO | — |
+| Phase 5: Polish & Edge Cases | DONE | various |
 
 ### Post-review architectural changes (session 2026-02-25)
 
@@ -39,13 +39,15 @@
 
 ### Remaining work
 
-- [ ] Settings entry "Customize Home Panel" (replaces current "Home Widgets" reorder list)
-- [ ] Breakpoint adaptation (widget clamping/hiding on smaller screens)
-- [ ] Per-widget config UIs (macro picker for macro grid, etc.)
-- [ ] New widget types (clock, camera, print stats, quick actions, print queue)
-- [ ] Animation/transition polish for edit mode enter/exit
-- [ ] Debounce timer fallback for saving positions (for users who never enter edit mode)
-- [ ] Visual polish: every widget at every breakpoint × aspect ratio (see Phase 6 below)
+- [x] Breakpoint adaptation (widget clamping/hiding on smaller screens)
+- [x] Per-widget config UIs — macro picker (favorite_macro), mode toggle (fan_stack, temp_stack)
+- [x] Animation/transition polish — selection pulse, resize snap animation
+- [x] Debounce timer — CoalescedTimer 300ms in PanelWidgetManager
+- [x] Visual polish: every widget at every breakpoint × aspect ratio
+- [x] Widget sizing constraints — `on_size_changed()` virtual, min/max for all 23 widgets
+- [ ] Settings entry "Customize Home Panel" (long-press gesture only, no menu entry yet)
+- [x] New widget types: clock, print queue done; quick actions covered by macro widgets
+- [ ] New widget types: camera, print stats
 
 ### Phase 6: Visual Polish — Every Widget × Every Breakpoint × Every Aspect Ratio
 

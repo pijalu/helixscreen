@@ -23,6 +23,7 @@
 #include <spdlog/spdlog.h>
 
 #include <algorithm>
+#include <cctype>
 #include <cstring>
 
 namespace helix {
@@ -227,28 +228,38 @@ void FavoriteMacroWidget::fetch_and_execute() {
         return;
     }
 
-    // Query macro template to detect parameters
-    std::string object_name = "gcode_macro " + macro_name_;
+    // Query macro template via configfile to detect parameters.
+    // Klipper returns null for gcode_macro objects' gcode field — the Jinja
+    // template is only available through configfile.config.
     nlohmann::json params;
     params["objects"] = nlohmann::json::object();
-    params["objects"][object_name] = nlohmann::json::array({"gcode"});
+    params["objects"]["configfile"] = nlohmann::json::array({"config"});
 
     std::weak_ptr<bool> weak_alive = alive_;
     std::string macro_name_copy = macro_name_;
 
+    // configfile.config keys use lowercase macro names
+    std::string config_key = "gcode_macro " + macro_name_copy;
+    std::transform(config_key.begin(), config_key.end(), config_key.begin(),
+                   [](unsigned char c) { return std::tolower(c); });
+
     api->get_client().send_jsonrpc(
         "printer.objects.query", params,
-        [this, weak_alive, macro_name_copy, object_name](nlohmann::json response) {
+        [this, weak_alive, macro_name_copy, config_key](nlohmann::json response) {
             if (weak_alive.expired())
                 return;
 
             std::string gcode_template;
             try {
                 if (response.contains("result") && response["result"].contains("status") &&
-                    response["result"]["status"].contains(object_name) &&
-                    response["result"]["status"][object_name].contains("gcode")) {
+                    response["result"]["status"].contains("configfile") &&
+                    response["result"]["status"]["configfile"].contains("config") &&
+                    response["result"]["status"]["configfile"]["config"].contains(config_key) &&
+                    response["result"]["status"]["configfile"]["config"][config_key].contains(
+                        "gcode")) {
                     gcode_template =
-                        response["result"]["status"][object_name]["gcode"].get<std::string>();
+                        response["result"]["status"]["configfile"]["config"][config_key]["gcode"]
+                            .get<std::string>();
                 }
             } catch (const std::exception& e) {
                 spdlog::warn("[FavoriteMacroWidget] Failed to parse template for {}: {}",
