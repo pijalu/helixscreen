@@ -1138,10 +1138,15 @@ void DisplayManager::run_rotation_probe() {
     };
 
     int confirmed_rotation = -1;
+    const int max_cycles = 3;
+    int cycle = 0;
 
     // Loop until user confirms a rotation. On real hardware, the wrong rotation
     // renders unreadable text so the user can only tap the correct one.
-    while (confirmed_rotation < 0) {
+    // Safety: give up after max_cycles full sweeps to avoid infinite loop
+    // (e.g. uncalibrated resistive touchscreen that can't register taps).
+    while (confirmed_rotation < 0 && cycle < max_cycles) {
+        cycle++;
         for (int i = 0; i < num_rotations; i++) {
             // Apply rotation (skip on SDL — DIRECT render mode can't rotate)
             if (!is_sdl) {
@@ -1201,6 +1206,14 @@ void DisplayManager::run_rotation_probe() {
             spdlog::info("[DisplayManager] Rotation probe: {}° not confirmed, continuing scan",
                          rotation_degrees[i]);
         }
+    }
+
+    // If probe timed out without confirmation, default to 0°
+    if (confirmed_rotation < 0) {
+        spdlog::warn("[DisplayManager] Rotation probe: no confirmation after {} cycles, "
+                     "defaulting to 0°",
+                     max_cycles);
+        confirmed_rotation = 0;
     }
 
     // Save confirmed rotation
