@@ -297,7 +297,7 @@
               style_bg_opa="0" style_border_width="0">
         <ui_button name="pm_manage_printers_btn"
                    text="Manage Printers" translation_tag="Manage Printers"
-                   icon="printer_3d" variant="ghost" width="100%">
+                   icon="printer_3d" width="100%">
           <event_cb trigger="clicked" callback="pm_manage_printers_clicked"/>
         </ui_button>
       </lv_obj>

@@ -16,7 +16,7 @@
 #include "ui_panel_history_dashboard.h"
 #include "ui_panel_memory_stats.h"
 #include "ui_panel_power.h"
-#include "ui_printer_manager_overlay.h"
+#include "ui_printer_list_overlay.h"
 #include "ui_settings_about.h"
 #include "ui_settings_display.h"
 #include "ui_settings_hardware_health.h"
@@ -695,16 +695,10 @@ void SettingsPanel::handle_led_settings_clicked() {
 }
 
 void SettingsPanel::handle_printers_clicked() {
-    spdlog::debug("[{}] Printers clicked - opening Printer Manager", get_name());
+    spdlog::debug("[{}] Printers clicked - opening Printer List", get_name());
 
-    auto& overlay = get_printer_manager_overlay();
-    if (!overlay.are_subjects_initialized()) {
-        overlay.init_subjects();
-        overlay.register_callbacks();
-        overlay.create(parent_screen_);
-        NavigationManager::instance().register_overlay_instance(overlay.get_root(), &overlay);
-    }
-    NavigationManager::instance().push_overlay(overlay.get_root());
+    auto& overlay = helix::ui::get_printer_list_overlay();
+    overlay.show(parent_screen_);
 }
 
 void SettingsPanel::handle_display_settings_clicked() {

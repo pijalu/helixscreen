@@ -457,6 +457,7 @@ register_xml("sound_settings_overlay.xml");
 
     // Printer manager overlay (launched from home screen printer image)
     register_xml("printer_manager_overlay.xml");
+    register_xml("printer_list_item.xml");
     register_xml("printer_list_overlay.xml");
 
     // Development tools

@@ -337,6 +337,19 @@ lv_obj_t* WizardSummaryStep::create(lv_obj_t* parent) {
 
     // Toggle state synced via bind_state_if_eq on settings_telemetry_enabled subject
 
+    // Hide telemetry opt-in for subsequent printers (already shown on first wizard run)
+    auto* cfg = Config::get_instance();
+    if (cfg && cfg->get_printer_ids().size() > 1) {
+        lv_obj_t* telemetry_row = lv_obj_find_by_name(screen_root_, "telemetry_opt_in_row");
+        if (telemetry_row) {
+            lv_obj_add_flag(telemetry_row, LV_OBJ_FLAG_HIDDEN);
+        }
+        lv_obj_t* telemetry_divider = lv_obj_find_by_name(screen_root_, "telemetry_divider");
+        if (telemetry_divider) {
+            lv_obj_add_flag(telemetry_divider, LV_OBJ_FLAG_HIDDEN);
+        }
+    }
+
     spdlog::debug("[{}] Screen created successfully", get_name());
     return screen_root_;
 }

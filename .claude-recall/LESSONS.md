@@ -21,7 +21,7 @@
 > Avoid mutex locks in destructors during static destruction phase. Other objects may already be destroyed, causing deadlock or crash on exit
 
 ### [L014] [***--|*****] Register all XML components
-- **Uses**: 33 | **Velocity**: 7 | **Learned**: 2025-12-14 | **Last**: 2026-02-24 | **Category**: gotcha | **Type**: constraint
+- **Uses**: 34 | **Velocity**: 8 | **Learned**: 2025-12-14 | **Last**: 2026-03-02 | **Category**: gotcha | **Type**: constraint
 > When adding new XML components, must add lv_xml_component_register_from_file() call in main.cpp. Forgetting causes silent failures
 
 ### [L020] [***--|***--] ObserverGuard for cleanup
@@ -37,7 +37,7 @@
 > Text-only buttons: use `align="center"` on child. Icon+text buttons with flex_flow="row": need ALL THREE flex properties - style_flex_main_place="center" (horizontal), style_flex_cross_place="center" (vertical align items), style_flex_track_place="center" (vertical position of row). Missing track_place causes content to sit at top.
 
 ### [L031] [****-|*****] XML no recompile
-- **Uses**: 72 | **Velocity**: 52.0075 | **Learned**: 2025-12-27 | **Last**: 2026-03-01 | **Category**: gotcha | **Type**: constraint
+- **Uses**: 75 | **Velocity**: 55.0075 | **Learned**: 2025-12-27 | **Last**: 2026-03-02 | **Category**: gotcha | **Type**: constraint
 > XML files are loaded at RUNTIME - never rebuild after XML-only changes. Just relaunch the app. This includes layout changes, styling, bindings, event callbacks - anything in ui_xml/*.xml. Only rebuild when C++ code changes.
 
 ### [L039] [*----|***--] Unique XML callback names
@@ -97,7 +97,7 @@
 > Always use lv_obj_safe_delete() instead of raw lv_obj_delete() - it guards against shutdown race conditions by checking lv_is_initialized() and lv_display_get_next() before deletion, and auto-nulls the pointer to prevent use-after-free
 
 ### [L060] [***--|*****] Interactive UI testing requires user
-- **Uses**: 39 | **Velocity**: 38.01 | **Learned**: 2026-02-01 | **Last**: 2026-02-28 | **Category**: correction | **Type**: constraint
+- **Uses**: 43 | **Velocity**: 42.01 | **Learned**: 2026-02-01 | **Last**: 2026-03-02 | **Category**: correction | **Type**: constraint
 > NEVER use timed delays expecting automatic navigation. THE EXACT PATTERN THAT WORKS:
 > **Step 1** - Start app with Bash tool using `run_in_background: true`:
 > ```bash
@@ -138,7 +138,7 @@
 > When deleting LVGL objects that have animations with completion callbacks, ALWAYS cancel animations FIRST (lv_anim_delete) before lv_obj_delete/lv_obj_safe_delete. The completion callback may fire synchronously during lv_anim_delete, causing use-after-free if the object is already freed. Pattern: (1) nullify member pointer, (2) clear state flags, (3) lv_anim_delete, (4) lv_obj_delete. For animations using 'this' as var: set guard flags to false BEFORE lv_anim_delete so callbacks become no-ops.
 
 ### [L069] [**---|*****] Never assume lv_obj user_data ownership — it may already be set
-- **Uses**: 7 | **Velocity**: 7 | **Learned**: 2026-02-15 | **Last**: 2026-02-28 | **Category**: architecture
+- **Uses**: 8 | **Velocity**: 8 | **Learned**: 2026-02-15 | **Last**: 2026-03-02 | **Category**: architecture
 > LVGL's lv_obj_set_user_data() is a single shared slot per object. Custom XML widgets, component handlers, and LVGL internals may set user_data during object creation (e.g., ui_button stores button_data_t*, severity_card stores a severity string). NEVER call delete/free on lv_obj_get_user_data() unless you are 100% certain you set it yourself on that specific object. NEVER use user_data as general-purpose storage on objects you didn't fully create — XML components and custom widgets may have claimed it already. **CRITICAL: NEVER walk parent chain checking any non-null user_data to find an instance pointer** — ui_button and other widgets set their own user_data, so the traversal will find the WRONG data and miscast it (caused SEGFAULT in AmsOperationSidebar/AmsDryerCard). Instead, walk parents checking `lv_obj_get_name()` for a specific known name, THEN read user_data from that named object. For per-item data, prefer: (1) event callback user_data (separate per-callback), (2) a C++ side container (map/vector indexed by object pointer), or (3) lv_obj_find_by_name to stash data in a hidden child label.
 
 ### [L071] [***--|*****] XML child click passthrough
