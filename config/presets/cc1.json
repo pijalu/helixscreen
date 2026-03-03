@@ -1,5 +1,11 @@
 {
   "preset": "cc1",
+  "wizard_completed": false,
+  "display": {
+    "backlight_enable_ioctl": false,
+    "hardware_blank": 0,
+    "sleep_backlight_off": false
+  },
   "input": {
     "calibration": {
       "a": 1.0,
@@ -11,11 +17,6 @@
       "valid": false
     },
     "touch_device": "/dev/input/event1"
-  },
-  "display": {
-    "backlight_enable_ioctl": false,
-    "hardware_blank": 0,
-    "sleep_backlight_off": false
   },
   "printer": {
     "moonraker_host": "127.0.0.1",
@@ -38,13 +39,10 @@
       "expected": [
         "heater_bed",
         "extruder"
-      ],
-      "last_snapshot": {},
-      "optional": []
+      ]
     },
     "default_macros": {
       "cooldown": "SET_HEATER_TEMPERATURE HEATER=extruder TARGET=0\nSET_HEATER_TEMPERATURE HEATER=heater_bed TARGET=0"
     }
-  },
-  "wizard_completed": false
+  }
 }

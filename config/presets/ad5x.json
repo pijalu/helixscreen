@@ -61,9 +61,7 @@
         "fan_generic fanM106",
         "heater_fan heat_fan",
         "filament_switch_sensor e0_sensor"
-      ],
-      "last_snapshot": {},
-      "optional": []
+      ]
     },
     "default_macros": {
       "cooldown": "SET_HEATER_TEMPERATURE HEATER=extruder TARGET=0\nSET_HEATER_TEMPERATURE HEATER=heater_bed TARGET=0",
@@ -72,5 +70,5 @@
       "macro_1": { "label": "Clean Nozzle", "gcode": "CLEAR_NOZZLE" },
       "macro_2": { "label": "Bed Level", "gcode": "AUTO_FULL_BED_LEVEL" }
     }
-  },
+  }
 }
