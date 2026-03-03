@@ -151,7 +151,7 @@ void MoonrakerSpoolmanAPI::get_spoolman_spools(SpoolListCallback on_success,
     // Use Moonraker's Spoolman proxy to GET /v1/spool
     json params;
     params["request_method"] = "GET";
-    params["path"] = "/v1/spool";
+    params["path"] = "/v1/spool?limit=1000";
 
     client_.send_jsonrpc(
         "server.spoolman.proxy", params,
@@ -338,7 +338,7 @@ void MoonrakerSpoolmanAPI::get_spoolman_vendors(VendorListCallback on_success,
 
     json params;
     params["request_method"] = "GET";
-    params["path"] = "/v1/vendor";
+    params["path"] = "/v1/vendor?limit=1000";
 
     client_.send_jsonrpc(
         "server.spoolman.proxy", params,
@@ -366,7 +366,7 @@ void MoonrakerSpoolmanAPI::get_spoolman_filaments(FilamentListCallback on_succes
 
     json params;
     params["request_method"] = "GET";
-    params["path"] = "/v1/filament";
+    params["path"] = "/v1/filament?limit=1000";
 
     client_.send_jsonrpc(
         "server.spoolman.proxy", params,

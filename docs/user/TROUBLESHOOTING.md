@@ -409,6 +409,30 @@ Edit your config file (typically `~/helixscreen/config/helixconfig.json` or `/op
 
 Valid values: `0`, `90`, `180`, `270`. Restart HelixScreen after changing this value. Touch coordinates are automatically adjusted to match — no separate touch configuration is needed.
 
+**How rotation works under the hood:**
+
+When you set a rotation value, HelixScreen checks whether your display hardware supports rotating the image directly (hardware rotation). Most embedded displays — including DSI screens on Raspberry Pi — do not support hardware rotation for 180°.
+
+When hardware rotation is not available, HelixScreen automatically switches from the GPU-accelerated DRM backend to the framebuffer (fbdev) backend, which handles software rotation flicker-free. This happens transparently — you don't need to configure anything. You'll see this in the logs:
+
+```
+DRM lacks hardware rotation for 180°, falling back to fbdev (flicker-free software rotation)
+```
+
+The fbdev backend with software rotation works well for normal UI usage. If you notice any issues, you can also force the fbdev backend manually:
+
+```bash
+sudo systemctl edit helixscreen
+```
+
+Add:
+```ini
+[Service]
+Environment="HELIX_DISPLAY_BACKEND=fbdev"
+```
+
+Then restart: `sudo systemctl restart helixscreen`
+
 **To re-run automatic detection:**
 
 Remove the `rotate` and `rotation_probed` keys from your config file's `display` section, then restart HelixScreen:
@@ -420,8 +444,6 @@ Remove the `rotate` and `rotation_probed` keys from your config file's `display`
   }
 }
 ```
-
-> **Note:** On Raspberry Pi (DRM displays), rotation uses a full-screen software approach that adds minimal overhead (<1ms per frame on Pi 5). On framebuffer displays, rotation uses a more efficient partial-update method. Both are transparent to the user.
 
 > **Note:** Old configs may have `"display_rotate": 180` at the root level. This is automatically migrated to the new format on startup.
 
@@ -794,6 +816,18 @@ Navigate away from and back to the AMS panel to trigger refresh.
 ```bash
 sudo journalctl -u moonraker | grep -i spoolman
 ```
+
+### Only some spools showing in Spoolman lists
+
+**Symptoms:**
+- Spool picker or Spoolman panel only shows a subset of your spools
+- Missing spools that exist in Spoolman
+
+**Cause:**
+HelixScreen currently fetches up to 1,000 spools from Spoolman in a single request. If you have more than 1,000 spools, the rest will not appear.
+
+**Workaround:**
+Archive or delete unused spools in Spoolman to stay under 1,000 active spools. A future release will add continuous scroll pagination to handle larger collections.
 
 ---
 

@@ -294,7 +294,7 @@ static void* spool_canvas_xml_create(lv_xml_parser_state_t* state, const char** 
 
     // Create draw buffer
     data_ptr->draw_buf =
-        lv_draw_buf_create(data_ptr->size, data_ptr->size, UI_NATIVE_COLOR_FORMAT, 0);
+        lv_draw_buf_create(data_ptr->size, data_ptr->size, LV_COLOR_FORMAT_ARGB8888, 0);
     if (data_ptr->draw_buf) {
         lv_canvas_set_draw_buf(canvas, data_ptr->draw_buf);
     }
@@ -348,7 +348,7 @@ static void spool_canvas_xml_apply(lv_xml_parser_state_t* state, const char** at
                     lv_draw_buf_destroy(data->draw_buf);
                 }
                 data->draw_buf =
-                    lv_draw_buf_create(new_size, new_size, UI_NATIVE_COLOR_FORMAT, 0);
+                    lv_draw_buf_create(new_size, new_size, LV_COLOR_FORMAT_ARGB8888, 0);
                 if (data->draw_buf) {
                     lv_canvas_set_draw_buf(data->canvas, data->draw_buf);
                 }
@@ -393,7 +393,7 @@ lv_obj_t* ui_spool_canvas_create(lv_obj_t* parent, int32_t size) {
     data_ptr->fill_level = 1.0f;
 
     // Create draw buffer
-    data_ptr->draw_buf = lv_draw_buf_create(size, size, UI_NATIVE_COLOR_FORMAT, 0);
+    data_ptr->draw_buf = lv_draw_buf_create(size, size, LV_COLOR_FORMAT_ARGB8888, 0);
     if (data_ptr->draw_buf) {
         lv_canvas_set_draw_buf(canvas, data_ptr->draw_buf);
     } else {
