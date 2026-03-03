@@ -143,7 +143,10 @@ void register_object_handlers(std::unordered_map<std::string, MethodHandler>& re
                 config_section["gcode_macro clean_nozzle"] = {
                     {"gcode",
                      "{% set PURGE_LEN = params.PURGE_LEN|default(10)|float %}\n"
-                     "{% set PURGE_TEMP = params.PURGE_TEMP|default(240)|int %}\nG1 ..."}};
+                     "{% set PURGE_TEMP = params.PURGE_TEMP|default(240)|int %}\nG1 ..."},
+                    {"variable_start_x", "265"},
+                    {"variable_start_y", "298"},
+                    {"variable_wipe_qty", "4"}};
                 config_section["gcode_macro print_start"] = {
                     {"gcode",
                      "{% set BED_TEMP = params.BED_TEMP|default(60)|float %}\n"
@@ -503,7 +506,10 @@ void register_object_handlers(std::unordered_map<std::string, MethodHandler>& re
                              {"gcode",
                               "{% set PURGE_LEN = params.PURGE_LEN|default(10)|float %}\n"
                               "{% set PURGE_TEMP = params.PURGE_TEMP|default(240)|int %}\n"
-                              "G1 ..."}};
+                              "G1 ..."},
+                             {"variable_start_x", "265"},
+                             {"variable_start_y", "298"},
+                             {"variable_wipe_qty", "4"}};
                          cfg["gcode_macro print_start"] = {
                              {"gcode",
                               "{% set BED_TEMP = params.BED_TEMP|default(60)|float %}\n"

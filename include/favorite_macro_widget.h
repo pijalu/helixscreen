@@ -77,7 +77,7 @@ class FavoriteMacroWidget : public PanelWidget {
     void save_config();
 
     void fetch_and_execute();
-    void execute_with_params(const std::map<std::string, std::string>& params);
+    void execute_with_params(const MacroParamResult& result);
     void show_macro_picker();
     void dismiss_macro_picker();
     void select_macro(const std::string& name);

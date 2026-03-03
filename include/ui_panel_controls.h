@@ -317,6 +317,12 @@ class ControlsPanel : public PanelBase {
     char macro_3_name_buf_[64] = {};
     char macro_4_name_buf_[64] = {};
 
+  public:
+    // === Leveling Commands (shared with MotionPanel) ===
+    void handle_qgl();
+    void handle_z_tilt();
+
+  private:
     //
     // === Private Helpers ===
     //
@@ -359,8 +365,6 @@ class ControlsPanel : public PanelBase {
     void handle_home_y();
     void handle_home_xy();
     void handle_home_z();
-    void handle_qgl();
-    void handle_z_tilt();
 
     /**
      * @brief Execute a macro by slot index (0-3)

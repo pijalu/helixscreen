@@ -314,6 +314,169 @@ POLKIT_EOF
 # nmcli requirement
 # =============================================================================
 
+# =============================================================================
+# Regression: directory checks must use $SUDO (root-only parent dir)
+# On Debian 11, /etc/polkit-1/localauthority/ is mode 700 (root-only).
+# Without $SUDO, `test -d .../50-local.d` fails even though it exists.
+# =============================================================================
+
+@test "install_permission_rules: uses SUDO for pkla dir check (root-only parent)" {
+    # Verify permissions.sh uses '$SUDO test -d' not bare '[ -d'
+    # for both the rules.d and pkla_dir checks
+    local script="$WORKTREE_ROOT/scripts/lib/installer/permissions.sh"
+
+    # The rules_dir check must use $SUDO
+    grep -q '$SUDO test -d "$rules_dir"' "$script"
+
+    # The pkla_dir check must use $SUDO
+    grep -q '$SUDO test -d "$pkla_dir"' "$script"
+}
+
+@test "install_permission_rules: _permission_rules_need_repair uses SUDO for file checks" {
+    # Verify _permission_rules_need_repair uses '$SUDO test -f' not bare '[ -f'
+    local script="$WORKTREE_ROOT/scripts/lib/installer/permissions.sh"
+
+    grep -q '$SUDO test -f "$pkla"' "$script"
+    grep -q '$SUDO test -f "$rules"' "$script"
+}
+
+@test "install_permission_rules: SUDO='' still works for root installs" {
+    # When running as root, SUDO is empty — verify 'test -d' works without prefix
+    # (empty $SUDO means the command is just 'test -d ...')
+    local test_dir="$BATS_TEST_TMPDIR/polkit-test"
+    mkdir -p "$test_dir"
+
+    SUDO=""
+    $SUDO test -d "$test_dir"
+    [ $? -eq 0 ]
+}
+
+@test "install_permission_rules: installs pkla via SUDO on restricted parent dir" {
+    # Simulate the Debian 11 scenario: parent dir exists but is only
+    # traversable by the SUDO wrapper
+    local polkit_root="$BATS_TEST_TMPDIR/etc/polkit-1"
+    local auth_dir="$polkit_root/localauthority"
+    local pkla_dir="$auth_dir/50-local.d"
+    mkdir -p "$pkla_dir"
+
+    # Create a SUDO wrapper that redirects system paths to our tmpdir
+    local wrapper="$BATS_TEST_TMPDIR/bin/mock_sudo"
+    mkdir -p "$(dirname "$wrapper")"
+    cat > "$wrapper" << 'SUDOEOF'
+#!/bin/sh
+# Rewrite /etc/polkit-1 paths to test tmpdir
+new_args=""
+for arg in "$@"; do
+    case "$arg" in
+        /etc/polkit-1/*)
+            suffix="${arg#/etc/polkit-1/}"
+            arg="${BATS_TEST_TMPDIR}/etc/polkit-1/${suffix}"
+            ;;
+    esac
+    new_args="$new_args \"$arg\""
+done
+eval $new_args
+SUDOEOF
+    chmod +x "$wrapper"
+    export SUDO="$wrapper"
+
+    # Mock nmcli so the polkit section runs
+    mock_command "nmcli" ""
+    # Mock udevadm for the udev section
+    mock_command "udevadm" ""
+
+    run install_permission_rules "pi"
+    [ "$status" -eq 0 ]
+
+    # The pkla file should have been installed and templated
+    [ -f "$pkla_dir/helixscreen-network.pkla" ]
+    grep -q "unix-user:biqu" "$pkla_dir/helixscreen-network.pkla"
+    ! grep -q "@@HELIX_USER@@" "$pkla_dir/helixscreen-network.pkla"
+}
+
+@test "install_permission_rules: prefers JS rules when rules.d exists" {
+    # Simulate Debian 12+: rules.d exists
+    local polkit_root="$BATS_TEST_TMPDIR/etc/polkit-1"
+    local rules_dir="$polkit_root/rules.d"
+    local pkla_dir="$polkit_root/localauthority/50-local.d"
+    mkdir -p "$rules_dir"
+    mkdir -p "$pkla_dir"
+
+    # SUDO wrapper
+    local wrapper="$BATS_TEST_TMPDIR/bin/mock_sudo"
+    mkdir -p "$(dirname "$wrapper")"
+    cat > "$wrapper" << 'SUDOEOF'
+#!/bin/sh
+new_args=""
+for arg in "$@"; do
+    case "$arg" in
+        /etc/polkit-1/*)
+            suffix="${arg#/etc/polkit-1/}"
+            arg="${BATS_TEST_TMPDIR}/etc/polkit-1/${suffix}"
+            ;;
+    esac
+    new_args="$new_args \"$arg\""
+done
+eval $new_args
+SUDOEOF
+    chmod +x "$wrapper"
+    export SUDO="$wrapper"
+
+    mock_command "nmcli" ""
+    mock_command "udevadm" ""
+
+    run install_permission_rules "pi"
+    [ "$status" -eq 0 ]
+
+    # JS rules should be installed, NOT pkla
+    [ -f "$rules_dir/50-helixscreen-network.rules" ]
+    grep -q "polkit.addRule" "$rules_dir/50-helixscreen-network.rules"
+    grep -q '"biqu"' "$rules_dir/50-helixscreen-network.rules"
+    # pkla should NOT be installed (JS takes priority)
+    [ ! -f "$pkla_dir/helixscreen-network.pkla" ]
+}
+
+@test "install_permission_rules: warns when neither polkit dir exists" {
+    # No rules.d, no localauthority/50-local.d
+    local polkit_root="$BATS_TEST_TMPDIR/etc/polkit-1"
+    mkdir -p "$polkit_root"
+
+    # SUDO wrapper that always fails test -d for polkit dirs
+    local wrapper="$BATS_TEST_TMPDIR/bin/mock_sudo"
+    mkdir -p "$(dirname "$wrapper")"
+    cat > "$wrapper" << 'SUDOEOF'
+#!/bin/sh
+new_args=""
+for arg in "$@"; do
+    case "$arg" in
+        /etc/polkit-1/*)
+            suffix="${arg#/etc/polkit-1/}"
+            arg="${BATS_TEST_TMPDIR}/etc/polkit-1/${suffix}"
+            ;;
+    esac
+    new_args="$new_args \"$arg\""
+done
+eval $new_args
+SUDOEOF
+    chmod +x "$wrapper"
+    export SUDO="$wrapper"
+
+    mock_command "nmcli" ""
+    mock_command "udevadm" ""
+
+    # Override log_warn to capture output
+    log_warn() { echo "WARN: $*"; }
+    export -f log_warn
+
+    run install_permission_rules "pi"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"polkit rules directory not found"* ]]
+}
+
+# =============================================================================
+# nmcli requirement
+# =============================================================================
+
 @test "install_permission_rules: skips polkit if nmcli not available" {
     # Don't mock nmcli — it shouldn't be in PATH
     # Create udev dir so that part works

@@ -316,10 +316,10 @@ void MacrosPanel::fetch_params_and_run(const std::string& macro_name) {
         std::string name = macro_name;
         param_modal_.show_for_macro(
             lv_screen_active(), macro_name, cached.params,
-            [this, weak, name](const std::map<std::string, std::string>& values) {
+            [this, weak, name](const helix::MacroParamResult& result) {
                 if (weak.expired())
                     return;
-                execute_with_params(name, values);
+                execute_with_params(name, result);
             });
         break;
     }
@@ -328,10 +328,10 @@ void MacrosPanel::fetch_params_and_run(const std::string& macro_name) {
         std::string name = macro_name;
         param_modal_.show_for_unknown_params(
             lv_screen_active(), macro_name,
-            [this, weak, name](const std::map<std::string, std::string>& values) {
+            [this, weak, name](const helix::MacroParamResult& result) {
                 if (weak.expired())
                     return;
-                execute_with_params(name, values);
+                execute_with_params(name, result);
             });
         break;
     }
@@ -339,16 +339,25 @@ void MacrosPanel::fetch_params_and_run(const std::string& macro_name) {
 }
 
 void MacrosPanel::execute_with_params(const std::string& macro_name,
-                                      const std::map<std::string, std::string>& params) {
+                                      const helix::MacroParamResult& result) {
     MoonrakerAPI* api = get_moonraker_api();
     if (!api) {
         spdlog::warn("[{}] No MoonrakerAPI available - cannot execute macro", get_name());
         return;
     }
 
-    // Build gcode command: MACRO_NAME PARAM1=value1 PARAM2=value2
-    std::string gcode = macro_name;
-    for (const auto& [key, value] : params) {
+    // Build gcode: SET_GCODE_VARIABLE commands for variable overrides, then macro call
+    std::string gcode;
+    for (const auto& [key, value] : result.variables) {
+        std::string var_lower = key;
+        std::transform(var_lower.begin(), var_lower.end(), var_lower.begin(),
+                       [](unsigned char c) { return std::tolower(c); });
+        gcode += "SET_GCODE_VARIABLE MACRO=" + macro_name + " VARIABLE=" + var_lower +
+                 " VALUE=" + value + "\n";
+    }
+
+    gcode += macro_name;
+    for (const auto& [key, value] : result.params) {
         gcode += " " + key + "=" + value;
     }
 

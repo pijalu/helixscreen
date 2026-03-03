@@ -47,12 +47,12 @@ _permission_rules_need_repair() {
     local pkla="/etc/polkit-1/localauthority/50-local.d/helixscreen-network.pkla"
     local rules="/etc/polkit-1/rules.d/50-helixscreen-network.rules"
 
-    # Check pkla file for literal placeholder
-    if [ -f "$pkla" ] && grep -q '@@HELIX_USER@@' "$pkla" 2>/dev/null; then
+    # Check pkla file for literal placeholder (parent dir may be root-only)
+    if $SUDO test -f "$pkla" && $SUDO grep -q '@@HELIX_USER@@' "$pkla" 2>/dev/null; then
         return 0
     fi
     # Check JS rules file for literal placeholder
-    if [ -f "$rules" ] && grep -q '@@HELIX_USER@@' "$rules" 2>/dev/null; then
+    if $SUDO test -f "$rules" && $SUDO grep -q '@@HELIX_USER@@' "$rules" 2>/dev/null; then
         return 0
     fi
     return 1
@@ -105,7 +105,7 @@ install_permission_rules() {
         # polkit local authority (.pkla) for older polkit (Debian 11 and similar)
         local pkla_dir="/etc/polkit-1/localauthority/50-local.d"
 
-        if [ -d "$rules_dir" ]; then
+        if $SUDO test -d "$rules_dir"; then
             # JavaScript rules format (newer polkit, Debian 12+)
             local rules_dest="${rules_dir}/50-helixscreen-network.rules"
             if $SUDO tee "$rules_dest" > /dev/null << POLKIT_EOF
@@ -122,7 +122,7 @@ POLKIT_EOF
             else
                 log_warn "Failed to install polkit rule to ${rules_dest} — Wi-Fi scanning may not work"
             fi
-        elif [ -d "$pkla_dir" ]; then
+        elif $SUDO test -d "$pkla_dir"; then
             # .pkla format (pklocalauthority, Debian 11 and older)
             local pkla_dest="${pkla_dir}/helixscreen-network.pkla"
             $SUDO cp "$pkla_src" "$pkla_dest"

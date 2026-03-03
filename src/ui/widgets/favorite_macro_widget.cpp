@@ -297,10 +297,10 @@ void FavoriteMacroWidget::fetch_and_execute() {
             std::weak_ptr<bool> weak_alive = alive_;
             get_shared_param_modal().show_for_macro(
                 parent_screen_, macro_name_, cached.params,
-                [this, weak_alive](const std::map<std::string, std::string>& values) {
+                [this, weak_alive](const MacroParamResult& result) {
                     if (weak_alive.expired())
                         return;
-                    execute_with_params(values);
+                    execute_with_params(result);
                 });
         }
         break;
@@ -309,31 +309,40 @@ void FavoriteMacroWidget::fetch_and_execute() {
             std::weak_ptr<bool> weak_alive = alive_;
             get_shared_param_modal().show_for_unknown_params(
                 parent_screen_, macro_name_,
-                [this, weak_alive](const std::map<std::string, std::string>& values) {
+                [this, weak_alive](const MacroParamResult& result) {
                     if (weak_alive.expired())
                         return;
-                    execute_with_params(values);
+                    execute_with_params(result);
                 });
         }
         break;
     }
 }
 
-void FavoriteMacroWidget::execute_with_params(const std::map<std::string, std::string>& params) {
+void FavoriteMacroWidget::execute_with_params(const MacroParamResult& result) {
     MoonrakerAPI* api = get_api();
     if (!api) {
         return;
     }
 
-    // Build gcode command: MACRO_NAME PARAM1=value1 PARAM2=value2
-    std::string gcode = macro_name_;
-    for (const auto& [key, value] : params) {
+    // Build gcode: SET_GCODE_VARIABLE commands for variable overrides, then macro call
+    std::string gcode;
+    for (const auto& [key, value] : result.variables) {
+        // Variable names are lowercase in Klipper
+        std::string var_lower = key;
+        std::transform(var_lower.begin(), var_lower.end(), var_lower.begin(),
+                       [](unsigned char c) { return std::tolower(c); });
+        gcode += "SET_GCODE_VARIABLE MACRO=" + macro_name_ + " VARIABLE=" + var_lower +
+                 " VALUE=" + value + "\n";
+    }
+
+    gcode += macro_name_;
+    for (const auto& [key, value] : result.params) {
         gcode += " " + key + "=" + value;
     }
 
     spdlog::info("[FavoriteMacroWidget] Executing: {}", gcode);
 
-    // Capture copies — callbacks fire from WebSocket thread after widget may be destroyed
     std::string macro_name_copy = macro_name_;
     api->execute_gcode(
         gcode,

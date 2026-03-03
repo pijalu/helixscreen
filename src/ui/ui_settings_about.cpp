@@ -115,9 +115,9 @@ void AboutSettingsOverlay::register_callbacks() {
         {"on_about_check_updates_clicked", on_about_check_updates_clicked},
         {"on_about_install_update_clicked", on_about_install_update_clicked},
         {"on_about_print_hours_clicked", on_about_print_hours_clicked},
-        {"on_about_update_download_start", on_about_update_download_start},
-        {"on_about_update_download_cancel", on_about_update_download_cancel},
-        {"on_about_update_download_dismiss", on_about_update_download_dismiss},
+        {"on_update_download_start", on_about_update_download_start},
+        {"on_update_download_cancel", on_about_update_download_cancel},
+        {"on_update_download_dismiss", on_about_update_download_dismiss},
     });
 
     spdlog::debug("[{}] Callbacks registered", get_name());

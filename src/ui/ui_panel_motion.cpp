@@ -17,6 +17,7 @@
 #include "moonraker_api.h"
 #include "observer_factory.h"
 #include "printer_state.h"
+#include "ui_panel_controls.h"
 #include "subject_managed_panel.h"
 #include "theme_manager.h"
 #include "unit_conversions.h"
@@ -29,8 +30,10 @@
 
 using namespace helix;
 
-// Forward declaration for unified Z-axis XML event callback
+// Forward declarations for XML event callbacks
 static void on_motion_z_button(lv_event_t* e);
+static void on_motion_qgl(lv_event_t* e);
+static void on_motion_z_tilt(lv_event_t* e);
 
 // ============================================================================
 // Global Instance (via DEFINE_GLOBAL_PANEL macro)
@@ -162,6 +165,10 @@ void MotionPanel::register_callbacks() {
     // Register unified Z-axis button callback (user_data from XML distinguishes buttons)
     lv_xml_register_event_cb(nullptr, "on_motion_z_button", on_motion_z_button);
 
+    // Register leveling button callbacks (delegate to ControlsPanel singleton)
+    lv_xml_register_event_cb(nullptr, "on_motion_qgl", on_motion_qgl);
+    lv_xml_register_event_cb(nullptr, "on_motion_z_tilt", on_motion_z_tilt);
+
     callbacks_registered_ = true;
     spdlog::debug("[{}] Event callbacks registered", get_name());
 }
@@ -220,28 +227,22 @@ void MotionPanel::setup_jog_pad() {
         return;
     }
 
-    // Get parent container (left_column)
-    lv_obj_t* left_column = lv_obj_get_parent(jog_pad_container);
+    // Get parent container (jog_pad_wrapper, which flex_grows inside left_column)
+    lv_obj_t* jog_wrapper = lv_obj_get_parent(jog_pad_container);
 
-    // Calculate jog pad size as 80% of available vertical height (after header)
-    lv_display_t* disp = lv_display_get_default();
-    lv_coord_t screen_height = lv_display_get_vertical_resolution(disp);
+    // Force flex layout resolution so dimensions are available
+    lv_obj_update_layout(overlay_root_);
 
-    // Get header height (varies by screen size: 50-70px)
-    lv_obj_t* header = lv_obj_find_by_name(overlay_root_, "overlay_header");
-    lv_coord_t header_height = header ? lv_obj_get_height(header) : 60;
-
-    // Available height = screen height - header - padding (40px top+bottom)
-    lv_coord_t available_height = screen_height - header_height - 40;
-
-    // Jog pad = 80% of available height (leaves room for distance/home buttons)
-    lv_coord_t jog_size = (lv_coord_t)(available_height * 0.80f);
+    // Jog pad is square: fit within the wrapper's resolved dimensions
+    lv_coord_t wrapper_w = lv_obj_get_width(jog_wrapper);
+    lv_coord_t wrapper_h = lv_obj_get_height(jog_wrapper);
+    lv_coord_t jog_size = LV_MIN(wrapper_w, wrapper_h);
 
     // Delete placeholder container
     helix::ui::safe_delete(jog_pad_container);
 
     // Create jog pad widget
-    jog_pad_ = ui_jog_pad_create(left_column);
+    jog_pad_ = ui_jog_pad_create(jog_wrapper);
     if (jog_pad_) {
         lv_obj_set_name(jog_pad_, "jog_pad");
         lv_obj_set_width(jog_pad_, jog_size);
@@ -586,5 +587,19 @@ static void on_motion_z_button(lv_event_t* e) {
     if (button_id) {
         get_global_motion_panel().handle_z_button(button_id);
     }
+    LVGL_SAFE_EVENT_CB_END();
+}
+
+static void on_motion_qgl(lv_event_t* e) {
+    LVGL_SAFE_EVENT_CB_BEGIN("[MotionPanel] on_motion_qgl");
+    (void)e;
+    get_global_controls_panel().handle_qgl();
+    LVGL_SAFE_EVENT_CB_END();
+}
+
+static void on_motion_z_tilt(lv_event_t* e) {
+    LVGL_SAFE_EVENT_CB_BEGIN("[MotionPanel] on_motion_z_tilt");
+    (void)e;
+    get_global_controls_panel().handle_z_tilt();
     LVGL_SAFE_EVENT_CB_END();
 }

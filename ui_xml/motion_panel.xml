@@ -20,62 +20,59 @@
                 action_button_icon="alert_octagon" action_button_bg_color="#danger" action_button_radius="9999"
                 action_button_width="#button_height_sm" action_button_height="#button_height_sm" action_button_pad="0" hide_action_button_text="true"
                 action_button_callback="emergency_stop_clicked"/>
-    <!-- Content Area: Two Columns -->
+    <!-- Content Area: tight padding to header, two columns fill height -->
     <lv_obj name="overlay_content"
-            width="100%" flex_grow="1" style_pad_all="#space_lg" scrollable="false" style_border_opa="0" flex_flow="row"
-            style_flex_main_place="center">
+            width="100%" flex_grow="1" style_pad_all="#space_sm" style_pad_hor="#space_lg" scrollable="false" style_border_opa="0" flex_flow="row"
+            style_pad_gap="#space_md">
       <!-- Disable content when printer not connected or klippy not ready -->
       <bind_state_if_not_eq subject="nav_buttons_enabled" state="disabled" ref_value="1"/>
-      <!-- Left Column (65%): XY Jog Pad -->
-      <lv_obj name="left_column" width="65%" height="100%" style_pad_all="0" scrollable="false" style_border_opa="0">
-        <!-- Circular Jog Pad: Custom-Drawn Two-Zone Design (Bambu Lab Style) -->
-        <!-- Outer ring = large jogs, inner circle = small jogs -->
-        <!-- Custom draw shows concentric circles, radial dividers, axis labels, home icon -->
-        <!-- Click detection uses angle from center to determine direction -->
-        <lv_obj name="jog_pad_container"
-                width="content" height="content" style_pad_all="0" style_border_opa="0" scrollable="false"
-                clickable="true" align="center">
-          <!-- No child widgets - all graphics drawn via LV_EVENT_DRAW_POST -->
-          <!-- Click handled via LV_EVENT_CLICKED with angle-based direction detection -->
-        </lv_obj>
-      </lv_obj>
-      <!-- Right Column (35%): Z-Axis Controls + Position Display -->
-      <lv_obj name="right_column"
-              width="35%" height="100%" style_pad_all="0" scrollable="false" style_border_opa="0" flex_flow="column"
-              style_flex_main_place="start" style_flex_cross_place="center" style_pad_gap="#space_md">
-        <!-- Position Display - wrapped in card for consistent visual grouping -->
-        <ui_card name="position_card"
-                 width="100%" height="content" style_pad_all="#space_sm" flex_flow="column" style_pad_gap="#space_xs">
-          <lv_obj width="100%"
-                  style_pad_all="0" flex_flow="row" style_pad_gap="#space_xs" style_flex_cross_place="center">
+      <!-- Left Column: Position card on top, jog pad below -->
+      <lv_obj name="left_column" width="0" height="100%" flex_grow="3" style_pad_all="0" scrollable="false" style_border_opa="0"
+              flex_flow="column" style_pad_gap="#space_sm">
+        <!-- Position Display - horizontal row above jog pad only -->
+        <lv_obj name="position_card"
+                width="100%" height="content" style_pad_all="#space_sm" flex_flow="row"
+                style_flex_main_place="space_evenly" style_pad_gap="#space_xs"
+                style_bg_color="#elevated_bg" style_bg_opa="255" style_radius="#border_radius">
+          <lv_obj style_pad_all="0" flex_flow="row" style_pad_gap="#space_xs" style_flex_cross_place="center">
             <text_small text="X:" translation_tag="X:"/>
-            <text_small name="pos_x" bind_text="motion_pos_x" flex_grow="1"/>
+            <text_small name="pos_x" bind_text="motion_pos_x"/>
             <lv_obj width="8" height="8" style_radius="9999">
               <bind_style name="indicator_homed" subject="motion_x_homed" ref_value="1"/>
               <bind_style name="indicator_unhomed" subject="motion_x_homed" ref_value="0"/>
             </lv_obj>
           </lv_obj>
-          <lv_obj width="100%"
-                  style_pad_all="0" flex_flow="row" style_pad_gap="#space_xs" style_flex_cross_place="center">
+          <lv_obj style_pad_all="0" flex_flow="row" style_pad_gap="#space_xs" style_flex_cross_place="center">
             <text_small text="Y:" translation_tag="Y:"/>
-            <text_small name="pos_y" bind_text="motion_pos_y" flex_grow="1"/>
+            <text_small name="pos_y" bind_text="motion_pos_y"/>
             <lv_obj width="8" height="8" style_radius="9999">
               <bind_style name="indicator_homed" subject="motion_y_homed" ref_value="1"/>
               <bind_style name="indicator_unhomed" subject="motion_y_homed" ref_value="0"/>
             </lv_obj>
           </lv_obj>
-          <lv_obj width="100%"
-                  style_pad_all="0" flex_flow="row" style_pad_gap="#space_xs" style_flex_cross_place="center">
+          <lv_obj style_pad_all="0" flex_flow="row" style_pad_gap="#space_xs" style_flex_cross_place="center">
             <text_small text="Z:"/>
-            <text_small name="pos_z" bind_text="motion_pos_z" flex_grow="1"/>
+            <text_small name="pos_z" bind_text="motion_pos_z"/>
             <lv_obj width="8" height="8" style_radius="9999">
               <bind_style name="indicator_homed" subject="motion_z_homed" ref_value="1"/>
               <bind_style name="indicator_unhomed" subject="motion_z_homed" ref_value="0"/>
             </lv_obj>
           </lv_obj>
-        </ui_card>
-        <!-- Z-Axis Button Group (responsive: uses flex_grow to fill available space) -->
-        <!-- Label centered between up/down button pairs -->
+        </lv_obj>
+        <!-- Circular Jog Pad: Custom-Drawn Two-Zone Design (Bambu Lab Style) -->
+        <lv_obj name="jog_pad_wrapper" width="100%" flex_grow="1" style_pad_all="0" style_border_opa="0" scrollable="false">
+          <lv_obj name="jog_pad_container"
+                  width="content" height="content" style_pad_all="0" style_border_opa="0" scrollable="false"
+                  clickable="true" align="center">
+          </lv_obj>
+        </lv_obj>
+      </lv_obj>
+      <!-- Right Column: Z-Axis Controls + Leveling (extends full height) -->
+      <lv_obj name="right_column"
+              width="0" height="100%" flex_grow="1" style_pad_all="0" scrollable="false" style_border_opa="0" flex_flow="column"
+              style_flex_main_place="start" style_flex_cross_place="center" style_pad_gap="#space_sm"
+              style_max_width="160">
+        <!-- Z-Axis Button Group -->
         <lv_obj name="z_controls"
                 width="100%" flex_grow="1" style_pad_all="0" style_border_opa="0" scrollable="false" flex_flow="column"
                 style_flex_main_place="space_evenly" style_flex_cross_place="center" style_pad_gap="#space_sm">
@@ -100,6 +97,27 @@
                      width="100%" flex_grow="1" style_max_height="#button_height_lg" icon="arrow_down"
                      bind_icon="motion_z_down_icon" text="10mm" translation_tag="10mm">
             <event_cb trigger="clicked" callback="on_motion_z_button" user_data="z_down_10"/>
+          </ui_button>
+        </lv_obj>
+        <!-- Leveling Buttons: QGL and/or Z-Tilt (conditionally visible) -->
+        <lv_obj name="leveling_buttons"
+                width="100%" height="content" style_pad_all="0" scrollable="false" flex_flow="row"
+                style_pad_gap="#space_xs">
+          <ui_button name="btn_qgl"
+                     width="0" height="#button_height" flex_grow="1" text="QGL"
+                     translation_tag="QGL" variant="secondary" hidden="true">
+            <bind_flag_if_eq subject="printer_has_qgl" flag="hidden" ref_value="0"/>
+            <bind_state_if_eq subject="print_active" state="disabled" ref_value="1"/>
+            <bind_state_if_eq subject="controls_operation_in_progress" state="disabled" ref_value="1"/>
+            <event_cb trigger="clicked" callback="on_motion_qgl"/>
+          </ui_button>
+          <ui_button name="btn_z_tilt"
+                     width="0" height="#button_height" flex_grow="1" text="Z-Tilt"
+                     translation_tag="Z-Tilt" variant="secondary" hidden="true">
+            <bind_flag_if_eq subject="printer_has_z_tilt" flag="hidden" ref_value="0"/>
+            <bind_state_if_eq subject="print_active" state="disabled" ref_value="1"/>
+            <bind_state_if_eq subject="controls_operation_in_progress" state="disabled" ref_value="1"/>
+            <event_cb trigger="clicked" callback="on_motion_z_tilt"/>
           </ui_button>
         </lv_obj>
       </lv_obj>

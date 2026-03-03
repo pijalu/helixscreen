@@ -16,6 +16,7 @@ namespace helix {
 struct MacroParam {
     std::string name;          ///< Parameter name (uppercase, e.g., "EXTRUDER_TEMP")
     std::string default_value; ///< Default value from |default(VALUE), empty if none
+    bool is_variable = false;  ///< True for Klipper variable_* fields (SET_GCODE_VARIABLE)
 };
 
 /// Parse macro parameters from a Klipper gcode_macro template.
@@ -28,8 +29,14 @@ struct MacroParam {
 [[nodiscard]] std::map<std::string, std::string>
 parse_raw_macro_params(const std::string& raw_text);
 
+/// Result from macro parameter modal: inline params and variable overrides
+struct MacroParamResult {
+    std::map<std::string, std::string> params;    ///< Inline params (MACRO KEY=VALUE)
+    std::map<std::string, std::string> variables;  ///< Variable overrides (SET_GCODE_VARIABLE)
+};
+
 /// Callback invoked when user confirms macro execution with parameters
-using MacroExecuteCallback = std::function<void(const std::map<std::string, std::string>& params)>;
+using MacroExecuteCallback = std::function<void(const MacroParamResult& result)>;
 
 /// Modal dialog that prompts for macro parameter values before execution.
 /// Dynamically creates labeled textarea fields for each detected parameter.
@@ -80,7 +87,7 @@ class MacroParamModal : public Modal {
     void show_common(lv_obj_t* parent);
     void dismiss();
     void populate_param_fields();
-    std::map<std::string, std::string> collect_values() const;
+    MacroParamResult collect_values() const;
 
     static MacroParamModal* s_active_instance_;
 };

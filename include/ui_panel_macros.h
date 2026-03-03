@@ -114,7 +114,7 @@ class MacrosPanel : public OverlayBase {
      * @param params Map of parameter name to value
      */
     void execute_with_params(const std::string& macro_name,
-                             const std::map<std::string, std::string>& params);
+                             const helix::MacroParamResult& result);
 
     /**
      * @brief Prettify a macro name for display

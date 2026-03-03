@@ -5,6 +5,45 @@ All notable changes to HelixScreen will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.96.2] - 2026-03-03
+
+### Added
+- QGL and Z-Tilt leveling buttons on the motion overlay
+
+### Fixed
+- Dropdown selection always picking the last item on Goodix GT9xx touchscreens (Protocol A release coordinate regression)
+- Installer polkit directory checks now use sudo when required (reported by @BO_Andy)
+
+## [0.96.1] - 2026-03-02
+
+This release adds a GCode console with full command history, Mainsail-style per-field macro parameter editing with Klipper variable support, spool temperature presets on filament and temperature panels, and a preset-aware setup wizard. Grid edit mode stability received major crash fixes.
+
+### Added
+- GCode console panel with monospace font, timestamped command history, and home screen widget
+- Per-field macro parameter inputs with placeholders, `variable_*` field support, and scrollable modal
+- Macro picker Done button with responsive height and icon/color customization
+- Spool preset button on nozzle, bed, and filament panels using active material temperatures
+- ActiveMaterial provider with priority-based resolution across filament sources
+- Auto-pass PURGE_TEMP from active spool material to purge macros
+- Preset-aware setup wizard that skips hardware steps for preconfigured builds
+- Dedicated telemetry opt-in step in wizard for preset mode
+- Hex color support in action prompt buttons (#278)
+- Toast notification when taking in-app screenshots
+- Translated panel widget names and descriptions in catalog overlay
+
+### Fixed
+- Grid edit mode SIGSEGV crashes from double-free during overlay deletion and external rebuilds
+- Touch axis swap auto-detection removed — broke Nebula Pad and Sonic Pad calibration
+- LVGL arc draw crash from negative inner radius and zero-sweep edge cases
+- About panel callback names mismatched with XML, leaving update buttons dead
+- Print source selector no longer shown when no USB drive is present
+- Input field contrast on elevated surfaces and filename truncation (#283)
+
+### Changed
+- Console graduated from beta with full documentation
+- Preset packages use convention-based lookup by platform target name
+- Macro parameter detection uses `'NAME' in params` pattern in addition to dot-access
+
 ## [0.96.0] - 2026-03-02
 
 This release adds camera streaming and fullscreen view, TMC stepper driver temperature monitoring, and smarter macro parameter handling. Widget stability and Android support received significant improvements, along with fixes for several crash reports.
@@ -1467,6 +1506,8 @@ Initial tagged release. Foundation for all subsequent development.
 - Automated GitHub Actions release pipeline
 - One-liner installation script with platform auto-detection
 
+[0.96.2]: https://github.com/prestonbrown/helixscreen/compare/v0.96.1...v0.96.2
+[0.96.1]: https://github.com/prestonbrown/helixscreen/compare/v0.96.0...v0.96.1
 [0.96.0]: https://github.com/prestonbrown/helixscreen/compare/v0.95.3...v0.96.0
 [0.95.3]: https://github.com/prestonbrown/helixscreen/compare/v0.95.2...v0.95.3
 [0.95.2]: https://github.com/prestonbrown/helixscreen/compare/v0.95.1...v0.95.2

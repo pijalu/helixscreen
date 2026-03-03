@@ -253,16 +253,16 @@ void MacroParamModal::populate_param_fields() {
     spdlog::debug("[MacroParamModal] Created {} param fields for {}", params_.size(), macro_name_);
 }
 
-std::map<std::string, std::string> MacroParamModal::collect_values() const {
+MacroParamResult MacroParamModal::collect_values() const {
+    MacroParamResult result;
+
     if (raw_mode_ && raw_textarea_) {
         const char* text = lv_textarea_get_text(raw_textarea_);
         if (text && text[0] != '\0') {
-            return parse_raw_macro_params(text);
+            result.params = parse_raw_macro_params(text);
         }
-        return {};
+        return result;
     }
-
-    std::map<std::string, std::string> result;
 
     for (size_t i = 0; i < params_.size() && i < textareas_.size(); ++i) {
         if (!textareas_[i]) {
@@ -270,7 +270,11 @@ std::map<std::string, std::string> MacroParamModal::collect_values() const {
         }
         const char* text = lv_textarea_get_text(textareas_[i]);
         if (text && text[0] != '\0') {
-            result[params_[i].name] = text;
+            if (params_[i].is_variable) {
+                result.variables[params_[i].name] = text;
+            } else {
+                result.params[params_[i].name] = text;
+            }
         }
     }
 
