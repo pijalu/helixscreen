@@ -481,3 +481,11 @@ Tests cover:
 - Global singleton accessor pattern
 - Destructor cleanup (with and without init)
 - Lifecycle state tracking
+
+---
+
+## Multi-Printer Management
+
+When beta features are enabled and multiple printers are configured, a **Manage Printers** button appears at the bottom of the Printer Manager overlay. This navigates to the Printer List overlay for switching, adding, and deleting printers.
+
+See [Multi-Printer Management](MULTI_PRINTER.md) for the full developer guide on the multi-printer system.
