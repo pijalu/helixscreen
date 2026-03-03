@@ -476,15 +476,18 @@ void GridEditMode::destroy_selection_chrome() {
     auto freeze = helix::ui::UpdateQueue::instance().scoped_freeze();
     helix::ui::UpdateQueue::instance().drain();
     if (configure_btn_) {
-        lv_obj_delete(configure_btn_);
+        if (lv_obj_is_valid(configure_btn_))
+            lv_obj_delete(configure_btn_);
         configure_btn_ = nullptr;
     }
     if (remove_btn_) {
-        lv_obj_delete(remove_btn_);
+        if (lv_obj_is_valid(remove_btn_))
+            lv_obj_delete(remove_btn_);
         remove_btn_ = nullptr;
     }
     if (selection_overlay_) {
-        lv_obj_delete(selection_overlay_);
+        if (lv_obj_is_valid(selection_overlay_))
+            lv_obj_delete(selection_overlay_);
         selection_overlay_ = nullptr;
     }
 }

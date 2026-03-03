@@ -50,6 +50,7 @@ class FavoriteMacroWidget : public PanelWidget {
     // Static event callbacks (XML-registered)
     static void clicked_cb(lv_event_t* e);
     static void picker_backdrop_cb(lv_event_t* e);
+    static void picker_done_cb(lv_event_t* e);
 
   private:
     std::string widget_id_; ///< "favorite_macro_1" through "favorite_macro_5"
@@ -60,10 +61,15 @@ class FavoriteMacroWidget : public PanelWidget {
     lv_obj_t* name_label_ = nullptr;
 
     std::string macro_name_;                ///< Assigned macro (e.g., "CLEAN_NOZZLE")
+    std::string icon_name_;                 ///< Custom icon name, empty = "play" default
+    uint32_t icon_color_ = 0;              ///< Custom icon color (RGB), 0 = theme secondary
     std::shared_ptr<bool> alive_ = std::make_shared<bool>(false);
 
     // Picker context menu
     lv_obj_t* picker_backdrop_ = nullptr;
+    lv_obj_t* picker_icon_grid_ = nullptr;
+    lv_obj_t* picker_color_grid_ = nullptr;
+    lv_obj_t* picker_macro_list_ = nullptr;
 
     MoonrakerAPI* get_api() const;
 
@@ -75,6 +81,13 @@ class FavoriteMacroWidget : public PanelWidget {
     void show_macro_picker();
     void dismiss_macro_picker();
     void select_macro(const std::string& name);
+    void select_icon(const std::string& name);
+    void select_color(uint32_t color);
+
+    void populate_macro_list(lv_obj_t* list, const std::vector<std::string>& macros);
+    void populate_icon_grid(lv_obj_t* grid);
+    void populate_color_grid(lv_obj_t* grid);
+    void refresh_picker_highlights();
 
     // Static active instance for picker event routing
     static FavoriteMacroWidget* s_active_picker_;
