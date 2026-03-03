@@ -498,6 +498,82 @@ TEST_CASE_METHOD(ActivePrintMediaManagerTestFixture,
 // Regression: Starting a new print via Mainsail showed the PREVIOUS print's
 // thumbnail because print_thumbnail_path_ was never cleared between prints.
 
+// ============================================================================
+// Thumbnail Path Subject Observer Integration Tests
+// ============================================================================
+// These tests verify that the print_thumbnail_path subject correctly notifies
+// observers, which is the mechanism PrintStatusWidget uses to update its image.
+
+TEST_CASE_METHOD(ActivePrintMediaManagerTestFixture,
+                 "ActivePrintMediaManager: thumbnail path subject fires observer on change",
+                 "[ActivePrintMediaManager]") {
+    std::string last_observed_path;
+    int observer_fire_count = 0;
+
+    // Set up an observer on the thumbnail path subject (mimics what the widget does)
+    auto observer_cb = [](lv_observer_t* observer, lv_subject_t* subj) {
+        auto* data = static_cast<std::pair<std::string*, int*>*>(lv_observer_get_user_data(observer));
+        *data->first = lv_subject_get_string(subj);
+        (*data->second)++;
+    };
+
+    auto data = std::make_pair(&last_observed_path, &observer_fire_count);
+    lv_observer_t* obs = lv_subject_add_observer(state().get_print_thumbnail_path_subject(),
+                                                  observer_cb, &data);
+
+    // Observer fires on registration with initial (empty) value
+    REQUIRE(observer_fire_count == 1);
+    REQUIRE(last_observed_path.empty());
+
+    // Setting a thumbnail path should fire the observer
+    state().set_print_thumbnail_path("A:/cache/thumb.bin");
+    REQUIRE(observer_fire_count == 2);
+    REQUIRE(last_observed_path == "A:/cache/thumb.bin");
+
+    // Setting same path should NOT fire (de-duplication in set_print_thumbnail_path)
+    state().set_print_thumbnail_path("A:/cache/thumb.bin");
+    REQUIRE(observer_fire_count == 2);
+
+    // Clearing path should fire
+    state().set_print_thumbnail_path("");
+    REQUIRE(observer_fire_count == 3);
+    REQUIRE(last_observed_path.empty());
+
+    lv_observer_remove(obs);
+}
+
+TEST_CASE_METHOD(ActivePrintMediaManagerTestFixture,
+                 "ActivePrintMediaManager: thumbnail path observer receives correct value during rapid updates",
+                 "[ActivePrintMediaManager]") {
+    // This tests the scenario where the thumbnail path changes rapidly.
+    // An immediate observer should receive each value in sequence.
+    std::vector<std::string> observed_values;
+
+    auto observer_cb = [](lv_observer_t* observer, lv_subject_t* subj) {
+        auto* values = static_cast<std::vector<std::string>*>(lv_observer_get_user_data(observer));
+        values->push_back(lv_subject_get_string(subj));
+    };
+
+    lv_observer_t* obs = lv_subject_add_observer(state().get_print_thumbnail_path_subject(),
+                                                  observer_cb, &observed_values);
+
+    // Initial fire
+    REQUIRE(observed_values.size() == 1);
+    REQUIRE(observed_values[0].empty());
+
+    // Rapid updates - observer should see each distinct value
+    state().set_print_thumbnail_path("A:/cache/first.bin");
+    state().set_print_thumbnail_path("A:/cache/second.bin");
+    state().set_print_thumbnail_path("A:/cache/third.bin");
+
+    REQUIRE(observed_values.size() == 4); // initial + 3 changes
+    REQUIRE(observed_values[1] == "A:/cache/first.bin");
+    REQUIRE(observed_values[2] == "A:/cache/second.bin");
+    REQUIRE(observed_values[3] == "A:/cache/third.bin");
+
+    lv_observer_remove(obs);
+}
+
 TEST_CASE_METHOD(ActivePrintMediaManagerTestFixture,
                  "ActivePrintMediaManager: new print clears stale thumbnail path",
                  "[ActivePrintMediaManager]") {
