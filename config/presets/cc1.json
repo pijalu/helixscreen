@@ -1,4 +1,5 @@
 {
+  "preset": "cc1",
   "input": {
     "calibration": {
       "a": 1.0,

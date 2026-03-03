@@ -1,4 +1,6 @@
 {
+  "preset": "ad5x",
+  "wizard_completed": false,
   "display": {
     "backlight_enable_ioctl": false,
     "hardware_blank": 0,
@@ -71,5 +73,4 @@
       "macro_2": { "label": "Bed Level", "gcode": "AUTO_FULL_BED_LEVEL" }
     }
   },
-  "wizard_completed": true
 }

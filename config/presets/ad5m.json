@@ -1,4 +1,6 @@
 {
+  "preset": "ad5m",
+  "wizard_completed": false,
   "input": {
     "calibration": {
       "a": 1.1666666269302368,
@@ -91,5 +93,4 @@
       "macro_2": { "label": "Bed Level", "gcode": "AUTO_FULL_BED_LEVEL" }
     }
   },
-  "wizard_completed": true
 }
