@@ -105,7 +105,6 @@ struct TouchCalibration {
     bool valid = false;
     float a = 1.0f, b = 0.0f, c = 0.0f; // screen_x = a*x + b*y + c
     float d = 0.0f, e = 1.0f, f = 0.0f; // screen_y = d*x + e*y + f
-    bool axes_swapped = false;          // auto-detected axis swap
 };
 
 /**
@@ -160,21 +159,6 @@ bool is_calibration_valid(const TouchCalibration& cal);
 bool validate_calibration_result(const TouchCalibration& cal, const Point screen_points[3],
                                  const Point touch_points[3], int screen_width, int screen_height,
                                  float max_residual = 10.0f);
-
-/**
- * @brief Check if swapping touch X/Y axes produces a significantly better calibration
- *
- * Some touchscreen controllers report X/Y axes swapped relative to the display.
- * This function detects that by comparing the cross-coupling ratio of the original
- * calibration vs one computed with swapped touch coordinates.
- *
- * @param screen_points 3 screen coordinate targets
- * @param touch_points 3 raw touch coordinates
- * @param original_cal Calibration computed from the original (unswapped) points
- * @return true if swapping axes produces a significantly better (lower cross-coupling) calibration
- */
-bool calibration_suggests_axis_swap(const Point screen_points[3], const Point touch_points[3],
-                                    const TouchCalibration& original_cal);
 
 /// Maximum reasonable coefficient value for validation
 constexpr float MAX_CALIBRATION_COEFFICIENT = 1000.0f;

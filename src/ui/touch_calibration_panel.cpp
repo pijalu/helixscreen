@@ -86,7 +86,6 @@ Point TouchCalibrationPanel::compute_target_position(int step) const {
 void TouchCalibrationPanel::start() {
     state_ = State::POINT_1;
     calibration_.valid = false;
-    axes_swapped_ = false;
     reset_samples();
 
     // Calculate screen target positions using named constants
@@ -117,26 +116,6 @@ void TouchCalibrationPanel::capture_point(Point raw) {
                 failure_callback_("Touch points too close together. Please try again.");
             }
             break;
-        }
-
-        // Check if swapping touch X/Y produces a better calibration
-        if (calibration_suggests_axis_swap(screen_points_, touch_points_, calibration_)) {
-            spdlog::info("[TouchCalibrationPanel] Auto-detected swapped touch axes, correcting");
-            for (int i = 0; i < 3; i++) {
-                std::swap(touch_points_[i].x, touch_points_[i].y);
-            }
-            if (!compute_calibration(screen_points_, touch_points_, calibration_)) {
-                spdlog::warn("[TouchCalibrationPanel] Recompute after axis swap failed");
-                state_ = State::POINT_1;
-                calibration_.valid = false;
-                if (failure_callback_) {
-                    failure_callback_(
-                        "Calibration failed after axis correction. Please try again.");
-                }
-                break;
-            }
-            axes_swapped_ = true;
-            calibration_.axes_swapped = true;
         }
 
         // Validate the matrix produces reasonable results
