@@ -6,18 +6,42 @@ Access via the **More** icon in the navigation bar.
 
 ---
 
-## Console *(beta feature)*
+## G-code Console
 
-View G-code command history and Klipper responses. Requires [beta features](beta-features.md) to be enabled.
+![Console Panel](../../images/user/advanced-console.png)
 
-1. Navigate to **Advanced > Console**
-2. Scroll through recent commands
+A full-featured G-code terminal for sending commands directly to your printer and viewing Klipper responses in real time.
+
+**Opening the console:**
+
+- Navigate to **Advanced > G-code Console**, or
+- Add the **G-code Console** widget to your home panel for one-tap access
+
+**Sending commands:**
+
+1. Type a G-code command in the input field at the bottom (e.g., `G28`, `M104 S210`)
+2. Press **Enter** on the keyboard or tap the **send button**
+3. The command appears with a `>` prefix, and Klipper's response streams in below
+
+**Command history:**
+
+- Press **Up/Down arrow keys** to recall previously sent commands
+- Up to 20 recent commands are remembered within the session
 
 **Color coding:**
 
-- **White**: Commands sent
-- **Green**: Successful responses
-- **Red**: Errors and warnings
+- **White**: Commands you sent (prefixed with `>`)
+- **Green**: Successful responses from Klipper
+- **Red**: Errors and warnings (lines starting with `!!` or `Error`)
+- **Colored spans**: AFC and Happy Hare plugins send colored output that renders inline
+
+**Other features:**
+
+- **Auto-scroll**: The console scrolls to show new messages automatically. Scroll up to pause auto-scroll and read history — it resumes when you send a new command
+- **Timestamps**: On medium and larger screens, each line shows an `HH:MM:SS` timestamp
+- **Clear button**: Tap the trash icon to clear the display (with confirmation)
+- **Monospace font**: Console text uses Source Code Pro for easier reading of G-code output
+- Temperature status messages (`T:210.0 /210.0 B:60.0 /60.0`) are automatically filtered out to reduce noise
 
 ---
 
