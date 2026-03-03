@@ -55,6 +55,9 @@ void AmsBackendHappyHare::on_started() {
     // Happy Hare determines this from form_tip_macro: if it contains "cut",
     // it's a cutter system; otherwise it's tip-forming or none.
     query_tip_method_from_config();
+
+    // Query selector type to determine topology (Type A=LINEAR vs Type B=HUB)
+    query_selector_type_from_config();
 }
 
 // stop(), release_subscriptions(), is_running() provided by AmsSubscriptionBackend
@@ -153,8 +156,31 @@ SlotInfo AmsBackendHappyHare::get_slot_info(int slot_index) const {
 // provided by AmsSubscriptionBackend
 
 PathTopology AmsBackendHappyHare::get_topology() const {
-    // Happy Hare uses a linear selector topology (ERCF-style)
-    return PathTopology::LINEAR;
+    // Type B (VirtualSelector) uses HUB topology (3MS, Box Turtle, Night Owl)
+    // Type A (LinearSelector, RotarySelector, ServoSelector) uses LINEAR (ERCF, Tradrack)
+    std::lock_guard<std::mutex> lock(mutex_);
+    return is_type_b() ? PathTopology::HUB : PathTopology::LINEAR;
+}
+
+PathTopology AmsBackendHappyHare::get_unit_topology(int unit_index) const {
+    std::lock_guard<std::mutex> lock(mutex_);
+    if (unit_index >= 0 && unit_index < static_cast<int>(system_info_.units.size())) {
+        return system_info_.units[unit_index].topology;
+    }
+    return is_type_b() ? PathTopology::HUB : PathTopology::LINEAR;
+}
+
+bool AmsBackendHappyHare::is_type_b() const {
+    return selector_type_ == "VirtualSelector";
+}
+
+void AmsBackendHappyHare::update_unit_topologies() {
+    auto topo = is_type_b() ? PathTopology::HUB : PathTopology::LINEAR;
+    bool encoder = !is_type_b();
+    for (auto& unit : system_info_.units) {
+        unit.topology = topo;
+        unit.has_encoder = encoder;
+    }
 }
 
 PathSegment AmsBackendHappyHare::get_filament_segment() const {
@@ -929,8 +955,9 @@ void AmsBackendHappyHare::initialize_slots(int gate_count) {
         unit.slot_count = unit_gates;
         unit.first_slot_global_index = global_offset;
         unit.connected = true;
-        unit.has_encoder = true;
+        unit.has_encoder = !is_type_b();
         unit.has_toolhead_sensor = true;
+        unit.topology = is_type_b() ? PathTopology::HUB : PathTopology::LINEAR;
         // has_slot_sensors starts false; updated when sensor data arrives in parse_mmu_state()
         unit.has_slot_sensors = false;
         unit.has_hub_sensor = true; // HH selector functions as hub equivalent
@@ -1045,6 +1072,59 @@ void AmsBackendHappyHare::query_tip_method_from_config() {
         },
         [](const MoonrakerError& err) {
             spdlog::warn("[AMS HappyHare] Failed to query configfile for tip method: {}",
+                         err.message);
+        });
+}
+
+void AmsBackendHappyHare::query_selector_type_from_config() {
+    if (!client_) {
+        return;
+    }
+
+    // Query configfile.settings.mmu_machine to read selector_type.
+    // VirtualSelector = Type B (hub topology: 3MS, Box Turtle, Night Owl, Angry Beaver)
+    // LinearSelector/RotarySelector/ServoSelector = Type A (linear: ERCF, Tradrack)
+    nlohmann::json params = {{"objects", nlohmann::json::object({{"configfile", {"settings"}}})}};
+
+    std::weak_ptr<std::atomic<bool>> weak_alive = alive_;
+    client_->send_jsonrpc(
+        "printer.objects.query", params,
+        [this, weak_alive](nlohmann::json response) {
+            auto alive_lock = weak_alive.lock();
+            if (!alive_lock || !alive_lock->load())
+                return;
+            try {
+                const auto& settings = response["result"]["status"]["configfile"]["settings"];
+
+                if (!settings.contains("mmu_machine") ||
+                    !settings["mmu_machine"].is_object()) {
+                    spdlog::debug(
+                        "[AMS HappyHare] No mmu_machine section in configfile settings");
+                    return;
+                }
+
+                const auto& mmu_machine = settings["mmu_machine"];
+                if (mmu_machine.contains("selector_type") &&
+                    mmu_machine["selector_type"].is_string()) {
+                    std::string type = mmu_machine["selector_type"].get<std::string>();
+                    spdlog::info("[AMS HappyHare] Selector type from config: {}", type);
+
+                    {
+                        std::lock_guard<std::mutex> lock(mutex_);
+                        selector_type_ = type;
+                        update_unit_topologies();
+                    }
+
+                    emit_event(EVENT_STATE_CHANGED);
+                }
+            } catch (const nlohmann::json::exception& e) {
+                spdlog::warn(
+                    "[AMS HappyHare] Failed to parse configfile for selector type: {}",
+                    e.what());
+            }
+        },
+        [](const MoonrakerError& err) {
+            spdlog::warn("[AMS HappyHare] Failed to query configfile for selector type: {}",
                          err.message);
         });
 }

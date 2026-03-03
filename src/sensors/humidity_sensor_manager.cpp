@@ -178,7 +178,7 @@ void HumiditySensorManager::update_from_status(const nlohmann::json& status) {
                     std::lround(state.temperature * 10) !=
                         std::lround(old_state.temperature * 10) ||
                     std::lround(state.pressure * 10) != std::lround(old_state.pressure * 10)) {
-                    spdlog::debug(
+                    spdlog::trace(
                         "[HumiditySensorManager] Sensor {} updated: humidity={:.1f}%, "
                         "temp={:.1f}C, pressure={:.1f}hPa",
                         sensor.sensor_name, state.humidity, state.temperature, state.pressure);

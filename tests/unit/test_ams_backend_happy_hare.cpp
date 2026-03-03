@@ -44,6 +44,9 @@ class AmsBackendHappyHareTestHelper : public AmsBackendHappyHare {
             unit.slots.push_back(slot);
         }
 
+        unit.topology = is_type_b() ? PathTopology::HUB : PathTopology::LINEAR;
+        unit.has_encoder = !is_type_b();
+
         system_info_.units.push_back(unit);
         system_info_.total_slots = count;
 
@@ -125,6 +128,14 @@ class AmsBackendHappyHareTestHelper : public AmsBackendHappyHare {
 
     void set_current_slot(int slot) {
         system_info_.current_slot = slot;
+    }
+
+    void set_selector_type(const std::string& type) {
+        selector_type_ = type;
+    }
+
+    void apply_selector_type_update() {
+        update_unit_topologies();
     }
 
     void clear_captured_gcodes() {
@@ -2018,4 +2029,133 @@ TEST_CASE("Happy Hare: parse sync_feedback_flow_rate", "[ams][happy_hare][clog]"
 
     auto info = helper.get_system_info();
     REQUIRE(info.sync_feedback_flow_rate == Catch::Approx(92.5f));
+}
+
+// ============================================================================
+// Type B MMU Hub Topology Detection
+// ============================================================================
+//
+// Happy Hare supports two MMU architectures:
+// - Type A (ERCF, Tradrack): selector_type = LinearSelector/RotarySelector/ServoSelector → LINEAR
+// - Type B (3MS, Box Turtle, Night Owl): selector_type = VirtualSelector → HUB
+//
+// The selector_type is queried from configfile.settings.mmu_machine.selector_type
+
+TEST_CASE("Happy Hare: default topology is LINEAR", "[ams][happy_hare][topology]") {
+    AmsBackendHappyHareTestHelper helper;
+    // No selector_type set — should default to LINEAR (Type A)
+    REQUIRE(helper.get_topology() == PathTopology::LINEAR);
+}
+
+TEST_CASE("Happy Hare: Type B (VirtualSelector) topology is HUB", "[ams][happy_hare][topology]") {
+    AmsBackendHappyHareTestHelper helper;
+    helper.set_selector_type("VirtualSelector");
+    REQUIRE(helper.get_topology() == PathTopology::HUB);
+}
+
+TEST_CASE("Happy Hare: Type A selector types stay LINEAR", "[ams][happy_hare][topology]") {
+    AmsBackendHappyHareTestHelper helper;
+
+    for (const auto& type : {"LinearSelector", "RotarySelector", "ServoSelector"}) {
+        helper.set_selector_type(type);
+        REQUIRE(helper.get_topology() == PathTopology::LINEAR);
+    }
+}
+
+TEST_CASE("Happy Hare: get_unit_topology returns per-unit topology", "[ams][happy_hare][topology]") {
+    AmsBackendHappyHareTestHelper helper;
+    helper.set_selector_type("VirtualSelector");
+    helper.initialize_test_gates(4);
+
+    REQUIRE(helper.get_unit_topology(0) == PathTopology::HUB);
+}
+
+TEST_CASE("Happy Hare: get_unit_topology falls back for invalid index",
+          "[ams][happy_hare][topology]") {
+    AmsBackendHappyHareTestHelper helper;
+    helper.set_selector_type("VirtualSelector");
+    helper.initialize_test_gates(4);
+
+    // Out-of-range should fall back to get_topology()
+    REQUIRE(helper.get_unit_topology(99) == PathTopology::HUB);
+}
+
+TEST_CASE("Happy Hare: initialize_slots sets topology per unit", "[ams][happy_hare][topology]") {
+    AmsBackendHappyHareTestHelper helper;
+    helper.set_selector_type("VirtualSelector");
+    helper.initialize_test_gates(4);
+
+    auto info = helper.get_system_info();
+    REQUIRE(info.units.size() == 1);
+    REQUIRE(info.units[0].topology == PathTopology::HUB);
+}
+
+TEST_CASE("Happy Hare: Type A initialize_slots sets LINEAR topology",
+          "[ams][happy_hare][topology]") {
+    AmsBackendHappyHareTestHelper helper;
+    // Default (no selector_type set) = Type A
+    helper.initialize_test_gates(4);
+
+    auto info = helper.get_system_info();
+    REQUIRE(info.units.size() == 1);
+    REQUIRE(info.units[0].topology == PathTopology::LINEAR);
+}
+
+TEST_CASE("Happy Hare: multi-unit Type B all get HUB topology", "[ams][happy_hare][topology]") {
+    AmsBackendHappyHareTestHelper helper;
+    helper.set_selector_type("VirtualSelector");
+    // Simulate 2-unit setup via parse
+    nlohmann::json mmu_data;
+    mmu_data["num_units"] = 2;
+    mmu_data["gate_status"] = {1, 1, 1, 1, 1, 1};
+    mmu_data["gate_color_rgb"] = {0xFF0000, 0x00FF00, 0x0000FF, 0xFF0000, 0x00FF00, 0x0000FF};
+    mmu_data["gate_material"] = {"PLA", "PLA", "PLA", "PLA", "PLA", "PLA"};
+    mmu_data["gate"] = 0;
+    mmu_data["tool"] = 0;
+    mmu_data["filament"] = "Unloaded";
+    mmu_data["action"] = "Idle";
+    helper.test_parse_mmu_state(mmu_data);
+
+    auto info = helper.get_system_info();
+    REQUIRE(info.units.size() == 2);
+    for (const auto& unit : info.units) {
+        REQUIRE(unit.topology == PathTopology::HUB);
+    }
+}
+
+TEST_CASE("Happy Hare: Type B has_encoder is false", "[ams][happy_hare][topology]") {
+    AmsBackendHappyHareTestHelper helper;
+    helper.set_selector_type("VirtualSelector");
+
+    nlohmann::json mmu_data;
+    mmu_data["gate_status"] = {1, 1, 1, 1};
+    mmu_data["gate_color_rgb"] = {0xFF0000, 0x00FF00, 0x0000FF, 0xFFFF00};
+    mmu_data["gate_material"] = {"PLA", "PLA", "PLA", "PLA"};
+    mmu_data["gate"] = 0;
+    mmu_data["tool"] = 0;
+    mmu_data["filament"] = "Unloaded";
+    mmu_data["action"] = "Idle";
+    helper.test_parse_mmu_state(mmu_data);
+
+    auto info = helper.get_system_info();
+    REQUIRE(info.units.size() == 1);
+    REQUIRE(info.units[0].has_encoder == false);
+}
+
+TEST_CASE("Happy Hare: late selector_type retroactively updates topology",
+          "[ams][happy_hare][topology]") {
+    AmsBackendHappyHareTestHelper helper;
+    // Initialize with default (LINEAR) first — simulates slots arriving before config
+    helper.initialize_test_gates(4);
+    auto info = helper.get_system_info();
+    REQUIRE(info.units[0].topology == PathTopology::LINEAR);
+    REQUIRE(info.units[0].has_encoder == true);
+
+    // Simulate config response arriving after slots initialized
+    helper.set_selector_type("VirtualSelector");
+    helper.apply_selector_type_update();
+
+    info = helper.get_system_info();
+    REQUIRE(info.units[0].topology == PathTopology::HUB);
+    REQUIRE(info.units[0].has_encoder == false);
 }

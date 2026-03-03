@@ -59,6 +59,7 @@ class AmsBackendHappyHare : public AmsSubscriptionBackend {
         return bowden_progress_;
     }
     [[nodiscard]] PathTopology get_topology() const override;
+    [[nodiscard]] PathTopology get_unit_topology(int unit_index) const override;
     [[nodiscard]] PathSegment get_filament_segment() const override;
     [[nodiscard]] PathSegment get_slot_filament_segment(int slot_index) const override;
     [[nodiscard]] PathSegment infer_error_segment() const override;
@@ -207,6 +208,28 @@ class AmsBackendHappyHare : public AmsSubscriptionBackend {
      * Called once during start().
      */
     void query_tip_method_from_config();
+
+    /**
+     * @brief Query configfile.settings.mmu_machine to determine selector type
+     *
+     * Reads selector_type from Happy Hare config via Moonraker.
+     * VirtualSelector = Type B (HUB topology), all others = Type A (LINEAR).
+     * Called once during on_started().
+     */
+    void query_selector_type_from_config();
+
+    /**
+     * @brief Check if this is a Type B MMU (hub topology)
+     * @return true if selector_type is VirtualSelector
+     */
+    [[nodiscard]] bool is_type_b() const;
+
+    /**
+     * @brief Update topology on all existing units after selector_type is known
+     */
+    void update_unit_topologies();
+
+    std::string selector_type_; ///< Selector type from config (e.g., "VirtualSelector" for Type B)
 
     // Alive guard for async callback safety
     std::shared_ptr<std::atomic<bool>> alive_ = std::make_shared<std::atomic<bool>>(true);

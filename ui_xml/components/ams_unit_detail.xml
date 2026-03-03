@@ -6,7 +6,7 @@
   <consts>
     <color name="tray_bg" value="#505050"/>
     <color name="tray_border" value="#606060"/>
-    <number name="tray_bg_opa" value="200"/>
+    <number name="tray_bg_opa" value="100"/>
     <number name="tray_border_opa" value="140"/>
     <px name="tray_default_height" value="30"/>
     <number name="tray_accent_border_opa" value="180"/>
