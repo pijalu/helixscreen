@@ -310,7 +310,10 @@
         {
           "type": "fan_combo",
           "field": "fans",
-          "patterns": ["bed_fans", "exhaust"],
+          "patterns": [
+            "bed_fans",
+            "exhaust"
+          ],
           "confidence": 75,
           "reason": "Bed fans + exhaust (Voron enclosed signature)"
         },
@@ -411,10 +414,10 @@
         {
           "type": "build_volume_range",
           "field": "bed_mesh",
-          "max_x": 130,
-          "max_y": 130,
+          "max_x": 180,
+          "max_y": 180,
           "confidence": 60,
-          "reason": "Small build volume (~120mm, Micron size)"
+          "reason": "Small build volume (120/180mm Micron sizes)"
         },
         {
           "type": "object_exists",
@@ -429,6 +432,64 @@
           "pattern": "micron",
           "confidence": 95,
           "reason": "Hostname contains 'micron'"
+        },
+        {
+          "type": "object_exists",
+          "field": "printer_objects",
+          "pattern": "quad_gantry_level",
+          "confidence": 80,
+          "reason": "Quad Gantry Level present (Micron uses QGL like Voron 2.4)"
+        },
+        {
+          "type": "stepper_count",
+          "field": "steppers",
+          "pattern": "z_count_4",
+          "confidence": 75,
+          "reason": "4 independent Z steppers (QGL configuration)"
+        }
+      ]
+    },
+    {
+      "id": "pfa_stealthfork",
+      "name": "PFA Stealthfork",
+      "manufacturer": "PrintersForAnts",
+      "image": "pfa-stealthfork.png",
+      "heuristics": [
+        {
+          "type": "hostname_match",
+          "field": "hostname",
+          "pattern": "stealthfork",
+          "confidence": 95,
+          "reason": "Hostname contains 'stealthfork'"
+        },
+        {
+          "type": "kinematics_match",
+          "field": "kinematics",
+          "pattern": "corexy",
+          "confidence": 40,
+          "reason": "CoreXY kinematics"
+        },
+        {
+          "type": "build_volume_range",
+          "field": "bed_mesh",
+          "max_x": 180,
+          "max_y": 180,
+          "confidence": 50,
+          "reason": "Small build volume (120/160/180mm Stealthfork sizes)"
+        },
+        {
+          "type": "stepper_count",
+          "field": "steppers",
+          "pattern": "z_count_3",
+          "confidence": 70,
+          "reason": "3 independent Z steppers (Trident-style)"
+        },
+        {
+          "type": "object_exists",
+          "field": "printer_objects",
+          "pattern": "z_tilt",
+          "confidence": 60,
+          "reason": "Z tilt adjust present (Trident-style 3-point leveling)"
         }
       ]
     },
@@ -1685,7 +1746,7 @@
           "field": "hostname",
           "pattern": "prusawire",
           "confidence": 99,
-          "reason": "Hostname contains 'prusawire' — definitive match"
+          "reason": "Hostname contains 'prusawire' \u2014 definitive match"
         },
         {
           "type": "hostname_match",
@@ -1699,7 +1760,7 @@
           "field": "macros",
           "pattern": "PRUSAWIRE",
           "confidence": 95,
-          "reason": "PRUSAWIRE macro present — strong indicator"
+          "reason": "PRUSAWIRE macro present \u2014 strong indicator"
         }
       ]
     },
