@@ -12,6 +12,7 @@ import {
   crashListQuery,
   releasesQueries,
   memoryQueries,
+  memoryWarningQueries,
   hardwareQueries,
   engagementQueries,
   reliabilityQueries,
@@ -464,6 +465,76 @@ export default {
             vm_peak_trend: (vmPeakData.data ?? []).map((r) => ({
               date: r.date,
               avg_vm_peak_kb: r.avg_vm_peak_kb,
+            })),
+          });
+        }
+
+        // GET /v1/dashboard/memory-warnings
+        if (url.pathname === "/v1/dashboard/memory-warnings") {
+          const queries = memoryWarningQueries(days, filters);
+          const [byLevelRes, overTimeRes, rssAtWarningRes, byPlatformRes, affectedRes, recentRes] =
+            await Promise.all(queries.map((q) => executeQuery(queryConfig, q)));
+
+          const byLevelData = byLevelRes as { data: Array<{ level: string; count: number }> };
+          const overTimeData = overTimeRes as { data: Array<{ date: string; level: string; count: number }> };
+          const rssAtWarningData = rssAtWarningRes as { data: Array<{ date: string; avg_rss_kb: number; max_rss_kb: number }> };
+          const byPlatformData = byPlatformRes as { data: Array<{ platform: string; count: number; avg_rss_kb: number }> };
+          const affectedData = affectedRes as { data: Array<{ affected_devices: number }> };
+          const recentData = recentRes as {
+            data: Array<{
+              timestamp: string;
+              device_id: string;
+              version: string;
+              platform: string;
+              level: string;
+              reason: string;
+              uptime_sec: number;
+              rss_kb: number;
+              system_available_mb: number;
+              growth_5min_kb: number;
+              private_dirty_kb: number;
+              pss_kb: number;
+            }>;
+          };
+
+          // Total warning count
+          const totalWarnings = (byLevelData.data ?? []).reduce((sum, r) => sum + r.count, 0);
+
+          return json({
+            total_warnings: totalWarnings,
+            affected_devices: affectedData.data?.[0]?.affected_devices ?? 0,
+            by_level: (byLevelData.data ?? []).map((r) => ({
+              level: r.level,
+              count: r.count,
+            })),
+            over_time: (overTimeData.data ?? []).map((r) => ({
+              date: r.date,
+              level: r.level,
+              count: r.count,
+            })),
+            rss_at_warning: (rssAtWarningData.data ?? []).map((r) => ({
+              date: r.date,
+              avg_rss_kb: r.avg_rss_kb,
+              max_rss_kb: r.max_rss_kb,
+            })),
+            by_platform: (byPlatformData.data ?? []).map((r) => ({
+              platform: r.platform,
+              count: r.count,
+              avg_rss_kb: r.avg_rss_kb,
+            })),
+            recent_warnings: (recentData.data ?? []).map((r) => ({
+              timestamp: r.timestamp,
+              device_id: r.device_id,
+              version: r.version,
+              platform: r.platform,
+              level: r.level,
+              reason: r.reason,
+              uptime_sec: r.uptime_sec,
+              rss_kb: r.rss_kb,
+              system_available_mb: r.system_available_mb,
+              growth_5min_kb: r.growth_5min_kb,
+              private_dirty_kb: r.private_dirty_kb,
+              pss_kb: r.pss_kb,
             })),
           });
         }

@@ -146,6 +146,30 @@ export function mapEventToDataPoint(
     };
   }
 
+  if (eventType === "memory_warning") {
+    return {
+      indexes: ["memory_warning"],
+      blobs: [
+        deviceId,                                                          // blob1
+        String(app.version ?? event.app_version ?? event.version ?? ""),   // blob2
+        String(app.platform ?? event.app_platform ?? event.platform ?? ""), // blob3
+        String(event.level ?? ""),                                         // blob4
+        String(event.reason ?? ""),                                        // blob5
+        "", "", "", "", "", "", "",
+      ],
+      doubles: [
+        Number(event.uptime_sec ?? 0),           // double1
+        Number(event.rss_kb ?? 0),               // double2
+        Number(event.vm_size_kb ?? 0),           // double3
+        Number(event.system_available_mb ?? 0),  // double4
+        Number(event.growth_5min_kb ?? 0),       // double5
+        Number(event.private_dirty_kb ?? 0),     // double6
+        Number(event.pss_kb ?? 0),               // double7
+        Number(event.system_total_mb ?? 0),      // double8
+      ],
+    };
+  }
+
   if (eventType === "hardware_profile") {
     return {
       indexes: ["hardware_profile"],

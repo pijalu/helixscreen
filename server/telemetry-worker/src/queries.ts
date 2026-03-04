@@ -253,6 +253,68 @@ export function memoryQueries(days: number, filters?: FilterParams): string[] {
   ];
 }
 
+export function memoryWarningQueries(days: number, filters?: FilterParams): string[] {
+  const dataset = "helixscreen_telemetry";
+  const f = buildFilterClause(filters);
+  return [
+    // Warning count by level
+    `SELECT
+      blob4 as level,
+      count() as count
+    FROM ${dataset}
+    WHERE timestamp >= NOW() - INTERVAL '${days}' DAY AND index1 = 'memory_warning' AND blob4 != ''${f}
+    GROUP BY level
+    ORDER BY count DESC`,
+    // Warnings over time (count by date, split by level)
+    `SELECT
+      toDate(timestamp) as date,
+      blob4 as level,
+      count() as count
+    FROM ${dataset}
+    WHERE timestamp >= NOW() - INTERVAL '${days}' DAY AND index1 = 'memory_warning'${f}
+    GROUP BY date, level
+    ORDER BY date`,
+    // RSS at warning time (avg/max by date)
+    `SELECT
+      toDate(timestamp) as date,
+      avg(double2) as avg_rss_kb,
+      max(double2) as max_rss_kb
+    FROM ${dataset}
+    WHERE timestamp >= NOW() - INTERVAL '${days}' DAY AND index1 = 'memory_warning'${f}
+    GROUP BY date
+    ORDER BY date`,
+    // Warnings by platform
+    `SELECT
+      blob3 as platform,
+      count() as count,
+      avg(double2) as avg_rss_kb
+    FROM ${dataset}
+    WHERE timestamp >= NOW() - INTERVAL '${days}' DAY AND index1 = 'memory_warning' AND blob3 != ''${f}
+    GROUP BY platform
+    ORDER BY count DESC`,
+    // Affected devices count
+    `SELECT count(DISTINCT blob1) as affected_devices FROM ${dataset} WHERE timestamp >= NOW() - INTERVAL '${days}' DAY AND index1 = 'memory_warning'${f}`,
+    // Recent warnings list (newest first)
+    `SELECT
+      timestamp,
+      blob1 as device_id,
+      blob2 as version,
+      blob3 as platform,
+      blob4 as level,
+      blob5 as reason,
+      double1 as uptime_sec,
+      double2 as rss_kb,
+      double4 as system_available_mb,
+      double5 as growth_5min_kb,
+      double6 as private_dirty_kb,
+      double7 as pss_kb
+    FROM ${dataset}
+    WHERE timestamp >= NOW() - INTERVAL '${days}' DAY AND index1 = 'memory_warning'${f}
+    ORDER BY timestamp DESC
+    LIMIT 100`,
+  ];
+}
+
 export function hardwareQueries(days: number, filters?: FilterParams): string[] {
   const dataset = "helixscreen_telemetry";
   const f = buildFilterClause(filters);

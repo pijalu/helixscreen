@@ -61,6 +61,29 @@ export interface MemoryData {
   vm_peak_trend: { date: string; avg_vm_peak_kb: number }[]
 }
 
+export interface MemoryWarningsData {
+  total_warnings: number
+  affected_devices: number
+  by_level: { level: string; count: number }[]
+  over_time: { date: string; level: string; count: number }[]
+  rss_at_warning: { date: string; avg_rss_kb: number; max_rss_kb: number }[]
+  by_platform: { platform: string; count: number; avg_rss_kb: number }[]
+  recent_warnings: {
+    timestamp: string
+    device_id: string
+    version: string
+    platform: string
+    level: string
+    reason: string
+    uptime_sec: number
+    rss_kb: number
+    system_available_mb: number
+    growth_5min_kb: number
+    private_dirty_kb: number
+    pss_kb: number
+  }[]
+}
+
 export interface HardwareData {
   printer_models: { name: string; count: number }[]
   kinematics: { name: string; count: number }[]
@@ -149,6 +172,10 @@ export const api = {
 
   getMemory(queryString: string): Promise<MemoryData> {
     return apiFetch(`/v1/dashboard/memory?${queryString}`)
+  },
+
+  getMemoryWarnings(queryString: string): Promise<MemoryWarningsData> {
+    return apiFetch(`/v1/dashboard/memory-warnings?${queryString}`)
   },
 
   getHardware(queryString: string): Promise<HardwareData> {
