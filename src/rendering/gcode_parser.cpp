@@ -291,6 +291,10 @@ bool GCodeParser::parse_exclude_object_command(const std::string& line) {
         auto it = object_name_lookup_.find(current_object_);
         if (it != object_name_lookup_.end()) {
             current_object_index_ = it->second;
+        } else if (object_name_table_.size() >= static_cast<size_t>(INT16_MAX)) {
+            spdlog::warn("[GCode Parser] Object name table full ({} entries), ignoring: {}",
+                         object_name_table_.size(), current_object_);
+            current_object_index_ = -1;
         } else {
             current_object_index_ = static_cast<int16_t>(object_name_table_.size());
             object_name_table_.push_back(current_object_);
@@ -769,7 +773,7 @@ void GCodeParser::add_segment(const glm::vec3& start, const glm::vec3& end, bool
         auto it = object_name_lookup_.find("__WIPE_TOWER__");
         if (it != object_name_lookup_.end()) {
             segment.object_name_index = it->second;
-        } else {
+        } else if (object_name_table_.size() < static_cast<size_t>(INT16_MAX)) {
             segment.object_name_index = static_cast<int16_t>(object_name_table_.size());
             object_name_table_.push_back("__WIPE_TOWER__");
             object_name_lookup_["__WIPE_TOWER__"] = segment.object_name_index;

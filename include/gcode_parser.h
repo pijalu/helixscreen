@@ -12,6 +12,9 @@
 
 #pragma once
 
+#include <spdlog/spdlog.h>
+
+#include <climits>
 #include <glm/glm.hpp>
 #include <limits>
 #include <map>
@@ -84,6 +87,7 @@ struct ToolpathSegment {
     bool is_extrusion{false};              ///< true if extruding, false if travel move — 1 byte
     // 2 bytes padding → total 40 bytes (was ~80 with std::string)
 };
+static_assert(sizeof(ToolpathSegment) == 40, "ToolpathSegment should be 40 bytes after interning");
 
 /**
  * @brief Single layer of toolpath (constant Z-height)
@@ -192,6 +196,11 @@ struct ParsedGCodeFile {
         for (size_t i = 0; i < object_name_table.size(); ++i) {
             if (object_name_table[i] == name)
                 return static_cast<int16_t>(i);
+        }
+        if (object_name_table.size() >= static_cast<size_t>(INT16_MAX)) {
+            spdlog::warn("[GCode] Object name table full ({} entries), ignoring: {}",
+                         object_name_table.size(), name);
+            return -1;
         }
         object_name_table.push_back(name);
         return static_cast<int16_t>(object_name_table.size() - 1);

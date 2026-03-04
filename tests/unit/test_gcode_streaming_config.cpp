@@ -45,6 +45,11 @@ TEST_CASE("should_force_streaming returns true for 4GB device", "[gcode]") {
     REQUIRE(mem.should_force_streaming());
 }
 
+TEST_CASE("should_force_streaming returns false for just above 4GB", "[gcode]") {
+    auto mem = make_mem(4 * GB_KB + 1);
+    REQUIRE_FALSE(mem.should_force_streaming());
+}
+
 TEST_CASE("should_force_streaming returns false for 8GB device", "[gcode]") {
     auto mem = make_mem(8 * GB_KB);
     REQUIRE_FALSE(mem.should_force_streaming());

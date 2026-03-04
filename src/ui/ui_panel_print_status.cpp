@@ -191,14 +191,14 @@ PrintStatusPanel::PrintStatusPanel(PrinterState& printer_state, MoonrakerAPI* ap
 PrintStatusPanel::~PrintStatusPanel() {
     deinit_subjects();
 
+    // Signal async callbacks to abort before destroying resources
+    m_alive->store(false);
+
     // Cancel pending deferred G-code load timer
     if (gcode_load_timer_) {
         lv_timer_delete(gcode_load_timer_);
         gcode_load_timer_ = nullptr;
     }
-
-    // Signal async callbacks to abort - must be first! [L012]
-    m_alive->store(false);
 
     // ObserverGuard handles observer cleanup automatically
     resize_registered_ = false;
@@ -2234,7 +2234,14 @@ void PrintStatusPanel::schedule_deferred_gcode_load() {
 
     if (pending_gcode_filename_.empty()) return;
 
-    spdlog::debug("[{}] Scheduling deferred G-code load in 5s: {}", get_name(),
+    // Short delay if already printing (user is actively viewing), longer during
+    // homing/heating to avoid memory spike while printer is still preparing
+    uint32_t delay_ms = (lifecycle_.state() == PrintState::Printing ||
+                         lifecycle_.state() == PrintState::Paused)
+                            ? 500
+                            : 5000;
+
+    spdlog::debug("[{}] Scheduling deferred G-code load in {}ms: {}", get_name(), delay_ms,
                   pending_gcode_filename_);
 
     gcode_load_timer_ = lv_timer_create(
@@ -2251,8 +2258,7 @@ void PrintStatusPanel::schedule_deferred_gcode_load() {
                 self->pending_gcode_filename_.clear();
             }
         },
-        5000, // 5 second delay
-        this);
+        delay_ms, this);
     lv_timer_set_repeat_count(gcode_load_timer_, 1); // one-shot
 }
 
