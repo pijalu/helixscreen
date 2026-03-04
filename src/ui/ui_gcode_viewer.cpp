@@ -495,16 +495,16 @@ static void gcode_viewer_draw_cb(lv_event_t* e) {
                     lv_label_set_text(state->ghost_progress_label_, text);
                 });
         } else if (st->ghost_progress_label_) {
-            // Defer label deletion to after render
-            lv_obj_t* label_to_delete = st->ghost_progress_label_;
-            st->ghost_progress_label_ = nullptr; // Clear reference immediately
-            helix::ui::async_call(
-                obj,
-                [](void* user_data) {
-                    lv_obj_t* widget = static_cast<lv_obj_t*>(user_data);
-                    helix::ui::safe_delete(widget);
-                },
-                label_to_delete);
+            // Defer label deletion to after render.
+            // IMPORTANT: Do NOT capture the raw lv_obj_t* pointer — if the gcode
+            // viewer is destroyed before process_pending() runs, the label is
+            // already freed as a child and the captured pointer is dangling.
+            // Instead, resolve from state at callback time. (fixes #290)
+            helix::ui::queue_widget_update(obj, [](lv_obj_t* viewer) {
+                auto* state = get_state(viewer);
+                if (!state || !state->ghost_progress_label_) return;
+                helix::ui::safe_delete(state->ghost_progress_label_);
+            });
         }
     } else {
         // 3D GLES Renderer (isometric ribbon view)
