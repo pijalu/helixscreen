@@ -5,6 +5,28 @@ All notable changes to HelixScreen will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.97.0] - 2026-03-03
+
+This release adds a floating emergency stop button, temperature sensor carousel with multi-sensor picker, 3D box effects on AMS trays with Happy Hare Type B hub detection, and improved DRM display rotation robustness. QR label printing for Brother QL printers is available as a beta feature.
+
+### Added
+- Floating emergency stop button with confirmation dialog (enabled by default)
+- Temperature sensor carousel mode with multi-sensor picker
+- AMS tray 3D box effect using oblique projection draw callbacks
+- Happy Hare Type B MMU hub topology detection with adjusted tray transparency
+- QR label printing for Brother QL printers (beta-gated)
+- DRM display rotation auto-fallback to fbdev and legacy atomic commit fallback (#288)
+
+### Fixed
+- GCode viewer dangling pointer in deferred ghost label deletion (#290)
+- Spoolman spool canvas transparency using ARGB8888 and explicit API query limit (#289)
+- Software keyboard appearing during scroll gestures
+- Print status panel dedup guards not clearing on navigation, thumbnail binding, and card layout sizing
+- Update download modal callbacks registered after modal shown from notification
+- Installer polkit PKLA generated inline, eliminating deploy failures
+- Macro `variable_*` extraction removed entirely from parameter handling
+- AMS unit card radius now fixed for consistent 3D tray box alignment
+
 ## [0.96.2] - 2026-03-03
 
 ### Added
@@ -1506,6 +1528,7 @@ Initial tagged release. Foundation for all subsequent development.
 - Automated GitHub Actions release pipeline
 - One-liner installation script with platform auto-detection
 
+[0.97.0]: https://github.com/prestonbrown/helixscreen/compare/v0.96.2...v0.97.0
 [0.96.2]: https://github.com/prestonbrown/helixscreen/compare/v0.96.1...v0.96.2
 [0.96.1]: https://github.com/prestonbrown/helixscreen/compare/v0.96.0...v0.96.1
 [0.96.0]: https://github.com/prestonbrown/helixscreen/compare/v0.95.3...v0.96.0

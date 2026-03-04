@@ -821,7 +821,6 @@ POLKIT_EOF
         elif $SUDO test -d "$pkla_dir"; then
             local pkla_dest="${pkla_dir}/helixscreen-network.pkla"
             if $SUDO tee "$pkla_dest" > /dev/null << PKLA_EOF
-# SPDX-License-Identifier: GPL-3.0-or-later
 # polkit local authority rule: allow HelixScreen service user to manage
 # NetworkManager connections (Wi-Fi connect/disconnect/scan)
 # Installed by HelixScreen for non-root service operation

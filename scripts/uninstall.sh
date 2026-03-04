@@ -782,16 +782,14 @@ install_permission_rules() {
     fi
 
     # --- NetworkManager polkit rule ---
-    local pkla_src="${INSTALL_DIR}/config/helixscreen-network.pkla"
-
-    if [ -f "$pkla_src" ] && command -v nmcli >/dev/null 2>&1; then
+    # All content is generated inline — no template files, no sed, no @@HELIX_USER@@.
+    if command -v nmcli >/dev/null 2>&1; then
         # polkit JavaScript rules for newer polkit (Debian 12+, polkit >= 0.106)
         local rules_dir="/etc/polkit-1/rules.d"
         # polkit local authority (.pkla) for older polkit (Debian 11 and similar)
         local pkla_dir="/etc/polkit-1/localauthority/50-local.d"
 
         if $SUDO test -d "$rules_dir"; then
-            # JavaScript rules format (newer polkit, Debian 12+)
             local rules_dest="${rules_dir}/50-helixscreen-network.rules"
             if $SUDO tee "$rules_dest" > /dev/null << POLKIT_EOF
 // Installed by HelixScreen — allow service user to manage NetworkManager
@@ -803,23 +801,33 @@ polkit.addRule(function(action, subject) {
 });
 POLKIT_EOF
             then
-                log_info "Installed NetworkManager polkit rule (.rules)"
+                log_info "Installed NetworkManager polkit rule (.rules for ${helix_user})"
             else
                 log_warn "Failed to install polkit rule to ${rules_dest} — Wi-Fi scanning may not work"
             fi
+            # Clean up stale .pkla from older installs / OS upgrades (Debian 11→12)
+            local stale_pkla="${pkla_dir}/helixscreen-network.pkla"
+            if $SUDO test -f "$stale_pkla" 2>/dev/null; then
+                $SUDO rm -f "$stale_pkla" 2>/dev/null || true
+                log_info "Removed stale .pkla file (superseded by .rules)"
+            fi
         elif $SUDO test -d "$pkla_dir"; then
-            # .pkla format (pklocalauthority, Debian 11 and older)
             local pkla_dest="${pkla_dir}/helixscreen-network.pkla"
-            $SUDO cp "$pkla_src" "$pkla_dest"
-            # Template the user
-            $SUDO sed -i "s|@@HELIX_USER@@|${helix_user}|g" "$pkla_dest" 2>/dev/null || \
-            $SUDO sed -i '' "s|@@HELIX_USER@@|${helix_user}|g" "$pkla_dest" 2>/dev/null || true
-            # Verify substitution succeeded
-            if $SUDO grep -q '@@HELIX_USER@@' "$pkla_dest" 2>/dev/null; then
-                log_warn "Failed to template pkla file — Wi-Fi scanning may not work as non-root"
-                log_warn "Manual fix: sudo sed -i 's|@@HELIX_USER@@|${helix_user}|g' $pkla_dest"
+            if $SUDO tee "$pkla_dest" > /dev/null << PKLA_EOF
+# polkit local authority rule: allow HelixScreen service user to manage
+# NetworkManager connections (Wi-Fi connect/disconnect/scan)
+# Installed by HelixScreen for non-root service operation
+[HelixScreen NetworkManager access]
+Identity=unix-user:${helix_user}
+Action=org.freedesktop.NetworkManager.*
+ResultAny=yes
+ResultInactive=yes
+ResultActive=yes
+PKLA_EOF
+            then
+                log_info "Installed NetworkManager polkit rule (.pkla for ${helix_user})"
             else
-                log_info "Installed NetworkManager polkit rule (.pkla)"
+                log_warn "Failed to install polkit rule to ${pkla_dest} — Wi-Fi scanning may not work"
             fi
         else
             log_warn "polkit rules directory not found — Wi-Fi may not work as non-root"
