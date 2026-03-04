@@ -2159,3 +2159,39 @@ TEST_CASE("Happy Hare: late selector_type retroactively updates topology",
     REQUIRE(info.units[0].topology == PathTopology::HUB);
     REQUIRE(info.units[0].has_encoder == false);
 }
+
+// --- Sync feedback bias parsing ---
+
+TEST_CASE("Happy Hare parses sync_feedback_bias fields", "[ams][happy_hare][v4][sync_feedback]") {
+    AmsBackendHappyHareTestHelper helper;
+    helper.initialize_test_gates(4);
+
+    SECTION("positive bias (compression)") {
+        nlohmann::json mmu_data = {{"sync_feedback_bias_modelled", 0.75f},
+                                   {"sync_feedback_bias_raw", 0.82f}};
+        helper.test_parse_mmu_state(mmu_data);
+
+        auto info = helper.get_system_info();
+        REQUIRE(info.sync_feedback_bias == Catch::Approx(0.75f));
+        REQUIRE(info.sync_feedback_bias_raw == Catch::Approx(0.82f));
+    }
+
+    SECTION("negative bias (tension)") {
+        nlohmann::json mmu_data = {{"sync_feedback_bias_modelled", -0.5f},
+                                   {"sync_feedback_bias_raw", -0.33f}};
+        helper.test_parse_mmu_state(mmu_data);
+
+        auto info = helper.get_system_info();
+        REQUIRE(info.sync_feedback_bias == Catch::Approx(-0.5f));
+        REQUIRE(info.sync_feedback_bias_raw == Catch::Approx(-0.33f));
+    }
+
+    SECTION("missing fields remain at sentinel") {
+        nlohmann::json mmu_data = {{"gate_status", {1, 1, 1, 1}}};
+        helper.test_parse_mmu_state(mmu_data);
+
+        auto info = helper.get_system_info();
+        REQUIRE(info.sync_feedback_bias == Catch::Approx(-2.0f));
+        REQUIRE(info.sync_feedback_bias_raw == Catch::Approx(-2.0f));
+    }
+}

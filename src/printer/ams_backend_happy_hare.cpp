@@ -112,6 +112,8 @@ AmsSystemInfo AmsBackendHappyHare::get_system_info() const {
     info.encoder_info = system_info_.encoder_info;
     info.flowguard_info = system_info_.flowguard_info;
     info.sync_feedback_flow_rate = system_info_.sync_feedback_flow_rate;
+    info.sync_feedback_bias = system_info_.sync_feedback_bias;
+    info.sync_feedback_bias_raw = system_info_.sync_feedback_bias_raw;
     info.toolchange_purge_volume = system_info_.toolchange_purge_volume;
 
     // Copy unit-level metadata not managed by registry
@@ -567,6 +569,24 @@ void AmsBackendHappyHare::parse_mmu_state(const nlohmann::json& mmu_data) {
     if (mmu_data.contains("sync_feedback_state") && mmu_data["sync_feedback_state"].is_string()) {
         system_info_.sync_feedback_state = mmu_data["sync_feedback_state"].get<std::string>();
         spdlog::trace("[AMS HappyHare] Sync feedback: {}", system_info_.sync_feedback_state);
+    }
+
+    // Parse sync_feedback_bias_modelled: printer.mmu.sync_feedback_bias_modelled (v4)
+    if (mmu_data.contains("sync_feedback_bias_modelled") &&
+        mmu_data["sync_feedback_bias_modelled"].is_number()) {
+        system_info_.sync_feedback_bias =
+            mmu_data["sync_feedback_bias_modelled"].get<float>();
+        spdlog::trace("[AMS HappyHare] Sync feedback bias (modelled): {:.3f}",
+                      system_info_.sync_feedback_bias);
+    }
+
+    // Parse sync_feedback_bias_raw: printer.mmu.sync_feedback_bias_raw (v4)
+    if (mmu_data.contains("sync_feedback_bias_raw") &&
+        mmu_data["sync_feedback_bias_raw"].is_number()) {
+        system_info_.sync_feedback_bias_raw =
+            mmu_data["sync_feedback_bias_raw"].get<float>();
+        spdlog::trace("[AMS HappyHare] Sync feedback bias (raw): {:.3f}",
+                      system_info_.sync_feedback_bias_raw);
     }
 
     // Parse sync_drive: printer.mmu.sync_drive (v4)
