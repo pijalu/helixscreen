@@ -49,6 +49,8 @@
             <lv_image name="detail_logo" width="#ams_logo_size" height="#ams_logo_size" inner_align="contain"/>
             <text_body name="detail_unit_name" text=""/>
           </lv_obj>
+          <!-- Dryer Info Bar - temp/humidity display above AMS visualization -->
+          <ams_dryer_info_bar name="dryer_info_bar"/>
           <!-- Slot grid card (populated dynamically with ams_slot widgets) -->
           <ui_card name="detail_unit_card"
                    width="100%" height="content" style_radius="4" style_pad_all="#space_sm"

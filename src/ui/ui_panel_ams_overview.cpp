@@ -916,6 +916,7 @@ static void ensure_overview_registered() {
     lv_xml_register_component_from_file("A:ui_xml/ams_unit_card.xml");
     lv_xml_register_component_from_file("A:ui_xml/ams_dryer_card.xml");
     lv_xml_register_component_from_file("A:ui_xml/dryer_presets_modal.xml");
+    lv_xml_register_component_from_file("A:ui_xml/components/ams_dryer_info_bar.xml");
     lv_xml_register_component_from_file("A:ui_xml/components/ams_sidebar.xml");
     lv_xml_register_component_from_file("A:ui_xml/ams_overview_panel.xml");
 
