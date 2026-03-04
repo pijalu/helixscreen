@@ -172,7 +172,7 @@ void MoonrakerManager::process_notifications() {
     std::lock_guard<std::mutex> lock(m_notification_mutex);
 
     while (!m_notification_queue.empty()) {
-        json notification = m_notification_queue.front();
+        json notification = std::move(m_notification_queue.front());
         m_notification_queue.pop();
 
         // Check for connection state change (queued from state_change_callback)
@@ -206,15 +206,13 @@ void MoonrakerManager::process_notifications() {
                 }
             }
         } else {
-            // Regular Moonraker notification
-            get_printer_state().update_from_notification(notification);
-
-            // Forward status updates to ToolState for tool changer tracking
+            // Regular Moonraker notification — extract status and update directly
             if (notification.contains("method") && notification.contains("params")) {
-                const auto& method = notification["method"];
-                if (method.is_string() && method.get<std::string>() == "notify_status_update") {
-                    const auto& params = notification["params"];
+                const auto& method_str = notification["method"];
+                if (method_str.is_string() && method_str.get<std::string>() == "notify_status_update") {
+                    auto& params = notification["params"];
                     if (params.is_array() && !params.empty()) {
+                        get_printer_state().update_from_status(params[0]);
                         helix::ToolState::instance().update_from_status(params[0]);
                     }
                 }
@@ -354,7 +352,7 @@ void MoonrakerManager::register_callbacks() {
         });
 
     // Register notification callback to queue updates for main thread
-    m_client->register_notify_update([this, alive](json notification) {
+    m_client->register_notify_update([this, alive](const json& notification) {
         if (!alive->load())
             return;
 

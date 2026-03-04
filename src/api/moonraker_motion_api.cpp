@@ -309,7 +309,7 @@ void MoonrakerMotionAPI::execute_gcode(const std::string& gcode, SuccessCallback
     spdlog::trace("[Motion API] Executing G-code: {}", annotated);
 
     // Guard: only wrap on_success in lambda if non-null, otherwise pass nullptr.
-    std::function<void(json)> success_wrapper;
+    std::function<void(const json&)> success_wrapper;
     if (on_success) {
         success_wrapper = [on_success](json) { on_success(); };
     }

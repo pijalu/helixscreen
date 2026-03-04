@@ -413,7 +413,7 @@ TEST_CASE_METHOD(MoonrakerClientSecurityFixture,
         bool callback_invoked = false;
 
         // Register notify callback that throws
-        client->register_notify_update([&callback_invoked](json notification) {
+        client->register_notify_update([&callback_invoked](const json& notification) {
             callback_invoked = true;
             throw std::runtime_error("Test exception in notify callback");
         });
@@ -428,7 +428,7 @@ TEST_CASE_METHOD(MoonrakerClientSecurityFixture,
 
         // Register method callback that throws
         client->register_method_callback(
-            "notify_gcode_response", "test_handler", [&callback_invoked](json notification) {
+            "notify_gcode_response", "test_handler", [&callback_invoked](const json& notification) {
                 callback_invoked = true;
                 throw std::runtime_error("Test exception in method callback");
             });

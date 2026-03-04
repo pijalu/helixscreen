@@ -162,7 +162,7 @@ std::string MoonrakerAPI::get_websocket_url() const {
     return client_.get_last_url();
 }
 
-SubscriptionId MoonrakerAPI::subscribe_notifications(std::function<void(json)> callback) {
+SubscriptionId MoonrakerAPI::subscribe_notifications(std::function<void(const json&)> callback) {
     return client_.register_notify_update(std::move(callback));
 }
 
@@ -175,7 +175,7 @@ std::weak_ptr<bool> MoonrakerAPI::client_lifetime_weak() const {
 }
 
 void MoonrakerAPI::register_method_callback(const std::string& method, const std::string& name,
-                                            std::function<void(json)> callback) {
+                                            std::function<void(const json&)> callback) {
     client_.register_method_callback(method, name, std::move(callback));
 }
 

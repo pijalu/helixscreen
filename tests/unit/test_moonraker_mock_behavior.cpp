@@ -130,8 +130,8 @@ class MockBehaviorTestFixture {
     /**
      * @brief Create a callback that captures notifications
      */
-    std::function<void(json)> create_capture_callback() {
-        return [this](json notification) {
+    std::function<void(const json&)> create_capture_callback() {
+        return [this](const json& notification) {
             {
                 std::lock_guard<std::mutex> lock(mutex_);
                 notifications_.push_back(notification);

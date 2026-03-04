@@ -400,7 +400,7 @@ int MoonrakerClient::connect(const char* url, std::function<void()> on_connected
                 std::string method = j["method"].get<std::string>();
 
                 // Copy callbacks to invoke (to avoid holding lock during callback execution)
-                std::vector<std::function<void(json)>> callbacks_to_invoke;
+                std::vector<std::function<void(const json&)>> callbacks_to_invoke;
 
                 {
                     std::lock_guard<std::mutex> lock(callbacks_mutex_);
@@ -610,7 +610,7 @@ int MoonrakerClient::connect(const char* url, std::function<void()> on_connected
     return open(url, headers);
 }
 
-SubscriptionId MoonrakerClient::register_notify_update(std::function<void(json)> cb) {
+SubscriptionId MoonrakerClient::register_notify_update(std::function<void(const json&)> cb) {
     if (!cb) {
         spdlog::warn("[Moonraker Client] register_notify_update called with null callback");
         return INVALID_SUBSCRIPTION_ID;
@@ -714,7 +714,7 @@ void MoonrakerClient::dispatch_status_update(const json& status) {
 
     // Dispatch to all registered callbacks
     // Two-phase: copy under lock, invoke outside to avoid deadlock
-    std::vector<std::function<void(json)>> callbacks_copy;
+    std::vector<std::function<void(const json&)>> callbacks_copy;
     {
         std::lock_guard<std::mutex> lock(callbacks_mutex_);
         callbacks_copy.reserve(notify_callbacks_.size());
@@ -736,13 +736,13 @@ void MoonrakerClient::dispatch_status_update(const json& status) {
 
 void MoonrakerClient::register_method_callback(const std::string& method,
                                                const std::string& handler_name,
-                                               std::function<void(json)> cb) {
+                                               std::function<void(const json&)> cb) {
     std::lock_guard<std::mutex> lock(callbacks_mutex_);
     auto it = method_callbacks_.find(method);
     if (it == method_callbacks_.end()) {
         spdlog::debug("[Moonraker Client] Registering new method callback: {} (handler: {})",
                       method, handler_name);
-        std::map<std::string, std::function<void(json)>> handlers;
+        std::map<std::string, std::function<void(const json&)>> handlers;
         handlers.insert({handler_name, cb});
         method_callbacks_.insert({method, handlers});
     } else {
@@ -796,13 +796,13 @@ int MoonrakerClient::send_jsonrpc(const std::string& method, const json& params)
 }
 
 RequestId MoonrakerClient::send_jsonrpc(const std::string& method, const json& params,
-                                        std::function<void(json)> cb) {
+                                        std::function<void(const json&)> cb) {
     // Forward to new overload with null error callback
     return send_jsonrpc(method, params, cb, nullptr, 0);
 }
 
 RequestId MoonrakerClient::send_jsonrpc(const std::string& method, const json& params,
-                                        std::function<void(json)> success_cb,
+                                        std::function<void(const json&)> success_cb,
                                         std::function<void(const MoonrakerError&)> error_cb,
                                         uint32_t timeout_ms, bool silent) {
     return tracker_.send(*this, method, params, success_cb, error_cb, timeout_ms, silent);

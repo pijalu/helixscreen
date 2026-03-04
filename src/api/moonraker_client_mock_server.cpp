@@ -11,7 +11,7 @@ void register_server_handlers(std::unordered_map<std::string, MethodHandler>& re
     // server.connection.identify - Identify client to Moonraker for notifications
     // https://moonraker.readthedocs.io/en/latest/web_api/#identify-connection
     registry["server.connection.identify"] =
-        [](MoonrakerClientMock* /*self*/, const json& params, std::function<void(json)> success_cb,
+        [](MoonrakerClientMock* /*self*/, const json& params, std::function<void(const json&)> success_cb,
            std::function<void(const MoonrakerError&)> /*error_cb*/) -> bool {
         // Log the identification for debugging
         std::string client_name = params.value("client_name", "unknown");
@@ -36,7 +36,7 @@ void register_server_handlers(std::unordered_map<std::string, MethodHandler>& re
     // server.info - Get Moonraker server information
     // https://moonraker.readthedocs.io/en/latest/web_api/#get-server-info
     registry["server.info"] = [](MoonrakerClientMock* self, const json& /*params*/,
-                                 std::function<void(json)> success_cb,
+                                 std::function<void(const json&)> success_cb,
                                  std::function<void(const MoonrakerError&)> /*error_cb*/) -> bool {
         // Map KlippyState enum to string
         std::string klippy_state_str;
@@ -87,7 +87,7 @@ void register_server_handlers(std::unordered_map<std::string, MethodHandler>& re
     // printer.info - Get Klipper printer information
     // https://moonraker.readthedocs.io/en/latest/web_api/#get-printer-info
     registry["printer.info"] = [](MoonrakerClientMock* self, const json& /*params*/,
-                                  std::function<void(json)> success_cb,
+                                  std::function<void(const json&)> success_cb,
                                   std::function<void(const MoonrakerError&)> /*error_cb*/) -> bool {
         // Map KlippyState enum to string and state message
         std::string state_str;
@@ -139,7 +139,7 @@ void register_server_handlers(std::unordered_map<std::string, MethodHandler>& re
     // https://moonraker.readthedocs.io/en/latest/web_api/#get-system-info
     registry["machine.system_info"] =
         [](MoonrakerClientMock* /*self*/, const json& /*params*/,
-           std::function<void(json)> success_cb,
+           std::function<void(const json&)> success_cb,
            std::function<void(const MoonrakerError&)> /*error_cb*/) -> bool {
         spdlog::debug("[MoonrakerClientMock] machine.system_info");
 

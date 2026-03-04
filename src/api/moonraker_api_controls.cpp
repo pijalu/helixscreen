@@ -338,7 +338,7 @@ void MoonrakerAPI::execute_gcode(const std::string& gcode, SuccessCallback on_su
     // Guard: only wrap on_success in lambda if non-null, otherwise pass nullptr.
     // A lambda wrapping a null std::function would bypass send_jsonrpc's null check
     // and throw bad_function_call when invoked.
-    std::function<void(json)> success_wrapper;
+    std::function<void(const json&)> success_wrapper;
     if (on_success) {
         success_wrapper = [on_success](json) { on_success(); };
     }

@@ -18,7 +18,7 @@
 struct PendingRequest {
     uint64_t id;        ///< JSON-RPC request ID
     std::string method; ///< Method name for logging
-    std::function<void(json)>
+    std::function<void(const json&)>
         success_callback; ///< Success callback (pass-by-value for thread safety)
     std::function<void(const MoonrakerError&)> error_callback; ///< Error callback (optional)
     std::chrono::steady_clock::time_point timestamp;           ///< When request was sent

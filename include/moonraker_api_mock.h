@@ -425,10 +425,10 @@ class MoonrakerAPIMock : public MoonrakerAPI {
     // Overridden Connection/Subscription/Database Proxies (no-ops for mock)
     // ========================================================================
 
-    helix::SubscriptionId subscribe_notifications(std::function<void(json)> callback) override;
+    helix::SubscriptionId subscribe_notifications(std::function<void(const json&)> callback) override;
     bool unsubscribe_notifications(helix::SubscriptionId id) override;
     void register_method_callback(const std::string& method, const std::string& name,
-                                  std::function<void(json)> callback) override;
+                                  std::function<void(const json&)> callback) override;
     bool unregister_method_callback(const std::string& method, const std::string& name) override;
     void suppress_disconnect_modal(uint32_t duration_ms) override;
     void get_gcode_store(int count,

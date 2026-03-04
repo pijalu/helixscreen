@@ -766,6 +766,7 @@ void AmsBackendAfc::parse_afc_state(const nlohmann::json& afc_data,
     // Extract hub names from AFC.hubs array
     if (afc_data.contains("hubs") && afc_data["hubs"].is_array()) {
         hub_names_.clear();
+        hub_sensors_.clear();
         for (const auto& hub : afc_data["hubs"]) {
             if (hub.is_string()) {
                 hub_names_.push_back(hub.get<std::string>());

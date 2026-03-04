@@ -424,14 +424,6 @@ void PrinterState::update_from_status(const json& state) {
     helix::sensors::ColorSensorManager::instance().update_from_status(state);
     helix::sensors::TemperatureSensorManager::instance().update_from_status(state);
 
-    // Cache full state for complex queries
-    // (already under state_mutex_ from top of function)
-    json_state_.merge_patch(state);
-}
-
-json PrinterState::get_json_state() {
-    std::lock_guard<std::mutex> lock(state_mutex_);
-    return json_state_;
 }
 
 void PrinterState::reset_for_new_print() {

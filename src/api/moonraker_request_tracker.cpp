@@ -16,7 +16,7 @@
 namespace helix {
 
 RequestId MoonrakerRequestTracker::send(hv::WebSocketClient& ws, const std::string& method,
-                                        const json& params, std::function<void(json)> success_cb,
+                                        const json& params, std::function<void(const json&)> success_cb,
                                         std::function<void(const MoonrakerError&)> error_cb,
                                         uint32_t timeout_ms, bool silent) {
     // Atomically fetch and increment to avoid race condition in concurrent calls
@@ -132,7 +132,7 @@ bool MoonrakerRequestTracker::route_response(
     spdlog::trace("[Request Tracker] Got response for id={}", id);
 
     // Copy callbacks out before invoking to avoid deadlock
-    std::function<void(json)> success_cb;
+    std::function<void(const json&)> success_cb;
     std::function<void(const MoonrakerError&)> error_cb;
     std::string method_name;
     bool has_error = false;

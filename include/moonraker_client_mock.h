@@ -26,7 +26,7 @@ class MoonrakerClientMock;
 // Forward declaration for internal handler registry
 namespace mock_internal {
 using MethodHandler =
-    std::function<bool(MoonrakerClientMock*, const json&, std::function<void(json)>,
+    std::function<bool(MoonrakerClientMock*, const json&, std::function<void(const json&)>,
                        std::function<void(const MoonrakerError&)>)>;
 } // namespace mock_internal
 
@@ -313,7 +313,7 @@ class MoonrakerClientMock : public helix::MoonrakerClient {
      * @return Always returns 0 (success)
      */
     helix::RequestId send_jsonrpc(const std::string& method, const json& params,
-                                  std::function<void(json)> cb) override;
+                                  std::function<void(const json&)> cb) override;
 
     /**
      * @brief Simulate JSON-RPC request with success/error callbacks
@@ -329,7 +329,7 @@ class MoonrakerClientMock : public helix::MoonrakerClient {
      * @return Always returns 0 (success)
      */
     helix::RequestId send_jsonrpc(const std::string& method, const json& params,
-                                  std::function<void(json)> success_cb,
+                                  std::function<void(const json&)> success_cb,
                                   std::function<void(const MoonrakerError&)> error_cb,
                                   uint32_t timeout_ms = 0, bool silent = false) override;
 

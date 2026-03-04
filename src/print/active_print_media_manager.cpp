@@ -202,6 +202,17 @@ void ActivePrintMediaManager::load_thumbnail_for_file(const std::string& filenam
                               metadata.layer_count);
             }
 
+            // Store slicer's estimated print time for remaining time fallback
+            if (metadata.estimated_time > 0) {
+                int est_time = static_cast<int>(metadata.estimated_time);
+                PrinterState* state = &printer_state_;
+                helix::ui::queue_update<int>(
+                    std::make_unique<int>(est_time),
+                    [state](int* seconds) { state->set_estimated_print_time(*seconds); });
+                spdlog::debug("[ActivePrintMediaManager] Set estimated print time from metadata: {}s",
+                              metadata.estimated_time);
+            }
+
             // Get the largest thumbnail available
             std::string thumbnail_rel_path = metadata.get_largest_thumbnail();
             if (thumbnail_rel_path.empty()) {
@@ -211,16 +222,17 @@ void ActivePrintMediaManager::load_thumbnail_for_file(const std::string& filenam
 
             spdlog::debug("[ActivePrintMediaManager] Found thumbnail: {}", thumbnail_rel_path);
 
-            // Use semantic API for card-sized thumbnails (HomePanel status card)
+            // Use detail-sized thumbnails (200-400px) — works for both card and detail views
+            // since LVGL scales down efficiently
             ThumbnailLoadContext ctx;
             ctx.alive = alive_;
             ctx.generation = nullptr; // Using manual gen check below
             ctx.captured_gen = current_gen;
 
-            get_thumbnail_cache().fetch_for_card_view(
+            get_thumbnail_cache().fetch_for_detail_view(
                 api_, thumbnail_rel_path, ctx,
                 [this, current_gen](const std::string& lvgl_path) {
-                    // Note: alive check is done by fetch_for_card_view's guard.
+                    // Note: alive check is done by fetch_for_detail_view's guard.
                     // We still need generation check since we passed nullptr for generation.
                     if (current_gen != thumbnail_load_generation_) {
                         spdlog::trace(

@@ -36,7 +36,7 @@ void register_queue_handlers(std::unordered_map<std::string, MethodHandler>& reg
     // server.job_queue.status — return current mock queue state
     registry["server.job_queue.status"] =
         []([[maybe_unused]] MoonrakerClientMock* self, [[maybe_unused]] const json& params,
-           std::function<void(json)> success_cb,
+           std::function<void(const json&)> success_cb,
            [[maybe_unused]] std::function<void(const MoonrakerError&)> error_cb) -> bool {
         s_mock_queue.ensure_initialized();
 
@@ -64,7 +64,7 @@ void register_queue_handlers(std::unordered_map<std::string, MethodHandler>& reg
     // server.job_queue.start — start processing queue
     registry["server.job_queue.start"] =
         []([[maybe_unused]] MoonrakerClientMock* self, [[maybe_unused]] const json& params,
-           std::function<void(json)> success_cb,
+           std::function<void(const json&)> success_cb,
            [[maybe_unused]] std::function<void(const MoonrakerError&)> error_cb) -> bool {
         s_mock_queue.queue_state = "ready";
         spdlog::info("[MoonrakerClientMock] Job queue started");
@@ -77,7 +77,7 @@ void register_queue_handlers(std::unordered_map<std::string, MethodHandler>& reg
     // server.job_queue.pause — pause queue processing
     registry["server.job_queue.pause"] =
         []([[maybe_unused]] MoonrakerClientMock* self, [[maybe_unused]] const json& params,
-           std::function<void(json)> success_cb,
+           std::function<void(const json&)> success_cb,
            [[maybe_unused]] std::function<void(const MoonrakerError&)> error_cb) -> bool {
         s_mock_queue.queue_state = "paused";
         spdlog::info("[MoonrakerClientMock] Job queue paused");
@@ -90,7 +90,7 @@ void register_queue_handlers(std::unordered_map<std::string, MethodHandler>& reg
     // server.job_queue.post_job — add job(s) to queue
     registry["server.job_queue.post_job"] =
         []([[maybe_unused]] MoonrakerClientMock* self, const json& params,
-           std::function<void(json)> success_cb,
+           std::function<void(const json&)> success_cb,
            [[maybe_unused]] std::function<void(const MoonrakerError&)> error_cb) -> bool {
         s_mock_queue.ensure_initialized();
         if (params.contains("filenames")) {
@@ -112,7 +112,7 @@ void register_queue_handlers(std::unordered_map<std::string, MethodHandler>& reg
     // server.job_queue.delete_job — remove job(s) from queue
     registry["server.job_queue.delete_job"] =
         []([[maybe_unused]] MoonrakerClientMock* self, const json& params,
-           std::function<void(json)> success_cb,
+           std::function<void(const json&)> success_cb,
            [[maybe_unused]] std::function<void(const MoonrakerError&)> error_cb) -> bool {
         s_mock_queue.ensure_initialized();
         if (params.contains("job_ids")) {

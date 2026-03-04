@@ -39,8 +39,6 @@
 #include "standard_macros.h"
 #include "static_panel_registry.h"
 #include "theme_manager.h"
-#include "thumbnail_cache.h"
-#include "thumbnail_processor.h"
 #include "tool_state.h"
 #include "wizard_config_paths.h"
 
@@ -105,6 +103,20 @@ PrintStatusPanel::PrintStatusPanel(PrinterState& printer_state, MoonrakerAPI* ap
         observe_string<PrintStatusPanel>(printer_state_.get_print_filename_subject(), this,
                                          [](PrintStatusPanel* self, const char* filename) {
                                              self->on_print_filename_changed(filename);
+                                         });
+
+    // Observe thumbnail path from ActivePrintMediaManager
+    thumbnail_path_observer_ =
+        observe_string<PrintStatusPanel>(printer_state_.get_print_thumbnail_path_subject(), this,
+                                         [](PrintStatusPanel* self, const char* path) {
+                                             if (path && path[0] != '\0') {
+                                                 self->cached_thumbnail_path_ = path;
+                                                 if (self->print_thumbnail_) {
+                                                     lv_image_set_src(self->print_thumbnail_, path);
+                                                     spdlog::debug("[{}] Thumbnail updated via observer: {}",
+                                                                   self->get_name(), path);
+                                                 }
+                                             }
                                          });
 
     // Subscribe to speed/flow factors
@@ -652,12 +664,10 @@ void PrintStatusPanel::on_ui_destroyed() {
     resize_registered_ = false;
     is_active_ = false;
     gcode_loaded_ = false;
-    // Clear dedup guards so thumbnail + gcode reload isn't blocked on next open.
-    // loaded_thumbnail_filename_ gates the outer set_filename() idempotency check;
-    // requested_gcode_filename_ gates the inner gcode download dedup;
+    // Clear dedup guards so gcode reload isn't blocked on next open.
+    // requested_gcode_filename_ gates the gcode download dedup;
     // pending_gcode_filename_ would cause a redundant load in on_activate() if stale.
-    // All must be cleared or reopen after destroy-on-close silently skips all reloads.
-    loaded_thumbnail_filename_.clear();
+    // Both must be cleared or reopen after destroy-on-close silently skips all reloads.
     requested_gcode_filename_.clear();
     pending_gcode_filename_.clear();
 }
@@ -1312,11 +1322,10 @@ void PrintStatusPanel::on_print_state_changed(PrintJobState job_state) {
 
     // Clear thumbnail and G-code tracking when print ends
     if (result.print_ended) {
-        if (!thumbnail_source_filename_.empty() || !loaded_thumbnail_filename_.empty() ||
+        if (!thumbnail_source_filename_.empty() ||
             gcode_loaded_ || !temp_gcode_path_.empty() || !pending_gcode_filename_.empty()) {
-            spdlog::debug("[{}] Clearing thumbnail/gcode tracking (print ended)", get_name());
+            spdlog::debug("[{}] Clearing gcode tracking (print ended)", get_name());
             thumbnail_source_filename_.clear();
-            loaded_thumbnail_filename_.clear();
             cached_thumbnail_path_.clear();
             pending_gcode_filename_.clear();
             requested_gcode_filename_.clear();
@@ -1604,7 +1613,6 @@ void PrintStatusPanel::on_print_start_phase_changed(int phase) {
             lv_image_set_src(print_thumbnail_, nullptr);
         }
         cached_thumbnail_path_.clear();
-        loaded_thumbnail_filename_.clear();
         requested_gcode_filename_.clear();
         if (progress_bar_) {
             lv_bar_set_value(progress_bar_, 0, LV_ANIM_OFF);
@@ -1870,145 +1878,8 @@ void PrintStatusPanel::animate_print_error() {
 // See get_print_tune_overlay() and handle_*() methods in ui_print_tune_overlay.cpp
 // XML callbacks are registered in ui_print_tune_overlay.cpp on first show()
 
-// ============================================================================
-// THUMBNAIL LOADING
-// ============================================================================
-
-void PrintStatusPanel::load_thumbnail_for_file(const std::string& filename) {
-    // Increment generation to invalidate any in-flight async operations
-    ++thumbnail_load_generation_;
-    uint32_t current_gen = thumbnail_load_generation_;
-
-    // If we already have a directly-set thumbnail path, don't overwrite it.
-    // This happens when PrintStartController sets the path from a pre-extracted
-    // USB thumbnail before the filename observer fires.
-    const char* current_thumb =
-        lv_subject_get_string(get_printer_state().get_print_thumbnail_path_subject());
-    if (current_thumb && current_thumb[0] != '\0') {
-        spdlog::debug("[{}] Thumbnail already set ({}), skipping API lookup", get_name(),
-                      current_thumb);
-        // Update local cache so on_activate() can restore it
-        cached_thumbnail_path_ = current_thumb;
-        if (print_thumbnail_) {
-            lv_image_set_src(print_thumbnail_, current_thumb);
-        }
-        return;
-    }
-
-    // Skip if no API available (e.g., in mock mode)
-    if (!api_) {
-        spdlog::debug("[{}] No API available - skipping thumbnail load", get_name());
-        return;
-    }
-
-    // Note: We intentionally do NOT skip if print_thumbnail_ is null.
-    // The thumbnail must still be fetched and cached so that:
-    // 1. The shared print_thumbnail_path is set for HomePanel to use
-    // 2. The thumbnail is ready when PrintStatusPanel is later displayed
-    // The lv_image_set_src() call is guarded separately below.
-
-    // Resolve to original filename if this is a modified temp file
-    // (Moonraker only has metadata for original files, not modified copies)
-    std::string metadata_filename = resolve_gcode_filename(filename);
-
-    // Capture alive flag for shutdown safety [L012]
-    auto alive = m_alive;
-
-    // First, get file metadata to find thumbnail path
-    api_->files().get_file_metadata(
-        metadata_filename,
-        [this, alive, current_gen](const FileMetadata& metadata) {
-            // Abort if panel was destroyed during async operation
-            if (!alive->load()) {
-                return;
-            }
-            // Check if this callback is still relevant
-            if (current_gen != thumbnail_load_generation_) {
-                spdlog::trace("[{}] Stale metadata callback (gen {} != {}), ignoring", get_name(),
-                              current_gen, thumbnail_load_generation_);
-                return;
-            }
-
-            // Note: Layer count from metadata is now set by ActivePrintMediaManager
-
-            // Store slicer's estimated print time for remaining time fallback
-            if (metadata.estimated_time > 0) {
-                get_printer_state().set_estimated_print_time(
-                    static_cast<int>(metadata.estimated_time));
-            }
-
-            // Get the largest thumbnail available
-            std::string thumbnail_rel_path = metadata.get_largest_thumbnail();
-            if (thumbnail_rel_path.empty()) {
-                spdlog::debug("[{}] No thumbnail available in metadata", get_name());
-                return;
-            }
-
-            spdlog::debug("[{}] Found thumbnail: {}", get_name(), thumbnail_rel_path);
-
-            // Note: We intentionally do NOT invalidate the cache here.
-            // PrintSelectPanel already handles file modification detection and cache
-            // invalidation when files are re-uploaded. Aggressive invalidation here
-            // causes a race condition where Print Status deletes thumbnails that
-            // Print Select just cached, resulting in placeholder thumbnails.
-
-            // Use fetch_for_detail_view() for full-resolution PNG (not pre-scaled .bin)
-            // The semantic API ensures we always get the right format for large views.
-            // Create context with captured generation for validity checking.
-            ThumbnailLoadContext ctx;
-            ctx.alive = alive;
-            ctx.generation = nullptr; // Using manual gen check below
-            ctx.captured_gen = current_gen;
-
-            get_thumbnail_cache().fetch_for_detail_view(
-                api_, thumbnail_rel_path, ctx,
-                [this, current_gen, alive](const std::string& lvgl_path) {
-                    // Note: alive check is done by fetch_for_detail_view's guard.
-                    // We still need generation check since we passed nullptr for generation.
-                    if (current_gen != thumbnail_load_generation_) {
-                        spdlog::trace("[{}] Stale thumbnail callback (gen {} != {}), ignoring",
-                                      get_name(), current_gen, thumbnail_load_generation_);
-                        return;
-                    }
-
-                    // Store the cached path (without "A:" prefix for internal use)
-                    cached_thumbnail_path_ = lvgl_path;
-
-                    // Defer LVGL calls to main thread — this callback runs on the
-                    // WebSocket/libhv background thread (prestonbrown/helixscreen#192)
-                    helix::ui::queue_update([this, alive_ref = alive, lvgl_path, current_gen]() {
-                        if (!alive_ref->load()) {
-                            return;
-                        }
-                        if (current_gen != thumbnail_load_generation_) {
-                            return;
-                        }
-
-                        get_printer_state().set_print_thumbnail_path(lvgl_path);
-
-                        if (print_thumbnail_) {
-                            lv_image_set_src(print_thumbnail_, lvgl_path.c_str());
-                            spdlog::info("[{}] Thumbnail loaded and displayed: {}", get_name(),
-                                         lvgl_path);
-                        } else {
-                            spdlog::info("[{}] Thumbnail cached (panel not yet displayed): {}",
-                                         get_name(), lvgl_path);
-                        }
-                    });
-                },
-                [this](const std::string& error) {
-                    spdlog::warn("[{}] Failed to fetch thumbnail: {}", get_name(), error);
-                });
-        },
-        [this, alive](const MoonrakerError& err) {
-            if (!alive->load()) {
-                return;
-            }
-            spdlog::debug("[{}] Failed to get file metadata: {}", get_name(), err.message);
-        },
-        true // silent - don't trigger RPC_ERROR event/toast
-    );
-}
+// NOTE: Thumbnail loading is now handled by ActivePrintMediaManager.
+// PrintStatusPanel observes the thumbnail path subject via thumbnail_path_observer_.
 
 // ============================================================================
 // G-CODE VIEWER LOADING
@@ -2200,36 +2071,21 @@ void PrintStatusPanel::set_filename(const char* filename) {
     // Note: Display filename is now handled by ActivePrintMediaManager
     // PrintStatusPanel only needs to load local resources (gcode viewer, local thumbnail)
 
-    // Load thumbnail ONLY if effective filename changed (makes this function idempotent)
-    // This prevents redundant loads when observer fires repeatedly with same filename
-    if (!effective_filename.empty() && effective_filename != loaded_thumbnail_filename_) {
-        // Clear stale cached thumbnail from previous print
-        cached_thumbnail_path_.clear();
-        spdlog::debug("[{}] Loading thumbnail for: {}", get_name(), effective_filename);
-        load_thumbnail_for_file(effective_filename);
+    // NOTE: Thumbnail loading is now handled by ActivePrintMediaManager.
+    // PrintStatusPanel observes the thumbnail path subject via thumbnail_path_observer_.
 
-        // G-code loading: deduplicate to avoid redundant expensive downloads.
-        // Multiple observers can fire in rapid succession (filename changed,
-        // thumbnail source set) causing set_filename() to be called several
-        // times with the same effective filename before the async download
-        // completes. requested_gcode_filename_ tracks what we've already
-        // requested, preventing duplicate loads.
-        if (effective_filename != requested_gcode_filename_) {
-            requested_gcode_filename_ = effective_filename;
-            if (is_active_) {
-                spdlog::debug("[{}] Panel active, loading G-code immediately: {}", get_name(),
-                              effective_filename);
-                load_gcode_for_viewing(effective_filename);
-                pending_gcode_filename_.clear();
-            } else {
-                // Panel not visible - defer to on_activate()
-                pending_gcode_filename_ = effective_filename;
-            }
-        } else {
-            spdlog::debug("[{}] Skipping duplicate G-code load request for: {}", get_name(),
+    // G-code loading: deduplicate to avoid redundant expensive downloads.
+    if (!effective_filename.empty() && effective_filename != requested_gcode_filename_) {
+        requested_gcode_filename_ = effective_filename;
+        if (is_active_) {
+            spdlog::debug("[{}] Panel active, loading G-code immediately: {}", get_name(),
                           effective_filename);
+            load_gcode_for_viewing(effective_filename);
+            pending_gcode_filename_.clear();
+        } else {
+            // Panel not visible - defer to on_activate()
+            pending_gcode_filename_ = effective_filename;
         }
-        loaded_thumbnail_filename_ = effective_filename;
     }
 }
 
@@ -2249,12 +2105,12 @@ void PrintStatusPanel::set_thumbnail_source(const std::string& filename) {
         set_filename(current_print_filename_.c_str());
     } else if (!filename.empty()) {
         // WebSocket hasn't updated current_print_filename_ yet (race condition).
-        // Clear loaded filename so when on_print_filename_changed() eventually
-        // fires and calls set_filename(), the idempotency check will pass and
-        // trigger the actual thumbnail/gcode load.
-        loaded_thumbnail_filename_.clear();
+        // Clear requested gcode filename so when on_print_filename_changed() eventually
+        // fires and calls set_filename(), the dedup check will pass and
+        // trigger the actual gcode load.
+        requested_gcode_filename_.clear();
         spdlog::debug(
-            "[{}] Source set before WebSocket, cleared loaded filename for deferred reload",
+            "[{}] Source set before WebSocket, cleared requested gcode filename for deferred reload",
             get_name());
     }
 }

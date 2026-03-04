@@ -18,7 +18,7 @@ void register_object_handlers(std::unordered_map<std::string, MethodHandler>& re
     // printer.objects.list - List available printer objects
     // When Klippy is in STARTUP or ERROR state, Klipper returns JSON-RPC error -32601
     registry["printer.objects.list"] =
-        [](MoonrakerClientMock* self, const json& /*params*/, std::function<void(json)> success_cb,
+        [](MoonrakerClientMock* self, const json& /*params*/, std::function<void(const json&)> success_cb,
            std::function<void(const MoonrakerError&)> error_cb) -> bool {
         auto klippy = self->get_klippy_state();
 
@@ -56,7 +56,7 @@ void register_object_handlers(std::unordered_map<std::string, MethodHandler>& re
 
     // printer.objects.query - Query printer object state
     registry["printer.objects.query"] =
-        [](MoonrakerClientMock* self, const json& params, std::function<void(json)> success_cb,
+        [](MoonrakerClientMock* self, const json& params, std::function<void(const json&)> success_cb,
            std::function<void(const MoonrakerError&)> error_cb) -> bool {
         (void)error_cb;
         json status_obj = json::object();
@@ -278,7 +278,7 @@ void register_object_handlers(std::unordered_map<std::string, MethodHandler>& re
     // printer.objects.subscribe - Subscribe to printer object updates
     // Returns initial state with eventtime (subsequent updates come via notify_status_update)
     registry["printer.objects.subscribe"] =
-        [](MoonrakerClientMock* self, const json& params, std::function<void(json)> success_cb,
+        [](MoonrakerClientMock* self, const json& params, std::function<void(const json&)> success_cb,
            std::function<void(const MoonrakerError&)> error_cb) -> bool {
         (void)error_cb;
 

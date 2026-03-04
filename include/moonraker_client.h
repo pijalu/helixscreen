@@ -177,7 +177,7 @@ class MoonrakerClient : public hv::WebSocketClient {
      * @param cb Callback function receiving parsed JSON notification
      * @return Subscription ID for later unsubscription (0 = invalid/failed)
      */
-    SubscriptionId register_notify_update(std::function<void(json)> cb);
+    SubscriptionId register_notify_update(std::function<void(const json&)> cb);
 
     /**
      * @brief Unsubscribe from status update notifications
@@ -201,7 +201,7 @@ class MoonrakerClient : public hv::WebSocketClient {
      * @param cb Callback function receiving parsed JSON notification
      */
     void register_method_callback(const std::string& method, const std::string& handler_name,
-                                  std::function<void(json)> cb);
+                                  std::function<void(const json&)> cb);
 
     /**
      * @brief Unregister a method callback by handler name
@@ -251,7 +251,7 @@ class MoonrakerClient : public hv::WebSocketClient {
      * @return Request ID for cancellation, or INVALID_REQUEST_ID on error
      */
     virtual RequestId send_jsonrpc(const std::string& method, const json& params,
-                                   std::function<void(json)> cb);
+                                   std::function<void(const json&)> cb);
 
     /**
      * @brief Send JSON-RPC request with success and error callbacks
@@ -267,7 +267,7 @@ class MoonrakerClient : public hv::WebSocketClient {
      * @return Request ID for cancellation, or INVALID_REQUEST_ID on error
      */
     virtual RequestId send_jsonrpc(const std::string& method, const json& params,
-                                   std::function<void(json)> success_cb,
+                                   std::function<void(const json&)> success_cb,
                                    std::function<void(const MoonrakerError&)> error_cb,
                                    uint32_t timeout_ms = 0, bool silent = false);
 
@@ -604,13 +604,13 @@ class MoonrakerClient : public hv::WebSocketClient {
 
     // Notification callbacks (protected to allow mock to trigger notifications)
     // Map of subscription ID -> callback for O(1) unsubscription
-    std::map<SubscriptionId, std::function<void(json)>> notify_callbacks_;
+    std::map<SubscriptionId, std::function<void(const json&)>> notify_callbacks_;
     std::atomic<SubscriptionId> next_subscription_id_{1}; // Start at 1 (0 = invalid)
     std::mutex callbacks_mutex_; // Protect notify_callbacks_ and method_callbacks_
 
     // Persistent method-specific callbacks (protected to allow mock to dispatch)
     // method_name : { handler_name : callback }
-    std::map<std::string, std::map<std::string, std::function<void(json)>>> method_callbacks_;
+    std::map<std::string, std::map<std::string, std::function<void(const json&)>>> method_callbacks_;
 
     // Discovery sequence (protected to allow mock access to hardware vectors)
     MoonrakerDiscoverySequence discovery_;

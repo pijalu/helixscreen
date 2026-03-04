@@ -53,7 +53,7 @@ constexpr double MOCK_MESH_Y_MAX = MOCK_BED_Y_MAX - MOCK_PROBE_MARGIN;
  * @return true if the handler recognized and processed the method, false otherwise
  */
 using MethodHandler = std::function<bool(MoonrakerClientMock* self, const json& params,
-                                         std::function<void(json)> success_cb,
+                                         std::function<void(const json&)> success_cb,
                                          std::function<void(const MoonrakerError&)> error_cb)>;
 
 /**

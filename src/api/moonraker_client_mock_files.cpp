@@ -206,7 +206,7 @@ namespace mock_internal {
 void register_file_handlers(std::unordered_map<std::string, MethodHandler>& registry) {
     // server.files.list - List files in a directory
     registry["server.files.list"] =
-        [](MoonrakerClientMock* self, const json& params, std::function<void(json)> success_cb,
+        [](MoonrakerClientMock* self, const json& params, std::function<void(const json&)> success_cb,
            std::function<void(const MoonrakerError&)> error_cb) -> bool {
         (void)self;
         (void)error_cb;
@@ -227,7 +227,7 @@ void register_file_handlers(std::unordered_map<std::string, MethodHandler>& regi
 
     // server.files.get_directory - Get directory contents (same format as list)
     registry["server.files.get_directory"] =
-        [](MoonrakerClientMock* self, const json& params, std::function<void(json)> success_cb,
+        [](MoonrakerClientMock* self, const json& params, std::function<void(const json&)> success_cb,
            std::function<void(const MoonrakerError&)> error_cb) -> bool {
         (void)self;
         (void)error_cb;
@@ -248,7 +248,7 @@ void register_file_handlers(std::unordered_map<std::string, MethodHandler>& regi
 
     // server.files.metadata - Get file metadata
     registry["server.files.metadata"] =
-        [](MoonrakerClientMock* self, const json& params, std::function<void(json)> success_cb,
+        [](MoonrakerClientMock* self, const json& params, std::function<void(const json&)> success_cb,
            std::function<void(const MoonrakerError&)> error_cb) -> bool {
         (void)self;
         std::string filename;
@@ -274,7 +274,7 @@ void register_file_handlers(std::unordered_map<std::string, MethodHandler>& regi
     // server.files.metascan - Force metadata scan for a file
     // Same as metadata but forces re-parse (in mock, behaves identically)
     registry["server.files.metascan"] =
-        [](MoonrakerClientMock* self, const json& params, std::function<void(json)> success_cb,
+        [](MoonrakerClientMock* self, const json& params, std::function<void(const json&)> success_cb,
            std::function<void(const MoonrakerError&)> error_cb) -> bool {
         (void)self;
         std::string filename;
@@ -299,7 +299,7 @@ void register_file_handlers(std::unordered_map<std::string, MethodHandler>& regi
 
     // server.files.delete - Delete a file
     registry["server.files.delete"] =
-        [](MoonrakerClientMock* self, const json& params, std::function<void(json)> success_cb,
+        [](MoonrakerClientMock* self, const json& params, std::function<void(const json&)> success_cb,
            std::function<void(const MoonrakerError&)> error_cb) -> bool {
         (void)self;
         std::string path;
@@ -324,7 +324,7 @@ void register_file_handlers(std::unordered_map<std::string, MethodHandler>& regi
 
     // server.files.move - Move/rename a file
     registry["server.files.move"] =
-        [](MoonrakerClientMock* self, const json& params, std::function<void(json)> success_cb,
+        [](MoonrakerClientMock* self, const json& params, std::function<void(const json&)> success_cb,
            std::function<void(const MoonrakerError&)> error_cb) -> bool {
         (void)self;
         std::string source, dest;
@@ -352,7 +352,7 @@ void register_file_handlers(std::unordered_map<std::string, MethodHandler>& regi
 
     // server.files.copy - Copy a file
     registry["server.files.copy"] =
-        [](MoonrakerClientMock* self, const json& params, std::function<void(json)> success_cb,
+        [](MoonrakerClientMock* self, const json& params, std::function<void(const json&)> success_cb,
            std::function<void(const MoonrakerError&)> error_cb) -> bool {
         (void)self;
         std::string source, dest;
@@ -380,7 +380,7 @@ void register_file_handlers(std::unordered_map<std::string, MethodHandler>& regi
 
     // server.files.post_directory - Create a directory
     registry["server.files.post_directory"] =
-        [](MoonrakerClientMock* self, const json& params, std::function<void(json)> success_cb,
+        [](MoonrakerClientMock* self, const json& params, std::function<void(const json&)> success_cb,
            std::function<void(const MoonrakerError&)> error_cb) -> bool {
         (void)self;
         std::string path;
@@ -405,7 +405,7 @@ void register_file_handlers(std::unordered_map<std::string, MethodHandler>& regi
 
     // server.files.delete_directory - Delete a directory
     registry["server.files.delete_directory"] =
-        [](MoonrakerClientMock* self, const json& params, std::function<void(json)> success_cb,
+        [](MoonrakerClientMock* self, const json& params, std::function<void(const json&)> success_cb,
            std::function<void(const MoonrakerError&)> error_cb) -> bool {
         (void)self;
         std::string path;

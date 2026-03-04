@@ -411,7 +411,7 @@ class MoonrakerAPI {
     virtual std::string get_websocket_url() const;
 
     /// Subscribe to status update notifications (mirrors MoonrakerClient::register_notify_update)
-    virtual helix::SubscriptionId subscribe_notifications(std::function<void(json)> callback);
+    virtual helix::SubscriptionId subscribe_notifications(std::function<void(const json&)> callback);
 
     /// Unsubscribe from status update notifications
     virtual bool unsubscribe_notifications(helix::SubscriptionId id);
@@ -421,7 +421,7 @@ class MoonrakerAPI {
 
     /// Register a persistent callback for a specific notification method
     virtual void register_method_callback(const std::string& method, const std::string& name,
-                                          std::function<void(json)> callback);
+                                          std::function<void(const json&)> callback);
 
     /// Unregister a method-specific callback
     virtual bool unregister_method_callback(const std::string& method, const std::string& name);

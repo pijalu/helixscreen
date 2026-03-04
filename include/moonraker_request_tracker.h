@@ -60,7 +60,7 @@ class MoonrakerRequestTracker {
      * @return Request ID, or INVALID_REQUEST_ID on error
      */
     RequestId send(hv::WebSocketClient& ws, const std::string& method, const json& params,
-                   std::function<void(json)> success_cb,
+                   std::function<void(const json&)> success_cb,
                    std::function<void(const MoonrakerError&)> error_cb, uint32_t timeout_ms = 0,
                    bool silent = false);
 

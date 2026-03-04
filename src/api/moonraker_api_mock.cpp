@@ -91,7 +91,7 @@ MoonrakerSpoolmanAPIMock::MoonrakerSpoolmanAPIMock(MoonrakerClient& client)
 // Connection/Subscription/Database Proxy Overrides (mock no-ops)
 // ============================================================================
 
-SubscriptionId MoonrakerAPIMock::subscribe_notifications(std::function<void(json)> /*callback*/) {
+SubscriptionId MoonrakerAPIMock::subscribe_notifications(std::function<void(const json&)> /*callback*/) {
     return mock_next_subscription_id_++;
 }
 
@@ -101,7 +101,7 @@ bool MoonrakerAPIMock::unsubscribe_notifications(SubscriptionId /*id*/) {
 
 void MoonrakerAPIMock::register_method_callback(const std::string& /*method*/,
                                                 const std::string& /*name*/,
-                                                std::function<void(json)> /*callback*/) {
+                                                std::function<void(const json&)> /*callback*/) {
     // No-op in mock
 }
 

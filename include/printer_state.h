@@ -243,16 +243,6 @@ class PrinterState {
      */
     void update_from_status(const json& status);
 
-    /**
-     * @brief Get raw JSON state for complex queries
-     *
-     * Thread-safe access to cached printer state. Returns a copy to avoid
-     * holding the mutex after the call returns.
-     *
-     * @return Copy of JSON state object
-     */
-    json get_json_state();
-
     //
     // Subject accessors for XML binding
     //
@@ -1712,8 +1702,6 @@ class PrinterState {
     // - printer_connection_message_buf_ is now in network_state_ component
     // - klipper_version_buf_, moonraker_version_buf_ are now in versions_state_ component
 
-    // JSON cache for complex data
-    json json_state_;
     std::mutex state_mutex_;
 
     // Initialization guard to prevent multiple subject initializations
