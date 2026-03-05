@@ -18,5 +18,22 @@ Description=Restart HelixScreen after update
 [Service]
 Type=oneshot
 ExecStartPre=/bin/sleep 10
+
+# Refresh main service file from the newly extracted install dir.
+# Picks up new directives (e.g. StateDirectory) that self-updates
+# can't apply due to NoNewPrivileges.  Runs as root (no User= set).
+ExecStartPre=/bin/sh -c '\
+  SRC="@@INSTALL_DIR@@/config/helixscreen.service"; \
+  DEST="/etc/systemd/system/helixscreen.service"; \
+  if [ -f "$$SRC" ] && [ -f "$$DEST" ]; then \
+    USER=$$(grep "^User=" "$$DEST" | cut -d= -f2); \
+    GROUP=$$(grep "^Group=" "$$DEST" | cut -d= -f2); \
+    WDIR=$$(grep "^WorkingDirectory=" "$$DEST" | cut -d= -f2); \
+    IDIR=$$(dirname "$$(dirname "$$SRC")"); \
+    cp "$$SRC" "$$DEST"; \
+    sed -i "s|@@HELIX_USER@@|$${USER:-root}|g; s|@@HELIX_GROUP@@|$${GROUP:-root}|g; s|@@INSTALL_DIR@@|$${IDIR}|g" "$$DEST"; \
+    systemctl daemon-reload; \
+  fi'
+
 ExecStart=/bin/systemctl restart helixscreen
 ExecStartPost=/bin/systemctl restart helixscreen-update.path

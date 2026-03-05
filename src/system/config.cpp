@@ -3,6 +3,7 @@
 
 #include "config.h"
 
+#include "config_backup.h"
 #include "ui_error_reporting.h"
 
 #include "app_constants.h"
@@ -24,8 +25,9 @@ using namespace helix;
 
 using AppConstants::Update::CONFIG_BACKUP_PRIMARY;
 using AppConstants::Update::ENV_BACKUP_PRIMARY;
-using AppConstants::Update::PREUPDATE_CONFIG_BACKUP;
-using AppConstants::Update::PREUPDATE_ENV_BACKUP;
+using AppConstants::Update::config_backup_fallback;
+using AppConstants::Update::env_backup_fallback;
+
 
 Config* Config::instance{NULL};
 
@@ -327,93 +329,10 @@ json get_default_config(const std::string& moonraker_host, bool include_user_pre
     return config;
 }
 
-/// Atomically write data to a backup path (write-to-tmp + rename for crash safety).
-/// Returns true on success, false on failure (non-fatal, logged as warning).
-bool write_backup_file(const std::string& src_path, const std::string& backup_path) {
-    struct stat st {};
-    if (stat(src_path.c_str(), &st) != 0) {
-        return false; // Source doesn't exist, nothing to back up
-    }
-
-    // Ensure parent directory exists
-    fs::path parent = fs::path(backup_path).parent_path();
-    if (!parent.empty() && !fs::exists(parent)) {
-        return false; // Parent dir doesn't exist (e.g. StateDirectory not set up)
-    }
-
-    std::string tmp_path = backup_path + ".tmp";
-    try {
-        fs::copy_file(src_path, tmp_path, fs::copy_options::overwrite_existing);
-        if (std::rename(tmp_path.c_str(), backup_path.c_str()) != 0) {
-            std::remove(tmp_path.c_str());
-            return false;
-        }
-        return true;
-    } catch (const std::exception& e) {
-        std::remove(tmp_path.c_str());
-        spdlog::warn("[Config] Backup to {} failed: {}", backup_path, e.what());
-        return false;
-    }
-}
-
-/// Write a rolling backup of a file to primary (/var/lib/) then fallback (/var/log/) location.
-void write_rolling_backup(const std::string& src_path, const char* primary, const char* fallback) {
-    if (write_backup_file(src_path, primary)) {
-        spdlog::trace("[Config] Backup written: {}", primary);
-    } else if (write_backup_file(src_path, fallback)) {
-        spdlog::trace("[Config] Backup written (fallback): {}", fallback);
-    }
-    // Both failed — non-fatal, already logged
-}
-
-/// Find the first existing backup from a priority-ordered list of paths.
-/// Returns the path if found, empty string otherwise.
-std::string find_backup(const std::vector<const char*>& paths) {
-    struct stat st {};
-    for (const auto* p : paths) {
-        if (stat(p, &st) == 0) {
-            return p;
-        }
-    }
-    return {};
-}
-
-/// Restore a file from its backup locations if the target is missing.
-/// Creates the parent directory if needed. Returns true if restored.
-bool restore_from_backup(const std::string& target_path, const char* label,
-                         const std::vector<const char*>& backup_paths) {
-    struct stat st {};
-    if (stat(target_path.c_str(), &st) == 0) {
-        return false; // Target exists, no restore needed
-    }
-
-    std::string backup = find_backup(backup_paths);
-    if (backup.empty()) {
-        return false;
-    }
-
-    spdlog::warn("[Config] {} missing — restoring from backup: {}", label, backup);
-
-    fs::path parent_dir = fs::path(target_path).parent_path();
-    if (!parent_dir.empty() && !fs::exists(parent_dir)) {
-        std::error_code ec;
-        fs::create_directories(parent_dir, ec);
-        if (ec) {
-            spdlog::error("[Config] Failed to create dir {}: {}", parent_dir.string(),
-                          ec.message());
-            return false;
-        }
-    }
-
-    try {
-        fs::copy_file(backup, target_path);
-        spdlog::info("[Config] Restored {} from backup: {}", label, backup);
-        return true;
-    } catch (const fs::filesystem_error& e) {
-        spdlog::error("[Config] Failed to restore {}: {}", label, e.what());
-        return false;
-    }
-}
+using helix::config_backup::find_backup;
+using helix::config_backup::restore_from_backup;
+using helix::config_backup::write_backup_file;
+using helix::config_backup::write_rolling_backup;
 
 } // namespace
 
@@ -469,7 +388,7 @@ void Config::init(const std::string& config_path) {
         // Backups are maintained by Config::save() and survive Moonraker's
         // shutil.rmtree() wipe of the install directory.
         restore_from_backup(config_path, "Config",
-                            {CONFIG_BACKUP_PRIMARY, PREUPDATE_CONFIG_BACKUP});
+                            {CONFIG_BACKUP_PRIMARY, config_backup_fallback()});
     }
 
     // Restore helixscreen.env independently — it can be lost even if config survived
@@ -477,7 +396,7 @@ void Config::init(const std::string& config_path) {
         std::string env_path =
             (fs::path(config_path).parent_path() / "helixscreen.env").string();
         restore_from_backup(env_path, "helixscreen.env",
-                            {ENV_BACKUP_PRIMARY, PREUPDATE_ENV_BACKUP});
+                            {ENV_BACKUP_PRIMARY, env_backup_fallback()});
     }
 
     bool config_modified = false;
@@ -689,7 +608,7 @@ void Config::init(const std::string& config_path) {
     {
         std::string env_path =
             (fs::path(config_path).parent_path() / "helixscreen.env").string();
-        write_rolling_backup(env_path, ENV_BACKUP_PRIMARY, PREUPDATE_ENV_BACKUP);
+        write_rolling_backup(env_path, ENV_BACKUP_PRIMARY, env_backup_fallback());
     }
 
     spdlog::debug("[Config] initialized: moonraker={}:{}",
@@ -737,7 +656,7 @@ bool Config::save() {
         spdlog::trace("[Config] saved successfully to {}", path);
 
         // Maintain rolling backup outside install dir (survives Moonraker wipes)
-        write_rolling_backup(path, CONFIG_BACKUP_PRIMARY, PREUPDATE_CONFIG_BACKUP);
+        write_rolling_backup(path, CONFIG_BACKUP_PRIMARY, config_backup_fallback());
 
         return true;
 
