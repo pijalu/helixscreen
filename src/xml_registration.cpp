@@ -223,6 +223,7 @@ void register_xml_components() {
 
     // AMS edit modal (MUST be after spool_canvas and hsv_picker registration)
     // Registered globally so FilamentPanel can use it without AMS panel lazy init
+    register_xml("spoolman_spool_item.xml");
     register_xml("ams_edit_modal.xml");
 
     // Spoolman components (MUST be after spool_canvas registration)
