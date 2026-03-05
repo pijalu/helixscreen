@@ -482,6 +482,24 @@ def analyze_crashes(
         load_base = crash.get("load_base")
         frames = resolve_backtrace(backtrace, platform, symbols, load_base=load_base)
 
+        # If backtrace is shallow (only crash_handler + signal_restorer),
+        # inject reg_pc and reg_lr as additional frames for resolution.
+        # This recovers the actual crash location from ucontext registers
+        # on platforms where backtrace() can't unwind past signal frames.
+        non_lib = [f for f in frames if not f["is_shared_lib"]]
+        if len(non_lib) <= 2:
+            reg_addrs = []
+            for reg_key in ("reg_pc", "reg_lr"):
+                reg_val = crash.get(reg_key)
+                if reg_val:
+                    reg_addrs.append(reg_val)
+            if reg_addrs:
+                reg_frames = resolve_backtrace(reg_addrs, platform, symbols, load_base=load_base)
+                useful_reg = [f for f in reg_frames if not f["is_shared_lib"]
+                              and "crash_signal_handler" not in f["resolved"]]
+                if useful_reg:
+                    frames = useful_reg + frames
+
         # Compute signature
         sig = compute_signature(frames)
 

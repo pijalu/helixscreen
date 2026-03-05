@@ -206,7 +206,7 @@ if [[ -n "$ISSUE_NUMBER" ]]; then
                 ADDRS+=("$addr")
             fi
         fi
-    done < <(echo "$ISSUE_BODY" | grep -E '\*\*(LR|PC)\*\*' | grep -oE '`0x[0-9a-fA-F]+`' | head -1 | grep -oE '0x[0-9a-fA-F]+' || true)
+    done < <(echo "$ISSUE_BODY" | grep -E '\*\*(LR|PC)\*\*' | while IFS= read -r regline; do echo "$regline" | grep -oE '`0x[0-9a-fA-F]+`' | head -1; done | grep -oE '0x[0-9a-fA-F]+' || true)
 
     if [[ ${#ADDRS[@]} -eq 0 ]]; then
         echo "Error: No backtrace addresses found in issue #${ISSUE_NUMBER}" >&2
