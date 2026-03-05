@@ -130,23 +130,9 @@ bool AmsEditModal::show_for_slot(lv_obj_t* parent, int slot_index, const SlotInf
         return false;
     }
 
-    // Determine first view: picker for empty slots, form otherwise.
-    // Don't gate on printer_has_spoolman subject — it's set asynchronously and
-    // may not be ready yet if the user opens the modal soon after connecting.
-    // Instead, attempt the picker whenever we have an API and the slot is empty;
-    // populate_picker() will show the empty/retry state if Spoolman is unavailable.
-    bool slot_empty = initial_info.material.empty() && initial_info.brand.empty();
-
-    spdlog::debug("[AmsEditModal] View decision: api={}, slot_empty={}, spoolman_id={}, "
-                  "material='{}', brand='{}'",
-                  api_ != nullptr, slot_empty, initial_info.spoolman_id, initial_info.material,
-                  initial_info.brand);
-
-    if (api_ && slot_empty && initial_info.spoolman_id == 0) {
-        switch_to_picker();
-    } else {
-        switch_to_form();
-    }
+    // Always start on the form view — it's the primary interface showing current
+    // slot state. The Spoolman picker is accessible via "Choose Saved Spool" button.
+    switch_to_form();
 
     // If linked to Spoolman, fetch authoritative filament data (vendor, material, color)
     // so the form shows current Spoolman state, not stale backend data
