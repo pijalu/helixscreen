@@ -261,10 +261,12 @@ void WidgetCatalogOverlay::populate_rows(lv_obj_t* scroll, const PanelWidgetConf
                 }
             }
 
-            // Build display name with "(not detected)" suffix if hardware-gated
+            // Build display name with hardware hint if gated
             std::string name_str(display_name);
             if (hardware_gated) {
-                name_str += std::string(" (") + lv_tr("not detected") + ")";
+                const char* hint = (def.hardware_gate_hint) ? lv_tr(def.hardware_gate_hint)
+                                                            : lv_tr("not detected");
+                name_str += std::string(" (") + hint + ")";
             }
 
             const char* desc = def.description ? lv_tr(def.description) : nullptr;

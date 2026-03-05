@@ -556,6 +556,19 @@ TEST_CASE("PanelWidgetRegistry: can find every registered widget by ID",
     }
 }
 
+TEST_CASE("PanelWidgetRegistry: hardware_gate_hint consistent with hardware_gate_subject",
+          "[panel_widget][widget_config]") {
+    const auto& defs = get_all_widget_defs();
+    for (const auto& def : defs) {
+        CAPTURE(def.id);
+        if (def.hardware_gate_subject != nullptr) {
+            REQUIRE(def.hardware_gate_hint != nullptr);
+        } else {
+            REQUIRE(def.hardware_gate_hint == nullptr);
+        }
+    }
+}
+
 TEST_CASE("PanelWidgetRegistry: known hardware-gated widgets have gate subjects",
           "[panel_widget][widget_config]") {
     // These widgets require specific hardware

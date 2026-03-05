@@ -180,6 +180,14 @@ void PrinterFanState::init_fans(const std::vector<std::string>& fan_objects,
     fans_.reserve(fan_objects.size());
 
     for (const auto& obj_name : fan_objects) {
+        // Skip bare "fan" if a different fan is configured as part cooling —
+        // some printers expose an empty "fan" object that never reports speed data.
+        if (obj_name == "fan" && !roles_.part_fan.empty() && roles_.part_fan != "fan") {
+            spdlog::debug("[PrinterFanState] Skipping bare 'fan' — part fan is '{}'",
+                          roles_.part_fan);
+            continue;
+        }
+
         FanInfo info;
         info.object_name = obj_name;
 

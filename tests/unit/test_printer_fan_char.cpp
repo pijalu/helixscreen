@@ -892,23 +892,24 @@ TEST_CASE("Fan role config: configured part fan classified as PART_COOLING", "[f
     helix::FanRoleConfig roles;
     roles.part_fan = "fan_generic Fanm106";
 
+    // bare "fan" is skipped when a different fan is configured as part cooling
     state.init_fans(
         {"fan", "fan_generic Fanm106", "heater_fan heat_fan", "fan_generic chamber_fan"}, roles);
 
     const auto& fans = state.get_fans();
 
-    SECTION("canonical 'fan' is still PART_COOLING") {
-        REQUIRE(fans[0].type == helix::FanType::PART_COOLING);
+    SECTION("bare 'fan' is skipped — only 3 fans registered") {
+        REQUIRE(fans.size() == 3);
     }
 
     SECTION("configured part fan is classified as PART_COOLING") {
-        REQUIRE(fans[1].type == helix::FanType::PART_COOLING);
-        REQUIRE(fans[1].is_controllable == true);
+        REQUIRE(fans[0].type == helix::FanType::PART_COOLING);
+        REQUIRE(fans[0].is_controllable == true);
     }
 
     SECTION("other fans retain normal classification") {
-        REQUIRE(fans[2].type == helix::FanType::HEATER_FAN);
-        REQUIRE(fans[3].type == helix::FanType::GENERIC_FAN);
+        REQUIRE(fans[1].type == helix::FanType::HEATER_FAN);
+        REQUIRE(fans[2].type == helix::FanType::GENERIC_FAN);
     }
 }
 
@@ -926,36 +927,36 @@ TEST_CASE("Fan role config: display name overrides from configured roles",
     roles.chamber_fan = "fan_generic chamber_fan";
     roles.exhaust_fan = "fan_generic external_fan";
 
+    // bare "fan" is skipped when a different fan is configured as part cooling
     state.init_fans({"fan", "fan_generic Fanm106", "heater_fan heat_fan", "fan_generic chamber_fan",
                      "fan_generic external_fan", "controller_fan driver_fan"},
                     roles);
 
     const auto& fans = state.get_fans();
 
-    SECTION("canonical 'fan' uses direct mapping, not role override") {
-        // "fan" has a direct mapping to "Part Cooling Fan" in device_display_name
-        REQUIRE(fans[0].display_name == "Part Cooling Fan");
+    SECTION("bare 'fan' is skipped — only 5 fans registered") {
+        REQUIRE(fans.size() == 5);
     }
 
     SECTION("configured part fan gets 'Part Fan' display name") {
-        REQUIRE(fans[1].display_name == "Part Fan");
+        REQUIRE(fans[0].display_name == "Part Fan");
     }
 
     SECTION("configured hotend fan gets 'Hotend Fan' display name") {
-        REQUIRE(fans[2].display_name == "Hotend Fan");
+        REQUIRE(fans[1].display_name == "Hotend Fan");
     }
 
     SECTION("configured chamber fan gets 'Chamber Fan' display name") {
-        REQUIRE(fans[3].display_name == "Chamber Fan");
+        REQUIRE(fans[2].display_name == "Chamber Fan");
     }
 
     SECTION("configured exhaust fan gets 'Exhaust Fan' display name") {
-        REQUIRE(fans[4].display_name == "Exhaust Fan");
+        REQUIRE(fans[3].display_name == "Exhaust Fan");
     }
 
     SECTION("unconfigured fan uses auto-generated display name") {
         // "controller_fan driver_fan" not in any role config -> auto-generated
-        REQUIRE(fans[5].display_name == "Driver Fan");
+        REQUIRE(fans[4].display_name == "Driver Fan");
     }
 }
 
@@ -1008,6 +1009,81 @@ TEST_CASE("Fan role config: configured part fan updates hero slider subject",
         state.update_from_status(status);
 
         REQUIRE(lv_subject_get_int(state.get_fan_speed_subject("fan_generic Fanm106")) == 42);
+    }
+}
+
+TEST_CASE("Fan role config: bare 'fan' skipped when different part fan configured",
+          "[fan][role_config]") {
+    lv_init_safe();
+
+    PrinterState& state = get_printer_state();
+    PrinterStateTestAccess::reset(state);
+    state.init_subjects(false);
+
+    helix::FanRoleConfig roles;
+    roles.part_fan = "fan_generic fanM106";
+
+    state.init_fans({"fan", "fan_generic fanM106", "heater_fan heat_fan"}, roles);
+
+    const auto& fans = state.get_fans();
+
+    SECTION("bare 'fan' is excluded from fans list") {
+        REQUIRE(fans.size() == 2);
+        REQUIRE(fans[0].object_name == "fan_generic fanM106");
+        REQUIRE(fans[1].object_name == "heater_fan heat_fan");
+    }
+
+    SECTION("no per-fan subject created for bare 'fan'") {
+        REQUIRE(state.get_fan_speed_subject("fan") == nullptr);
+    }
+
+    SECTION("configured part fan subject exists") {
+        REQUIRE(state.get_fan_speed_subject("fan_generic fanM106") != nullptr);
+    }
+}
+
+TEST_CASE("Fan role config: bare 'fan' NOT skipped when it IS the part fan", "[fan][role_config]") {
+    lv_init_safe();
+
+    PrinterState& state = get_printer_state();
+    PrinterStateTestAccess::reset(state);
+    state.init_subjects(false);
+
+    helix::FanRoleConfig roles;
+    roles.part_fan = "fan";
+
+    state.init_fans({"fan", "heater_fan heat_fan"}, roles);
+
+    const auto& fans = state.get_fans();
+
+    SECTION("bare 'fan' is included when it IS the configured part fan") {
+        REQUIRE(fans.size() == 2);
+        REQUIRE(fans[0].object_name == "fan");
+        REQUIRE(fans[1].object_name == "heater_fan heat_fan");
+    }
+
+    SECTION("per-fan subject exists for bare 'fan'") {
+        REQUIRE(state.get_fan_speed_subject("fan") != nullptr);
+    }
+}
+
+TEST_CASE("Fan role config: bare 'fan' NOT skipped when roles are empty (default)",
+          "[fan][role_config]") {
+    lv_init_safe();
+
+    PrinterState& state = get_printer_state();
+    PrinterStateTestAccess::reset(state);
+    state.init_subjects(false);
+
+    helix::FanRoleConfig roles; // default: part_fan is empty
+
+    state.init_fans({"fan", "heater_fan heat_fan"}, roles);
+
+    const auto& fans = state.get_fans();
+
+    SECTION("bare 'fan' is included with default (empty) role config") {
+        REQUIRE(fans.size() == 2);
+        REQUIRE(fans[0].object_name == "fan");
     }
 }
 
