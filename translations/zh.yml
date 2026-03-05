@@ -118,14 +118,14 @@ translations:
   Are you sure? This will power off or restart the printer host.: 确定吗？这将关闭或重启打印机主机。
   Assign Klipper macros to control LEDs via on/off, toggle, or presets: 分配 Klipper 宏通过开/关、切换或预设控制 LED
   Assign a role to enable sensor monitoring: 分配角色以启用传感器监控
-  Assisting: ''
+  Assisting: 辅助中
   Auto: 自动
   Auto Bed Mesh: 自动热床网格
   Auto-Detect: 自动检测
   Auto-Heat on Load: 加载时自动加热
   Auto-probe or manually check screw heights: 自动探测或手动检查螺丝高度
   Auto-render video: 自动渲染视频
-  Automatic: ''
+  Automatic: 自动
   Automatic Heater Control (PID) Calibration: 自动加热控制 (PID) 校准
   Automatic Heater Control Calibration: 自动加热控制校准
   Automatic LED Control: 自动 LED 控制
@@ -161,7 +161,7 @@ translations:
   Border transparency (0 = invisible, 255 = solid): 边框透明度（0 = 不可见，255 = 实心）
   Both: 两者
   Brightness: 亮度
-  Brightness level when LEDs turn on at startup: ''
+  Brightness level when LEDs turn on at startup: 启动时 LED 开启的亮度级别
   Browse: 浏览
   Buffer Status: '缓冲区状态'
   Buffer information not available for this backend: '此后端无缓冲区信息'
@@ -229,7 +229,7 @@ translations:
   Clear Spool: 移除料盘
   Clipboard unavailable - use SSH: 剪贴板不可用 - 请使用 SSH
   Clog Detection: '堵料检测'
-  Clog detection: ''
+  Clog detection: 堵料检测
   Close: 关闭
   Closer: 更近
   Closer = more squish | Farther = less squish: 更近 = 更多挤压 | 更远 = 更少挤压
@@ -461,7 +461,7 @@ translations:
   Farther: 更远
   Fault Detection: '故障检测'
   Feed filament directly to extruder: 将耗材直接送入挤出机
-  Feeding filament forward: ''
+  Feeding filament forward: 正在向前送料
   Filament: 耗材
   Filament Detected: 检测到耗材
   Filament Sensor: 耗材传感器
@@ -471,11 +471,11 @@ translations:
   Filament by Type: 按类型分类的耗材
   Filament clog/flow detection meter: '耗材堵塞/流量检测计'
   Filament diameter sensors for flow compensation: 耗材直径传感器用于流量补偿
-  Filament is loose: ''
-  Filament is pulling tight: ''
+  Filament is loose: 耗材松弛
+  Filament is pulling tight: 耗材拉紧
   Filament runout and motion detection sensors: 耗材用尽和运动检测传感器
   Filament runout detection status: '耗材断料检测状态'
-  Filament tension is balanced: ''
+  Filament tension is balanced: 耗材张力平衡
   Filament tracking and inventory: 耗材跟踪和库存
   Filament width sensor readings: '耗材直径传感器读数'
   File: 文件
@@ -486,7 +486,7 @@ translations:
   Firmware Restart: 固件重启
   Firmware restarting...: 固件重启中...
   Flat Concentric Rings (existing ams_slot): 扁平同心环（现有 ams_slot）
-  Flow: ''
+  Flow: 流量
   Flow Rate: 流量
   Flowguard: '流量保护'
   Flying Toasters: '飞行烤面包机'
@@ -498,7 +498,7 @@ translations:
   G-code Preview: G-code 预览
   G-code commands will appear here: G-code 命令将显示在此处
   GCode Console: 'G-code 控制台'
-  Gear sync: ''
+  Gear sync: 齿轮同步
   Get help and share feedback: 获取帮助和反馈
   'Ghost:': 残影：
   Got it: 知道了
@@ -841,7 +841,7 @@ translations:
   PRINTER: 打印机
   Paper Test Calibration: 纸张测试校准
   Parameters: ''
-  Part: ''
+  Part: 零件
   Part Cooling Fan: 零件冷却风扇
   Part Fan: 零件风扇
   Part, hotend, and auxiliary fan speeds: '零件、热端和辅助风扇转速'
@@ -886,7 +886,7 @@ translations:
   Preparing...: 正在准备...
   Preset: 预设
   Presets: 预设
-  'Pressure:': ''
+  'Pressure:': '压力:'
   Previous: 上一步
   Price: 价格
   Primary: 主要
@@ -943,7 +943,7 @@ translations:
   Profile name (e.g., default): 配置名称（例如：default）
   Profiles: 配置
   Progress Bar Tests: 进度条测试
-  Pulling filament back: ''
+  Pulling filament back: 正在回抽耗材
   Purge: 排料
   Purging nozzle: 正在清洗喷嘴
   Purging...: 正在清料...
@@ -1020,7 +1020,7 @@ translations:
   Retry: 重试
   Review detected hardware validation issues: 查看检测到的硬件验证问题
   Review your changes: 查看您的更改
-  Rewinding: ''
+  Rewinding: 回卷中
   'Role:': 角色：
   Rotating tips and helpful information: '轮播提示和实用信息'
   'Rotation: %d\xc2\xb0 - %ds remaining (or wait to retry)': '旋转: %d\xc2\xb0 - 剩余%ds (或等待重试)'
@@ -1135,7 +1135,7 @@ translations:
   Spool Weight (g): 料盘重量（克）
   Spool created successfully: 料盘创建成功
   Spool deleted: 料盘已删除
-  Spool motor: ''
+  Spool motor: 料盘电机
   Spool saved: 料盘已保存
   Spool wt (g): 料盘重量 (g)
   Spoolman: Spoolman
@@ -1154,7 +1154,7 @@ translations:
   Started: 已开始
   Starting Print...: 正在启动打印...
   Starting...: 正在启动...
-  Startup Brightness: ''
+  Startup Brightness: 启动亮度
   Startup, auto-control, and macro devices: 启动、自动控制和宏设备
   State: '状态'
   Status: 状态
@@ -1398,7 +1398,7 @@ translations:
   not detected: 未检测到
   of: 的
   prints: '打印次数'
-  remaining before clog detection triggers: ''
+  remaining before clog detection triggers: 剩余即触发堵料检测
   set to: 设置为
   started: 已启动
   tall: 高

@@ -118,14 +118,14 @@ translations:
   Are you sure? This will power off or restart the printer host.: ¿Está seguro? Esto apagará o reiniciará el host de la impresora.
   Assign Klipper macros to control LEDs via on/off, toggle, or presets: Asignar macros de Klipper para controlar LEDs vía encendido/apagado, alternar o preajustes
   Assign a role to enable sensor monitoring: Asigne un rol para habilitar el monitoreo del sensor
-  Assisting: ''
+  Assisting: Asistiendo
   Auto: Automático
   Auto Bed Mesh: Malla de Cama Automática
   Auto-Detect: Auto-Detectar
   Auto-Heat on Load: Calentar Automáticamente al Cargar
   Auto-probe or manually check screw heights: Sondear automáticamente o verificar manualmente las alturas de los tornillos
   Auto-render video: Renderizar video automáticamente
-  Automatic: ''
+  Automatic: Automático
   Automatic Heater Control (PID) Calibration: Calibración Automática de Control de Calentador (PID)
   Automatic Heater Control Calibration: Calibración Automática de Control de Calentador
   Automatic LED Control: Control Automático de LED
@@ -161,7 +161,7 @@ translations:
   Border transparency (0 = invisible, 255 = solid): Transparencia del borde (0 = invisible, 255 = sólido)
   Both: Ambos
   Brightness: Brillo
-  Brightness level when LEDs turn on at startup: ''
+  Brightness level when LEDs turn on at startup: Nivel de brillo cuando los LEDs se encienden al iniciar
   Browse: Explorar
   Buffer Status: 'Estado del búfer'
   Buffer information not available for this backend: 'Información del búfer no disponible para este backend'
@@ -229,7 +229,7 @@ translations:
   Clear Spool: Quitar bobina
   Clipboard unavailable - use SSH: Portapapeles no disponible - use SSH
   Clog Detection: 'Detección de obstrucción'
-  Clog detection: ''
+  Clog detection: Detección de obstrucción
   Close: Cerrar
   Closer: Más cerca
   Closer = more squish | Farther = less squish: Más cerca = más aplastamiento | Más lejos = menos aplastamiento
@@ -461,7 +461,7 @@ translations:
   Farther: Más lejos
   Fault Detection: 'Detección de fallos'
   Feed filament directly to extruder: Alimentar filamento directamente al extrusor
-  Feeding filament forward: ''
+  Feeding filament forward: Avanzando filamento
   Filament: Filamento
   Filament Detected: Filamento Detectado
   Filament Sensor: Sensor de Filamento
@@ -471,11 +471,11 @@ translations:
   Filament by Type: Filamento por Tipo
   Filament clog/flow detection meter: 'Medidor de detección de obstrucción/flujo de filamento'
   Filament diameter sensors for flow compensation: Sensores de diámetro de filamento para compensación de flujo
-  Filament is loose: ''
-  Filament is pulling tight: ''
+  Filament is loose: El filamento está suelto
+  Filament is pulling tight: El filamento está tirando tenso
   Filament runout and motion detection sensors: Sensores de detección de agotamiento y movimiento de filamento
   Filament runout detection status: 'Estado de detección de agotamiento de filamento'
-  Filament tension is balanced: ''
+  Filament tension is balanced: La tensión del filamento está equilibrada
   Filament tracking and inventory: Seguimiento e inventario de filamento
   Filament width sensor readings: 'Lecturas de sensor de ancho de filamento'
   File: Archivo
@@ -486,7 +486,7 @@ translations:
   Firmware Restart: Reinicio de Firmware
   Firmware restarting...: Reiniciando firmware...
   Flat Concentric Rings (existing ams_slot): Anillos Concéntricos Planos (ams_slot existente)
-  Flow: ''
+  Flow: Flujo
   Flow Rate: Tasa de Flujo
   Flowguard: Flowguard
   Flying Toasters: Flying Toasters
@@ -498,7 +498,7 @@ translations:
   G-code Preview: Vista Previa de G-code
   G-code commands will appear here: Los comandos G-code aparecerán aquí
   GCode Console: 'Consola G-code'
-  Gear sync: ''
+  Gear sync: Sincronización de engranaje
   Get help and share feedback: Obtén ayuda y comparte comentarios
   'Ghost:': 'Fantasma:'
   Got it: Entendido
@@ -841,7 +841,7 @@ translations:
   PRINTER: IMPRESORA
   Paper Test Calibration: Calibración con Prueba de Papel
   Parameters: ''
-  Part: ''
+  Part: Pieza
   Part Cooling Fan: Ventilador de Enfriamiento de Pieza
   Part Fan: Ventilador de Pieza
   Part, hotend, and auxiliary fan speeds: 'Velocidades de ventilador de pieza, hotend y auxiliar'
@@ -886,7 +886,7 @@ translations:
   Preparing...: Preparando...
   Preset: Preajuste
   Presets: Preajustes
-  'Pressure:': ''
+  'Pressure:': 'Presión:'
   Previous: Anterior
   Price: Precio
   Primary: Primario
@@ -943,7 +943,7 @@ translations:
   Profile name (e.g., default): Nombre del perfil (ej., default)
   Profiles: Perfiles
   Progress Bar Tests: Pruebas de Barra de Progreso
-  Pulling filament back: ''
+  Pulling filament back: Retrayendo filamento
   Purge: Purgar
   Purging nozzle: Purgando boquilla
   Purging...: Purgando...
@@ -1020,7 +1020,7 @@ translations:
   Retry: Reintentar
   Review detected hardware validation issues: Revisar problemas de validación de hardware detectados
   Review your changes: Revisar sus cambios
-  Rewinding: ''
+  Rewinding: Rebobinando
   'Role:': 'Rol:'
   Rotating tips and helpful information: 'Consejos rotativos e información útil'
   'Rotation: %d\xc2\xb0 - %ds remaining (or wait to retry)': 'Rotación: %d\xc2\xb0 - %ds restantes (o espere para reintentar)'
@@ -1135,7 +1135,7 @@ translations:
   Spool Weight (g): Peso de Bobina (g)
   Spool created successfully: Bobina creada correctamente
   Spool deleted: Bobina eliminada
-  Spool motor: ''
+  Spool motor: Motor de bobina
   Spool saved: Bobina guardada
   Spool wt (g): Peso bobina (g)
   Spoolman: Spoolman
@@ -1154,7 +1154,7 @@ translations:
   Started: Iniciado
   Starting Print...: Iniciando impresión...
   Starting...: Iniciando...
-  Startup Brightness: ''
+  Startup Brightness: Brillo de inicio
   Startup, auto-control, and macro devices: Inicio, control automático y dispositivos de macro
   State: Estado
   Status: Estado
@@ -1398,7 +1398,7 @@ translations:
   not detected: no detectado
   of: de
   prints: impresiones
-  remaining before clog detection triggers: ''
+  remaining before clog detection triggers: restante antes de que se active la detección de obstrucción
   set to: establecido en
   started: iniciado
   tall: de alto

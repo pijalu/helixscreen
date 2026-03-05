@@ -118,14 +118,14 @@ translations:
   Are you sure? This will power off or restart the printer host.: Вы уверены? Это выключит или перезагрузит хост принтера.
   Assign Klipper macros to control LEDs via on/off, toggle, or presets: Назначьте макросы Klipper для управления LED через вкл/выкл, переключение или пресеты
   Assign a role to enable sensor monitoring: Назначьте роль для мониторинга датчика
-  Assisting: ''
+  Assisting: Помощь
   Auto: Авто
   Auto Bed Mesh: Авто сетка стола
   Auto-Detect: Автоопределение
   Auto-Heat on Load: Автонагрев при загрузке
   Auto-probe or manually check screw heights: Автозондирование или ручная проверка высоты винтов
   Auto-render video: Автоматический рендер видео
-  Automatic: ''
+  Automatic: Автоматический
   Automatic Heater Control (PID) Calibration: Автоматическая калибровка нагревателя (PID)
   Automatic Heater Control Calibration: Автоматическая калибровка нагревателя
   Automatic LED Control: Автоматическое управление LED
@@ -161,7 +161,7 @@ translations:
   Border transparency (0 = invisible, 255 = solid): Прозрачность границы (0 = невидимая, 255 = сплошная)
   Both: Оба
   Brightness: Яркость
-  Brightness level when LEDs turn on at startup: ''
+  Brightness level when LEDs turn on at startup: Уровень яркости при включении LED при запуске
   Browse: Обзор
   Buffer Status: 'Статус буфера'
   Buffer information not available for this backend: 'Информация о буфере недоступна для этого бэкенда'
@@ -229,7 +229,7 @@ translations:
   Clear Spool: Убрать катушку
   Clipboard unavailable - use SSH: Буфер обмена недоступен - используйте SSH
   Clog Detection: 'Обнаружение засора'
-  Clog detection: ''
+  Clog detection: Обнаружение засора
   Close: Закрыть
   Closer: Ближе
   Closer = more squish | Farther = less squish: Ближе = больше сжатие | Дальше = меньше сжатие
@@ -461,7 +461,7 @@ translations:
   Farther: Дальше
   Fault Detection: 'Обнаружение неисправности'
   Feed filament directly to extruder: Подать филамент напрямую в экструдер
-  Feeding filament forward: ''
+  Feeding filament forward: Подача филамента вперёд
   Filament: Филамент
   Filament Detected: Филамент обнаружен
   Filament Sensor: Датчик филамента
@@ -471,11 +471,11 @@ translations:
   Filament by Type: Филамент по типу
   Filament clog/flow detection meter: 'Индикатор обнаружения засора/потока'
   Filament diameter sensors for flow compensation: Датчики диаметра филамента для компенсации потока
-  Filament is loose: ''
-  Filament is pulling tight: ''
+  Filament is loose: Филамент ослаблен
+  Filament is pulling tight: Филамент натянут
   Filament runout and motion detection sensors: Датчики окончания и движения филамента
   Filament runout detection status: 'Статус датчика окончания филамента'
-  Filament tension is balanced: ''
+  Filament tension is balanced: Натяжение филамента сбалансировано
   Filament tracking and inventory: Отслеживание и учёт филамента
   Filament width sensor readings: 'Показания датчика ширины филамента'
   File: Файл
@@ -486,7 +486,7 @@ translations:
   Firmware Restart: Перезапуск прошивки
   Firmware restarting...: Перезапуск прошивки...
   Flat Concentric Rings (existing ams_slot): Плоские концентрические кольца (существующий ams_slot)
-  Flow: ''
+  Flow: Поток
   Flow Rate: Множитель потока
   Flowguard: 'Flowguard'
   Flying Toasters: 'Летающие тостеры'
@@ -498,7 +498,7 @@ translations:
   G-code Preview: Просмотр G-code
   G-code commands will appear here: Здесь будут отображаться G-code команды
   GCode Console: 'Консоль GCode'
-  Gear sync: ''
+  Gear sync: Синхронизация шестерни
   Get help and share feedback: Получить помощь и поделиться отзывом
   'Ghost:': 'Тень:'
   Got it: Понятно
@@ -841,7 +841,7 @@ translations:
   PRINTER: ПРИНТЕР
   Paper Test Calibration: Калибровка бумажным тестом
   Parameters: ''
-  Part: ''
+  Part: Деталь
   Part Cooling Fan: Вентилятор охлаждения детали
   Part Fan: Вент. детали
   Part, hotend, and auxiliary fan speeds: 'Скорости вентиляторов детали, хотенда и вспом.'
@@ -886,7 +886,7 @@ translations:
   Preparing...: Подготовка...
   Preset: Пресет
   Presets: Пресеты
-  'Pressure:': ''
+  'Pressure:': 'Давление:'
   Previous: Назад
   Price: Цена
   Primary: Основной
@@ -943,7 +943,7 @@ translations:
   Profile name (e.g., default): Имя профиля (например, default)
   Profiles: Профили
   Progress Bar Tests: Тесты прогресс-бара
-  Pulling filament back: ''
+  Pulling filament back: Откат филамента
   Purge: Продуть
   Purging nozzle: Продувка сопла
   Purging...: Продувка...
@@ -1020,7 +1020,7 @@ translations:
   Retry: Повторить
   Review detected hardware validation issues: Просмотр обнаруженных проблем валидации оборудования
   Review your changes: Просмотр ваших изменений
-  Rewinding: ''
+  Rewinding: Перемотка
   'Role:': 'Тип:'
   Rotating tips and helpful information: 'Сменяющиеся советы и полезная информация'
   'Rotation: %d\xc2\xb0 - %ds remaining (or wait to retry)': 'Поворот: %d\xc2\xb0 - осталось %ds (или подождите для повтора)'
@@ -1135,7 +1135,7 @@ translations:
   Spool Weight (g): Вес катушки (г)
   Spool created successfully: Катушка успешно создана
   Spool deleted: Катушка удалена
-  Spool motor: ''
+  Spool motor: Мотор катушки
   Spool saved: Катушка сохранена
   Spool wt (g): Вес катушки (г)
   Spoolman: Spoolman
@@ -1154,7 +1154,7 @@ translations:
   Started: Начато
   Starting Print...: Запуск печати...
   Starting...: Запуск...
-  Startup Brightness: ''
+  Startup Brightness: Яркость при запуске
   Startup, auto-control, and macro devices: Запуск, автоуправление и макро-устройства
   State: 'Состояние'
   Status: Статус
@@ -1398,7 +1398,7 @@ translations:
   not detected: не обнаружено
   of: из
   prints: 'печатей'
-  remaining before clog detection triggers: ''
+  remaining before clog detection triggers: осталось до срабатывания обнаружения засора
   set to: установлено на
   started: запущено
   tall: высотой

@@ -118,14 +118,14 @@ translations:
   Are you sure? This will power off or restart the printer host.: よろしいですか？プリンターホストの電源がオフまたは再起動されます。
   Assign Klipper macros to control LEDs via on/off, toggle, or presets: Klipper マクロを割り当ててオン/オフ、トグル、プリセットで LED を制御
   Assign a role to enable sensor monitoring: センサー監視を有効にするには役割を割り当ててください
-  Assisting: ''
+  Assisting: アシスト中
   Auto: 自動
   Auto Bed Mesh: 自動ベッドメッシュ
   Auto-Detect: 自動検出
   Auto-Heat on Load: 装填時に自動加熱
   Auto-probe or manually check screw heights: 自動プローブまたは手動でネジの高さを確認
   Auto-render video: 動画を自動レンダリング
-  Automatic: ''
+  Automatic: 自動
   Automatic Heater Control (PID) Calibration: 自動ヒーター制御 (PID) キャリブレーション
   Automatic Heater Control Calibration: 自動ヒーター制御キャリブレーション
   Automatic LED Control: 自動LED制御
@@ -161,7 +161,7 @@ translations:
   Border transparency (0 = invisible, 255 = solid): 境界線の透明度 (0 = 透明、255 = 不透明)
   Both: 両方
   Brightness: 明るさ
-  Brightness level when LEDs turn on at startup: ''
+  Brightness level when LEDs turn on at startup: 起動時にLEDが点灯する際の明るさレベル
   Browse: 参照
   Buffer Status: 'バッファーステータス'
   Buffer information not available for this backend: 'このバックエンドではバッファー情報を利用できません'
@@ -229,7 +229,7 @@ translations:
   Clear Spool: スプールを解除
   Clipboard unavailable - use SSH: クリップボード利用不可 - SSHを使用してください
   Clog Detection: '詰まり検出'
-  Clog detection: ''
+  Clog detection: 詰まり検出
   Close: 閉じる
   Closer: 近く
   Closer = more squish | Farther = less squish: 近い = より圧縮 | 遠い = 圧縮少なめ
@@ -461,7 +461,7 @@ translations:
   Farther: 遠く
   Fault Detection: '故障検出'
   Feed filament directly to extruder: フィラメントをエクストルーダーに直接供給
-  Feeding filament forward: ''
+  Feeding filament forward: フィラメントを前方に送り出し中
   Filament: フィラメント
   Filament Detected: フィラメント検出
   Filament Sensor: フィラメントセンサー
@@ -471,11 +471,11 @@ translations:
   Filament by Type: 種類別フィラメント
   Filament clog/flow detection meter: 'フィラメント詰まり/フロー検出メーター'
   Filament diameter sensors for flow compensation: フロー補正用フィラメント直径センサー
-  Filament is loose: ''
-  Filament is pulling tight: ''
+  Filament is loose: フィラメントが緩んでいます
+  Filament is pulling tight: フィラメントが引っ張られています
   Filament runout and motion detection sensors: フィラメント切れとモーション検出センサー
   Filament runout detection status: 'フィラメント切れ検出ステータス'
-  Filament tension is balanced: ''
+  Filament tension is balanced: フィラメントの張力が均衡しています
   Filament tracking and inventory: フィラメント追跡と在庫管理
   Filament width sensor readings: 'フィラメント幅センサー値'
   File: ファイル
@@ -486,7 +486,7 @@ translations:
   Firmware Restart: ファームウェア再起動
   Firmware restarting...: ファームウェア再起動中...
   Flat Concentric Rings (existing ams_slot): 同心円リング（既存の ams_slot）
-  Flow: ''
+  Flow: フロー
   Flow Rate: フローレート
   Flowguard: 'フローガード'
   Flying Toasters: 'フライングトースター'
@@ -498,7 +498,7 @@ translations:
   G-code Preview: G-code プレビュー
   G-code commands will appear here: G-code コマンドがここに表示されます
   GCode Console: 'GCodeコンソール'
-  Gear sync: ''
+  Gear sync: ギア同期
   Get help and share feedback: ヘルプとフィードバック
   'Ghost:': 'Ghost:'
   Got it: 了解
@@ -841,7 +841,7 @@ translations:
   PRINTER: プリンター
   Paper Test Calibration: 紙テストキャリブレーション
   Parameters: ''
-  Part: ''
+  Part: パーツ
   Part Cooling Fan: パーツ冷却ファン
   Part Fan: パーツファン
   Part, hotend, and auxiliary fan speeds: 'パーツ、ホットエンド、補助ファン速度'
@@ -886,7 +886,7 @@ translations:
   Preparing...: 準備中...
   Preset: プリセット
   Presets: プリセット
-  'Pressure:': ''
+  'Pressure:': '圧力:'
   Previous: 前へ
   Price: 価格
   Primary: プライマリ
@@ -943,7 +943,7 @@ translations:
   Profile name (e.g., default): 'プロファイル名（例: default）'
   Profiles: プロファイル
   Progress Bar Tests: プログレスバーテスト
-  Pulling filament back: ''
+  Pulling filament back: フィラメントを引き戻し中
   Purge: パージ
   Purging nozzle: ノズルをパージ中
   Purging...: パージ中...
@@ -1020,7 +1020,7 @@ translations:
   Retry: 再試行
   Review detected hardware validation issues: 検出されたハードウェア検証の問題を確認
   Review your changes: 変更を確認
-  Rewinding: ''
+  Rewinding: 巻き戻し中
   'Role:': '役割:'
   Rotating tips and helpful information: '役立つヒントと情報'
   'Rotation: %d\xc2\xb0 - %ds remaining (or wait to retry)': '回転: %d\xc2\xb0 - %ds残り (待つと再試行)'
@@ -1135,7 +1135,7 @@ translations:
   Spool Weight (g): スプール重量（g）
   Spool created successfully: スプールを作成しました
   Spool deleted: スプールを削除しました
-  Spool motor: ''
+  Spool motor: スプールモーター
   Spool saved: スプールを保存しました
   Spool wt (g): スプール重量 (g)
   Spoolman: Spoolman
@@ -1154,7 +1154,7 @@ translations:
   Started: 開始
   Starting Print...: 印刷開始中...
   Starting...: 開始中...
-  Startup Brightness: ''
+  Startup Brightness: 起動時の明るさ
   Startup, auto-control, and macro devices: 起動、自動制御、マクロデバイス
   State: '状態'
   Status: ステータス
@@ -1398,7 +1398,7 @@ translations:
   not detected: 未検出
   of: の
   prints: '印刷'
-  remaining before clog detection triggers: ''
+  remaining before clog detection triggers: 残りで詰まり検出が作動します
   set to: に設定
   started: 開始
   tall: 高さ

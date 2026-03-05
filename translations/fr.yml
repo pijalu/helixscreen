@@ -118,14 +118,14 @@ translations:
   Are you sure? This will power off or restart the printer host.: Êtes-vous sûr ? Cela va éteindre ou redémarrer l'hôte de l'imprimante.
   Assign Klipper macros to control LEDs via on/off, toggle, or presets: Assigner des macros Klipper pour contrôler les LED via on/off, bascule ou préréglages
   Assign a role to enable sensor monitoring: Attribuez un rôle pour activer la surveillance du capteur
-  Assisting: ''
+  Assisting: Assistance
   Auto: Auto
   Auto Bed Mesh: Maillage auto du plateau
   Auto-Detect: Auto-détection
   Auto-Heat on Load: Préchauffage auto au chargement
   Auto-probe or manually check screw heights: Palpage auto ou vérification manuelle des hauteurs de vis
   Auto-render video: Rendu vidéo automatique
-  Automatic: ''
+  Automatic: Automatique
   Automatic Heater Control (PID) Calibration: Calibration automatique du chauffage (PID)
   Automatic Heater Control Calibration: Calibration automatique du chauffage
   Automatic LED Control: Contrôle LED automatique
@@ -161,7 +161,7 @@ translations:
   Border transparency (0 = invisible, 255 = solid): Transparence de la bordure (0 = invisible, 255 = solide)
   Both: Les deux
   Brightness: Luminosité
-  Brightness level when LEDs turn on at startup: ''
+  Brightness level when LEDs turn on at startup: "Niveau de luminosité lorsque les LED s'allument au démarrage"
   Browse: Parcourir
   Buffer Status: 'État du tampon'
   Buffer information not available for this backend: 'Informations de tampon non disponibles pour ce backend'
@@ -229,7 +229,7 @@ translations:
   Clear Spool: Retirer la bobine
   Clipboard unavailable - use SSH: Presse-papiers indisponible - utilisez SSH
   Clog Detection: 'Détection de bouchon'
-  Clog detection: ''
+  Clog detection: Détection de bouchon
   Close: Fermer
   Closer: Plus près
   Closer = more squish | Farther = less squish: Plus proche = plus écrasé | Plus loin = moins écrasé
@@ -461,7 +461,7 @@ translations:
   Farther: Plus loin
   Fault Detection: 'Détection de défaut'
   Feed filament directly to extruder: Alimenter le filament directement vers l'extrudeur
-  Feeding filament forward: ''
+  Feeding filament forward: Avancement du filament
   Filament: Filament
   Filament Detected: Filament détecté
   Filament Sensor: Capteur de filament
@@ -471,11 +471,11 @@ translations:
   Filament by Type: Filament par type
   Filament clog/flow detection meter: 'Détecteur de bouchon/débit de filament'
   Filament diameter sensors for flow compensation: Capteurs de diamètre de filament pour compensation du débit
-  Filament is loose: ''
-  Filament is pulling tight: ''
+  Filament is loose: Le filament est détendu
+  Filament is pulling tight: Le filament est sous tension
   Filament runout and motion detection sensors: Capteurs de fin de filament et de détection de mouvement
   Filament runout detection status: 'État de détection de fin de filament'
-  Filament tension is balanced: ''
+  Filament tension is balanced: La tension du filament est équilibrée
   Filament tracking and inventory: Suivi et inventaire du filament
   Filament width sensor readings: 'Mesures du capteur de largeur de filament'
   File: Fichier
@@ -486,7 +486,7 @@ translations:
   Firmware Restart: Redémarrage firmware
   Firmware restarting...: Redémarrage du firmware...
   Flat Concentric Rings (existing ams_slot): Anneaux concentriques plats (ams_slot existant)
-  Flow: ''
+  Flow: Débit
   Flow Rate: Débit
   Flowguard: Flowguard
   Flying Toasters: Flying Toasters
@@ -498,7 +498,7 @@ translations:
   G-code Preview: Aperçu G-code
   G-code commands will appear here: Les commandes G-code apparaîtront ici
   GCode Console: 'Console GCode'
-  Gear sync: ''
+  Gear sync: Synchro engrenage
   Get help and share feedback: Obtenir de l'aide et partager vos retours
   'Ghost:': 'Fantôme :'
   Got it: Compris
@@ -841,7 +841,7 @@ translations:
   PRINTER: IMPRIMANTE
   Paper Test Calibration: Calibration par test papier
   Parameters: ''
-  Part: ''
+  Part: Pièce
   Part Cooling Fan: Ventilateur de refroidissement pièce
   Part Fan: Ventilateur pièce
   Part, hotend, and auxiliary fan speeds: 'Vitesses des ventilateurs pièce, hotend et auxiliaires'
@@ -886,7 +886,7 @@ translations:
   Preparing...: Préparation...
   Preset: Préréglage
   Presets: Préréglages
-  'Pressure:': ''
+  'Pressure:': 'Pression :'
   Previous: Précédent
   Price: Prix
   Primary: Principal
@@ -943,7 +943,7 @@ translations:
   Profile name (e.g., default): 'Nom du profil (ex : default)'
   Profiles: Profils
   Progress Bar Tests: Tests de barre de progression
-  Pulling filament back: ''
+  Pulling filament back: Rétraction du filament
   Purge: Purger
   Purging nozzle: Purge de la buse
   Purging...: Purge...
@@ -1020,7 +1020,7 @@ translations:
   Retry: Réessayer
   Review detected hardware validation issues: Examiner les problèmes de validation matérielle détectés
   Review your changes: Examiner vos modifications
-  Rewinding: ''
+  Rewinding: Rembobinage
   'Role:': 'Rôle :'
   Rotating tips and helpful information: 'Conseils et informations utiles en rotation'
   'Rotation: %d\xc2\xb0 - %ds remaining (or wait to retry)': 'Rotation : %d\xc2\xb0 - %ds restantes (ou attendre pour réessayer)'
@@ -1135,7 +1135,7 @@ translations:
   Spool Weight (g): Poids de la bobine (g)
   Spool created successfully: Bobine créée avec succès
   Spool deleted: Bobine supprimée
-  Spool motor: ''
+  Spool motor: Moteur de bobine
   Spool saved: Bobine enregistrée
   Spool wt (g): Poids bobine (g)
   Spoolman: Spoolman
@@ -1154,7 +1154,7 @@ translations:
   Started: Démarré
   Starting Print...: "Démarrage de l'impression..."
   Starting...: Démarrage...
-  Startup Brightness: ''
+  Startup Brightness: Luminosité au démarrage
   Startup, auto-control, and macro devices: Démarrage, contrôle auto et appareils macro
   State: 'État'
   Status: État
@@ -1398,7 +1398,7 @@ translations:
   not detected: non détecté
   of: de
   prints: impressions
-  remaining before clog detection triggers: ''
+  remaining before clog detection triggers: restant avant le déclenchement de la détection de bouchon
   set to: réglé à
   started: lancé
   tall: de haut

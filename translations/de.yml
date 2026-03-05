@@ -118,14 +118,14 @@ translations:
   Are you sure? This will power off or restart the printer host.: Sind Sie sicher? Dies schaltet den Drucker-Host aus oder startet ihn neu.
   Assign Klipper macros to control LEDs via on/off, toggle, or presets: Klipper-Makros zuweisen, um LEDs per Ein/Aus, Umschalten oder Voreinstellungen zu steuern
   Assign a role to enable sensor monitoring: Rolle zuweisen, um Sensorüberwachung zu aktivieren
-  Assisting: ''
+  Assisting: Unterstützend
   Auto: Automatisch
   Auto Bed Mesh: Automatisches Bettnetz
   Auto-Detect: Auto-Erkennung
   Auto-Heat on Load: Automatisches Heizen beim Laden
   Auto-probe or manually check screw heights: Automatisches Abtasten oder manuelle Prüfung der Schraubenhöhen
   Auto-render video: Video automatisch rendern
-  Automatic: ''
+  Automatic: Automatisch
   Automatic Heater Control (PID) Calibration: Automatische Heizungsregelung (PID) Kalibrierung
   Automatic Heater Control Calibration: Automatische Heizungsregelung Kalibrierung
   Automatic LED Control: Automatische LED-Steuerung
@@ -161,7 +161,7 @@ translations:
   Border transparency (0 = invisible, 255 = solid): Rahmentransparenz (0 = unsichtbar, 255 = solid)
   Both: Beide
   Brightness: Helligkeit
-  Brightness level when LEDs turn on at startup: ''
+  Brightness level when LEDs turn on at startup: Helligkeitsstufe beim Einschalten der LEDs beim Start
   Browse: Durchsuchen
   Buffer Status: Pufferstatus
   Buffer information not available for this backend: 'Pufferinformationen für dieses Backend nicht verfügbar'
@@ -229,7 +229,7 @@ translations:
   Clear Spool: Spule entfernen
   Clipboard unavailable - use SSH: Zwischenablage nicht verfügbar - verwenden Sie SSH
   Clog Detection: Verstopfungserkennung
-  Clog detection: ''
+  Clog detection: Verstopfungserkennung
   Close: Schließen
   Closer: Näher
   Closer = more squish | Farther = less squish: Näher = mehr Quetschung | Weiter = weniger Quetschung
@@ -461,7 +461,7 @@ translations:
   Farther: Weiter
   Fault Detection: Fehlererkennung
   Feed filament directly to extruder: Filament direkt zum Extruder führen
-  Feeding filament forward: ''
+  Feeding filament forward: Filament wird vorwärts geführt
   Filament: Filament
   Filament Detected: Filament erkannt
   Filament Sensor: Filamentsensor
@@ -471,11 +471,11 @@ translations:
   Filament by Type: Filament nach Typ
   Filament clog/flow detection meter: 'Filamentverstopfungs-/Flusserkennung'
   Filament diameter sensors for flow compensation: Filamentdurchmessersensoren für Flusskompensation
-  Filament is loose: ''
-  Filament is pulling tight: ''
+  Filament is loose: Filament ist locker
+  Filament is pulling tight: Filament zieht straff
   Filament runout and motion detection sensors: Filament-Auslauf- und Bewegungserkennungssensoren
   Filament runout detection status: 'Filament-Auslauferkennungsstatus'
-  Filament tension is balanced: ''
+  Filament tension is balanced: Filamentspannung ist ausgeglichen
   Filament tracking and inventory: Filamentverfolgung und Inventar
   Filament width sensor readings: 'Filamentbreitensensorwerte'
   File: Datei
@@ -486,7 +486,7 @@ translations:
   Firmware Restart: Firmware-Neustart
   Firmware restarting...: Firmware wird neu gestartet...
   Flat Concentric Rings (existing ams_slot): Flache konzentrische Ringe (bestehender ams_slot)
-  Flow: ''
+  Flow: Fluss
   Flow Rate: Flussrate
   Flowguard: Flowguard
   Flying Toasters: Flying Toasters
@@ -498,7 +498,7 @@ translations:
   G-code Preview: G-Code-Vorschau
   G-code commands will appear here: G-Code-Befehle werden hier angezeigt
   GCode Console: 'G-Code-Konsole'
-  Gear sync: ''
+  Gear sync: Zahnradsynchronisation
   Get help and share feedback: Hilfe erhalten und Feedback teilen
   'Ghost:': 'Geist:'
   Got it: Verstanden
@@ -841,7 +841,7 @@ translations:
   PRINTER: DRUCKER
   Paper Test Calibration: Papiertest-Kalibrierung
   Parameters: ''
-  Part: ''
+  Part: Teile
   Part Cooling Fan: Teile-Kühllüfter
   Part Fan: Teile-Lüfter
   Part, hotend, and auxiliary fan speeds: 'Teil-, Hotend- und Hilfslüftergeschwindigkeiten'
@@ -886,7 +886,7 @@ translations:
   Preparing...: Vorbereiten...
   Preset: Voreinstellung
   Presets: Voreinstellungen
-  'Pressure:': ''
+  'Pressure:': 'Druck:'
   Previous: Zurück
   Price: Preis
   Primary: Primär
@@ -943,7 +943,7 @@ translations:
   Profile name (e.g., default): Profilname (z.B. Standard)
   Profiles: Profile
   Progress Bar Tests: Fortschrittsbalken-Tests
-  Pulling filament back: ''
+  Pulling filament back: Filament wird zurückgezogen
   Purge: Entlüften
   Purging nozzle: Düse wird gespült
   Purging...: Entlüften...
@@ -1020,7 +1020,7 @@ translations:
   Retry: Wiederholen
   Review detected hardware validation issues: Erkannte Hardware-Validierungsprobleme überprüfen
   Review your changes: Ihre Änderungen überprüfen
-  Rewinding: ''
+  Rewinding: Zurückspulen
   'Role:': 'Rolle:'
   Rotating tips and helpful information: 'Rotierende Tipps und hilfreiche Informationen'
   'Rotation: %d\xc2\xb0 - %ds remaining (or wait to retry)': 'Drehung: %d\xc2\xb0 - %ds verbleibend (oder warten zum Wiederholen)'
@@ -1135,7 +1135,7 @@ translations:
   Spool Weight (g): Spulengewicht (g)
   Spool created successfully: Spule erfolgreich erstellt
   Spool deleted: Spule gelöscht
-  Spool motor: ''
+  Spool motor: Spulenmotor
   Spool saved: Spule gespeichert
   Spool wt (g): Spulengewicht (g)
   Spoolman: Spoolman
@@ -1154,7 +1154,7 @@ translations:
   Started: Gestartet
   Starting Print...: Druck starten...
   Starting...: Starten...
-  Startup Brightness: ''
+  Startup Brightness: Starthelligkeit
   Startup, auto-control, and macro devices: Start, Auto-Steuerung und Makro-Geräte
   State: Status
   Status: Status
@@ -1398,7 +1398,7 @@ translations:
   not detected: nicht erkannt
   of: von
   prints: Drucke
-  remaining before clog detection triggers: ''
+  remaining before clog detection triggers: verbleibend bis Verstopfungserkennung auslöst
   set to: gesetzt auf
   started: gestartet
   tall: hoch
