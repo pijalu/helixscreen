@@ -68,7 +68,6 @@ void LedWidget::attach(lv_obj_t* widget_obj, lv_obj_t* parent_screen) {
     }
 
     // Observe led_config_version to rebind when LED discovery or settings change.
-    // This fires immediately on add (triggering bind_led), so no separate init call needed.
     std::weak_ptr<bool> weak_alive = alive_;
     auto& led_ctrl = helix::led::LedController::instance();
     led_version_observer_ =
@@ -78,6 +77,12 @@ void LedWidget::attach(lv_obj_t* widget_obj, lv_obj_t* parent_screen) {
                                                        return;
                                                    self->bind_led();
                                                });
+
+    // Bind immediately rather than waiting for the deferred observer callback.
+    // observe_int_sync defers via queue_update, so the initial fire-on-add
+    // may not run until a later tick.  Calling bind_led() here ensures
+    // state/brightness observers are set up before the first user interaction.
+    bind_led();
 
     spdlog::debug("[LedWidget] Attached");
 }
@@ -154,32 +159,24 @@ void LedWidget::handle_light_toggle() {
     spdlog::info("[LedWidget] Light button clicked");
 
     auto& led_ctrl = helix::led::LedController::instance();
-    const auto& strips = led_ctrl.selected_strips();
-    if (strips.empty()) {
+    if (led_ctrl.selected_strips().empty()) {
         spdlog::warn("[LedWidget] Light toggle called but no LED configured");
         return;
     }
 
-    // Sync light_on_ from the actual subject value right before toggling.
-    // This ensures the toggle sends the correct command even if the deferred
-    // observer callback hasn't fired yet (e.g., status arrived but the
-    // ui_queue_update chain hasn't fully drained).
-    if (led_ctrl.light_state_trackable()) {
-        int current_state = lv_subject_get_int(printer_state_.get_led_state_subject());
-        bool actual_on = (current_state != 0);
-        if (led_ctrl.light_is_on() != actual_on) {
-            spdlog::debug("[LedWidget] Pre-toggle sync: light_on_ {} -> {}", led_ctrl.light_is_on(),
-                          actual_on);
-            led_ctrl.sync_light_state(actual_on);
-        }
-    }
+    // Read current state from Moonraker subject (source of truth)
+    int current_state = lv_subject_get_int(printer_state_.get_led_state_subject());
+    bool is_on = (current_state != 0);
 
-    led_ctrl.light_toggle();
+    spdlog::info("[LedWidget] Toggle: subject says {} -> sending {}", is_on ? "ON" : "OFF",
+                 is_on ? "OFF" : "ON");
 
-    if (led_ctrl.light_state_trackable()) {
-        light_on_ = led_ctrl.light_is_on();
-        update_light_icon();
-    } else {
+    // Send the opposite command
+    led_ctrl.light_set(!is_on);
+
+    // Icon updates when Moonraker status response arrives via on_led_state_changed.
+    // For non-trackable (TOGGLE macro) backends, flash the icon as feedback.
+    if (!led_ctrl.light_state_trackable()) {
         flash_light_icon();
     }
 }

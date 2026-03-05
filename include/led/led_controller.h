@@ -388,6 +388,9 @@ class LedController {
     /// This is the primary API for turning lights on/off — always updates light_on_.
     void light_set(bool on);
 
+    /// Query tracked LED state from Moonraker to sync subjects after toggle.
+    void query_tracked_led_state();
+
     /// Convenience: turn off all selected strips.
     void turn_off_all();
 

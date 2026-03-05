@@ -2,12 +2,15 @@
 
 #include "led/led_controller.h"
 
+#include "app_globals.h"
 #include "color_utils.h"
 #include "config.h"
 #include "moonraker_api.h"
+#include "moonraker_client.h"
 #include "moonraker_error.h"
 #include "printer_discovery.h"
 #include "static_subject_registry.h"
+#include "ui_update_queue.h"
 
 #include <spdlog/spdlog.h>
 
@@ -1704,6 +1707,13 @@ void LedController::toggle_all(bool on) {
 
     spdlog::info("[LedController] toggle_all({}) for {} strip(s)", on, selected_strips_.size());
 
+    // When turning off, stop any active LED effects first.  LED effects
+    // continuously write their own color values to the neopixels, so a bare
+    // SET_LED RED=0 will be immediately overridden if effects are still running.
+    if (!on && effects_.is_available()) {
+        effects_.stop_all_effects();
+    }
+
     for (const auto& strip_id : selected_strips_) {
         auto backend_type = backend_for_strip(strip_id);
 
@@ -1883,6 +1893,41 @@ void LedController::light_set(bool on) {
     spdlog::info("[LedController] light_set({})", on);
     light_on_ = on;
     toggle_all(on);
+    query_tracked_led_state();
+}
+
+void LedController::query_tracked_led_state() {
+    if (!client_ || selected_strips_.empty()) {
+        return;
+    }
+
+    // After toggling LEDs, explicitly query the tracked LED's state.
+    // Moonraker subscriptions only send diffs.  STOP_LED_EFFECTS may not
+    // trigger a neopixel status update, and SET_LED is a no-op if Klipper
+    // already had that value.  An explicit query guarantees the subject
+    // reflects the actual hardware state.
+    std::string tracked = selected_strips_.front();
+    nlohmann::json query_objects = nlohmann::json::object();
+    query_objects[tracked] = nullptr;
+    client_->send_jsonrpc(
+        "printer.objects.query", {{"objects", query_objects}},
+        [tracked](nlohmann::json response) {
+            if (!response.contains("result") || !response["result"].contains("status")) {
+                spdlog::warn("[LedController] query_tracked_led_state: no result/status in response");
+                return;
+            }
+            const auto& status = response["result"]["status"];
+            if (!status.contains(tracked)) {
+                spdlog::warn("[LedController] query_tracked_led_state: '{}' not in response (keys: {})",
+                             tracked, nlohmann::json(status).dump().substr(0, 200));
+                return;
+            }
+            spdlog::debug("[LedController] query_tracked_led_state: got {} = {}",
+                          tracked, status[tracked].dump().substr(0, 200));
+            helix::ui::queue_update([status]() {
+                get_printer_state().update_from_status(status);
+            });
+        });
 }
 
 void LedController::turn_off_all() {

@@ -106,22 +106,19 @@ void PrintLightTimelapseControls::deinit_subjects() {
 // ============================================================================
 
 void PrintLightTimelapseControls::handle_light_button() {
-    spdlog::info("[PrintLightTimelapseControls] Light button clicked (current state: {})",
-                 led_on_ ? "ON" : "OFF");
-
-    // Read selected strips lazily - hardware discovery may have completed since construction
     auto& led_ctrl = helix::led::LedController::instance();
-    const auto& strips = led_ctrl.selected_strips();
-    if (strips.empty()) {
+    if (led_ctrl.selected_strips().empty()) {
         spdlog::warn("[PrintLightTimelapseControls] No LED configured - ignoring button click");
         NOTIFY_WARNING("No light configured. Set up in Settings > LED Settings.");
         return;
     }
 
-    // Sync LedController state from our tracked state, then toggle.
-    // This matches the pattern used in LedWidget for pre-toggle sync.
-    led_ctrl.sync_light_state(led_on_);
-    led_ctrl.light_toggle();
+    spdlog::info("[PrintLightTimelapseControls] Light button clicked (subject: {})",
+                 led_on_ ? "ON" : "OFF");
+
+    // Send the opposite of what Moonraker reports.  Icon updates when
+    // Moonraker status arrives via update_led_state().
+    led_ctrl.light_set(!led_on_);
 }
 
 void PrintLightTimelapseControls::handle_timelapse_button() {

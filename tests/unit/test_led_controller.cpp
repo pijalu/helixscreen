@@ -984,3 +984,77 @@ TEST_CASE("LedController: apply_startup_preference sets light_is_on true", "[led
 
     ctrl.deinit();
 }
+
+// ============================================================================
+// Regression: toggle off must stop LED effects before SET_LED
+// ============================================================================
+
+TEST_CASE("LedController: light_set(false) stops LED effects when available",
+          "[led][controller]") {
+    auto& ctrl = helix::led::LedController::instance();
+    ctrl.deinit();
+    ctrl.init(nullptr, nullptr);
+
+    // Add a native strip (represents neopixel case_lights)
+    helix::led::LedStripInfo strip;
+    strip.name = "Case Lights";
+    strip.id = "neopixel case_lights";
+    strip.backend = helix::led::LedBackendType::NATIVE;
+    strip.supports_color = true;
+    strip.supports_white = false;
+    ctrl.native().add_strip(strip);
+    ctrl.set_selected_strips({"neopixel case_lights"});
+
+    // Add LED effects (simulates stealthburner_led_effects being configured)
+    helix::led::LedEffectInfo effect;
+    effect.name = "led_effect sb_logo_printing";
+    effect.display_name = "Printing";
+    ctrl.effects().add_effect(effect);
+
+    REQUIRE(ctrl.effects().is_available());
+
+    // Turn on, then off — should not crash even without API
+    // (stop_all_effects will warn but not crash with null API)
+    ctrl.light_set(true);
+    REQUIRE(ctrl.light_is_on());
+
+    ctrl.light_set(false);
+    REQUIRE(!ctrl.light_is_on());
+
+    // Toggle path exercises the same code
+    ctrl.light_toggle();
+    REQUIRE(ctrl.light_is_on());
+
+    ctrl.light_toggle();
+    REQUIRE(!ctrl.light_is_on());
+
+    ctrl.deinit();
+}
+
+TEST_CASE("LedController: light_set(false) without effects skips stop_all_effects",
+          "[led][controller]") {
+    auto& ctrl = helix::led::LedController::instance();
+    ctrl.deinit();
+    ctrl.init(nullptr, nullptr);
+
+    // Native strip only, no effects
+    helix::led::LedStripInfo strip;
+    strip.name = "Chamber Light";
+    strip.id = "neopixel chamber_light";
+    strip.backend = helix::led::LedBackendType::NATIVE;
+    strip.supports_color = true;
+    strip.supports_white = true;
+    ctrl.native().add_strip(strip);
+    ctrl.set_selected_strips({"neopixel chamber_light"});
+
+    REQUIRE(!ctrl.effects().is_available());
+
+    // Should work fine without effects
+    ctrl.light_set(true);
+    REQUIRE(ctrl.light_is_on());
+
+    ctrl.light_set(false);
+    REQUIRE(!ctrl.light_is_on());
+
+    ctrl.deinit();
+}

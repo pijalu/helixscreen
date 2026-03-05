@@ -780,6 +780,55 @@ TEST_CASE("LED characterization: observers on different LED subjects are indepen
     lv_observer_remove(state_observer);
 }
 
+TEST_CASE("LED characterization: toggle cycle fires observers correctly",
+          "[characterization][led][observer]") {
+    lv_init_safe();
+
+    PrinterState& state = get_printer_state();
+    PrinterStateTestAccess::reset(state);
+    state.init_subjects(false);
+    state.set_tracked_led("neopixel led_strip");
+
+    auto observer_cb = [](lv_observer_t* observer, lv_subject_t*) {
+        int* count = static_cast<int*>(lv_observer_get_user_data(observer));
+        (*count)++;
+    };
+
+    int state_count = 0;
+    int brightness_count = 0;
+
+    lv_observer_t* state_obs =
+        lv_subject_add_observer(state.get_led_state_subject(), observer_cb, &state_count);
+    lv_observer_t* brightness_obs =
+        lv_subject_add_observer(state.get_led_brightness_subject(), observer_cb, &brightness_count);
+
+    // Both fire on initial add
+    REQUIRE(state_count == 1);
+    REQUIRE(brightness_count == 1);
+
+    // Turn ON
+    json on_status = {{"neopixel led_strip", {{"color_data", {{1.0, 1.0, 1.0, 1.0}}}}}};
+    state.update_from_status(on_status);
+    REQUIRE(state_count == 2);      // OFF -> ON fires observer
+    REQUIRE(brightness_count == 2); // 0 -> 100 fires observer
+    REQUIRE(lv_subject_get_int(state.get_led_state_subject()) == 1);
+
+    // Turn OFF
+    json off_status = {{"neopixel led_strip", {{"color_data", {{0.0, 0.0, 0.0, 0.0}}}}}};
+    state.update_from_status(off_status);
+    REQUIRE(state_count == 3);      // ON -> OFF fires observer
+    REQUIRE(brightness_count == 3); // 100 -> 0 fires observer
+    REQUIRE(lv_subject_get_int(state.get_led_state_subject()) == 0);
+
+    // Turn ON again
+    state.update_from_status(on_status);
+    REQUIRE(state_count == 4);
+    REQUIRE(brightness_count == 4);
+
+    lv_observer_remove(state_obs);
+    lv_observer_remove(brightness_obs);
+}
+
 TEST_CASE("LED characterization: multiple observers on same LED subject all fire",
           "[characterization][led][observer]") {
     lv_init_safe();
