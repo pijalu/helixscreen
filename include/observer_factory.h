@@ -309,6 +309,7 @@ struct AsyncLambdaObserverContext {
     Panel* panel;
     ValueHandler value_handler;
     UpdateHandler update_handler;
+    std::shared_ptr<bool> alive = std::make_shared<bool>(true);
 };
 
 } // namespace detail
@@ -441,16 +442,16 @@ ObserverGuard observe_int_async(lv_subject_t* subject, Panel* panel, ValueHandle
                 int value = lv_subject_get_int(subj);
                 c->value_handler(c->panel, value);
 
-                // Schedule async update
-                helix::ui::async_call(
-                    [](void* user_data) {
-                        auto* ctx = static_cast<detail::AsyncLambdaObserverContext<
-                            Panel, DecayedValueHandler, DecayedUpdateHandler>*>(user_data);
-                        if (ctx && ctx->panel) {
-                            ctx->update_handler(ctx->panel);
-                        }
-                    },
-                    c);
+                // Schedule async update with alive guard to prevent
+                // use-after-free if ObserverGuard is destroyed before execution
+                auto* panel_ptr = c->panel;
+                auto update_copy = c->update_handler;
+                std::weak_ptr<bool> weak_alive = c->alive;
+                helix::ui::queue_update([panel_ptr, update_copy, weak_alive]() {
+                    if (weak_alive.expired())
+                        return;
+                    update_copy(panel_ptr);
+                });
             }
         },
         ctx, [ctx]() { delete ctx; });
@@ -578,16 +579,16 @@ ObserverGuard observe_string_async(lv_subject_t* subject, Panel* panel,
                     str = "";
                 c->value_handler(c->panel, str);
 
-                // Schedule async update
-                helix::ui::async_call(
-                    [](void* user_data) {
-                        auto* ctx = static_cast<detail::AsyncLambdaObserverContext<
-                            Panel, DecayedValueHandler, DecayedUpdateHandler>*>(user_data);
-                        if (ctx && ctx->panel) {
-                            ctx->update_handler(ctx->panel);
-                        }
-                    },
-                    c);
+                // Schedule async update with alive guard to prevent
+                // use-after-free if ObserverGuard is destroyed before execution
+                auto* panel_ptr = c->panel;
+                auto update_copy = c->update_handler;
+                std::weak_ptr<bool> weak_alive = c->alive;
+                helix::ui::queue_update([panel_ptr, update_copy, weak_alive]() {
+                    if (weak_alive.expired())
+                        return;
+                    update_copy(panel_ptr);
+                });
             }
         },
         ctx, [ctx]() { delete ctx; });

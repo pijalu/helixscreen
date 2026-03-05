@@ -329,6 +329,46 @@ static void crash_signal_handler(int sig, siginfo_t* info, void* ucontext) {
         safe_write(fd, "reg_lr:");
         safe_write(fd, ptr_to_hex(hex_buf, sizeof(hex_buf), uctx->uc_mcontext.arm_lr));
         safe_write(fd, "\n");
+        // ARM32 general-purpose registers for crash analysis
+        safe_write(fd, "reg_r0:");
+        safe_write(fd, ptr_to_hex(hex_buf, sizeof(hex_buf), uctx->uc_mcontext.arm_r0));
+        safe_write(fd, "\n");
+        safe_write(fd, "reg_r1:");
+        safe_write(fd, ptr_to_hex(hex_buf, sizeof(hex_buf), uctx->uc_mcontext.arm_r1));
+        safe_write(fd, "\n");
+        safe_write(fd, "reg_r2:");
+        safe_write(fd, ptr_to_hex(hex_buf, sizeof(hex_buf), uctx->uc_mcontext.arm_r2));
+        safe_write(fd, "\n");
+        safe_write(fd, "reg_r3:");
+        safe_write(fd, ptr_to_hex(hex_buf, sizeof(hex_buf), uctx->uc_mcontext.arm_r3));
+        safe_write(fd, "\n");
+        safe_write(fd, "reg_r4:");
+        safe_write(fd, ptr_to_hex(hex_buf, sizeof(hex_buf), uctx->uc_mcontext.arm_r4));
+        safe_write(fd, "\n");
+        safe_write(fd, "reg_r5:");
+        safe_write(fd, ptr_to_hex(hex_buf, sizeof(hex_buf), uctx->uc_mcontext.arm_r5));
+        safe_write(fd, "\n");
+        safe_write(fd, "reg_r6:");
+        safe_write(fd, ptr_to_hex(hex_buf, sizeof(hex_buf), uctx->uc_mcontext.arm_r6));
+        safe_write(fd, "\n");
+        safe_write(fd, "reg_r7:");
+        safe_write(fd, ptr_to_hex(hex_buf, sizeof(hex_buf), uctx->uc_mcontext.arm_r7));
+        safe_write(fd, "\n");
+        safe_write(fd, "reg_r8:");
+        safe_write(fd, ptr_to_hex(hex_buf, sizeof(hex_buf), uctx->uc_mcontext.arm_r8));
+        safe_write(fd, "\n");
+        safe_write(fd, "reg_r9:");
+        safe_write(fd, ptr_to_hex(hex_buf, sizeof(hex_buf), uctx->uc_mcontext.arm_r9));
+        safe_write(fd, "\n");
+        safe_write(fd, "reg_r10:");
+        safe_write(fd, ptr_to_hex(hex_buf, sizeof(hex_buf), uctx->uc_mcontext.arm_r10));
+        safe_write(fd, "\n");
+        safe_write(fd, "reg_fp:");
+        safe_write(fd, ptr_to_hex(hex_buf, sizeof(hex_buf), uctx->uc_mcontext.arm_fp));
+        safe_write(fd, "\n");
+        safe_write(fd, "reg_ip:");
+        safe_write(fd, ptr_to_hex(hex_buf, sizeof(hex_buf), uctx->uc_mcontext.arm_ip));
+        safe_write(fd, "\n");
 #elif defined(__aarch64__)
         safe_write(fd, "reg_pc:");
         safe_write(fd, ptr_to_hex(hex_buf, sizeof(hex_buf), uctx->uc_mcontext.pc));
@@ -415,6 +455,27 @@ static void crash_signal_handler(int sig, siginfo_t* info, void* ucontext) {
     }
 #elif defined(HAVE_ANDROID_LOG)
     __android_log_print(ANDROID_LOG_FATAL, "HelixScreen", "CRASH: signal %d", sig);
+#endif
+
+    // Dump stack memory around SP for ARM32 crash analysis.
+    // On ARM32 static binaries, backtrace() is useless (can't unwind past signal frame).
+    // Stack scanning lets us find return addresses back into the binary text segment.
+#if defined(__arm__) && defined(__linux__)
+    if (ucontext) {
+        const auto* uctx = static_cast<const ucontext_t*>(ucontext);
+        auto sp = uctx->uc_mcontext.arm_sp;
+        // Dump 128 words (512 bytes) from SP upward — covers several stack frames
+        safe_write(fd, "stack_base:");
+        safe_write(fd, ptr_to_hex(hex_buf, sizeof(hex_buf), sp));
+        safe_write(fd, "\n");
+        const auto* stack_ptr = reinterpret_cast<const uint32_t*>(sp);
+        for (int i = 0; i < 128; ++i) {
+            safe_write(fd, "stk:");
+            safe_write(
+                fd, ptr_to_hex(hex_buf, sizeof(hex_buf), static_cast<uintptr_t>(stack_ptr[i])));
+            safe_write(fd, "\n");
+        }
+    }
 #endif
 
     // Dump /proc/self/maps so we can distinguish binary vs shared library frames.
@@ -650,6 +711,17 @@ nlohmann::json crash_handler::read_crash_file(const std::string& crash_file_path
                     result["memory_map"] = json::array();
                 }
                 result["memory_map"].push_back(value);
+            } else if (key == "stack_base") {
+                result["stack_base"] = value;
+            } else if (key == "stk") {
+                // Stack memory dump words
+                if (!result.contains("stack_dump")) {
+                    result["stack_dump"] = json::array();
+                }
+                result["stack_dump"].push_back(value);
+            } else if (key.rfind("reg_", 0) == 0) {
+                // Generic register capture (reg_r0, reg_fp, etc.)
+                result[key] = value;
             }
         }
 
