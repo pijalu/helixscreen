@@ -5,6 +5,25 @@ All notable changes to HelixScreen will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.96.5] - 2026-03-05
+
+### Added
+- Compile-time ENABLE_MOCKS flag to exclude mock backends from production builds
+
+### Fixed
+- Print status card requiring multiple clicks to navigate (grace period timer started on first click instead of app launch)
+- Camera stream dying during fullscreen transitions and panel navigation
+- Crash serialization cascading failures when writing crash entries
+- LED color parsing errors with signed char values and toggle icon state drift
+- Click events not reaching parent widget on print status card and other dashboard cards
+
+### Changed
+- MJPEG camera decoding uses libturbojpeg for SIMD-accelerated performance
+- 3D renderer releases CPU geometry and GPU vertex buffers when no longer needed
+- Consistent pressed-state touch feedback across all clickable dashboard widgets
+- AMS buffer status extracted into declarative XML modal with corrected meter drawing
+- Translations updated: 17 new strings across 9 languages
+
 ## [0.96.4] - 2026-03-04
 
 This release adds AMS dryer status, proportional buffer feedback for Happy Hare, a filament health carousel, LED startup brightness control, and proactive memory monitoring. Camera stability received major crash fixes, and G-code viewer memory usage was cut in half.
@@ -1564,6 +1583,7 @@ Initial tagged release. Foundation for all subsequent development.
 - Automated GitHub Actions release pipeline
 - One-liner installation script with platform auto-detection
 
+[0.96.5]: https://github.com/prestonbrown/helixscreen/compare/v0.96.4...v0.96.5
 [0.96.4]: https://github.com/prestonbrown/helixscreen/compare/v0.96.3...v0.96.4
 [0.96.3]: https://github.com/prestonbrown/helixscreen/compare/v0.96.2...v0.96.3
 [0.96.2]: https://github.com/prestonbrown/helixscreen/compare/v0.96.1...v0.96.2
