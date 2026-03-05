@@ -820,9 +820,23 @@ void BedMeshPanel::load_profile(int index) {
         std::string cmd = "BED_MESH_PROFILE LOAD=" + name;
         api->execute_gcode(
             cmd,
-            [this, name]() {
+            [this, api, name]() {
                 operation_guard_.end();
                 spdlog::debug("[{}] Profile loaded: {}", get_name(), name);
+
+                // Explicitly refresh mesh visualization from the loaded profile data.
+                // The subscription notification may arrive with only profile_name (no
+                // probed_matrix) on some Klipper versions, leaving the 3D graph stale.
+                auto alive = alive_;
+                helix::ui::queue_update([this, api, alive]() {
+                    if (!alive->load())
+                        return;
+                    const BedMeshProfile* mesh = api->advanced().get_active_bed_mesh();
+                    if (mesh) {
+                        on_mesh_update_internal(*mesh);
+                    }
+                    update_profile_list_subjects();
+                });
             },
             [this](const MoonrakerError& err) {
                 operation_guard_.end();

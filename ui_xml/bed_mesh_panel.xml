@@ -135,10 +135,12 @@
               <event_cb trigger="clicked" callback="on_profile_0_clicked"/>
               <!-- Name -->
               <text_small name="profile_0_name"
-                          bind_text="bed_mesh_profile_0_name" flex_grow="1" style_text_color="#text"/>
+                          bind_text="bed_mesh_profile_0_name" flex_grow="1" style_text_color="#text"
+                          clickable="false" event_bubble="true"/>
               <!-- Range -->
               <text_small name="profile_0_range"
-                          width="50" bind_text="bed_mesh_profile_0_range" style_text_align="right"/>
+                          width="50" bind_text="bed_mesh_profile_0_range" style_text_align="right"
+                          clickable="false" event_bubble="true"/>
               <!-- Rename icon (only when active) -->
               <icon name="profile_0_rename"
                     src="pencil" size="sm" color="#success" clickable="true" style_pad_all="#space_xs">
@@ -165,9 +167,11 @@
               <bind_flag_if_lt subject="bed_mesh_profile_count" flag="hidden" ref_value="2"/>
               <event_cb trigger="clicked" callback="on_profile_1_clicked"/>
               <text_small name="profile_1_name"
-                          bind_text="bed_mesh_profile_1_name" flex_grow="1" style_text_color="#text"/>
+                          bind_text="bed_mesh_profile_1_name" flex_grow="1" style_text_color="#text"
+                          clickable="false" event_bubble="true"/>
               <text_small name="profile_1_range"
-                          width="50" bind_text="bed_mesh_profile_1_range" style_text_align="right"/>
+                          width="50" bind_text="bed_mesh_profile_1_range" style_text_align="right"
+                          clickable="false" event_bubble="true"/>
               <icon name="profile_1_rename"
                     src="pencil" size="sm" color="#success" clickable="true" style_pad_all="#space_xs">
                 <bind_flag_if_eq subject="bed_mesh_profile_1_active" flag="hidden" ref_value="0"/>
@@ -191,9 +195,11 @@
               <bind_flag_if_lt subject="bed_mesh_profile_count" flag="hidden" ref_value="3"/>
               <event_cb trigger="clicked" callback="on_profile_2_clicked"/>
               <text_small name="profile_2_name"
-                          bind_text="bed_mesh_profile_2_name" flex_grow="1" style_text_color="#text"/>
+                          bind_text="bed_mesh_profile_2_name" flex_grow="1" style_text_color="#text"
+                          clickable="false" event_bubble="true"/>
               <text_small name="profile_2_range"
-                          width="50" bind_text="bed_mesh_profile_2_range" style_text_align="right"/>
+                          width="50" bind_text="bed_mesh_profile_2_range" style_text_align="right"
+                          clickable="false" event_bubble="true"/>
               <icon name="profile_2_rename"
                     src="pencil" size="sm" color="#success" clickable="true" style_pad_all="#space_xs">
                 <bind_flag_if_eq subject="bed_mesh_profile_2_active" flag="hidden" ref_value="0"/>
@@ -217,9 +223,11 @@
               <bind_flag_if_lt subject="bed_mesh_profile_count" flag="hidden" ref_value="4"/>
               <event_cb trigger="clicked" callback="on_profile_3_clicked"/>
               <text_small name="profile_3_name"
-                          bind_text="bed_mesh_profile_3_name" flex_grow="1" style_text_color="#text"/>
+                          bind_text="bed_mesh_profile_3_name" flex_grow="1" style_text_color="#text"
+                          clickable="false" event_bubble="true"/>
               <text_small name="profile_3_range"
-                          width="50" bind_text="bed_mesh_profile_3_range" style_text_align="right"/>
+                          width="50" bind_text="bed_mesh_profile_3_range" style_text_align="right"
+                          clickable="false" event_bubble="true"/>
               <icon name="profile_3_rename"
                     src="pencil" size="sm" color="#success" clickable="true" style_pad_all="#space_xs">
                 <bind_flag_if_eq subject="bed_mesh_profile_3_active" flag="hidden" ref_value="0"/>
@@ -243,9 +251,11 @@
               <bind_flag_if_lt subject="bed_mesh_profile_count" flag="hidden" ref_value="5"/>
               <event_cb trigger="clicked" callback="on_profile_4_clicked"/>
               <text_small name="profile_4_name"
-                          bind_text="bed_mesh_profile_4_name" flex_grow="1" style_text_color="#text"/>
+                          bind_text="bed_mesh_profile_4_name" flex_grow="1" style_text_color="#text"
+                          clickable="false" event_bubble="true"/>
               <text_small name="profile_4_range"
-                          width="50" bind_text="bed_mesh_profile_4_range" style_text_align="right"/>
+                          width="50" bind_text="bed_mesh_profile_4_range" style_text_align="right"
+                          clickable="false" event_bubble="true"/>
               <icon name="profile_4_rename"
                     src="pencil" size="sm" color="#success" clickable="true" style_pad_all="#space_xs">
                 <bind_flag_if_eq subject="bed_mesh_profile_4_active" flag="hidden" ref_value="0"/>
