@@ -81,11 +81,21 @@ class FlyingToasterScreensaver : public Screensaver {
     /** @brief Get image scale factor based on screen width */
     int get_scale_factor() const;
 
+    /** @brief Pre-decode all PNG sprites into persistent RAM buffers */
+    void decode_sprites();
+
+    /** @brief Free pre-decoded sprite buffers */
+    void free_sprites();
+
     bool m_active = false;
     lv_obj_t* m_overlay = nullptr;
     std::vector<FlyingObject> m_objects;
     lv_timer_t* m_tick_timer = nullptr;
     uint32_t m_elapsed_ms = 0;
+
+    // Pre-decoded sprite buffers (avoid per-frame PNG file I/O + decompression)
+    lv_draw_buf_t* m_decoded_frames[4] = {};  // toaster_0..3
+    lv_draw_buf_t* m_decoded_toast = nullptr;
 };
 
 #endif // HELIX_ENABLE_SCREENSAVER

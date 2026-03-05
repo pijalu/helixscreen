@@ -4,6 +4,7 @@
 
 #include "ui_screensaver.h"
 
+#include <draw/lv_image_decoder_private.h>
 #include <spdlog/spdlog.h>
 
 #include <algorithm>
@@ -23,9 +24,9 @@ static constexpr int NUM_TOASTER_FRAMES =
 // CSS reference: translate(-1600px, 1600px) — fixed travel distance
 static constexpr int FLIGHT_DISTANCE = 1600;
 
-// Single timer period — ~15fps is smooth enough for slow diagonal flight
-// and minimizes CPU usage on embedded devices.
-static constexpr uint32_t TICK_PERIOD_MS = 66;
+// Single timer period — ~30fps for smooth diagonal flight.
+// CPU-safe now that sprites are pre-decoded RAM buffers (no per-frame file I/O).
+static constexpr uint32_t TICK_PERIOD_MS = 33;
 
 // Object definition matching the exact CSS classes and positions.
 // CSS uses right/top percentages. Negative right = off-screen to the right.
@@ -140,6 +141,7 @@ void FlyingToasterScreensaver::start() {
     spdlog::info("[Screensaver] Starting flying toasters");
 
     m_elapsed_ms = 0;
+    decode_sprites();
     create_overlay();
     spawn_objects();
 
@@ -169,6 +171,8 @@ void FlyingToasterScreensaver::stop() {
         lv_obj_delete(m_overlay);
     }
     m_overlay = nullptr;
+
+    free_sprites();
 
     m_active = false;
 }
@@ -230,12 +234,12 @@ void FlyingToasterScreensaver::create_flying_object(
 
     lv_obj_t* img = lv_image_create(m_overlay);
 
-    // Set initial image
+    // Set initial image from pre-decoded RAM buffers
     uint8_t initial_frame = reverse_flap ? 2 : 0;
     if (is_toaster) {
-        lv_image_set_src(img, TOASTER_FRAMES[initial_frame]);
+        lv_image_set_src(img, m_decoded_frames[initial_frame]);
     } else {
-        lv_image_set_src(img, TOAST_IMG);
+        lv_image_set_src(img, m_decoded_toast);
     }
 
     // Scale on larger displays
@@ -273,6 +277,15 @@ void FlyingToasterScreensaver::tick_cb(lv_timer_t* timer) {
 
     self->m_elapsed_ms += TICK_PERIOD_MS;
 
+    lv_display_t* disp = lv_display_get_default();
+    int screen_w = disp ? lv_display_get_horizontal_resolution(disp) : 800;
+    int screen_h = disp ? lv_display_get_vertical_resolution(disp) : 480;
+    int obj_size = 64;
+    int scale = self->get_scale_factor();
+    if (scale != 256) {
+        obj_size = obj_size * scale / 256;
+    }
+
     for (auto& obj : self->m_objects) {
         if (!obj.img) continue;
 
@@ -288,6 +301,20 @@ void FlyingToasterScreensaver::tick_cb(lv_timer_t* timer) {
         int32_t dy = static_cast<int32_t>(FLIGHT_DISTANCE) * static_cast<int32_t>(t) / obj.fly_ms;
         auto new_x = static_cast<int16_t>(obj.start_x + dx);
         auto new_y = static_cast<int16_t>(obj.start_y + dy);
+
+        // Hide objects that are entirely off-screen (LVGL skips hidden objects in render)
+        bool on_screen = (new_x + obj_size > 0 && new_x < screen_w &&
+                          new_y + obj_size > 0 && new_y < screen_h);
+        if (!on_screen) {
+            if (!lv_obj_has_flag(obj.img, LV_OBJ_FLAG_HIDDEN))
+                lv_obj_add_flag(obj.img, LV_OBJ_FLAG_HIDDEN);
+            obj.prev_x = new_x;
+            obj.prev_y = new_y;
+            continue;
+        }
+        if (lv_obj_has_flag(obj.img, LV_OBJ_FLAG_HIDDEN))
+            lv_obj_remove_flag(obj.img, LV_OBJ_FLAG_HIDDEN);
+
         if (new_x != obj.prev_x || new_y != obj.prev_y) {
             lv_obj_set_pos(obj.img, new_x, new_y);
             obj.prev_x = new_x;
@@ -316,10 +343,55 @@ void FlyingToasterScreensaver::tick_cb(lv_timer_t* timer) {
             }
         }
 
-        // Only update image source when frame actually changed
+        // Only update image source when frame actually changed (RAM buffer, no file I/O)
         if (obj.flap_frame != prev_frame) {
-            lv_image_set_src(obj.img, TOASTER_FRAMES[obj.flap_frame]);
+            lv_image_set_src(obj.img, self->m_decoded_frames[obj.flap_frame]);
         }
+    }
+}
+
+void FlyingToasterScreensaver::decode_sprites() {
+    // Pre-decode each unique PNG into a persistent draw buffer.
+    // When used as lv_image_set_src(), LVGL treats these as LV_IMAGE_SRC_VARIABLE —
+    // no file open, no PNG decompression, just direct pixel data.
+    for (int i = 0; i < NUM_TOASTER_FRAMES; i++) {
+        lv_image_decoder_dsc_t dsc;
+        lv_result_t res = lv_image_decoder_open(&dsc, TOASTER_FRAMES[i], nullptr);
+        if (res == LV_RESULT_OK && dsc.decoded) {
+            m_decoded_frames[i] = lv_draw_buf_dup(dsc.decoded);
+            lv_image_decoder_close(&dsc);
+        } else {
+            spdlog::warn("[Screensaver] Failed to pre-decode {}", TOASTER_FRAMES[i]);
+            if (res == LV_RESULT_OK) lv_image_decoder_close(&dsc);
+        }
+    }
+
+    {
+        lv_image_decoder_dsc_t dsc;
+        lv_result_t res = lv_image_decoder_open(&dsc, TOAST_IMG, nullptr);
+        if (res == LV_RESULT_OK && dsc.decoded) {
+            m_decoded_toast = lv_draw_buf_dup(dsc.decoded);
+            lv_image_decoder_close(&dsc);
+        } else {
+            spdlog::warn("[Screensaver] Failed to pre-decode {}", TOAST_IMG);
+            if (res == LV_RESULT_OK) lv_image_decoder_close(&dsc);
+        }
+    }
+
+    spdlog::debug("[Screensaver] Pre-decoded {} toaster frames + toast sprite into RAM",
+                  NUM_TOASTER_FRAMES);
+}
+
+void FlyingToasterScreensaver::free_sprites() {
+    for (auto& buf : m_decoded_frames) {
+        if (buf) {
+            lv_draw_buf_destroy(buf);
+            buf = nullptr;
+        }
+    }
+    if (m_decoded_toast) {
+        lv_draw_buf_destroy(m_decoded_toast);
+        m_decoded_toast = nullptr;
     }
 }
 
