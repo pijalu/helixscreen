@@ -3,7 +3,9 @@
 
 #include "usb_backend.h"
 
+#ifdef HELIX_ENABLE_MOCKS
 #include "usb_backend_mock.h"
+#endif
 
 #if defined(__linux__) && !defined(__ANDROID__)
 #include "usb_backend_linux.h"
@@ -12,10 +14,14 @@
 #include <spdlog/spdlog.h>
 
 std::unique_ptr<UsbBackend> UsbBackend::create(bool force_mock) {
+#ifdef HELIX_ENABLE_MOCKS
     if (force_mock) {
         spdlog::debug("[UsbBackend] Creating mock backend (force_mock=true)");
         return std::make_unique<UsbBackendMock>();
     }
+#else
+    (void)force_mock;
+#endif
 
 #if defined(__linux__) && !defined(__ANDROID__)
     // Linux: Use native backend (inotify preferred, polling fallback)

@@ -821,6 +821,20 @@ class AmsBackend {
     }
 
     // ========================================================================
+    // Mock Support
+    // ========================================================================
+
+    /**
+     * @brief Set callback for gcode response injection
+     *
+     * Used by mock backends to simulate Klipper gcode responses.
+     * Default implementation is a no-op for real backends.
+     *
+     * @param callback Function that receives gcode response lines
+     */
+    virtual void set_gcode_response_callback(std::function<void(const std::string&)>) {}
+
+    // ========================================================================
     // Factory Method
     // ========================================================================
 

@@ -362,7 +362,7 @@ class AmsBackendMock : public AmsBackend {
      *
      * @param callback Function that receives "// action:..." lines
      */
-    void set_gcode_response_callback(std::function<void(const std::string&)> callback);
+    void set_gcode_response_callback(std::function<void(const std::string&)> callback) override;
 
     /**
      * @brief Set a deferred state scenario to apply when start() is called

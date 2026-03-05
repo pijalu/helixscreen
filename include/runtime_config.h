@@ -142,6 +142,7 @@ struct RuntimeConfig {
      */
     static bool hot_reload_enabled();
 
+#ifdef HELIX_ENABLE_MOCKS
     /**
      * @brief Check if WiFi should use mock implementation
      * @return true if test mode is enabled and real WiFi is not requested
@@ -205,6 +206,16 @@ struct RuntimeConfig {
     bool should_mock_sensors() const {
         return test_mode && !use_real_sensors;
     }
+#else
+    constexpr bool should_mock_wifi() const { return false; }
+    constexpr bool should_mock_ethernet() const { return false; }
+    constexpr bool should_mock_moonraker() const { return false; }
+    constexpr bool should_use_test_files() const { return false; }
+    constexpr bool should_mock_ams() const { return false; }
+    constexpr bool should_mock_usb() const { return false; }
+    constexpr bool should_mock_mdns() const { return false; }
+    constexpr bool should_mock_sensors() const { return false; }
+#endif
 
     /**
      * @brief Check if we're in any form of test mode

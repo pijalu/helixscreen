@@ -308,6 +308,14 @@ ifneq ($(ENABLE_SCREENSAVER),yes)
     APP_SRCS := $(filter-out $(SRC_DIR)/ui/screensaver_starfield.cpp,$(APP_SRCS))
     APP_SRCS := $(filter-out $(SRC_DIR)/ui/screensaver_pipes.cpp,$(APP_SRCS))
 endif
+# Mock backends (enabled by default, disable with ENABLE_MOCKS=no for production)
+ENABLE_MOCKS ?= yes
+
+ifneq ($(ENABLE_MOCKS),yes)
+    APP_SRCS := $(filter-out $(wildcard $(SRC_DIR)/api/*_mock*.cpp),$(APP_SRCS))
+    APP_SRCS := $(filter-out $(SRC_DIR)/printer/ams_backend_mock.cpp,$(APP_SRCS))
+    APP_SRCS := $(filter-out $(SRC_DIR)/api/moonraker_api_mock.cpp,$(APP_SRCS))
+endif
 APP_OBJS := $(patsubst $(SRC_DIR)/%.cpp,$(OBJ_DIR)/%.o,$(APP_SRCS))
 
 # Objective-C++ sources (macOS only - .mm files)
@@ -473,6 +481,13 @@ else
     SCREENSAVER_DEFINES :=
 endif
 
+# Mock backend defines
+ifeq ($(ENABLE_MOCKS),yes)
+    MOCK_DEFINES := -DHELIX_ENABLE_MOCKS
+else
+    MOCK_DEFINES :=
+endif
+
 # wpa_supplicant (WiFi control via wpa_ctrl interface)
 WPA_DIR := lib/wpa_supplicant
 # Output to $(BUILD_DIR)/lib/ for architecture isolation (native/pi/ad5m)
@@ -592,6 +607,10 @@ CXXFLAGS += $(GLES3D_DEFINES)
 # Add screensaver defines to compiler flags
 CFLAGS += $(SCREENSAVER_DEFINES)
 CXXFLAGS += $(SCREENSAVER_DEFINES)
+
+# Add mock defines to compiler flags
+CFLAGS += $(MOCK_DEFINES)
+CXXFLAGS += $(MOCK_DEFINES)
 
 # Add systemd defines to C++ compiler flags (for logging_init.cpp)
 CXXFLAGS += $(SYSTEMD_CXXFLAGS)

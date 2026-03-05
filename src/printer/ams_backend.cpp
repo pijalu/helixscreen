@@ -5,7 +5,9 @@
 
 #include "ams_backend_afc.h"
 #include "ams_backend_happy_hare.h"
+#ifdef HELIX_ENABLE_MOCKS
 #include "ams_backend_mock.h"
+#endif
 #include "ams_backend_toolchanger.h"
 #include "ams_backend_valgace.h"
 #include "moonraker_api.h"
@@ -19,6 +21,7 @@
 
 using namespace helix;
 
+#ifdef HELIX_ENABLE_MOCKS
 // Helper: lowercase a string for case-insensitive comparison
 static std::string to_lower(const std::string& s) {
     std::string result = s;
@@ -113,31 +116,53 @@ static std::unique_ptr<AmsBackend> try_create_mock() {
                   config->mock_ams_gate_count);
     return create_mock_with_features(config->mock_ams_gate_count);
 }
+#endif
 
 std::unique_ptr<AmsBackend> AmsBackend::create(AmsType detected_type) {
+#ifdef HELIX_ENABLE_MOCKS
     const auto* config = get_runtime_config();
-
     if (auto mock = try_create_mock()) {
         return mock;
     }
+#endif
 
     // Without API/client dependencies, we can only return mock backends
     switch (detected_type) {
     case AmsType::HAPPY_HARE:
+#ifdef HELIX_ENABLE_MOCKS
         spdlog::warn("[AMS Backend] Happy Hare detected but no API/client provided - using mock");
         return std::make_unique<AmsBackendMock>(config->mock_ams_gate_count);
+#else
+        spdlog::warn("[AMS Backend] Happy Hare detected but no API/client provided");
+        return nullptr;
+#endif
 
     case AmsType::AFC:
+#ifdef HELIX_ENABLE_MOCKS
         spdlog::warn("[AMS Backend] AFC detected but no API/client provided - using mock");
         return std::make_unique<AmsBackendMock>(config->mock_ams_gate_count);
+#else
+        spdlog::warn("[AMS Backend] AFC detected but no API/client provided");
+        return nullptr;
+#endif
 
     case AmsType::VALGACE:
+#ifdef HELIX_ENABLE_MOCKS
         spdlog::warn("[AMS Backend] ValgACE detected but no API/client provided - using mock");
         return std::make_unique<AmsBackendMock>(config->mock_ams_gate_count);
+#else
+        spdlog::warn("[AMS Backend] ValgACE detected but no API/client provided");
+        return nullptr;
+#endif
 
     case AmsType::TOOL_CHANGER:
+#ifdef HELIX_ENABLE_MOCKS
         spdlog::warn("[AMS Backend] Tool changer detected but no API/client provided - using mock");
         return std::make_unique<AmsBackendMock>(config->mock_ams_gate_count);
+#else
+        spdlog::warn("[AMS Backend] Tool changer detected but no API/client provided");
+        return nullptr;
+#endif
 
     case AmsType::NONE:
     default:
@@ -148,11 +173,11 @@ std::unique_ptr<AmsBackend> AmsBackend::create(AmsType detected_type) {
 
 std::unique_ptr<AmsBackend> AmsBackend::create(AmsType detected_type, MoonrakerAPI* api,
                                                MoonrakerClient* client) {
-    const auto* config = get_runtime_config();
-
+#ifdef HELIX_ENABLE_MOCKS
     if (auto mock = try_create_mock()) {
         return mock;
     }
+#endif
 
     switch (detected_type) {
     case AmsType::HAPPY_HARE:

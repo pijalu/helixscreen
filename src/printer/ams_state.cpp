@@ -17,7 +17,6 @@
 #include "ui_toast_manager.h"
 #include "ui_update_queue.h"
 
-#include "ams_backend_mock.h"
 #include "app_globals.h"
 #include "lvgl/src/others/translation/lv_translation.h"
 #include "moonraker_api.h"
@@ -462,11 +461,9 @@ int AmsState::add_backend(std::unique_ptr<AmsBackend> backend) {
                 on_backend_event(index, event, data);
             });
 
-        // Apply stored gcode response callback to mock backends
+        // Apply stored gcode response callback (no-op for real backends)
         if (gcode_response_callback_) {
-            if (auto* mock = dynamic_cast<AmsBackendMock*>(backends_[index].get())) {
-                mock->set_gcode_response_callback(gcode_response_callback_);
-            }
+            backends_[index]->set_gcode_response_callback(gcode_response_callback_);
         }
 
         // Allocate per-backend slot subjects for secondary backends
@@ -560,11 +557,9 @@ void AmsState::set_gcode_response_callback(std::function<void(const std::string&
     std::lock_guard<std::recursive_mutex> lock(mutex_);
     gcode_response_callback_ = std::move(callback);
 
-    // Apply to any existing mock backends
+    // Apply to any existing backends (no-op for real backends)
     for (auto& backend : backends_) {
-        if (auto* mock = dynamic_cast<AmsBackendMock*>(backend.get())) {
-            mock->set_gcode_response_callback(gcode_response_callback_);
-        }
+        backend->set_gcode_response_callback(gcode_response_callback_);
     }
 
     spdlog::debug("[AMS State] Gcode response callback {}",

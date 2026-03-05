@@ -5,7 +5,9 @@
 
 #include "runtime_config.h"
 #include "spdlog/spdlog.h"
+#ifdef HELIX_ENABLE_MOCKS
 #include "wifi_backend_mock.h"
+#endif
 
 #ifdef __APPLE__
 #include "wifi_backend_macos.h"
@@ -16,6 +18,7 @@
 
 std::unique_ptr<WifiBackend> WifiBackend::create(bool silent) {
     // In test mode, always use mock unless --real-wifi was specified
+#ifdef HELIX_ENABLE_MOCKS
     if (get_runtime_config()->should_mock_wifi()) {
         spdlog::debug("[WifiBackend] Test mode: using mock backend");
         auto mock = std::make_unique<WifiBackendMock>();
@@ -23,6 +26,7 @@ std::unique_ptr<WifiBackend> WifiBackend::create(bool silent) {
         mock->start();
         return mock;
     }
+#endif
 
 #ifdef __APPLE__
     // macOS: Try CoreWLAN backend

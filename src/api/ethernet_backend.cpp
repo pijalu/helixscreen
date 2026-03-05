@@ -3,7 +3,9 @@
 
 #include "ethernet_backend.h"
 
+#ifdef HELIX_ENABLE_MOCKS
 #include "ethernet_backend_mock.h"
+#endif
 #include "runtime_config.h"
 
 #include <spdlog/spdlog.h>
@@ -16,10 +18,12 @@
 
 std::unique_ptr<EthernetBackend> EthernetBackend::create() {
     // In test mode, always use mock unless --real-ethernet was specified
+#ifdef HELIX_ENABLE_MOCKS
     if (get_runtime_config()->should_mock_ethernet()) {
         spdlog::debug("[EthernetBackend] Test mode: using mock backend");
         return std::make_unique<EthernetBackendMock>();
     }
+#endif
 
 #ifdef __APPLE__
     // macOS: Use native backend (handles missing interface gracefully)

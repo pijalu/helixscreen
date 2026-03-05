@@ -24,9 +24,11 @@
 #include "config.h"
 #include "macro_modification_manager.h"
 #include "moonraker_api.h"
-#include "moonraker_api_mock.h"
 #include "moonraker_client.h"
+#ifdef HELIX_ENABLE_MOCKS
+#include "moonraker_api_mock.h"
 #include "moonraker_client_mock.h"
+#endif
 #include "print_completion.h"
 #include "print_start_collector.h"
 #include "print_start_profile.h"
@@ -235,6 +237,7 @@ size_t MoonrakerManager::pending_notification_count() const {
 void MoonrakerManager::create_client(const RuntimeConfig& runtime_config) {
     spdlog::debug("[MoonrakerManager] Creating Moonraker client...");
 
+#ifdef HELIX_ENABLE_MOCKS
     if (runtime_config.should_mock_moonraker()) {
         double speedup = runtime_config.sim_speedup;
         spdlog::debug("[MoonrakerManager] Creating MOCK client (Voron 2.4, {}x speed)", speedup);
@@ -249,9 +252,12 @@ void MoonrakerManager::create_client(const RuntimeConfig& runtime_config) {
         }
         m_client = std::move(mock);
     } else {
+#endif
         spdlog::debug("[MoonrakerManager] Creating REAL client");
         m_client = std::make_unique<MoonrakerClient>();
+#ifdef HELIX_ENABLE_MOCKS
     }
+#endif
 
     // Register with app_globals
     set_moonraker_client(m_client.get());
@@ -364,6 +370,7 @@ void MoonrakerManager::register_callbacks() {
 void MoonrakerManager::create_api(const RuntimeConfig& runtime_config) {
     spdlog::debug("[MoonrakerManager] Creating Moonraker API...");
 
+#ifdef HELIX_ENABLE_MOCKS
     if (runtime_config.should_use_test_files()) {
         spdlog::debug("[MoonrakerManager] Creating MOCK API (local file transfers)");
         auto mock_api = std::make_unique<MoonrakerAPIMock>(*m_client, get_printer_state());
@@ -378,8 +385,11 @@ void MoonrakerManager::create_api(const RuntimeConfig& runtime_config) {
 
         m_api = std::move(mock_api);
     } else {
+#endif
         m_api = std::make_unique<MoonrakerAPI>(*m_client, get_printer_state());
+#ifdef HELIX_ENABLE_MOCKS
     }
+#endif
 
     // Register with app_globals
     set_moonraker_api(m_api.get());
