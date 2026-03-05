@@ -111,6 +111,7 @@ void DisplaySettingsManager::init_subjects() {
     // Validate against allowed options to catch corrupt config values
     int sleep_sec = config->get<int>("/display/sleep_sec", 1800);
     sleep_sec = validate_timeout_option(sleep_sec, SLEEP_OPTIONS, 1800, "sleep_sec");
+
     UI_MANAGED_SUBJECT_INT(display_sleep_subject_, sleep_sec, "settings_display_sleep", subjects_);
 
     // Brightness: Read from config (DisplayManager handles hardware)
@@ -134,6 +135,18 @@ void DisplaySettingsManager::init_subjects() {
     }
     UI_MANAGED_SUBJECT_INT(has_dimming_subject_, has_dimming ? 1 : 0, "settings_has_dimming",
                            subjects_);
+
+    // Cross-validate: on dimming-capable devices, sleep must be >= dim
+    // (config could be inconsistent from manual edits or migration)
+    if (has_dimming && dim_sec > 0 && sleep_sec > 0 && sleep_sec < dim_sec) {
+        spdlog::warn("[DisplaySettingsManager] Config inconsistency: sleep {}s < dim {}s, "
+                     "clamping sleep to dim",
+                     sleep_sec, dim_sec);
+        sleep_sec = dim_sec;
+        lv_subject_set_int(&display_sleep_subject_, sleep_sec);
+        config->set<int>("/display/sleep_sec", sleep_sec);
+        config->save();
+    }
 
     // Sleep while printing (default: true = allow sleep during prints)
     bool sleep_while_printing = config->get<bool>("/display/sleep_while_printing", true);
@@ -352,9 +365,10 @@ void DisplaySettingsManager::set_display_dim_sec(int seconds) {
         dm->set_dim_timeout(seconds);
     }
 
-    // If dim is now > sleep, bump sleep up to match (unless sleep is disabled)
+    // If dim is now > sleep, bump sleep up to match (unless sleep is disabled).
+    // Only enforce when hardware supports dimming — same rationale as sleep setter.
     int sleep_sec = get_display_sleep_sec();
-    if (seconds > 0 && sleep_sec > 0 && sleep_sec < seconds) {
+    if (has_dimming_control() && seconds > 0 && sleep_sec > 0 && sleep_sec < seconds) {
         spdlog::info("[DisplaySettingsManager] Bumping sleep {}s up to match dim {}s", sleep_sec,
                      seconds);
         lv_subject_set_int(&display_sleep_subject_, seconds);
@@ -374,15 +388,18 @@ void DisplaySettingsManager::set_display_sleep_sec(int seconds) {
     spdlog::info("[DisplaySettingsManager] set_display_sleep_sec({})", seconds);
 
     // Ensure sleep timeout >= dim timeout (unless sleep is disabled with 0)
-    // It's nonsensical to sleep before dimming
-    if (seconds > 0) {
+    // It's nonsensical to sleep before dimming — but only enforce when
+    // the hardware actually supports dimming. On devices without dimming
+    // (e.g. AD5M/AD5X binary backlight), dim_sec retains a default value
+    // even though the dim UI is hidden, which would block short sleep times.
+    if (seconds > 0 && has_dimming_control()) {
         int dim_sec = get_display_dim_sec();
         if (dim_sec > 0 && seconds < dim_sec) {
             spdlog::info("[DisplaySettingsManager] Clamping sleep {}s to dim {}s", seconds,
                          dim_sec);
             seconds = dim_sec;
             ToastManager::instance().show(ToastSeverity::INFO,
-                                          "Sleep adjusted to match dim timeout", 2000);
+                                          lv_tr("Sleep adjusted to match dim timeout"), 2000);
         }
     }
 
