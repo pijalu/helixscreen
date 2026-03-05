@@ -590,29 +590,26 @@ void DisplayManager::enter_sleep(int timeout_sec) {
     }
 #endif
     m_display_sleeping = true;
+    const char* method;
     if (m_use_hardware_blank) {
         if (m_backend) {
             m_backend->blank_display();
         }
-        if (m_backlight && m_sleep_backlight_off) {
-            m_backlight->set_brightness(0);
-        }
-        spdlog::info("[DisplayManager] Display sleeping (hardware blank{}) after {}s",
-                     m_sleep_backlight_off ? "" : ", backlight kept on", timeout_sec);
+        method = "hardware blank";
     } else {
+        // Software overlay path: do NOT call FBIOBLANK — the overlay alone is
+        // sufficient and FBIOBLANK can cause a race condition on wake where the
+        // framebuffer isn't ready before LVGL renders, leaving a black screen
+        // even after the overlay is removed (#303).
         create_sleep_overlay();
-        // Also FBIOBLANK the framebuffer if the backend supports it — provides
-        // additional blanking beyond the software overlay (useful on AD5X where
-        // the backlight stays powered during sleep).
-        if (m_backend) {
-            m_backend->blank_display();
-        }
-        if (m_backlight && m_backlight->is_available() && m_sleep_backlight_off) {
-            m_backlight->set_brightness(0);
-        }
-        spdlog::info("[DisplayManager] Display sleeping (software overlay{}) after {}s",
-                     m_sleep_backlight_off ? "" : ", backlight kept on", timeout_sec);
+        method = "software overlay";
     }
+
+    if (m_backlight && m_backlight->is_available() && m_sleep_backlight_off) {
+        m_backlight->set_brightness(0);
+    }
+    spdlog::info("[DisplayManager] Display sleeping ({}{}) after {}s",
+                 method, m_sleep_backlight_off ? "" : ", backlight kept on", timeout_sec);
 
     // Notify subscribers (camera stream, etc.) to suspend background work
     for (auto& cb : m_sleep_callbacks) {
@@ -794,21 +791,22 @@ void DisplayManager::wake_display() {
     if (was_sleeping) {
         disable_input_briefly();
 
-        // Unblank framebuffer when waking from full sleep.
-        // Both paths call blank_display() during sleep, so both need unblank.
-        if (m_backend) {
-            m_backend->unblank_display();
-        }
-
-        if (!m_use_hardware_blank) {
-            // Also remove software sleep overlay
+        if (m_use_hardware_blank) {
+            // Hardware path: unblank framebuffer (FBIOBLANK was used during sleep)
+            if (m_backend) {
+                m_backend->unblank_display();
+            }
+        } else {
+            // Software path: remove the black overlay (no FBIOBLANK to undo)
             destroy_sleep_overlay();
         }
 
-        // Force full screen repaint after wake. Hardware path: some HDMI hardware
-        // clears framebuffer memory during FBIOBLANK (#19). Software path: ensures
-        // UI is fully rendered after overlay removal.
+        // Force immediate full render after wake. lv_obj_invalidate() alone only
+        // marks dirty regions — the actual render happens on the next timer tick,
+        // which can race with framebuffer state changes and leave a black screen
+        // on some hardware (#303). lv_refr_now() renders synchronously.
         lv_obj_invalidate(lv_screen_active());
+        lv_refr_now(nullptr);
 
         // Reset LVGL's inactivity timer so we don't immediately go back to sleep.
         // When touch is absorbed by sleep_aware_read_cb, LVGL doesn't register activity,
