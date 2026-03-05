@@ -292,6 +292,7 @@ class InputShaperPanel : public OverlayBase {
     // Calibrate All flow tracking
     bool calibrate_all_mode_ = false; ///< True when doing X+Y sequential calibration
     InputShaperResult x_result_;      ///< Stored X result when doing Calibrate All
+    uint32_t calibration_gen_ = 0;    ///< Generation counter to discard stale callbacks (UI-thread only)
 
     // Results data
     char current_axis_ = 'X';

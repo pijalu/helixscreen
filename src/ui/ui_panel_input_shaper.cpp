@@ -437,6 +437,7 @@ void InputShaperPanel::on_deactivate() {
     // Cancel any in-progress calibration
     if (state_ == State::MEASURING && calibrator_) {
         spdlog::info("[InputShaper] Cancelling calibration on deactivate");
+        ++calibration_gen_; // Discard any in-flight async callbacks
         calibrator_->cancel();
         set_state(State::IDLE);
     }
@@ -526,18 +527,25 @@ void InputShaperPanel::start_with_preflight(char axis) {
     lv_subject_copy_string(&is_measuring_step_label_, "");
     lv_subject_set_int(&is_measuring_progress_, 0);
 
+    ++calibration_gen_;
+    auto gen = calibration_gen_;
+
     set_state(State::MEASURING);
-    spdlog::info("[InputShaper] Starting pre-flight noise check before {} axis calibration", axis);
+    spdlog::info("[InputShaper] Starting pre-flight noise check before {} axis calibration (gen={})", axis, gen);
 
     auto alive = alive_;
     calibrator_->check_accelerometer(
-        [this, alive](float noise_level) {
+        [this, alive, gen](float noise_level) {
             if (!alive->load())
+                return;
+            if (gen != calibration_gen_)
                 return;
             on_preflight_complete(noise_level);
         },
-        [this, alive](const std::string& err) {
+        [this, alive, gen](const std::string& err) {
             if (!alive->load())
+                return;
+            if (gen != calibration_gen_)
                 return;
             on_preflight_error(err);
         });
@@ -583,6 +591,8 @@ void InputShaperPanel::start_calibration(char axis) {
 
     current_axis_ = axis;
     last_calibrated_axis_ = axis;
+    ++calibration_gen_;
+    auto gen = calibration_gen_;
 
     // Only clear results for first axis in Calibrate All, or for single-axis
     if (!calibrate_all_mode_ || axis == 'X') {
@@ -604,7 +614,7 @@ void InputShaperPanel::start_calibration(char axis) {
 
     lv_subject_set_int(&is_measuring_progress_, 0);
     set_state(State::MEASURING);
-    spdlog::info("[InputShaper] Starting calibration for axis {}", axis);
+    spdlog::info("[InputShaper] Starting calibration for axis {} (gen={})", axis, gen);
 
     // Capture alive flag for destruction detection [L012]
     auto alive = alive_;
@@ -612,10 +622,14 @@ void InputShaperPanel::start_calibration(char axis) {
     // Delegate to calibrator
     calibrator_->run_calibration(
         axis,
-        [this, alive](int percent) {
-            helix::ui::queue_update([this, alive, percent]() {
+        [this, alive, gen](int percent) {
+            helix::ui::queue_update([this, alive, gen, percent]() {
                 if (!alive->load())
                     return;
+                if (gen != calibration_gen_) {
+                    spdlog::debug("[InputShaper] Discarding stale progress callback (gen={}, current={})", gen, calibration_gen_);
+                    return;
+                }
                 lv_subject_set_int(&is_measuring_progress_, percent);
                 if (percent < 55) {
                     snprintf(is_measuring_step_label_buf_, sizeof(is_measuring_step_label_buf_),
@@ -635,17 +649,25 @@ void InputShaperPanel::start_calibration(char axis) {
                 lv_subject_copy_string(&is_measuring_step_label_, is_measuring_step_label_buf_);
             });
         },
-        [this, alive](const InputShaperResult& result) {
-            helix::ui::queue_update([this, alive, result]() {
+        [this, alive, gen](const InputShaperResult& result) {
+            helix::ui::queue_update([this, alive, gen, result]() {
                 if (!alive->load())
                     return;
+                if (gen != calibration_gen_) {
+                    spdlog::debug("[InputShaper] Discarding stale result callback (gen={}, current={})", gen, calibration_gen_);
+                    return;
+                }
                 on_calibration_result(result);
             });
         },
-        [this, alive](const std::string& err) {
-            helix::ui::queue_update([this, alive, err]() {
+        [this, alive, gen](const std::string& err) {
+            helix::ui::queue_update([this, alive, gen, err]() {
                 if (!alive->load())
                     return;
+                if (gen != calibration_gen_) {
+                    spdlog::debug("[InputShaper] Discarding stale error callback (gen={}, current={})", gen, calibration_gen_);
+                    return;
+                }
                 on_calibration_error(err);
             });
         });
@@ -661,16 +683,20 @@ void InputShaperPanel::measure_noise() {
     snprintf(is_measuring_axis_label_buf_, sizeof(is_measuring_axis_label_buf_),
              "Measuring accelerometer noise...");
     lv_subject_copy_string(&is_measuring_axis_label_, is_measuring_axis_label_buf_);
+    ++calibration_gen_;
+    auto gen = calibration_gen_;
     set_state(State::MEASURING);
-    spdlog::info("[InputShaper] Starting accelerometer check via calibrator");
+    spdlog::info("[InputShaper] Starting accelerometer check via calibrator (gen={})", gen);
 
     // Capture alive flag for destruction detection [L012]
     auto alive = alive_;
 
     calibrator_->check_accelerometer(
-        [this, alive](float noise_level) {
-            helix::ui::queue_update([this, alive, noise_level]() {
+        [this, alive, gen](float noise_level) {
+            helix::ui::queue_update([this, alive, gen, noise_level]() {
                 if (!alive->load())
+                    return;
+                if (gen != calibration_gen_)
                     return;
                 spdlog::debug("[InputShaper] Accelerometer check complete, noise={:.4f}",
                               noise_level);
@@ -680,9 +706,11 @@ void InputShaperPanel::measure_noise() {
                 set_state(State::IDLE);
             });
         },
-        [this, alive](const std::string& err) {
-            helix::ui::queue_update([this, alive, err]() {
+        [this, alive, gen](const std::string& err) {
+            helix::ui::queue_update([this, alive, gen, err]() {
                 if (!alive->load())
+                    return;
+                if (gen != calibration_gen_)
                     return;
                 spdlog::error("[InputShaper] Failed to measure noise: {}", err);
                 on_calibration_error(err);
@@ -693,6 +721,7 @@ void InputShaperPanel::measure_noise() {
 void InputShaperPanel::cancel_calibration() {
     spdlog::info("[InputShaper] Abort clicked, sending emergency stop + firmware restart");
     calibrate_all_mode_ = false;
+    ++calibration_gen_; // Discard any in-flight async callbacks
 
     // Cancel calibrator state so we ignore any late results
     if (calibrator_) {
@@ -869,6 +898,9 @@ void InputShaperPanel::save_configuration() {
 // ============================================================================
 
 void InputShaperPanel::on_calibration_result(const InputShaperResult& result) {
+    spdlog::debug("[InputShaper] on_calibration_result: axis={}, calibrate_all={}, state={}, current_axis={}",
+                  result.axis, calibrate_all_mode_, static_cast<int>(state_), current_axis_);
+
     // Ignore if we're not in measuring state (user may have cancelled)
     if (state_ != State::MEASURING) {
         spdlog::debug("[InputShaper] Ignoring result - not in measuring state");
@@ -907,6 +939,9 @@ void InputShaperPanel::on_calibration_result(const InputShaperResult& result) {
 }
 
 void InputShaperPanel::on_calibration_error(const std::string& message) {
+    spdlog::debug("[InputShaper] on_calibration_error: msg='{}', calibrate_all={}, state={}, current_axis={}",
+                  message, calibrate_all_mode_, static_cast<int>(state_), current_axis_);
+
     // Ignore if we're not in measuring state
     if (state_ != State::MEASURING) {
         spdlog::debug("[InputShaper] Ignoring error - not in measuring state");
