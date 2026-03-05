@@ -188,13 +188,9 @@ void init(const LogConfig& config) {
     LogTarget effective_target =
         (config.target == LogTarget::Auto) ? detect_best_target() : config.target;
 
-    // Console sink — skip when a system sink (journal/syslog) will be used AND
-    // stdout is not a terminal. Under systemd, stdout is captured into the
-    // journal, so logging to both the journal sink and stdout produces duplicate
-    // entries in journalctl. Interactive users (terminal) still get console output.
-    bool system_sink_active =
-        (effective_target == LogTarget::Journal || effective_target == LogTarget::Syslog);
-    if (config.enable_console && !(system_sink_active && !isatty(STDOUT_FILENO))) {
+    // Console sink — always add when enabled. The enable_console flag defaults
+    // to true and callers can disable it for headless/service deployments.
+    if (config.enable_console) {
         sinks.push_back(std::make_shared<spdlog::sinks::stdout_color_sink_mt>());
     }
 
