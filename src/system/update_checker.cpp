@@ -69,8 +69,8 @@ constexpr const char* GITHUB_RELEASES_URL =
 constexpr int HTTP_TIMEOUT_SECONDS = 30;
 
 /// Pre-update backup paths (fallback tier, defined in app_constants.h)
-using AppConstants::Update::PREUPDATE_CONFIG_BACKUP;
-using AppConstants::Update::PREUPDATE_ENV_BACKUP;
+using AppConstants::Update::config_backup_fallback;
+using AppConstants::Update::env_backup_fallback;
 
 /**
  * @brief Strip 'v' or 'V' prefix from version tag
@@ -445,7 +445,7 @@ void cleanup_stale_old_install() {
         spdlog::warn("[UpdateChecker] Could not remove stale backup {} (exit {})", old_dir, ret);
     }
 
-    // Rolling backups in /var/lib/ and /var/log/ are maintained by Config::save()
+    // Rolling backups in /var/lib/ and $HOME/.helixscreen/ are maintained by Config::save()
     // and Config::init() — do NOT delete them here. They protect against Moonraker
     // wiping the install directory during updates.
 }
@@ -1085,7 +1085,7 @@ void UpdateChecker::do_install(const std::string& tarball_path) {
 
     report_download_status(DownloadStatus::Installing, 100, "Installing update...");
 
-    // Safety net: copy config to /var/log/ BEFORE calling install.sh.
+    // Safety net: copy config to fallback dir BEFORE calling install.sh.
     // The installer backs up config to TMP_DIR, but under systemd's PrivateTmp=true
     // that backup lives in a volatile mount that's cleaned up on service restart.
     // These backups supplement the rolling backups in /var/lib/helixscreen/ maintained
@@ -1096,22 +1096,28 @@ void UpdateChecker::do_install(const std::string& tarball_path) {
             std::string config_src = install_root + "/config/helixconfig.json";
             std::string env_src = install_root + "/config/helixscreen.env";
             const std::string cp_bin = resolve_tool("cp");
+            const std::string mkdir_bin = resolve_tool("mkdir");
+            const std::string config_bak = config_backup_fallback();
+            const std::string env_bak = env_backup_fallback();
+
+            // Ensure fallback dir exists
+            std::string fallback_dir = AppConstants::Update::backup_fallback_dir();
+            safe_exec({mkdir_bin, "-p", fallback_dir});
 
             struct stat st {};
             if (stat(config_src.c_str(), &st) == 0) {
-                int ret = safe_exec({cp_bin, "-f", config_src, PREUPDATE_CONFIG_BACKUP});
+                int ret = safe_exec({cp_bin, "-f", config_src, config_bak});
                 if (ret == 0) {
-                    flog_info("[UpdateChecker] Pre-update config backup: {}",
-                              PREUPDATE_CONFIG_BACKUP);
+                    flog_info("[UpdateChecker] Pre-update config backup: {}", config_bak);
                 } else {
                     flog_warn("[UpdateChecker] Failed to create pre-update config backup (exit {})",
                               ret);
                 }
             }
             if (stat(env_src.c_str(), &st) == 0) {
-                int ret = safe_exec({cp_bin, "-f", env_src, PREUPDATE_ENV_BACKUP});
+                int ret = safe_exec({cp_bin, "-f", env_src, env_bak});
                 if (ret == 0) {
-                    flog_info("[UpdateChecker] Pre-update env backup: {}", PREUPDATE_ENV_BACKUP);
+                    flog_info("[UpdateChecker] Pre-update env backup: {}", env_bak);
                 } else {
                     flog_warn("[UpdateChecker] Failed to create pre-update env backup (exit {})",
                               ret);
@@ -1581,66 +1587,75 @@ void UpdateChecker::clear_cache() {
 void UpdateChecker::do_check() {
     spdlog::debug("[UpdateChecker] Worker thread started");
 
-    // Record check time at start (under mutex for thread safety)
-    {
-        std::lock_guard<std::mutex> lock(mutex_);
-        last_check_time_ = std::chrono::steady_clock::now();
+    try {
+        // Record check time at start (under mutex for thread safety)
+        {
+            std::lock_guard<std::mutex> lock(mutex_);
+            last_check_time_ = std::chrono::steady_clock::now();
+        }
+
+        if (cancelled_) {
+            spdlog::debug("[UpdateChecker] Check cancelled before network request");
+            return;
+        }
+
+        // Use channel cached on main thread (Config is NOT thread-safe)
+        auto channel = cached_channel_;
+        const char* channel_name = (channel == UpdateChannel::Beta)  ? "Beta"
+                                   : (channel == UpdateChannel::Dev) ? "Dev"
+                                                                     : "Stable";
+        spdlog::info("[UpdateChecker] Checking {} channel", channel_name);
+
+        ReleaseInfo info;
+        std::string error;
+        bool ok = false;
+
+        switch (channel) {
+        case UpdateChannel::Beta:
+            ok = fetch_beta_release(info, error);
+            break;
+        case UpdateChannel::Dev:
+            ok = fetch_dev_release(info, error);
+            break;
+        case UpdateChannel::Stable:
+        default:
+            ok = fetch_stable_release(info, error);
+            break;
+        }
+
+        if (cancelled_) {
+            spdlog::debug("[UpdateChecker] Check cancelled after network request");
+            return;
+        }
+
+        if (!ok) {
+            spdlog::warn("[UpdateChecker] {}", error);
+            report_result(Status::Error, std::nullopt, error);
+            return;
+        }
+
+        // Compare versions
+        std::string current_version = HELIX_VERSION;
+        spdlog::debug("[UpdateChecker] Current: {}, Latest: {}", current_version, info.version);
+
+        if (is_update_available(current_version, info.version)) {
+            spdlog::info("[UpdateChecker] Update available: {} -> {}", current_version,
+                         info.version);
+            report_result(Status::UpdateAvailable, info, "");
+        } else {
+            spdlog::info("[UpdateChecker] Already up to date ({})", current_version);
+            // Pass info even for UpToDate so callbacks (e.g., --release-notes) can access it
+            report_result(Status::UpToDate, info, "");
+        }
+
+        spdlog::debug("[UpdateChecker] Worker thread finished");
+    } catch (const std::exception& e) {
+        spdlog::error("[UpdateChecker] Exception in worker thread: {}", e.what());
+        report_result(Status::Error, std::nullopt, std::string("Internal error: ") + e.what());
+    } catch (...) {
+        spdlog::error("[UpdateChecker] Unknown exception in worker thread");
+        report_result(Status::Error, std::nullopt, "Internal error (unknown exception)");
     }
-
-    if (cancelled_) {
-        spdlog::debug("[UpdateChecker] Check cancelled before network request");
-        return;
-    }
-
-    // Use channel cached on main thread (Config is NOT thread-safe)
-    auto channel = cached_channel_;
-    const char* channel_name = (channel == UpdateChannel::Beta)  ? "Beta"
-                               : (channel == UpdateChannel::Dev) ? "Dev"
-                                                                 : "Stable";
-    spdlog::info("[UpdateChecker] Checking {} channel", channel_name);
-
-    ReleaseInfo info;
-    std::string error;
-    bool ok = false;
-
-    switch (channel) {
-    case UpdateChannel::Beta:
-        ok = fetch_beta_release(info, error);
-        break;
-    case UpdateChannel::Dev:
-        ok = fetch_dev_release(info, error);
-        break;
-    case UpdateChannel::Stable:
-    default:
-        ok = fetch_stable_release(info, error);
-        break;
-    }
-
-    if (cancelled_) {
-        spdlog::debug("[UpdateChecker] Check cancelled after network request");
-        return;
-    }
-
-    if (!ok) {
-        spdlog::warn("[UpdateChecker] {}", error);
-        report_result(Status::Error, std::nullopt, error);
-        return;
-    }
-
-    // Compare versions
-    std::string current_version = HELIX_VERSION;
-    spdlog::debug("[UpdateChecker] Current: {}, Latest: {}", current_version, info.version);
-
-    if (is_update_available(current_version, info.version)) {
-        spdlog::info("[UpdateChecker] Update available: {} -> {}", current_version, info.version);
-        report_result(Status::UpdateAvailable, info, "");
-    } else {
-        spdlog::info("[UpdateChecker] Already up to date ({})", current_version);
-        // Pass info even for UpToDate so callbacks (e.g., --release-notes) can access it
-        report_result(Status::UpToDate, info, "");
-    }
-
-    spdlog::debug("[UpdateChecker] Worker thread finished");
 }
 
 // ============================================================================

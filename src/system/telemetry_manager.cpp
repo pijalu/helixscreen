@@ -1032,10 +1032,28 @@ void TelemetryManager::check_previous_crash() {
     // Copy crash-specific fields (signal info, backtrace, register state)
     for (const char* key :
          {"signal", "signal_name", "app_version", "uptime_sec", "backtrace", "fault_addr",
-          "fault_code", "fault_code_name", "reg_pc", "reg_sp", "reg_lr", "reg_bp", "load_base",
-          "memory_map"}) {
+          "fault_code", "fault_code_name", "reg_pc", "reg_sp", "reg_lr", "reg_bp", "load_base"}) {
         if (crash_data.contains(key)) {
             event[key] = crash_data[key];
+        }
+    }
+
+    // Filter memory map to executable mappings (.so files, main binary) to keep
+    // telemetry payload small while retaining the data needed to identify which
+    // library a crash PC belongs to.
+    if (crash_data.contains("memory_map") && crash_data["memory_map"].is_array()) {
+        json filtered_maps = json::array();
+        for (const auto& line : crash_data["memory_map"]) {
+            const auto& s = line.get_ref<const std::string&>();
+            // Only include executable mappings (r-xp) that map a file
+            if (s.find("r-xp") != std::string::npos &&
+                (s.find(".so") != std::string::npos || s.find("helix-screen") != std::string::npos ||
+                 s.find("helix_screen") != std::string::npos)) {
+                filtered_maps.push_back(line);
+            }
+        }
+        if (!filtered_maps.empty()) {
+            event["memory_map"] = std::move(filtered_maps);
         }
     }
 
