@@ -37,6 +37,9 @@ static void* ui_card_xml_create(lv_xml_parser_state_t* state, const char** attrs
     // (theme applies ObjBase with LV_SIZE_CONTENT, but remove_style strips it)
     lv_obj_set_size(obj, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
 
+    // Pressed state: dim the card for touch feedback
+    lv_obj_set_style_opa(obj, LV_OPA_70, LV_PART_MAIN | LV_STATE_PRESSED);
+
     // Disabled state: 50% opacity for visual feedback
     lv_obj_set_style_opa(obj, LV_OPA_50, LV_PART_MAIN | LV_STATE_DISABLED);
 
