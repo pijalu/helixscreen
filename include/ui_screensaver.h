@@ -22,8 +22,9 @@
  *   stop()   — Delete everything, clean shutdown
  *   is_active() — Check if screensaver is currently running
  *
- * Uses lv_anim_t for flight (diagonal top-right to bottom-left) and
- * lv_timer_t for wing flap frame cycling.
+ * All animation (flight + wing flap) is driven by a single lv_timer at ~30fps
+ * to minimize CPU usage. Positions are computed from elapsed time rather than
+ * using per-object LVGL animations.
  */
 class FlyingToasterScreensaver : public Screensaver {
   public:
@@ -50,11 +51,15 @@ class FlyingToasterScreensaver : public Screensaver {
     struct FlyingObject {
         lv_obj_t* img;
         bool is_toaster;
-        bool reverse_flap; // alternate-reverse wing direction
-        int fly_ms;        // flight duration — slower flight = slower flap
-        int flap_counter;  // tick counter for per-object flap rate
-        uint8_t flap_frame;  // per-object frame index
-        bool flap_forward;   // per-object direction
+        int16_t start_x;
+        int16_t start_y;
+        int fly_ms;
+        int delay_ms;
+        // Flap state (toasters only)
+        uint8_t flap_frame;
+        bool flap_forward;
+        int8_t flap_counter;
+        int8_t ticks_per_flap; // pre-computed: ticks between frame changes
     };
 
     /** @brief Create the full-screen black overlay */
@@ -67,11 +72,8 @@ class FlyingToasterScreensaver : public Screensaver {
     void create_flying_object(int start_x, int start_y, bool is_toaster,
                               bool reverse_flap, int speed_ms, int delay_ms);
 
-    /** @brief Start flight animations for a single object */
-    void animate_flight(FlyingObject& obj, int start_x, int start_y, int speed_ms, int delay_ms);
-
-    /** @brief Wing flap timer callback */
-    static void flap_timer_cb(lv_timer_t* timer);
+    /** @brief Single timer callback driving all animation (flight + flap) */
+    static void tick_cb(lv_timer_t* timer);
 
     /** @brief Get image scale factor based on screen width */
     int get_scale_factor() const;
@@ -79,7 +81,8 @@ class FlyingToasterScreensaver : public Screensaver {
     bool m_active = false;
     lv_obj_t* m_overlay = nullptr;
     std::vector<FlyingObject> m_objects;
-    lv_timer_t* m_flap_timer = nullptr;
+    lv_timer_t* m_tick_timer = nullptr;
+    uint32_t m_elapsed_ms = 0;
 };
 
 #endif // HELIX_ENABLE_SCREENSAVER

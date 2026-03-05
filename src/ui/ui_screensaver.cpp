@@ -23,9 +23,9 @@ static constexpr int NUM_TOASTER_FRAMES =
 // CSS reference: translate(-1600px, 1600px) — fixed travel distance
 static constexpr int FLIGHT_DISTANCE = 1600;
 
-// CSS reference: flap .2s steps(4) infinite alternate
-// 200ms / 4 steps = 50ms per frame
-static constexpr uint32_t FLAP_PERIOD_MS = 50;
+// Single timer period — ~30fps is smooth enough for slow diagonal flight
+// and cuts CPU usage roughly in half vs running at display refresh rate.
+static constexpr uint32_t TICK_PERIOD_MS = 33;
 
 // Object definition matching the exact CSS classes and positions.
 // CSS uses right/top percentages. Negative right = off-screen to the right.
@@ -139,11 +139,12 @@ void FlyingToasterScreensaver::start() {
 
     spdlog::info("[Screensaver] Starting flying toasters");
 
+    m_elapsed_ms = 0;
     create_overlay();
     spawn_objects();
 
-    // Start wing flap timer (CSS: flap .2s steps(4) = 50ms per frame)
-    m_flap_timer = lv_timer_create(flap_timer_cb, FLAP_PERIOD_MS, this);
+    // Single timer drives both flight and flap at ~30fps
+    m_tick_timer = lv_timer_create(tick_cb, TICK_PERIOD_MS, this);
 
     m_active = true;
 }
@@ -155,10 +156,9 @@ void FlyingToasterScreensaver::stop() {
 
     spdlog::info("[Screensaver] Stopping flying toasters");
 
-    // Stop flap timer
-    if (m_flap_timer) {
-        lv_timer_delete(m_flap_timer);
-        m_flap_timer = nullptr;
+    if (m_tick_timer) {
+        lv_timer_delete(m_tick_timer);
+        m_tick_timer = nullptr;
     }
 
     // Clear object list (LVGL objects are children of overlay, deleted with it)
@@ -231,8 +231,9 @@ void FlyingToasterScreensaver::create_flying_object(
     lv_obj_t* img = lv_image_create(m_overlay);
 
     // Set initial image
+    uint8_t initial_frame = reverse_flap ? 2 : 0;
     if (is_toaster) {
-        lv_image_set_src(img, TOASTER_FRAMES[reverse_flap ? 2 : 0]);
+        lv_image_set_src(img, TOASTER_FRAMES[initial_frame]);
     } else {
         lv_image_set_src(img, TOAST_IMG);
     }
@@ -248,65 +249,54 @@ void FlyingToasterScreensaver::create_flying_object(
     lv_obj_remove_flag(img, LV_OBJ_FLAG_CLICKABLE);
     lv_obj_set_pos(img, start_x, start_y);
 
-    uint8_t initial_frame = reverse_flap ? 2 : 0;
-    FlyingObject obj{img, is_toaster, reverse_flap, speed_ms, 0, initial_frame, true};
+    // Pre-compute flap rate: slower flight = slower wing flap
+    // 10s → every tick, 16s → every 2 ticks, 24s → every 3 ticks
+    int8_t ticks_per_flap = static_cast<int8_t>(std::max(1, speed_ms / 10000));
+
+    FlyingObject obj{};
+    obj.img = img;
+    obj.is_toaster = is_toaster;
+    obj.start_x = static_cast<int16_t>(start_x);
+    obj.start_y = static_cast<int16_t>(start_y);
+    obj.fly_ms = speed_ms;
+    obj.delay_ms = delay_ms;
+    obj.flap_frame = initial_frame;
+    obj.flap_forward = true;
+    obj.flap_counter = 0;
+    obj.ticks_per_flap = ticks_per_flap;
     m_objects.push_back(obj);
-
-    // Pass explicit start coords — lv_obj_get_x/y returns 0 before first layout pass
-    animate_flight(m_objects.back(), start_x, start_y, speed_ms, delay_ms);
 }
 
-void FlyingToasterScreensaver::animate_flight(FlyingObject& obj,
-                                               int start_x, int start_y,
-                                               int speed_ms, int delay_ms) {
-    // CSS: translate(-1600px, 1600px) — fixed distance, diagonal top-right to bottom-left
-    int end_x = start_x - FLIGHT_DISTANCE;
-    int end_y = start_y + FLIGHT_DISTANCE;
-
-    // X animation: right to left
-    lv_anim_t anim_x;
-    lv_anim_init(&anim_x);
-    lv_anim_set_var(&anim_x, obj.img);
-    lv_anim_set_values(&anim_x, start_x, end_x);
-    lv_anim_set_duration(&anim_x, speed_ms);
-    lv_anim_set_delay(&anim_x, delay_ms);
-    lv_anim_set_path_cb(&anim_x, lv_anim_path_linear);
-    lv_anim_set_repeat_count(&anim_x, LV_ANIM_REPEAT_INFINITE);
-    lv_anim_set_exec_cb(&anim_x, [](void* var, int32_t val) {
-        lv_obj_set_x(static_cast<lv_obj_t*>(var), val);
-    });
-    lv_anim_start(&anim_x);
-
-    // Y animation: top to bottom (diagonal flight)
-    lv_anim_t anim_y;
-    lv_anim_init(&anim_y);
-    lv_anim_set_var(&anim_y, obj.img);
-    lv_anim_set_values(&anim_y, start_y, end_y);
-    lv_anim_set_duration(&anim_y, speed_ms);
-    lv_anim_set_delay(&anim_y, delay_ms);
-    lv_anim_set_path_cb(&anim_y, lv_anim_path_linear);
-    lv_anim_set_repeat_count(&anim_y, LV_ANIM_REPEAT_INFINITE);
-    lv_anim_set_exec_cb(&anim_y, [](void* var, int32_t val) {
-        lv_obj_set_y(static_cast<lv_obj_t*>(var), val);
-    });
-    lv_anim_start(&anim_y);
-}
-
-void FlyingToasterScreensaver::flap_timer_cb(lv_timer_t* timer) {
+void FlyingToasterScreensaver::tick_cb(lv_timer_t* timer) {
     auto* self = static_cast<FlyingToasterScreensaver*>(lv_timer_get_user_data(timer));
     if (!self || !self->m_active) return;
 
-    // Per-object flap rate: slower flight = slower wing flap.
-    // 10s flight → every tick (50ms/frame), 16s → every 2 ticks, 24s → every 3 ticks.
-    for (auto& obj : self->m_objects) {
-        if (!obj.is_toaster || !obj.img) continue;
+    self->m_elapsed_ms += TICK_PERIOD_MS;
 
-        int ticks_per_frame = std::max(1, obj.fly_ms / 10000);
+    for (auto& obj : self->m_objects) {
+        if (!obj.img) continue;
+
+        // Skip objects still in their start delay
+        if (self->m_elapsed_ms < static_cast<uint32_t>(obj.delay_ms)) {
+            continue;
+        }
+
+        // Compute position from elapsed time (replaces per-object LVGL animations)
+        uint32_t local_ms = self->m_elapsed_ms - obj.delay_ms;
+        uint32_t t = local_ms % static_cast<uint32_t>(obj.fly_ms);
+        int32_t dx = static_cast<int32_t>(-FLIGHT_DISTANCE) * static_cast<int32_t>(t) / obj.fly_ms;
+        int32_t dy = static_cast<int32_t>(FLIGHT_DISTANCE) * static_cast<int32_t>(t) / obj.fly_ms;
+        lv_obj_set_pos(obj.img, obj.start_x + dx, obj.start_y + dy);
+
+        // Flap wing frames (toasters only)
+        if (!obj.is_toaster) continue;
+
         obj.flap_counter++;
-        if (obj.flap_counter < ticks_per_frame) continue;
+        if (obj.flap_counter < obj.ticks_per_flap) continue;
         obj.flap_counter = 0;
 
-        // Advance this toaster's own frame: 0→1→2→3→2→1→0 (ping-pong)
+        // Advance frame: 0→1→2→3→2→1→0 (ping-pong)
+        uint8_t prev_frame = obj.flap_frame;
         if (obj.flap_forward) {
             obj.flap_frame++;
             if (obj.flap_frame >= NUM_TOASTER_FRAMES - 1) {
@@ -320,7 +310,10 @@ void FlyingToasterScreensaver::flap_timer_cb(lv_timer_t* timer) {
             }
         }
 
-        lv_image_set_src(obj.img, TOASTER_FRAMES[obj.flap_frame]);
+        // Only update image source when frame actually changed
+        if (obj.flap_frame != prev_frame) {
+            lv_image_set_src(obj.img, TOASTER_FRAMES[obj.flap_frame]);
+        }
     }
 }
 

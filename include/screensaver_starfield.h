@@ -15,7 +15,11 @@
  *
  * Stars fly outward from the center of the screen. Each star starts small
  * and dim near the center, growing larger and brighter as it approaches
- * the edges. Canvas-based rendering at ~30fps.
+ * the edges.
+ *
+ * Renders via direct pixel writes to the canvas buffer — no LVGL draw API
+ * in the hot loop. Previous star positions are incrementally erased each
+ * frame to avoid a full-buffer clear.
  */
 class StarfieldScreensaver : public Screensaver {
   public:
@@ -36,6 +40,10 @@ class StarfieldScreensaver : public Screensaver {
         uint8_t tint_r;  // color tint (assigned at birth, visible when close)
         uint8_t tint_g;
         uint8_t tint_b;
+        // Previous frame screen position for incremental erase
+        int16_t prev_sx;
+        int16_t prev_sy;
+        uint8_t prev_size; // 0 = not yet drawn
     };
 
     void init_stars();
@@ -54,9 +62,12 @@ class StarfieldScreensaver : public Screensaver {
 
     std::vector<Star> stars_;
 
-    // Cached screen dimensions
+    // Cached screen dimensions and projection constants
     int screen_w_ = 0;
     int screen_h_ = 0;
+    float cx_ = 0;     // screen center X
+    float cy_ = 0;     // screen center Y
+    float focal_ = 0;  // projection focal length
 };
 
 #endif // HELIX_ENABLE_SCREENSAVER

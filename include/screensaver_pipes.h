@@ -55,7 +55,7 @@ class PipesScreensaver : public Screensaver {
     void reset_grid();
     void setup_camera();
     void start_new_pipe(ActivePipe& pipe);
-    bool grow_pipe(ActivePipe& pipe);
+    bool grow_pipe(ActivePipe& pipe, lv_layer_t* layer);
     bool project(float wx, float wy, float wz, int& sx, int& sy, float& depth) const;
     void draw_segment(lv_layer_t* layer, int sx1, int sy1, int sx2, int sy2, float depth, const ActivePipe& pipe);
     void draw_joint(lv_layer_t* layer, int sx, int sy, float depth, const ActivePipe& pipe);

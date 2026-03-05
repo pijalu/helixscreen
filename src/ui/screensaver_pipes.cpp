@@ -12,7 +12,7 @@
 #include <cstring>
 #include <ctime>
 
-static constexpr uint32_t TICK_PERIOD_MS = 80;
+static constexpr uint32_t TICK_PERIOD_MS = 100;
 static constexpr float PIPE_RADIUS = 0.22f;       // Reference uses 0.2
 static constexpr float JOINT_RADIUS = PIPE_RADIUS * 1.5f; // Reference: ballJointRadius = pipeRadius * 1.5
 static constexpr float FOV_DEGREES = 45.0f;       // Reference: PerspectiveCamera(45, ...)
@@ -274,16 +274,22 @@ void PipesScreensaver::tick() {
         return;
     }
 
+    // Single layer session for all pipe growth this tick
+    lv_layer_t layer;
+    lv_canvas_init_layer(canvas_, &layer);
+
     // Grow each active pipe
     int alive_count = 0;
     for (auto& pipe : pipes_) {
         if (!pipe.alive) continue;
         alive_count++;
 
-        if (!grow_pipe(pipe)) {
+        if (!grow_pipe(pipe, &layer)) {
             pipe.alive = false;
         }
     }
+
+    lv_canvas_finish_layer(canvas_, &layer);
 
     // Start new pipes when old ones die (reference: multiple pipes simultaneously)
     if (alive_count < MAX_ACTIVE_PIPES) {
@@ -298,7 +304,7 @@ void PipesScreensaver::tick() {
 
 // ---------- Growth ----------
 
-bool PipesScreensaver::grow_pipe(ActivePipe& pipe) {
+bool PipesScreensaver::grow_pipe(ActivePipe& pipe, lv_layer_t* layer) {
     Direction try_dir = pipe.dir;
 
     // Reference: chance(1/2) && lastDirectionVector ? continue straight : random direction
@@ -328,17 +334,12 @@ bool PipesScreensaver::grow_pipe(ActivePipe& pipe) {
         if (project(wx1, wy1, wz1, sx1, sy1, d1) &&
             project(wx2, wy2, wz2, sx2, sy2, d2)) {
 
-            lv_layer_t layer;
-            lv_canvas_init_layer(canvas_, &layer);
-
             // Ball joint at direction change (reference: makeBallJoint)
             if (pipe.has_prev_dir && try_dir != pipe.dir) {
-                draw_joint(&layer, sx1, sy1, d1, pipe);
+                draw_joint(layer, sx1, sy1, d1, pipe);
             }
 
-            draw_segment(&layer, sx1, sy1, sx2, sy2, (d1 + d2) * 0.5f, pipe);
-
-            lv_canvas_finish_layer(canvas_, &layer);
+            draw_segment(layer, sx1, sy1, sx2, sy2, (d1 + d2) * 0.5f, pipe);
         }
 
         pipe.dir = try_dir;
@@ -369,16 +370,11 @@ bool PipesScreensaver::grow_pipe(ActivePipe& pipe) {
             if (project(wx1, wy1, wz1, sx1, sy1, depth1) &&
                 project(wx2, wy2, wz2, sx2, sy2, depth2)) {
 
-                lv_layer_t layer;
-                lv_canvas_init_layer(canvas_, &layer);
-
                 if (pipe.has_prev_dir && candidate != pipe.dir) {
-                    draw_joint(&layer, sx1, sy1, depth1, pipe);
+                    draw_joint(layer, sx1, sy1, depth1, pipe);
                 }
 
-                draw_segment(&layer, sx1, sy1, sx2, sy2, (depth1 + depth2) * 0.5f, pipe);
-
-                lv_canvas_finish_layer(canvas_, &layer);
+                draw_segment(layer, sx1, sy1, sx2, sy2, (depth1 + depth2) * 0.5f, pipe);
             }
 
             pipe.dir = candidate;

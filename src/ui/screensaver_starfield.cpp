@@ -9,11 +9,15 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdlib>
+#include <cstring>
 #include <ctime>
 
 static constexpr int NUM_STARS = 150;
 static constexpr uint32_t FRAME_PERIOD_MS = 33; // ~30fps
 static constexpr float COLOR_THRESHOLD = 0.35f; // stars closer than this show color
+
+// Opaque black in ARGB8888 format (alpha=0xFF, RGB=0)
+static constexpr uint32_t PIXEL_BLACK = 0xFF000000;
 
 // Star color tints — blue dwarfs, red giants, yellow suns, blue-white hot stars
 static const uint8_t STAR_TINTS[][3] = {
@@ -44,6 +48,9 @@ void StarfieldScreensaver::start() {
 
     screen_w_ = lv_display_get_horizontal_resolution(disp);
     screen_h_ = lv_display_get_vertical_resolution(disp);
+    cx_ = static_cast<float>(screen_w_) / 2.0f;
+    cy_ = static_cast<float>(screen_h_) / 2.0f;
+    focal_ = static_cast<float>(screen_w_) / 3.0f;
 
     // Create black overlay on lv_layer_top() — absorbs touch input
     overlay_ = lv_obj_create(lv_layer_top());
@@ -132,6 +139,9 @@ void StarfieldScreensaver::init_stars() {
         star.z = 0.01f + (static_cast<float>(rand()) / RAND_MAX) * 0.99f;
         star.speed = 0.008f + (static_cast<float>(rand()) / RAND_MAX) * 0.017f;
         assign_tint(star.tint_r, star.tint_g, star.tint_b);
+        star.prev_sx = 0;
+        star.prev_sy = 0;
+        star.prev_size = 0;
     }
 }
 
@@ -153,48 +163,64 @@ void StarfieldScreensaver::frame_timer_cb(lv_timer_t* timer) {
 }
 
 void StarfieldScreensaver::render_frame() {
-    if (!canvas_) return;
+    if (!canvas_ || !draw_buf_) return;
 
-    // Clear canvas to black
-    lv_canvas_fill_bg(canvas_, lv_color_black(), LV_OPA_COVER);
+    auto* pixels = reinterpret_cast<uint32_t*>(draw_buf_);
+    int w = screen_w_;
+    int h = screen_h_;
 
-    // Begin drawing layer
-    lv_layer_t layer;
-    lv_canvas_init_layer(canvas_, &layer);
+    // Erase previous star positions (incremental clear — avoids full-buffer memset)
+    for (auto& star : stars_) {
+        if (star.prev_size == 0) continue;
+        int sx = star.prev_sx;
+        int sy = star.prev_sy;
+        int sz = star.prev_size;
+        for (int dy = 0; dy < sz; dy++) {
+            int py = sy + dy;
+            if (py < 0 || py >= h) continue;
+            int row = py * w;
+            for (int dx = 0; dx < sz; dx++) {
+                int px = sx + dx;
+                if (px >= 0 && px < w) {
+                    pixels[row + px] = PIXEL_BLACK;
+                }
+            }
+        }
+        star.prev_size = 0;
+    }
 
-    float cx = static_cast<float>(screen_w_) / 2.0f;
-    float cy = static_cast<float>(screen_h_) / 2.0f;
-    float focal = static_cast<float>(screen_w_) / 3.0f;
-
+    // Update and draw stars via direct pixel writes (no LVGL draw API)
     for (auto& star : stars_) {
         // Move star closer
         star.z -= star.speed;
 
-        // Project to screen coordinates
         if (star.z <= 0.01f) {
             recycle_star(star);
             continue;
         }
 
-        float sx = cx + (star.x / star.z) * focal;
-        float sy = cy + (star.y / star.z) * focal;
+        // Project to screen coordinates
+        float sx = cx_ + (star.x / star.z) * focal_;
+        float sy = cy_ + (star.y / star.z) * focal_;
 
         // Check bounds
-        if (sx < 0 || sx >= screen_w_ || sy < 0 || sy >= screen_h_) {
+        if (sx < 0 || sx >= w || sy < 0 || sy >= h) {
             recycle_star(star);
             continue;
         }
 
+        int isx = static_cast<int>(sx);
+        int isy = static_cast<int>(sy);
+
         // Size: larger when closer (z near 0)
         int size = std::max(1, static_cast<int>(3.0f * (1.0f - star.z)));
 
-        // Brightness: brighter when closer, with minimum floor so distant stars are visible
+        // Brightness: brighter when closer, with minimum floor
         float bright_f = 80.0f + 175.0f * (1.0f - star.z);
 
         // Close stars show their color tint; distant stars stay white
         uint8_t r, g, b;
         if (star.z < COLOR_THRESHOLD) {
-            // Blend from white toward tint as star gets closer
             float tint_mix = (COLOR_THRESHOLD - star.z) / COLOR_THRESHOLD;
             r = static_cast<uint8_t>(bright_f * (1.0f - tint_mix + tint_mix * star.tint_r / 255.0f));
             g = static_cast<uint8_t>(bright_f * (1.0f - tint_mix + tint_mix * star.tint_g / 255.0f));
@@ -203,25 +229,30 @@ void StarfieldScreensaver::render_frame() {
             r = g = b = static_cast<uint8_t>(bright_f);
         }
 
-        // Draw star as a small filled rect
-        lv_draw_rect_dsc_t dsc;
-        lv_draw_rect_dsc_init(&dsc);
-        dsc.bg_color = lv_color_make(r, g, b);
-        dsc.bg_opa = LV_OPA_COVER;
-        dsc.border_width = 0;
-        dsc.radius = 0;
+        // Write pixel(s) directly to canvas buffer (ARGB8888)
+        uint32_t pixel = PIXEL_BLACK | (static_cast<uint32_t>(r) << 16) |
+                         (static_cast<uint32_t>(g) << 8) | b;
 
-        lv_area_t area;
-        area.x1 = static_cast<int32_t>(sx);
-        area.y1 = static_cast<int32_t>(sy);
-        area.x2 = area.x1 + size - 1;
-        area.y2 = area.y1 + size - 1;
+        for (int dy = 0; dy < size; dy++) {
+            int py = isy + dy;
+            if (py < 0 || py >= h) continue;
+            int row = py * w;
+            for (int dx = 0; dx < size; dx++) {
+                int px = isx + dx;
+                if (px >= 0 && px < w) {
+                    pixels[row + px] = pixel;
+                }
+            }
+        }
 
-        lv_draw_rect(&layer, &dsc, &area);
+        // Remember position for next frame's erase pass
+        star.prev_sx = static_cast<int16_t>(isx);
+        star.prev_sy = static_cast<int16_t>(isy);
+        star.prev_size = static_cast<uint8_t>(size);
     }
 
-    // Finish drawing layer
-    lv_canvas_finish_layer(canvas_, &layer);
+    // Tell LVGL the canvas content changed
+    lv_obj_invalidate(canvas_);
 }
 
 #endif // HELIX_ENABLE_SCREENSAVER
