@@ -130,15 +130,19 @@ bool AmsEditModal::show_for_slot(lv_obj_t* parent, int slot_index, const SlotInf
         return false;
     }
 
-    // Determine first view: picker for empty slots with Spoolman, form otherwise
-    bool has_spoolman = false;
-    auto* spoolman_subj = lv_xml_get_subject(nullptr, "printer_has_spoolman");
-    if (spoolman_subj) {
-        has_spoolman = lv_subject_get_int(spoolman_subj) == 1;
-    }
+    // Determine first view: picker for empty slots, form otherwise.
+    // Don't gate on printer_has_spoolman subject — it's set asynchronously and
+    // may not be ready yet if the user opens the modal soon after connecting.
+    // Instead, attempt the picker whenever we have an API and the slot is empty;
+    // populate_picker() will show the empty/retry state if Spoolman is unavailable.
     bool slot_empty = initial_info.material.empty() && initial_info.brand.empty();
 
-    if (has_spoolman && slot_empty && initial_info.spoolman_id == 0) {
+    spdlog::debug("[AmsEditModal] View decision: api={}, slot_empty={}, spoolman_id={}, "
+                  "material='{}', brand='{}'",
+                  api_ != nullptr, slot_empty, initial_info.spoolman_id, initial_info.material,
+                  initial_info.brand);
+
+    if (api_ && slot_empty && initial_info.spoolman_id == 0) {
         switch_to_picker();
     } else {
         switch_to_form();
@@ -478,11 +482,14 @@ void AmsEditModal::update_vendor_dropdown() {
 
 void AmsEditModal::switch_to_picker() {
     if (!subjects_initialized_) {
+        spdlog::warn("[AmsEditModal] switch_to_picker() aborted: subjects not initialized");
         return;
     }
+    spdlog::debug("[AmsEditModal] Switching to picker view (dialog_={}, api_={}, guard={})",
+                  static_cast<void*>(dialog_), static_cast<void*>(api_),
+                  callback_guard_ ? "valid" : "null");
     lv_subject_set_int(&view_mode_subject_, 1);
     populate_picker();
-    spdlog::debug("[AmsEditModal] Switched to picker view");
 }
 
 void AmsEditModal::switch_to_form() {
@@ -495,6 +502,14 @@ void AmsEditModal::switch_to_form() {
 
 void AmsEditModal::populate_picker() {
     if (!dialog_ || !api_) {
+        spdlog::warn("[AmsEditModal] populate_picker() aborted: dialog_={}, api_={}",
+                     static_cast<void*>(dialog_), static_cast<void*>(api_));
+        lv_subject_set_int(&picker_state_subject_, 1);
+        return;
+    }
+
+    if (!callback_guard_) {
+        spdlog::warn("[AmsEditModal] populate_picker() aborted: callback_guard_ is null");
         lv_subject_set_int(&picker_state_subject_, 1);
         return;
     }
@@ -511,14 +526,28 @@ void AmsEditModal::populate_picker() {
     // Use weak_ptr pattern for async callback safety [L012]
     std::weak_ptr<bool> weak_guard = callback_guard_;
 
+    spdlog::debug("[AmsEditModal] populate_picker() fetching spools from Spoolman...");
+
     api_->spoolman().get_spoolman_spools(
         [this, weak_guard](const std::vector<SpoolInfo>& spools) {
+            spdlog::debug("[AmsEditModal] Spoolman returned {} spools", spools.size());
             helix::ui::queue_update([this, weak_guard, spools]() {
-                if (weak_guard.expired() || !dialog_ || !subjects_initialized_) {
+                if (weak_guard.expired()) {
+                    spdlog::warn("[AmsEditModal] populate_picker callback dropped: guard expired");
+                    return;
+                }
+                if (!dialog_) {
+                    spdlog::warn("[AmsEditModal] populate_picker callback dropped: dialog_ null");
+                    return;
+                }
+                if (!subjects_initialized_) {
+                    spdlog::warn(
+                        "[AmsEditModal] populate_picker callback dropped: subjects not initialized");
                     return;
                 }
 
                 if (spools.empty()) {
+                    spdlog::debug("[AmsEditModal] Spoolman returned empty spool list");
                     lv_subject_set_int(&picker_state_subject_, 1);
                     return;
                 }
@@ -528,8 +557,13 @@ void AmsEditModal::populate_picker() {
             });
         },
         [this, weak_guard](const MoonrakerError& err) {
+            spdlog::warn("[AmsEditModal] Spoolman fetch error: {}", err.message);
             helix::ui::queue_update([this, weak_guard, msg = err.message]() {
                 if (weak_guard.expired() || !dialog_ || !subjects_initialized_) {
+                    spdlog::warn("[AmsEditModal] Error callback dropped: guard={}, dialog_={}, "
+                                 "subjects={}",
+                                 !weak_guard.expired(), static_cast<void*>(dialog_),
+                                 subjects_initialized_);
                     return;
                 }
                 spdlog::warn("[AmsEditModal] Failed to fetch spools: {}", msg);
@@ -1163,6 +1197,7 @@ void AmsEditModal::register_callbacks() {
         {"ams_edit_change_spool_cb", on_change_spool_cb},
         {"ams_edit_unlink_cb", on_unlink_cb},
         {"ams_edit_picker_search_cb", on_picker_search_cb},
+        {"ams_edit_picker_retry_cb", on_picker_retry_cb},
         // Register handler for spool_item clicks (shared component uses this callback name)
         {"spoolman_spool_item_clicked_cb", on_spool_item_cb},
     });
@@ -1290,6 +1325,14 @@ void AmsEditModal::on_picker_search_cb(lv_event_t* e) {
         auto* ta = static_cast<lv_obj_t*>(lv_event_get_target(e));
         const char* text = lv_textarea_get_text(ta);
         self->handle_picker_search(text);
+    }
+}
+
+void AmsEditModal::on_picker_retry_cb(lv_event_t* e) {
+    auto* self = get_instance_from_event(e);
+    if (self) {
+        spdlog::info("[AmsEditModal] Picker retry requested by user");
+        self->populate_picker();
     }
 }
 

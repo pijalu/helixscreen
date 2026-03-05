@@ -211,6 +211,7 @@ class AmsEditModal : public Modal {
     static void on_change_spool_cb(lv_event_t* e);
     static void on_unlink_cb(lv_event_t* e);
     static void on_picker_search_cb(lv_event_t* e);
+    static void on_picker_retry_cb(lv_event_t* e);
     static void on_spool_item_cb(lv_event_t* e);
 
     /**

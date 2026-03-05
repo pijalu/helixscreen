@@ -25,7 +25,7 @@
               style_pad_all="0" style_pad_left="#space_sm" flex_flow="row" style_flex_cross_place="center" style_pad_gap="#space_xs"
               scrollable="false" clickable="false">
         <!-- Back region: icon + title act as one large touch target in picker view -->
-        <bind_flag_if_not_eq subject="edit_modal_view" flag="clickable" ref_value="1"/>
+        <bind_flag_if_eq subject="edit_modal_view" flag="clickable" ref_value="1"/>
         <event_cb trigger="clicked" callback="ams_edit_manual_entry_cb"/>
         <icon name="picker_back_icon" src="back" size="lg" variant="text" clickable="false" event_bubble="true" hidden="true">
           <bind_flag_if_not_eq subject="edit_modal_view" flag="hidden" ref_value="1"/>
@@ -165,8 +165,8 @@
                   scrollable="false" hidden="true">
             <bind_flag_if_eq subject="printer_has_spoolman" flag="hidden" ref_value="0"/>
             <ui_button name="btn_change_spool"
-                       height="#button_height_sm" flex_grow="1" text="Link to Spoolman"
-                       translation_tag="Link to Spoolman" variant="secondary">
+                       height="#button_height_sm" flex_grow="1" text="Choose Saved Spool"
+                       translation_tag="Choose Saved Spool" variant="secondary">
               <event_cb trigger="clicked" callback="ams_edit_change_spool_cb"/>
             </ui_button>
             <ui_button name="btn_unlink_spool"
@@ -204,9 +204,12 @@
       </lv_obj>
 
       <!-- Empty state -->
-      <lv_obj name="picker_empty" width="100%" height="120" scrollable="false" hidden="true">
+      <lv_obj name="picker_empty" width="100%" height="120" scrollable="false" hidden="true"
+              clickable="true">
         <bind_flag_if_not_eq subject="edit_picker_state" flag="hidden" ref_value="1"/>
-        <empty_state icon="spoolman" text="No spools found in Spoolman" translation_tag="No spools found in Spoolman"/>
+        <event_cb trigger="clicked" callback="ams_edit_picker_retry_cb"/>
+        <empty_state icon="spoolman" text="No spools found — tap to retry" translation_tag="No spools found — tap to retry"
+                     clickable="false" event_bubble="true"/>
       </lv_obj>
 
       <!-- Spool list (populated dynamically by C++) -->
