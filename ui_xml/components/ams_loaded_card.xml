@@ -20,6 +20,7 @@
   -->
   <view name="ams_loaded_card" extends="ui_card"
         width="100%" height="content" style_radius="#border_radius"
+        style_bg_color="#elevated_bg"
         style_pad_all="#space_md" flex_flow="row"
         style_flex_main_place="start" style_flex_cross_place="center"
         style_pad_gap="#space_sm">
