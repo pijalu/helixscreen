@@ -9,6 +9,7 @@ translations:
   '%u layers': '%u couches'
   + Add: + Ajouter
   + Add Preset: + Ajouter un préréglage
+  + Add Printer: + Ajouter une imprimante
   + New: + Nouveau
   '- Check [resonance_tester] in printer.cfg': '- Vérifiez [resonance_tester] dans printer.cfg'
   '- Ensure ADXL345 is connected': '- Assurez-vous que l''ADXL345 est connecté'
@@ -116,6 +117,7 @@ translations:
   Applying...: Application...
   Are you sure you want to cancel this print? All progress will be lost.: Êtes-vous sûr de vouloir annuler cette impression ? Toute la progression sera perdue.
   Are you sure? This will power off or restart the printer host.: Êtes-vous sûr ? Cela va éteindre ou redémarrer l'hôte de l'imprimante.
+  Armored Turtle: Armored Turtle
   Assign Klipper macros to control LEDs via on/off, toggle, or presets: Assigner des macros Klipper pour contrôler les LED via on/off, bascule ou préréglages
   Assign a role to enable sensor monitoring: Attribuez un rôle pour activer la surveillance du capteur
   Assisting: Assistance
@@ -163,6 +165,7 @@ translations:
   Brightness: Luminosité
   Brightness level when LEDs turn on at startup: "Niveau de luminosité lorsque les LED s'allument au démarrage"
   Browse: Parcourir
+  'Browse guides, configuration references, and troubleshooting ': 'Parcourez les guides, références de configuration et dépannage '
   Buffer Status: 'État du tampon'
   Buffer information not available for this backend: 'Informations de tampon non disponibles pour ce backend'
   Bundle Uploaded: Bundle téléversé
@@ -214,6 +217,7 @@ translations:
   Checking slots...: Vérification des slots...
   Checking timelapse plugin...: Vérification du plugin timelapse...
   Choose 12-hour or 24-hour time display: Choisir l'affichage 12 heures ou 24 heures
+  Choose Saved Spool: Choisir une bobine enregistrée
   Choose an existing filament, or tap + New to create one.: Choisissez un filament existant, ou appuyez sur + Nouveau pour en créer un.
   Choose display language: Choisir la langue d'affichage
   Choose how frames are captured during printing: Choisir comment les images sont capturées pendant l'impression
@@ -323,6 +327,7 @@ translations:
   Date (newest): Date (plus récent)
   Date (oldest): Date (plus ancien)
   Day: Jour
+  Default: Par défaut
   Default border thickness: Épaisseur de bordure par défaut
   Define macros in your printer.cfg: Définissez les macros dans votre printer.cfg
   Delete: Supprimer
@@ -332,6 +337,7 @@ translations:
   Delete Video?: Supprimer la vidéo ?
   'Delta:': 'Delta :'
   Deploy: Déployer
+  Describe the issue (optional): Décrivez le problème (optionnel)
   Detailed: Détaillé
   Detection Length: 'Longueur de détection'
   Detection Mode: 'Mode de détection'
@@ -554,6 +560,7 @@ translations:
   Hotend Heater: Chauffage du hotend
   How Z-axis movement is displayed: Mode d'affichage du mouvement de l'axe Z
   How often to check Spoolman for weight updates: Fréquence de vérification des mises à jour de poids Spoolman
+  How the toolhead icon appears: Apparence de l'icône de tête d'outil
   Humidity: Humidité
   Humidity Sensors: Capteurs d'humidité
   Hyperlapse: Hyperlapse
@@ -592,6 +599,7 @@ translations:
   Invalid port number: ''
   Issue description: Description du problème
   Job Queue: File d'impression
+  'Join the HelixScreen community on Discord for discussion, ': 'Rejoignez la communauté HelixScreen sur Discord pour discuter, '
   Just now: À l'instant
   Keep Printing: Continuer l'impression
   Keep Required: Garder obligatoire
@@ -683,6 +691,8 @@ translations:
   Make Optional: Rendre optionnel
   Make bed mesh and QGL skippable: Rendre le maillage du plateau et QGL ignorables
   Manage: Gérer
+  Manage Printers: Gérer les imprimantes
+  Manage configured printers: Gérer les imprimantes configurées
   Manual: Manuel
   Manual Bed Leveling: Mise à niveau manuelle du plateau
   Markdown Viewer: Visionneuse Markdown
@@ -788,6 +798,7 @@ translations:
   No sensors detected: Aucun capteur détecté
   No spool assigned: Aucune bobine assignée
   No spools found in Spoolman: Aucune bobine trouvée dans Spoolman
+  No spools found — tap to retry: Aucune bobine trouvée — appuyez pour réessayer
   No sync feedback data available: 'Aucune donnée de retour sync disponible'
   No timelapse videos found: Aucune vidéo timelapse trouvée
   No vendors found: Aucun fournisseur trouvé
@@ -923,6 +934,7 @@ translations:
   Printer Type: Type d'imprimante
   Printer name: Nom de l'imprimante
   Printer ready: Imprimante prête
+  Printers: Imprimantes
   Printing: Impression
   Printing label...: ''
   Printing test label...: ''
@@ -1160,6 +1172,7 @@ translations:
   State: 'État'
   Status: État
   Status icons: Icônes d'état
+  Stealthburner: Stealthburner
   Step: Étape
   Step Progress Widget Test: Test du widget de progression par étapes
   Stop: Arrêter
@@ -1171,6 +1184,7 @@ translations:
   Success Rate: Taux de réussite
   Success!: Succès !
   Surfaces inherit app background tokens for light and dark modes.: Les surfaces héritent des jetons d'arrière-plan de l'application pour les modes clair et sombre.
+  Switch Printer: Changer d'imprimante
   Switch Sensors: Capteurs à contact
   Switch Tests: Tests d'interrupteurs
   Switch between light and dark themes: Basculer entre les thèmes clair et sombre
@@ -1261,6 +1275,7 @@ translations:
   Toggle and reorder status widgets: Activer et réorganiser les widgets de statut
   Tool: Outil
   Tool Changer: Changeur d'outils
+  Toolhead Style: Style de tête d'outil
   Top: Haut
   Total Prints: Total des impressions
   Touch Calibration: Calibration tactile

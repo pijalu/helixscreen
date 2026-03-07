@@ -9,6 +9,7 @@ translations:
   '%u layers': '%u 层'
   + Add: + 添加
   + Add Preset: + 添加预设
+  + Add Printer: + 添加打印机
   + New: + 新建
   '- Check [resonance_tester] in printer.cfg': '- 检查 printer.cfg 中的 [resonance_tester]'
   '- Ensure ADXL345 is connected': '- 确保 ADXL345 已连接'
@@ -116,6 +117,7 @@ translations:
   Applying...: 正在应用...
   Are you sure you want to cancel this print? All progress will be lost.: 确定要取消此打印吗？所有进度将丢失。
   Are you sure? This will power off or restart the printer host.: 确定吗？这将关闭或重启打印机主机。
+  Armored Turtle: Armored Turtle
   Assign Klipper macros to control LEDs via on/off, toggle, or presets: 分配 Klipper 宏通过开/关、切换或预设控制 LED
   Assign a role to enable sensor monitoring: 分配角色以启用传感器监控
   Assisting: 辅助中
@@ -163,6 +165,7 @@ translations:
   Brightness: 亮度
   Brightness level when LEDs turn on at startup: 启动时 LED 开启的亮度级别
   Browse: 浏览
+  'Browse guides, configuration references, and troubleshooting ': 浏览指南、配置参考和故障排除
   Buffer Status: '缓冲区状态'
   Buffer information not available for this backend: '此后端无缓冲区信息'
   Bundle Uploaded: 捆绑包已上传
@@ -214,6 +217,7 @@ translations:
   Checking slots...: 正在检查料仓...
   Checking timelapse plugin...: 正在检查延时摄影插件...
   Choose 12-hour or 24-hour time display: 选择 12 小时制或 24 小时制
+  Choose Saved Spool: 选择已保存的料盘
   Choose an existing filament, or tap + New to create one.: 选择已有耗材，或点击 + 新建来创建。
   Choose display language: 选择显示语言
   Choose how frames are captured during printing: 选择打印期间的帧捕获方式
@@ -323,6 +327,7 @@ translations:
   Date (newest): 日期（最新）
   Date (oldest): 日期（最早）
   Day: 日
+  Default: 默认
   Default border thickness: 默认边框厚度
   Define macros in your printer.cfg: 在 printer.cfg 中定义宏
   Delete: 删除
@@ -332,6 +337,7 @@ translations:
   Delete Video?: 删除视频？
   'Delta:': 差值：
   Deploy: 部署
+  Describe the issue (optional): 描述问题（可选）
   Detailed: 详细
   Detection Length: '检测长度'
   Detection Mode: '检测模式'
@@ -554,6 +560,7 @@ translations:
   Hotend Heater: 热端加热器
   How Z-axis movement is displayed: Z 轴移动的显示方式
   How often to check Spoolman for weight updates: 检查 Spoolman 重量更新的频率
+  How the toolhead icon appears: 工具头图标的显示方式
   Humidity: 湿度
   Humidity Sensors: 湿度传感器
   Hyperlapse: 延时摄影
@@ -592,6 +599,7 @@ translations:
   Invalid port number: ''
   Issue description: 问题描述
   Job Queue: 任务队列
+  'Join the HelixScreen community on Discord for discussion, ': 加入 HelixScreen 的 Discord 社区进行讨论、
   Just now: 刚刚
   Keep Printing: 继续打印
   Keep Required: 保持必需
@@ -683,6 +691,8 @@ translations:
   Make Optional: 设为可选
   Make bed mesh and QGL skippable: 使热床网格和 QGL 可跳过
   Manage: 管理
+  Manage Printers: 管理打印机
+  Manage configured printers: 管理已配置的打印机
   Manual: '手动'
   Manual Bed Leveling: 手动热床调平
   Markdown Viewer: Markdown 查看器
@@ -788,6 +798,7 @@ translations:
   No sensors detected: 未检测到传感器
   No spool assigned: 未分配料盘
   No spools found in Spoolman: Spoolman中未找到料盘
+  No spools found — tap to retry: 未找到料盘 - 点击重试
   No sync feedback data available: '无可用同步反馈数据'
   No timelapse videos found: 未找到延时视频
   No vendors found: 未找到供应商
@@ -923,6 +934,7 @@ translations:
   Printer Type: 打印机类型
   Printer name: 打印机名称
   Printer ready: 打印机就绪
+  Printers: 打印机
   Printing: 正在打印
   Printing label...: ''
   Printing test label...: ''
@@ -1160,6 +1172,7 @@ translations:
   State: '状态'
   Status: 状态
   Status icons: 状态图标
+  Stealthburner: Stealthburner
   Step: 步骤
   Step Progress Widget Test: 步骤进度组件测试
   Stop: 停止
@@ -1171,6 +1184,7 @@ translations:
   Success Rate: 成功率
   Success!: 成功！
   Surfaces inherit app background tokens for light and dark modes.: 表面继承应用背景色用于浅色和深色模式。
+  Switch Printer: 切换打印机
   Switch Sensors: 开关传感器
   Switch Tests: 开关测试
   Switch between light and dark themes: 切换浅色和深色主题
@@ -1261,6 +1275,7 @@ translations:
   Toggle and reorder status widgets: 切换和排序状态小组件
   Tool: 工具
   Tool Changer: 换刀器
+  Toolhead Style: 工具头样式
   Top: 顶部
   Total Prints: 总打印数
   Touch Calibration: 触摸校准

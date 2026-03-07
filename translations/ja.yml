@@ -9,6 +9,7 @@ translations:
   '%u layers': '%uレイヤー'
   + Add: + 追加
   + Add Preset: + プリセットを追加
+  + Add Printer: + プリンターを追加
   + New: + 新規
   '- Check [resonance_tester] in printer.cfg': '- printer.cfg の [resonance_tester] を確認してください'
   '- Ensure ADXL345 is connected': '- ADXL345 が接続されていることを確認してください'
@@ -116,6 +117,7 @@ translations:
   Applying...: 適用中...
   Are you sure you want to cancel this print? All progress will be lost.: この印刷をキャンセルしますか？すべての進行状況が失われます。
   Are you sure? This will power off or restart the printer host.: よろしいですか？プリンターホストの電源がオフまたは再起動されます。
+  Armored Turtle: Armored Turtle
   Assign Klipper macros to control LEDs via on/off, toggle, or presets: Klipper マクロを割り当ててオン/オフ、トグル、プリセットで LED を制御
   Assign a role to enable sensor monitoring: センサー監視を有効にするには役割を割り当ててください
   Assisting: アシスト中
@@ -163,6 +165,7 @@ translations:
   Brightness: 明るさ
   Brightness level when LEDs turn on at startup: 起動時にLEDが点灯する際の明るさレベル
   Browse: 参照
+  'Browse guides, configuration references, and troubleshooting ': 'ガイド、設定リファレンス、トラブルシューティングを参照 '
   Buffer Status: 'バッファーステータス'
   Buffer information not available for this backend: 'このバックエンドではバッファー情報を利用できません'
   Bundle Uploaded: バンドルをアップロードしました
@@ -214,6 +217,7 @@ translations:
   Checking slots...: スロットを確認中...
   Checking timelapse plugin...: タイムラプスプラグインを確認中...
   Choose 12-hour or 24-hour time display: 12時間表示または24時間表示を選択
+  Choose Saved Spool: 保存済みスプールを選択
   Choose an existing filament, or tap + New to create one.: 既存のフィラメントを選択するか、+ 新規をタップして作成してください。
   Choose display language: 表示言語を選択
   Choose how frames are captured during printing: 印刷中のフレームキャプチャ方法を選択
@@ -323,6 +327,7 @@ translations:
   Date (newest): 日付（新しい順）
   Date (oldest): 日付（古い順）
   Day: 日
+  Default: デフォルト
   Default border thickness: デフォルトの境界線の太さ
   Define macros in your printer.cfg: printer.cfg でマクロを定義してください
   Delete: 削除
@@ -332,6 +337,7 @@ translations:
   Delete Video?: 動画を削除しますか？
   'Delta:': '差分:'
   Deploy: 展開
+  Describe the issue (optional): 問題の詳細（任意）
   Detailed: 詳細
   Detection Length: '検出長'
   Detection Mode: '検出モード'
@@ -554,6 +560,7 @@ translations:
   Hotend Heater: ホットエンドヒーター
   How Z-axis movement is displayed: Z軸の移動表示方法
   How often to check Spoolman for weight updates: Spoolman の重量更新をチェックする頻度
+  How the toolhead icon appears: ツールヘッドアイコンの表示スタイル
   Humidity: 湿度
   Humidity Sensors: 湿度センサー
   Hyperlapse: ハイパーラプス
@@ -592,6 +599,7 @@ translations:
   Invalid port number: ''
   Issue description: 問題の説明
   Job Queue: ジョブキュー
+  'Join the HelixScreen community on Discord for discussion, ': 'HelixScreenコミュニティにDiscordで参加して、ディスカッション、'
   Just now: たった今
   Keep Printing: 印刷を続行
   Keep Required: 必須を維持
@@ -683,6 +691,8 @@ translations:
   Make Optional: オプションにする
   Make bed mesh and QGL skippable: ベッドメッシュと QGL をスキップ可能にする
   Manage: 管理
+  Manage Printers: プリンター管理
+  Manage configured printers: 設定済みプリンターを管理
   Manual: '手動'
   Manual Bed Leveling: 手動ベッドレベリング
   Markdown Viewer: Markdownビューアー
@@ -788,6 +798,7 @@ translations:
   No sensors detected: センサーが検出されませんでした
   No spool assigned: スプール未割当
   No spools found in Spoolman: Spoolmanにスプールが見つかりません
+  No spools found — tap to retry: スプールが見つかりません — タップして再試行
   No sync feedback data available: '同期フィードバックデータがありません'
   No timelapse videos found: タイムラプス動画が見つかりません
   No vendors found: ベンダーが見つかりません
@@ -923,6 +934,7 @@ translations:
   Printer Type: プリンタータイプ
   Printer name: プリンター名
   Printer ready: プリンター準備完了
+  Printers: プリンター
   Printing: 印刷中
   Printing label...: ''
   Printing test label...: ''
@@ -1160,6 +1172,7 @@ translations:
   State: '状態'
   Status: ステータス
   Status icons: ステータスアイコン
+  Stealthburner: Stealthburner
   Step: ステップ
   Step Progress Widget Test: ステッププログレスウィジェットテスト
   Stop: 停止
@@ -1171,6 +1184,7 @@ translations:
   Success Rate: 成功率
   Success!: 成功！
   Surfaces inherit app background tokens for light and dark modes.: サーフェスはライトモードとダークモードのアプリ背景トークンを継承します。
+  Switch Printer: プリンターを切り替え
   Switch Sensors: センサーを切り替え
   Switch Tests: スイッチテスト
   Switch between light and dark themes: ライトテーマとダークテーマを切り替え
@@ -1261,6 +1275,7 @@ translations:
   Toggle and reorder status widgets: ステータスウィジェットの切り替えと並べ替え
   Tool: ツール
   Tool Changer: ツールチェンジャー
+  Toolhead Style: ツールヘッドスタイル
   Top: 上
   Total Prints: 総印刷数
   Touch Calibration: タッチキャリブレーション

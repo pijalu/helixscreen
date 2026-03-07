@@ -9,6 +9,7 @@ translations:
   '%u layers': '%u слоёв'
   + Add: + Добавить
   + Add Preset: + Добавить пресет
+  + Add Printer: + Добавить принтер
   + New: + Новый
   '- Check [resonance_tester] in printer.cfg': '- Проверьте блок [resonance_tester] в printer.cfg'
   '- Ensure ADXL345 is connected': '- Убедитесь, что ADXL345 подключен'
@@ -116,6 +117,7 @@ translations:
   Applying...: Применение...
   Are you sure you want to cancel this print? All progress will be lost.: Вы уверены, что хотите отменить печать? Весь прогресс будет потерян.
   Are you sure? This will power off or restart the printer host.: Вы уверены? Это выключит или перезагрузит хост принтера.
+  Armored Turtle: Armored Turtle
   Assign Klipper macros to control LEDs via on/off, toggle, or presets: Назначьте макросы Klipper для управления LED через вкл/выкл, переключение или пресеты
   Assign a role to enable sensor monitoring: Назначьте роль для мониторинга датчика
   Assisting: Помощь
@@ -163,6 +165,7 @@ translations:
   Brightness: Яркость
   Brightness level when LEDs turn on at startup: Уровень яркости при включении LED при запуске
   Browse: Обзор
+  'Browse guides, configuration references, and troubleshooting ': 'Руководства, справочники по настройке и устранение неполадок '
   Buffer Status: 'Статус буфера'
   Buffer information not available for this backend: 'Информация о буфере недоступна для этого бэкенда'
   Bundle Uploaded: Пакет отправлен
@@ -214,6 +217,7 @@ translations:
   Checking slots...: Проверка слотов...
   Checking timelapse plugin...: Проверка плагина таймлапса...
   Choose 12-hour or 24-hour time display: Выберите 12-часовой или 24-часовой формат времени
+  Choose Saved Spool: Выбрать сохранённую катушку
   Choose an existing filament, or tap + New to create one.: Выберите существующий филамент или нажмите + Новый, чтобы создать.
   Choose display language: Выберите язык интерфейса
   Choose how frames are captured during printing: Выберите способ захвата кадров во время печати
@@ -323,6 +327,7 @@ translations:
   Date (newest): Дата (новые)
   Date (oldest): Дата (старые)
   Day: День
+  Default: По умолчанию
   Default border thickness: Толщина границы по умолчанию
   Define macros in your printer.cfg: Определите макросы в вашем printer.cfg
   Delete: Удалить
@@ -332,6 +337,7 @@ translations:
   Delete Video?: Удалить видео?
   'Delta:': 'Дельта:'
   Deploy: Развернуть
+  Describe the issue (optional): Опишите проблему (необязательно)
   Detailed: Подробно
   Detection Length: 'Длина обнаружения'
   Detection Mode: 'Режим обнаружения'
@@ -554,6 +560,7 @@ translations:
   Hotend Heater: Нагреватель хотенда
   How Z-axis movement is displayed: Как отображается движение по оси Z
   How often to check Spoolman for weight updates: Как часто проверять Spoolman на обновления веса
+  How the toolhead icon appears: Как отображается значок печатающей головки
   Humidity: Влажность
   Humidity Sensors: Датчики влажности
   Hyperlapse: Гиперлапс
@@ -592,6 +599,7 @@ translations:
   Invalid port number: ''
   Issue description: Описание проблемы
   Job Queue: Очередь заданий
+  'Join the HelixScreen community on Discord for discussion, ': 'Присоединяйтесь к сообществу HelixScreen в Discord для обсуждений, '
   Just now: Только что
   Keep Printing: Продолжить печать
   Keep Required: Оставить обязательным
@@ -683,6 +691,8 @@ translations:
   Make Optional: Сделать опциональным
   Make bed mesh and QGL skippable: Сделать сетку стола и QGL пропускаемыми
   Manage: Управление
+  Manage Printers: Управление принтерами
+  Manage configured printers: Управление настроенными принтерами
   Manual: 'Вручную'
   Manual Bed Leveling: Ручное выравнивание стола
   Markdown Viewer: Просмотр Markdown
@@ -788,6 +798,7 @@ translations:
   No sensors detected: Датчики не обнаружены
   No spool assigned: Катушка не назначена
   No spools found in Spoolman: Катушки не найдены в Spoolman
+  No spools found — tap to retry: Катушки не найдены — нажмите для повтора
   No sync feedback data available: 'Данные синхронизации недоступны'
   No timelapse videos found: Таймлапс-видео не найдены
   No vendors found: Производители не найдены
@@ -923,6 +934,7 @@ translations:
   Printer Type: Тип принтера
   Printer name: Название принтера
   Printer ready: Принтер готов
+  Printers: Принтеры
   Printing: Печать
   Printing label...: ''
   Printing test label...: ''
@@ -1160,6 +1172,7 @@ translations:
   State: 'Состояние'
   Status: Статус
   Status icons: Иконки статуса
+  Stealthburner: Stealthburner
   Step: Шаг
   Step Progress Widget Test: Тест виджета пошагового прогресса
   Stop: Стоп
@@ -1171,6 +1184,7 @@ translations:
   Success Rate: Процент успеха
   Success!: Успешно!
   Surfaces inherit app background tokens for light and dark modes.: Поверхности наследуют токены фона приложения для светлого и тёмного режимов.
+  Switch Printer: Переключить принтер
   Switch Sensors: Переключить датчики
   Switch Tests: Тесты переключателей
   Switch between light and dark themes: Переключение между светлой и тёмной темами
@@ -1261,6 +1275,7 @@ translations:
   Toggle and reorder status widgets: Включение и сортировка виджетов статуса
   Tool: Инструмент
   Tool Changer: Сменщик инструментов
+  Toolhead Style: Стиль печатающей головки
   Top: Сверху
   Total Prints: Всего печатей
   Touch Calibration: Калибровка касания
