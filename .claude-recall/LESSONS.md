@@ -40,8 +40,8 @@
 - **Uses**: 100 | **Velocity**: 68.50375 | **Learned**: 2025-12-27 | **Last**: 2026-03-05 | **Category**: gotcha | **Type**: constraint
 > XML files are loaded at RUNTIME - never rebuild after XML-only changes. Just relaunch the app. This includes layout changes, styling, bindings, event callbacks - anything in ui_xml/*.xml. Only rebuild when C++ code changes.
 
-### [L039] [*----|***--] Unique XML callback names
-- **Uses**: 4 | **Velocity**: 1.5 | **Learned**: 2025-12-30 | **Last**: 2026-03-04 | **Category**: pattern | **Type**: constraint
+### [L039] [**---|****-] Unique XML callback names
+- **Uses**: 5 | **Velocity**: 2.5 | **Learned**: 2025-12-30 | **Last**: 2026-03-06 | **Category**: pattern | **Type**: constraint
 > All XML event_cb callback names must be globally unique using on_<component>_<action> pattern. LVGL's XML callback registry is a flat global namespace with no scoping. Generic names like on_modal_ok_clicked cause collisions when multiple components register handlers.
 
 ### [L040] [**---|****-] Inline XML attrs override bind_style
@@ -97,7 +97,7 @@
 > Always use lv_obj_safe_delete() instead of raw lv_obj_delete() - it guards against shutdown race conditions by checking lv_is_initialized() and lv_display_get_next() before deletion, and auto-nulls the pointer to prevent use-after-free
 
 ### [L060] [****-|*****] Interactive UI testing requires user
-- **Uses**: 67 | **Velocity**: 38.504999999999995 | **Learned**: 2026-02-01 | **Last**: 2026-03-04 | **Category**: correction | **Type**: constraint
+- **Uses**: 68 | **Velocity**: 39.504999999999995 | **Learned**: 2026-02-01 | **Last**: 2026-03-06 | **Category**: correction | **Type**: constraint
 > NEVER use timed delays expecting automatic navigation. THE EXACT PATTERN THAT WORKS:
 > **Step 1** - Start app with Bash tool using `run_in_background: true`:
 > ```bash
