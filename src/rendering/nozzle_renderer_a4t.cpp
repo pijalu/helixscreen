@@ -407,7 +407,7 @@ void draw_nozzle_a4t(lv_layer_t* layer, int32_t cx, int32_t cy, lv_color_t filam
     int32_t render_size = scale_unit * 10;
     // Design space is 1000x1334; scale down to match the visual footprint
     // of the other renderers (bambu/stealthburner use 1000-unit space)
-    float scale = (float)render_size / 2400.0f;
+    float scale = (float)render_size / 2000.0f;
 
     auto dim = [opa](lv_color_t c) -> lv_color_t {
         if (opa >= LV_OPA_COVER)
