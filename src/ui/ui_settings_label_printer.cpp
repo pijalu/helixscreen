@@ -10,6 +10,8 @@
 #include "brother_ql_printer.h"
 #include "label_bitmap.h"
 #include "label_printer_settings.h"
+#include "label_renderer.h"
+#include "spoolman_types.h"
 #include "static_panel_registry.h"
 #include "ui_toast_manager.h"
 
@@ -334,6 +336,9 @@ static int label_printer_score(const DiscoveredPrinter& printer) {
         return 0;
     if (name.find("ecotank") != std::string::npos || name.find("envy") != std::string::npos)
         return 0;
+    // EPSON ET series = EcoTank inkjet
+    if (name.find("epson") != std::string::npos && name.find("et-") != std::string::npos)
+        return 0;
 
     // Unknown — could be anything, low score but still show
     return 10;
@@ -396,6 +401,16 @@ void LabelPrinterSettingsOverlay::on_printers_discovered(
 
     spdlog::debug("[{}] Discovery update: {} total, {} likely label printers", get_name(),
                   printers.size(), discovered_printers_.size());
+
+    // Auto-select the first discovered printer if no address is configured yet
+    if (!discovered_printers_.empty()) {
+        auto& settings = LabelPrinterSettingsManager::instance();
+        if (!settings.is_configured()) {
+            handle_printer_selected(0);
+            spdlog::info("[{}] Auto-selected first discovered printer: {}", get_name(),
+                         discovered_printers_[0].name);
+        }
+    }
 }
 
 void LabelPrinterSettingsOverlay::handle_printer_selected(int index) {
@@ -506,20 +521,26 @@ void LabelPrinterSettingsOverlay::handle_test_print() {
     spdlog::info("[{}] Test print requested ({}:{})", get_name(),
                  settings.get_printer_address(), settings.get_printer_port());
 
-    // Create a simple test bitmap — small border pattern
-    auto bitmap = helix::LabelBitmap::create(200, 100);
-    for (int x = 0; x < 200; x++) {
-        bitmap.set_pixel(x, 0, true);
-        bitmap.set_pixel(x, 99, true);
-    }
-    for (int y = 0; y < 100; y++) {
-        bitmap.set_pixel(0, y, true);
-        bitmap.set_pixel(199, y, true);
-    }
+    // Create a mock spool for the test label
+    SpoolInfo mock_spool;
+    mock_spool.id = 42;
+    mock_spool.vendor = "Hatchbox";
+    mock_spool.material = "PLA";
+    mock_spool.color_name = "Red";
+    mock_spool.color_hex = "#FF0000";
+    mock_spool.remaining_weight_g = 800;
+    mock_spool.initial_weight_g = 1000;
+    mock_spool.lot_nr = "LOT-2026A";
+    mock_spool.comment = "Sample spool";
+    mock_spool.nozzle_temp_recommended = 210;
+    mock_spool.bed_temp_recommended = 60;
 
     auto sizes = helix::BrotherQLPrinter::supported_sizes();
     int size_idx = std::clamp(settings.get_label_size_index(), 0,
                               static_cast<int>(sizes.size()) - 1);
+    auto preset = static_cast<helix::LabelPreset>(settings.get_label_preset());
+
+    auto bitmap = helix::LabelRenderer::render(mock_spool, preset, sizes[size_idx]);
 
     ToastManager::instance().show(ToastSeverity::INFO, lv_tr("Printing test label..."), 2000);
 

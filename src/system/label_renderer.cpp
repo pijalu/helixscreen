@@ -336,6 +336,11 @@ LabelBitmap LabelRenderer::render(const SpoolInfo& spool, LabelPreset preset,
     int text_height;
     if (preset == LabelPreset::STANDARD) {
         text_height = line_h_lg + line_h_md + line_h_sm;
+        // Extra lines (temps, lot) if data is present
+        if (spool.nozzle_temp_recommended > 0)
+            text_height += line_h_sm;
+        if (!spool.lot_nr.empty())
+            text_height += line_h_sm;
     } else {
         // COMPACT: 1-2 lines
         text_height = line_h_lg + (color.empty() ? 0 : line_h_md);
@@ -372,6 +377,27 @@ LabelBitmap LabelRenderer::render(const SpoolInfo& spool, LabelPreset preset,
         std::string line3 = weight_str + "  #" + std::to_string(spool.id);
         draw_text(label, truncate_to_fit(line3, text_area_width, scale_sm),
                   text_x, text_y, scale_sm);
+        text_y += line_h_sm;
+
+        // Line 4: Temps (small) — if present and space permits
+        if (spool.nozzle_temp_recommended > 0 &&
+            text_y + line_h_sm <= height - margin) {
+            std::string temps = std::to_string(spool.nozzle_temp_recommended) + "C";
+            if (spool.bed_temp_recommended > 0) {
+                temps += " / " + std::to_string(spool.bed_temp_recommended) + "C BED";
+            }
+            draw_text(label, truncate_to_fit(temps, text_area_width, scale_sm),
+                      text_x, text_y, scale_sm);
+            text_y += line_h_sm;
+        }
+
+        // Line 5: Lot number (small) — if present and space permits
+        if (!spool.lot_nr.empty() &&
+            text_y + line_h_sm <= height - margin) {
+            draw_text(label,
+                      truncate_to_fit(to_upper(spool.lot_nr), text_area_width, scale_sm),
+                      text_x, text_y, scale_sm);
+        }
     } else {
         // COMPACT: Line 1 = Material (large)
         draw_text(label,

@@ -194,7 +194,7 @@ class MdnsDiscovery::Impl {
             if (query_id < 0) {
                 spdlog::debug("[MdnsDiscovery] Failed to send mDNS query");
             } else {
-                spdlog::debug("[MdnsDiscovery] Sent PTR query for {}", service_type_);
+                spdlog::trace("[MdnsDiscovery] Sent PTR query for {}", service_type_);
 
                 // Receive responses for a short window
                 auto recv_deadline =
@@ -260,7 +260,7 @@ class MdnsDiscovery::Impl {
 
             if (ptr_str.length > 0) {
                 std::string instance_name(ptr_str.str, ptr_str.length);
-                spdlog::debug("[MdnsDiscovery] PTR: {} -> {}",
+                spdlog::trace("[MdnsDiscovery] PTR: {} -> {}",
                               std::string(name_str.str, name_str.length), instance_name);
 
                 std::lock_guard<std::mutex> lock(self->records_mutex_);
@@ -279,7 +279,7 @@ class MdnsDiscovery::Impl {
                 std::string record_name(name_str.str, name_str.length);
                 std::string hostname(srv.name.str, srv.name.length);
 
-                spdlog::debug("[MdnsDiscovery] SRV: {} -> {}:{}", record_name, hostname, srv.port);
+                spdlog::trace("[MdnsDiscovery] SRV: {} -> {}:{}", record_name, hostname, srv.port);
 
                 std::lock_guard<std::mutex> lock(self->records_mutex_);
                 auto& record = self->pending_records_[record_name];
@@ -299,7 +299,7 @@ class MdnsDiscovery::Impl {
             std::string ip = sockaddr_to_string(&addr);
 
             if (!ip.empty()) {
-                spdlog::debug("[MdnsDiscovery] A: {} -> {}", record_name, ip);
+                spdlog::trace("[MdnsDiscovery] A: {} -> {}", record_name, ip);
 
                 std::lock_guard<std::mutex> lock(self->records_mutex_);
                 // A records are keyed by hostname, need to find matching SRV records
@@ -329,10 +329,10 @@ class MdnsDiscovery::Impl {
 
                     if (key == "ty" && !value.empty()) {
                         record.model_name = value;
-                        spdlog::debug("[MdnsDiscovery] TXT ty: {} -> {}", record_name, value);
+                        spdlog::trace("[MdnsDiscovery] TXT ty: {} -> {}", record_name, value);
                     } else if (key == "product" && !value.empty()) {
                         record.product = value;
-                        spdlog::debug("[MdnsDiscovery] TXT product: {} -> {}", record_name, value);
+                        spdlog::trace("[MdnsDiscovery] TXT product: {} -> {}", record_name, value);
                     }
                 }
             }
@@ -410,7 +410,7 @@ class MdnsDiscovery::Impl {
                              service_type_);
 
                 for (const auto& p : printers_) {
-                    spdlog::debug("[MdnsDiscovery]   {} ({}) at {}:{}", p.name, p.hostname,
+                    spdlog::trace("[MdnsDiscovery]   {} ({}) at {}:{}", p.name, p.hostname,
                                   p.ip_address, p.port);
                 }
 
