@@ -82,7 +82,7 @@ void PrinterSwitchMenu::populate_printer_list() {
     int space_xs = get_token("space_xs", 4);
     int space_sm = get_token("space_sm", 6);
 
-    lv_color_t accent = theme_manager_get_color("accent");
+    lv_color_t accent = theme_manager_get_color("primary");
     lv_color_t text_color = theme_manager_get_color("text");
 
     // Resolve fonts via XML token system (same pattern as other context menus)
