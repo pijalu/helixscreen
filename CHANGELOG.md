@@ -5,6 +5,28 @@ All notable changes to HelixScreen will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.97.1] - 2026-03-07
+
+### Added
+- Callback tagging in UpdateQueue for crash diagnostics (#345)
+- Filament system data collection (AFC, MMU, Spoolman) in debug bundles
+- Toggle to show/hide printer switcher in navbar
+
+### Fixed
+- Modal use-after-free, label buffer overflow, and missing unwind tables in crash handler
+- Input shaper chart and table data missing in dual-axis calibration (#341)
+- LED macros with empty display names not rejected (#329)
+- BGR framebuffer color swap not auto-detected on some displays (#344)
+- AFC Vivid stepper motors incorrectly counted as lanes
+- AFC toolchanger+hub setups showing wrong topology and tool labels
+- Printer switcher toggle always visible instead of respecting settings
+- Polkit permission errors not reported in WiFi NetworkManager backend
+- Crash report modal layout broken when no network available for QR display
+- Empty spool list when opening Spoolman picker from Extruder tab (#311)
+- Bed screw calibration results never showing (#309)
+- AFC/AMS reactive lane highlighting and current_slot stability (#336)
+- A4T toolhead render size too small
+
 ## [0.97.0] - 2026-03-06
 
 Multi-printer support (beta) and selectable toolhead renderers. Configure multiple printers in a single HelixScreen instance and switch between them from the navbar or settings. The A4T toolhead style is now available alongside the default and Stealthburner renderers.
@@ -1677,6 +1699,7 @@ Initial tagged release. Foundation for all subsequent development.
 - Automated GitHub Actions release pipeline
 - One-liner installation script with platform auto-detection
 
+[0.97.1]: https://github.com/prestonbrown/helixscreen/compare/v0.97.0...v0.97.1
 [0.97.0]: https://github.com/prestonbrown/helixscreen/compare/v0.96.9...v0.97.0
 [0.96.9]: https://github.com/prestonbrown/helixscreen/compare/v0.96.8...v0.96.9
 [0.96.8]: https://github.com/prestonbrown/helixscreen/compare/v0.96.7...v0.96.8
