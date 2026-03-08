@@ -41,6 +41,16 @@ check_permissions() {
     fi
 }
 
+# Check if a polkit rule for HelixScreen exists (either .rules or .pkla)
+_polkit_rule_exists() {
+    local pkla="/etc/polkit-1/localauthority/50-local.d/helixscreen-network.pkla"
+    local rules="/etc/polkit-1/rules.d/50-helixscreen-network.rules"
+
+    test -f "$rules" 2>/dev/null && return 0
+    test -f "$pkla" 2>/dev/null && return 0
+    return 1
+}
+
 # Check if deployed permission rules contain un-substituted templates
 _permission_rules_need_repair() {
     local helix_user="$1"
@@ -75,7 +85,10 @@ install_permission_rules() {
     # Under NoNewPrivileges (self-update), sudo is blocked.  Check if rules
     # are already correctly deployed before skipping.
     if _has_no_new_privs; then
-        if _permission_rules_need_repair "$helix_user"; then
+        if command -v nmcli >/dev/null 2>&1 && ! _polkit_rule_exists; then
+            log_warn "NetworkManager polkit rule is MISSING — Wi-Fi will not work as non-root."
+            log_warn "Fix by re-running the installer:  curl -fsSL https://install.helixscreen.org | bash"
+        elif _permission_rules_need_repair "$helix_user"; then
             log_warn "Permission rules need repair (pkla/polkit file has un-substituted template)."
             log_warn "Wi-Fi may not work. Fix with:  sudo sed -i 's|@@HELIX_USER@@|${helix_user}|g' /etc/polkit-1/localauthority/50-local.d/helixscreen-network.pkla"
             log_warn "Or re-run the installer:  curl -fsSL https://install.helixscreen.org | bash"

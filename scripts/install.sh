@@ -741,6 +741,16 @@ check_permissions() {
     fi
 }
 
+# Check if a polkit rule for HelixScreen exists (either .rules or .pkla)
+_polkit_rule_exists() {
+    local pkla="/etc/polkit-1/localauthority/50-local.d/helixscreen-network.pkla"
+    local rules="/etc/polkit-1/rules.d/50-helixscreen-network.rules"
+
+    test -f "$rules" 2>/dev/null && return 0
+    test -f "$pkla" 2>/dev/null && return 0
+    return 1
+}
+
 # Check if deployed permission rules contain un-substituted templates
 _permission_rules_need_repair() {
     local helix_user="$1"
@@ -775,7 +785,10 @@ install_permission_rules() {
     # Under NoNewPrivileges (self-update), sudo is blocked.  Check if rules
     # are already correctly deployed before skipping.
     if _has_no_new_privs; then
-        if _permission_rules_need_repair "$helix_user"; then
+        if command -v nmcli >/dev/null 2>&1 && ! _polkit_rule_exists; then
+            log_warn "NetworkManager polkit rule is MISSING — Wi-Fi will not work as non-root."
+            log_warn "Fix by re-running the installer:  curl -fsSL https://install.helixscreen.org | bash"
+        elif _permission_rules_need_repair "$helix_user"; then
             log_warn "Permission rules need repair (pkla/polkit file has un-substituted template)."
             log_warn "Wi-Fi may not work. Fix with:  sudo sed -i 's|@@HELIX_USER@@|${helix_user}|g' /etc/polkit-1/localauthority/50-local.d/helixscreen-network.pkla"
             log_warn "Or re-run the installer:  curl -fsSL https://install.helixscreen.org | bash"
@@ -2574,10 +2587,14 @@ install_service() {
 
 # Install systemd service
 install_service_systemd() {
-    # During self-update, the service file is already installed and correct.
-    # Overwriting it could destroy user/platform customizations (#314).
+    # During self-update, the main service file is already installed and may
+    # contain platform customizations (#314) — don't overwrite it.
+    # BUT: always update the update-watcher units (path + oneshot service).
+    # They have no platform customizations and older versions had a PathExists
+    # bug that causes an infinite restart loop after any update.
     if _is_self_update; then
-        log_info "Skipping service file install (self-update; already installed)"
+        log_info "Skipping main service file install (self-update; preserving customizations)"
+        update_watcher_if_stale
         CLEANUP_SERVICE=true
         return 0
     fi
@@ -2629,6 +2646,65 @@ install_service_systemd() {
 
     CLEANUP_SERVICE=true
     log_success "Installed systemd service"
+}
+
+# During self-update, check if the deployed update-watcher path unit has the
+# old PathExists directive (which causes infinite restart loops) and fix it.
+# The watcher units have no platform customizations — only @@INSTALL_DIR@@.
+# Under NoNewPrivileges we can't write to /etc/systemd/system/ or run
+# systemctl daemon-reload, so we rely on helixscreen-update.service's
+# ExecStartPre to refresh the main service file on next Moonraker update.
+# However, the PATH unit itself won't get refreshed that way, so we attempt
+# a direct fix here and fall back to a warning if permissions block it.
+update_watcher_if_stale() {
+    local path_dest="/etc/systemd/system/helixscreen-update.path"
+
+    # Only relevant on systemd with the watcher installed
+    [ "$INIT_SYSTEM" = "systemd" ] || return 0
+    [ -f "$path_dest" ] || return 0
+
+    # Check for the buggy PathExists directive
+    if ! grep -q '^PathExists=' "$path_dest" 2>/dev/null; then
+        log_info "Update watcher path unit is current"
+        return 0
+    fi
+
+    log_warn "Detected stale helixscreen-update.path with PathExists (causes restart loops)"
+
+    local path_src="${INSTALL_DIR}/config/helixscreen-update.path"
+    local svc_src="${INSTALL_DIR}/config/helixscreen-update.service"
+    local svc_dest="/etc/systemd/system/helixscreen-update.service"
+    local install_dir="${INSTALL_DIR:-/opt/helixscreen}"
+
+    if _has_no_new_privs; then
+        # Can't write to /etc/systemd/system/ — try sed in-place as a
+        # minimal fix (changes PathExists → PathChanged).  This may fail
+        # under ProtectSystem=strict but is worth attempting.
+        if sed -i 's/^PathExists=/PathChanged=/' "$path_dest" 2>/dev/null; then
+            log_success "Fixed PathExists → PathChanged in deployed path unit"
+            # Also update the service unit if available
+            if [ -f "$svc_src" ] && [ -f "$svc_dest" ]; then
+                cp "$svc_src" "$svc_dest" 2>/dev/null && \
+                    sed -i "s|@@INSTALL_DIR@@|${install_dir}|g" "$svc_dest" 2>/dev/null || true
+            fi
+        else
+            log_warn "Cannot fix path unit under NoNewPrivileges."
+            log_warn "The update watcher may cause restart loops after Moonraker updates."
+            log_warn "Fix manually: sudo cp ${path_src} ${path_dest} && sudo systemctl daemon-reload"
+        fi
+        return 0
+    fi
+
+    # Have sudo access — do a full replacement
+    if [ -f "$path_src" ] && [ -f "$svc_src" ]; then
+        $SUDO cp "$path_src" "$path_dest"
+        $SUDO cp "$svc_src" "$svc_dest"
+        _sed_inplace "s|@@INSTALL_DIR@@|${install_dir}|g" "$path_dest"
+        _sed_inplace "s|@@INSTALL_DIR@@|${install_dir}|g" "$svc_dest"
+        $SUDO systemctl daemon-reload 2>/dev/null || true
+        $SUDO systemctl restart helixscreen-update.path 2>/dev/null || true
+        log_success "Updated watcher units (fixed PathExists restart loop)"
+    fi
 }
 
 # Install systemd path unit that restarts helixscreen after Moonraker extracts an update
