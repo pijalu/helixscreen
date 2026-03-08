@@ -96,8 +96,6 @@ class SettingsPanel : public PanelBase {
     lv_obj_t* led_light_switch_ = nullptr;
     lv_obj_t* estop_confirm_switch_ = nullptr;
     lv_obj_t* telemetry_switch_ = nullptr;
-    lv_obj_t* printer_switcher_switch_ = nullptr;
-
     // Dropdowns
     lv_obj_t* completion_alert_dropdown_ = nullptr;
     lv_obj_t* display_sleep_dropdown_ = nullptr;
@@ -180,7 +178,6 @@ class SettingsPanel : public PanelBase {
     void handle_estop_confirm_changed(bool enabled);
     void handle_cancel_escalation_changed(bool enabled);
     void handle_telemetry_changed(bool enabled);
-    void handle_printer_switcher_changed(bool enabled);
     void handle_telemetry_view_data_clicked();
 
     void handle_debug_bundle_clicked();
@@ -237,7 +234,6 @@ class SettingsPanel : public PanelBase {
     static void on_discord_clicked(lv_event_t* e);
     static void on_docs_clicked(lv_event_t* e);
     static void on_telemetry_changed(lv_event_t* e);
-    static void on_settings_printer_switcher_changed(lv_event_t* e);
     static void on_printers_clicked(lv_event_t* e);
     static void on_display_settings_clicked(lv_event_t* e);
     static void on_filament_sensors_clicked(lv_event_t* e);

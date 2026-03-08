@@ -39,6 +39,7 @@ class PrinterListOverlay : public OverlayBase {
     static void on_delete_printer_cb(lv_event_t* e);
     static void on_delete_confirm_cb(lv_event_t* e);
     static void on_delete_cancel_cb(lv_event_t* e);
+    static void on_printer_switcher_changed(lv_event_t* e);
 };
 
 PrinterListOverlay& get_printer_list_overlay();

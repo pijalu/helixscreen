@@ -60,12 +60,6 @@
                           description="Manage configured printers"
                           description_tag="Manage configured printers" callback="on_printers_clicked"/>
     </beta_feature>
-    <!-- Printer Switcher Icon toggle -->
-    <setting_toggle_row name="row_printer_switcher"
-                        label="Show Printer Switcher" label_tag="Show Printer Switcher" icon="printer_3d"
-                        description="Show printer icon in navigation bar"
-                        description_tag="Show printer icon in navigation bar"
-                        callback="on_settings_printer_switcher_changed"/>
     <!-- AMS Management (hidden if no AMS detected) -->
     <lv_obj name="container_ams_settings" width="100%" style_pad_all="0" scrollable="false">
       <bind_flag_if_eq subject="ams_slot_count" flag="hidden" ref_value="0"/>

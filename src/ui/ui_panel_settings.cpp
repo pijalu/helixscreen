@@ -473,20 +473,6 @@ void SettingsPanel::setup_toggle_handlers() {
         }
     }
 
-    // === Printer Switcher Toggle ===
-    lv_obj_t* printer_switcher_row = lv_obj_find_by_name(panel_, "row_printer_switcher");
-    if (printer_switcher_row) {
-        printer_switcher_switch_ = lv_obj_find_by_name(printer_switcher_row, "toggle");
-        if (printer_switcher_switch_) {
-            if (SettingsManager::instance().get_show_printer_switcher()) {
-                lv_obj_add_state(printer_switcher_switch_, LV_STATE_CHECKED);
-            } else {
-                lv_obj_remove_state(printer_switcher_switch_, LV_STATE_CHECKED);
-            }
-            spdlog::trace("[{}]   ✓ Printer switcher toggle", get_name());
-        }
-    }
-
     // === Completion Alert Dropdown ===
     // Event handler wired via XML <event_cb>, just set initial value here (options set in XML)
     lv_obj_t* completion_row = lv_obj_find_by_name(panel_, "row_completion_alert");
@@ -710,11 +696,6 @@ void SettingsPanel::handle_estop_confirm_changed(bool enabled) {
 void SettingsPanel::handle_cancel_escalation_changed(bool enabled) {
     spdlog::info("[{}] Cancel escalation toggled: {}", get_name(), enabled ? "ON" : "OFF");
     SafetySettingsManager::instance().set_cancel_escalation_enabled(enabled);
-}
-
-void SettingsPanel::handle_printer_switcher_changed(bool enabled) {
-    spdlog::info("[{}] Printer switcher toggled: {}", get_name(), enabled ? "ON" : "OFF");
-    SettingsManager::instance().set_show_printer_switcher(enabled);
 }
 
 void SettingsPanel::handle_telemetry_changed(bool enabled) {
@@ -1162,14 +1143,6 @@ void SettingsPanel::on_telemetry_changed(lv_event_t* e) {
     LVGL_SAFE_EVENT_CB_END();
 }
 
-void SettingsPanel::on_settings_printer_switcher_changed(lv_event_t* e) {
-    LVGL_SAFE_EVENT_CB_BEGIN("[SettingsPanel] on_settings_printer_switcher_changed");
-    auto* toggle = static_cast<lv_obj_t*>(lv_event_get_current_target(e));
-    bool enabled = lv_obj_has_state(toggle, LV_STATE_CHECKED);
-    get_global_settings_panel().handle_printer_switcher_changed(enabled);
-    LVGL_SAFE_EVENT_CB_END();
-}
-
 void SettingsPanel::on_telemetry_view_data(lv_event_t* /*e*/) {
     LVGL_SAFE_EVENT_CB_BEGIN("[SettingsPanel] on_telemetry_view_data");
     get_global_settings_panel().handle_telemetry_view_data_clicked();
@@ -1366,8 +1339,6 @@ void register_settings_panel_callbacks() {
         {"on_cancel_escalation_timeout_changed", on_cancel_escalation_timeout_changed},
         {"on_telemetry_changed", SettingsPanel::on_telemetry_changed},
         {"on_telemetry_view_data", SettingsPanel::on_telemetry_view_data},
-        {"on_settings_printer_switcher_changed", SettingsPanel::on_settings_printer_switcher_changed},
-
         // Action row callbacks used in settings_panel.xml
         {"on_printers_clicked", SettingsPanel::on_printers_clicked},
         {"on_display_settings_clicked", SettingsPanel::on_display_settings_clicked},

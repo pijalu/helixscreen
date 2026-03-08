@@ -6,6 +6,7 @@
 #include "app_globals.h"
 #include "config.h"
 #include "printer_state.h"
+#include "settings_manager.h"
 #include "static_panel_registry.h"
 #include "ui_callback_helpers.h"
 #include "ui_event_safety.h"
@@ -48,6 +49,7 @@ void PrinterListOverlay::register_callbacks() {
         {"printer_list_add_cb", on_add_printer_cb},
         {"printer_list_row_cb", on_printer_row_cb},
         {"printer_list_delete_cb", on_delete_printer_cb},
+        {"on_printer_switcher_changed", on_printer_switcher_changed},
     });
 
     s_callbacks_registered_ = true;
@@ -98,6 +100,20 @@ void PrinterListOverlay::show(lv_obj_t* parent_screen) {
 
 void PrinterListOverlay::on_activate() {
     OverlayBase::on_activate();
+
+    // Sync printer switcher toggle with current setting
+    lv_obj_t* switcher_row = lv_obj_find_by_name(overlay_root_, "row_printer_switcher");
+    if (switcher_row) {
+        lv_obj_t* toggle = lv_obj_find_by_name(switcher_row, "toggle");
+        if (toggle) {
+            if (SettingsManager::instance().get_show_printer_switcher()) {
+                lv_obj_add_state(toggle, LV_STATE_CHECKED);
+            } else {
+                lv_obj_remove_state(toggle, LV_STATE_CHECKED);
+            }
+        }
+    }
+
     populate_printer_list();
 }
 
@@ -348,6 +364,15 @@ void PrinterListOverlay::on_delete_cancel_cb(lv_event_t* e) {
         Modal::hide(top);
     }
 
+    LVGL_SAFE_EVENT_CB_END();
+}
+
+void PrinterListOverlay::on_printer_switcher_changed(lv_event_t* e) {
+    LVGL_SAFE_EVENT_CB_BEGIN("[PrinterListOverlay] on_printer_switcher_changed");
+    auto* toggle = static_cast<lv_obj_t*>(lv_event_get_current_target(e));
+    bool enabled = lv_obj_has_state(toggle, LV_STATE_CHECKED);
+    spdlog::info("[PrinterListOverlay] Printer switcher toggled: {}", enabled ? "ON" : "OFF");
+    SettingsManager::instance().set_show_printer_switcher(enabled);
     LVGL_SAFE_EVENT_CB_END();
 }
 
