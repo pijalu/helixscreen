@@ -192,6 +192,22 @@ const GARBAGE_SYMBOLS = new Set([
 const MAX_SYMBOL_OFFSET = 0x100000; // 1MB
 
 /**
+ * Check whether a file-relative address falls outside the main binary's
+ * symbol range, indicating it belongs to a shared library (libc, etc.).
+ * Returns true for negative offsets (address below load_base) or addresses
+ * beyond the last known symbol.
+ */
+export function isSharedLibAddr(symbols: Symbol[], fileAddr: number): boolean {
+  if (symbols.length === 0) return true;
+  // Negative file offset means the runtime address was below load_base
+  if (fileAddr < 0) return true;
+  // Beyond the last symbol in the binary (with a generous margin)
+  const lastSymAddr = symbols[symbols.length - 1].address;
+  if (fileAddr > lastSymAddr + MAX_SYMBOL_OFFSET) return true;
+  return false;
+}
+
+/**
  * Resolve a single address against the symbol table.
  */
 function resolveAddr(symbols: Symbol[], addr: number): string | null {
@@ -269,8 +285,13 @@ export async function resolveBacktrace(bucket: R2Bucket, report: CrashReport): P
           const runtimeAddr = parseHexAddr(raw);
           const fileAddr = loadBase > 0 ? runtimeAddr - loadBase : runtimeAddr;
           frame.fileAddr = `0x${fileAddr.toString(16)}`;
-          const resolved = resolveAddr(symbols, fileAddr);
-          if (resolved) frame.symbol = resolved;
+          // Detect shared library addresses before attempting resolution
+          if (isSharedLibAddr(symbols, fileAddr)) {
+            frame.symbol = "<shared library>";
+          } else {
+            const resolved = resolveAddr(symbols, fileAddr);
+            if (resolved) frame.symbol = resolved;
+          }
         } catch {
           // Skip unresolvable frames
         }

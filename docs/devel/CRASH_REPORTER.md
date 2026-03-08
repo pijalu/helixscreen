@@ -312,6 +312,16 @@ scripts/resolve-backtrace.sh <version> <platform> <addr1> <addr2> ...
 
 This downloads `.sym` files from the releases R2 bucket and uses `addr2line` to resolve. Symbols are cached in `~/.cache/helixscreen/symbols/`.
 
+### Shared Library Addresses
+
+Not all backtrace frames come from the main binary — some are in shared libraries (libc, libpthread, etc.). The crash-worker's symbol resolver (`server/crash-worker/src/symbol-resolver.ts`) detects these automatically:
+
+- After computing `file_offset = address - load_base`, if the offset is negative or exceeds the last known symbol address (+ 1MB margin), the frame is labeled **`<shared library>`** instead of being resolved against the main binary's symbol table.
+- This prevents garbage symbol names that previously appeared when libc addresses (e.g., `0x7fff80012345`) were force-matched to the nearest binary symbol.
+- The Python telemetry tool (`scripts/telemetry-crashes.py`) has equivalent logic via `is_shared_lib_addr()`.
+
+Shared library frames are expected in crash backtraces — they indicate the crash unwind passed through system code (e.g., `__libc_start_main`, signal handlers).
+
 ---
 
 ## Future Enhancements

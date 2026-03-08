@@ -7,6 +7,7 @@ import {
   lookupSymbol,
   autoDetectLoadBase,
   resolveBacktrace,
+  isSharedLibAddr,
 } from "../symbol-resolver";
 
 // ---------- Sample nm -nC output ----------
@@ -168,6 +169,37 @@ describe("autoDetectLoadBase", () => {
 
   it("returns null for empty backtrace", () => {
     expect(autoDetectLoadBase(symbols, [])).toBeNull();
+  });
+});
+
+// ---------- isSharedLibAddr ----------
+
+describe("isSharedLibAddr", () => {
+  const symbols = parseSymbolTable(SAMPLE_NM_OUTPUT);
+
+  it("returns true for negative file offsets", () => {
+    // Negative offset means address was below load_base (shared lib region)
+    expect(isSharedLibAddr(symbols, -0x1000)).toBe(true);
+  });
+
+  it("returns true for addresses far beyond the last symbol", () => {
+    // 0x7fff80012345 is way beyond any symbol in our binary
+    expect(isSharedLibAddr(symbols, 0x7fff80012345)).toBe(true);
+  });
+
+  it("returns false for addresses within the binary range", () => {
+    expect(isSharedLibAddr(symbols, 0x20200)).toBe(false); // Application::run
+    expect(isSharedLibAddr(symbols, 0x10000)).toBe(false); // _start
+  });
+
+  it("returns false for addresses slightly past last symbol", () => {
+    // Last symbol is PrinterState::connect() at 0x60200
+    // A small offset past it should still be considered in-binary
+    expect(isSharedLibAddr(symbols, 0x60300)).toBe(false);
+  });
+
+  it("returns true for empty symbol table", () => {
+    expect(isSharedLibAddr([], 0x1000)).toBe(true);
   });
 });
 
@@ -353,6 +385,35 @@ describe("resolveBacktrace", () => {
     // Should not throw
     const result = await resolveBacktrace(bucket, report);
     expect(result.symbolFileFound).toBe(false);
+  });
+
+  it("labels shared library addresses instead of producing garbage symbols", async () => {
+    const bucket = createMockBucket({
+      "symbols/v0.9.9/pi.sym": symFileContent,
+    });
+
+    // Simulate a real crash: some frames in our binary, some in libc.
+    // load_base = 0xaaaab000, libc address = 0x7fff80012345 (way outside binary).
+    const loadBase = 0xaaaab000;
+    const report = {
+      app_version: "0.9.9",
+      platform: "pi",
+      load_base: `0x${loadBase.toString(16)}`,
+      backtrace: [
+        `0x${(loadBase + 0x20200).toString(16)}`, // Application::run (in binary)
+        "0x7fff80012345", // libc address (shared library)
+        `0x${(loadBase + 0x20000).toString(16)}`, // main (in binary)
+        "0x7fff80098765", // another libc address
+      ],
+    };
+
+    const result = await resolveBacktrace(bucket, report);
+    expect(result.symbolFileFound).toBe(true);
+    expect(result.frames).toHaveLength(4);
+    expect(result.frames[0].symbol).toBe("Application::run()+0x0");
+    expect(result.frames[1].symbol).toBe("<shared library>");
+    expect(result.frames[2].symbol).toBe("main+0x0");
+    expect(result.frames[3].symbol).toBe("<shared library>");
   });
 
   it("treats load_base '0x0' as file-relative addresses without auto-detect override", async () => {

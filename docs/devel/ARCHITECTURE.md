@@ -1129,6 +1129,32 @@ void on_done_clicked(lv_event_t* e) {
 
 **Note:** `lv_obj_delete_async()` is NOT safe if a subsequent `lv_obj_clean()` on the parent runs before the async delete fires — this causes a double-free. Only use it when no parent cleanup follows.
 
+### ⚠️ No `safe_delete()` Inside UpdateQueue Callbacks
+
+**Never call `safe_delete()` from within `queue_update()`, `async_call()`, or `register_overlay_close_callback()` lambdas.** These all execute during `UpdateQueue::process_pending()`. When multiple deletions occur in the same batch, `safe_delete()` (which calls `lv_obj_delete()` synchronously) corrupts LVGL's global event linked list — the exact same class of crash as input-event deletion above (SIGSEGV in `lv_event_mark_deleted`).
+
+**Use `safe_delete_deferred()` instead**, which nullifies the pointer immediately but queues the actual `lv_obj_delete()` to the *next* `process_pending()` cycle:
+
+```cpp
+// ❌ CRASH — synchronous deletion inside UpdateQueue batch
+helix::ui::async_call([dialog]() {
+    helix::ui::safe_delete(dialog);  // Corrupts event list if other deletions in same batch
+});
+
+// ✅ CORRECT — hide immediately, defer deletion to next cycle
+helix::ui::async_call([dialog]() {
+    lv_obj_add_flag(dialog, LV_OBJ_FLAG_HIDDEN);
+    lv_async_call([](void* p) { lv_obj_delete(static_cast<lv_obj_t*>(p)); }, dialog);
+});
+
+// ✅ ALSO CORRECT — use safe_delete_deferred (when you have a reference)
+helix::ui::queue_update("cleanup", [this]() {
+    helix::ui::safe_delete_deferred(overlay_);
+});
+```
+
+**Rule of thumb:** If your code runs inside a `queue_update`/`async_call` lambda, any object deletion must be deferred one more level — either via `safe_delete_deferred()` or the hide + `lv_async_call` pattern.
+
 ### Backend Integration Pattern: helix::ui::queue_update()
 
 **Problem:** Backend threads (networking, file I/O, WiFi scanning) need to update UI but cannot call LVGL APIs directly.

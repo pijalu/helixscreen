@@ -509,7 +509,19 @@ static void gcode_viewer_draw_cb(lv_event_t* e) {
             helix::ui::queue_widget_update(obj, [](lv_obj_t* viewer) {
                 auto* state = get_state(viewer);
                 if (!state || !state->ghost_progress_label_) return;
-                helix::ui::safe_delete(state->ghost_progress_label_);
+                // Hide immediately, defer deletion to next tick to avoid
+                // corrupting LVGL's event list during UpdateQueue batch (crash #356)
+                lv_obj_add_flag(state->ghost_progress_label_, LV_OBJ_FLAG_HIDDEN);
+                lv_obj_t* to_delete = state->ghost_progress_label_;
+                state->ghost_progress_label_ = nullptr;
+                lv_async_call(
+                    [](void* obj) {
+                        auto* widget = static_cast<lv_obj_t*>(obj);
+                        if (lv_obj_is_valid(widget)) {
+                            lv_obj_delete(widget);
+                        }
+                    },
+                    to_delete);
             });
         }
     } else {

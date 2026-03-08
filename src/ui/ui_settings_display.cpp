@@ -448,7 +448,22 @@ void DisplaySettingsOverlay::handle_theme_settings_clicked() {
             theme_explorer_overlay_, [this]() {
                 // Revert to the theme that was active when explorer opened
                 theme_manager_apply_theme(original_theme_, theme_manager_is_dark_mode());
-                helix::ui::safe_delete(theme_explorer_overlay_);
+                // Hide immediately, defer deletion to next tick to avoid
+                // corrupting LVGL's event list during UpdateQueue batch (crash #356)
+                if (theme_explorer_overlay_) {
+                    helix::ui::defocus_tree(theme_explorer_overlay_);
+                    lv_obj_add_flag(theme_explorer_overlay_, LV_OBJ_FLAG_HIDDEN);
+                    lv_obj_t* to_delete = theme_explorer_overlay_;
+                    theme_explorer_overlay_ = nullptr;
+                    lv_async_call(
+                        [](void* obj) {
+                            auto* widget = static_cast<lv_obj_t*>(obj);
+                            if (lv_obj_is_valid(widget)) {
+                                lv_obj_delete(widget);
+                            }
+                        },
+                        to_delete);
+                }
                 // Clear cache so next open picks up filesystem changes
                 cached_themes_.clear();
             });

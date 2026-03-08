@@ -118,6 +118,12 @@ inline void toggle_list_empty_state(lv_obj_t* list, lv_obj_t* empty_state, bool 
  *
  * The pointer is automatically set to nullptr after deletion (or if skipped).
  *
+ * WARNING: This performs SYNCHRONOUS deletion. Do NOT call from inside
+ * queue_update(), async_call(), or overlay close callbacks — multiple
+ * synchronous deletions in the same UpdateQueue batch corrupt LVGL's event
+ * linked list (SIGSEGV in lv_event_mark_deleted). Use safe_delete_deferred()
+ * in those contexts instead.
+ *
  * @param obj Reference to pointer to the LVGL object (will be set to nullptr)
  * @return true if object was deleted, false if skipped (nullptr or shutdown in progress)
  */

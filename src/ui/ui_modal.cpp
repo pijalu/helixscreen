@@ -254,13 +254,19 @@ void ModalStack::exit_animation_done(lv_anim_t* anim) {
     // Remove from stack (animation is complete, safe to remove)
     ModalStack::instance().remove(backdrop);
 
-    // Delete the backdrop using our safe queue (not lv_obj_delete_async which uses
-    // LVGL's internal timer and could potentially fire during rendering)
-    spdlog::debug("[ModalStack] Exit animation complete - deleting backdrop");
-    helix::ui::async_call(
+    // Hide immediately, then defer actual deletion to the next LVGL tick via
+    // lv_async_call(). Using safe_delete() here is unsafe: this callback runs
+    // inside UpdateQueue::process_pending(), and multiple deletions in the same
+    // batch can corrupt LVGL's global event linked list (crash #356).
+    spdlog::debug("[ModalStack] Exit animation complete - deferring backdrop deletion");
+    helix::ui::defocus_tree(backdrop);
+    lv_obj_add_flag(backdrop, LV_OBJ_FLAG_HIDDEN);
+    lv_async_call(
         [](void* obj) {
-            lv_obj_t* widget = static_cast<lv_obj_t*>(obj);
-            helix::ui::safe_delete(widget);
+            auto* widget = static_cast<lv_obj_t*>(obj);
+            if (lv_obj_is_valid(widget)) {
+                lv_obj_delete(widget);
+            }
         },
         backdrop);
 }
@@ -274,11 +280,15 @@ void ModalStack::animate_exit(lv_obj_t* backdrop, lv_obj_t* dialog) {
     if (!DisplaySettingsManager::instance().get_animations_enabled()) {
         lv_obj_set_style_transform_scale(dialog, MODAL_SCALE_END, LV_PART_MAIN);
         lv_obj_set_style_opa(dialog, LV_OPA_COVER, LV_PART_MAIN);
-        spdlog::debug("[ModalStack] Animations disabled - deleting modal instantly");
-        helix::ui::async_call(
+        spdlog::debug("[ModalStack] Animations disabled - deferring modal deletion");
+        helix::ui::defocus_tree(backdrop);
+        lv_obj_add_flag(backdrop, LV_OBJ_FLAG_HIDDEN);
+        lv_async_call(
             [](void* obj) {
-                lv_obj_t* widget = static_cast<lv_obj_t*>(obj);
-                helix::ui::safe_delete(widget);
+                auto* widget = static_cast<lv_obj_t*>(obj);
+                if (lv_obj_is_valid(widget)) {
+                    lv_obj_delete(widget);
+                }
             },
             backdrop);
         return;
@@ -488,11 +498,15 @@ void Modal::hide(lv_obj_t* dialog) {
     auto& stack = ModalStack::instance();
     lv_obj_t* backdrop = stack.backdrop_for(dialog);
     if (!backdrop) {
-        spdlog::warn("[Modal] Dialog not found in stack");
-        helix::ui::async_call(
+        spdlog::warn("[Modal] Dialog not found in stack - deferring deletion");
+        helix::ui::defocus_tree(dialog);
+        lv_obj_add_flag(dialog, LV_OBJ_FLAG_HIDDEN);
+        lv_async_call(
             [](void* obj) {
-                lv_obj_t* widget = static_cast<lv_obj_t*>(obj);
-                helix::ui::safe_delete(widget);
+                auto* widget = static_cast<lv_obj_t*>(obj);
+                if (lv_obj_is_valid(widget)) {
+                    lv_obj_delete(widget);
+                }
             },
             dialog);
         return;

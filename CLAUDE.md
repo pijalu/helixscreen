@@ -111,6 +111,8 @@ lv_obj_clean(container);  // or safe_delete(), lv_obj_delete()
 // freeze thaws when it goes out of scope
 ```
 
+**No `safe_delete()` in queued callbacks:** `safe_delete()` is synchronous — never call it inside `queue_update()`/`async_call()` lambdas. Multiple synchronous deletions in the same `process_pending()` batch corrupt LVGL's event linked list (SIGSEGV). Use `safe_delete_deferred()` or hide + `lv_async_call()` pattern instead. See `ARCHITECTURE.md` § "No safe_delete() Inside UpdateQueue Callbacks".
+
 **Subject shutdown safety (MANDATORY):** Any class that creates LVGL subjects MUST self-register its cleanup inside `init_subjects()`. This prevents shutdown crashes (observer removal on freed subjects during `lv_deinit`). See `static_subject_registry.h` for full docs.
 
 ```cpp
