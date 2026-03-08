@@ -271,6 +271,54 @@ sudo nmcli device wifi connect "HiddenSSID" password "Password" hidden yes
 
 > **Note:** Older guides may reference `wpa_supplicant` directly, but MainsailOS and most modern systems use NetworkManager. Use `nmcli` commands instead.
 
+### WiFi permission denied
+
+**Symptoms:**
+- WiFi scan shows no networks (but WiFi works from command line)
+- "Permission denied" error when connecting
+- WiFi worked before an update but stopped working
+
+**Cause:**
+HelixScreen needs permission (via polkit rules) to manage WiFi through NetworkManager. These rules are installed automatically, but can be missing if:
+- HelixScreen was installed before NetworkManager was set up
+- A self-update couldn't install permission rules (runs with restricted privileges)
+- The polkit rules file was deleted or corrupted
+
+**Solutions:**
+
+**Re-run the installer** (recommended — installs correct polkit rules):
+```bash
+curl -fsSL https://install.helixscreen.org | bash
+```
+
+**Verify polkit rules are installed:**
+```bash
+# Check for HelixScreen polkit rules (one of these should exist)
+ls -la /etc/polkit-1/rules.d/50-helixscreen-network.rules
+ls -la /etc/polkit-1/localauthority/50-local.d/helixscreen-network.pkla
+```
+
+**Check NetworkManager permissions:**
+```bash
+nmcli general permissions
+```
+If most entries show "no" instead of "yes", polkit rules are missing.
+
+**Manual fix** (if re-running installer isn't possible):
+
+Create `/etc/NetworkManager/conf.d/any-user.conf`:
+```ini
+[main]
+auth-polkit=false
+```
+Then restart NetworkManager:
+```bash
+sudo systemctl restart NetworkManager
+sudo systemctl restart helixscreen
+```
+
+> **Note:** The manual fix disables permission checks for all users. The installer method is preferred as it only grants access to the HelixScreen service user.
+
 ---
 
 ### SSL/TLS certificate errors

@@ -103,10 +103,20 @@ class WifiBackendNetworkManager : public WifiBackend {
     // ========================================================================
 
     /**
+     * @brief Result from exec_nmcli_full() capturing both stdout and stderr
+     */
+    struct NmcliResult {
+        std::string stdout_output;
+        std::string stderr_output;
+        int exit_code;
+    };
+
+    /**
      * @brief Execute an nmcli command and return stdout
      *
      * Uses popen() for read-only commands. Safe because command strings
      * are constructed internally (no user input in command).
+     * stderr is suppressed (redirected to /dev/null).
      *
      * @param args Arguments to pass after "nmcli"
      * @return stdout output, or empty string on failure
@@ -114,10 +124,28 @@ class WifiBackendNetworkManager : public WifiBackend {
     std::string exec_nmcli(const std::string& args);
 
     /**
+     * @brief Execute an nmcli command capturing stdout, stderr, and exit code
+     *
+     * Used for commands where error diagnostics matter (e.g., detecting
+     * polkit permission errors). stderr is merged with stdout via 2>&1.
+     *
+     * @param args Arguments to pass after "nmcli"
+     * @return NmcliResult with stdout, stderr, and exit code
+     */
+    NmcliResult exec_nmcli_full(const std::string& args);
+
+    /**
      * @brief Check that NetworkManager is running and nmcli is available
      * @return WiFiError with status
      */
     WiFiError check_system_prerequisites();
+
+    /**
+     * @brief Check if stderr output indicates a polkit permission error
+     * @param stderr_output stderr text from nmcli
+     * @return true if permission/polkit error detected
+     */
+    static bool is_polkit_permission_error(const std::string& stderr_output);
 
     /**
      * @brief Find the WiFi device managed by NetworkManager

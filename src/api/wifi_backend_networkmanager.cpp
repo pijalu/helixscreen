@@ -203,12 +203,80 @@ std::string WifiBackendNetworkManager::exec_nmcli(const std::string& args) {
     return result;
 }
 
+WifiBackendNetworkManager::NmcliResult
+WifiBackendNetworkManager::exec_nmcli_full(const std::string& args) {
+    // Capture stderr separately via a temp file, keeping stdout clean for parsing
+    std::string stderr_file = "/tmp/nmcli_stderr_" + std::to_string(getpid());
+    std::string cmd = "nmcli " + args + " 2>" + stderr_file;
+    spdlog::trace("[WifiBackend] NM: exec_full: {}", cmd);
+
+    NmcliResult nr;
+    nr.exit_code = -1;
+
+    FILE* pipe = popen(cmd.c_str(), "r");
+    if (!pipe) {
+        spdlog::debug("[WifiBackend] NM: popen failed for: {}", cmd);
+        unlink(stderr_file.c_str());
+        return nr;
+    }
+
+    std::array<char, 512> buffer;
+    while (fgets(buffer.data(), buffer.size(), pipe) != nullptr) {
+        nr.stdout_output += buffer.data();
+    }
+
+    int ret = pclose(pipe);
+    nr.exit_code = WIFEXITED(ret) ? WEXITSTATUS(ret) : -1;
+
+    // Read captured stderr
+    FILE* err_fp = fopen(stderr_file.c_str(), "r");
+    if (err_fp) {
+        while (fgets(buffer.data(), buffer.size(), err_fp) != nullptr) {
+            nr.stderr_output += buffer.data();
+        }
+        fclose(err_fp);
+    }
+    unlink(stderr_file.c_str());
+
+    if (nr.exit_code != 0) {
+        spdlog::trace("[WifiBackend] NM: nmcli exited with code {}, stderr: '{}'", nr.exit_code,
+                      nr.stderr_output);
+    }
+
+    return nr;
+}
+
+bool WifiBackendNetworkManager::is_polkit_permission_error(const std::string& stderr_output) {
+    if (stderr_output.empty()) {
+        return false;
+    }
+
+    // Case-insensitive search for common polkit/permission denial indicators
+    std::string lower = stderr_output;
+    std::transform(lower.begin(), lower.end(), lower.begin(),
+                   [](unsigned char c) { return std::tolower(c); });
+
+    return lower.find("not authorized") != std::string::npos ||
+           lower.find("permission denied") != std::string::npos ||
+           lower.find("org.freedesktop.networkmanager") != std::string::npos ||
+           lower.find("polkit") != std::string::npos;
+}
+
 WiFiError WifiBackendNetworkManager::check_system_prerequisites() {
     spdlog::debug("[WifiBackend] NM: Checking prerequisites");
 
-    // Check if nmcli is available and NM is running
-    std::string status = exec_nmcli("-t general status");
-    if (status.empty()) {
+    // Check if nmcli is available and NM is running, capturing stderr for diagnostics
+    auto result = exec_nmcli_full("-t general status");
+
+    if (result.stdout_output.empty() && result.exit_code != 0) {
+        // Check stderr for polkit/permission errors before returning generic failure
+        if (is_polkit_permission_error(result.stderr_output)) {
+            spdlog::warn("[WifiBackend] NM: Polkit permission denied: {}", result.stderr_output);
+            return WiFiError(WiFiResult::PERMISSION_DENIED,
+                             "nmcli blocked by polkit: " + result.stderr_output,
+                             "Permission denied - unable to manage WiFi",
+                             "Re-run the HelixScreen installer, or see Troubleshooting docs");
+        }
         return WiFiErrorHelper::service_not_running(
             "NetworkManager (nmcli not available or NM not running)");
     }
@@ -216,9 +284,9 @@ WiFiError WifiBackendNetworkManager::check_system_prerequisites() {
     // nmcli general status returns something like:
     // connected:full:enabled:enabled
     // Check that it's not "error" or empty
-    if (status.find("error") != std::string::npos) {
-        return WiFiErrorHelper::service_not_running("NetworkManager (reported error: " + status +
-                                                    ")");
+    if (result.stdout_output.find("error") != std::string::npos) {
+        return WiFiErrorHelper::service_not_running("NetworkManager (reported error: " +
+                                                    result.stdout_output + ")");
     }
 
     spdlog::debug("[WifiBackend] NM: Prerequisites check passed");
@@ -548,11 +616,24 @@ void WifiBackendNetworkManager::connect_thread_func(std::string ssid, std::strin
 
     // SECURITY: Use fork/exec to avoid shell injection with SSID/password
     // nmcli device wifi connect "<ssid>" password "<pass>" ifname <iface>
+    // Capture child's stderr via pipe to detect polkit permission errors.
+
+    int stderr_pipe[2];
+    if (pipe(stderr_pipe) < 0) {
+        spdlog::error("[WifiBackend] NM: pipe() failed: {}", strerror(errno));
+        if (connect_active_) {
+            fire_event("DISCONNECTED", "Internal error");
+            request_status_refresh();
+        }
+        return;
+    }
 
     pid_t pid = fork();
 
     if (pid < 0) {
         spdlog::error("[WifiBackend] NM: Fork failed: {}", strerror(errno));
+        close(stderr_pipe[0]);
+        close(stderr_pipe[1]);
         if (connect_active_) {
             fire_event("DISCONNECTED", "Fork failed");
             request_status_refresh();
@@ -561,7 +642,11 @@ void WifiBackendNetworkManager::connect_thread_func(std::string ssid, std::strin
     }
 
     if (pid == 0) {
-        // Child process - exec nmcli directly (no shell)
+        // Child process - redirect stderr to pipe, exec nmcli directly (no shell)
+        close(stderr_pipe[0]); // Close read end
+        dup2(stderr_pipe[1], STDERR_FILENO);
+        close(stderr_pipe[1]);
+
         if (password.empty()) {
             // Open network
             execlp("nmcli", "nmcli", "device", "wifi", "connect", ssid.c_str(), "ifname",
@@ -575,7 +660,10 @@ void WifiBackendNetworkManager::connect_thread_func(std::string ssid, std::strin
         _exit(127);
     }
 
-    // Parent process - wait for child with timeout
+    // Parent process - close write end, will read stderr after child exits
+    close(stderr_pipe[1]);
+
+    // Wait for child with timeout
     constexpr int CONNECT_TIMEOUT_SECONDS = 30;
     constexpr int POLL_INTERVAL_MS = 100;
     auto start_time = std::chrono::steady_clock::now();
@@ -589,6 +677,7 @@ void WifiBackendNetworkManager::connect_thread_func(std::string ssid, std::strin
         if (!connect_active_) {
             kill(pid, SIGTERM);
             waitpid(pid, &status, 0);
+            close(stderr_pipe[0]);
             spdlog::debug("[WifiBackend] NM: Connect cancelled");
             return;
         }
@@ -602,6 +691,7 @@ void WifiBackendNetworkManager::connect_thread_func(std::string ssid, std::strin
                 continue;
             }
             spdlog::error("[WifiBackend] NM: waitpid error: {}", strerror(errno));
+            close(stderr_pipe[0]);
             if (connect_active_) {
                 fire_event("DISCONNECTED", "Internal error");
                 request_status_refresh();
@@ -623,6 +713,18 @@ void WifiBackendNetworkManager::connect_thread_func(std::string ssid, std::strin
         }
     }
 
+    // Read child's stderr output now that the child has exited
+    std::string child_stderr;
+    {
+        char buf[512];
+        ssize_t n;
+        while ((n = read(stderr_pipe[0], buf, sizeof(buf) - 1)) > 0) {
+            buf[n] = '\0';
+            child_stderr += buf;
+        }
+    }
+    close(stderr_pipe[0]);
+
     if (!connect_active_) {
         return;
     }
@@ -641,17 +743,28 @@ void WifiBackendNetworkManager::connect_thread_func(std::string ssid, std::strin
         fire_event("CONNECTED");
         request_status_refresh();
     } else {
-        // nmcli exit codes: 0=success, non-zero=failure
-        // Common failures: wrong password, network not found, timeout
-        spdlog::warn("[WifiBackend] NM: Connection to '{}' failed (exit code {})", ssid, exit_code);
-        // nmcli uses exit code 10 for connection timeout, but doesn't distinguish
-        // auth failure well. Fire AUTH_FAILED as best guess for secured networks.
-        if (!password.empty()) {
-            fire_event("AUTH_FAILED", "Connection failed");
+        // Check stderr for polkit/permission denial before generic failure
+        if (is_polkit_permission_error(child_stderr)) {
+            spdlog::warn("[WifiBackend] NM: Permission denied connecting to '{}': {}", ssid,
+                         child_stderr);
+            fire_event("AUTH_FAILED",
+                       "Permission denied - check WiFi permissions. Re-run the HelixScreen "
+                       "installer, or see Troubleshooting docs");
+            request_status_refresh();
         } else {
-            fire_event("DISCONNECTED", "Connection failed");
+            // nmcli exit codes: 0=success, non-zero=failure
+            // Common failures: wrong password, network not found, timeout
+            spdlog::warn("[WifiBackend] NM: Connection to '{}' failed (exit code {}{})", ssid,
+                         exit_code, child_stderr.empty() ? "" : ", stderr: " + child_stderr);
+            // nmcli uses exit code 10 for connection timeout, but doesn't distinguish
+            // auth failure well. Fire AUTH_FAILED as best guess for secured networks.
+            if (!password.empty()) {
+                fire_event("AUTH_FAILED", "Connection failed");
+            } else {
+                fire_event("DISCONNECTED", "Connection failed");
+            }
+            request_status_refresh();
         }
-        request_status_refresh();
     }
 }
 
