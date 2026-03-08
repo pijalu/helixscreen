@@ -46,6 +46,8 @@ LabelPrinterSettingsOverlay::LabelPrinterSettingsOverlay() {
 }
 
 LabelPrinterSettingsOverlay::~LabelPrinterSettingsOverlay() {
+    alive_->store(false);
+    stop_label_printer_discovery();
     spdlog::trace("[{}] Destroyed", get_name());
 }
 
@@ -67,6 +69,7 @@ void LabelPrinterSettingsOverlay::register_callbacks() {
         {"on_lp_label_size_changed", on_label_size_changed},
         {"on_lp_preset_changed", on_preset_changed},
         {"on_lp_test_print", on_test_print},
+        {"on_lp_printer_selected", on_printer_selected},
     });
 
     spdlog::debug("[{}] Callbacks registered", get_name());
@@ -131,10 +134,13 @@ void LabelPrinterSettingsOverlay::on_activate() {
     init_port_input();
     init_label_size_dropdown();
     init_preset_dropdown();
+    init_discovery_dropdown();
+    start_label_printer_discovery();
     inputs_initialized_ = true;
 }
 
 void LabelPrinterSettingsOverlay::on_deactivate() {
+    stop_label_printer_discovery();
     OverlayBase::on_deactivate();
 }
 
@@ -147,11 +153,11 @@ void LabelPrinterSettingsOverlay::init_address_input() {
         return;
 
     auto& settings = LabelPrinterSettingsManager::instance();
-    lv_obj_t* addr_row = lv_obj_find_by_name(overlay_root_, "row_printer_address");
-    if (!addr_row)
+    lv_obj_t* row = lv_obj_find_by_name(overlay_root_, "row_address_port");
+    if (!row)
         return;
 
-    lv_obj_t* input = lv_obj_find_by_name(addr_row, "input");
+    lv_obj_t* input = lv_obj_find_by_name(row, "input_address");
     if (input) {
         lv_textarea_set_text(input, settings.get_printer_address().c_str());
         if (!inputs_initialized_) {
@@ -166,11 +172,11 @@ void LabelPrinterSettingsOverlay::init_port_input() {
         return;
 
     auto& settings = LabelPrinterSettingsManager::instance();
-    lv_obj_t* port_row = lv_obj_find_by_name(overlay_root_, "row_printer_port");
-    if (!port_row)
+    lv_obj_t* row = lv_obj_find_by_name(overlay_root_, "row_address_port");
+    if (!row)
         return;
 
-    lv_obj_t* input = lv_obj_find_by_name(port_row, "input");
+    lv_obj_t* input = lv_obj_find_by_name(row, "input_port");
     if (input) {
         auto port_str = fmt::format("{}", settings.get_printer_port());
         lv_textarea_set_text(input, port_str.c_str());
@@ -231,6 +237,199 @@ void LabelPrinterSettingsOverlay::init_preset_dropdown() {
 }
 
 // ============================================================================
+// MDNS DISCOVERY
+// ============================================================================
+
+void LabelPrinterSettingsOverlay::init_discovery_dropdown() {
+    if (!overlay_root_)
+        return;
+
+    lv_obj_t* row = lv_obj_find_by_name(overlay_root_, "row_discovered_printers");
+    if (!row)
+        return;
+
+    // Hide the empty description text to vertically center the label
+    lv_obj_t* desc = lv_obj_find_by_name(row, "description");
+    if (desc) {
+        lv_obj_add_flag(desc, LV_OBJ_FLAG_HIDDEN);
+    }
+
+    lv_obj_t* dropdown = lv_obj_find_by_name(row, "dropdown");
+    if (dropdown) {
+        lv_dropdown_set_options(dropdown, lv_tr("Searching..."));
+    }
+}
+
+void LabelPrinterSettingsOverlay::start_label_printer_discovery() {
+    if (mdns_discovery_ && mdns_discovery_->is_discovering()) {
+        return;
+    }
+
+    mdns_discovery_ = std::make_unique<MdnsDiscovery>("_pdl-datastream._tcp.local");
+
+    auto alive = alive_;
+    mdns_discovery_->start_discovery([this, alive](const std::vector<DiscoveredPrinter>& printers) {
+        if (!alive->load()) {
+            return;
+        }
+        on_printers_discovered(printers);
+    });
+
+    spdlog::debug("[{}] Started label printer mDNS discovery", get_name());
+}
+
+void LabelPrinterSettingsOverlay::stop_label_printer_discovery() {
+    if (mdns_discovery_) {
+        mdns_discovery_->stop_discovery();
+        mdns_discovery_.reset();
+        spdlog::debug("[{}] Stopped label printer mDNS discovery", get_name());
+    }
+}
+
+/**
+ * @brief Score how likely a discovered printer is a label printer
+ *
+ * Checks the display name (from TXT ty/product or hostname) for known
+ * label printer model patterns. Higher score = more likely label printer.
+ * Returns 0 for printers that are definitely NOT label printers.
+ */
+static int label_printer_score(const DiscoveredPrinter& printer) {
+    // Case-insensitive matching on the display name and hostname
+    auto lower = [](const std::string& s) {
+        std::string out = s;
+        std::transform(out.begin(), out.end(), out.begin(), ::tolower);
+        return out;
+    };
+    std::string name = lower(printer.name);
+    std::string host = lower(printer.hostname);
+
+    // Strong signals — these are definitely label printers
+    // Brother QL series (QL-800, QL-820NWB, QL-1110NWB, etc.)
+    if (name.find("ql-") != std::string::npos || name.find("ql ") != std::string::npos)
+        return 100;
+    // Brother TD series (thermal direct label printers)
+    if (name.find("td-") != std::string::npos || name.find("td ") != std::string::npos)
+        return 100;
+    // DYMO LabelWriter
+    if (name.find("labelwriter") != std::string::npos || name.find("dymo") != std::string::npos)
+        return 90;
+    // Zebra label printers (ZD, ZT, GK, GX series)
+    if (name.find("zebra") != std::string::npos)
+        return 80;
+    // Rollo, Munbyn, JADENS — common USB/network label printers
+    if (name.find("rollo") != std::string::npos || name.find("munbyn") != std::string::npos)
+        return 80;
+    // Generic "label" in name
+    if (name.find("label") != std::string::npos)
+        return 70;
+
+    // Moderate signals from hostname (BRW prefix = Brother wireless)
+    if (host.find("brw") != std::string::npos)
+        return 50;
+
+    // Negative signals — definitely NOT label printers
+    if (name.find("laserjet") != std::string::npos || name.find("officejet") != std::string::npos)
+        return 0;
+    if (name.find("inkjet") != std::string::npos || name.find("pixma") != std::string::npos)
+        return 0;
+    if (name.find("ecotank") != std::string::npos || name.find("envy") != std::string::npos)
+        return 0;
+
+    // Unknown — could be anything, low score but still show
+    return 10;
+}
+
+void LabelPrinterSettingsOverlay::on_printers_discovered(
+    const std::vector<DiscoveredPrinter>& printers) {
+
+    // Score and sort: likely label printers first, non-label printers excluded
+    struct ScoredPrinter {
+        DiscoveredPrinter printer;
+        int score;
+    };
+
+    std::vector<ScoredPrinter> scored;
+    for (const auto& p : printers) {
+        int score = label_printer_score(p);
+        if (score > 0) {
+            scored.push_back({p, score});
+        } else {
+            spdlog::debug("[{}] Filtered out non-label printer: {} ({})", get_name(), p.name,
+                          p.ip_address);
+        }
+    }
+
+    // Sort by score descending (most likely label printers first)
+    std::sort(scored.begin(), scored.end(),
+              [](const ScoredPrinter& a, const ScoredPrinter& b) { return a.score > b.score; });
+
+    // Store only the filtered/sorted list for selection
+    discovered_printers_.clear();
+    for (const auto& sp : scored) {
+        discovered_printers_.push_back(sp.printer);
+    }
+
+    if (!overlay_root_)
+        return;
+
+    lv_obj_t* row = lv_obj_find_by_name(overlay_root_, "row_discovered_printers");
+    if (!row)
+        return;
+
+    lv_obj_t* dropdown = lv_obj_find_by_name(row, "dropdown");
+    if (!dropdown)
+        return;
+
+    std::string options;
+    if (discovered_printers_.empty()) {
+        options = lv_tr("No label printers found");
+    } else {
+        for (const auto& p : discovered_printers_) {
+            if (!options.empty()) {
+                options += "\n";
+            }
+            options += p.name + " (" + p.ip_address + ")";
+        }
+    }
+
+    lv_dropdown_set_options(dropdown, options.c_str());
+
+    spdlog::debug("[{}] Discovery update: {} total, {} likely label printers", get_name(),
+                  printers.size(), discovered_printers_.size());
+}
+
+void LabelPrinterSettingsOverlay::handle_printer_selected(int index) {
+    if (index < 0 || index >= static_cast<int>(discovered_printers_.size())) {
+        return;
+    }
+
+    const auto& printer = discovered_printers_[index];
+    spdlog::info("[{}] Selected printer: {} ({}:{})", get_name(), printer.name, printer.ip_address,
+                 printer.port);
+
+    auto& settings = LabelPrinterSettingsManager::instance();
+    settings.set_printer_address(printer.ip_address);
+    settings.set_printer_port(printer.port);
+
+    // Update address and port input fields
+    if (overlay_root_) {
+        lv_obj_t* row = lv_obj_find_by_name(overlay_root_, "row_address_port");
+        if (row) {
+            lv_obj_t* addr_input = lv_obj_find_by_name(row, "input_address");
+            if (addr_input) {
+                lv_textarea_set_text(addr_input, printer.ip_address.c_str());
+            }
+
+            lv_obj_t* port_input = lv_obj_find_by_name(row, "input_port");
+            if (port_input) {
+                auto port_str = fmt::format("{}", printer.port);
+                lv_textarea_set_text(port_input, port_str.c_str());
+            }
+        }
+    }
+}
+
+// ============================================================================
 // EVENT HANDLERS
 // ============================================================================
 
@@ -238,11 +437,11 @@ void LabelPrinterSettingsOverlay::handle_address_changed() {
     if (!overlay_root_)
         return;
 
-    lv_obj_t* addr_row = lv_obj_find_by_name(overlay_root_, "row_printer_address");
-    if (!addr_row)
+    lv_obj_t* row = lv_obj_find_by_name(overlay_root_, "row_address_port");
+    if (!row)
         return;
 
-    lv_obj_t* input = lv_obj_find_by_name(addr_row, "input");
+    lv_obj_t* input = lv_obj_find_by_name(row, "input_address");
     if (input) {
         const char* text = lv_textarea_get_text(input);
         std::string addr = text ? text : "";
@@ -255,11 +454,11 @@ void LabelPrinterSettingsOverlay::handle_port_changed() {
     if (!overlay_root_)
         return;
 
-    lv_obj_t* port_row = lv_obj_find_by_name(overlay_root_, "row_printer_port");
-    if (!port_row)
+    lv_obj_t* row = lv_obj_find_by_name(overlay_root_, "row_address_port");
+    if (!row)
         return;
 
-    lv_obj_t* input = lv_obj_find_by_name(port_row, "input");
+    lv_obj_t* input = lv_obj_find_by_name(row, "input_port");
     if (input) {
         const char* text = lv_textarea_get_text(input);
         if (text && text[0] != '\0') {
@@ -373,6 +572,14 @@ void LabelPrinterSettingsOverlay::on_preset_changed(lv_event_t* e) {
 void LabelPrinterSettingsOverlay::on_test_print(lv_event_t* /*e*/) {
     LVGL_SAFE_EVENT_CB_BEGIN("[LabelPrinterSettings] on_test_print");
     get_label_printer_settings_overlay().handle_test_print();
+    LVGL_SAFE_EVENT_CB_END();
+}
+
+void LabelPrinterSettingsOverlay::on_printer_selected(lv_event_t* e) {
+    LVGL_SAFE_EVENT_CB_BEGIN("[LabelPrinterSettings] on_printer_selected");
+    auto* dropdown = static_cast<lv_obj_t*>(lv_event_get_current_target(e));
+    int index = static_cast<int>(lv_dropdown_get_selected(dropdown));
+    get_label_printer_settings_overlay().handle_printer_selected(index);
     LVGL_SAFE_EVENT_CB_END();
 }
 

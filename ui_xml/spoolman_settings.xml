@@ -1,10 +1,10 @@
 <?xml version="1.0"?>
 <!-- Copyright (C) 2025-2026 356C LLC -->
 <!-- SPDX-License-Identifier: GPL-3.0-or-later -->
-<!-- AMS Spoolman Settings Overlay Panel -->
-<!-- Sub-panel for configuring Spoolman integration settings (sync, polling interval) -->
+<!-- Spoolman Settings Overlay Panel -->
+<!-- Configures Spoolman integration (sync, polling) and label printer settings -->
 <component>
-  <view name="ams_settings_spoolman"
+  <view name="spoolman_settings"
         extends="overlay_panel" width="#overlay_panel_width_full" title="Spoolman" title_tag="Spoolman" bg_color="#screen_bg">
     <!-- Content Area (scrollable) -->
     <lv_obj name="overlay_content"
@@ -67,6 +67,16 @@
         <text_small width="100%" flex_grow="1"
                     text="Weight data is synced from Spoolman to display remaining filament. Changes are also synced when prints start, pause, or complete." translation_tag="Weight data is synced from Spoolman to display remaining filament. Changes are also synced when prints start, pause, or complete." style_text_color="#text_muted"/>
       </lv_obj>
+      <!-- ================================================================== -->
+      <!-- Label Printer (opens sub-panel)                                    -->
+      <!-- ================================================================== -->
+      <beta_feature>
+      <setting_action_row name="row_label_printer"
+                          label="Label Printer" label_tag="Label Printer" icon="print"
+                          description="Configure label printer and auto-discovery"
+                          description_tag="Configure label printer and auto-discovery"
+                          callback="on_spoolman_label_printer_clicked"/>
+      </beta_feature>
     </lv_obj>
   </view>
 </component>

@@ -209,14 +209,6 @@
                           description_tag="Review detected hardware validation issues"
                           callback="on_hardware_health_clicked"/>
     </lv_obj>
-    <!-- Label Printer Settings (beta-gated) -->
-    <beta_feature>
-      <setting_action_row name="row_label_printer"
-                          label="Label Printer" label_tag="Label Printer" icon="print"
-                          description="Configure QR label printing"
-                          description_tag="Configure QR label printing"
-                          callback="on_label_printer_settings_clicked"/>
-    </beta_feature>
     <!-- Plugins (gated by beta_features config flag) -->
     <beta_feature>
       <setting_action_row name="row_plugins"

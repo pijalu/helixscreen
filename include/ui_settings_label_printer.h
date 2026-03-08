@@ -4,7 +4,11 @@
 #pragma once
 
 #include "lvgl/lvgl.h"
+#include "mdns_discovery.h"
 #include "overlay_base.h"
+
+#include <memory>
+#include <vector>
 
 namespace helix::settings {
 
@@ -31,14 +35,24 @@ class LabelPrinterSettingsOverlay : public OverlayBase {
     void handle_label_size_changed(int index);
     void handle_preset_changed(int index);
     void handle_test_print();
+    void handle_printer_selected(int index);
 
   private:
     void init_address_input();
     void init_port_input();
     void init_label_size_dropdown();
     void init_preset_dropdown();
+    void init_discovery_dropdown();
+    void start_label_printer_discovery();
+    void stop_label_printer_discovery();
+    void on_printers_discovered(const std::vector<DiscoveredPrinter>& printers);
 
     bool inputs_initialized_ = false; ///< Guard against stacking duplicate event callbacks
+
+    // mDNS discovery for Brother QL printers
+    std::unique_ptr<IMdnsDiscovery> mdns_discovery_;
+    std::vector<DiscoveredPrinter> discovered_printers_;
+    std::shared_ptr<std::atomic<bool>> alive_ = std::make_shared<std::atomic<bool>>(true);
 
     // Static callbacks
     static void on_address_done(lv_event_t* e);
@@ -46,6 +60,7 @@ class LabelPrinterSettingsOverlay : public OverlayBase {
     static void on_label_size_changed(lv_event_t* e);
     static void on_preset_changed(lv_event_t* e);
     static void on_test_print(lv_event_t* e);
+    static void on_printer_selected(lv_event_t* e);
 };
 
 LabelPrinterSettingsOverlay& get_label_printer_settings_overlay();

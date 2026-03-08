@@ -83,7 +83,12 @@ class MdnsDiscovery : public IMdnsDiscovery {
      */
     using DiscoveryCallback = std::function<void(const std::vector<DiscoveredPrinter>&)>;
 
-    MdnsDiscovery();
+    /**
+     * @brief Construct an mDNS discovery instance
+     *
+     * @param service_type mDNS service type to query (default: "_moonraker._tcp.local")
+     */
+    explicit MdnsDiscovery(std::string service_type = "_moonraker._tcp.local");
     ~MdnsDiscovery();
 
     // Non-copyable (owns background thread)

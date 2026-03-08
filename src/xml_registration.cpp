@@ -387,7 +387,7 @@ void register_xml_components() {
     register_xml("ams_device_section_detail.xml");
 
     // Spoolman Settings (accessed from Settings > Spoolman, future)
-    register_xml("ams_settings_spoolman.xml");
+    register_xml("spoolman_settings.xml");
 
     // Feature parity panels
     register_xml("macro_card.xml");

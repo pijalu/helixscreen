@@ -37,10 +37,6 @@ constexpr auto QUERY_INTERVAL = std::chrono::milliseconds(3000);
 // Buffer size for mDNS operations (must be 32-bit aligned)
 constexpr size_t MDNS_BUFFER_SIZE = 2048;
 
-// Service name we're looking for
-constexpr const char* MOONRAKER_SERVICE = "_moonraker._tcp.local";
-constexpr size_t MOONRAKER_SERVICE_LEN = 22; // strlen("_moonraker._tcp.local")
-
 // Timeout for socket receive operations (milliseconds)
 constexpr int SOCKET_TIMEOUT_MS = 500;
 
@@ -83,9 +79,20 @@ struct ServiceRecord {
     std::string hostname;      ///< Target host from SRV record
     uint16_t port = 0;         ///< Port from SRV record
     std::string ip_address;    ///< IPv4 address from A record
+    std::string model_name;    ///< From TXT "ty" record (e.g., "Brother QL-800")
+    std::string product;       ///< From TXT "product" record
 
     bool is_complete() const {
         return !hostname.empty() && port > 0 && !ip_address.empty();
+    }
+
+    /// Best available display name: TXT "ty" > TXT "product" > hostname
+    std::string best_display_name() const {
+        if (!model_name.empty())
+            return model_name;
+        if (!product.empty())
+            return product;
+        return extract_display_name(hostname);
     }
 };
 
@@ -94,7 +101,8 @@ struct ServiceRecord {
  */
 class MdnsDiscovery::Impl {
   public:
-    Impl() = default;
+    explicit Impl(std::string service_type)
+        : service_type_(std::move(service_type)) {}
     ~Impl() {
         stop();
     }
@@ -115,7 +123,7 @@ class MdnsDiscovery::Impl {
         running_.store(true);
         initial_update_sent_.store(false); // Reset so first query dispatches even if empty
         thread_ = std::thread(&Impl::discovery_loop, this);
-        spdlog::info("[MdnsDiscovery] Started discovery for Moonraker services");
+        spdlog::info("[MdnsDiscovery] Started discovery for {}", service_type_);
     }
 
     void stop() {
@@ -180,13 +188,13 @@ class MdnsDiscovery::Impl {
 
         while (running_.load()) {
             // Send PTR query for Moonraker service
-            int query_id = mdns_query_send(sock, MDNS_RECORDTYPE_PTR, MOONRAKER_SERVICE,
-                                           MOONRAKER_SERVICE_LEN, buffer, sizeof(buffer), 0);
+            int query_id = mdns_query_send(sock, MDNS_RECORDTYPE_PTR, service_type_.c_str(),
+                                           service_type_.size(), buffer, sizeof(buffer), 0);
 
             if (query_id < 0) {
                 spdlog::debug("[MdnsDiscovery] Failed to send mDNS query");
             } else {
-                spdlog::debug("[MdnsDiscovery] Sent PTR query for {}", MOONRAKER_SERVICE);
+                spdlog::debug("[MdnsDiscovery] Sent PTR query for {}", service_type_);
 
                 // Receive responses for a short window
                 auto recv_deadline =
@@ -300,6 +308,37 @@ class MdnsDiscovery::Impl {
             break;
         }
 
+        case MDNS_RECORDTYPE_TXT: {
+            // TXT records contain key=value pairs (ty, product, etc.)
+            mdns_record_txt_t txt_records[16];
+            size_t txt_count =
+                mdns_record_parse_txt(data, size, record_offset, record_length, txt_records, 16);
+
+            if (txt_count > 0) {
+                std::string record_name(name_str.str, name_str.length);
+                std::lock_guard<std::mutex> lock(self->records_mutex_);
+                auto& record = self->pending_records_[record_name];
+                record.instance_name = record_name;
+
+                for (size_t i = 0; i < txt_count; i++) {
+                    std::string key(txt_records[i].key.str, txt_records[i].key.length);
+                    std::string value;
+                    if (txt_records[i].value.str && txt_records[i].value.length > 0) {
+                        value.assign(txt_records[i].value.str, txt_records[i].value.length);
+                    }
+
+                    if (key == "ty" && !value.empty()) {
+                        record.model_name = value;
+                        spdlog::debug("[MdnsDiscovery] TXT ty: {} -> {}", record_name, value);
+                    } else if (key == "product" && !value.empty()) {
+                        record.product = value;
+                        spdlog::debug("[MdnsDiscovery] TXT product: {} -> {}", record_name, value);
+                    }
+                }
+            }
+            break;
+        }
+
         case MDNS_RECORDTYPE_AAAA:
             // IPv6 - we prefer IPv4, so skip these
             break;
@@ -332,7 +371,7 @@ class MdnsDiscovery::Impl {
                 // Only add complete records
                 if (record.is_complete()) {
                     DiscoveredPrinter printer;
-                    printer.name = extract_display_name(record.hostname);
+                    printer.name = record.best_display_name();
                     printer.hostname = record.hostname;
                     printer.ip_address = record.ip_address;
                     printer.port = record.port;
@@ -367,7 +406,8 @@ class MdnsDiscovery::Impl {
             if (changed || first_update) {
                 printers_ = std::move(new_printers);
                 initial_update_sent_.store(true);
-                spdlog::info("[MdnsDiscovery] Found {} Moonraker printers", printers_.size());
+                spdlog::info("[MdnsDiscovery] Found {} services for {}", printers_.size(),
+                             service_type_);
 
                 for (const auto& p : printers_) {
                     spdlog::debug("[MdnsDiscovery]   {} ({}) at {}:{}", p.name, p.hostname,
@@ -400,6 +440,9 @@ class MdnsDiscovery::Impl {
         });
     }
 
+    // Service type to query
+    std::string service_type_;
+
     // Thread management
     std::thread thread_;
     std::atomic<bool> running_{false};
@@ -424,7 +467,8 @@ class MdnsDiscovery::Impl {
 // MdnsDiscovery public interface
 // ============================================================================
 
-MdnsDiscovery::MdnsDiscovery() : impl_(std::make_unique<Impl>()) {}
+MdnsDiscovery::MdnsDiscovery(std::string service_type)
+    : impl_(std::make_unique<Impl>(std::move(service_type))) {}
 
 MdnsDiscovery::~MdnsDiscovery() = default;
 

@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 /**
- * @file ui_ams_spoolman_overlay.h
- * @brief AMS Spoolman sub-panel overlay
+ * @file ui_spoolman_overlay.h
+ * @brief Spoolman settings overlay
  *
  * This overlay allows users to configure Spoolman integration settings:
  * - Enable/disable automatic weight sync
@@ -29,7 +29,7 @@ class MoonrakerAPI;
 namespace helix::ui {
 
 /**
- * @class AmsSpoolmanOverlay
+ * @class SpoolmanOverlay
  * @brief Overlay for configuring Spoolman integration settings
  *
  * This overlay provides settings for Spoolman weight synchronization:
@@ -39,7 +39,7 @@ namespace helix::ui {
  * ## Usage:
  *
  * @code
- * auto& overlay = helix::ui::get_ams_spoolman_overlay();
+ * auto& overlay = helix::ui::get_spoolman_overlay();
  * if (!overlay.are_subjects_initialized()) {
  *     overlay.init_subjects();
  *     overlay.register_callbacks();
@@ -47,21 +47,21 @@ namespace helix::ui {
  * overlay.show(parent_screen);
  * @endcode
  */
-class AmsSpoolmanOverlay : public OverlayBase {
+class SpoolmanOverlay : public OverlayBase {
   public:
     /**
      * @brief Default constructor
      */
-    AmsSpoolmanOverlay();
+    SpoolmanOverlay();
 
     /**
      * @brief Destructor
      */
-    ~AmsSpoolmanOverlay() override;
+    ~SpoolmanOverlay() override;
 
     // Non-copyable
-    AmsSpoolmanOverlay(const AmsSpoolmanOverlay&) = delete;
-    AmsSpoolmanOverlay& operator=(const AmsSpoolmanOverlay&) = delete;
+    SpoolmanOverlay(const SpoolmanOverlay&) = delete;
+    SpoolmanOverlay& operator=(const SpoolmanOverlay&) = delete;
 
     //
     // === OverlayBase Interface ===
@@ -231,6 +231,9 @@ class AmsSpoolmanOverlay : public OverlayBase {
     /// Default values
     static constexpr bool DEFAULT_SYNC_ENABLED = true;
     static constexpr int DEFAULT_REFRESH_INTERVAL_SECONDS = 30;
+
+    // Label printer sub-panel launcher
+    static void on_label_printer_clicked(lv_event_t* e);
 };
 
 /**
@@ -239,8 +242,8 @@ class AmsSpoolmanOverlay : public OverlayBase {
  * Creates the overlay on first access and registers it for cleanup
  * with StaticPanelRegistry.
  *
- * @return Reference to singleton AmsSpoolmanOverlay
+ * @return Reference to singleton SpoolmanOverlay
  */
-AmsSpoolmanOverlay& get_ams_spoolman_overlay();
+SpoolmanOverlay& get_spoolman_overlay();
 
 } // namespace helix::ui

@@ -4,7 +4,7 @@
 #include "ui_panel_settings.h"
 
 #include "ui_ams_device_operations_overlay.h"
-#include "ui_ams_spoolman_overlay.h"
+#include "ui_spoolman_overlay.h"
 #include "ui_callback_helpers.h"
 #include "ui_change_host_modal.h"
 #include "ui_debug_bundle_modal.h"
@@ -820,7 +820,7 @@ void SettingsPanel::handle_ams_settings_clicked() {
 void SettingsPanel::handle_spoolman_settings_clicked() {
     spdlog::debug("[{}] Spoolman Settings clicked - opening Spoolman overlay", get_name());
 
-    auto& overlay = helix::ui::get_ams_spoolman_overlay();
+    auto& overlay = helix::ui::get_spoolman_overlay();
     if (!overlay.are_subjects_initialized()) {
         overlay.init_subjects();
         overlay.register_callbacks();

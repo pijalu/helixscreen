@@ -8,10 +8,25 @@
         extends="overlay_panel" width="#overlay_panel_width_full" title="Label Printer" title_tag="Label Printer"
         bg_color="#screen_bg">
     <lv_obj name="overlay_content" width="100%" flex_grow="1" style_pad_top="0" style_pad_left="#space_lg" style_pad_right="#space_lg" style_pad_bottom="#space_lg" scrollable="true" flex_flow="column">
-      <!-- Printer Address -->
-      <setting_form_input name="row_printer_address" label="Address" placeholder="192.168.1.50"/>
-      <!-- Printer Port -->
-      <setting_form_input name="row_printer_port" label="Port" placeholder="9100"/>
+      <!-- Discovered Printers -->
+      <setting_section_header title="DISCOVERED PRINTERS" title_tag="DISCOVERED PRINTERS" icon="lan"/>
+      <setting_dropdown_row name="row_discovered_printers"
+                            label="Printer" label_tag="Printer"
+                            icon="magnify"
+                            dropdown_width="66%"
+                            callback="on_lp_printer_selected"/>
+      <!-- Manual Address/Port entry -->
+      <setting_section_header title="MANUAL" title_tag="MANUAL" icon="tune"/>
+      <lv_obj name="row_address_port" width="100%" height="content" flex_flow="row"
+              style_flex_cross_place="center" style_flex_main_place="end" style_pad_all="0"
+              style_pad_left="#space_lg" style_pad_right="#space_lg" style_pad_top="#space_sm"
+              style_pad_bottom="#space_sm" style_pad_gap="#space_md" style_bg_opa="0"
+              style_border_width="0" scrollable="false">
+        <text_muted name="label_address" width="content" text="Address"/>
+        <text_input name="input_address" placeholder_text="192.168.1.50" one_line="true" width="160"/>
+        <text_muted name="label_port" width="content" text="Port"/>
+        <text_input name="input_port" placeholder_text="9100" one_line="true" width="70"/>
+      </lv_obj>
       <!-- Label Size -->
       <setting_dropdown_row name="row_label_size"
                             label="Label Size" label_tag="Label Size" icon="ruler"

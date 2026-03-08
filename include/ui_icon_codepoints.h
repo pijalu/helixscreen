@@ -171,6 +171,7 @@ static const IconMapping ICON_MAP[] = {
     {"link",               "\xF3\xB0\x8C\xB9"},  // F0339 link (tool mapping)
     {"list",               "\xF3\xB0\x89\xB9"},  // F0279 format-list-bulleted
     {"lock",               "\xF3\xB0\x8C\xBE"},  // F033E lock
+    {"magnify",            "\xF3\xB0\x8D\x89"},  // F0349 magnify (search/discovery)
 
     // Misc/Math
     {"message",            "\xF3\xB0\x8D\xA9"},  // F0369 message-text (discord/chat)
