@@ -610,8 +610,8 @@ async function extractBundleMetadata(gzippedBody: ArrayBuffer): Promise<BundleMe
     );
 
     const json = JSON.parse(text) as Record<string, unknown>;
-    const printerInfo = json.printer_info as Record<string, string> | undefined;
-    const systemInfo = json.system_info as Record<string, string> | undefined;
+    const printerInfo = (json.printer ?? json.printer_info) as Record<string, string> | undefined;
+    const systemInfo = (json.system ?? json.system_info) as Record<string, string> | undefined;
     const rawNote = typeof json.user_note === "string" ? json.user_note : "";
     return {
       version: (json.version as string) || "unknown",
