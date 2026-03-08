@@ -682,12 +682,14 @@ class MPCCalibrateCollector : public std::enable_shared_from_this<MPCCalibrateCo
  *
  * Error handling:
  *   - "Unknown command" - screws_tilt_adjust not configured
- *   - "Error"/"error"/"!! " - Klipper error messages
- *   - "ok" without data - probing completed but no results parsed
+ *   - "!! " prefix - Klipper emergency/critical errors
  *
- * Note: No timeout is implemented. If connection drops mid-probing, the collector
- * will remain alive until the shared_ptr ref count drops (when MoonrakerClient
- * cleans up callbacks). Caller should implement UI-level timeout if needed.
+ * Completion is signaled by the execute_gcode success callback (JSON-RPC response),
+ * NOT by an "ok" line in notify_gcode_response. Klipper may send intermediate "ok"
+ * lines (e.g., from sub-commands during probing) before the actual screw results
+ * arrive via "//" prefixed lines. The execute_gcode call to printer.gcode.script
+ * only returns after the entire command finishes, so its success callback is the
+ * reliable completion signal.
  */
 class ScrewsTiltCollector : public std::enable_shared_from_this<ScrewsTiltCollector> {
   public:
@@ -732,6 +734,28 @@ class ScrewsTiltCollector : public std::enable_shared_from_this<ScrewsTiltCollec
         completed_.store(true);
     }
 
+    /**
+     * @brief Signal that execute_gcode completed successfully (JSON-RPC returned)
+     *
+     * This is the reliable completion signal. By the time the JSON-RPC call for
+     * printer.gcode.script returns, Klipper has finished executing the command
+     * and all notify_gcode_response lines (including screw results) have been sent.
+     */
+    void on_command_finished() {
+        if (completed_.load()) {
+            return;
+        }
+
+        if (!results_.empty()) {
+            spdlog::info("[ScrewsTiltCollector] Command finished, {} results collected",
+                         results_.size());
+            complete_success();
+        } else {
+            spdlog::warn("[ScrewsTiltCollector] Command finished but no screw data received");
+            complete_error("SCREWS_TILT_CALCULATE completed but no screw data received");
+        }
+    }
+
     void on_gcode_response(const json& msg) {
         // Check if already completed (prevent double-invocation)
         if (completed_.load()) {
@@ -758,20 +782,8 @@ class ScrewsTiltCollector : public std::enable_shared_from_this<ScrewsTiltCollec
             parse_screw_line(line);
         }
 
-        // Check for completion markers
-        // Klipper prints "ok" when command completes
-        if (line == "ok") {
-            if (!results_.empty()) {
-                complete_success();
-            } else {
-                complete_error("SCREWS_TILT_CALCULATE completed but no screw data received");
-            }
-            return;
-        }
-
-        // Broader error detection - catch Klipper errors
-        if (line.find("Error") != std::string::npos || line.find("error") != std::string::npos ||
-            line.rfind("!! ", 0) == 0) { // Emergency/critical errors start with "!! "
+        // Klipper emergency/critical errors start with "!! "
+        if (line.rfind("!! ", 0) == 0) {
             complete_error(line);
         }
     }
@@ -1636,12 +1648,14 @@ void MoonrakerAdvancedAPI::calculate_screws_tilt(ScrewTiltCallback on_success,
     collector->start();
 
     // Send the G-code command
-    // The command will trigger probing, and results come back via notify_gcode_response
+    // printer.gcode.script blocks until the command finishes, so the success callback
+    // fires after all probing is done and all notify_gcode_response lines have been sent.
     api_.execute_gcode(
         "SCREWS_TILT_CALCULATE",
-        []() {
-            // Command was accepted by Klipper - actual results come via gcode_response
-            spdlog::debug("[Moonraker API] SCREWS_TILT_CALCULATE command accepted");
+        [collector]() {
+            // JSON-RPC returned — command fully executed, all results should be collected
+            spdlog::debug("[Moonraker API] SCREWS_TILT_CALCULATE command finished");
+            collector->on_command_finished();
         },
         [collector, on_error](const MoonrakerError& err) {
             if (err.type == MoonrakerErrorType::TIMEOUT) {
