@@ -55,6 +55,11 @@ class PrinterDiscovery {
             return;
         }
 
+        // AFC_stepper names collected separately — only used as lane source when
+        // no AFC_lane objects exist (Box Turtle compat). Vivid uses AFC_stepper for
+        // motor components (drive/selector), not lanes.
+        std::vector<std::string> afc_stepper_names;
+
         for (const auto& obj : objects) {
             // Skip non-string elements
             if (!obj.is_string()) {
@@ -219,11 +224,12 @@ class PrinterDiscovery {
                     mmu_servo_names_.push_back(servo_name);
                 }
             }
-            // AFC lane discovery
+            // AFC_stepper: may be lanes (Box Turtle) or motor components (Vivid).
+            // Collected separately; only used as lanes if no AFC_lane objects exist.
             else if (name.rfind("AFC_stepper ", 0) == 0) {
-                std::string lane_name = name.substr(12); // Remove "AFC_stepper " prefix
-                if (!lane_name.empty()) {
-                    afc_lane_names_.push_back(lane_name);
+                std::string stepper_name = name.substr(12); // Remove "AFC_stepper " prefix
+                if (!stepper_name.empty()) {
+                    afc_stepper_names.push_back(stepper_name);
                 }
             }
             // AFC hub discovery
@@ -233,12 +239,11 @@ class PrinterDiscovery {
                     afc_hub_names_.push_back(hub_name);
                 }
             }
-            // AFC_lane discovery (OpenAMS lanes - same as AFC_stepper but different Klipper object
-            // type)
+            // AFC_lane discovery (authoritative lane source for Vivid, OpenAMS, etc.)
             else if (name.rfind("AFC_lane ", 0) == 0) {
                 std::string lane_name = name.substr(9); // Remove "AFC_lane " prefix (9 chars)
                 if (!lane_name.empty()) {
-                    afc_lane_names_.push_back(lane_name); // Same vector as AFC_stepper lanes
+                    afc_lane_names_.push_back(lane_name);
                 }
             }
             // AFC unit-level objects (BoxTurtle, OpenAMS, ViViD, NightOwl, etc.)
@@ -358,6 +363,14 @@ class PrinterDiscovery {
                     }
                 }
             }
+        }
+
+        // AFC_stepper objects are only treated as lanes when no AFC_lane objects exist.
+        // Box Turtle firmware uses "AFC_stepper lane1" etc. as the lane objects, while
+        // Vivid firmware uses "AFC_stepper Vivid_1_drive"/"Vivid_1_selector" for motors
+        // and "AFC_lane lane1" etc. for actual lanes.
+        if (afc_lane_names_.empty() && !afc_stepper_names.empty()) {
+            afc_lane_names_ = std::move(afc_stepper_names);
         }
 
         // Sort AFC lane names using natural sort (lane2 before lane10)

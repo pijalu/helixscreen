@@ -415,20 +415,38 @@ TEST_CASE("PrinterDiscovery detects new AFC object types", "[printer_discovery][
         REQUIRE(std::find(lanes.begin(), lanes.end(), "lane7") != lanes.end());
     }
 
-    SECTION("AFC_lane and AFC_stepper both populate afc_lane_names") {
+    SECTION("AFC_lane takes priority over AFC_stepper when both exist") {
+        // Vivid firmware has AFC_stepper for motors (drive/selector) and AFC_lane for lanes.
+        // Only AFC_lane should be used as lanes when both types exist.
         json objects = {"AFC",
-                        "AFC_stepper lane0",
-                        "AFC_stepper lane1",
-                        "AFC_stepper lane2",
-                        "AFC_stepper lane3",
-                        "AFC_lane lane4",
-                        "AFC_lane lane5",
-                        "AFC_lane lane6",
-                        "AFC_lane lane7"};
+                        "AFC_stepper Vivid_1_drive",
+                        "AFC_stepper Vivid_1_selector",
+                        "AFC_lane lane1",
+                        "AFC_lane lane2",
+                        "AFC_lane lane3",
+                        "AFC_lane lane4"};
         hw.parse_objects(objects);
 
         auto lanes = hw.afc_lane_names();
-        REQUIRE(lanes.size() == 8); // Both types in same vector
+        REQUIRE(lanes.size() == 4); // Only AFC_lane objects, not AFC_stepper motors
+        CHECK(lanes[0] == "lane1");
+        CHECK(lanes[1] == "lane2");
+        CHECK(lanes[2] == "lane3");
+        CHECK(lanes[3] == "lane4");
+    }
+
+    SECTION("AFC_stepper used as lanes when no AFC_lane objects exist") {
+        // Box Turtle firmware only has AFC_stepper for lanes
+        json objects = {"AFC",
+                        "AFC_stepper lane1",
+                        "AFC_stepper lane2",
+                        "AFC_stepper lane3",
+                        "AFC_stepper lane4"};
+        hw.parse_objects(objects);
+
+        auto lanes = hw.afc_lane_names();
+        REQUIRE(lanes.size() == 4);
+        CHECK(lanes[0] == "lane1");
     }
 
     SECTION("AFC_BoxTurtle detected in afc_unit_object_names") {
@@ -469,7 +487,7 @@ TEST_CASE("PrinterDiscovery detects new AFC object types", "[printer_discovery][
         REQUIRE(std::find(buffers.begin(), buffers.end(), "TN") != buffers.end());
     }
 
-    SECTION("Existing AFC_stepper detection unchanged") {
+    SECTION("AFC_stepper only (Box Turtle compat)") {
         json objects = {"AFC", "AFC_stepper lane1", "AFC_stepper lane2"};
         hw.parse_objects(objects);
 
@@ -479,12 +497,45 @@ TEST_CASE("PrinterDiscovery detects new AFC object types", "[printer_discovery][
         REQUIRE(lanes[1] == "lane2");
     }
 
+    SECTION("Vivid: AFC_stepper motors not counted as lanes") {
+        // Exact Klipper objects from a real Vivid setup.
+        // AFC_stepper objects are drive/selector motors, not lanes.
+        json objects = {"AFC",
+                        "AFC_vivid Vivid_1",
+                        "AFC_stepper Vivid_1_drive",
+                        "AFC_stepper Vivid_1_selector",
+                        "AFC_lane lane1",
+                        "AFC_lane lane2",
+                        "AFC_lane lane3",
+                        "AFC_lane lane4",
+                        "AFC_hub Vivid_1",
+                        "AFC_buffer Vivid_1_buffer",
+                        "AFC_extruder extruder",
+                        "AFC_led AFC_Indicator_1",
+                        "AFC_led AFC_Indicator_2"};
+        hw.parse_objects(objects);
+
+        REQUIRE(hw.has_mmu());
+        REQUIRE(hw.mmu_type() == AmsType::AFC);
+
+        auto lanes = hw.afc_lane_names();
+        REQUIRE(lanes.size() == 4);
+        CHECK(lanes[0] == "lane1");
+        CHECK(lanes[1] == "lane2");
+        CHECK(lanes[2] == "lane3");
+        CHECK(lanes[3] == "lane4");
+
+        CHECK(hw.afc_hub_names().size() == 1);
+        CHECK(hw.afc_unit_object_names().size() == 1);
+        CHECK(hw.afc_unit_object_names()[0] == "AFC_vivid Vivid_1");
+    }
+
     SECTION("Natural sort: lane10 comes after lane9, not before lane2") {
         json objects = {"AFC",
-                        "AFC_stepper lane0",
-                        "AFC_stepper lane1",
-                        "AFC_stepper lane2",
-                        "AFC_stepper lane3",
+                        "AFC_lane lane0",
+                        "AFC_lane lane1",
+                        "AFC_lane lane2",
+                        "AFC_lane lane3",
                         "AFC_lane lane4",
                         "AFC_lane lane5",
                         "AFC_lane lane6",
@@ -518,11 +569,14 @@ TEST_CASE("PrinterDiscovery detects new AFC object types", "[printer_discovery][
     }
 
     SECTION("Mixed AFC hardware - full J0eB0l setup") {
+        // Box Turtle uses AFC_stepper for lanes, OpenAMS uses AFC_lane.
+        // When both exist, only AFC_lane objects count as lanes.
         json objects = {"AFC",
-                        "AFC_stepper lane0",
-                        "AFC_stepper lane1",
-                        "AFC_stepper lane2",
-                        "AFC_stepper lane3",
+                        "AFC_stepper Turtle_1_stepper",
+                        "AFC_lane lane0",
+                        "AFC_lane lane1",
+                        "AFC_lane lane2",
+                        "AFC_lane lane3",
                         "AFC_lane lane4",
                         "AFC_lane lane5",
                         "AFC_lane lane6",
