@@ -79,6 +79,7 @@ class UsbPrinterDetector {
     _lv_timer_t* poll_timer_ = nullptr;
     DetectionCallback callback_;
     std::vector<UsbPrinterInfo> last_detected_;
+    bool first_scan_ = true;
 };
 
 } // namespace helix

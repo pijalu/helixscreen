@@ -6,17 +6,15 @@
 
 #include <spdlog/spdlog.h>
 
-#ifdef HELIX_HAS_LIBUSB
-#include <libusb-1.0/libusb.h>
-#endif
-
+#include <filesystem>
+#include <fstream>
 #include <thread>
 
 namespace helix {
 
 // Phomemo M110 defaults
 static constexpr uint8_t DEFAULT_SPEED = 0x03;
-static constexpr uint8_t DEFAULT_DENSITY = 0x08;
+static constexpr uint8_t DEFAULT_DENSITY = 0x0A;
 
 PhomemoPrinter::PhomemoPrinter() = default;
 PhomemoPrinter::~PhomemoPrinter() = default;
@@ -55,8 +53,7 @@ std::vector<uint8_t> PhomemoPrinter::build_raster_commands(const LabelBitmap& bi
     int num_lines = bitmap.height();
 
     std::vector<uint8_t> cmd;
-    // Pre-allocate: 11 (header) + 8 (GS v 0) + raster data + 8 (footer)
-    cmd.reserve(11 + 8 + static_cast<size_t>(bytes_per_line) * num_lines + 8);
+    cmd.reserve(19 + static_cast<size_t>(bytes_per_line) * num_lines + 8);
 
     // === Header (11 bytes) ===
 
@@ -77,7 +74,7 @@ std::vector<uint8_t> PhomemoPrinter::build_raster_commands(const LabelBitmap& bi
     cmd.push_back(0x11);
     cmd.push_back(size.media_type);
 
-    // === Image: GS v 0 raster block (8 bytes + data) ===
+    // === Image: GS v 0 raster block ===
 
     // GS v 0 command
     cmd.push_back(0x1D);
@@ -93,7 +90,7 @@ std::vector<uint8_t> PhomemoPrinter::build_raster_commands(const LabelBitmap& bi
     cmd.push_back(static_cast<uint8_t>(num_lines & 0xFF));
     cmd.push_back(static_cast<uint8_t>((num_lines >> 8) & 0xFF));
 
-    // Raster data — direct copy, no flip needed for Phomemo
+    // Raster data
     for (int y = 0; y < num_lines; y++) {
         const uint8_t* row = bitmap.row_data(y);
         cmd.insert(cmd.end(), row, row + bytes_per_line);
@@ -116,15 +113,37 @@ std::vector<uint8_t> PhomemoPrinter::build_raster_commands(const LabelBitmap& bi
     return cmd;
 }
 
+// Find the /dev/usb/lp* device node for a given VID:PID by checking sysfs
+static std::string find_usblp_device(uint16_t vid, uint16_t pid) {
+    // Scan /dev/usb/lp* and match against sysfs VID:PID
+    namespace fs = std::filesystem;
+
+    for (int i = 0; i < 8; i++) {
+        std::string dev_path = fmt::format("/dev/usb/lp{}", i);
+        std::string sysfs_path = fmt::format("/sys/class/usbmisc/lp{}/device/../", i);
+
+        // Read VID/PID from sysfs
+        auto read_hex = [](const std::string& path) -> uint16_t {
+            std::ifstream f(path);
+            if (!f.is_open()) return 0;
+            std::string val;
+            f >> val;
+            return static_cast<uint16_t>(std::stoul(val, nullptr, 16));
+        };
+
+        uint16_t dev_vid = read_hex(sysfs_path + "idVendor");
+        uint16_t dev_pid = read_hex(sysfs_path + "idProduct");
+
+        if (dev_vid == vid && dev_pid == pid) {
+            spdlog::debug("Phomemo: matched {} to {:04x}:{:04x}", dev_path, vid, pid);
+            return dev_path;
+        }
+    }
+    return {};
+}
+
 void PhomemoPrinter::print(const LabelBitmap& bitmap, const LabelSize& size,
                             PrintCallback callback) {
-#ifndef HELIX_HAS_LIBUSB
-    (void)bitmap;
-    (void)size;
-    helix::ui::queue_update([callback]() {
-        if (callback) callback(false, "USB printing not available on this platform");
-    });
-#else
     if (vid_ == 0 || pid_ == 0) {
         spdlog::error("Phomemo: USB device not configured (vid/pid not set)");
         helix::ui::queue_update([callback]() {
@@ -143,86 +162,35 @@ void PhomemoPrinter::print(const LabelBitmap& bitmap, const LabelSize& size,
         bool success = false;
         std::string error;
 
-        libusb_context* ctx = nullptr;
-        int rc = libusb_init(&ctx);
-        if (rc < 0) {
-            error = fmt::format("libusb_init failed: {}", libusb_strerror(static_cast<libusb_error>(rc)));
+        // Find the usblp device node for this VID:PID
+        std::string dev_path = find_usblp_device(vid, pid);
+        if (dev_path.empty()) {
+            error = fmt::format("No USB printer device found for {:04x}:{:04x}. "
+                                "Is the printer turned on?", vid, pid);
             spdlog::error("Phomemo: {}", error);
         } else {
-            libusb_device_handle* handle = libusb_open_device_with_vid_pid(ctx, vid, pid);
-            if (!handle) {
-                error = fmt::format("USB device {:04x}:{:04x} not found", vid, pid);
+            std::ofstream f(dev_path, std::ios::binary);
+            if (!f.is_open()) {
+                error = fmt::format("Cannot open {} (check permissions)", dev_path);
                 spdlog::error("Phomemo: {}", error);
             } else {
-                // Detach kernel driver if active
-                if (libusb_kernel_driver_active(handle, 0) == 1) {
-                    libusb_detach_kernel_driver(handle, 0);
-                }
-
-                rc = libusb_claim_interface(handle, 0);
-                if (rc < 0) {
-                    error = fmt::format("claim interface failed: {}",
-                                        libusb_strerror(static_cast<libusb_error>(rc)));
-                    spdlog::error("Phomemo: {}", error);
+                f.write(reinterpret_cast<const char*>(commands.data()),
+                        static_cast<std::streamsize>(commands.size()));
+                f.flush();
+                if (f.good()) {
+                    success = true;
+                    spdlog::info("Phomemo: sent {} bytes via {}", commands.size(), dev_path);
                 } else {
-                    // Find bulk OUT endpoint
-                    uint8_t endpoint = 0;
-                    libusb_device* dev = libusb_get_device(handle);
-                    struct libusb_config_descriptor* config = nullptr;
-                    if (libusb_get_active_config_descriptor(dev, &config) == 0 && config) {
-                        for (int i = 0; i < config->bNumInterfaces && endpoint == 0; i++) {
-                            auto& iface = config->interface[i];
-                            for (int j = 0; j < iface.num_altsetting && endpoint == 0; j++) {
-                                auto& alt = iface.altsetting[j];
-                                for (int k = 0; k < alt.bNumEndpoints; k++) {
-                                    auto& ep = alt.endpoint[k];
-                                    if ((ep.bmAttributes & LIBUSB_TRANSFER_TYPE_MASK) ==
-                                            LIBUSB_TRANSFER_TYPE_BULK &&
-                                        (ep.bEndpointAddress & LIBUSB_ENDPOINT_DIR_MASK) ==
-                                            LIBUSB_ENDPOINT_OUT) {
-                                        endpoint = ep.bEndpointAddress;
-                                        break;
-                                    }
-                                }
-                            }
-                        }
-                        libusb_free_config_descriptor(config);
-                    }
-
-                    if (endpoint == 0) {
-                        error = "no bulk OUT endpoint found";
-                        spdlog::error("Phomemo: {}", error);
-                    } else {
-                        int transferred = 0;
-                        rc = libusb_bulk_transfer(handle, endpoint,
-                                                  const_cast<uint8_t*>(commands.data()),
-                                                  static_cast<int>(commands.size()),
-                                                  &transferred, 10000);
-                        bool success_transfer = (rc == 0 && transferred == static_cast<int>(commands.size()));
-                        if (!success_transfer) {
-                            error = fmt::format("USB transfer failed: {} (sent {}/{})",
-                                                libusb_strerror(static_cast<libusb_error>(rc)),
-                                                transferred, commands.size());
-                            spdlog::error("Phomemo: {}", error);
-                        } else {
-                            success = true;
-                            spdlog::info("Phomemo: sent {} bytes successfully", transferred);
-                        }
-                    }
-
-                    libusb_release_interface(handle, 0);
+                    error = fmt::format("Write to {} failed", dev_path);
+                    spdlog::error("Phomemo: {}", error);
                 }
-                libusb_close(handle);
             }
-            libusb_exit(ctx);
         }
 
-        // Dispatch callback to UI thread
         helix::ui::queue_update([callback, success, error]() {
             callback(success, error);
         });
     }).detach();
-#endif // HELIX_HAS_LIBUSB
 }
 
 } // namespace helix

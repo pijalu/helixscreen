@@ -20,7 +20,8 @@ namespace helix {
 // ============================================================================
 
 static const std::vector<KnownUsbPrinter> s_known_printers = {
-    {0x0493, 0x8760, "Phomemo M110"},
+    {0x0483, 0x5740, "Phomemo M110"},  // STM32 CDC-ACM variant
+    {0x0493, 0x8760, "Phomemo M110"},  // Original USB variant
     // Future printers added here
 };
 
@@ -143,7 +144,10 @@ void UsbPrinterDetector::poll_timer_cb(_lv_timer_t* timer) {
 
     auto detected = self->scan();
 
-    if (!results_equal(detected, self->last_detected_)) {
+    // Always fire on first scan (so "Searching..." updates to "No printers found"),
+    // then only fire on subsequent changes
+    if (self->first_scan_ || !results_equal(detected, self->last_detected_)) {
+        self->first_scan_ = false;
         self->last_detected_ = detected;
         auto cb = self->callback_;
         cb(detected); // Already on UI thread via LVGL timer
@@ -155,6 +159,7 @@ void UsbPrinterDetector::start_polling(DetectionCallback callback, int interval_
 
     callback_ = std::move(callback);
     last_detected_.clear();
+    first_scan_ = true;
 
     poll_timer_ = lv_timer_create(
         [](lv_timer_t* t) { poll_timer_cb(t); },

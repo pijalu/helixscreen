@@ -14,6 +14,7 @@
 #include "spoolman_types.h"
 #include "static_panel_registry.h"
 #include "ui_toast_manager.h"
+#include "runtime_config.h"
 #include "usb_printer_detector.h"
 
 #include <algorithm>
@@ -64,17 +65,13 @@ void LabelPrinterSettingsOverlay::init_subjects() {
         return;
     }
 
-    // Register C++-owned subject into XML component scope
-    auto* scope = lv_xml_component_get_scope("label_printer_settings");
-    if (scope) {
-        lv_xml_register_subject(
-            scope, "printer_type_subject",
-            LabelPrinterSettingsManager::instance().subject_printer_type());
-    } else {
-        spdlog::warn("[{}] Component scope not found — "
-                     "ensure label_printer_settings.xml is registered first",
-                     get_name());
-    }
+    // Ensure manager subjects are initialized (reads config for initial value)
+    LabelPrinterSettingsManager::instance().init_subjects();
+
+    // Register C++-owned subject globally so XML bind_flag_if_not_eq can find it
+    lv_xml_register_subject(
+        nullptr, "printer_type_subject",
+        LabelPrinterSettingsManager::instance().subject_printer_type());
 
     subjects_initialized_ = true;
     spdlog::debug("[{}] Subjects initialized", get_name());
@@ -447,7 +444,8 @@ void LabelPrinterSettingsOverlay::init_printer_type_dropdown() {
 
 void LabelPrinterSettingsOverlay::handle_type_changed(int index) {
     std::string type = (index == 1) ? "usb" : "network";
-    spdlog::info("[{}] Printer type changed: {}", get_name(), type);
+    spdlog::info("[{}] Printer type changed: {} (index={})", get_name(), type, index);
+
     LabelPrinterSettingsManager::instance().set_printer_type(type);
 
     // Refresh label size dropdown for new backend
@@ -456,12 +454,16 @@ void LabelPrinterSettingsOverlay::handle_type_changed(int index) {
     // Reset label size to first option for new backend
     LabelPrinterSettingsManager::instance().set_label_size_index(0);
 
-    // Start/stop appropriate discovery
+    // Start/stop appropriate discovery and reset dropdowns
     if (type == "usb") {
         stop_label_printer_discovery();
+        detected_usb_printers_.clear();
+        init_usb_printer_dropdown();
         start_usb_detection();
     } else {
         stop_usb_detection();
+        discovered_printers_.clear();
+        init_discovery_dropdown();
         start_label_printer_discovery();
     }
 }
@@ -529,7 +531,11 @@ void LabelPrinterSettingsOverlay::on_usb_printers_detected(
         for (const auto& p : detected_usb_printers_) {
             if (!options.empty())
                 options += "\n";
-            options += fmt::format("{} (Bus {}, Dev {})", p.product_name, p.bus, p.address);
+            if (get_runtime_config()->is_test_mode()) {
+                options += fmt::format("{} (Bus {}, Dev {})", p.product_name, p.bus, p.address);
+            } else {
+                options += p.product_name;
+            }
         }
     }
 
