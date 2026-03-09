@@ -455,6 +455,14 @@ int Application::run(int argc, char** argv) {
         return 1;
     }
 
+    // Phase 9d: Start Moonraker connection early (during splash)
+    // Discovery runs async — by the time UI is created and splash exits,
+    // connection and discovery may already be complete, saving ~2s.
+    if (!connect_moonraker()) {
+        // Non-fatal - app can still run without connection
+        spdlog::warn("[Application] Running without printer connection");
+    }
+
     // Sync telemetry enabled state from SystemSettingsManager (now that its subjects are
     // initialized) Note: record_session() is deferred to on_discovery_complete callback so hardware
     // data is available
@@ -551,13 +559,7 @@ int Application::run(int argc, char** argv) {
     // Phase 14b: Check WiFi availability if expected
     check_wifi_availability();
 
-    // Phase 15: Connect to printer
-    if (!connect_moonraker()) {
-        // Non-fatal - app can still run without connection
-        spdlog::warn("[Application] Running without printer connection");
-    }
-
-    // Phase 16: Start memory monitoring (logs at TRACE level, -vvv)
+    // Phase 15: Start memory monitoring (logs at TRACE level, -vvv)
     helix::MemoryMonitor::instance().start(5000);
     helix::MemoryMonitor::instance().set_warning_callback(
         [](const helix::MemoryWarningEvent& event) {
