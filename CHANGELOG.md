@@ -5,6 +5,35 @@ All notable changes to HelixScreen will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.97.3] - 2026-03-08
+
+Label printing, Spoolman improvements, and startup performance.
+
+### Added
+- Print labels directly from the spool edit modal via connected label printers
+- mDNS auto-discovery for label printers in Spoolman integration
+- Improved label printer presets with richer Standard layout and test print
+- Pass downloaded config content through to print start analysis
+
+### Fixed
+- WiFi polkit permission errors now detected and displayed correctly, including "insufficient privilege" variant
+- PARALLEL AFC lane count inflated by cross-unit remap (#363)
+- Null dereference in home panel during widget drain (#362)
+- Null static widget pointers during multi-printer switch teardown
+- Active spool not synced when editing the currently loaded AFC slot
+- Checkbox checkmark invisible when accent color matched background
+- WebSocket SIGSEGV in onclose callback during destruction (#357)
+- Active spool not synced to filament panel after Spoolman edits
+- Stale LED strip names persisted after hardware discovery (#360)
+- Startup race between PrintPreparationManager and MacroModificationManager
+- Label printer raster mode and horizontal flip issues
+
+### Changed
+- WebSocket connection now starts during splash screen for faster startup
+- Panel widget rebuilds skipped when widget list is unchanged
+- Full translation sync with 100% coverage
+- Installer re-bundles polkit restart for immediate rule activation
+
 ## [0.97.2] - 2026-03-08
 
 ### Added
@@ -1719,6 +1748,7 @@ Initial tagged release. Foundation for all subsequent development.
 - Automated GitHub Actions release pipeline
 - One-liner installation script with platform auto-detection
 
+[0.97.3]: https://github.com/prestonbrown/helixscreen/compare/v0.97.2...v0.97.3
 [0.97.2]: https://github.com/prestonbrown/helixscreen/compare/v0.97.1...v0.97.2
 [0.97.1]: https://github.com/prestonbrown/helixscreen/compare/v0.97.0...v0.97.1
 [0.97.0]: https://github.com/prestonbrown/helixscreen/compare/v0.96.9...v0.97.0

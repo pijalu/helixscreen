@@ -853,6 +853,12 @@ PKLA_EOF
         else
             log_warn "polkit rules directory not found — Wi-Fi may not work as non-root"
         fi
+
+        # Reload polkit to pick up the new rule immediately
+        if systemctl is-active polkit >/dev/null 2>&1; then
+            $SUDO systemctl restart polkit 2>/dev/null || true
+            log_info "Restarted polkit to apply new rules"
+        fi
     fi
 }
 
