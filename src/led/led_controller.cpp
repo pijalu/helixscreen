@@ -285,6 +285,31 @@ void LedController::discover_from_hardware(const helix::PrinterDiscovery& hardwa
                      macro_.macros().size());
     }
 
+    // Prune selected strips that don't match any discovered hardware.
+    // Presets (e.g. AD5M) may specify LED names that don't exist on community
+    // firmware variants (Zmod names it "chamber_LED" vs stock "chamber_light").
+    // After pruning, the auto-select below kicks in and picks the real hardware.
+    if (!selected_strips_.empty()) {
+        auto all_strips = all_selectable_strips();
+        auto it = std::remove_if(selected_strips_.begin(), selected_strips_.end(),
+                                 [&all_strips](const std::string& id) {
+                                     for (const auto& s : all_strips) {
+                                         if (s.id == id) return false;
+                                     }
+                                     return true;
+                                 });
+        if (it != selected_strips_.end()) {
+            std::vector<std::string> pruned(it, selected_strips_.end());
+            selected_strips_.erase(it, selected_strips_.end());
+            for (const auto& p : pruned) {
+                spdlog::info("[LedController] Pruned stale LED strip '{}' (not found in "
+                             "discovered hardware)",
+                             p);
+            }
+            save_config();
+        }
+    }
+
     // Auto-select all native strips if nothing is selected yet
     // This ensures LEDs work out-of-the-box on first run (mock or real)
     if (selected_strips_.empty() && native_.is_available()) {

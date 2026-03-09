@@ -1058,3 +1058,95 @@ TEST_CASE("LedController: light_set(false) without effects skips stop_all_effect
 
     ctrl.deinit();
 }
+
+// ============================================================================
+// Stale strip pruning (issue #360: preset LED name vs firmware mismatch)
+// ============================================================================
+
+TEST_CASE("LedController: stale selected strips pruned on discovery", "[led][controller]") {
+    auto& ctrl = helix::led::LedController::instance();
+    ctrl.deinit();
+    ctrl.init(nullptr, nullptr);
+
+    // Pre-load a strip name that won't match discovered hardware
+    // (simulates AD5M preset with "led chamber_light" on Zmod firmware)
+    ctrl.set_selected_strips({"led chamber_light"});
+    REQUIRE(ctrl.selected_strips().size() == 1);
+
+    // Discover hardware with a DIFFERENT LED name (Zmod uses "chamber_LED")
+    helix::PrinterDiscovery discovery;
+    nlohmann::json objects = nlohmann::json::array({"led chamber_LED", "extruder"});
+    discovery.parse_objects(objects);
+    ctrl.discover_from_hardware(discovery);
+
+    // The stale "led chamber_light" should be pruned, and auto-select
+    // should have picked "led chamber_LED" from discovered hardware
+    REQUIRE(ctrl.selected_strips().size() == 1);
+    REQUIRE(ctrl.selected_strips()[0] == "led chamber_LED");
+
+    ctrl.deinit();
+}
+
+TEST_CASE("LedController: valid selected strips preserved on discovery", "[led][controller]") {
+    auto& ctrl = helix::led::LedController::instance();
+    ctrl.deinit();
+    ctrl.init(nullptr, nullptr);
+
+    // Pre-load a strip name that WILL match discovered hardware
+    ctrl.set_selected_strips({"neopixel chamber_light"});
+
+    helix::PrinterDiscovery discovery;
+    nlohmann::json objects = nlohmann::json::array(
+        {"neopixel chamber_light", "led status_led", "extruder"});
+    discovery.parse_objects(objects);
+    ctrl.discover_from_hardware(discovery);
+
+    // Valid strip should be preserved (not pruned, not replaced by auto-select)
+    REQUIRE(ctrl.selected_strips().size() == 1);
+    REQUIRE(ctrl.selected_strips()[0] == "neopixel chamber_light");
+
+    ctrl.deinit();
+}
+
+TEST_CASE("LedController: mixed valid and stale strips pruned correctly", "[led][controller]") {
+    auto& ctrl = helix::led::LedController::instance();
+    ctrl.deinit();
+    ctrl.init(nullptr, nullptr);
+
+    // One valid, one stale
+    ctrl.set_selected_strips({"neopixel rgb_led", "led old_light"});
+    REQUIRE(ctrl.selected_strips().size() == 2);
+
+    helix::PrinterDiscovery discovery;
+    nlohmann::json objects = nlohmann::json::array({"neopixel rgb_led", "extruder"});
+    discovery.parse_objects(objects);
+    ctrl.discover_from_hardware(discovery);
+
+    // Only the valid strip should remain
+    REQUIRE(ctrl.selected_strips().size() == 1);
+    REQUIRE(ctrl.selected_strips()[0] == "neopixel rgb_led");
+
+    ctrl.deinit();
+}
+
+TEST_CASE("LedController: all strips stale triggers auto-select", "[led][controller]") {
+    auto& ctrl = helix::led::LedController::instance();
+    ctrl.deinit();
+    ctrl.init(nullptr, nullptr);
+
+    // All pre-selected strips are stale
+    ctrl.set_selected_strips({"led nonexistent_1", "led nonexistent_2"});
+
+    helix::PrinterDiscovery discovery;
+    nlohmann::json objects = nlohmann::json::array(
+        {"neopixel actual_led_1", "led actual_led_2", "extruder"});
+    discovery.parse_objects(objects);
+    ctrl.discover_from_hardware(discovery);
+
+    // All stale → pruned → empty → auto-select picks all native strips
+    REQUIRE(ctrl.selected_strips().size() == 2);
+    REQUIRE(ctrl.selected_strips()[0] == "neopixel actual_led_1");
+    REQUIRE(ctrl.selected_strips()[1] == "led actual_led_2");
+
+    ctrl.deinit();
+}
