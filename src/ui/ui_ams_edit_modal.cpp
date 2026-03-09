@@ -889,6 +889,12 @@ void AmsEditModal::update_ui() {
             }
         }
         lv_dropdown_set_selected(vendor_dropdown, vendor_idx);
+
+        // Sync working_info_ when dropdown defaults to first entry
+        if (working_info_.brand.empty() && !vendor_list_.empty()) {
+            working_info_.brand = vendor_list_[vendor_idx].name;
+            working_info_.spoolman_vendor_id = vendor_list_[vendor_idx].id;
+        }
     }
 
     // Set up material dropdown from filament database
@@ -905,6 +911,11 @@ void AmsEditModal::update_ui() {
             }
         }
         lv_dropdown_set_selected(material_dropdown, material_idx);
+
+        // Sync working_info_ when dropdown defaults to first entry
+        if (working_info_.material.empty() && !material_list_.empty()) {
+            working_info_.material = material_list_[material_idx];
+        }
     }
 
     // Update color swatch

@@ -64,7 +64,7 @@
             <icon src="pencil" size="sm" variant="tertiary" align="bottom_right" style_opa="180"/>
           </lv_obj>
           <!-- Color name label below swatch -->
-          <text_small name="color_name_label" text="Gray" translation_tag="Gray" style_text_align="center"/>
+          <text_small name="color_name_label" text="Gray" translation_tag="Gray" width="100%" long_mode="wrap" style_text_align="center"/>
         </lv_obj>
         <!-- RIGHT COLUMN: Form fields -->
         <lv_obj flex_grow="1"
