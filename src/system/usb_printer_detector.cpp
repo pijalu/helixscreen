@@ -106,7 +106,7 @@ std::vector<UsbPrinterInfo> UsbPrinterDetector::scan() {
         // Try to read serial string descriptor (requires opening the device)
         if (desc.iSerialNumber != 0) {
             libusb_device_handle* handle = nullptr;
-            if (libusb_open(dev, &handle) == 0) {
+            if (libusb_open(dev, &handle) == 0 && handle != nullptr) {
                 unsigned char buf[256] = {};
                 int len = libusb_get_string_descriptor_ascii(
                     handle, desc.iSerialNumber, buf, sizeof(buf));

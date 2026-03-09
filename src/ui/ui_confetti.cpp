@@ -138,7 +138,7 @@ void update_particles(ConfettiData* data) {
         lv_obj_t* container = data->container;
         s_registry.erase(container);
         delete data;
-        lv_obj_delete(container);
+        lv_obj_delete_async(container);
         spdlog::debug("[Confetti] Animation complete, cleaned up");
     }
 }

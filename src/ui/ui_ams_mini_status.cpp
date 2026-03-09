@@ -245,7 +245,7 @@ static void rebuild_bars(AmsMiniStatusData* data) {
         // Delete any row containers beyond current unit_count
         for (int u = data->unit_count; u < 8; ++u) {
             if (data->unit_rows[u].row_container) {
-                lv_obj_delete(data->unit_rows[u].row_container);
+                lv_obj_delete_async(data->unit_rows[u].row_container);
                 data->unit_rows[u].row_container = nullptr;
             }
         }
@@ -303,7 +303,7 @@ static void rebuild_bars(AmsMiniStatusData* data) {
 
             // Delete row if no visible bars (hidden rows still consume flex gap)
             if (row_slots <= 0) {
-                lv_obj_delete(row);
+                lv_obj_delete_async(row);
                 data->unit_rows[u].row_container = nullptr;
             }
         }
@@ -326,7 +326,7 @@ static void rebuild_bars(AmsMiniStatusData* data) {
                         lv_obj_set_parent(slot->col.container, data->bars_container);
                     }
                 }
-                lv_obj_delete(data->unit_rows[u].row_container);
+                lv_obj_delete_async(data->unit_rows[u].row_container);
                 data->unit_rows[u].row_container = nullptr;
             }
         }
