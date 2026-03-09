@@ -28,9 +28,13 @@ void LabelPrinterSettingsManager::init_subjects() {
 
     Config* config = Config::get_instance();
 
-    // Configured flag: 1 if address is non-empty
-    std::string addr = config->get<std::string>("/label_printer/address", "");
-    int configured = addr.empty() ? 0 : 1;
+    // Printer type: 0=network, 1=usb
+    std::string type_str = config->get<std::string>("/label_printer/type", "network");
+    int type_int = (type_str == "usb") ? 1 : 0;
+    UI_MANAGED_SUBJECT_INT(printer_type_subject_, type_int, "label_printer_type", subjects_);
+
+    // Configured flag: depends on printer type
+    int configured = is_configured() ? 1 : 0;
     UI_MANAGED_SUBJECT_INT(printer_configured_subject_, configured, "label_printer_configured",
                            subjects_);
 
@@ -40,8 +44,8 @@ void LabelPrinterSettingsManager::init_subjects() {
         "LabelPrinterSettingsManager",
         []() { LabelPrinterSettingsManager::instance().deinit_subjects(); });
 
-    spdlog::debug("[LabelPrinterSettings] Subjects initialized: addr='{}', configured={}",
-                  addr, configured);
+    spdlog::debug("[LabelPrinterSettings] Subjects initialized: type='{}', configured={}",
+                  type_str, configured);
 }
 
 void LabelPrinterSettingsManager::deinit_subjects() {
@@ -58,6 +62,26 @@ void LabelPrinterSettingsManager::deinit_subjects() {
 // =============================================================================
 // GETTERS / SETTERS
 // =============================================================================
+
+std::string LabelPrinterSettingsManager::get_printer_type() const {
+    Config* config = Config::get_instance();
+    return config->get<std::string>("/label_printer/type", "network");
+}
+
+void LabelPrinterSettingsManager::set_printer_type(const std::string& type) {
+    spdlog::info("[LabelPrinterSettings] set_printer_type('{}')", type);
+
+    Config* config = Config::get_instance();
+    config->set<std::string>("/label_printer/type", type);
+    config->save();
+
+    // Update type subject
+    if (subjects_initialized_) {
+        int type_int = (type == "usb") ? 1 : 0;
+        lv_subject_set_int(&printer_type_subject_, type_int);
+        lv_subject_set_int(&printer_configured_subject_, is_configured() ? 1 : 0);
+    }
+}
 
 std::string LabelPrinterSettingsManager::get_printer_address() const {
     Config* config = Config::get_instance();
@@ -116,6 +140,56 @@ void LabelPrinterSettingsManager::set_label_preset(int preset) {
     config->save();
 }
 
+uint16_t LabelPrinterSettingsManager::get_usb_vid() const {
+    Config* config = Config::get_instance();
+    return static_cast<uint16_t>(config->get<int>("/label_printer/usb_vid", 0));
+}
+
+void LabelPrinterSettingsManager::set_usb_vid(uint16_t vid) {
+    spdlog::info("[LabelPrinterSettings] set_usb_vid(0x{:04x})", vid);
+
+    Config* config = Config::get_instance();
+    config->set<int>("/label_printer/usb_vid", vid);
+    config->save();
+
+    if (subjects_initialized_) {
+        lv_subject_set_int(&printer_configured_subject_, is_configured() ? 1 : 0);
+    }
+}
+
+uint16_t LabelPrinterSettingsManager::get_usb_pid() const {
+    Config* config = Config::get_instance();
+    return static_cast<uint16_t>(config->get<int>("/label_printer/usb_pid", 0));
+}
+
+void LabelPrinterSettingsManager::set_usb_pid(uint16_t pid) {
+    spdlog::info("[LabelPrinterSettings] set_usb_pid(0x{:04x})", pid);
+
+    Config* config = Config::get_instance();
+    config->set<int>("/label_printer/usb_pid", pid);
+    config->save();
+
+    if (subjects_initialized_) {
+        lv_subject_set_int(&printer_configured_subject_, is_configured() ? 1 : 0);
+    }
+}
+
+std::string LabelPrinterSettingsManager::get_usb_serial() const {
+    Config* config = Config::get_instance();
+    return config->get<std::string>("/label_printer/usb_serial", "");
+}
+
+void LabelPrinterSettingsManager::set_usb_serial(const std::string& serial) {
+    spdlog::info("[LabelPrinterSettings] set_usb_serial('{}')", serial);
+
+    Config* config = Config::get_instance();
+    config->set<std::string>("/label_printer/usb_serial", serial);
+    config->save();
+}
+
 bool LabelPrinterSettingsManager::is_configured() const {
+    if (get_printer_type() == "usb") {
+        return get_usb_vid() != 0 && get_usb_pid() != 0;
+    }
     return !get_printer_address().empty();
 }

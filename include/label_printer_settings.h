@@ -6,6 +6,7 @@
 #include "lvgl/lvgl.h"
 #include "subject_managed_panel.h"
 
+#include <cstdint>
 #include <string>
 
 namespace helix {
@@ -14,11 +15,14 @@ namespace helix {
  * @brief Domain-specific manager for label printer settings
  *
  * Owns label printer configuration and persistence:
+ * - printer_type ("network" or "usb")
  * - printer_address (IP/hostname of Brother QL printer)
  * - printer_port (raw socket port, default 9100)
+ * - usb_vid, usb_pid, usb_serial (USB device identification)
  * - label_size_index (index into supported label sizes)
  * - label_preset (0=Standard, 1=Compact, 2=Minimal)
- * - printer_configured subject (1 if address non-empty)
+ * - printer_configured subject (1 if address non-empty or USB VID/PID set)
+ * - printer_type subject (0=network, 1=usb)
  *
  * Thread safety: Single-threaded, main LVGL thread only.
  */
@@ -39,6 +43,12 @@ class LabelPrinterSettingsManager {
     // =========================================================================
     // GETTERS / SETTERS
     // =========================================================================
+
+    /** @brief Get printer type ("network" or "usb") */
+    std::string get_printer_type() const;
+
+    /** @brief Set printer type (updates type + configured subjects, persists) */
+    void set_printer_type(const std::string& type);
 
     /** @brief Get printer IP address or hostname */
     std::string get_printer_address() const;
@@ -64,7 +74,25 @@ class LabelPrinterSettingsManager {
     /** @brief Set label preset (persists to config) */
     void set_label_preset(int preset);
 
-    /** @brief True if printer address is non-empty */
+    /** @brief Get USB vendor ID */
+    uint16_t get_usb_vid() const;
+
+    /** @brief Set USB vendor ID (updates configured subject, persists) */
+    void set_usb_vid(uint16_t vid);
+
+    /** @brief Get USB product ID */
+    uint16_t get_usb_pid() const;
+
+    /** @brief Set USB product ID (updates configured subject, persists) */
+    void set_usb_pid(uint16_t pid);
+
+    /** @brief Get USB serial number */
+    std::string get_usb_serial() const;
+
+    /** @brief Set USB serial number (persists to config) */
+    void set_usb_serial(const std::string& serial);
+
+    /** @brief True if printer is configured (network: address non-empty; USB: VID+PID set) */
     bool is_configured() const;
 
     // =========================================================================
@@ -76,6 +104,11 @@ class LabelPrinterSettingsManager {
         return &printer_configured_subject_;
     }
 
+    /** @brief Printer type subject (integer: 0=network, 1=usb) */
+    lv_subject_t* subject_printer_type() {
+        return &printer_type_subject_;
+    }
+
   private:
     LabelPrinterSettingsManager();
     ~LabelPrinterSettingsManager() = default;
@@ -83,6 +116,7 @@ class LabelPrinterSettingsManager {
     SubjectManager subjects_;
 
     lv_subject_t printer_configured_subject_; // int: 0/1
+    lv_subject_t printer_type_subject_;       // int: 0=network, 1=usb
 
     bool subjects_initialized_ = false;
 };
