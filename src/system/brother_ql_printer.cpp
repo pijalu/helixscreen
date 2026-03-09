@@ -22,19 +22,6 @@ namespace helix {
 static constexpr int RASTER_ROW_BYTES = 90;
 
 
-const char* label_preset_name(LabelPreset preset) {
-    switch (preset) {
-    case LabelPreset::STANDARD: return "Standard";
-    case LabelPreset::COMPACT:  return "Compact";
-    case LabelPreset::MINIMAL:  return "QR Only";
-    }
-    return "Standard";
-}
-
-const char* label_preset_options() {
-    return "Standard\nCompact\nQR Only";
-}
-
 struct BrotherQLPrinter::Impl {};
 
 BrotherQLPrinter::BrotherQLPrinter() : impl_(std::make_unique<Impl>()) {}
