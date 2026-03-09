@@ -106,32 +106,39 @@ TEST_CASE("New device sections include hub, tip_forming, purge",
 
     auto sections = backend.get_device_sections();
 
+    SECTION("toolhead section present") {
+        auto* toolhead = find_section(sections, "toolhead");
+        REQUIRE(toolhead != nullptr);
+        CHECK(toolhead->label == "Toolhead");
+        CHECK(toolhead->display_order == 2);
+    }
+
     SECTION("hub section present") {
         auto* hub = find_section(sections, "hub");
         REQUIRE(hub != nullptr);
         CHECK(hub->label == "Hub & Cutter");
-        CHECK(hub->display_order == 3);
+        CHECK(hub->display_order == 4);
     }
 
     SECTION("tip_forming section present") {
         auto* tip = find_section(sections, "tip_forming");
         REQUIRE(tip != nullptr);
         CHECK(tip->label == "Tip Forming");
-        CHECK(tip->display_order == 4);
+        CHECK(tip->display_order == 5);
     }
 
     SECTION("purge section present") {
         auto* purge = find_section(sections, "purge");
         REQUIRE(purge != nullptr);
         CHECK(purge->label == "Purge & Wipe");
-        CHECK(purge->display_order == 5);
+        CHECK(purge->display_order == 6);
     }
 
     SECTION("config section present") {
         auto* config = find_section(sections, "config");
         REQUIRE(config != nullptr);
         CHECK(config->label == "Configuration");
-        CHECK(config->display_order == 6);
+        CHECK(config->display_order == 7);
     }
 
     SECTION("original sections still present (renamed: calibration+led -> setup)") {
