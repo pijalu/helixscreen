@@ -9,11 +9,12 @@ std::vector<DeviceSection> afc_default_sections() {
     return {
         {"setup", "Setup", 0, "Calibration, LED, and system configuration"},
         {"speed", "Speed Settings", 1, "Move speed multipliers"},
-        {"maintenance", "Maintenance", 2, "Lane tests and motor resets"},
-        {"hub", "Hub & Cutter", 3, "Blade change and parking"},
-        {"tip_forming", "Tip Forming", 4, "Tip shaping configuration"},
-        {"purge", "Purge & Wipe", 5, "Purge tower and brush settings"},
-        {"config", "Configuration", 6, "System configuration and mapping"},
+        {"toolhead", "Toolhead", 2, "Extruder distances and sensor configuration"},
+        {"maintenance", "Maintenance", 3, "Lane tests and motor resets"},
+        {"hub", "Hub & Cutter", 4, "Blade change and parking"},
+        {"tip_forming", "Tip Forming", 5, "Tip shaping configuration"},
+        {"purge", "Purge & Wipe", 6, "Purge tower and brush settings"},
+        {"config", "Configuration", 7, "System configuration and mapping"},
     };
 }
 
@@ -85,6 +86,58 @@ std::vector<DeviceAction> afc_default_actions() {
         .min_value = 0.5f,
         .max_value = 2.0f,
         .unit = "x",
+        .slot_index = -1,
+        .enabled = true,
+        .disable_reason = "",
+    });
+
+    // Toolhead section (extruder distances)
+    actions.push_back({
+        .id = "tool_stn",
+        .label = "Sensor to Nozzle",
+        .icon = "ruler",
+        .section = "toolhead",
+        .description = "Distance from toolhead sensor to nozzle tip",
+        .type = ActionType::SLIDER,
+        .current_value = std::any(72.0f),
+        .options = {},
+        .min_value = 0.0f,
+        .max_value = 200.0f,
+        .unit = "mm",
+        .slot_index = -1,
+        .enabled = true,
+        .disable_reason = "",
+    });
+
+    actions.push_back({
+        .id = "tool_stn_unload",
+        .label = "Unload Distance",
+        .icon = "ruler",
+        .section = "toolhead",
+        .description = "Retraction distance to clear extruder gears",
+        .type = ActionType::SLIDER,
+        .current_value = std::any(100.0f),
+        .options = {},
+        .min_value = 0.0f,
+        .max_value = 200.0f,
+        .unit = "mm",
+        .slot_index = -1,
+        .enabled = true,
+        .disable_reason = "",
+    });
+
+    actions.push_back({
+        .id = "tool_sensor_after_extruder",
+        .label = "Post-Sensor Clear",
+        .icon = "ruler",
+        .section = "toolhead",
+        .description = "Extra distance to move once sensors clear",
+        .type = ActionType::SLIDER,
+        .current_value = std::any(0.0f),
+        .options = {},
+        .min_value = 0.0f,
+        .max_value = 100.0f,
+        .unit = "mm",
         .slot_index = -1,
         .enabled = true,
         .disable_reason = "",
