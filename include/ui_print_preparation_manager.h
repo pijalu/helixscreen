@@ -623,6 +623,14 @@ class PrintPreparationManager {
     void analyze_print_start_macro_internal();
 
     /**
+     * @brief Schedule a deferred retry of macro analysis
+     *
+     * Used when MacroModificationManager is currently analyzing — defers
+     * to its result instead of starting a duplicate PrintStartAnalyzer run.
+     */
+    void schedule_deferred_macro_check();
+
+    /**
      * @brief Collect macro skip parameters based on user checkboxes and macro analysis
      *
      * Checks which macro operations the user disabled (checkbox unchecked) and

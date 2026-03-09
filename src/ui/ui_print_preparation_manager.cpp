@@ -149,11 +149,43 @@ void PrintPreparationManager::analyze_print_start_macro() {
         }
     }
 
+    // Check if MacroModificationManager is currently analyzing — defer to its result
+    // instead of starting a duplicate analysis
+    if (auto* mgr = get_moonraker_manager()) {
+        if (auto* macro_mgr = mgr->macro_analysis()) {
+            if (macro_mgr->is_analyzing()) {
+                spdlog::debug("[PrintPreparationManager] MacroModificationManager analysis in "
+                              "progress, deferring");
+                schedule_deferred_macro_check();
+                return;
+            }
+        }
+    }
+
     // Reset retry counter when starting fresh
     macro_analysis_retry_count_ = 0;
 
     // Delegate to internal implementation
     analyze_print_start_macro_internal();
+}
+
+void PrintPreparationManager::schedule_deferred_macro_check() {
+    struct DeferData {
+        PrintPreparationManager* mgr;
+        std::shared_ptr<bool> alive;
+    };
+    auto data = std::make_unique<DeferData>(DeferData{this, alive_guard_});
+
+    lv_timer_t* timer = lv_timer_create(
+        [](lv_timer_t* t) {
+            std::unique_ptr<DeferData> d(static_cast<DeferData*>(lv_timer_get_user_data(t)));
+            lv_timer_delete(t);
+            if (d && d->alive && *d->alive) {
+                d->mgr->analyze_print_start_macro();
+            }
+        },
+        500, data.release());
+    lv_timer_set_repeat_count(timer, 1);
 }
 
 void PrintPreparationManager::analyze_print_start_macro_internal() {
