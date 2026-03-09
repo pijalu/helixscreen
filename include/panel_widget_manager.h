@@ -91,6 +91,11 @@ class PanelWidgetManager {
     /// Release gate observers for a panel (call during deinit/shutdown).
     void clear_gate_observers(const std::string& panel_id);
 
+    /// Clear cached widget config for a panel, forcing a full rebuild on the
+    /// next populate_widgets() call. Use when the panel is destroyed or when
+    /// the user explicitly edits the widget layout.
+    void clear_panel_config(const std::string& panel_id);
+
     /// Get the PanelWidgetConfig for a panel (creates if needed).
     class PanelWidgetConfig& get_widget_config(const std::string& panel_id);
 
@@ -116,6 +121,14 @@ class PanelWidgetManager {
     /// Per-panel coalesced rebuild timers — batches rapid gate observer changes
     /// into a single rebuild per LVGL frame instead of one per subject change
     std::unordered_map<std::string, ui::CoalescedTimer> rebuild_timers_;
+
+    /// Track current widget configuration per panel to detect no-op rebuilds.
+    /// When populate_widgets() is called and the ordered list of widget IDs
+    /// hasn't changed, the teardown+rebuild cycle is skipped entirely.
+    struct ActiveWidgetConfig {
+        std::vector<std::string> widget_ids; // ordered list of active widget IDs
+    };
+    std::unordered_map<std::string, ActiveWidgetConfig> active_configs_;
 };
 
 } // namespace helix

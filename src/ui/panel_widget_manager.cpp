@@ -97,9 +97,6 @@ PanelWidgetManager::populate_widgets(const std::string& panel_id, lv_obj_t* cont
     }
     populating_ = true;
 
-    // Clear existing children (for repopulation)
-    lv_obj_clean(container);
-
     auto& widget_config = get_widget_config_impl(panel_id);
 
     // Resolved widget slot: holds the widget ID, resolved XML component name,
@@ -180,6 +177,32 @@ PanelWidgetManager::populate_widgets(const std::string& panel_id, lv_obj_t* cont
             }
         }
     }
+
+    // Check if widget list is unchanged — skip teardown+rebuild if nothing changed
+    {
+        std::vector<std::string> new_ids;
+        new_ids.reserve(enabled_widgets.size());
+        for (const auto& slot : enabled_widgets) {
+            new_ids.push_back(slot.widget_id);
+        }
+
+        auto it = active_configs_.find(panel_id);
+        bool container_has_children = lv_obj_get_child_count(container) > 0;
+        if (it != active_configs_.end() && it->second.widget_ids == new_ids &&
+            container_has_children) {
+            spdlog::debug(
+                "[PanelWidgetManager] Widget list unchanged for '{}', skipping rebuild",
+                panel_id);
+            populating_ = false;
+            return {};
+        }
+
+        // Store new config for future comparison
+        active_configs_[panel_id] = ActiveWidgetConfig{std::move(new_ids)};
+    }
+
+    // Clear existing children (for repopulation)
+    lv_obj_clean(container);
 
     if (enabled_widgets.empty()) {
         populating_ = false;
@@ -661,6 +684,10 @@ void PanelWidgetManager::clear_gate_observers(const std::string& panel_id) {
         gate_observers_.erase(it);
     }
     rebuild_timers_.erase(panel_id);
+}
+
+void PanelWidgetManager::clear_panel_config(const std::string& panel_id) {
+    active_configs_.erase(panel_id);
 }
 
 PanelWidgetConfig& PanelWidgetManager::get_widget_config(const std::string& panel_id) {
