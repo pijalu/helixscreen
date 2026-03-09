@@ -12,9 +12,11 @@
 #include "label_printer_settings.h"
 #include "label_printer_utils.h"
 #include "label_renderer.h"
+#include "phomemo_printer.h"
 #include "spoolman_types.h"
 #include "static_panel_registry.h"
 #include "ui_toast_manager.h"
+#include "usb_printer_detector.h"
 
 #include <algorithm>
 
@@ -51,6 +53,7 @@ LabelPrinterSettingsOverlay::LabelPrinterSettingsOverlay() {
 LabelPrinterSettingsOverlay::~LabelPrinterSettingsOverlay() {
     alive_->store(false);
     stop_label_printer_discovery();
+    stop_usb_detection();
     spdlog::trace("[{}] Destroyed", get_name());
 }
 
@@ -63,6 +66,18 @@ void LabelPrinterSettingsOverlay::init_subjects() {
         return;
     }
 
+    // Register C++-owned subject into XML component scope
+    auto* scope = lv_xml_component_get_scope("label_printer_settings");
+    if (scope) {
+        lv_xml_register_subject(
+            scope, "printer_type_subject",
+            LabelPrinterSettingsManager::instance().subject_printer_type());
+    } else {
+        spdlog::warn("[{}] Component scope not found — "
+                     "ensure label_printer_settings.xml is registered first",
+                     get_name());
+    }
+
     subjects_initialized_ = true;
     spdlog::debug("[{}] Subjects initialized", get_name());
 }
@@ -73,6 +88,8 @@ void LabelPrinterSettingsOverlay::register_callbacks() {
         {"on_lp_preset_changed", on_preset_changed},
         {"on_lp_test_print", on_test_print},
         {"on_lp_printer_selected", on_printer_selected},
+        {"on_lp_type_changed", on_type_changed},
+        {"on_lp_usb_printer_selected", on_usb_printer_selected},
     });
 
     spdlog::debug("[{}] Callbacks registered", get_name());
@@ -133,17 +150,28 @@ void LabelPrinterSettingsOverlay::show(lv_obj_t* parent_screen) {
 void LabelPrinterSettingsOverlay::on_activate() {
     OverlayBase::on_activate();
 
+    init_printer_type_dropdown();
     init_address_input();
     init_port_input();
     init_label_size_dropdown();
     init_preset_dropdown();
     init_discovery_dropdown();
-    start_label_printer_discovery();
+    init_usb_printer_dropdown();
+
+    // Start detection based on current printer type
+    auto& settings = LabelPrinterSettingsManager::instance();
+    if (settings.get_printer_type() == "usb") {
+        start_usb_detection();
+    } else {
+        start_label_printer_discovery();
+    }
+
     inputs_initialized_ = true;
 }
 
 void LabelPrinterSettingsOverlay::on_deactivate() {
     stop_label_printer_discovery();
+    stop_usb_detection();
     OverlayBase::on_deactivate();
 }
 
@@ -201,7 +229,9 @@ void LabelPrinterSettingsOverlay::init_label_size_dropdown() {
     lv_obj_t* dropdown = lv_obj_find_by_name(size_row, "dropdown");
     if (dropdown) {
         auto& settings = LabelPrinterSettingsManager::instance();
-        auto sizes = BrotherQLPrinter::supported_sizes_static();
+        auto sizes = (settings.get_printer_type() == "usb")
+                         ? helix::PhomemoPrinter::supported_sizes_static()
+                         : BrotherQLPrinter::supported_sizes_static();
 
         std::string options;
         for (size_t i = 0; i < sizes.size(); i++) {
@@ -212,8 +242,13 @@ void LabelPrinterSettingsOverlay::init_label_size_dropdown() {
 
         if (!options.empty()) {
             lv_dropdown_set_options(dropdown, options.c_str());
-            lv_dropdown_set_selected(dropdown,
-                                     static_cast<uint32_t>(settings.get_label_size_index()));
+            int current_idx = settings.get_label_size_index();
+            int max_idx = static_cast<int>(sizes.size()) - 1;
+            if (current_idx > max_idx) {
+                current_idx = 0;
+                settings.set_label_size_index(0);
+            }
+            lv_dropdown_set_selected(dropdown, static_cast<uint32_t>(current_idx));
         }
         spdlog::trace("[{}] Label size dropdown initialized ({} sizes)", get_name(), sizes.size());
     }
@@ -391,6 +426,144 @@ void LabelPrinterSettingsOverlay::handle_printer_selected(int index) {
 }
 
 // ============================================================================
+// PRINTER TYPE
+// ============================================================================
+
+void LabelPrinterSettingsOverlay::init_printer_type_dropdown() {
+    if (!overlay_root_)
+        return;
+
+    lv_obj_t* row = lv_obj_find_by_name(overlay_root_, "row_printer_type");
+    if (!row)
+        return;
+
+    lv_obj_t* dropdown = lv_obj_find_by_name(row, "dropdown");
+    if (dropdown) {
+        auto options = fmt::format("{}\n{}", lv_tr("Network"), lv_tr("USB"));
+        lv_dropdown_set_options(dropdown, options.c_str());
+        auto& settings = LabelPrinterSettingsManager::instance();
+        int type_idx = (settings.get_printer_type() == "usb") ? 1 : 0;
+        lv_dropdown_set_selected(dropdown, static_cast<uint32_t>(type_idx));
+    }
+}
+
+void LabelPrinterSettingsOverlay::handle_type_changed(int index) {
+    std::string type = (index == 1) ? "usb" : "network";
+    spdlog::info("[{}] Printer type changed: {}", get_name(), type);
+    LabelPrinterSettingsManager::instance().set_printer_type(type);
+
+    // Refresh label size dropdown for new backend
+    init_label_size_dropdown();
+
+    // Reset label size to first option for new backend
+    LabelPrinterSettingsManager::instance().set_label_size_index(0);
+
+    // Start/stop appropriate discovery
+    if (type == "usb") {
+        stop_label_printer_discovery();
+        start_usb_detection();
+    } else {
+        stop_usb_detection();
+        start_label_printer_discovery();
+    }
+}
+
+// ============================================================================
+// USB DETECTION
+// ============================================================================
+
+void LabelPrinterSettingsOverlay::init_usb_printer_dropdown() {
+    if (!overlay_root_)
+        return;
+
+    lv_obj_t* row = lv_obj_find_by_name(overlay_root_, "row_usb_printers");
+    if (!row)
+        return;
+
+    lv_obj_t* dropdown = lv_obj_find_by_name(row, "dropdown");
+    if (dropdown) {
+        lv_dropdown_set_options(dropdown, lv_tr("Searching..."));
+    }
+}
+
+void LabelPrinterSettingsOverlay::start_usb_detection() {
+    if (usb_detector_ && usb_detector_->is_polling())
+        return;
+
+    usb_detector_ = std::make_unique<helix::UsbPrinterDetector>();
+    auto alive = alive_;
+    usb_detector_->start_polling(
+        [this, alive](const std::vector<helix::UsbPrinterInfo>& printers) {
+            if (!alive->load())
+                return;
+            on_usb_printers_detected(printers);
+        });
+    spdlog::debug("[{}] Started USB printer detection", get_name());
+}
+
+void LabelPrinterSettingsOverlay::stop_usb_detection() {
+    if (usb_detector_) {
+        usb_detector_->stop_polling();
+        usb_detector_.reset();
+        spdlog::debug("[{}] Stopped USB printer detection", get_name());
+    }
+}
+
+void LabelPrinterSettingsOverlay::on_usb_printers_detected(
+    const std::vector<helix::UsbPrinterInfo>& printers) {
+
+    detected_usb_printers_ = printers;
+
+    if (!overlay_root_)
+        return;
+
+    lv_obj_t* row = lv_obj_find_by_name(overlay_root_, "row_usb_printers");
+    if (!row)
+        return;
+    lv_obj_t* dropdown = lv_obj_find_by_name(row, "dropdown");
+    if (!dropdown)
+        return;
+
+    std::string options;
+    if (detected_usb_printers_.empty()) {
+        options = lv_tr("No USB printers found");
+    } else {
+        for (const auto& p : detected_usb_printers_) {
+            if (!options.empty())
+                options += "\n";
+            options += fmt::format("{} (Bus {}, Dev {})", p.product_name, p.bus, p.address);
+        }
+    }
+
+    lv_dropdown_set_options(dropdown, options.c_str());
+    spdlog::debug("[{}] USB detection: {} printers found", get_name(), printers.size());
+
+    // Auto-select first if not configured yet
+    if (!detected_usb_printers_.empty()) {
+        auto& settings = LabelPrinterSettingsManager::instance();
+        if (settings.get_usb_vid() == 0) {
+            handle_usb_printer_selected(0);
+            spdlog::info("[{}] Auto-selected USB printer: {}", get_name(),
+                         detected_usb_printers_[0].product_name);
+        }
+    }
+}
+
+void LabelPrinterSettingsOverlay::handle_usb_printer_selected(int index) {
+    if (index < 0 || index >= static_cast<int>(detected_usb_printers_.size()))
+        return;
+
+    const auto& printer = detected_usb_printers_[index];
+    spdlog::info("[{}] Selected USB printer: {} ({:04x}:{:04x})", get_name(),
+                 printer.product_name, printer.vid, printer.pid);
+
+    auto& settings = LabelPrinterSettingsManager::instance();
+    settings.set_usb_vid(printer.vid);
+    settings.set_usb_pid(printer.pid);
+    settings.set_usb_serial(printer.serial);
+}
+
+// ============================================================================
 // EVENT HANDLERS
 // ============================================================================
 
@@ -436,11 +609,14 @@ void LabelPrinterSettingsOverlay::handle_port_changed() {
 }
 
 void LabelPrinterSettingsOverlay::handle_label_size_changed(int index) {
-    auto sizes = BrotherQLPrinter::supported_sizes_static();
+    auto& settings = LabelPrinterSettingsManager::instance();
+    auto sizes = (settings.get_printer_type() == "usb")
+                     ? helix::PhomemoPrinter::supported_sizes_static()
+                     : BrotherQLPrinter::supported_sizes_static();
     if (index >= 0 && index < static_cast<int>(sizes.size())) {
         spdlog::info("[{}] Label size changed: {} (index {})", get_name(), sizes[index].name,
                      index);
-        LabelPrinterSettingsManager::instance().set_label_size_index(index);
+        settings.set_label_size_index(index);
     } else {
         spdlog::warn("[{}] Label size index {} out of range ({})", get_name(), index, sizes.size());
     }
@@ -460,12 +636,14 @@ void LabelPrinterSettingsOverlay::handle_test_print() {
     auto& settings = LabelPrinterSettingsManager::instance();
 
     if (!settings.is_configured()) {
-        ToastManager::instance().show(ToastSeverity::WARNING, lv_tr("Enter printer IP address first"));
+        const char* msg = (settings.get_printer_type() == "usb")
+                              ? lv_tr("Connect a USB label printer first")
+                              : lv_tr("Enter printer IP address first");
+        ToastManager::instance().show(ToastSeverity::WARNING, msg);
         return;
     }
 
-    spdlog::info("[{}] Test print requested ({}:{})", get_name(),
-                 settings.get_printer_address(), settings.get_printer_port());
+    spdlog::info("[{}] Test print requested", get_name());
 
     // Create a mock spool for the test label
     SpoolInfo mock_spool;
@@ -482,27 +660,37 @@ void LabelPrinterSettingsOverlay::handle_test_print() {
     mock_spool.nozzle_temp_recommended = 210;
     mock_spool.bed_temp_recommended = 60;
 
-    auto sizes = helix::BrotherQLPrinter::supported_sizes_static();
+    bool is_usb = (settings.get_printer_type() == "usb");
+    auto sizes = is_usb ? helix::PhomemoPrinter::supported_sizes_static()
+                        : helix::BrotherQLPrinter::supported_sizes_static();
+
     int size_idx = std::clamp(settings.get_label_size_index(), 0,
                               static_cast<int>(sizes.size()) - 1);
     auto preset = static_cast<helix::LabelPreset>(settings.get_label_preset());
-
     auto bitmap = helix::LabelRenderer::render(mock_spool, preset, sizes[size_idx]);
 
     ToastManager::instance().show(ToastSeverity::INFO, lv_tr("Printing test label..."), 2000);
 
-    static helix::BrotherQLPrinter test_printer;
-    test_printer.print_label(
-        settings.get_printer_address(), settings.get_printer_port(), bitmap, sizes[size_idx],
-        [](bool success, const std::string& error) {
-            if (success) {
-                ToastManager::instance().show(ToastSeverity::SUCCESS, lv_tr("Test label printed"),
-                                              2000);
-            } else {
-                spdlog::error("[LabelPrinterSettings] Test print failed: {}", error);
-                ToastManager::instance().show(ToastSeverity::ERROR, lv_tr("Print failed"), 3000);
-            }
-        });
+    auto print_cb = [](bool success, const std::string& error) {
+        if (success) {
+            ToastManager::instance().show(ToastSeverity::SUCCESS, lv_tr("Test label printed"),
+                                          2000);
+        } else {
+            spdlog::error("[LabelPrinterSettings] Test print failed: {}", error);
+            ToastManager::instance().show(ToastSeverity::ERROR, lv_tr("Print failed"), 3000);
+        }
+    };
+
+    if (is_usb) {
+        static helix::PhomemoPrinter usb_printer;
+        usb_printer.set_device(settings.get_usb_vid(), settings.get_usb_pid(),
+                               settings.get_usb_serial());
+        usb_printer.print(bitmap, sizes[size_idx], print_cb);
+    } else {
+        static helix::BrotherQLPrinter net_printer;
+        net_printer.print_label(settings.get_printer_address(), settings.get_printer_port(),
+                                bitmap, sizes[size_idx], print_cb);
+    }
 }
 
 // ============================================================================
@@ -548,6 +736,22 @@ void LabelPrinterSettingsOverlay::on_printer_selected(lv_event_t* e) {
     auto* dropdown = static_cast<lv_obj_t*>(lv_event_get_current_target(e));
     int index = static_cast<int>(lv_dropdown_get_selected(dropdown));
     get_label_printer_settings_overlay().handle_printer_selected(index);
+    LVGL_SAFE_EVENT_CB_END();
+}
+
+void LabelPrinterSettingsOverlay::on_type_changed(lv_event_t* e) {
+    LVGL_SAFE_EVENT_CB_BEGIN("[LabelPrinterSettings] on_type_changed");
+    auto* dropdown = static_cast<lv_obj_t*>(lv_event_get_current_target(e));
+    int index = static_cast<int>(lv_dropdown_get_selected(dropdown));
+    get_label_printer_settings_overlay().handle_type_changed(index);
+    LVGL_SAFE_EVENT_CB_END();
+}
+
+void LabelPrinterSettingsOverlay::on_usb_printer_selected(lv_event_t* e) {
+    LVGL_SAFE_EVENT_CB_BEGIN("[LabelPrinterSettings] on_usb_printer_selected");
+    auto* dropdown = static_cast<lv_obj_t*>(lv_event_get_current_target(e));
+    int index = static_cast<int>(lv_dropdown_get_selected(dropdown));
+    get_label_printer_settings_overlay().handle_usb_printer_selected(index);
     LVGL_SAFE_EVENT_CB_END();
 }
 

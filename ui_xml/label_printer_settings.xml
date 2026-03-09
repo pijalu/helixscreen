@@ -2,44 +2,70 @@
 <!-- Copyright (C) 2025-2026 356C LLC -->
 <!-- SPDX-License-Identifier: GPL-3.0-or-later -->
 <!-- Label Printer Settings Overlay -->
-<!-- Configure Brother QL label printer: address, port, label size, preset, test print -->
 <component>
+  <subjects>
+    <!-- DO NOT declare printer_type_subject here — it's managed by C++ (LabelPrinterSettingsManager) -->
+  </subjects>
   <view name="label_printer_settings"
         extends="overlay_panel" width="#overlay_panel_width_full" title="Label Printer" title_tag="Label Printer"
         bg_color="#screen_bg">
     <lv_obj name="overlay_content" width="100%" flex_grow="1" style_pad_top="0" style_pad_left="#space_lg" style_pad_right="#space_lg" style_pad_bottom="#space_lg" scrollable="true" flex_flow="column">
-      <!-- Discovered Printers -->
-      <setting_section_header title="DISCOVERED PRINTERS" title_tag="DISCOVERED PRINTERS" icon="lan"/>
-      <setting_dropdown_row name="row_discovered_printers"
-                            label="Printer" label_tag="Printer"
-                            icon="magnify"
-                            dropdown_width="66%"
-                            callback="on_lp_printer_selected"/>
-      <!-- Manual Address/Port entry -->
-      <setting_section_header title="MANUAL" title_tag="MANUAL" icon="tune"/>
-      <lv_obj name="row_address_port" width="100%" height="content" flex_flow="row"
-              style_flex_cross_place="center" style_flex_main_place="end" style_pad_all="0"
-              style_pad_left="#space_lg" style_pad_right="#space_lg" style_pad_top="#space_sm"
-              style_pad_bottom="#space_sm" style_pad_gap="#space_md" style_bg_opa="0"
-              style_border_width="0" scrollable="false">
-        <text_muted name="label_address" width="content" text="Address"/>
-        <text_input name="input_address" placeholder_text="192.168.1.50" one_line="true" width="160"/>
-        <text_muted name="label_port" width="content" text="Port"/>
-        <text_input name="input_port" placeholder_text="9100" one_line="true" width="70"/>
+
+      <!-- Printer Type selector -->
+      <setting_section_header title="CONNECTION TYPE" title_tag="CONNECTION TYPE" icon="connection"/>
+      <setting_dropdown_row name="row_printer_type"
+                            label="Type" label_tag="Type"
+                            icon="swap-horizontal"
+                            callback="on_lp_type_changed"/>
+
+      <!-- Network config section — visible when type=0 (network) -->
+      <lv_obj name="section_network" width="100%" height="content" flex_flow="column"
+              style_bg_opa="0" style_border_width="0" style_pad_all="0" scrollable="false">
+        <bind_flag_if_not_eq subject="printer_type_subject" flag="hidden" ref_value="0"/>
+        <setting_section_header title="DISCOVERED PRINTERS" title_tag="DISCOVERED PRINTERS" icon="lan"/>
+        <setting_dropdown_row name="row_discovered_printers"
+                              label="Printer" label_tag="Printer"
+                              icon="magnify"
+                              dropdown_width="66%"
+                              callback="on_lp_printer_selected"/>
+        <setting_section_header title="MANUAL" title_tag="MANUAL" icon="tune"/>
+        <lv_obj name="row_address_port" width="100%" height="content" flex_flow="row"
+                style_flex_cross_place="center" style_flex_main_place="end" style_pad_all="0"
+                style_pad_left="#space_lg" style_pad_right="#space_lg" style_pad_top="#space_sm"
+                style_pad_bottom="#space_sm" style_pad_gap="#space_md" style_bg_opa="0"
+                style_border_width="0" scrollable="false">
+          <text_muted name="label_address" width="content" text="Address"/>
+          <text_input name="input_address" placeholder_text="192.168.1.50" one_line="true" width="160"/>
+          <text_muted name="label_port" width="content" text="Port"/>
+          <text_input name="input_port" placeholder_text="9100" one_line="true" width="70"/>
+        </lv_obj>
       </lv_obj>
-      <!-- Label Size -->
+
+      <!-- USB config section — visible when type=1 (usb) -->
+      <lv_obj name="section_usb" width="100%" height="content" flex_flow="column"
+              style_bg_opa="0" style_border_width="0" style_pad_all="0" scrollable="false">
+        <bind_flag_if_not_eq subject="printer_type_subject" flag="hidden" ref_value="1"/>
+        <setting_section_header title="DETECTED USB PRINTERS" title_tag="DETECTED USB PRINTERS" icon="usb"/>
+        <setting_dropdown_row name="row_usb_printers"
+                              label="Printer" label_tag="Printer"
+                              icon="magnify"
+                              dropdown_width="66%"
+                              callback="on_lp_usb_printer_selected"/>
+      </lv_obj>
+
+      <!-- Label Size (shared) -->
       <setting_dropdown_row name="row_label_size"
                             label="Label Size" label_tag="Label Size" icon="ruler"
                             description="Select your label media"
                             description_tag="Select your label media"
                             callback="on_lp_label_size_changed"/>
-      <!-- Label Preset -->
+      <!-- Label Preset (shared) -->
       <setting_dropdown_row name="row_preset"
                             label="Label Preset" label_tag="Label Preset" icon="tune"
                             description="Layout style for labels"
                             description_tag="Layout style for labels"
                             callback="on_lp_preset_changed"/>
-      <!-- Test Print -->
+      <!-- Test Print (shared) -->
       <lv_obj name="row_test_print" width="100%" height="content" flex_flow="row"
               style_flex_main_place="center" style_pad_all="#space_md" style_bg_opa="0"
               style_border_width="0" scrollable="false">
