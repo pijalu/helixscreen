@@ -53,13 +53,11 @@
     <!-- PRINTER SECTION -->
     <!-- ================================================================== -->
     <setting_section_header title="PRINTER" title_tag="PRINTER" icon="printer_3d"/>
-    <!-- Printer Management (manage configured printers) — beta feature -->
-    <beta_feature>
-      <setting_action_row name="row_printers"
-                          label="Printers" label_tag="Printers" icon="printer_3d"
-                          description="Manage configured printers"
-                          description_tag="Manage configured printers" callback="on_printers_clicked"/>
-    </beta_feature>
+    <!-- Printer Management (manage configured printers) -->
+    <setting_action_row name="row_printers"
+                        label="Printers" label_tag="Printers" icon="printer_3d"
+                        description="Manage configured printers"
+                        description_tag="Manage configured printers" callback="on_printers_clicked"/>
     <!-- AMS Management (hidden if no AMS detected) -->
     <lv_obj name="container_ams_settings" width="100%" style_pad_all="0" scrollable="false">
       <bind_flag_if_eq subject="ams_slot_count" flag="hidden" ref_value="0"/>

@@ -8,12 +8,12 @@
 
 ## Active Lessons
 
-### [L008] [**---|***--] Design tokens and semantic widgets
-- **Uses**: 8 | **Velocity**: 1 | **Learned**: 2025-12-14 | **Last**: 2026-02-24 | **Category**: pattern | **Type**: informational
+### [L008] [**---|****-] Design tokens and semantic widgets
+- **Uses**: 9 | **Velocity**: 2 | **Learned**: 2025-12-14 | **Last**: 2026-03-08 | **Category**: pattern | **Type**: informational
 > No hardcoded colors or spacing. Prefer semantic widgets (ui_card, ui_button, text_*, divider_*) which apply tokens automatically. Don't redundantly specify their built-in defaults (e.g., style_radius on ui_card, button_height on ui_button). See docs/LVGL9_XML_GUIDE.md "Custom Semantic Widgets" for defaults.
 
-### [L009] [***--|****-] Icon font sync workflow
-- **Uses**: 14 | **Velocity**: 3 | **Learned**: 2025-12-14 | **Last**: 2026-02-28 | **Category**: gotcha | **Type**: constraint
+### [L009] [***--|*****] Icon font sync workflow
+- **Uses**: 16 | **Velocity**: 5 | **Learned**: 2025-12-14 | **Last**: 2026-03-08 | **Category**: gotcha | **Type**: constraint
 > After adding icon to codepoints.h: add to regen_mdi_fonts.sh, run make regen-fonts, then rebuild. Forgetting any step = missing icon
 
 ### [L011] [***--|***--] No mutex in destructors
@@ -37,19 +37,19 @@
 > Text-only buttons: use `align="center"` on child. Icon+text buttons with flex_flow="row": need ALL THREE flex properties - style_flex_main_place="center" (horizontal), style_flex_cross_place="center" (vertical align items), style_flex_track_place="center" (vertical position of row). Missing track_place causes content to sit at top.
 
 ### [L031] [****-|*****] XML no recompile
-- **Uses**: 76 | **Velocity**: 56.0075 | **Learned**: 2025-12-27 | **Last**: 2026-03-02 | **Category**: gotcha | **Type**: constraint
+- **Uses**: 94 | **Velocity**: 74.0075 | **Learned**: 2025-12-27 | **Last**: 2026-03-08 | **Category**: gotcha | **Type**: constraint
 > XML files are loaded at RUNTIME - never rebuild after XML-only changes. Just relaunch the app. This includes layout changes, styling, bindings, event callbacks - anything in ui_xml/*.xml. Only rebuild when C++ code changes.
 
-### [L039] [*----|***--] Unique XML callback names
-- **Uses**: 3 | **Velocity**: 1 | **Learned**: 2025-12-30 | **Last**: 2026-02-24 | **Category**: pattern | **Type**: constraint
+### [L039] [*----|****-] Unique XML callback names
+- **Uses**: 4 | **Velocity**: 2 | **Learned**: 2025-12-30 | **Last**: 2026-03-07 | **Category**: pattern | **Type**: constraint
 > All XML event_cb callback names must be globally unique using on_<component>_<action> pattern. LVGL's XML callback registry is a flat global namespace with no scoping. Generic names like on_modal_ok_clicked cause collisions when multiple components register handlers.
 
 ### [L040] [**---|****-] Inline XML attrs override bind_style
 - **Uses**: 6 | **Velocity**: 3 | **Learned**: 2025-12-30 | **Last**: 2026-02-24 | **Category**: gotcha | **Type**: constraint
 > When using bind_style for reactive visual changes, inline style attributes (style_bg_color, style_text_color, etc.) have higher priority in LVGL's style cascade. bind_style cannot override them. Solution: use TWO bind_styles (one per state) with NO inline styling for properties you want to change reactively.
 
-### [L042] [*----|****-] XML bind_flag exclusive visibility
-- **Uses**: 3 | **Velocity**: 2 | **Learned**: 2025-12-31 | **Last**: 2026-02-28 | **Category**: pattern | **Type**: informational
+### [L042] [**---|*****] XML bind_flag exclusive visibility
+- **Uses**: 5 | **Velocity**: 4 | **Learned**: 2025-12-31 | **Last**: 2026-03-07 | **Category**: pattern | **Type**: informational
 > Multiple bind_flag_if_eq on same object creates independent observers where last one wins (race condition). For 'show only when X=value' logic, use single bind_flag_if_not_eq instead. Example: bind_flag_if_not_eq ref_value="0" shows only when value IS 0.
 
 ### [L045] [*----|-----] XML dropdown options use &#10; entities
@@ -97,7 +97,7 @@
 > Always use lv_obj_safe_delete() instead of raw lv_obj_delete() - it guards against shutdown race conditions by checking lv_is_initialized() and lv_display_get_next() before deletion, and auto-nulls the pointer to prevent use-after-free
 
 ### [L060] [***--|*****] Interactive UI testing requires user
-- **Uses**: 43 | **Velocity**: 42.01 | **Learned**: 2026-02-01 | **Last**: 2026-03-02 | **Category**: correction | **Type**: constraint
+- **Uses**: 46 | **Velocity**: 45.01 | **Learned**: 2026-02-01 | **Last**: 2026-03-08 | **Category**: correction | **Type**: constraint
 > NEVER use timed delays expecting automatic navigation. THE EXACT PATTERN THAT WORKS:
 > **Step 1** - Start app with Bash tool using `run_in_background: true`:
 > ```bash
@@ -117,8 +117,8 @@
 - **Uses**: 5 | **Velocity**: 5 | **Learned**: 2026-02-07 | **Last**: 2026-02-25 | **Category**: build
 > AD5M cross-compilation uses 'make ad5m-docker' (Docker-based ARM cross-compile), NOT 'make pi-test' (which targets Raspberry Pi). Deploy with 'AD5M_HOST=192.168.1.67 make ad5m-deploy'. The pi-test target is for a different device entirely.
 
-### [L064] [*----|*****] Commit generated translation artifacts
-- **Uses**: 4 | **Velocity**: 4 | **Learned**: 2026-02-10 | **Last**: 2026-03-02 | **Category**: i18n
+### [L064] [**---|*****] Commit generated translation artifacts
+- **Uses**: 5 | **Velocity**: 5 | **Learned**: 2026-02-10 | **Last**: 2026-03-08 | **Category**: i18n
 > After syncing translation YAML files, must also regenerate and commit the compiled artifacts: src/generated/lv_i18n_translations.c, src/generated/lv_i18n_translations.h, and ui_xml/translations/translations.xml. These are tracked in git (not gitignored) for cross-compilation support. The build regenerates them automatically, but they won't be staged unless you explicitly add them.
 
 ### [L065] [-----|-----] No test-only methods on production classes
@@ -129,8 +129,8 @@
 - **Uses**: 5 | **Velocity**: 5 | **Learned**: 2026-02-11 | **Last**: 2026-02-28 | **Category**: lvgl
 > When using flex_grow on a container with flex_flow=row_wrap, LVGL calculates wrap points based on the container's natural (content) width, NOT the flex-allocated width. Fix: set width="1" + flex_grow="1" — forces LVGL to use the grown width for wrapping. Without this, children overflow instead of wrapping.
 
-### [L067] [*----|****-] Wrap C++ UI strings in lv_tr()
-- **Uses**: 3 | **Velocity**: 3 | **Learned**: 2026-02-14 | **Last**: 2026-02-28 | **Category**: ui
+### [L067] [*----|*****] Wrap C++ UI strings in lv_tr()
+- **Uses**: 4 | **Velocity**: 4 | **Learned**: 2026-02-14 | **Last**: 2026-03-08 | **Category**: ui
 > All user-visible English strings in C++ code must be wrapped in lv_tr() for i18n. Dropdown options are concatenated strings so they're harder to translate - but labels, help text, toasts, etc. must use lv_tr().
 
 ### [L068] [-----|-----] Cancel LVGL animations before object deletion
@@ -145,12 +145,12 @@
 - **Uses**: 11 | **Velocity**: 10 | **Learned**: 2026-02-21 | **Last**: 2026-02-28 | **Category**: ui | **Type**: constraint
 > When a parent view has an event_cb for "clicked", all child objects (lv_obj, icon, text_body, text_tiny, etc.) must have `clickable="false" event_bubble="true"` or they absorb the click before it reaches the parent's callback. LVGL objects are clickable by default.
 
-### [L070] [*----|****-] Don't lv_tr() non-translatable strings
-- **Uses**: 3 | **Velocity**: 3 | **Learned**: 2026-02-17 | **Last**: 2026-02-24 | **Category**: i18n
+### [L070] [**---|*****] Don't lv_tr() non-translatable strings
+- **Uses**: 5 | **Velocity**: 5 | **Learned**: 2026-02-17 | **Last**: 2026-03-08 | **Category**: i18n
 > Never wrap product names (Spoolman, Klipper, Moonraker, HelixScreen), URLs/domains, technical abbreviations used as standalone labels (AMS, QGL, ADXL), or universal terms (OK, WiFi) in lv_tr(). Add '// i18n: do not translate' comment explaining why. Sentences CONTAINING product names ARE translatable — 'Restarting HelixScreen...' is fine because 'Restarting' translates. Material names (PLA, PETG, ABS, TPU, PA) also don't get translated or translation_tag in XML.
 
 ### [L072] [**---|*****] Never capture bare this in async/WebSocket callbacks
-- **Uses**: 6 | **Velocity**: 6 | **Learned**: 2026-02-22 | **Last**: 2026-02-25 | **Category**: gotcha | **Type**: constraint
+- **Uses**: 7 | **Velocity**: 7 | **Learned**: 2026-02-22 | **Last**: 2026-03-08 | **Category**: gotcha | **Type**: constraint
 > Callbacks passed to execute_gcode(), send_jsonrpc(), or any Moonraker API call fire from the WebSocket thread AFTER the widget/panel may be destroyed. NEVER capture [this] — use weak_ptr<bool> alive guard or capture value copies only. Pattern: `std::weak_ptr<bool> weak = alive_; api->call([weak, name_copy]() { if (weak.expired()) return; ... });`
 
 ### [L073] [*----|****-] ObserverGuard release vs reset

@@ -13,6 +13,8 @@
 #include "color_utils.h"
 #include "filament_database.h"
 #include "format_utils.h"
+#include "label_printer_settings.h"
+#include "label_renderer.h"
 #include "moonraker_api.h"
 #include "spoolman_slot_saver.h"
 #include "spoolman_types.h"
@@ -709,6 +711,70 @@ void AmsEditModal::handle_unlink() {
     update_spoolman_button_state();
 }
 
+void AmsEditModal::handle_print_label() {
+    auto& settings = helix::LabelPrinterSettingsManager::instance();
+
+    if (!settings.is_configured()) {
+        ToastManager::instance().show(ToastSeverity::INFO,
+                                      lv_tr("Set up your label printer in Settings"), 3000);
+        return;
+    }
+
+    std::string host = settings.get_printer_address();
+    int port = settings.get_printer_port();
+    int size_idx = settings.get_label_size_index();
+    int preset_idx = settings.get_label_preset();
+
+    auto sizes = helix::BrotherQLPrinter::supported_sizes();
+    if (size_idx < 0 || size_idx >= static_cast<int>(sizes.size()))
+        size_idx = 0;
+    const auto& label_size = sizes[size_idx];
+
+    auto preset = static_cast<helix::LabelPreset>(
+        std::clamp(preset_idx, 0, static_cast<int>(helix::LabelPreset::MINIMAL)));
+
+    // Try to find richer spool data from cached Spoolman spools
+    SpoolInfo spool_info;
+    bool found = false;
+    for (const auto& spool : cached_spools_) {
+        if (spool.id == working_info_.spoolman_id) {
+            spool_info = spool;
+            found = true;
+            break;
+        }
+    }
+
+    if (!found) {
+        // Fall back to building SpoolInfo from working_info_ fields
+        spool_info.id = working_info_.spoolman_id;
+        spool_info.vendor = working_info_.brand;
+        spool_info.material = working_info_.material;
+        spool_info.color_name = working_info_.color_name;
+        spool_info.remaining_weight_g = working_info_.remaining_weight_g;
+        spool_info.initial_weight_g = working_info_.total_weight_g;
+    }
+
+    auto bitmap = helix::LabelRenderer::render(spool_info, preset, label_size);
+    if (bitmap.empty()) {
+        ToastManager::instance().show(ToastSeverity::ERROR, lv_tr("Failed to render label"), 3000);
+        return;
+    }
+
+    ToastManager::instance().show(ToastSeverity::INFO, lv_tr("Printing label..."), 2000);
+
+    printer_.print_label(host, port, bitmap, label_size,
+                         [](bool success, const std::string& error) {
+                             if (success) {
+                                 ToastManager::instance().show(ToastSeverity::SUCCESS,
+                                                               lv_tr("Label printed"), 2000);
+                             } else {
+                                 spdlog::error("[AmsEditModal] Print failed: {}", error);
+                                 ToastManager::instance().show(ToastSeverity::ERROR,
+                                                               lv_tr("Print failed"), 3000);
+                             }
+                         });
+}
+
 void AmsEditModal::update_spoolman_button_state() {
     if (!dialog_) {
         return;
@@ -733,6 +799,14 @@ void AmsEditModal::update_spoolman_button_state() {
         if (btn_unlink) {
             lv_obj_add_flag(btn_unlink, LV_OBJ_FLAG_HIDDEN);
         }
+    }
+
+    lv_obj_t* btn_print = find_widget("btn_print_label");
+    if (btn_print) {
+        bool show = working_info_.spoolman_id > 0 &&
+                    helix::LabelPrinterSettingsManager::instance().is_configured();
+        if (show) lv_obj_remove_flag(btn_print, LV_OBJ_FLAG_HIDDEN);
+        else      lv_obj_add_flag(btn_print, LV_OBJ_FLAG_HIDDEN);
     }
 }
 
@@ -1218,6 +1292,7 @@ void AmsEditModal::register_callbacks() {
         {"ams_edit_manual_entry_cb", on_manual_entry_cb},
         {"ams_edit_change_spool_cb", on_change_spool_cb},
         {"ams_edit_unlink_cb", on_unlink_cb},
+        {"ams_edit_print_label_cb", on_print_label_cb},
         {"ams_edit_picker_search_cb", on_picker_search_cb},
         {"ams_edit_picker_retry_cb", on_picker_retry_cb},
         // Register handler for spool_item clicks (shared component uses this callback name)
@@ -1338,6 +1413,13 @@ void AmsEditModal::on_unlink_cb(lv_event_t* e) {
     auto* self = get_instance_from_event(e);
     if (self) {
         self->handle_unlink();
+    }
+}
+
+void AmsEditModal::on_print_label_cb(lv_event_t* e) {
+    auto* self = get_instance_from_event(e);
+    if (self) {
+        self->handle_print_label();
     }
 }
 

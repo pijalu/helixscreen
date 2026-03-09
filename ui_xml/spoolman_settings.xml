@@ -70,13 +70,11 @@
       <!-- ================================================================== -->
       <!-- Label Printer (opens sub-panel)                                    -->
       <!-- ================================================================== -->
-      <beta_feature>
       <setting_action_row name="row_label_printer"
                           label="Label Printer" label_tag="Label Printer" icon="print"
                           description="Configure label printer and auto-discovery"
                           description_tag="Configure label printer and auto-discovery"
                           callback="on_spoolman_label_printer_clicked"/>
-      </beta_feature>
     </lv_obj>
   </view>
 </component>
