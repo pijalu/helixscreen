@@ -3,12 +3,19 @@
 
 #pragma once
 
+#include "label_printer.h"
 #include "mdns_discovery.h"
+#include "spoolman_types.h"
 
 #include <algorithm>
 #include <string>
 
 namespace helix {
+
+/// Print a spool label using the configured printer backend.
+/// Handles backend selection, USB device scanning with fallback, and error reporting.
+/// Callback fires on UI thread.
+void print_spool_label(const SpoolInfo& spool, PrintCallback callback);
 
 /**
  * Score how likely a discovered printer is to be a label printer.

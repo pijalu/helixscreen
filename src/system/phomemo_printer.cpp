@@ -6,7 +6,9 @@
 
 #include <spdlog/spdlog.h>
 
+#ifdef HELIX_HAS_LIBUSB
 #include <libusb-1.0/libusb.h>
+#endif
 
 #include <thread>
 
@@ -116,6 +118,13 @@ std::vector<uint8_t> PhomemoPrinter::build_raster_commands(const LabelBitmap& bi
 
 void PhomemoPrinter::print(const LabelBitmap& bitmap, const LabelSize& size,
                             PrintCallback callback) {
+#ifndef HELIX_HAS_LIBUSB
+    (void)bitmap;
+    (void)size;
+    helix::ui::queue_update([callback]() {
+        if (callback) callback(false, "USB printing not available on this platform");
+    });
+#else
     if (vid_ == 0 || pid_ == 0) {
         spdlog::error("Phomemo: USB device not configured (vid/pid not set)");
         helix::ui::queue_update([callback]() {
@@ -213,6 +222,7 @@ void PhomemoPrinter::print(const LabelBitmap& bitmap, const LabelSize& size,
             callback(success, error);
         });
     }).detach();
+#endif // HELIX_HAS_LIBUSB
 }
 
 } // namespace helix

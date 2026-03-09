@@ -8,7 +8,9 @@
 #include <algorithm>
 #include <tuple>
 
+#ifdef HELIX_HAS_LIBUSB
 #include <libusb-1.0/libusb.h>
+#endif
 #include <lvgl.h>
 
 namespace helix {
@@ -61,6 +63,10 @@ UsbPrinterDetector::~UsbPrinterDetector() {
 std::vector<UsbPrinterInfo> UsbPrinterDetector::scan() {
     std::vector<UsbPrinterInfo> results;
 
+#ifndef HELIX_HAS_LIBUSB
+    spdlog::debug("usb-detect: libusb not available on this platform");
+    return results;
+#else
     libusb_context* ctx = nullptr;
     int rc = libusb_init(&ctx);
     if (rc != 0) {
@@ -122,6 +128,7 @@ std::vector<UsbPrinterInfo> UsbPrinterDetector::scan() {
     libusb_exit(ctx);
 
     return results;
+#endif // HELIX_HAS_LIBUSB
 }
 
 // ============================================================================

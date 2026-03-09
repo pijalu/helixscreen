@@ -7,12 +7,10 @@
 #include "ui_event_safety.h"
 #include "ui_nav_manager.h"
 
-#include "brother_ql_printer.h"
-#include "label_bitmap.h"
 #include "label_printer_settings.h"
 #include "label_printer_utils.h"
-#include "label_renderer.h"
 #include "phomemo_printer.h"
+#include "brother_ql_printer.h"
 #include "spoolman_types.h"
 #include "static_panel_registry.h"
 #include "ui_toast_manager.h"
@@ -660,18 +658,9 @@ void LabelPrinterSettingsOverlay::handle_test_print() {
     mock_spool.nozzle_temp_recommended = 210;
     mock_spool.bed_temp_recommended = 60;
 
-    bool is_usb = (settings.get_printer_type() == "usb");
-    auto sizes = is_usb ? helix::PhomemoPrinter::supported_sizes_static()
-                        : helix::BrotherQLPrinter::supported_sizes_static();
-
-    int size_idx = std::clamp(settings.get_label_size_index(), 0,
-                              static_cast<int>(sizes.size()) - 1);
-    auto preset = static_cast<helix::LabelPreset>(settings.get_label_preset());
-    auto bitmap = helix::LabelRenderer::render(mock_spool, preset, sizes[size_idx]);
-
     ToastManager::instance().show(ToastSeverity::INFO, lv_tr("Printing test label..."), 2000);
 
-    auto print_cb = [](bool success, const std::string& error) {
+    helix::print_spool_label(mock_spool, [](bool success, const std::string& error) {
         if (success) {
             ToastManager::instance().show(ToastSeverity::SUCCESS, lv_tr("Test label printed"),
                                           2000);
@@ -679,18 +668,7 @@ void LabelPrinterSettingsOverlay::handle_test_print() {
             spdlog::error("[LabelPrinterSettings] Test print failed: {}", error);
             ToastManager::instance().show(ToastSeverity::ERROR, lv_tr("Print failed"), 3000);
         }
-    };
-
-    if (is_usb) {
-        static helix::PhomemoPrinter usb_printer;
-        usb_printer.set_device(settings.get_usb_vid(), settings.get_usb_pid(),
-                               settings.get_usb_serial());
-        usb_printer.print(bitmap, sizes[size_idx], print_cb);
-    } else {
-        static helix::BrotherQLPrinter net_printer;
-        net_printer.print_label(settings.get_printer_address(), settings.get_printer_port(),
-                                bitmap, sizes[size_idx], print_cb);
-    }
+    });
 }
 
 // ============================================================================
