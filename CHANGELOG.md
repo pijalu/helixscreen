@@ -5,6 +5,31 @@ All notable changes to HelixScreen will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.97.4] - 2026-03-09
+
+### Added
+- USB label printer support (Phomemo M110) with auto-detection via libusb
+- Split button widget with primary action and dropdown selector
+- Preheat home panel widget
+- Duplicate option in Spoolman spool context menu
+- udev rule for USB label printer device access
+
+### Fixed
+- SIGSEGV from synchronous object deletion in timer callbacks (#367)
+- SIGSEGV in BufferStatusModal destruction during show (#366)
+- Null libusb handle dereference on AD5M platform (#368)
+- AMS edit dropdown defaults not syncing for empty slots
+- AMS edit modal width too narrow on smaller screens
+- Label printer icon rendering, dropdown alignment, and spool edit layout
+- A4T toolhead drawing too small on AMS canvas
+- Printer config validation accepting non-printer object keys
+- WiFi polkit rule priority and permission error detection
+
+### Changed
+- MIPS crash reports now include register extraction, stack dumps, and unwind tables (#365)
+- In-app self-updates use atomic directory swap for reliability
+- Translation sync with 15 new keys
+
 ## [0.97.3] - 2026-03-08
 
 Label printing, Spoolman improvements, and startup performance.
@@ -1748,6 +1773,7 @@ Initial tagged release. Foundation for all subsequent development.
 - Automated GitHub Actions release pipeline
 - One-liner installation script with platform auto-detection
 
+[0.97.4]: https://github.com/prestonbrown/helixscreen/compare/v0.97.3...v0.97.4
 [0.97.3]: https://github.com/prestonbrown/helixscreen/compare/v0.97.2...v0.97.3
 [0.97.2]: https://github.com/prestonbrown/helixscreen/compare/v0.97.1...v0.97.2
 [0.97.1]: https://github.com/prestonbrown/helixscreen/compare/v0.97.0...v0.97.1
