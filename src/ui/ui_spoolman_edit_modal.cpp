@@ -139,6 +139,9 @@ void SpoolEditModal::init_subjects() {
     lv_subject_init_string(&save_button_text_subject_, save_button_text_buf_, nullptr,
                            sizeof(save_button_text_buf_), "Close");
     lv_xml_register_subject(nullptr, "spoolman_edit_save_text", &save_button_text_subject_);
+
+    // Ensure label printer subjects are initialized before we reference them
+    helix::LabelPrinterSettingsManager::instance().init_subjects();
     lv_xml_register_subject(
         lv_xml_component_get_scope("spoolman_edit_modal"),
         "label_printer_configured",

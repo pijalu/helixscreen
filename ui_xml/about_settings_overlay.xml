@@ -63,7 +63,7 @@
         <setting_dropdown_row name="row_update_channel"
                               label="Update Channel" label_tag="Update Channel" icon="swap_vertical"
                               options="Stable&#10;Beta&#10;Dev" options_tag="Stable&#10;Beta&#10;Dev" bind_selected="update_channel"
-                              callback="on_about_update_channel_changed"/>
+                              hide_description="true" callback="on_about_update_channel_changed"/>
       </lv_obj>
       <!-- Check for Updates (reactive description shows available version; hidden on Android) -->
       <lv_obj name="container_check_updates" width="100%" style_pad_all="0" scrollable="false">

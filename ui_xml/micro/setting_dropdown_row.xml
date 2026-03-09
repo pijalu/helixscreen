@@ -10,6 +10,7 @@
     <prop name="icon" type="string" default=""/>
     <prop name="description" type="string" default=""/>
     <prop name="description_tag" type="string" default=""/>
+    <prop name="hide_description" type="string" default="false"/>
     <prop name="options" type="string" default=""/>
     <prop name="options_tag" type="string" default=""/>
     <prop name="callback" type="string" default=""/>
@@ -36,7 +37,7 @@
         <bind_style name="label_disabled" subject="$disabled" ref_value="1"/>
       </text_body>
       <!-- Description shown only if provided -->
-      <text_small name="description" text="$description" translation_tag="$description_tag" long_mode="wrap" width="100%"/>
+      <text_small name="description" text="$description" translation_tag="$description_tag" long_mode="wrap" width="100%" hidden="$hide_description"/>
     </lv_obj>
     <!-- Right side: Dropdown -->
     <lv_dropdown name="dropdown"
