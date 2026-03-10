@@ -25,6 +25,11 @@
                   style_max_height="#input_height" show_clear_button="true" clear_callback="on_spoolman_search_clear">
         <event_cb trigger="value_changed" callback="on_spoolman_search_changed"/>
       </text_input>
+      <lv_dropdown name="location_filter"
+                   options="" style_min_width="100" height="#input_height"
+                   style_radius="#border_radius" style_border_width="0" hidden="true">
+        <event_cb trigger="value_changed" callback="on_spoolman_location_filter_changed"/>
+      </lv_dropdown>
     </lv_obj>
     <!-- Content Area -->
     <lv_obj name="overlay_content"

@@ -89,6 +89,8 @@ class SpoolmanPanel : public OverlayBase {
 
     // ========== Search ==========
     std::string search_query_;
+    std::string selected_location_;       ///< Currently selected location filter ("" = All)
+    bool updating_location_dropdown_ = false; ///< Guard against dropdown event feedback loop
     lv_timer_t* search_debounce_timer_ = nullptr;
     static constexpr uint32_t SEARCH_DEBOUNCE_MS = 300;
 
@@ -107,6 +109,8 @@ class SpoolmanPanel : public OverlayBase {
 
     void populate_spool_list();
     void apply_filter();
+    void update_location_filter_dropdown();
+    std::vector<SpoolInfo> filter_by_location(const std::vector<SpoolInfo>& spools) const;
     void update_active_indicators();
     void show_loading_state();
     void show_empty_state();
@@ -139,6 +143,7 @@ class SpoolmanPanel : public OverlayBase {
     static void on_search_changed(lv_event_t* e);
     static void on_search_clear(lv_event_t* e);
     static void on_search_timer(lv_timer_t* timer);
+    static void on_location_filter_changed(lv_event_t* e);
 };
 
 // ============================================================================
