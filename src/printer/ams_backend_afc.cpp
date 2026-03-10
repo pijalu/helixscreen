@@ -485,6 +485,11 @@ void AmsBackendAfc::handle_status_update(const nlohmann::json& notification) {
         }
 
         // Parse AFC_extruder for toolhead sensors (multi-extruder support)
+        // Track the slot BEFORE extruder parsing so we can detect if an active
+        // tool's lane_loaded updated current_slot (more authoritative than the
+        // default tool_to_slot_map used by reconciliation below).
+        int slot_before_extruder = system_info_.current_slot;
+        bool extruder_set_active_slot = false;
         if (!extruder_names_.empty()) {
             for (const auto& ext_name : extruder_names_) {
                 std::string key = "AFC_extruder " + ext_name;
@@ -500,6 +505,12 @@ void AmsBackendAfc::handle_status_update(const nlohmann::json& notification) {
                 parse_afc_extruder("extruder", params["AFC_extruder extruder"]);
                 state_changed = true;
             }
+        }
+        // If an active tool's extruder updated current_slot, don't let
+        // reconciliation override it with the default tool_to_slot_map
+        if (system_info_.current_slot != slot_before_extruder &&
+            system_info_.current_tool >= 0) {
+            extruder_set_active_slot = true;
         }
 
         // Parse AFC_buffer objects for buffer health and fault data
@@ -520,11 +531,33 @@ void AmsBackendAfc::handle_status_update(const nlohmann::json& notification) {
             }
         }
 
+        // Parse toolchanger.tool_number from Klipper status updates.
+        // In mixed toolchanger + AFC systems, when a print starts and the
+        // slicer sends a tool command (e.g. T0), Klipper updates
+        // toolchanger.tool_number before AFC firmware sends its own update.
+        // Without this, current_tool stays stale and the reconciliation
+        // block below picks the wrong slot.
+        if (params.contains("toolchanger") && params["toolchanger"].is_object()) {
+            const auto& tc_data = params["toolchanger"];
+            if (tc_data.contains("tool_number") && tc_data["tool_number"].is_number_integer()) {
+                int tool_num = tc_data["tool_number"].get<int>();
+                if (tool_num != system_info_.current_tool) {
+                    spdlog::debug("[AMS AFC] Toolchanger tool_number update: T{} (was T{})",
+                                  tool_num, system_info_.current_tool);
+                    system_info_.current_tool = tool_num;
+                    state_changed = true;
+                }
+            }
+        }
+
         // Tool changer reconciliation: when we have a populated tool-to-slot
         // map and an active tool, the tool authoritatively determines
         // current_slot. During tool swaps current_load may briefly go null
         // while current_tool already reflects the new tool.
-        if (!system_info_.tool_to_slot_map.empty() && system_info_.current_tool >= 0) {
+        // Skip if AFC_extruder already set the slot for the active tool —
+        // lane_loaded is more authoritative than the default tool_to_slot_map.
+        if (!extruder_set_active_slot && !current_slot_set_by_afc_state &&
+            !system_info_.tool_to_slot_map.empty() && system_info_.current_tool >= 0) {
             int tool = system_info_.current_tool;
             if (tool < static_cast<int>(system_info_.tool_to_slot_map.size())) {
                 int slot = system_info_.tool_to_slot_map[tool];

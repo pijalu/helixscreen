@@ -76,6 +76,157 @@ TEST_CASE("AFC backend parses toolchange fields from status update", "[afc][tool
     }
 }
 
+// ============================================================================
+// Regression tests for #379: AFC + toolchanger lane tracking
+// ============================================================================
+
+// Extended helper that supports toolchanger updates and multi-extruder setup
+class AfcToolchangerLaneHelper : public AmsBackendAfc {
+  public:
+    AfcToolchangerLaneHelper() : AmsBackendAfc(nullptr, nullptr) {}
+
+    void feed_status_update(const nlohmann::json& params_inner) {
+        nlohmann::json notification;
+        notification["params"] = nlohmann::json::array({params_inner, 0.0});
+        handle_status_update(notification);
+    }
+
+    void initialize_test_lanes(int count) {
+        std::vector<std::string> names;
+        for (int i = 0; i < count; ++i) {
+            names.push_back("lane" + std::to_string(i + 1));
+        }
+        initialize_slots(names);
+    }
+
+    void initialize_test_lanes_with_tool_map(int count) {
+        initialize_test_lanes(count);
+
+        // Set up 1:1 tool-to-slot mapping (T0->slot0, T1->slot1, ...)
+        system_info_.tool_to_slot_map.clear();
+        for (int i = 0; i < count; ++i) {
+            system_info_.tool_to_slot_map.push_back(i);
+        }
+    }
+
+    // Set extruder names via AFC state (same path as production code)
+    void setup_extruder_names(const std::vector<std::string>& names) {
+        nlohmann::json afc_data;
+        afc_data["extruders"] = names;
+        afc_data["current_state"] = "Idle";
+        nlohmann::json params;
+        params["AFC"] = afc_data;
+        feed_status_update(params);
+    }
+
+    const AmsSystemInfo& info() const {
+        return system_info_;
+    }
+};
+
+TEST_CASE("AFC backend parses toolchanger.tool_number from Klipper status (#379)",
+          "[afc][toolchange][regression]") {
+    AfcToolchangerLaneHelper afc;
+    afc.initialize_test_lanes(4);
+    afc.setup_extruder_names({"extruder", "extruder1"});
+
+    SECTION("toolchanger.tool_number updates current_tool") {
+        nlohmann::json params;
+        params["toolchanger"] = {{"tool_number", 1}};
+        afc.feed_status_update(params);
+
+        REQUIRE(afc.info().current_tool == 1);
+    }
+
+    SECTION("toolchanger.tool_number=-1 means no tool selected") {
+        nlohmann::json params;
+        params["toolchanger"] = {{"tool_number", 2}};
+        afc.feed_status_update(params);
+        REQUIRE(afc.info().current_tool == 2);
+
+        params["toolchanger"] = {{"tool_number", -1}};
+        afc.feed_status_update(params);
+        REQUIRE(afc.info().current_tool == -1);
+    }
+
+    SECTION("toolchanger update with tool_to_slot_map triggers reconciliation") {
+        // With a tool map, reconciliation sets current_slot from the map
+        afc.initialize_test_lanes_with_tool_map(4);
+        afc.setup_extruder_names({"extruder", "extruder1"});
+
+        nlohmann::json params;
+        params["toolchanger"] = {{"tool_number", 1}};
+        afc.feed_status_update(params);
+
+        REQUIRE(afc.info().current_tool == 1);
+        REQUIRE(afc.info().current_slot == 1);
+        REQUIRE(afc.info().filament_loaded == true);
+    }
+
+    SECTION("regression #379: correct lane selected when toolchanger updates current_tool") {
+        // Before fix: current_tool starts at -1, AFC_extruder updates arrive
+        // for both extruders, and the first one with a loaded lane wins
+        // (picking the wrong lane). After fix: toolchanger.tool_number
+        // arrives first, so current_tool is correct.
+
+        // Step 1: Klipper sends toolchanger update (T1 active)
+        nlohmann::json tc_params;
+        tc_params["toolchanger"] = {{"tool_number", 1}};
+        afc.feed_status_update(tc_params);
+        REQUIRE(afc.info().current_tool == 1);
+
+        // Step 2: AFC_extruder updates arrive for both extruders
+        // extruder (T0) has lane1 loaded, extruder1 (T1) has lane3 loaded
+        nlohmann::json ext_params;
+        ext_params["AFC_extruder extruder"] = {{"lane_loaded", "lane1"}};
+        ext_params["AFC_extruder extruder1"] = {{"lane_loaded", "lane3"}};
+        afc.feed_status_update(ext_params);
+
+        // With correct current_tool=1, extruder1 (T1) is the active tool
+        // so its lane3 (slot index 2) should be selected
+        REQUIRE(afc.info().current_slot == 2); // lane3 = slot index 2
+    }
+
+    SECTION("without toolchanger update, fallback picks first loaded lane") {
+        // Documents fallback behavior when current_tool is stale (-1):
+        // The first extruder with a loaded lane wins via the current_slot < 0 path.
+
+        nlohmann::json ext_params;
+        ext_params["AFC_extruder extruder"] = {{"lane_loaded", "lane1"}};
+        ext_params["AFC_extruder extruder1"] = {{"lane_loaded", "lane3"}};
+        afc.feed_status_update(ext_params);
+
+        REQUIRE(afc.info().current_slot == 0); // lane1 = slot index 0 (fallback)
+    }
+
+    SECTION("AFC state current_tool overrides toolchanger when AFC sends explicit value") {
+        nlohmann::json tc_params;
+        tc_params["toolchanger"] = {{"tool_number", 1}};
+        afc.feed_status_update(tc_params);
+        REQUIRE(afc.info().current_tool == 1);
+
+        // AFC firmware sends its own current_tool (authoritative)
+        nlohmann::json afc_params;
+        afc_params["AFC"] = {{"current_tool", 0}, {"current_state", "Idle"}};
+        afc.feed_status_update(afc_params);
+        REQUIRE(afc.info().current_tool == 0);
+    }
+
+    SECTION("toolchanger update with non-object value is ignored") {
+        nlohmann::json params;
+        params["toolchanger"] = "invalid";
+        afc.feed_status_update(params);
+        REQUIRE(afc.info().current_tool == -1);
+    }
+
+    SECTION("toolchanger update without tool_number field is ignored") {
+        nlohmann::json params;
+        params["toolchanger"] = {{"status", "ready"}};
+        afc.feed_status_update(params);
+        REQUIRE(afc.info().current_tool == -1);
+    }
+}
+
 // Test helper for HH toolchange — reuses the pattern from test_ams_backend_happy_hare.cpp
 class HHToolchangeTestHelper : public AmsBackendHappyHare {
   public:
