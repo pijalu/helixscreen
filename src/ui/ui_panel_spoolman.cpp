@@ -350,9 +350,9 @@ void SpoolmanPanel::update_location_filter_dropdown() {
         return;
     }
 
-    // Guard: lv_dropdown_set_options() fires value_changed, which calls
-    // on_location_filter_changed() -> populate_spool_list() -> here again.
-    // The guard prevents this feedback loop.
+    // Defensive guard against potential re-entry. LVGL 9.5 does not fire
+    // value_changed from lv_dropdown_set_options(), but we guard anyway
+    // in case future versions change that behavior.
     if (updating_location_dropdown_) {
         return;
     }
@@ -368,7 +368,9 @@ void SpoolmanPanel::update_location_filter_dropdown() {
         }
     }
 
-    // Hide dropdown if no locations exist
+    // Hide dropdown if no locations exist.
+    // Imperative visibility exception: dropdown content is fully dynamic (options
+    // set from C++), so subject-based binding adds no value here.
     if (locations.empty()) {
         lv_obj_add_flag(dropdown, LV_OBJ_FLAG_HIDDEN);
         selected_location_.clear();
@@ -386,7 +388,7 @@ void SpoolmanPanel::update_location_filter_dropdown() {
     }
     lv_dropdown_set_options(dropdown, options.c_str());
 
-    // Restore selection if the previously selected location still exists
+    // Restore or reset selection
     if (!selected_location_.empty()) {
         auto it = std::find(locations.begin(), locations.end(), selected_location_);
         if (it != locations.end()) {
@@ -397,6 +399,10 @@ void SpoolmanPanel::update_location_filter_dropdown() {
             selected_location_.clear();
             lv_dropdown_set_selected(dropdown, 0);
         }
+    } else {
+        // Ensure "All" is selected (lv_dropdown_set_options resets internally,
+        // but be explicit for clarity)
+        lv_dropdown_set_selected(dropdown, 0);
     }
 
     lv_obj_remove_flag(dropdown, LV_OBJ_FLAG_HIDDEN);
