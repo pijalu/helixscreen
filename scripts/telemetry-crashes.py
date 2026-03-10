@@ -174,25 +174,47 @@ class SymbolCache:
 # ASLR resolution
 # ---------------------------------------------------------------------------
 
-def is_shared_lib_addr(addr: int, platform: str) -> bool:
+def is_shared_lib_addr(addr: int, platform: str, load_base: int = 0,
+                       sym_max: int = 0) -> bool:
     """Detect shared library addresses (not from our binary).
 
     aarch64 (pi): binary at 0x0000aaaa..., shared libs at 0x0000ffff...
-    armhf (pi32): binary at low addresses, shared libs at 0xf0000000+
+    armhf (pi32/ad5m/cc1): binary at low addresses, shared libs at 0xa0000000+
+    mips (ad5x): binary at load_base+0..~0x800000, shared libs at 0x70000000+
+
+    When load_base and sym_max are provided, uses precise range check:
+    if addr is outside [load_base, load_base + sym_max], it's a shared lib.
     """
     if platform in ("pi", "rpi4_64bit"):
         # aarch64 PIE: our binary is loaded at 0x0000aaaa_XXXXXXXX
         # Shared libs live at 0x0000ffff_XXXXXXXX
         top_word = (addr >> 32) & 0xFFFF
         return top_word >= 0xFFFF
-    elif platform == "pi32":
-        # armhf: shared libs mapped at 0xf0000000+
+
+    # For 32-bit platforms, use precise range check if we have symbol info
+    if load_base > 0 and sym_max > 0:
+        binary_end = load_base + sym_max + 0x10000  # generous padding
+        return addr < load_base or addr > binary_end
+
+    # Heuristic fallbacks for 32-bit platforms without load_base
+    if platform == "pi32":
         return addr >= 0xF0000000
+    elif platform in ("ad5m", "cc1"):
+        # armhf non-PIE: binary at 0x00010000-0x00600000
+        # Shared libs at 0xa0000000+ (ld-linux, libc, libstdc++, etc.)
+        return addr >= 0x10000000
+    elif platform == "ad5x":
+        # MIPS PIE: binary at ~0x55640000+, but shared libs at 0x70000000+
+        # Without load_base, use threshold
+        return addr >= 0x70000000
     return False
 
 
 def detect_platform_from_addrs(backtrace: list[int]) -> str:
-    """Heuristic: 64-bit pi addresses have 0xaaaa or 0xffff in upper bits."""
+    """Heuristic: 64-bit pi addresses have 0xaaaa or 0xffff in upper bits.
+
+    Only used as a last resort when session data doesn't provide the platform.
+    """
     for addr in backtrace:
         if addr > 0xFFFFFFFF:
             return "pi"
@@ -222,9 +244,17 @@ def resolve_backtrace(
     frames: list[dict] = []
 
     if symbols is None or symbols.crash_handler_offset is None:
-        # Can't resolve — return raw addresses
+        # Can't resolve — return raw addresses with platform-aware lib detection
+        lb = 0
+        if load_base is not None:
+            try:
+                lb = int(load_base, 16)
+            except ValueError:
+                pass
+        sym_max = symbols.addrs[-1] if symbols and symbols.addrs else 0
         for i, addr in enumerate(addrs):
-            is_lib = is_shared_lib_addr(addr, platform)
+            is_lib = is_shared_lib_addr(addr, platform, load_base=lb,
+                                         sym_max=sym_max)
             frames.append({
                 "addr": f"0x{addr:x}",
                 "resolved": "<shared lib>" if is_lib else f"0x{addr:x}",
@@ -254,8 +284,12 @@ def resolve_backtrace(
     else:
         base_address = 0
 
+    # Determine max symbol address for precise shared-lib detection
+    sym_max = symbols.addrs[-1] if symbols and symbols.addrs else 0
+
     for i, addr in enumerate(addrs):
-        is_lib = is_shared_lib_addr(addr, platform)
+        is_lib = is_shared_lib_addr(addr, platform, load_base=base_address,
+                                     sym_max=sym_max)
         if is_lib:
             frames.append({
                 "addr": f"0x{addr:x}",
