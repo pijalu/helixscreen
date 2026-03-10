@@ -42,7 +42,8 @@ enum class AmsType {
     HAPPY_HARE = 1,  ///< Happy Hare MMU (mmu object in Moonraker)
     AFC = 2,         ///< AFC-Klipper-Add-On (afc object, lane_data database)
     VALGACE = 3,     ///< AnyCubic ACE Pro via ValgACE Klipper driver
-    TOOL_CHANGER = 4 ///< Physical tool changer (viesturz/klipper-toolchanger)
+    TOOL_CHANGER = 4, ///< Physical tool changer (viesturz/klipper-toolchanger)
+    AD5X_IFS = 5      ///< FlashForge AD5X IFS (Intelligent Filament Switching)
 };
 
 /**
@@ -60,6 +61,8 @@ inline const char* ams_type_to_string(AmsType type) {
         return "ACE Pro";
     case AmsType::TOOL_CHANGER:
         return "Tool Changer";
+    case AmsType::AD5X_IFS:
+        return "AD5X IFS";
     default:
         return "None";
     }
@@ -83,6 +86,9 @@ inline AmsType ams_type_from_string(std::string_view str) {
     }
     if (str == "toolchanger" || str == "tool_changer" || str == "Tool Changer") {
         return AmsType::TOOL_CHANGER;
+    }
+    if (str == "ad5x_ifs" || str == "ad5x ifs" || str == "ad5x" || str == "ifs") {
+        return AmsType::AD5X_IFS;
     }
     return AmsType::NONE;
 }
@@ -113,7 +119,8 @@ inline bool is_tool_changer(AmsType type) {
  * @return true if this is a filament-switching system
  */
 inline bool is_filament_system(AmsType type) {
-    return type == AmsType::HAPPY_HARE || type == AmsType::AFC || type == AmsType::VALGACE;
+    return type == AmsType::HAPPY_HARE || type == AmsType::AFC || type == AmsType::VALGACE ||
+           type == AmsType::AD5X_IFS;
 }
 
 /**

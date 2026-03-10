@@ -1948,6 +1948,21 @@ bool AmsBackendMock::is_vivid_mixed_mode() const {
     return vivid_mixed_mode_;
 }
 
+void AmsBackendMock::set_ifs_mode(bool enabled) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    ifs_mode_ = enabled;
+    if (enabled) {
+        // IFS: 4 slots, LINEAR topology, AD5X_IFS type
+        topology_ = PathTopology::LINEAR;
+        system_info_.type = AmsType::AD5X_IFS;
+        system_info_.type_name = "AD5X IFS";
+        system_info_.total_slots = 4;
+        system_info_.supports_bypass = true;
+        system_info_.supports_tool_mapping = true;
+        system_info_.supports_endless_spool = false;
+    }
+}
+
 PathTopology AmsBackendMock::get_unit_topology(int unit_index) const {
     std::lock_guard<std::mutex> lock(mutex_);
     if (unit_index >= 0 && unit_index < static_cast<int>(unit_topologies_.size())) {

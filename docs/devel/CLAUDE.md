@@ -84,6 +84,7 @@ All developer documentation lives here. When working on features, look up the re
 | `plans/` | Active implementation plans |
 | `plans/2026-02-23-xml-hot-reload.md` | XML hot reload: status, design decisions, Phase 3 stretch goal |
 | `printer-research/` | Printer-specific research notes |
+| `printer-research/FLASHFORGE_AD5X_IFS_ANALYSIS.md` | AD5X IFS protocol reverse engineering |
 | `KLIPPERSCREEN_RESEARCH.md` | KlipperScreen competitive analysis |
 | `MAINSAIL_RESEARCH.md` | Mainsail competitive analysis |
 
