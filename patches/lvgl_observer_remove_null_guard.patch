@@ -1,0 +1,21 @@
+diff --git a/src/core/lv_observer.c b/src/core/lv_observer.c
+--- a/src/core/lv_observer.c
++++ b/src/core/lv_observer.c
+@@ -509,6 +509,17 @@ void lv_observer_remove(lv_observer_t * observer)
+         lv_obj_remove_event_cb_with_user_data(observer->target, NULL, observer->subject);
+     }
+
++    /*Subject may have been freed already (e.g. XML component scope teardown
++     *before the observing widget's delete event fires). Skip the unlink and
++     *just free the observer to avoid a NULL dereference.*/
++    if(!observer->subject) {
++        if(observer->auto_free_user_data) {
++            lv_free(observer->user_data);
++        }
++        lv_free(observer);
++        return;
++    }
++
+     observer->subject->notify_restart_query = 1;
+
+ #if LV_USE_EXT_DATA
