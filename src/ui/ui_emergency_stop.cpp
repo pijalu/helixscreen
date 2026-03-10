@@ -361,7 +361,11 @@ void EmergencyStopOverlay::show_recovery_for(RecoveryReason reason) {
             auto& inst = EmergencyStopOverlay::instance();
             // Guard: dialog may have been shown by another async call in the meantime
             if (inst.recovery_dialog_) {
-                return;
+                if (lv_obj_is_valid(inst.recovery_dialog_)) {
+                    return;
+                }
+                // Dialog was freed by modal exit animation — clear stale pointer
+                inst.recovery_dialog_ = nullptr;
             }
             spdlog::info("[KlipperRecovery] Showing recovery dialog (reason: {})",
                          recovery_reason_str(inst.recovery_reason_));

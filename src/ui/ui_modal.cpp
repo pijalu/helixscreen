@@ -251,6 +251,17 @@ void ModalStack::exit_animation_done(lv_anim_t* anim) {
         return;
     }
 
+    // Cancel all remaining animations on the backdrop and its dialog child
+    // before hiding or deleting. The dialog scale/fade animations may still
+    // be running and their exec callbacks trigger lv_obj_set_style_*() →
+    // lv_obj_invalidate() → blur_walk_cb(), which crashes if the backdrop
+    // is mid-deletion.
+    lv_obj_t* dialog = lv_obj_get_child(backdrop, 0);
+    if (dialog) {
+        lv_anim_delete(dialog, nullptr);
+    }
+    lv_anim_delete(backdrop, nullptr);
+
     // Remove from stack (animation is complete, safe to remove)
     ModalStack::instance().remove(backdrop);
 
