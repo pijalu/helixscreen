@@ -638,6 +638,12 @@ void MoonrakerDiscoverySequence::complete_discovery_subscription() {
         subscription_objects[afc_obj] = nullptr;
     }
 
+    // AD5X IFS requires save_variables for filament state (colors, types, tool mapping)
+    if (hardware_.mmu_type() == AmsType::AD5X_IFS) {
+        subscription_objects["save_variables"] = nullptr;
+        spdlog::info("[Moonraker Client] Subscribing to save_variables (AD5X IFS)");
+    }
+
     // All discovered filament sensors (filament_switch_sensor, filament_motion_sensor)
     // These provide runout detection and encoder motion data
     for (const auto& sensor : filament_sensors_) {

@@ -27,14 +27,14 @@ HelixScreen uses a backend abstraction layer to support multiple multi-filament 
     │  (ams_backend.h)   │  Factory: create() / create_mock()
     └─────────┬──────────┘                         │
      ┌────────┼─────────┬───────────┬──────────────┘
-     ▼        ▼         ▼           ▼           ▼
-  ┌────────┐ ┌────────┐ ┌────────┐ ┌──────────┐ ┌──────────┐
-  │Happy   │ │  AFC   │ │ValgACE │ │  Tool    │ │  Mock    │
-  │Hare    │ │Backend │ │Backend │ │ Changer  │ │ Backend  │
-  └────────┘ └────────┘ └────────┘ └──────────┘ └──────────┘
-       │          │          │           │            │
-  Moonraker  Moonraker   REST API   Moonraker    In-memory
-  WebSocket  WebSocket   Polling    WebSocket    simulation
+     ▼        ▼         ▼           ▼           ▼           ▼
+  ┌────────┐ ┌────────┐ ┌────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐
+  │Happy   │ │  AFC   │ │ValgACE │ │  Tool    │ │ AD5X IFS │ │  Mock    │
+  │Hare    │ │Backend │ │Backend │ │ Changer  │ │ Backend  │ │ Backend  │
+  └────────┘ └────────┘ └────────┘ └──────────┘ └──────────┘ └──────────┘
+       │          │          │           │            │            │
+  Moonraker  Moonraker   REST API   Moonraker   Moonraker    In-memory
+  WebSocket  WebSocket   Polling    WebSocket   WebSocket    simulation
 
                          ┌─────────────┐
                          │  ToolState  │  Singleton: tool abstraction
@@ -56,6 +56,7 @@ HelixScreen uses a backend abstraction layer to support multiple multi-filament 
 | `include/ams_backend_afc.h` | AFC (Armored Turtle / Box Turtle) implementation |
 | `include/ams_backend_valgace.h` | ValgACE (AnyCubic ACE Pro) implementation |
 | `include/ams_backend_toolchanger.h` | Physical tool changer (viesturz/klipper-toolchanger) |
+| `include/ams_backend_ad5x_ifs.h` | FlashForge AD5X IFS (Intelligent Filament Switching) |
 | `include/ams_backend_mock.h` | Mock backend for development and testing |
 | `src/printer/ams_backend.cpp` | Factory method implementations |
 | `include/printer_discovery.h` | Hardware detection from Klipper object list |
@@ -66,7 +67,7 @@ HelixScreen uses a backend abstraction layer to support multiple multi-filament 
 
 ### Data Flow
 
-1. **Discovery**: `PrinterDiscovery::parse_objects()` scans Klipper's `printer.objects.list` for `mmu`, `AFC`, `toolchanger`, `AFC_stepper lane*`, `AFC_hub *`, `tool T*` objects.
+1. **Discovery**: `PrinterDiscovery::parse_objects()` scans Klipper's `printer.objects.list` for `mmu`, `AFC`, `toolchanger`, `AFC_stepper lane*`, `AFC_hub *`, `tool T*`, and `filament_switch_sensor _ifs_port_sensor_*` objects.
 2. **Backend Creation**: `AmsState::init_backend_from_hardware()` calls `AmsBackend::create()` with the detected `AmsType` and Moonraker dependencies.
 3. **Slot State**: Each backend stores per-slot state in its `SlotRegistry` instance (`slots_`), which provides indexed access, name lookup, and multi-unit reorganization. Moonraker status updates write to the registry under the backend's mutex.
 4. **State Sync**: Backend emits events (`STATE_CHANGED`, `SLOT_CHANGED`, etc.) which `AmsState` translates to LVGL subject updates.
@@ -276,7 +277,8 @@ enum class AmsType {
     HAPPY_HARE = 1,   // Happy Hare MMU (mmu object in Moonraker)
     AFC = 2,          // AFC-Klipper-Add-On (AFC object, lane_data database)
     VALGACE = 3,      // AnyCubic ACE Pro via ValgACE Klipper driver
-    TOOL_CHANGER = 4  // Physical tool changer (viesturz/klipper-toolchanger)
+    TOOL_CHANGER = 4, // Physical tool changer (viesturz/klipper-toolchanger)
+    AD5X_IFS = 5      // FlashForge AD5X IFS (Intelligent Filament Switching)
 };
 ```
 
@@ -746,6 +748,99 @@ Tool names must be provided via `set_discovered_tools()` before calling `start()
 
 ---
 
+## AD5X IFS (FlashForge Adventurer 5X)
+
+The AD5X has a 4-lane Intelligent Filament Switching (IFS) system controlled by a separate STM32 MCU. HelixScreen supports it through ZMOD firmware (ghzserg's Klipper mod for FlashForge printers).
+
+### Detection
+
+IFS is detected via `filament_switch_sensor _ifs_port_sensor_{1-4}` or `filament_motion_sensor _ifs_motion_sensor_{1-4}` in `printer.objects.list`. The leading space in sensor names is intentional — it's a Klipper object naming convention.
+
+Detection is gated by `!has_mmu_` — if Happy Hare or AFC is already detected, IFS sensors are ignored (priority: HH > AFC > IFS).
+
+### State Sources
+
+IFS has no dedicated Klipper object. State comes from three sources:
+
+| Source | Data | Subscription |
+|--------|------|-------------|
+| `save_variables` | Colors, materials, tool mapping, current tool, bypass mode | `printer.objects.subscribe` |
+| `filament_switch_sensor _ifs_port_sensor_{1-4}` | Per-port filament presence (boolean) | Standard sensor subscription |
+| `filament_switch_sensor head_switch_sensor` | Filament at toolhead (boolean) | Standard sensor subscription |
+
+**save_variables keys** (all prefixed `less_waste_`):
+
+| Key | Type | Example |
+|-----|------|---------|
+| `less_waste_colors` | string[] | `['FF0000', '00FF00', '0000FF', 'FFFFFF']` |
+| `less_waste_types` | string[] | `['PLA', 'PETG', 'ABS', 'TPU']` |
+| `less_waste_tools` | int[16] | `[1, 2, 3, 4, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5]` |
+| `less_waste_current_tool` | int | `0` (T0), `-1` (none) |
+| `less_waste_external` | int | `0` (IFS mode), `1` (bypass/external) |
+
+Tool mapping: array index = tool number (T0-T15), value = physical port (1-4, 5=unmapped).
+
+### G-code Commands
+
+| Command | Action |
+|---------|--------|
+| `_INSERT_PRUTOK_IFS PRUTOK={port}` | Load filament from port |
+| `_IFS_REMOVE_PRUTOK` | Unload current filament |
+| `_REMOVE_PRUTOK_IFS PRUTOK={port}` | Unload specific port |
+| `_A_CHANGE_FILAMENT CHANNEL={port}` | Full tool change |
+| `SET_EXTRUDER_SLOT SLOT={port}` | Select slot without loading |
+| `IFS_UNLOCK` | Reset IFS driver state machine |
+| `SAVE_VARIABLE VARIABLE=name VALUE=value` | Persist color/type/tool changes |
+
+**SAVE_VARIABLE quoting**: Outer double quotes = G-code parameter delimiters (Klipper strips). Inner content = Python `ast.literal_eval()`. Strings use single quotes: `SAVE_VARIABLE VARIABLE=less_waste_colors VALUE="['FF0000', '00FF00']"`.
+
+### Path Topology
+
+```
+  Port 1 ──┐
+  Port 2 ──┤
+            ├── Combiner ── Toolhead
+  Port 3 ──┤
+  Port 4 ──┘
+```
+
+`PathTopology::LINEAR` — 4 independent lanes merge at a single combiner before the toolhead.
+
+### Capabilities
+
+| Feature | Supported | Editable |
+|---------|-----------|----------|
+| Endless Spool | No | -- |
+| Tool Mapping | Yes | Yes (16 tools → 4 ports) |
+| Bypass Mode | Yes | Via `less_waste_external` |
+| Spoolman | Optional | Works if configured |
+| Auto-Heat on Load | No | -- |
+| Dryer | No | -- |
+| Device Actions | No | -- |
+
+### Key Files
+
+| File | Purpose |
+|------|---------|
+| `include/ams_backend_ad5x_ifs.h` | Backend class declaration |
+| `src/printer/ams_backend_ad5x_ifs.cpp` | Full implementation |
+| `tests/unit/test_ams_backend_ad5x_ifs.cpp` | Unit tests (16 cases, 100+ assertions) |
+| `docs/devel/printer-research/FLASHFORGE_AD5X_IFS_ANALYSIS.md` | Protocol research |
+
+### Automatic Setup
+
+AD5X users running ZMOD firmware get automatic detection — no configuration needed. When HelixScreen connects to a Moonraker instance with IFS sensors, it:
+
+1. Detects `filament_switch_sensor _ifs_port_sensor_*` in object list
+2. Sets `AmsType::AD5X_IFS`
+3. Subscribes to `save_variables` for filament state
+4. Creates `AmsBackendAd5xIfs` backend
+5. Queries initial state via `printer.objects.query`
+
+Existing beta testers upgrading to a version with IFS support will see the filament panel populate automatically on next connection.
+
+---
+
 ## Context Menu Actions
 
 The `AmsContextMenu` (`ui_ams_context_menu.h`) provides per-slot operations:
@@ -801,7 +896,7 @@ Mock mode is activated when `RuntimeConfig::should_mock_ams()` returns true (typ
 | Variable | Values | Default | Description |
 |----------|--------|---------|-------------|
 | `HELIX_AMS_GATES` | 1-16 | 4 | Number of simulated slots |
-| `HELIX_MOCK_AMS` | `afc`, `box_turtle`, `boxturtle`, `toolchanger`, `tool_changer`, `tc`, `mixed`, `multi` | Happy Hare | AMS type to simulate |
+| `HELIX_MOCK_AMS` | `afc`, `box_turtle`, `boxturtle`, `toolchanger`, `tool_changer`, `tc`, `mixed`, `multi`, `ifs`, `ad5x`, `ad5x_ifs` | Happy Hare | AMS type to simulate |
 | `HELIX_MOCK_AMS_STATE` | `idle`, `loading`, `error`, `bypass` | `idle` | Visual scenario to simulate |
 | `HELIX_MOCK_DRYER` | `1`, `true` | Disabled | Simulate integrated dryer |
 | `HELIX_MOCK_DRYER_SPEED` | Integer | 60 | Dryer speed multiplier (60 = 1 real sec = 1 sim min) |
@@ -848,6 +943,17 @@ HELIX_MOCK_AMS=toolchanger ./build/bin/helix-screen --test
 - Uses `PathTopology::PARALLEL`
 - Disables bypass mode
 - Labels slots as "T0", "T1", etc.
+
+### Mock AD5X IFS Mode
+
+```bash
+HELIX_MOCK_AMS=ifs ./build/bin/helix-screen --test
+```
+
+- Reports `AmsType::AD5X_IFS` with type name "AD5X IFS"
+- Uses `PathTopology::LINEAR`
+- 4 slots with bypass support
+- Tool mapping enabled, endless spool disabled
 
 ### Mock Realistic Mode
 
@@ -1054,6 +1160,16 @@ See `docs/devel/plans/2026-02-15-spool-wizard-status.md` for visual test plan.
 | Wrong tool count | Discovery mismatch | Check that `tool T*` objects appear in `printer.objects.list` |
 | "Uninitialized" status | Tools not homed | Run `T0` or `SELECT_TOOL TOOL=T0` to initialize |
 
+#### AD5X IFS
+
+| Symptom | Cause | Fix |
+|---------|-------|-----|
+| IFS not detected | Missing ZMOD firmware | Verify `zmod_ifs.py` is installed and `_ifs_port_sensor_*` sensors appear in `printer.objects.list` |
+| Colors/materials empty | `save_variables` not populated | Run IFS calibration wizard in ZMOD to initialize `less_waste_*` variables |
+| Slots all EMPTY | Port sensors not subscribed | Check that `filament_switch_sensor _ifs_port_sensor_{1-4}` are present |
+| Tool mapping wrong | Stale `less_waste_tools` | Check `save_variables.variables.less_waste_tools` — ports are 1-based, 5=unmapped |
+| Bypass stuck on | `less_waste_external` = 1 | Set via ZMOD UI or `SAVE_VARIABLE VARIABLE=less_waste_external VALUE=0` |
+
 ### Debug Logging
 
 Run with `-vv` (DEBUG) or `-vvv` (TRACE) to see backend-specific logging:
@@ -1071,6 +1187,7 @@ All backends log with prefixes:
 | `[AMS AFC]` | AFC |
 | `[AMS ValgACE]` | ValgACE |
 | `[AMS ToolChanger]` | Tool Changer |
+| `[AMS AD5X-IFS]` | AD5X IFS |
 | `[AmsBackendMock]` | Mock |
 
 ### Error Result Codes

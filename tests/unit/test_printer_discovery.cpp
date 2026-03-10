@@ -1097,3 +1097,52 @@ TEST_CASE("AFC unknown unit types detected generically", "[printer_discovery][af
     CHECK(hw.afc_lane_names().size() == 1);   // lane1 from AFC_stepper
     CHECK(hw.afc_buffer_names().size() == 1);  // TN from AFC_buffer
 }
+
+// ==========================================================================
+// AD5X IFS Detection
+// ==========================================================================
+
+TEST_CASE("PrinterDiscovery detects AD5X IFS via zmod sensors",
+          "[printer_discovery][ad5x_ifs]") {
+    helix::PrinterDiscovery discovery;
+    discovery.parse_objects(nlohmann::json::array({
+        "extruder",
+        "heater_bed",
+        "filament_switch_sensor _ifs_port_sensor_1",
+        "filament_switch_sensor _ifs_port_sensor_2",
+        "filament_switch_sensor _ifs_port_sensor_3",
+        "filament_switch_sensor _ifs_port_sensor_4",
+        "filament_switch_sensor head_switch_sensor",
+    }));
+
+    REQUIRE(discovery.has_mmu());
+    REQUIRE(discovery.mmu_type() == AmsType::AD5X_IFS);
+    REQUIRE(discovery.detected_ams_systems().size() == 1);
+    REQUIRE(discovery.detected_ams_systems()[0].type == AmsType::AD5X_IFS);
+}
+
+TEST_CASE("PrinterDiscovery does not detect AD5X IFS without zmod sensors",
+          "[printer_discovery][ad5x_ifs]") {
+    helix::PrinterDiscovery discovery;
+    discovery.parse_objects(nlohmann::json::array({
+        "extruder",
+        "heater_bed",
+        "filament_switch_sensor runout_sensor",
+    }));
+
+    REQUIRE_FALSE(discovery.has_mmu());
+    REQUIRE(discovery.mmu_type() == AmsType::NONE);
+}
+
+TEST_CASE("PrinterDiscovery: Happy Hare takes priority over IFS sensors",
+          "[printer_discovery][ad5x_ifs]") {
+    helix::PrinterDiscovery discovery;
+    // Both MMU and IFS sensors present — MMU wins because it's detected first
+    discovery.parse_objects(nlohmann::json::array({
+        "mmu",
+        "filament_switch_sensor _ifs_port_sensor_1",
+    }));
+
+    REQUIRE(discovery.has_mmu());
+    REQUIRE(discovery.mmu_type() == AmsType::HAPPY_HARE);
+}

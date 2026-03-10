@@ -303,6 +303,11 @@ class AmsBackendMock : public AmsBackend {
     void set_vivid_mixed_mode(bool enabled);
 
     /**
+     * @brief Set AD5X IFS mode (4 slots, LINEAR, bypass + tool mapping)
+     */
+    void set_ifs_mode(bool enabled);
+
+    /**
      * @brief Check if ViViD mixed mode is active
      */
     [[nodiscard]] bool is_vivid_mixed_mode() const;
@@ -508,6 +513,7 @@ class AmsBackendMock : public AmsBackend {
     bool multi_unit_mode_ = false;              ///< Simulate multi-unit AFC (2x Box Turtle)
     bool mixed_topology_mode_ = false;          ///< Simulate mixed topology (BT + 2x OpenAMS)
     bool vivid_mixed_mode_ = false;             ///< Simulate 2x BoxTurtle + 1x ViViD
+    bool ifs_mode_ = false;                     ///< Simulate AD5X IFS (4 slots, LINEAR)
     std::vector<PathTopology> unit_topologies_; ///< Per-unit topology storage
 
     // Endless spool simulation state

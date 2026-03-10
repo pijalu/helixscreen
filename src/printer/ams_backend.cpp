@@ -8,6 +8,7 @@
 #ifdef HELIX_ENABLE_MOCKS
 #include "ams_backend_mock.h"
 #endif
+#include "ams_backend_ad5x_ifs.h"
 #include "ams_backend_toolchanger.h"
 #include "ams_backend_valgace.h"
 #include "moonraker_api.h"
@@ -60,6 +61,9 @@ static std::unique_ptr<AmsBackendMock> create_mock_with_features(int gate_count)
         } else if (ams_type == "vivid") {
             mock->set_vivid_mixed_mode(true);
             spdlog::info("[AMS Backend] Mock ViViD mixed mode enabled");
+        } else if (ams_type == "ifs" || ams_type == "ad5x" || ams_type == "ad5x_ifs") {
+            mock->set_ifs_mode(true);
+            spdlog::info("[AMS Backend] Mock AD5X IFS mode enabled");
         }
     }
 
@@ -164,6 +168,15 @@ std::unique_ptr<AmsBackend> AmsBackend::create(AmsType detected_type) {
         return nullptr;
 #endif
 
+    case AmsType::AD5X_IFS:
+#ifdef HELIX_ENABLE_MOCKS
+        spdlog::warn("[AMS Backend] AD5X IFS detected but no API/client provided - using mock");
+        return std::make_unique<AmsBackendMock>(config->mock_ams_gate_count);
+#else
+        spdlog::warn("[AMS Backend] AD5X IFS detected but no API/client provided");
+        return nullptr;
+#endif
+
     case AmsType::NONE:
     default:
         spdlog::debug("[AMS Backend] No AMS detected");
@@ -212,6 +225,14 @@ std::unique_ptr<AmsBackend> AmsBackend::create(AmsType detected_type, MoonrakerA
         spdlog::debug("[AMS Backend] Creating Tool Changer backend");
         // Note: Caller must use set_discovered_tools() after creation to set tool names
         return std::make_unique<AmsBackendToolChanger>(api, client);
+
+    case AmsType::AD5X_IFS:
+        if (!api || !client) {
+            spdlog::error("[AMS Backend] AD5X IFS requires MoonrakerAPI and MoonrakerClient");
+            return nullptr;
+        }
+        spdlog::debug("[AMS Backend] Creating AD5X IFS backend");
+        return std::make_unique<AmsBackendAd5xIfs>(api, client);
 
     case AmsType::NONE:
     default:

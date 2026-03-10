@@ -264,6 +264,14 @@ class PrinterDiscovery {
                     afc_buffer_names_.push_back(buffer_name);
                 }
             }
+            // AD5X IFS detection via ZMOD firmware sensors
+            // Leading space in sensor name is intentional — Klipper object naming convention
+            else if (!has_mmu_ &&
+                     (name.rfind("filament_switch_sensor _ifs_port_sensor_", 0) == 0 ||
+                      name.rfind("filament_motion_sensor _ifs_motion_sensor_", 0) == 0)) {
+                has_mmu_ = true;
+                mmu_type_ = AmsType::AD5X_IFS;
+            }
             // Tool changer detection
             else if (name == "toolchanger") {
                 has_tool_changer_ = true;
@@ -398,6 +406,8 @@ class PrinterDiscovery {
                 detected_ams_systems_.push_back({AmsType::HAPPY_HARE, "Happy Hare"});
             } else if (mmu_type_ == AmsType::AFC) {
                 detected_ams_systems_.push_back({AmsType::AFC, "AFC"});
+            } else if (mmu_type_ == AmsType::AD5X_IFS) {
+                detected_ams_systems_.push_back({AmsType::AD5X_IFS, "AD5X IFS"});
             }
         } else if (has_tool_changer_ && !tool_names_.empty()) {
             // Standalone tool changer with no MMU — show parallel topology
