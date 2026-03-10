@@ -29,6 +29,7 @@ void register_width_sensor_widget();
 void register_printer_image_widget();
 void register_print_status_widget();
 void register_shutdown_widget();
+void register_lock_widget();
 void register_clock_widget();
 void register_job_queue_widget();
 void register_clog_detection_widget();
@@ -49,6 +50,7 @@ static std::vector<PanelWidgetDef> s_widget_defs = {
     {"printer_image",    "Printer Image",    "rotate_3d",        "3D printer visualization",                     "Printer Image",    nullptr,              nullptr,                               true,  2, 2, 1, 1, 4, 3},
     {"print_status",     "Print Status",     "printer_3d",       "Print progress and file selection",            "Print Status",     nullptr,              nullptr,                               true,  2, 2, 2, 1, 4, 3},
     {"shutdown",         "Shutdown/Reboot",   "power",            "Shutdown or reboot the printer host",          "Shutdown/Reboot",  nullptr,              nullptr,                               false, 1, 1, 1, 1, 1, 1},
+    {"lock",             "Lock Screen",       "lock",             "PIN-protected screen lock",                    "Lock Screen",      nullptr,              nullptr,                               false, 1, 1, 1, 1, 1, 1},
     {"power",            "Power",            "power_cycle",      "Moonraker power device controls",              "Power",            "power_device_count", "Requires Moonraker power device",     false, 1, 1, 1, 1, 1, 1},
     {"network",          "Network",          "wifi_strength_4",  "Wi-Fi and ethernet connection status",         "Network",          nullptr,              nullptr,                               false, 1, 1, 1, 1, 2, 1},
     {"firmware_restart", "Firmware Restart",  "refresh",          "Restart Klipper firmware",                     "Firmware Restart", nullptr,              nullptr,                               false, 1, 1, 1, 1, 1, 1},
@@ -168,6 +170,7 @@ void init_widget_registrations() {
     register_humidity_widget();
     register_width_sensor_widget();
     register_shutdown_widget();
+    register_lock_widget();
     register_clog_detection_widget();
     register_print_stats_widget();
     register_gcode_console_widget();

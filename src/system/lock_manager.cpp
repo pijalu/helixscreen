@@ -2,9 +2,16 @@
 #include "lock_manager.h"
 #include "config.h"
 #include "picosha2.h"
+#include "static_subject_registry.h"
 
 #include <algorithm>
+#include <lvgl.h>
 #include <spdlog/spdlog.h>
+
+// Module-level subject storage — kept out of the header so lock_manager.h
+// compiles cleanly in test contexts where LVGL is not fully available.
+static lv_subject_t s_pin_set_subject;
+static bool s_subjects_initialized = false;
 
 namespace helix {
 
@@ -32,6 +39,9 @@ bool LockManager::set_pin(const std::string& pin) {
     pin_hash_ = hash_pin(pin);
     save_to_config();
     spdlog::info("[LockManager] PIN set");
+    if (s_subjects_initialized) {
+        lv_subject_set_int(&s_pin_set_subject, 1);
+    }
     return true;
 }
 
@@ -40,6 +50,9 @@ void LockManager::remove_pin() {
     locked_ = false;
     save_to_config();
     spdlog::info("[LockManager] PIN removed, lock disabled");
+    if (s_subjects_initialized) {
+        lv_subject_set_int(&s_pin_set_subject, 0);
+    }
 }
 
 bool LockManager::verify_pin(const std::string& pin) const {
@@ -96,11 +109,26 @@ void LockManager::save_to_config() {
 }
 
 void LockManager::init_subjects() {
-    // Placeholder for future LVGL subject bindings (e.g., pin_set_subject_,
-    // locked_subject_). Subjects will be declared as static locals here once
-    // UI panels need reactive binding to lock state.
-    if (subjects_initialized_) return;
+    if (s_subjects_initialized) return;
+
+    lv_subject_init_int(&s_pin_set_subject, has_pin() ? 1 : 0);
+    lv_xml_register_subject(nullptr, "lock_pin_set", &s_pin_set_subject);
+
+    s_subjects_initialized = true;
     subjects_initialized_ = true;
+
+    // Self-register cleanup — co-located with init to prevent forgotten registrations.
+    // Runs before lv_deinit() in StaticSubjectRegistry::deinit_all().
+    StaticSubjectRegistry::instance().register_deinit("LockManager", []() {
+        if (s_subjects_initialized && lv_is_initialized()) {
+            lv_subject_deinit(&s_pin_set_subject);
+            s_subjects_initialized = false;
+            spdlog::trace("[LockManager] Subjects deinitialized");
+        }
+        LockManager::instance().subjects_initialized_ = false;
+    });
+
+    spdlog::debug("[LockManager] Subjects initialized (pin_set={})", has_pin() ? 1 : 0);
 }
 
 } // namespace helix

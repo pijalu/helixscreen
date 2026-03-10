@@ -38,6 +38,7 @@
 #include "ui_wizard.h"
 
 #include "abort_manager.h"
+#include "lock_manager.h"
 #include "accel_sensor_manager.h"
 #include "active_print_media_manager.h"
 #include "ams_state.h"
@@ -121,6 +122,7 @@ void SubjectInitializer::init_core_subjects() {
     app_globals_init_subjects();                   // Global subjects (notification subject, etc.)
     PrinterStatusIcon::instance().init_subjects(); // Printer icon state
     helix::ui::notification_init_subjects();       // Notification badge subjects
+    helix::LockManager::instance().init_subjects(); // Lock screen pin_set subject
 }
 
 void SubjectInitializer::init_printer_state_subjects() {
