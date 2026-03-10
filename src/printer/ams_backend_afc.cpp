@@ -2666,6 +2666,7 @@ void AmsBackendAfc::update_tip_method_from_config() {
 // ============================================================================
 
 std::vector<helix::printer::DeviceSection> AmsBackendAfc::get_device_sections() const {
+    std::lock_guard<std::mutex> lock(mutex_);
     auto sections = helix::printer::afc_default_sections();
 
     // Hide tip forming section when tip forming isn't the active method
@@ -3081,6 +3082,7 @@ AmsError AmsBackendAfc::execute_device_action(const std::string& action_id, cons
     }
 
     // ---- Toolhead distance actions (single + multi-extruder) ----
+    // Longest-prefix-first: tool_stn is a prefix of tool_stn_unload
     auto parse_toolhead_action = [](const std::string& id) -> std::pair<std::string, int> {
         static const std::vector<std::string> fields = {
             "tool_sensor_after_extruder", "tool_stn_unload", "tool_stn"};
@@ -3105,7 +3107,6 @@ AmsError AmsBackendAfc::execute_device_action(const std::string& action_id, cons
         }
         try {
             float val = std::any_cast<float>(value);
-            std::lock_guard<std::mutex> lock(mutex_);
 
             std::string ext_name = "extruder";
             if (th_tool > 0) {
