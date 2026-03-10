@@ -7,8 +7,9 @@
  * Tests for AFC configuration file integration with device actions:
  * - Hub & Cutter settings (from AFC.cfg)
  * - Tip Forming settings (from AFC_Macro_Vars.cfg)
- * - Purge & Wipe settings (from AFC_Macro_Vars.cfg)
- * - Save & Restart action
+ * - Purge & Wipe settings (from AFC.cfg [AFC] poop/wipe + [AFC_poop] purge_length)
+ * - Purge/wipe toggles via G-code (AFC_TOGGLE_MACRO)
+ * - Tip forming section visibility based on TipMethod
  */
 
 #include "afc_config_manager.h"
@@ -25,10 +26,15 @@
 using namespace helix;
 using namespace helix::printer;
 
-// Sample AFC.cfg content for tests
+// Sample AFC.cfg content for tests — includes [AFC] poop/wipe and [AFC_poop] purge_length
 static const char* SAMPLE_AFC_CFG = R"(
 [AFC]
 tool_start: direct
+poop: True
+wipe: False
+
+[AFC_poop]
+purge_length: 100
 
 [AFC_hub Turtle_1]
 cut: True
@@ -44,9 +50,6 @@ variable_ramming_volume: 20
 variable_unloading_speed_start: 80
 variable_cooling_tube_length: 15
 variable_cooling_tube_retraction: 35
-variable_purge_enabled: True
-variable_purge_length: 50
-variable_brush_enabled: False
 )";
 
 /**
@@ -78,6 +81,10 @@ class AmsBackendAfcConfigHelper {
                                                      "AFC/AFC_Macro_Vars.cfg");
         backend.configs_loaded_ = true;
     }
+
+    static void set_tip_method(AmsBackendAfc& backend, TipMethod method) {
+        backend.system_info_.tip_method = method;
+    }
 };
 
 // Helper to find action by ID
@@ -100,10 +107,11 @@ static const DeviceSection* find_section(const std::vector<DeviceSection>& secti
 // Device Sections Tests
 // =============================================================================
 
-TEST_CASE("New device sections include hub, tip_forming, purge",
+TEST_CASE("Device sections with default tip method (CUT) hide tip_forming",
           "[ams][afc][device_actions][config]") {
     AmsBackendAfc backend(nullptr, nullptr);
 
+    // Default tip_method is CUT, so tip_forming should be filtered out
     auto sections = backend.get_device_sections();
 
     SECTION("toolhead section present") {
@@ -120,11 +128,9 @@ TEST_CASE("New device sections include hub, tip_forming, purge",
         CHECK(hub->display_order == 4);
     }
 
-    SECTION("tip_forming section present") {
+    SECTION("tip_forming section hidden when tip_method is CUT") {
         auto* tip = find_section(sections, "tip_forming");
-        REQUIRE(tip != nullptr);
-        CHECK(tip->label == "Tip Forming");
-        CHECK(tip->display_order == 5);
+        CHECK(tip == nullptr);
     }
 
     SECTION("purge section present") {
@@ -134,17 +140,35 @@ TEST_CASE("New device sections include hub, tip_forming, purge",
         CHECK(purge->display_order == 6);
     }
 
-    SECTION("config section present") {
-        auto* config = find_section(sections, "config");
-        REQUIRE(config != nullptr);
-        CHECK(config->label == "Configuration");
-        CHECK(config->display_order == 7);
-    }
-
     SECTION("original sections still present (renamed: calibration+led -> setup)") {
         CHECK(find_section(sections, "setup") != nullptr);
         CHECK(find_section(sections, "speed") != nullptr);
         CHECK(find_section(sections, "maintenance") != nullptr);
+    }
+
+    SECTION("config section not present") {
+        CHECK(find_section(sections, "config") == nullptr);
+    }
+}
+
+TEST_CASE("Device sections show tip_forming when tip_method is TIP_FORM",
+          "[ams][afc][device_actions][config]") {
+    AmsBackendAfc backend(nullptr, nullptr);
+    AmsBackendAfcConfigHelper::set_tip_method(backend, TipMethod::TIP_FORM);
+
+    auto sections = backend.get_device_sections();
+
+    SECTION("tip_forming section visible") {
+        auto* tip = find_section(sections, "tip_forming");
+        REQUIRE(tip != nullptr);
+        CHECK(tip->label == "Tip Forming");
+        CHECK(tip->display_order == 5);
+    }
+
+    SECTION("other sections still present") {
+        CHECK(find_section(sections, "hub") != nullptr);
+        CHECK(find_section(sections, "purge") != nullptr);
+        CHECK(find_section(sections, "setup") != nullptr);
     }
 }
 
@@ -286,16 +310,16 @@ TEST_CASE("Tip forming actions read macro vars", "[ams][afc][device_actions][con
 }
 
 // =============================================================================
-// Purge Actions Tests
+// Purge Actions Tests — now read from afc_config_ [AFC] and [AFC_poop]
 // =============================================================================
 
-TEST_CASE("Purge actions read macro vars", "[ams][afc][device_actions][config]") {
+TEST_CASE("Purge actions read from AFC config", "[ams][afc][device_actions][config]") {
     AmsBackendAfc backend(nullptr, nullptr);
     AmsBackendAfcConfigHelper::load_test_configs(backend);
 
     auto actions = backend.get_device_actions();
 
-    SECTION("purge_enabled reads correct value") {
+    SECTION("purge_enabled reads poop from [AFC] section") {
         auto* action = find_action(actions, "purge_enabled");
         REQUIRE(action != nullptr);
         CHECK(action->type == ActionType::TOGGLE);
@@ -305,17 +329,17 @@ TEST_CASE("Purge actions read macro vars", "[ams][afc][device_actions][config]")
         CHECK(std::any_cast<bool>(action->current_value) == true);
     }
 
-    SECTION("purge_length reads correct value") {
+    SECTION("purge_length reads from [AFC_poop] section") {
         auto* action = find_action(actions, "purge_length");
         REQUIRE(action != nullptr);
         CHECK(action->type == ActionType::SLIDER);
         CHECK(action->unit == "mm");
         CHECK(action->max_value == Catch::Approx(200.0f));
         REQUIRE(action->current_value.has_value());
-        CHECK(std::any_cast<float>(action->current_value) == Catch::Approx(50.0f));
+        CHECK(std::any_cast<float>(action->current_value) == Catch::Approx(100.0f));
     }
 
-    SECTION("brush_enabled reads correct value") {
+    SECTION("brush_enabled reads wipe from [AFC] section") {
         auto* action = find_action(actions, "brush_enabled");
         REQUIRE(action != nullptr);
         CHECK(action->type == ActionType::TOGGLE);
@@ -374,68 +398,26 @@ TEST_CASE("Execute macro var slider modifies config", "[ams][afc][device_actions
         CHECK(cfg->has_unsaved_changes());
     }
 
-    SECTION("change purge_length") {
-        auto result = backend.execute_device_action("purge_length", std::any(100.0f));
+    SECTION("change purge_length edits afc_config_ AFC_poop section") {
+        auto result = backend.execute_device_action("purge_length", std::any(150.0f));
         CHECK(result.success());
 
-        auto* cfg = AmsBackendAfcConfigHelper::get_macro_vars_config(backend);
+        auto* cfg = AmsBackendAfcConfigHelper::get_afc_config(backend);
         REQUIRE(cfg != nullptr);
-        CHECK(cfg->parser().get_float("gcode_macro AFC_MacroVars", "variable_purge_length", 0.0f) ==
-              Catch::Approx(100.0f));
-        CHECK(cfg->has_unsaved_changes());
+        CHECK(cfg->parser().get_float("AFC_poop", "purge_length", 0.0f) ==
+              Catch::Approx(150.0f));
     }
 
-    SECTION("toggle purge_enabled") {
+    SECTION("purge_enabled sends G-code (always succeeds without config)") {
+        // purge_enabled now uses AFC_TOGGLE_MACRO G-code, not config edits
         auto result = backend.execute_device_action("purge_enabled", std::any(false));
         CHECK(result.success());
-
-        auto* cfg = AmsBackendAfcConfigHelper::get_macro_vars_config(backend);
-        REQUIRE(cfg != nullptr);
-        CHECK(cfg->parser().get_bool("gcode_macro AFC_MacroVars", "variable_purge_enabled", true) ==
-              false);
-        CHECK(cfg->has_unsaved_changes());
-    }
-}
-
-// =============================================================================
-// Save Restart Action Tests
-// =============================================================================
-
-TEST_CASE("Save restart action enabled only when dirty", "[ams][afc][device_actions][config]") {
-    AmsBackendAfc backend(nullptr, nullptr);
-    AmsBackendAfcConfigHelper::load_test_configs(backend);
-
-    SECTION("disabled when no changes") {
-        auto actions = backend.get_device_actions();
-        auto* save_action = find_action(actions, "save_restart");
-        REQUIRE(save_action != nullptr);
-        CHECK(save_action->enabled == false);
-        CHECK(save_action->disable_reason == "No unsaved changes");
     }
 
-    SECTION("enabled after modifying config") {
-        // Make a change to mark dirty
-        backend.execute_device_action("hub_cut_enabled", std::any(false));
-
-        auto actions = backend.get_device_actions();
-        auto* save_action = find_action(actions, "save_restart");
-        REQUIRE(save_action != nullptr);
-        CHECK(save_action->enabled == true);
-        CHECK(save_action->disable_reason.empty());
-    }
-
-    SECTION("enabled after modifying macro vars") {
-        backend.execute_device_action("ramming_volume", std::any(30.0f));
-
-        auto actions = backend.get_device_actions();
-        auto* save_action = find_action(actions, "save_restart");
-        REQUIRE(save_action != nullptr);
-        CHECK(save_action->enabled == true);
-    }
-
-    SECTION("execute fails when no changes") {
-        auto result = backend.execute_device_action("save_restart");
-        CHECK_FALSE(result.success());
+    SECTION("brush_enabled sends G-code (always succeeds without config)") {
+        // brush_enabled now uses AFC_TOGGLE_MACRO G-code, not config edits
+        auto result = backend.execute_device_action("brush_enabled", std::any(true));
+        CHECK(result.success());
     }
 }
 
@@ -449,6 +431,13 @@ TEST_CASE("Config sections show correct values from parser", "[ams][afc][device_
 
     // Load custom config with different values
     const char* custom_afc = R"(
+[AFC]
+poop: False
+wipe: True
+
+[AFC_poop]
+purge_length: 120
+
 [AFC_hub MyHub]
 cut: False
 cut_dist: 75.0
@@ -462,9 +451,6 @@ variable_ramming_volume: 55
 variable_unloading_speed_start: 120
 variable_cooling_tube_length: 25
 variable_cooling_tube_retraction: 40
-variable_purge_enabled: False
-variable_purge_length: 100
-variable_brush_enabled: True
 )";
 
     AmsBackendAfcConfigHelper::get_afc_config(backend)->load_from_string(custom_afc, "AFC/AFC.cfg");
@@ -510,14 +496,14 @@ variable_brush_enabled: True
         CHECK(std::any_cast<float>(tube_ret->current_value) == Catch::Approx(40.0f));
     }
 
-    SECTION("purge values reflect custom config") {
+    SECTION("purge values reflect custom AFC config") {
         auto* purge_en = find_action(actions, "purge_enabled");
         REQUIRE(purge_en != nullptr);
         CHECK(std::any_cast<bool>(purge_en->current_value) == false);
 
         auto* purge_len = find_action(actions, "purge_length");
         REQUIRE(purge_len != nullptr);
-        CHECK(std::any_cast<float>(purge_len->current_value) == Catch::Approx(100.0f));
+        CHECK(std::any_cast<float>(purge_len->current_value) == Catch::Approx(120.0f));
 
         auto* brush = find_action(actions, "brush_enabled");
         REQUIRE(brush != nullptr);
@@ -544,8 +530,20 @@ TEST_CASE("Config actions fail gracefully when config not loaded",
         CHECK_FALSE(result.success());
     }
 
-    SECTION("macro var toggle fails") {
+    SECTION("purge_enabled sends G-code so succeeds even without config") {
+        // purge_enabled now uses AFC_TOGGLE_MACRO, not config edits
         auto result = backend.execute_device_action("purge_enabled", std::any(true));
+        CHECK(result.success());
+    }
+
+    SECTION("brush_enabled sends G-code so succeeds even without config") {
+        // brush_enabled now uses AFC_TOGGLE_MACRO, not config edits
+        auto result = backend.execute_device_action("brush_enabled", std::any(false));
+        CHECK(result.success());
+    }
+
+    SECTION("purge_length fails without config") {
+        auto result = backend.execute_device_action("purge_length", std::any(50.0f));
         CHECK_FALSE(result.success());
     }
 }
