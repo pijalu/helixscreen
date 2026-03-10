@@ -60,7 +60,7 @@
       <lv_obj height="content"
               flex_grow="1" style_pad_all="0" flex_flow="column" style_flex_main_place="start"
               style_flex_cross_place="start" style_pad_gap="#space_sm" scrollable="false">
-        <!-- Row 1: Remaining (g) | Spool wt (g) -->
+        <!-- Row 1: Remaining (g) | Spool wt (g) | Price -->
         <lv_obj width="100%"
                 height="content" style_pad_all="0" flex_flow="row" style_pad_gap="#space_md" scrollable="false">
           <lv_obj height="content"
@@ -79,15 +79,22 @@
               <event_cb trigger="value_changed" callback="spoolman_edit_field_changed_cb"/>
             </text_input>
           </lv_obj>
-        </lv_obj>
-        <!-- Row 2: Price | Lot Nr -->
-        <lv_obj width="100%"
-                height="content" style_pad_all="0" flex_flow="row" style_pad_gap="#space_md" scrollable="false">
           <lv_obj height="content"
                   flex_grow="1" style_pad_all="0" flex_flow="column" style_pad_gap="#space_xxs" scrollable="false">
             <text_small text="Price" translation_tag="Price"/>
             <text_input name="field_price"
                         width="100%" input_mode="number" keyboard_hint="numeric" placeholder="0.00" max_length="10">
+              <event_cb trigger="value_changed" callback="spoolman_edit_field_changed_cb"/>
+            </text_input>
+          </lv_obj>
+        </lv_obj>
+        <!-- Row 2: Location | Lot/Batch Nr -->
+        <lv_obj width="100%"
+                height="content" style_pad_all="0" flex_flow="row" style_pad_gap="#space_md" scrollable="false">
+          <lv_obj height="content"
+                  flex_grow="1" style_pad_all="0" flex_flow="column" style_pad_gap="#space_xxs" scrollable="false">
+            <text_small text="Location" translation_tag="Location"/>
+            <text_input name="field_location" width="100%" placeholder="Shelf A" max_length="64">
               <event_cb trigger="value_changed" callback="spoolman_edit_field_changed_cb"/>
             </text_input>
           </lv_obj>

@@ -754,6 +754,7 @@ static std::vector<SpoolInfo> make_filter_test_spools() {
     s1.vendor = "Polymaker";
     s1.material = "PLA";
     s1.color_name = "Jet Black";
+    s1.location = "Shelf A";
     spools.push_back(s1);
 
     SpoolInfo s2;
@@ -768,6 +769,7 @@ static std::vector<SpoolInfo> make_filter_test_spools() {
     s3.vendor = "Polymaker";
     s3.material = "ASA";
     s3.color_name = "Red";
+    s3.location = "Shelf A";
     spools.push_back(s3);
 
     SpoolInfo s4;
@@ -854,6 +856,76 @@ TEST_CASE("filter_spools - empty spool list returns empty", "[filament][filter]"
     std::vector<SpoolInfo> empty;
     auto result = filter_spools(empty, "PLA");
     REQUIRE(result.empty());
+}
+
+TEST_CASE("filter_spools - location search", "[filament][filter]") {
+    auto spools = make_filter_test_spools();
+    auto result = filter_spools(spools, "shelf");
+    REQUIRE(result.size() == 2);
+    REQUIRE(result[0].id == 1);
+    REQUIRE(result[1].id == 3);
+}
+
+TEST_CASE("filter_spools - location + material AND search", "[filament][filter]") {
+    auto spools = make_filter_test_spools();
+    auto result = filter_spools(spools, "shelf pla");
+    REQUIRE(result.size() == 1);
+    REQUIRE(result[0].id == 1);
+}
+
+TEST_CASE("filter_spools - empty location does not break search", "[filament][filter]") {
+    auto spools = make_filter_test_spools();
+    // Spool s2 and s4 have empty location — they should still match on other fields
+    auto result = filter_spools(spools, "hatchbox");
+    REQUIRE(result.size() == 1);
+    REQUIRE(result[0].id == 42);
+}
+
+TEST_CASE("SpoolInfo - location field parsed from JSON", "[filament][parsing]") {
+    // This test uses the mock API which internally calls parse_spool_info()
+    PrinterState state;
+    MoonrakerClientMock client;
+    MoonrakerAPIMock api(client, state);
+
+    // Create a spool with location set
+    nlohmann::json body;
+    body["filament_id"] = 1;
+    body["location"] = "Shelf B";
+    std::string created_location;
+
+    api.spoolman().create_spoolman_spool(
+        body,
+        [&](const SpoolInfo& spool) {
+            created_location = spool.location;
+        },
+        [](const MoonrakerError&) { FAIL("create failed"); });
+
+    REQUIRE(created_location == "Shelf B");
+}
+
+TEST_CASE("SpoolInfo - location defaults to empty when null in JSON", "[filament][parsing]") {
+    PrinterState state;
+    MoonrakerClientMock client;
+    MoonrakerAPIMock api(client, state);
+
+    // Create a spool without location — safe_string returns "" for missing keys
+    nlohmann::json body;
+    body["filament_id"] = 1;
+    std::string created_location = "should-be-cleared";
+
+    api.spoolman().create_spoolman_spool(
+        body,
+        [&](const SpoolInfo& spool) {
+            created_location = spool.location;
+        },
+        [](const MoonrakerError&) { FAIL("create failed"); });
+
+    REQUIRE(created_location.empty());
+}
+
+TEST_CASE("SpoolInfo - location defaults to empty string", "[filament]") {
+    SpoolInfo spool;
+    REQUIRE(spool.location.empty());
 }
 
 // ============================================================================

@@ -98,6 +98,7 @@ void SpoolmanPanel::register_callbacks() {
         {"on_spoolman_add_spool_clicked", on_add_spool_clicked},
         {"on_spoolman_search_changed", on_search_changed},
         {"on_spoolman_search_clear", on_search_clear},
+        {"on_spoolman_location_filter_changed", on_location_filter_changed},
     });
 
     callbacks_registered_ = true;
@@ -159,8 +160,9 @@ void SpoolmanPanel::on_activate() {
 
     spdlog::debug("[{}] on_activate()", get_name());
 
-    // Clear search on activation (text_input handles clear button visibility internally)
+    // Clear search and location filter on activation
     search_query_.clear();
+    selected_location_.clear();
     lv_obj_t* search_box = lv_obj_find_by_name(overlay_root_, "search_box");
     if (search_box) {
         lv_textarea_set_text(search_box, "");
@@ -279,7 +281,7 @@ void SpoolmanPanel::show_spool_list() {
 void SpoolmanPanel::update_spool_count() {
     if (cached_spools_.empty()) {
         lv_subject_copy_string(&header_title_subject_, "Spoolman");
-    } else if (!search_query_.empty() && filtered_spools_.size() != cached_spools_.size()) {
+    } else if (filtered_spools_.size() != cached_spools_.size()) {
         // Show filtered count: "Spoolman: 5/19 Spools"
         char buf[64];
         snprintf(buf, sizeof(buf), "Spoolman: %zu/%zu Spool%s", filtered_spools_.size(),
@@ -320,6 +322,7 @@ void SpoolmanPanel::populate_spool_list() {
 
     // Apply current search filter
     apply_filter();
+    update_location_filter_dropdown();
 
     if (filtered_spools_.empty()) {
         show_empty_state();
@@ -336,8 +339,88 @@ void SpoolmanPanel::populate_spool_list() {
 }
 
 void SpoolmanPanel::apply_filter() {
-    filtered_spools_ = filter_spools(cached_spools_, search_query_);
+    auto location_filtered = filter_by_location(cached_spools_);
+    filtered_spools_ = filter_spools(location_filtered, search_query_);
     update_spool_count();
+}
+
+void SpoolmanPanel::update_location_filter_dropdown() {
+    lv_obj_t* dropdown = lv_obj_find_by_name(overlay_root_, "location_filter");
+    if (!dropdown) {
+        return;
+    }
+
+    // Defensive guard against potential re-entry. LVGL 9.5 does not fire
+    // value_changed from lv_dropdown_set_options(), but we guard anyway
+    // in case future versions change that behavior.
+    if (updating_location_dropdown_) {
+        return;
+    }
+    updating_location_dropdown_ = true;
+
+    // Collect unique non-empty locations
+    std::vector<std::string> locations;
+    for (const auto& spool : cached_spools_) {
+        if (!spool.location.empty()) {
+            if (std::find(locations.begin(), locations.end(), spool.location) == locations.end()) {
+                locations.push_back(spool.location);
+            }
+        }
+    }
+
+    // Hide dropdown if no locations exist.
+    // Imperative visibility exception: dropdown content is fully dynamic (options
+    // set from C++), so subject-based binding adds no value here.
+    if (locations.empty()) {
+        lv_obj_add_flag(dropdown, LV_OBJ_FLAG_HIDDEN);
+        selected_location_.clear();
+        updating_location_dropdown_ = false;
+        return;
+    }
+
+    // Sort alphabetically
+    std::sort(locations.begin(), locations.end());
+
+    // Build options string: "All\nLocation1\nLocation2\n..."
+    std::string options = lv_tr("All");
+    for (const auto& loc : locations) {
+        options += "\n" + loc;
+    }
+    lv_dropdown_set_options(dropdown, options.c_str());
+
+    // Restore or reset selection
+    if (!selected_location_.empty()) {
+        auto it = std::find(locations.begin(), locations.end(), selected_location_);
+        if (it != locations.end()) {
+            uint32_t idx = static_cast<uint32_t>(std::distance(locations.begin(), it)) + 1;
+            lv_dropdown_set_selected(dropdown, idx);
+        } else {
+            // Previously selected location no longer exists
+            selected_location_.clear();
+            lv_dropdown_set_selected(dropdown, 0);
+        }
+    } else {
+        // Ensure "All" is selected (lv_dropdown_set_options resets internally,
+        // but be explicit for clarity)
+        lv_dropdown_set_selected(dropdown, 0);
+    }
+
+    lv_obj_remove_flag(dropdown, LV_OBJ_FLAG_HIDDEN);
+    updating_location_dropdown_ = false;
+}
+
+std::vector<SpoolInfo> SpoolmanPanel::filter_by_location(
+    const std::vector<SpoolInfo>& spools) const {
+    if (selected_location_.empty()) {
+        return spools;
+    }
+    std::vector<SpoolInfo> result;
+    for (const auto& spool : spools) {
+        if (spool.location == selected_location_) {
+            result.push_back(spool);
+        }
+    }
+    return result;
 }
 
 void SpoolmanPanel::update_active_indicators() {
@@ -690,6 +773,33 @@ void SpoolmanPanel::on_search_clear(lv_event_t* /*e*/) {
         lv_timer_delete(panel.search_debounce_timer_);
         panel.search_debounce_timer_ = nullptr;
     }
+    panel.populate_spool_list();
+}
+
+void SpoolmanPanel::on_location_filter_changed(lv_event_t* e) {
+    lv_obj_t* dropdown = static_cast<lv_obj_t*>(lv_event_get_target(e));
+    if (!dropdown) {
+        return;
+    }
+
+    auto& panel = get_global_spoolman_panel();
+
+    // Guard: if we're programmatically updating the dropdown, ignore the event
+    if (panel.updating_location_dropdown_) {
+        return;
+    }
+
+    uint32_t selected = lv_dropdown_get_selected(dropdown);
+    if (selected == 0) {
+        // "All" selected
+        panel.selected_location_.clear();
+    } else {
+        char buf[128];
+        lv_dropdown_get_selected_str(dropdown, buf, sizeof(buf));
+        panel.selected_location_ = buf;
+    }
+
+    spdlog::debug("[Spoolman] Location filter: '{}'", panel.selected_location_);
     panel.populate_spool_list();
 }
 

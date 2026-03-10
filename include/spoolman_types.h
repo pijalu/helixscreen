@@ -92,6 +92,7 @@ struct SpoolInfo {
     double initial_weight_g = 0;   ///< Initial filament weight when new
     double price = 0;              ///< Spool price (user currency)
     std::string lot_nr;            ///< Lot/batch number
+    std::string location;          ///< Physical storage location (max 64 chars)
     std::string comment;           ///< User notes/comment
     bool is_active = false;        ///< True if this is the currently tracked spool
 
@@ -164,7 +165,7 @@ struct FilamentUsageRecord {
  * @brief Filter spools by a multi-term search query
  *
  * Each space-separated term must match somewhere in the spool's combined
- * searchable text (ID, vendor, material, color_name). Case-insensitive.
+ * searchable text (ID, vendor, material, color_name, location). Case-insensitive.
  * Empty query returns all spools.
  *
  * @param spools Input spool list

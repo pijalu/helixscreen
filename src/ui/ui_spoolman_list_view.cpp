@@ -185,11 +185,14 @@ void SpoolmanListView::configure_row(lv_obj_t* row, const SpoolInfo& spool, int 
         lv_label_set_text(name_label, spool.display_name().c_str());
     }
 
-    // Update vendor
+    // Update vendor (with location if available)
     lv_obj_t* vendor_label = lv_obj_find_by_name(row, "spool_vendor");
     if (vendor_label) {
-        const char* vendor = spool.vendor.empty() ? "Unknown" : spool.vendor.c_str();
-        lv_label_set_text(vendor_label, vendor);
+        std::string vendor_text = spool.vendor.empty() ? "Unknown" : spool.vendor;
+        if (!spool.location.empty()) {
+            vendor_text += " \xC2\xB7 " + spool.location; // middle dot: U+00B7
+        }
+        lv_label_set_text(vendor_label, vendor_text.c_str());
     }
 
     // Update weight

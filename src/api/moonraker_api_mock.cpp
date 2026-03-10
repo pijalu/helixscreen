@@ -1400,6 +1400,9 @@ void MoonrakerSpoolmanAPIMock::update_spoolman_spool(int spool_id, const nlohman
             if (spool_data.contains("comment")) {
                 spool.comment = spool_data["comment"].get<std::string>();
             }
+            if (spool_data.contains("location")) {
+                spool.location = spool_data["location"].get<std::string>();
+            }
             if (spool_data.contains("filament_id")) {
                 spool.filament_id = spool_data["filament_id"].get<int>();
             }
@@ -1584,6 +1587,11 @@ void MoonrakerSpoolmanAPIMock::create_spoolman_spool(const nlohmann::json& spool
         spool.material = "PLA";
         spool.vendor = "Mock Vendor";
         spool.color_name = "Mock Color";
+    }
+
+    // Persist optional spool-level string fields
+    if (spool_data.contains("location") && spool_data["location"].is_string()) {
+        spool.location = spool_data["location"].get<std::string>();
     }
 
     mock_spools_.push_back(spool);

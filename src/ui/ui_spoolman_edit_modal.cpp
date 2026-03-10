@@ -227,6 +227,11 @@ void SpoolEditModal::populate_fields() {
         lv_textarea_set_text(lot_field, working_spool_.lot_nr.c_str());
     }
 
+    lv_obj_t* location_field = find_widget("field_location");
+    if (location_field) {
+        lv_textarea_set_text(location_field, working_spool_.location.c_str());
+    }
+
     lv_obj_t* comment_field = find_widget("field_comment");
     if (comment_field) {
         lv_textarea_set_text(comment_field, working_spool_.comment.c_str());
@@ -262,6 +267,12 @@ void SpoolEditModal::read_fields_into(SpoolInfo& spool) {
         spool.lot_nr = text ? text : "";
     }
 
+    field = find_widget("field_location");
+    if (field) {
+        const char* text = lv_textarea_get_text(field);
+        spool.location = text ? text : "";
+    }
+
     field = find_widget("field_comment");
     if (field) {
         const char* text = lv_textarea_get_text(field);
@@ -276,7 +287,8 @@ void SpoolEditModal::register_textareas() {
 
     // Field names in tab order — single-line fields first, then multiline Notes
     static constexpr const char* field_names[] = {
-        "field_remaining", "field_spool_weight", "field_price", "field_lot_nr", "field_comment",
+        "field_remaining", "field_spool_weight", "field_price",
+        "field_location", "field_lot_nr", "field_comment",
     };
     static constexpr int num_fields = sizeof(field_names) / sizeof(field_names[0]);
 
@@ -340,6 +352,7 @@ bool SpoolEditModal::is_dirty() const {
            std::abs(working_spool_.spool_weight_g - original_spool_.spool_weight_g) > 0.1 ||
            std::abs(working_spool_.price - original_spool_.price) > 0.001 ||
            working_spool_.lot_nr != original_spool_.lot_nr ||
+           working_spool_.location != original_spool_.location ||
            working_spool_.comment != original_spool_.comment;
 }
 
@@ -472,6 +485,9 @@ void SpoolEditModal::handle_save() {
     }
     if (working_spool_.comment != original_spool_.comment) {
         spool_patch["comment"] = working_spool_.comment;
+    }
+    if (working_spool_.location != original_spool_.location) {
+        spool_patch["location"] = working_spool_.location;
     }
 
     // Filament-level fields (affect all spools using this filament definition)

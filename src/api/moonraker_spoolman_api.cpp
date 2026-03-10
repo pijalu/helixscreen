@@ -31,6 +31,7 @@ static SpoolInfo parse_spool_info(const nlohmann::json& spool_json) {
     info.price = safe_double(spool_json, "price");
     info.lot_nr = safe_string(spool_json, "lot_nr");
     info.comment = safe_string(spool_json, "comment");
+    info.location = safe_string(spool_json, "location");
 
     // used_weight for fallback initial weight calculation
     double used_weight_g = safe_double(spool_json, "used_weight");
