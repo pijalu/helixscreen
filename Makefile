@@ -539,8 +539,12 @@ ifneq ($(CROSS_COMPILE),)
         # K2 uses musl - fully static, no system library paths needed (same as K1)
         LDFLAGS := $(LIBHV_LIBS) $(FMT_LIBS) $(WPA_CLIENT_LIB) $(LIBNL_LIBS) -ldl -lz -lm -lpthread
     else
-        LDFLAGS := -L/usr/lib/$(TARGET_TRIPLE) $(LIBHV_LIBS) $(FMT_LIBS) $(WPA_CLIENT_LIB) $(LIBNL_LIBS) $(SYSTEMD_LIBS) -lusb-1.0 -ldl -lz -lm -lpthread
-        CXXFLAGS += -DHELIX_HAS_LIBUSB=1
+        LDFLAGS := -L/usr/lib/$(TARGET_TRIPLE) $(LIBHV_LIBS) $(FMT_LIBS) $(WPA_CLIENT_LIB) $(LIBNL_LIBS) $(SYSTEMD_LIBS) -ldl -lz -lm -lpthread
+        # libusb only available on Pi targets (ad5m/cc1 use standalone ARM toolchains without it)
+        ifneq (,$(filter pi pi-fbdev pi-both pi32 pi32-fbdev pi32-both,$(PLATFORM_TARGET)))
+            LDFLAGS += -lusb-1.0
+            CXXFLAGS += -DHELIX_HAS_LIBUSB=1
+        endif
     endif
     ifeq ($(ENABLE_SSL),yes)
         ifneq (,$(filter pi pi-fbdev pi-both pi32 pi32-fbdev pi32-both,$(PLATFORM_TARGET)))
