@@ -784,6 +784,7 @@ void DisplayManager::wake_display() {
     }
 
     bool was_sleeping = m_display_sleeping;
+    bool was_dimmed = m_display_dimmed;
     m_display_sleeping = false;
     m_display_dimmed = false;
 
@@ -833,10 +834,11 @@ void DisplayManager::wake_display() {
     spdlog::info("[DisplayManager] Display woken from {}, brightness restored to {}%",
                  was_sleeping ? "sleep" : "dim", brightness);
 
-    // Auto-lock: show lock screen if PIN set and auto-lock enabled
-    if (was_sleeping &&
+    // Auto-lock: show lock screen when waking from sleep or screensaver/dim
+    if ((was_sleeping || was_dimmed) &&
         helix::LockManager::instance().auto_lock_enabled() &&
         helix::LockManager::instance().has_pin()) {
+        spdlog::info("[DisplayManager] Auto-lock engaged on wake");
         helix::LockManager::instance().lock();
         helix::ui::LockScreenOverlay::instance().show();
     }
