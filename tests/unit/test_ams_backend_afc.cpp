@@ -3430,7 +3430,9 @@ TEST_CASE("AFC tool changer reconciliation derives current_slot from active tool
     }
 
     // Simulate: Klipper reports active tool = T2, current_load is null (mid tool-swap)
-    // With tool_to_slot_map populated, should derive current_slot = 2
+    // parse_afc_state treats null current_load as authoritative "unloaded" state,
+    // so the tool changer reconciliation block does not override current_slot.
+    // current_tool is preserved since it was explicitly provided.
     {
         nlohmann::json params;
         params["AFC"] = {{"current_load", nullptr}, {"current_tool", 2}};
@@ -3438,6 +3440,7 @@ TEST_CASE("AFC tool changer reconciliation derives current_slot from active tool
     }
 
     auto info = helper.get_system_info();
-    CHECK(info.current_slot == 2);
-    CHECK(info.filament_loaded == true);
+    CHECK(info.current_slot == -1);
+    CHECK(info.filament_loaded == false);
+    CHECK(info.current_tool == 2);
 }

@@ -3,9 +3,11 @@
 
 #include "ams_state.h"
 #include "ams_types.h"
+#include "app_constants.h"
 #include "config.h"
 #include "settings_manager.h"
 
+#include <cstdlib>
 #include <filesystem>
 #include <fstream>
 
@@ -28,6 +30,12 @@ struct TempConfigFixture {
                    std::to_string(rand());
         std::filesystem::create_directories(temp_dir);
         config_path = temp_dir + "/helixconfig.json";
+
+        // Remove backup files to prevent cross-test contamination.
+        // Config::init() restores from backups when the config file is missing,
+        // so stale backup data from a previous test run can leak into this test.
+        std::filesystem::remove(AppConstants::Update::config_backup_fallback());
+        std::filesystem::remove(AppConstants::Update::env_backup_fallback());
 
         // Initialize Config singleton with temp path
         Config::get_instance()->init(config_path);
@@ -166,11 +174,12 @@ TEST_CASE("backward compat: old config without assigned key but with color_rgb",
           "[external_spool][settings]") {
     TempConfigFixture fixture;
 
-    // Manually write old-format config (no "assigned" key)
+    // Manually write old-format config (no "assigned" key, but with color_rgb).
+    // Set in-memory only (no save) to avoid contaminating the global backup file.
     Config* config = Config::get_instance();
-    config->set<int>("/filament/external_spool/color_rgb", 0xFF0000);
-    config->set<std::string>("/filament/external_spool/material", "PETG");
-    config->save();
+    std::string prefix = config->df();
+    config->set<int>(prefix + "filament/external_spool/color_rgb", 0xFF0000);
+    config->set<std::string>(prefix + "filament/external_spool/material", "PETG");
 
     auto result = SettingsManager::instance().get_external_spool_info();
     REQUIRE(result.has_value());
