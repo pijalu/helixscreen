@@ -183,6 +183,15 @@ package_platform() {
         cp "${PROJECT_DIR}/config/helixconfig.json.template" "$pkg_dir/config/helixconfig.json.template" 2>/dev/null || true
     fi
 
+    # Copy CA certificates for platforms without system cert bundles (AD5M, CC1)
+    # The launcher sets SSL_CERT_FILE to ${INSTALL_DIR}/certs/ca-certificates.crt
+    local cert_file="${build_dir}/certs/ca-certificates.crt"
+    if [ -f "$cert_file" ]; then
+        mkdir -p "$pkg_dir/certs"
+        cp "$cert_file" "$pkg_dir/certs/"
+        log_info "  Included CA certificate bundle"
+    fi
+
     # Copy install script
     cp "${PROJECT_DIR}/scripts/install.sh" "$pkg_dir/"
     chmod +x "$pkg_dir/install.sh"

@@ -819,6 +819,12 @@ class TelemetryManager {
     /// Atomic: read on LVGL thread (try_send), written on send thread (do_send).
     std::atomic<int> backoff_multiplier_{1};
 
+    /// Whether SSL cert availability has been checked (one-time on send thread)
+    bool ssl_verified_{false};
+
+    /// Whether sends are disabled (e.g., no CA cert bundle found)
+    bool send_disabled_{false};
+
     /// Background thread for HTTP POST
     std::thread send_thread_;
 

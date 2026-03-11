@@ -43,6 +43,7 @@
 #include <random>
 #include <sstream>
 #include <sys/utsname.h>
+#include <unistd.h>
 
 #ifdef __APPLE__
 #include <CommonCrypto/CommonDigest.h>
@@ -793,6 +794,28 @@ void TelemetryManager::try_send() {
 
 void TelemetryManager::do_send(const nlohmann::json& batch) {
     try {
+        // Verify SSL certificate availability before HTTPS request.
+        // On devices without a CA cert bundle (e.g., AD5M stock firmware),
+        // glibc's NSS resolver can crash with SIGSEGV during SSL handshake.
+        if (!ssl_verified_) {
+            const char* cert_file = getenv("SSL_CERT_FILE");
+            const char* cert_dir = getenv("SSL_CERT_DIR");
+            bool have_certs = (cert_file && access(cert_file, R_OK) == 0) ||
+                              (cert_dir && access(cert_dir, R_OK) == 0) ||
+                              access("/etc/ssl/certs/ca-certificates.crt", R_OK) == 0;
+            if (!have_certs) {
+                spdlog::warn("[TelemetryManager] No CA certificate bundle found — "
+                             "HTTPS requests may fail. Set SSL_CERT_FILE or install "
+                             "ca-certificates.");
+                // Don't crash — just disable telemetry sends
+                send_disabled_ = true;
+            }
+            ssl_verified_ = true;
+        }
+        if (send_disabled_) {
+            return;
+        }
+
         // Use libhv HTTP client (same pattern as UpdateChecker and Moonraker API)
         auto req = std::make_shared<HttpRequest>();
         req->method = HTTP_POST;
