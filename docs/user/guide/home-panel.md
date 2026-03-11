@@ -179,6 +179,7 @@ Every widget available for your dashboard, with sizing constraints:
 | **Camera** | Live webcam feed from your MJPEG stream. Tap to go fullscreen. Automatically detects webcams configured in Moonraker. See [Camera Widget](#camera-widget) below for setup tips. | 2x2 | 1x1 | 4x3 | Yes | Webcam configured |
 | **Job Queue** | Shows the number of queued print jobs. Tap to open the Job Queue Manager modal (see [Job Queue Manager](#job-queue-manager) below). | 2x2 | 2x1 | 4x3 | Yes | — |
 | **Print Stats** | Print history statistics — total prints, success rate, and total print time. Tap to open the full print history overlay. | 2x2 | 2x1 | 3x2 | Yes | — |
+| **Lock Screen** | Locks the screen immediately with PIN protection. Only appears in the Widget Catalog after setting a PIN in Settings > Security. | 1x1 | 1x1 | 1x1 | No | PIN set in Settings |
 
 > **Sizes** are listed as columns x rows. For example, "2x1" means 2 columns wide and 1 row tall.
 
@@ -260,6 +261,7 @@ While **not** in Edit Mode, widgets respond to taps and other gestures:
 | Print Stats | Opens print history overlay |
 | Job Queue | Opens Job Queue Manager modal |
 | Camera | Opens fullscreen camera view |
+| Lock Screen | Locks the screen immediately; requires PIN to unlock |
 | Humidity | — (display only) |
 | Width Sensor | — (display only) |
 | Thermistor | — (display only) |
