@@ -92,6 +92,7 @@ static const IconMapping ICON_MAP[] = {
     {"console",            "\xF3\xB0\x86\x8D"},  // F018D console/terminal
     {"content_copy",       "\xF3\xB0\x86\x8F"},  // F018F content-copy (duplicate)
     {"cooldown",           "\xF3\xB0\x9C\x97"},  // F0717 snowflake
+    {"crosshairs_gps",     "\xF3\xB0\x86\xA4"},  // F01A4 crosshairs-gps (probe)
     {"cube",               "\xF3\xB0\x86\xA7"},  // F01A7 cube-outline
     {"cube_outline",       "\xF3\xB0\x86\xA7"},  // F01A7 cube-outline
     {"cursor_move",        "\xF3\xB0\x86\xBE"},  // F01BE cursor-move (4-way arrows)
@@ -175,6 +176,7 @@ static const IconMapping ICON_MAP[] = {
     {"lock",               "\xF3\xB0\x8C\xBE"},  // F033E lock
     {"magnify",            "\xF3\xB0\x8D\x89"},  // F0349 magnify (search/discovery)
     {"magnify_scan",       "\xF3\xB1\x89\xB6"},  // F1276 magnify-scan (BT discovery)
+    {"magnet",             "\xF3\xB0\x8D\x87"},  // F0347 magnet (Klicky probe)
 
     // Misc/Math
     {"message",            "\xF3\xB0\x8D\xA9"},  // F0369 message-text (discord/chat)

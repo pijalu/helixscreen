@@ -98,11 +98,6 @@ class ProbeOverlay : public OverlayBase {
     // State subject for overlay mode
     lv_subject_t probe_overlay_state_{};
 
-    // Accuracy test result subjects
-    char probe_accuracy_result_buf_[128] = {};
-    lv_subject_t probe_accuracy_result_{};
-    lv_subject_t probe_accuracy_visible_{};
-
     // Cartographer subjects
     char probe_carto_coil_temp_buf_[32] = {};
     lv_subject_t probe_carto_coil_temp_{};

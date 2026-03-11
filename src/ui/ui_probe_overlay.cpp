@@ -8,6 +8,7 @@
 #include "ui_nav_manager.h"
 #include "ui_panel_bed_mesh.h"
 #include "ui_panel_calibration_zoffset.h"
+#include "ui_toast_manager.h"
 #include "ui_update_queue.h"
 
 #include "app_globals.h"
@@ -222,11 +223,6 @@ void ProbeOverlay::init_subjects() {
 
     // Overlay state (0=normal)
     UI_MANAGED_SUBJECT_INT(probe_overlay_state_, 0, "probe_overlay_state", subjects_);
-
-    // Accuracy test results
-    UI_MANAGED_SUBJECT_STRING(probe_accuracy_result_, probe_accuracy_result_buf_, "",
-                              "probe_accuracy_result", subjects_);
-    UI_MANAGED_SUBJECT_INT(probe_accuracy_visible_, 0, "probe_accuracy_visible", subjects_);
 
     // Cartographer subjects
     UI_MANAGED_SUBJECT_STRING(probe_carto_coil_temp_, probe_carto_coil_temp_buf_, "--",
@@ -476,26 +472,18 @@ void ProbeOverlay::handle_probe_accuracy() {
 
     MoonrakerClient* client = get_moonraker_client();
     if (!client) {
-        spdlog::error("[Probe] No client available for accuracy test");
+        ToastManager::instance().show(ToastSeverity::ERROR, "No printer connection");
         return;
     }
-
-    // Show that test is in progress
-    snprintf(probe_accuracy_result_buf_, sizeof(probe_accuracy_result_buf_), "Running...");
-    lv_subject_copy_string(&probe_accuracy_result_, probe_accuracy_result_buf_);
-    lv_subject_set_int(&probe_accuracy_visible_, 1);
 
     // Send PROBE_ACCURACY command (async via gcode_script)
     int result = client->gcode_script("PROBE_ACCURACY");
     if (result != 0) {
         spdlog::error("[Probe] PROBE_ACCURACY command failed: {}", result);
-        snprintf(probe_accuracy_result_buf_, sizeof(probe_accuracy_result_buf_),
-                 "Test failed (error %d)", result);
-        lv_subject_copy_string(&probe_accuracy_result_, probe_accuracy_result_buf_);
+        ToastManager::instance().show(ToastSeverity::ERROR, "Probe accuracy test failed");
     } else {
-        snprintf(probe_accuracy_result_buf_, sizeof(probe_accuracy_result_buf_),
-                 "Test started - results in console");
-        lv_subject_copy_string(&probe_accuracy_result_, probe_accuracy_result_buf_);
+        ToastManager::instance().show(ToastSeverity::INFO,
+                                      "Probe accuracy test started — results in console");
     }
 }
 

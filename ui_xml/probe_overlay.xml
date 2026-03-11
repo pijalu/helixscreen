@@ -1,5 +1,6 @@
 <?xml version="1.0"?>
 <!-- SPDX-License-Identifier: GPL-3.0-or-later -->
+<!-- Probe overlay - Shows probe info, type-specific controls, and calibration actions -->
 <component>
   <view name="probe_overlay"
         extends="lv_obj" width="#overlay_panel_width" height="100%" align="right_mid" style_border_width="0"
@@ -14,24 +15,27 @@
       <!-- ============================================================ -->
       <!-- PROBE IDENTITY CARD -->
       <!-- ============================================================ -->
-      <lv_obj width="100%"
-              height="content" style_bg_color="#screen_bg" style_bg_opa="255" style_radius="#border_radius"
-              style_pad_all="#space_lg" flex_flow="column" style_pad_gap="#space_sm" scrollable="false">
-
-        <!-- Probe name and type -->
-        <text_heading bind_text="probe_display_name"/>
-        <text_small bind_text="probe_type_label" style_text_color="#text_muted"/>
-
-        <!-- Status row: indicator + Z offset -->
-        <lv_obj width="100%"
-                height="content" style_pad_all="0" style_pad_top="#space_sm" flex_flow="row"
-                style_flex_cross_place="center" style_pad_gap="#space_lg" scrollable="false">
-          <text_body text="Status" translation_tag="Status"/>
-          <probe_indicator/>
-          <text_body text="Z Offset" translation_tag="Z Offset"/>
-          <text_body bind_text="probe_z_offset_display" style_text_color="#text_accent"/>
+      <ui_card width="100%" height="content" style_border_width="0" style_pad_all="#space_lg" scrollable="false"
+               flex_flow="row" style_flex_cross_place="center" style_pad_gap="#space_md">
+        <!-- Probe icon -->
+        <lv_obj width="48" height="48" style_bg_color="#primary" style_bg_opa="255" style_radius="24" scrollable="false"
+                style_pad_all="0" flex_flow="column" style_flex_main_place="center" style_flex_cross_place="center"
+                style_flex_track_place="center">
+          <icon src="crosshairs_gps" size="md" variant="text"/>
         </lv_obj>
-      </lv_obj>
+        <!-- Probe name, type, and Z offset -->
+        <lv_obj height="content" style_pad_all="0" scrollable="false" flex_flow="column" style_pad_gap="#space_xs"
+                flex_grow="1">
+          <text_heading bind_text="probe_display_name"/>
+          <text_small bind_text="probe_type_label" style_text_color="#text_muted"/>
+          <!-- Z Offset value -->
+          <lv_obj width="100%" height="content" style_pad_all="0" style_pad_top="#space_xs" flex_flow="row"
+                  style_flex_cross_place="center" style_pad_gap="#space_sm" scrollable="false">
+            <text_small text="Z Offset" translation_tag="Z Offset" style_text_color="#text_muted"/>
+            <text_body bind_text="probe_z_offset_display" style_text_color="#text_accent"/>
+          </lv_obj>
+        </lv_obj>
+      </ui_card>
 
       <!-- ============================================================ -->
       <!-- TYPE-SPECIFIC PANEL (swapped on activation) -->
@@ -46,8 +50,7 @@
               scrollable="false">
         <bind_flag_if_eq subject="probe_config_loaded" flag="hidden" ref_value="0"/>
 
-        <text_small text="Configuration" translation_tag="Configuration"
-                    style_text_color="#text_muted" style_pad_left="#space_sm"/>
+        <setting_section_header title="CONFIGURATION" title_tag="CONFIGURATION" icon="tune"/>
 
         <!-- X Offset -->
         <setting_action_row name="btn_cfg_x_offset"
@@ -93,23 +96,16 @@
       </lv_obj>
 
       <!-- ============================================================ -->
-      <!-- UNIVERSAL ACTIONS -->
+      <!-- ACTIONS -->
       <!-- ============================================================ -->
+      <setting_section_header title="ACTIONS" title_tag="ACTIONS" icon="wrench"/>
 
-      <!-- Probe Accuracy Test -->
-      <setting_action_row name="btn_probe_accuracy"
-                          label="Probe Accuracy Test" label_tag="Probe Accuracy Test" icon="target"
-                          description="Test probe repeatability" description_tag="Test probe repeatability">
+      <!-- Probe Accuracy Test (no chevron — runs in-place, shows toast) -->
+      <ui_button name="btn_probe_accuracy"
+                 width="100%" height="#button_height" variant="secondary"
+                 text="Probe Accuracy Test" translation_tag="Probe Accuracy Test" icon="target">
         <event_cb trigger="clicked" callback="on_probe_accuracy"/>
-      </setting_action_row>
-
-      <!-- Accuracy result (hidden by default) -->
-      <lv_obj width="100%"
-              height="content" style_bg_color="#screen_bg" style_bg_opa="255" style_radius="#border_radius"
-              style_pad_all="#space_md" scrollable="false">
-        <bind_flag_if_eq subject="probe_accuracy_visible" flag="hidden" ref_value="0"/>
-        <text_small bind_text="probe_accuracy_result" style_text_color="#text_muted"/>
-      </lv_obj>
+      </ui_button>
 
       <!-- Z-Offset Calibration -->
       <setting_action_row name="btn_zoffset"
