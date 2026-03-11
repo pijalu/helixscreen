@@ -551,7 +551,7 @@ ifneq ($(CROSS_COMPILE),)
         # libusb only available on Pi targets (ad5m/cc1 use standalone ARM toolchains without it)
         ifneq (,$(filter pi pi-fbdev pi-both pi32 pi32-fbdev pi32-both,$(PLATFORM_TARGET)))
             LDFLAGS += -lusb-1.0
-            CXXFLAGS += -DHELIX_HAS_LIBUSB=1
+            CXXFLAGS += -isystem /usr/include/libusb-1.0 -DHELIX_HAS_LIBUSB=1
         endif
     endif
     ifeq ($(ENABLE_SSL),yes)
@@ -612,7 +612,7 @@ else
     NPROC := $(shell nproc 2>/dev/null || echo 4)
     # Note: -lstdc++fs needed for std::experimental::filesystem on GCC < 9
     LDFLAGS := $(LDFLAGS_COMMON) $(WPA_CLIENT_LIB) $(SYSTEMD_LIBS) -lusb-1.0 -lssl -lcrypto -ldl -lstdc++fs
-    CXXFLAGS += -DHELIX_HAS_LIBUSB=1
+    CXXFLAGS += -isystem /usr/include/libusb-1.0 -DHELIX_HAS_LIBUSB=1
     # GPU-accelerated 3D G-code rendering via OpenGL ES 2.0 (SDL GL context on desktop)
     ifeq ($(ENABLE_GLES_3D),yes)
         LDFLAGS += -lGLESv2
