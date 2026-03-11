@@ -129,8 +129,9 @@ class QrScannerOverlay : public OverlayBase {
     lv_obj_t* status_text_ = nullptr;
     lv_obj_t* success_flash_ = nullptr;
 
-    // Success delay timer (tracked for cleanup)
+    // Timers (tracked for cleanup)
     lv_timer_t* success_timer_ = nullptr;
+    lv_timer_t* timeout_timer_ = nullptr;
 
     // Weak alive flag for async callbacks
     std::shared_ptr<bool> alive_ = std::make_shared<bool>(false);

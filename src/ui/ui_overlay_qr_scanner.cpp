@@ -151,6 +151,28 @@ void QrScannerOverlay::on_activate() {
     OverlayBase::on_activate();
     *alive_ = true;
     start_scanning();
+
+    // Auto-close after 60 seconds if no scan result
+    auto weak = std::weak_ptr<bool>(alive_);
+    timeout_timer_ = lv_timer_create(
+        [](lv_timer_t* timer) {
+            auto* w = static_cast<std::weak_ptr<bool>*>(lv_timer_get_user_data(timer));
+            if (auto alive = w->lock(); alive && *alive) {
+                auto& overlay = get_qr_scanner_overlay();
+                spdlog::info("[{}] Timeout — auto-closing", overlay.get_name());
+                overlay.timeout_timer_ = nullptr;
+                overlay.stop_scanning();
+                if (overlay.cancel_callback_) {
+                    overlay.cancel_callback_();
+                }
+                NavigationManager::instance().go_back();
+            }
+            delete w;
+            lv_timer_delete(timer);
+        },
+        60000, new std::weak_ptr<bool>(weak));
+    lv_timer_set_repeat_count(timeout_timer_, 1);
+
     spdlog::debug("[{}] Activated", get_name());
 }
 
@@ -158,10 +180,14 @@ void QrScannerOverlay::on_deactivate() {
     *alive_ = false;
     stop_scanning();
 
-    // Cancel pending success timer
+    // Cancel pending timers
     if (success_timer_) {
         lv_timer_delete(success_timer_);
         success_timer_ = nullptr;
+    }
+    if (timeout_timer_) {
+        lv_timer_delete(timeout_timer_);
+        timeout_timer_ = nullptr;
     }
 
     // Clear callbacks to prevent stale references on reuse
