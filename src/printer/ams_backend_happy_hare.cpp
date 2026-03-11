@@ -1373,9 +1373,11 @@ int AmsBackendHappyHare::get_config_default_int(const std::string& key) const {
 }
 
 void AmsBackendHappyHare::save_override(const std::string& key, float value) {
-    // Update in-memory override
-    if (key == "gear_from_buffer_speed")
-        user_overrides_.gear_from_buffer_speed = value;
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        // Update in-memory override
+        if (key == "gear_from_buffer_speed")
+            user_overrides_.gear_from_buffer_speed = value;
     else if (key == "gear_from_spool_speed")
         user_overrides_.gear_from_spool_speed = value;
     else if (key == "gear_unload_speed")
@@ -1394,8 +1396,9 @@ void AmsBackendHappyHare::save_override(const std::string& key, float value) {
         user_overrides_.toolhead_entry_to_extruder = value;
     else if (key == "toolhead_ooze_reduction")
         user_overrides_.toolhead_ooze_reduction = value;
+    } // end mutex scope
 
-    // Persist to Config JSON
+    // Persist to Config JSON (outside lock — disk I/O)
     auto* config = helix::Config::get_instance();
     if (!config)
         return;
@@ -1406,13 +1409,15 @@ void AmsBackendHappyHare::save_override(const std::string& key, float value) {
 }
 
 void AmsBackendHappyHare::save_override(const std::string& key, int value) {
-    // Update in-memory override
-    if (key == "sync_to_extruder")
-        user_overrides_.sync_to_extruder = value;
-    else if (key == "clog_detection")
-        user_overrides_.clog_detection = value;
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        if (key == "sync_to_extruder")
+            user_overrides_.sync_to_extruder = value;
+        else if (key == "clog_detection")
+            user_overrides_.clog_detection = value;
+    } // end mutex scope
 
-    // Persist to Config JSON
+    // Persist to Config JSON (outside lock — disk I/O)
     auto* config = helix::Config::get_instance();
     if (!config)
         return;
@@ -2009,6 +2014,8 @@ std::vector<helix::printer::DeviceSection> AmsBackendHappyHare::get_device_secti
 }
 
 std::vector<helix::printer::DeviceAction> AmsBackendHappyHare::get_device_actions() const {
+    std::lock_guard<std::mutex> lock(mutex_);
+
     using namespace helix::printer;
     auto actions = hh_default_actions();
 
@@ -2140,6 +2147,16 @@ AmsError AmsBackendHappyHare::execute_device_action(const std::string& action_id
         }
     };
 
+    // Helper to look up an action's min/max range from defaults
+    auto get_action_range = [](const std::string& id) -> std::pair<float, float> {
+        static auto defaults = helix::printer::hh_default_actions();
+        for (const auto& a : defaults) {
+            if (a.id == id)
+                return {a.min_value, a.max_value};
+        }
+        return {-1e6f, 1e6f};
+    };
+
     // Helper to extract double from std::any (UI sends doubles)
     auto require_double = [&](const char* label) -> std::pair<double, AmsError> {
         if (!value.has_value()) {
@@ -2213,6 +2230,8 @@ AmsError AmsBackendHappyHare::execute_device_action(const std::string& action_id
             auto [speed, err] = require_double("speed");
             if (!err)
                 return err;
+            auto [lo, hi] = get_action_range(id);
+            speed = std::clamp(speed, static_cast<double>(lo), static_cast<double>(hi));
             auto result = execute_gcode(fmt::format("MMU_TEST_CONFIG {}={:.0f}", param, speed));
             if (result.success()) {
                 save_override(action_id, static_cast<float>(speed));
@@ -2235,6 +2254,8 @@ AmsError AmsBackendHappyHare::execute_device_action(const std::string& action_id
             auto [dist, err] = require_double("distance");
             if (!err)
                 return err;
+            auto [lo, hi] = get_action_range(id);
+            dist = std::clamp(dist, static_cast<double>(lo), static_cast<double>(hi));
             auto result = execute_gcode(fmt::format("MMU_TEST_CONFIG {}={:.1f}", param, dist));
             if (result.success()) {
                 save_override(action_id, static_cast<float>(dist));
