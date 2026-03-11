@@ -364,8 +364,8 @@ TEST_CASE("AD5X preset has required display sleep config", "[application][displa
     // AD5X must use software overlay (hardware_blank = 0)
     REQUIRE(display.value("hardware_blank", -1) == 0);
 
-    // AD5X must keep backlight on during sleep
-    REQUIRE(display.value("sleep_backlight_off", true) == false);
+    // AD5X turns backlight off during sleep (software overlay handles blanking)
+    REQUIRE(display.value("sleep_backlight_off", false) == true);
 }
 
 TEST_CASE("CC1 preset has required display sleep config", "[application][display][cc1]") {

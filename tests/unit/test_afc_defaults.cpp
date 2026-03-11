@@ -54,7 +54,7 @@ TEST_CASE("AFC default sections contain known IDs", "[defaults][afc]") {
     REQUIRE(ids.count("hub") == 1);
     REQUIRE(ids.count("tip_forming") == 1);
     REQUIRE(ids.count("purge") == 1);
-    REQUIRE(ids.count("config") == 1);
+    REQUIRE(ids.count("toolhead") == 1);
 }
 
 TEST_CASE("AFC default sections have unique IDs", "[defaults][afc]") {
@@ -71,7 +71,7 @@ TEST_CASE("AFC default sections have unique IDs", "[defaults][afc]") {
 
 TEST_CASE("AFC default actions count", "[defaults][afc]") {
     auto actions = afc_default_actions();
-    REQUIRE(actions.size() == 23);
+    REQUIRE(actions.size() == 25);
 }
 
 TEST_CASE("AFC default actions have required fields", "[defaults][afc]") {
@@ -115,7 +115,9 @@ TEST_CASE("AFC default actions contain known IDs", "[defaults][afc]") {
     REQUIRE(ids.count("purge_enabled") == 1);
     REQUIRE(ids.count("purge_length") == 1);
     REQUIRE(ids.count("brush_enabled") == 1);
-    REQUIRE(ids.count("save_restart") == 1);
+    REQUIRE(ids.count("tool_stn") == 1);
+    REQUIRE(ids.count("tool_stn_unload") == 1);
+    REQUIRE(ids.count("tool_sensor_after_extruder") == 1);
 }
 
 TEST_CASE("AFC default actions have unique IDs", "[defaults][afc]") {
@@ -173,7 +175,9 @@ TEST_CASE("AFC default actions have correct section assignments", "[defaults][af
     REQUIRE(find("purge_enabled")->section == "purge");
     REQUIRE(find("purge_length")->section == "purge");
     REQUIRE(find("brush_enabled")->section == "purge");
-    REQUIRE(find("save_restart")->section == "config");
+    REQUIRE(find("tool_stn")->section == "toolhead");
+    REQUIRE(find("tool_stn_unload")->section == "toolhead");
+    REQUIRE(find("tool_sensor_after_extruder")->section == "toolhead");
 }
 
 TEST_CASE("AFC default BUTTON actions have correct defaults", "[defaults][afc]") {
@@ -188,14 +192,8 @@ TEST_CASE("AFC default BUTTON actions have correct defaults", "[defaults][afc]")
         REQUIRE(a.max_value == 0);
         REQUIRE(a.unit.empty());
         REQUIRE(a.slot_index == -1);
-        // save_restart is initially disabled (no unsaved changes)
-        if (a.id == "save_restart") {
-            REQUIRE_FALSE(a.enabled);
-            REQUIRE(a.disable_reason == "No unsaved changes");
-        } else {
-            REQUIRE(a.enabled);
-            REQUIRE(a.disable_reason.empty());
-        }
+        REQUIRE(a.enabled);
+        REQUIRE(a.disable_reason.empty());
     }
 }
 
