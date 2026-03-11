@@ -1572,6 +1572,343 @@ static void draw_parallel_topology(lv_event_t* e, FilamentPathData* data) {
 }
 
 // ============================================================================
+// Mixed Topology Drawing (HTLF: Direct + Hub lanes)
+// ============================================================================
+// Some lanes go directly to their own nozzle (like PARALLEL), while others
+// converge through a hub box to a shared nozzle. Visual layout:
+//   [spool0] [spool1] [spool2] [spool3]
+//      |        |        |        |       entry lines
+//      o        o        o        o       sensor dots
+//      |        |         \      /        direct vs angled paths
+//      |        |        [HUB]            hub box (hub lanes converge)
+//      |        |          |              hub output line
+//     (T0)    (T2)       (T1)             nozzles + tool labels
+
+static void draw_mixed_topology(lv_event_t* e, FilamentPathData* data) {
+    lv_obj_t* obj = lv_event_get_target_obj(e);
+    lv_layer_t* layer = lv_event_get_layer(e);
+
+    // Get widget dimensions
+    lv_area_t obj_coords;
+    lv_obj_get_coords(obj, &obj_coords);
+    int32_t height = lv_area_get_height(&obj_coords);
+    int32_t x_off = obj_coords.x1;
+    int32_t y_off = obj_coords.y1;
+
+    // Layout ratios (same as parallel topology for consistency)
+    constexpr float ENTRY_Y = -0.12f;   // Top entry (connects to spool)
+    constexpr float SENSOR_Y = 0.20f;   // Sensor dot position
+    constexpr float HUB_Y = 0.42f;      // Hub box center Y
+    constexpr float HUB_H = 0.08f;      // Hub box height ratio
+    constexpr float TOOLHEAD_Y = 0.55f;  // Nozzle/toolhead position
+
+    int32_t entry_y = y_off + (int32_t)(height * ENTRY_Y);
+    int32_t sensor_y = y_off + (int32_t)(height * SENSOR_Y);
+    int32_t hub_cy = y_off + (int32_t)(height * HUB_Y);
+    int32_t hub_h = LV_MAX(16, (int32_t)(height * HUB_H));
+    int32_t hub_top = hub_cy - hub_h / 2;
+    int32_t hub_bottom = hub_cy + hub_h / 2;
+    int32_t toolhead_y = y_off + (int32_t)(height * TOOLHEAD_Y);
+
+    // Colors
+    lv_color_t idle_color = data->color_idle;
+    lv_color_t bg_color = data->color_bg;
+    lv_color_t nozzle_color = data->color_nozzle;
+
+    // Line sizes
+    int32_t line_active = data->line_width_active;
+    int32_t sensor_r = data->sensor_radius;
+    int32_t tool_scale = LV_MAX(6, data->extruder_scale * 2 / 3);
+
+    // Phase 1: Identify hub lanes and compute hub center X
+    int hub_count = 0;
+    int32_t hub_x_sum = 0;
+    int first_hub_lane = -1;
+
+    for (int i = 0; i < data->slot_count; i++) {
+        if (data->slot_is_hub_routed[i]) {
+            int32_t sx = x_off + get_slot_x(data, i, x_off);
+            hub_x_sum += sx;
+            hub_count++;
+            if (first_hub_lane < 0) first_hub_lane = i;
+        }
+    }
+
+    int32_t hub_cx = (hub_count > 0) ? (hub_x_sum / hub_count) : (x_off + 150);
+    // Hub width: ~60% of full hub topology width, enough for the hub lanes
+    int32_t hub_w = LV_MAX(40, data->hub_width * 3 / 5);
+
+    // Phase 2: Draw entry lines and sensor dots for ALL lanes
+    for (int i = 0; i < data->slot_count; i++) {
+        int32_t slot_x = x_off + get_slot_x(data, i, x_off);
+
+        // Determine filament state for this slot
+        lv_color_t tool_color = idle_color;
+        bool has_filament = false;
+        PathSegment slot_segment = PathSegment::NONE;
+
+        if (i < FilamentPathData::MAX_SLOTS &&
+            data->slot_filament_states[i].segment != PathSegment::NONE) {
+            has_filament = true;
+            tool_color = lv_color_hex(data->slot_filament_states[i].color);
+            slot_segment = data->slot_filament_states[i].segment;
+        }
+
+        bool is_mounted = (i == data->active_slot);
+        if (is_mounted && data->filament_segment > 0) {
+            tool_color = lv_color_hex(data->filament_color);
+            has_filament = true;
+            slot_segment = static_cast<PathSegment>(data->filament_segment);
+        }
+
+        // Entry → sensor line
+        if (has_filament) {
+            draw_glow_line(layer, slot_x, entry_y, slot_x, sensor_y - sensor_r, tool_color,
+                           line_active);
+            draw_vertical_line(layer, slot_x, entry_y, sensor_y - sensor_r, tool_color,
+                               line_active);
+        } else {
+            draw_hollow_vertical_line(layer, slot_x, entry_y, sensor_y - sensor_r, idle_color,
+                                      bg_color, line_active);
+        }
+
+        // Sensor dot
+        bool at_sensor = has_filament && (slot_segment >= PathSegment::TOOLHEAD);
+        lv_color_t sensor_color = at_sensor ? tool_color : idle_color;
+        draw_sensor_dot(layer, slot_x, sensor_y, sensor_color, at_sensor, sensor_r);
+    }
+
+    // Phase 3: Draw hub box (behind paths, so paths draw on top)
+    if (hub_count > 0) {
+        draw_hub_box(layer, hub_cx, hub_cy, hub_w, hub_h, data->color_hub_bg,
+                     data->color_hub_border, data->color_text, data->label_font,
+                     data->border_radius, "HUB");
+    }
+
+    // Phase 4: Draw paths from sensor to nozzle (direct or hub-routed)
+    bool hub_nozzle_drawn = false;
+
+    for (int i = 0; i < data->slot_count; i++) {
+        int32_t slot_x = x_off + get_slot_x(data, i, x_off);
+        bool is_hub = data->slot_is_hub_routed[i];
+        bool is_mounted = (i == data->active_slot);
+
+        // Re-derive filament state
+        lv_color_t tool_color = idle_color;
+        bool has_filament = false;
+        PathSegment slot_segment = PathSegment::NONE;
+
+        if (i < FilamentPathData::MAX_SLOTS &&
+            data->slot_filament_states[i].segment != PathSegment::NONE) {
+            has_filament = true;
+            tool_color = lv_color_hex(data->slot_filament_states[i].color);
+            slot_segment = data->slot_filament_states[i].segment;
+        }
+
+        if (is_mounted && data->filament_segment > 0) {
+            tool_color = lv_color_hex(data->filament_color);
+            has_filament = true;
+            slot_segment = static_cast<PathSegment>(data->filament_segment);
+        }
+
+        bool at_nozzle = has_filament && (slot_segment >= PathSegment::NOZZLE);
+
+        if (is_hub) {
+            // Hub-routed lane: angled path from sensor to hub top
+            int32_t mid_y = sensor_y + (hub_top - sensor_y) / 2;
+            if (has_filament) {
+                // Sensor → midpoint (vertical)
+                draw_glow_line(layer, slot_x, sensor_y + sensor_r, slot_x, mid_y, tool_color,
+                               line_active);
+                draw_vertical_line(layer, slot_x, sensor_y + sensor_r, mid_y, tool_color,
+                                   line_active);
+                // Midpoint → hub top (angled)
+                draw_glow_line(layer, slot_x, mid_y, hub_cx, hub_top, tool_color, line_active);
+                draw_line(layer, slot_x, mid_y, hub_cx, hub_top, tool_color, line_active);
+            } else {
+                draw_hollow_vertical_line(layer, slot_x, sensor_y + sensor_r, mid_y, idle_color,
+                                          bg_color, line_active);
+                draw_hollow_line(layer, slot_x, mid_y, hub_cx, hub_top, idle_color, bg_color,
+                                 line_active);
+            }
+
+            // Hub output line + shared nozzle (draw only once)
+            if (!hub_nozzle_drawn) {
+                hub_nozzle_drawn = true;
+
+                // Check if any hub lane has filament at nozzle
+                bool any_hub_at_nozzle = false;
+                lv_color_t hub_nozzle_color = nozzle_color;
+                int hub_tool = (first_hub_lane >= 0 && data->mapped_tool[first_hub_lane] >= 0)
+                                   ? data->mapped_tool[first_hub_lane]
+                                   : (first_hub_lane >= 0 ? first_hub_lane : 0);
+
+                for (int j = 0; j < data->slot_count; j++) {
+                    if (!data->slot_is_hub_routed[j]) continue;
+                    bool j_mounted = (j == data->active_slot);
+                    PathSegment j_seg = PathSegment::NONE;
+                    lv_color_t j_color = idle_color;
+                    if (j < FilamentPathData::MAX_SLOTS &&
+                        data->slot_filament_states[j].segment != PathSegment::NONE) {
+                        j_seg = data->slot_filament_states[j].segment;
+                        j_color = lv_color_hex(data->slot_filament_states[j].color);
+                    }
+                    if (j_mounted && data->filament_segment > 0) {
+                        j_seg = static_cast<PathSegment>(data->filament_segment);
+                        j_color = lv_color_hex(data->filament_color);
+                    }
+                    if (j_seg >= PathSegment::NOZZLE) {
+                        any_hub_at_nozzle = true;
+                        hub_nozzle_color = j_color;
+                        hub_tool = (data->mapped_tool[j] >= 0) ? data->mapped_tool[j] : j;
+                        break;
+                    }
+                }
+
+                int32_t nozzle_top = toolhead_y - tool_scale * 2;
+
+                // Hub bottom → nozzle top line
+                if (any_hub_at_nozzle) {
+                    draw_glow_line(layer, hub_cx, hub_bottom, hub_cx, nozzle_top, hub_nozzle_color,
+                                   line_active);
+                    draw_vertical_line(layer, hub_cx, hub_bottom, nozzle_top, hub_nozzle_color,
+                                       line_active);
+                } else {
+                    draw_hollow_vertical_line(layer, hub_cx, hub_bottom, nozzle_top, idle_color,
+                                              bg_color, line_active);
+                }
+
+                // Draw shared hub nozzle
+                lv_color_t noz_color = any_hub_at_nozzle ? hub_nozzle_color : nozzle_color;
+                // Hub nozzle is always "mounted" visually (it's a shared output)
+                lv_opa_t hub_noz_opa = LV_OPA_COVER;
+
+                switch (helix::SettingsManager::instance().get_effective_toolhead_style()) {
+                    case helix::ToolheadStyle::STEALTHBURNER:
+                        draw_nozzle_faceted(layer, hub_cx, toolhead_y, noz_color, tool_scale,
+                                            hub_noz_opa);
+                        break;
+                    case helix::ToolheadStyle::A4T:
+                        draw_nozzle_a4t(layer, hub_cx, toolhead_y, noz_color, tool_scale * 6 / 5,
+                                        hub_noz_opa);
+                        break;
+                    default:
+                        draw_nozzle_bambu(layer, hub_cx, toolhead_y, noz_color, tool_scale,
+                                          hub_noz_opa);
+                        break;
+                }
+
+                // Tool label below shared hub nozzle
+                if (data->label_font) {
+                    char tool_label[16];
+                    snprintf(tool_label, sizeof(tool_label), "T%d", hub_tool);
+
+                    int32_t font_h = lv_font_get_line_height(data->label_font);
+                    int32_t label_len = (int32_t)strlen(tool_label);
+                    int32_t badge_w = LV_MAX(24, label_len * (font_h * 3 / 5) + 6);
+                    int32_t badge_h = font_h + 4;
+                    int32_t badge_top = toolhead_y + tool_scale * 3 + 4;
+                    int32_t badge_left = hub_cx - badge_w / 2;
+
+                    lv_area_t badge_area = {badge_left, badge_top, badge_left + badge_w,
+                                            badge_top + badge_h};
+                    lv_draw_fill_dsc_t fill_dsc;
+                    lv_draw_fill_dsc_init(&fill_dsc);
+                    fill_dsc.color = data->color_idle;
+                    fill_dsc.opa = (lv_opa_t)LV_MIN(200, hub_noz_opa);
+                    fill_dsc.radius = 4;
+                    lv_draw_fill(layer, &fill_dsc, &badge_area);
+
+                    lv_draw_label_dsc_t label_dsc;
+                    lv_draw_label_dsc_init(&label_dsc);
+                    label_dsc.color = data->color_text;
+                    label_dsc.opa = hub_noz_opa;
+                    label_dsc.font = data->label_font;
+                    label_dsc.align = LV_TEXT_ALIGN_CENTER;
+                    label_dsc.text = tool_label;
+                    label_dsc.text_local = 1;
+
+                    lv_area_t text_area = {badge_left, badge_top + 2, badge_left + badge_w,
+                                           badge_top + 2 + font_h};
+                    lv_draw_label(layer, &label_dsc, &text_area);
+                }
+            }
+        } else {
+            // Direct lane: straight vertical from sensor to own nozzle
+            int32_t nozzle_top = toolhead_y - tool_scale * 2;
+
+            if (has_filament && at_nozzle) {
+                draw_glow_line(layer, slot_x, sensor_y + sensor_r, slot_x, nozzle_top, tool_color,
+                               line_active);
+                draw_vertical_line(layer, slot_x, sensor_y + sensor_r, nozzle_top, tool_color,
+                                   line_active);
+            } else {
+                draw_hollow_vertical_line(layer, slot_x, sensor_y + sensor_r, nozzle_top,
+                                          idle_color, bg_color, line_active);
+            }
+
+            // Direct nozzle
+            lv_color_t noz_color = is_mounted ? nozzle_color : ph_darken(nozzle_color, 60);
+            if (at_nozzle) {
+                noz_color = tool_color;
+            }
+            lv_opa_t toolhead_opa = is_mounted ? LV_OPA_COVER : LV_OPA_40;
+
+            switch (helix::SettingsManager::instance().get_effective_toolhead_style()) {
+                case helix::ToolheadStyle::STEALTHBURNER:
+                    draw_nozzle_faceted(layer, slot_x, toolhead_y, noz_color, tool_scale,
+                                        toolhead_opa);
+                    break;
+                case helix::ToolheadStyle::A4T:
+                    draw_nozzle_a4t(layer, slot_x, toolhead_y, noz_color, tool_scale * 6 / 5,
+                                    toolhead_opa);
+                    break;
+                default:
+                    draw_nozzle_bambu(layer, slot_x, toolhead_y, noz_color, tool_scale,
+                                      toolhead_opa);
+                    break;
+            }
+
+            // Tool label below direct nozzle
+            if (data->label_font) {
+                char tool_label[16];
+                int tool = (data->mapped_tool[i] >= 0) ? data->mapped_tool[i] : i;
+                snprintf(tool_label, sizeof(tool_label), "T%d", tool);
+
+                int32_t font_h = lv_font_get_line_height(data->label_font);
+                int32_t label_len = (int32_t)strlen(tool_label);
+                int32_t badge_w = LV_MAX(24, label_len * (font_h * 3 / 5) + 6);
+                int32_t badge_h = font_h + 4;
+                int32_t badge_top = toolhead_y + tool_scale * 3 + 4;
+                int32_t badge_left = slot_x - badge_w / 2;
+
+                lv_area_t badge_area = {badge_left, badge_top, badge_left + badge_w,
+                                        badge_top + badge_h};
+                lv_draw_fill_dsc_t fill_dsc;
+                lv_draw_fill_dsc_init(&fill_dsc);
+                fill_dsc.color = data->color_idle;
+                fill_dsc.opa = (lv_opa_t)LV_MIN(200, toolhead_opa);
+                fill_dsc.radius = 4;
+                lv_draw_fill(layer, &fill_dsc, &badge_area);
+
+                lv_draw_label_dsc_t label_dsc;
+                lv_draw_label_dsc_init(&label_dsc);
+                label_dsc.color = is_mounted ? data->color_success : data->color_text;
+                label_dsc.opa = toolhead_opa;
+                label_dsc.font = data->label_font;
+                label_dsc.align = LV_TEXT_ALIGN_CENTER;
+                label_dsc.text = tool_label;
+                label_dsc.text_local = 1;
+
+                lv_area_t text_area = {badge_left, badge_top + 2, badge_left + badge_w,
+                                       badge_top + 2 + font_h};
+                lv_draw_label(layer, &label_dsc, &text_area);
+            }
+        }
+    }
+}
+
+// ============================================================================
 // Main Draw Callback
 // ============================================================================
 
@@ -1581,6 +1918,12 @@ static void filament_path_draw_cb(lv_event_t* e) {
     FilamentPathData* data = get_data(obj);
     if (!data)
         return;
+
+    // For MIXED topology (some lanes direct, some through hub), use dedicated function
+    if (data->topology == static_cast<int>(PathTopology::MIXED)) {
+        draw_mixed_topology(e, data);
+        return;
+    }
 
     // For PARALLEL topology (tool changers), use dedicated drawing function
     // This shows independent toolheads per slot instead of converging to a hub
