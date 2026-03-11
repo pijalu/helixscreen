@@ -408,6 +408,10 @@ void ams_detail_update_badges(AmsDetailWidgets& w, lv_obj_t* slot_widgets[], int
     if (!w.badge_layer)
         return;
 
+    // Clean stale badges from previous unit view (badges are reparented here
+    // from slot widgets, so they persist across unit switches if not cleaned)
+    lv_obj_clean(w.badge_layer);
+
     int32_t slot_spacing = layout.slot_width - layout.overlap;
 
     for (int i = 0; i < slot_count; ++i) {

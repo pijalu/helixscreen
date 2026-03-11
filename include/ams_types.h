@@ -371,9 +371,10 @@ inline const char* tip_method_step_label(TipMethod method) {
  *             (physical tool changers like StealthChanger/TapChanger)
  */
 enum class PathTopology {
-    LINEAR = 0,  ///< Happy Hare: selector picks one input
-    HUB = 1,     ///< AFC: merger combines inputs through hub
-    PARALLEL = 2 ///< Tool Changer: each slot is a separate toolhead
+    LINEAR = 0,   ///< Happy Hare: selector picks one input
+    HUB = 1,      ///< AFC: merger combines inputs through hub
+    PARALLEL = 2, ///< Tool Changer: each slot is a separate toolhead
+    MIXED = 3     ///< Direct + Hub: some lanes direct, some through hub to shared extruder
 };
 
 /**
@@ -389,6 +390,8 @@ inline const char* path_topology_to_string(PathTopology topology) {
         return "Hub (Merger)";
     case PathTopology::PARALLEL:
         return "Parallel (Tool Changer)";
+    case PathTopology::MIXED:
+        return "Mixed (Direct + Hub)";
     default:
         return "Unknown";
     }
@@ -680,6 +683,10 @@ struct AmsUnit {
     /// Physical tool label for HUB units (e.g., 4 for extruder4/T4, 5 for extruder5/T5).
     /// -1 means "use min(mapped_tool) from lanes" (the default/PARALLEL behavior).
     int hub_tool_label = -1;
+
+    /// Per-lane hub routing flag. true = lane routes through hub, false = direct to extruder.
+    /// Empty vector means routing info unavailable (treat as uniform topology).
+    std::vector<bool> lane_is_hub_routed;
 
     /**
      * @brief Check if any slot in this unit has an error
