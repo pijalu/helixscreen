@@ -7,6 +7,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.98.1] - 2026-03-11
+
+Lock screen, probe management, QR spool scanning, Happy Hare device actions, and HTLF mixed topology support.
+
+### Added
+- Lock screen with PIN entry, auto-lock on wake, and Security settings for PIN management
+- QR spool scanner for Spoolman spool assignment from the filament panel
+- Probe management with Cartographer, Beacon, and Generic/Klicky type-specific panels, Z-offset calibration, and live config editing
+- Happy Hare device actions: LED, eSpooler, and flowguard control with topology filtering, persistence across reconnects
+- AMS HTLF mixed topology rendering with direct+hub lane paths, bezier curves, and hub indicator
+- Input shaper Kalico smooth shaper support for calibration
+- Bluetooth setup guide for Raspberry Pi and BTT Pi
+
+### Fixed
+- Crash from ghost thread when switching gcode/streaming controller (#387)
+- Crash from CameraStream shared_ptr race and ToastManager observer corruption
+- Crash from telemetry auto-send timer firing when telemetry disabled (#380)
+- Crash from animation on modal backdrop deletion with stale dialog pointer
+- Crash from missing CA certificates on AD5M breaking all HTTPS connections
+- Home panel SIGSEGV during overlay push from null active_widgets_ iteration (#362)
+- Config migration for printer switcher default on v5 fresh installs
+- Config wizard not re-running after restoring from backup
+
+### Changed
+- Probe management graduated from beta
+- Cherry-picked 4 upstream LVGL fixes from post-9.5.0 master
+- Symbol files now attached to GitHub releases for permanent retention
+- Crash symbolication tool supports AD5M, AD5X, and CC1 platforms
+
 ## [0.98.0] - 2026-03-10
 
 Bluetooth label printing, filament mapping, Spoolman location support, and new home panel widgets.
@@ -1821,6 +1850,7 @@ Initial tagged release. Foundation for all subsequent development.
 - Automated GitHub Actions release pipeline
 - One-liner installation script with platform auto-detection
 
+[0.98.1]: https://github.com/prestonbrown/helixscreen/compare/v0.98.0...v0.98.1
 [0.98.0]: https://github.com/prestonbrown/helixscreen/compare/v0.97.5...v0.98.0
 [0.97.5]: https://github.com/prestonbrown/helixscreen/compare/v0.97.4...v0.97.5
 [0.97.4]: https://github.com/prestonbrown/helixscreen/compare/v0.97.3...v0.97.4
