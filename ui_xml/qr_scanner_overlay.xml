@@ -1,0 +1,91 @@
+<?xml version="1.0"?>
+<!-- Copyright (C) 2025-2026 356C LLC -->
+<!-- SPDX-License-Identifier: GPL-3.0-or-later -->
+<component>
+  <!-- QR Scanner Overlay: fullscreen camera viewfinder with QR detection -->
+  <view name="qr_scanner_overlay"
+        width="100%" height="100%"
+        style_bg_color="#000000" style_bg_opa="255"
+        style_pad_all="0">
+
+    <!-- Camera viewfinder area (fullscreen background) -->
+    <lv_obj name="viewfinder"
+            width="100%" height="100%"
+            style_bg_color="#000000" style_bg_opa="255"
+            style_pad_all="0"
+            clickable="false">
+    </lv_obj>
+
+    <!-- Targeting rectangle overlay (centered) -->
+    <lv_obj name="target_frame"
+            width="240" height="240"
+            align="center"
+            style_bg_opa="0"
+            style_border_width="3"
+            style_border_color="#accent"
+            style_radius="12"
+            clickable="false">
+    </lv_obj>
+
+    <!-- Instruction text below viewfinder -->
+    <text_body text="Center QR code in frame"
+               translation_tag="Center QR code in frame"
+               style_text_color="#FFFFFF" style_text_opa="180"
+               style_text_align="center"
+               align="center"
+               y="140"
+               clickable="false"/>
+
+    <!-- Top bar with close button -->
+    <lv_obj name="top_bar"
+            width="100%" height="56"
+            align="top_mid"
+            style_bg_opa="180"
+            style_bg_color="#000000"
+            style_pad_left="#space_md"
+            style_pad_right="#space_md"
+            style_border_width="0"
+            flex_flow="row"
+            flex_main_place="space_between"
+            flex_cross_place="center">
+
+      <text_heading text="Scan Spool QR Code" translation_tag="Scan Spool QR Code" style_text_color="#FFFFFF" flex_grow="1" style_text_align="center"/>
+
+      <lv_obj width="40" height="40"
+              style_bg_opa="0" style_radius="20"
+              style_border_width="0"
+              clickable="true" event_bubble="false">
+        <event_cb trigger="clicked" callback="on_qr_scanner_close"/>
+        <lv_icon name="close_icon" src="close"
+                 style_text_color="#FFFFFF"
+                 clickable="false" event_bubble="true"/>
+      </lv_obj>
+    </lv_obj>
+
+    <!-- Status text at bottom -->
+    <lv_obj name="status_bar"
+            width="100%" height="48"
+            align="bottom_mid"
+            style_bg_opa="180"
+            style_bg_color="#000000"
+            style_border_width="0"
+            flex_flow="row"
+            flex_main_place="center"
+            flex_cross_place="center">
+
+      <text_body name="status_text"
+                 style_text_color="#FFFFFF"
+                 bind_text="qr_scanner_status"/>
+    </lv_obj>
+
+    <!-- Success flash overlay (hidden by default, shown on scan success) -->
+    <lv_obj name="success_flash"
+            width="100%" height="100%"
+            style_bg_color="#00C853"
+            style_bg_opa="160"
+            style_border_width="0"
+            clickable="false">
+      <bind_flag_if_eq subject="qr_scanner_success" flag="hidden" ref_value="0"/>
+    </lv_obj>
+  </view>
+</component>

@@ -16,6 +16,7 @@
 #include "label_printer_settings.h"
 #include "label_renderer.h"
 #include "moonraker_api.h"
+#include "ui_overlay_qr_scanner.h"
 #include "spoolman_slot_saver.h"
 #include "spoolman_types.h"
 #include "tool_state.h"
@@ -711,6 +712,21 @@ void AmsEditModal::handle_unlink() {
     update_spoolman_button_state();
 }
 
+void AmsEditModal::handle_scan_qr() {
+    spdlog::info("[AmsEditModal] Scan QR requested for slot {}", slot_index_);
+
+    auto guard = callback_guard_;
+    auto& scanner = helix::ui::get_qr_scanner_overlay();
+    scanner.show(dialog(), slot_index_,
+        [this, guard](const SpoolInfo& spool) {
+            if (!guard || !*guard) return;
+
+            // Add scanned spool to cache so handle_spool_selected() finds it
+            cached_spools_.push_back(spool);
+            handle_spool_selected(spool.id);
+        });
+}
+
 void AmsEditModal::handle_print_label() {
     auto& settings = helix::LabelPrinterSettingsManager::instance();
 
@@ -1323,6 +1339,7 @@ void AmsEditModal::register_callbacks() {
         {"ams_edit_change_spool_cb", on_change_spool_cb},
         {"ams_edit_unlink_cb", on_unlink_cb},
         {"ams_edit_print_label_cb", on_print_label_cb},
+        {"ams_edit_scan_qr_cb", on_scan_qr_cb},
         {"ams_edit_picker_search_cb", on_picker_search_cb},
         {"ams_edit_picker_retry_cb", on_picker_retry_cb},
         // Register handler for spool_item clicks (shared component uses this callback name)
@@ -1450,6 +1467,13 @@ void AmsEditModal::on_print_label_cb(lv_event_t* e) {
     auto* self = get_instance_from_event(e);
     if (self) {
         self->handle_print_label();
+    }
+}
+
+void AmsEditModal::on_scan_qr_cb(lv_event_t* e) {
+    auto* self = get_instance_from_event(e);
+    if (self) {
+        self->handle_scan_qr();
     }
 }
 

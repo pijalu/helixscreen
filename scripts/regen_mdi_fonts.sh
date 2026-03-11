@@ -127,6 +127,7 @@ MDI_ICONS+=",0xF040C"    # play-circle (resume)
 MDI_ICONS+=",0xF0425"    # power (power-off)
 MDI_ICONS+=",0xF042A"    # printer
 MDI_ICONS+=",0xF042B"    # printer-3d
+MDI_ICONS+=",0xF0433"    # qrcode-scan
 MDI_ICONS+=",0xF032A"    # leaf
 MDI_ICONS+=",0xF0438"    # radiator (heater alternative)
 MDI_ICONS+=",0xF044E"    # redo (clockwise arrow - for tighten)

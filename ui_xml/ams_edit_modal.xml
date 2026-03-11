@@ -173,6 +173,12 @@
                    translation_tag="Choose Saved Spool" variant="secondary">
           <event_cb trigger="clicked" callback="ams_edit_change_spool_cb"/>
         </ui_button>
+        <ui_button name="btn_scan_qr_code"
+                   height="#button_height_sm" text="Scan QR Code"
+                   translation_tag="Scan QR Code" variant="secondary"
+                   icon="qrcode_scan">
+          <event_cb trigger="clicked" callback="ams_edit_scan_qr_cb"/>
+        </ui_button>
         <ui_button name="btn_unlink_spool"
                    height="#button_height_sm" text="Unlink" translation_tag="Unlink" variant="secondary"
                    hidden="true">

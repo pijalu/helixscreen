@@ -200,6 +200,7 @@ static const IconMapping ICON_MAP[] = {
     {"progress_clock",     "\xF3\xB0\xA6\x96"},  // F0996 progress-clock (phase tracking)
     {"prohibited",         "\xF3\xB0\x82\xAD"},  // F00AD block-helper
     {"puzzle_outline",     "\xF3\xB0\xA9\xA6"},  // F0A66 puzzle-outline (plugin)
+    {"qrcode_scan",        "\xF3\xB0\x90\xB3"},  // F0433 qrcode-scan
     {"question_circle",    "\xF3\xB0\x8B\x97"},  // F02D7 help-circle (alias for FontAwesome compat)
     {"rabbit",             "\xF3\xB0\xA4\x87"},  // F0907 rabbit (Happy Hare logo)
 

@@ -4,6 +4,10 @@
 #include "ui_panel_ams_overview.h"
 
 #include "ui_ams_context_menu.h"
+#include "ui_overlay_qr_scanner.h"
+
+#include "color_utils.h"
+#include "moonraker_api.h"
 #include "ui_ams_detail.h"
 #include "ui_ams_sidebar.h"
 #include "ui_ams_tool_text.h"
@@ -1114,6 +1118,24 @@ void AmsOverviewPanel::show_detail_context_menu(int slot_index, lv_obj_t* near_w
                 show_edit_modal(slot);
                 break;
 
+            case helix::ui::AmsContextMenu::MenuAction::SCAN_QR: {
+                spdlog::info("[AmsOverview] SCAN_QR action for slot {}", slot);
+                auto& scanner = helix::ui::get_qr_scanner_overlay();
+                scanner.show(parent_screen_, slot,
+                    [this, slot](const SpoolInfo& spool) {
+                        AmsBackend* be = AmsState::instance().get_backend();
+                        if (!be) return;
+
+                        SlotInfo info = be->get_slot_info(slot);
+                        apply_spool_to_slot(info, spool);
+                        be->set_slot_info(slot, info);
+                        AmsState::instance().sync_from_backend();
+                        spdlog::info("[AmsOverview] QR scan assigned spool #{} to slot {}",
+                                     spool.id, slot);
+                    });
+                break;
+            }
+
             case helix::ui::AmsContextMenu::MenuAction::CANCELLED:
             default:
                 break;
@@ -1168,6 +1190,19 @@ void AmsOverviewPanel::handle_bypass_click() {
             case helix::ui::AmsContextMenu::MenuAction::SPOOLMAN:
                 show_edit_modal(-2);
                 break;
+
+            case helix::ui::AmsContextMenu::MenuAction::SCAN_QR: {
+                auto& scanner = helix::ui::get_qr_scanner_overlay();
+                scanner.show_for_active_spool(parent_screen_,
+                    [](const SpoolInfo& spool) {
+                        SlotInfo info;
+                        apply_spool_to_slot(info, spool);
+                        AmsState::instance().set_external_spool_info(info);
+                        spdlog::info("[AmsOverview] QR scan assigned spool #{} to external spool",
+                                     spool.id);
+                    });
+                break;
+            }
 
             case helix::ui::AmsContextMenu::MenuAction::CLEAR_SPOOL:
                 AmsState::instance().clear_external_spool_info();

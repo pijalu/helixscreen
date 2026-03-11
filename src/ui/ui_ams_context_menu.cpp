@@ -216,14 +216,18 @@ void AmsContextMenu::on_created(lv_obj_t* menu_obj) {
             ui_button_set_text(btn_edit, lv_tr("Spool Info"));
         }
 
-        // Show "Select Spool" if Spoolman is available
+        // Show "Select Spool" and "Scan QR Code" if Spoolman is available
+        auto* spoolman_subj = lv_xml_get_subject(nullptr, "printer_has_spoolman");
+        bool has_spoolman = spoolman_subj && lv_subject_get_int(spoolman_subj) == 1;
+
         lv_obj_t* btn_spoolman = lv_obj_find_by_name(menu_obj, "btn_spoolman");
-        if (btn_spoolman) {
-            auto* spoolman_subj = lv_xml_get_subject(nullptr, "printer_has_spoolman");
-            bool has_spoolman = spoolman_subj && lv_subject_get_int(spoolman_subj) == 1;
-            if (has_spoolman) {
-                lv_obj_clear_flag(btn_spoolman, LV_OBJ_FLAG_HIDDEN);
-            }
+        if (btn_spoolman && has_spoolman) {
+            lv_obj_clear_flag(btn_spoolman, LV_OBJ_FLAG_HIDDEN);
+        }
+
+        lv_obj_t* btn_scan_qr = lv_obj_find_by_name(menu_obj, "btn_scan_qr");
+        if (btn_scan_qr && has_spoolman) {
+            lv_obj_clear_flag(btn_scan_qr, LV_OBJ_FLAG_HIDDEN);
         }
 
         // No dropdowns for external spool
@@ -321,6 +325,14 @@ void AmsContextMenu::on_created(lv_obj_t* menu_obj) {
         lv_label_set_text(slot_header, header_text);
     }
 
+    // Show "Scan QR Code" button if Spoolman is available
+    auto* spoolman_subj = lv_xml_get_subject(nullptr, "printer_has_spoolman");
+    bool has_spoolman = spoolman_subj && lv_subject_get_int(spoolman_subj) == 1;
+    lv_obj_t* btn_scan_qr = lv_obj_find_by_name(menu_obj, "btn_scan_qr");
+    if (btn_scan_qr && has_spoolman) {
+        lv_obj_clear_flag(btn_scan_qr, LV_OBJ_FLAG_HIDDEN);
+    }
+
     // Configure dropdowns based on backend capabilities
     configure_dropdowns();
 }
@@ -383,6 +395,11 @@ void AmsContextMenu::handle_spoolman() {
     dispatch_ams_action(MenuAction::SPOOLMAN);
 }
 
+void AmsContextMenu::handle_scan_qr() {
+    spdlog::info("[AmsContextMenu] Scan QR requested for slot {}", get_item_index());
+    dispatch_ams_action(MenuAction::SCAN_QR);
+}
+
 // ============================================================================
 // Static Callback Registration
 // ============================================================================
@@ -399,6 +416,7 @@ void AmsContextMenu::register_callbacks() {
         {"ams_context_reset_lane_cb", on_reset_lane_cb},
         {"ams_context_edit_cb", on_edit_cb},
         {"ams_context_spoolman_cb", on_spoolman_cb},
+        {"ams_context_scan_qr_cb", on_scan_qr_cb},
         {"ams_context_tool_changed_cb", on_tool_changed_cb},
         {"ams_context_backup_changed_cb", on_backup_changed_cb},
     });
@@ -457,6 +475,13 @@ void AmsContextMenu::on_spoolman_cb(lv_event_t* /*e*/) {
     auto* self = get_active_instance();
     if (self) {
         self->handle_spoolman();
+    }
+}
+
+void AmsContextMenu::on_scan_qr_cb(lv_event_t* /*e*/) {
+    auto* self = get_active_instance();
+    if (self) {
+        self->handle_scan_qr();
     }
 }
 

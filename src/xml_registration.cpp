@@ -395,6 +395,9 @@ void register_xml_components() {
     // Spoolman Settings (accessed from Settings > Spoolman, future)
     register_xml("spoolman_settings.xml");
 
+    // QR Scanner Overlay (fullscreen camera viewfinder for spool assignment)
+    register_xml("qr_scanner_overlay.xml");
+
     // Feature parity panels
     register_xml("macro_card.xml");
     register_xml("macro_panel.xml");

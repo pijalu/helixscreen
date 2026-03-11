@@ -3,6 +3,9 @@
 
 #pragma once
 
+#include "ams_types.h"
+#include "color_utils.h"
+
 #include <functional>
 #include <optional>
 #include <string>
@@ -174,6 +177,42 @@ struct FilamentUsageRecord {
  */
 std::vector<SpoolInfo> filter_spools(const std::vector<SpoolInfo>& spools,
                                      const std::string& query);
+
+// ============================================================================
+// SpoolInfo → SlotInfo Conversion
+// ============================================================================
+
+/**
+ * @brief Apply SpoolInfo fields onto a SlotInfo
+ *
+ * Copies Spoolman spool data (material, color, weight, temps) into a SlotInfo.
+ * The caller provides the base SlotInfo (either a fresh one for external spool,
+ * or an existing slot's info to merge into).
+ *
+ * @param info Target SlotInfo to populate
+ * @param spool Source SpoolInfo from Spoolman
+ */
+inline void apply_spool_to_slot(SlotInfo& info, const SpoolInfo& spool) {
+    info.spoolman_id = spool.id;
+    info.spoolman_filament_id = spool.filament_id;
+    info.spoolman_vendor_id = spool.vendor_id;
+    info.color_name = spool.color_name;
+    info.material = spool.material;
+    info.brand = spool.vendor;
+    info.spool_name = spool.vendor + " " + spool.material;
+    info.remaining_weight_g = static_cast<float>(spool.remaining_weight_g);
+    info.total_weight_g = static_cast<float>(spool.initial_weight_g);
+    info.nozzle_temp_min = spool.nozzle_temp_min;
+    info.nozzle_temp_max = spool.nozzle_temp_max;
+    info.bed_temp = spool.bed_temp_recommended;
+
+    if (!spool.color_hex.empty()) {
+        uint32_t rgb = 0;
+        if (helix::parse_hex_color(spool.color_hex.c_str(), rgb)) {
+            info.color_rgb = rgb;
+        }
+    }
+}
 
 // ============================================================================
 // Spoolman Callback Types

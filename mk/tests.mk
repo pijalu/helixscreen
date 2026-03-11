@@ -511,6 +511,7 @@ $(TEST_BIN): $(TEST_CORE_DEPS) \
              $(DNS_RESOLV_OBJ) \
              $(MOCK_OBJS) \
              $(LV_MARKDOWN_OBJS) \
+             $(QUIRC_OBJS) \
              $(FONT_OBJS) \
              $(TRANS_OBJS) \
              $(OBJCPP_OBJS) \
