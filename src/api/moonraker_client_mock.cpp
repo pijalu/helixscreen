@@ -383,27 +383,8 @@ void MoonrakerClientMock::populate_capabilities() {
     }
     std::string mock_kinematics = (kin_env && kin_env[0]) ? kin_env : default_kinematics;
     mock_config["printer"] = {{"kinematics", mock_kinematics}};
-    // Add gcode_macro entries for param detection (same data as configfile.config response)
-    mock_config["gcode_macro clean_nozzle"] = {
-        {"gcode",
-         "{% set PURGE_LEN = params.PURGE_LEN|default(10)|float %}\n"
-         "{% set PURGE_TEMP = params.PURGE_TEMP|default(240)|int %}\nG1 ..."},
-        {"variable_start_x", "265"},
-        {"variable_start_y", "298"},
-        {"variable_wipe_qty", "4"}};
-    mock_config["gcode_macro print_start"] = {
-        {"gcode",
-         "{% set BED_TEMP = params.BED_TEMP|default(60)|float %}\n"
-         "{% set EXTRUDER_TEMP = params.EXTRUDER_TEMP|default(190)|float %}\n"
-         "G28\nM190 S{BED_TEMP}"}};
-    mock_config["gcode_macro start_print"] = {
-        {"gcode",
-         "{% set BED_TEMP = params.BED_TEMP|default(60)|float %}\n"
-         "{% set EXTRUDER_TEMP = params.EXTRUDER_TEMP|default(200)|float %}\n"
-         "{% set CHAMBER_TEMP = params.CHAMBER_TEMP|default(0)|float %}\nG28"}};
-    mock_config["gcode_macro pause"] = {{"gcode", "SAVE_GCODE_STATE\nBASE_PAUSE"}};
-    mock_config["gcode_macro resume"] = {{"gcode", "RESTORE_GCODE_STATE\nBASE_RESUME"}};
-    mock_config["gcode_macro cancel_print"] = {{"gcode", "TURN_OFF_HEATERS\nCANCEL_PRINT_BASE"}};
+    // Add gcode_macro entries for param detection (shared with configfile.config response)
+    mock_config.merge_patch(mock_internal::get_mock_gcode_macro_config());
 
     discovery_.hardware().parse_config_keys(mock_config);
 

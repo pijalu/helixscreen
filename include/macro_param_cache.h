@@ -20,6 +20,7 @@ enum class MacroParamKnowledge { KNOWN_PARAMS, KNOWN_NO_PARAMS, UNKNOWN };
 struct CachedMacroInfo {
     MacroParamKnowledge knowledge = MacroParamKnowledge::UNKNOWN;
     std::vector<MacroParam> params;
+    std::string description; ///< From Klipper gcode_macro description field
 };
 
 /// Cache for macro parameter information, populated once during printer discovery.

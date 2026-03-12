@@ -208,8 +208,16 @@ void MacrosPanel::create_macro_card(const std::string& macro_name) {
     // Prettify the macro name for display
     std::string display_name = prettify_macro_name(macro_name);
 
+    // Look up description from cache
+    auto cached = helix::MacroParamCache::instance().get(macro_name);
+    bool has_desc = !cached.description.empty();
+
     // Create card using XML component
-    const char* attrs[] = {"macro_name", display_name.c_str(), nullptr, nullptr};
+    const char* attrs[] = {
+        "macro_name",        display_name.c_str(),
+        "macro_description", has_desc ? cached.description.c_str() : "",
+        "hide_description",  has_desc ? "false" : "true",
+        nullptr,             nullptr};
     lv_obj_t* card =
         static_cast<lv_obj_t*>(lv_xml_create(macro_list_container_, "macro_card", attrs));
 

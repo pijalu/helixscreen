@@ -54,7 +54,15 @@ void MacroParamCache::populate_from_configfile(
             gcode_template = it.value()["gcode"].get<std::string>();
         }
 
+        // Extract description if present
+        std::string description;
+        if (it.value().is_object() && it.value().contains("description") &&
+            it.value()["description"].is_string()) {
+            description = it.value()["description"].get<std::string>();
+        }
+
         CachedMacroInfo info;
+        info.description = std::move(description);
         auto params = parse_macro_params(gcode_template);
 
         // Note: variable_* keys (Klipper SET_GCODE_VARIABLE state) are

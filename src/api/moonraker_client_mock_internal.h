@@ -135,4 +135,13 @@ void register_server_handlers(std::unordered_map<std::string, MethodHandler>& re
  */
 void register_queue_handlers(std::unordered_map<std::string, MethodHandler>& registry);
 
+/**
+ * @brief Get mock gcode_macro configfile entries
+ *
+ * Returns a JSON object with gcode_macro entries (lowercase keys) for the
+ * mock configfile.config response. Single source of truth used by both
+ * populate_capabilities() and the objects.query/subscribe handlers.
+ */
+json get_mock_gcode_macro_config();
+
 } // namespace mock_internal

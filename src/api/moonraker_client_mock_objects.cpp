@@ -14,6 +14,52 @@ static bool is_mock_kalico() {
     return env && std::string(env) == "1";
 }
 
+json get_mock_gcode_macro_config() {
+    json cfg;
+    cfg["gcode_macro clean_nozzle"] = {
+        {"gcode",
+         "{% set PURGE_LEN = params.PURGE_LEN|default(10)|float %}\n"
+         "{% set PURGE_TEMP = params.PURGE_TEMP|default(240)|int %}\nG1 ..."},
+        {"description",
+         "Wipe and purge the nozzle using the brush at the rear of the bed, "
+         "with configurable purge length and temperature"},
+        {"variable_start_x", "265"},
+        {"variable_start_y", "298"},
+        {"variable_wipe_qty", "4"}};
+    cfg["gcode_macro print_start"] = {
+        {"gcode",
+         "{% set BED_TEMP = params.BED_TEMP|default(60)|float %}\n"
+         "{% set EXTRUDER_TEMP = params.EXTRUDER_TEMP|default(190)|float %}\n"
+         "G28\nM190 S{BED_TEMP}"},
+        {"description", "Home, heat bed and nozzle, then start printing"}};
+    cfg["gcode_macro start_print"] = {
+        {"gcode",
+         "{% set BED_TEMP = params.BED_TEMP|default(60)|float %}\n"
+         "{% set EXTRUDER_TEMP = params.EXTRUDER_TEMP|default(200)|float %}\n"
+         "{% set CHAMBER_TEMP = params.CHAMBER_TEMP|default(0)|float %}\nG28"},
+        {"description",
+         "Full print start sequence: homes all axes, heats bed to target, "
+         "waits for chamber soak if specified, performs QGL and adaptive bed "
+         "mesh, then heats nozzle and primes"}};
+    cfg["gcode_macro pause"] = {{"gcode", "SAVE_GCODE_STATE\nBASE_PAUSE"}};
+    cfg["gcode_macro resume"] = {{"gcode", "RESTORE_GCODE_STATE\nBASE_RESUME"}};
+    cfg["gcode_macro cancel_print"] = {
+        {"gcode", "TURN_OFF_HEATERS\nCANCEL_PRINT_BASE"},
+        {"description", "Cancel print and turn off heaters"}};
+    cfg["gcode_macro end_print"] = {
+        {"gcode", "G91\nG1 Z5\nG90\nTURN_OFF_HEATERS"}};
+    cfg["gcode_macro load_filament"] = {
+        {"gcode",
+         "{% set TEMP = params.TEMP|default(220)|int %}\n"
+         "{% set SPEED = params.SPEED|default(300)|int %}\nM109 S{TEMP}"},
+        {"description", "Heat nozzle and load filament"}};
+    cfg["gcode_macro unload_filament"] = {
+        {"gcode",
+         "{% set TEMP = params.TEMP|default(220)|int %}\n"
+         "M109 S{TEMP}\nG1 E-50 F300"}};
+    return cfg;
+}
+
 void register_object_handlers(std::unordered_map<std::string, MethodHandler>& registry) {
     // printer.objects.list - List available printer objects
     // When Klippy is in STARTUP or ERROR state, Klipper returns JSON-RPC error -32601
@@ -140,39 +186,7 @@ void register_object_handlers(std::unordered_map<std::string, MethodHandler>& re
                                                              {"frame_rate", "24"}};
 
                 // Gcode macro templates for param detection testing
-                config_section["gcode_macro clean_nozzle"] = {
-                    {"gcode",
-                     "{% set PURGE_LEN = params.PURGE_LEN|default(10)|float %}\n"
-                     "{% set PURGE_TEMP = params.PURGE_TEMP|default(240)|int %}\nG1 ..."},
-                    {"variable_start_x", "265"},
-                    {"variable_start_y", "298"},
-                    {"variable_wipe_qty", "4"}};
-                config_section["gcode_macro print_start"] = {
-                    {"gcode",
-                     "{% set BED_TEMP = params.BED_TEMP|default(60)|float %}\n"
-                     "{% set EXTRUDER_TEMP = params.EXTRUDER_TEMP|default(190)|float %}\n"
-                     "G28\nM190 S{BED_TEMP}"}};
-                config_section["gcode_macro start_print"] = {
-                    {"gcode",
-                     "{% set BED_TEMP = params.BED_TEMP|default(60)|float %}\n"
-                     "{% set EXTRUDER_TEMP = params.EXTRUDER_TEMP|default(200)|float %}\n"
-                     "{% set CHAMBER_TEMP = params.CHAMBER_TEMP|default(0)|float %}\nG28"}};
-                config_section["gcode_macro pause"] = {
-                    {"gcode", "SAVE_GCODE_STATE\nBASE_PAUSE"}};
-                config_section["gcode_macro resume"] = {
-                    {"gcode", "RESTORE_GCODE_STATE\nBASE_RESUME"}};
-                config_section["gcode_macro cancel_print"] = {
-                    {"gcode", "TURN_OFF_HEATERS\nCANCEL_PRINT_BASE"}};
-                config_section["gcode_macro end_print"] = {
-                    {"gcode", "G91\nG1 Z5\nG90\nTURN_OFF_HEATERS"}};
-                config_section["gcode_macro load_filament"] = {
-                    {"gcode",
-                     "{% set TEMP = params.TEMP|default(220)|int %}\n"
-                     "{% set SPEED = params.SPEED|default(300)|int %}\nM109 S{TEMP}"}};
-                config_section["gcode_macro unload_filament"] = {
-                    {"gcode",
-                     "{% set TEMP = params.TEMP|default(220)|int %}\n"
-                     "M109 S{TEMP}\nG1 E-50 F300"}};
+                config_section.merge_patch(get_mock_gcode_macro_config());
 
                 // Build extruder settings based on HELIX_MOCK_KALICO env var
                 json extruder_settings = {
@@ -503,42 +517,7 @@ void register_object_handlers(std::unordered_map<std::string, MethodHandler>& re
                                                            {"autostart", "false"},
                                                            {"frame_rate", "24"}};
                          // Gcode macro templates for param detection testing
-                         cfg["gcode_macro clean_nozzle"] = {
-                             {"gcode",
-                              "{% set PURGE_LEN = params.PURGE_LEN|default(10)|float %}\n"
-                              "{% set PURGE_TEMP = params.PURGE_TEMP|default(240)|int %}\n"
-                              "G1 ..."},
-                             {"variable_start_x", "265"},
-                             {"variable_start_y", "298"},
-                             {"variable_wipe_qty", "4"}};
-                         cfg["gcode_macro print_start"] = {
-                             {"gcode",
-                              "{% set BED_TEMP = params.BED_TEMP|default(60)|float %}\n"
-                              "{% set EXTRUDER_TEMP = params.EXTRUDER_TEMP|default(190)|float %}\n"
-                              "G28\nM190 S{BED_TEMP}"}};
-                         cfg["gcode_macro start_print"] = {
-                             {"gcode",
-                              "{% set BED_TEMP = params.BED_TEMP|default(60)|float %}\n"
-                              "{% set EXTRUDER_TEMP = params.EXTRUDER_TEMP|default(200)|float %}\n"
-                              "{% set CHAMBER_TEMP = params.CHAMBER_TEMP|default(0)|float %}\n"
-                              "G28"}};
-                         cfg["gcode_macro pause"] = {
-                             {"gcode", "SAVE_GCODE_STATE\nBASE_PAUSE"}};
-                         cfg["gcode_macro resume"] = {
-                             {"gcode", "RESTORE_GCODE_STATE\nBASE_RESUME"}};
-                         cfg["gcode_macro cancel_print"] = {
-                             {"gcode", "TURN_OFF_HEATERS\nCANCEL_PRINT_BASE"}};
-                         cfg["gcode_macro end_print"] = {
-                             {"gcode", "G91\nG1 Z5\nG90\nTURN_OFF_HEATERS"}};
-                         cfg["gcode_macro load_filament"] = {
-                             {"gcode",
-                              "{% set TEMP = params.TEMP|default(220)|int %}\n"
-                              "{% set SPEED = params.SPEED|default(300)|int %}\n"
-                              "M109 S{TEMP}"}};
-                         cfg["gcode_macro unload_filament"] = {
-                             {"gcode",
-                              "{% set TEMP = params.TEMP|default(220)|int %}\n"
-                              "M109 S{TEMP}\nG1 E-50 F300"}};
+                         cfg.merge_patch(get_mock_gcode_macro_config());
                          return cfg;
                      }()}};
             }

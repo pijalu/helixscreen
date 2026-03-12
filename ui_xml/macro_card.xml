@@ -5,6 +5,7 @@
   <api>
     <prop name="macro_name" type="string" default="MACRO"/>
     <prop name="macro_description" type="string" default=""/>
+    <prop name="hide_description" type="boolean" default="true"/>
   </api>
   <view name="macro_card"
         extends="lv_button" width="100%" height="content" style_radius="#border_radius" style_bg_color="#card_bg"
@@ -18,7 +19,8 @@
       <!-- Text container: name + optional description -->
       <lv_obj flex_grow="1" flex_flow="column" style_pad_gap="#space_xs" scrollable="false" clickable="false">
         <text_body name="macro_label" text="$macro_name"/>
-        <text_small name="macro_desc" text="$macro_description" hidden="true"/>
+        <text_small name="macro_desc" text="$macro_description" hidden="$hide_description"
+                    style_text_color="#text_muted" long_mode="clip" width="100%"/>
       </lv_obj>
       <!-- Chevron indicating it's tappable -->
       <icon name="chevron_icon" src="chevron_right" size="sm" variant="secondary"/>
