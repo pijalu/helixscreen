@@ -18,6 +18,7 @@
 
 #include <chrono>
 #include <cstdlib>
+#include <filesystem>
 #include <string>
 
 /**
@@ -146,6 +147,22 @@ inline std::string config_backup_fallback() {
 }
 inline std::string env_backup_fallback() {
     return backup_fallback_dir() + "/helixscreen.env.backup";
+}
+
+/// Marker file written before _exit(0) after a successful update.
+/// Watchdog checks for this to skip crash dialog on post-update restarts.
+constexpr const char* UPDATE_RESTART_MARKER_PRIMARY = "/var/lib/helixscreen/update_restart";
+
+inline std::string update_restart_marker_path() {
+    // Try primary (systemd StateDirectory) first
+    namespace fs = std::filesystem;
+    std::error_code ec;
+    fs::path primary_dir = fs::path(UPDATE_RESTART_MARKER_PRIMARY).parent_path();
+    if (fs::exists(primary_dir, ec) && !ec) {
+        return UPDATE_RESTART_MARKER_PRIMARY;
+    }
+    // Fallback to $HOME/.helixscreen/
+    return backup_fallback_dir() + "/update_restart";
 }
 } // namespace Update
 } // namespace AppConstants
