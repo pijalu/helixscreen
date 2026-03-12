@@ -10,6 +10,7 @@
 
 #include "ui_print_start_controller.h"
 
+#include "color_utils.h"
 #include "ui_error_reporting.h"
 #include "ui_event_safety.h"
 #include "ui_modal.h"
@@ -400,7 +401,7 @@ std::vector<int> PrintStartController::check_ams_color_match() {
 
     // Check each required tool color
     for (size_t tool_idx = 0; tool_idx < filament_colors_.size(); ++tool_idx) {
-        auto required_color = ui_parse_hex_color(filament_colors_[tool_idx]);
+        auto required_color = helix::parse_hex_color(filament_colors_[tool_idx]);
         if (!required_color) {
             continue; // Skip invalid/empty colors (but NOT black #000000!)
         }

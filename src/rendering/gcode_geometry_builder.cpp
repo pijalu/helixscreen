@@ -5,6 +5,7 @@
 
 #include "gcode_geometry_builder.h"
 
+#include "color_utils.h"
 #include "ui_utils.h"
 
 #include "config.h"
@@ -1181,7 +1182,7 @@ void GeometryBuilder::set_filament_color(const std::string& hex_color) {
 }
 
 uint32_t GeometryBuilder::parse_hex_color(const std::string& hex_color) const {
-    auto parsed = ui_parse_hex_color(hex_color);
+    auto parsed = helix::parse_hex_color(hex_color);
     return parsed.value_or(0x808080); // Default gray for invalid input
 }
 

@@ -3,6 +3,7 @@
 #include "ui_filament_mapping_card.h"
 
 #include "ams_state.h"
+#include "color_utils.h"
 #include "theme_manager.h"
 #include "ui_fonts.h"
 #include "ui_utils.h"
@@ -333,7 +334,7 @@ std::vector<helix::GcodeToolInfo> FilamentMappingCard::build_tool_info(
 
         // Parse color
         if (i < colors.size() && !colors[i].empty()) {
-            auto parsed = ui_parse_hex_color(colors[i]);
+            auto parsed = helix::parse_hex_color(colors[i]);
             tool.color_rgb = parsed.value_or(0x808080);
         } else {
             tool.color_rgb = 0x808080;

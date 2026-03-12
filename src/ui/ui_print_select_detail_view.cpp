@@ -12,6 +12,7 @@
 #include "ui_nav_manager.h"
 #include "ui_print_preparation_manager.h"
 #include "ui_update_queue.h"
+#include "color_utils.h"
 #include "ui_utils.h"
 
 #include "app_globals.h"
@@ -632,7 +633,7 @@ void PrintSelectDetailView::update_color_swatches(const std::vector<std::string>
         lv_obj_set_style_text_font(label, theme_manager_get_font("font_small"), 0);
 
         // Use contrasting text color based on background brightness
-        auto parsed_color = ui_parse_hex_color(hex_color);
+        auto parsed_color = helix::parse_hex_color(hex_color);
         if (parsed_color) {
             uint32_t rgb = *parsed_color;
             int r = (rgb >> 16) & 0xFF;
@@ -733,7 +734,7 @@ void PrintSelectDetailView::apply_tool_colors() {
     if (!current_filament_colors_.empty()) {
         std::vector<uint32_t> tool_colors;
         for (const auto& hex : current_filament_colors_) {
-            auto parsed = ui_parse_hex_color(hex);
+            auto parsed = helix::parse_hex_color(hex);
             if (parsed) {
                 tool_colors.push_back(*parsed);
             }
