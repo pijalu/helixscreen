@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.98.2] - 2026-03-12
+
+### Fixed
+- QR scanner now shows live camera feed with proper mirror flip and visible close button with 60-second auto-timeout
+- DRM display prefers PRIMARY plane over OVERLAY and suppresses fbcon bleed-through (#334)
+- Bed mesh calibration uses StandardMacros for command instead of hardcoding
+- Bed mesh no longer starts async render thread when no mesh data is loaded
+- Clog meter and fan carousel widget spacing tightened (#331)
+- macOS build uses pkg-config-compatible libusb include path
+
 ## [0.98.1] - 2026-03-11
 
 Lock screen, probe management, QR spool scanning, Happy Hare device actions, and HTLF mixed topology support.
@@ -1850,6 +1860,7 @@ Initial tagged release. Foundation for all subsequent development.
 - Automated GitHub Actions release pipeline
 - One-liner installation script with platform auto-detection
 
+[0.98.2]: https://github.com/prestonbrown/helixscreen/compare/v0.98.1...v0.98.2
 [0.98.1]: https://github.com/prestonbrown/helixscreen/compare/v0.98.0...v0.98.1
 [0.98.0]: https://github.com/prestonbrown/helixscreen/compare/v0.97.5...v0.98.0
 [0.97.5]: https://github.com/prestonbrown/helixscreen/compare/v0.97.4...v0.97.5
