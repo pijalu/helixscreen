@@ -54,6 +54,7 @@ translations:
   A4T: A4T
   ABS: ABS
   ACCELEROMETERS: 加速度计
+  ACTIONS: 操作
   ADXL: ADXL
   AFC: 'AFC'
   AFC Version Warning: AFC版本警告
@@ -95,7 +96,6 @@ translations:
   After running the commands, tap Check Again below.: 执行命令后，点击下方的重新检查。
   Alert: 警报
   All: 全部
-  All screws are within tolerance.: 所有螺丝都在公差范围内。
   Allow display to sleep during active prints: 打印时允许屏幕休眠
   Allwinner: Allwinner
   Ambient Transfer: 环境传热
@@ -118,9 +118,12 @@ translations:
   Assign a role to enable sensor monitoring: 分配角色以启用传感器监控
   Assisting: 辅助中
   Auto: 自动
+  Auto (best match): 自动（最佳匹配）
   Auto Bed Mesh: 自动热床网格
+  Auto Cal: 自动校准
   Auto-Detect: 自动检测
   Auto-Heat on Load: 加载时自动加热
+  Auto-lock: 自动锁定
   Auto-probe or manually check screw heights: 自动探测或手动检查螺丝高度
   Auto-render video: 自动渲染视频
   Automatic: 自动
@@ -129,8 +132,10 @@ translations:
   Automatically poll Spoolman for weight updates: 自动从 Spoolman 获取重量更新
   Available Networks: 可用网络
   Available networks: 可用网络
+  BEACON: BEACON
   BETA: BETA
   BLTouch Controls: BLTouch 控制
+  BLUETOOTH PRINTERS: 蓝牙打印机
   Back: 返回
   Bed: 热床
   Bed Heater: 热床加热器
@@ -151,6 +156,9 @@ translations:
   'Beta features: ON': '测试版功能: 开'
   Black: 黑色
   Bluetooth: 蓝牙
+  Bluetooth initialization failed: 蓝牙初始化失败
+  Bluetooth not available: 蓝牙不可用
+  Bluetooth not initialized: 蓝牙未初始化
   Body text supports longer guidance while staying readable.: 正文支持更长的说明同时保持可读性。
   Border Opacity: 边框不透明度
   Border Radius: 边框圆角
@@ -159,7 +167,8 @@ translations:
   Both: 两者
   Brightness: 亮度
   Brightness level when LEDs turn on at startup: 启动时 LED 开启的亮度级别
-  Brother QL: ''
+  Brother QL: Brother QL
+  Brother QL (Bluetooth): Brother QL（蓝牙）
   Browse: 浏览
   'Browse guides, configuration references, and troubleshooting ': 浏览指南、配置参考和故障排除
   Buffer Status: '缓冲区状态'
@@ -171,12 +180,15 @@ translations:
   C: 腔
   CALIBRATION: 校准
   CAPABILITIES: 功能
+  CARTOGRAPHER: CARTOGRAPHER
   CHANGED FROM LAST SESSION: 与上次会话相比有更改
   COLOR SENSORS: 颜色传感器
   COLORS REQUIRED: 所需颜色
+  CONFIGURATION: 配置
   CONNECTION TYPE: 连接类型
   CRITICAL: 严重
   CUSTOM IMAGES: 自定义图片
+  Calibrate: 校准
   Calibrate All: 全部校准
   Calibrate X: 校准 X 轴
   Calibrate Y: 校准 Y 轴
@@ -195,12 +207,14 @@ translations:
   Cancel Escalation: 取消升级
   Cancel Print: 取消打印
   Cancelled: 已取消
+  Center QR code in frame: 将 QR 码对准画面中央
   Chamber: 腔体
   Chamber Fan: 腔体风扇
   Chamber Temperature: 腔体温度
   Chamber and dryer humidity monitoring: 腔体和干燥器湿度监控
   'Chamber:': 腔体：
   Change LED color based on printer state: 根据打印机状态更改 LED 颜色
+  Change PIN: 更改 PIN
   Change Printer Host: 更改打印机主机
   Change Saved Spool: '更改已保存的料盘'
   Changes apply immediately. Adjust during print for tuning.: 更改立即生效。可在打印时调整进行调优。
@@ -234,6 +248,7 @@ translations:
   Close: 关闭
   Closer: 更近
   Closer = more squish | Farther = less squish: 更近 = 更多挤压 | 更远 = 更少挤压
+  Coil Temperature: 线圈温度
   Collect logs and system info for support: 收集日志和系统信息以供支持
   Collecting data...: 正在收集数据...
   Color: 颜色
@@ -242,7 +257,6 @@ translations:
   Complete: 完成
   Complete!: 完成！
   Completed: 已完成
-  Completed in 3 probes: 已完成 3 次探测
   Completed prints will appear here: 已完成的打印将显示在这里
   Computing calibration...: 正在计算校准...
   Config-defined (read-only): 配置定义（只读）
@@ -291,6 +305,7 @@ translations:
   Create New Filament: 创建新耗材
   Create New Vendor: 创建新供应商
   Create Spool: 创建料盘
+  Create a 4-6 digit security PIN: 创建 4-6 位安全 PIN
   Create video when print completes: 打印完成时创建视频
   Creating spool...: 正在创建料盘…
   Current / Target: 当前 / 目标
@@ -300,6 +315,7 @@ translations:
   Current Version: 当前版本
   Current Z Position: 当前 Z 位置
   'Current name:': 当前名称：
+  'Current:': '当前：'
   'Current: %s · Slot %d': '当前: %s · 插槽 %d'
   'Current: Bypass': '当前: 旁通'
   'Current: Slot %d': '当前: 插槽 %d'
@@ -342,6 +358,7 @@ translations:
   Device name is required: 设备名称为必填项
   Disable: 禁用
   Disable Motors?: 关闭电机？
+  Disable the security PIN: 禁用安全 PIN
   Discard: 丢弃
   Discard Changes?: 丢弃更改？
   Disconnected: 已断开
@@ -352,6 +369,7 @@ translations:
   Display Sleep: 显示休眠
   Do not power off your printer.: 请勿关闭打印机电源。
   Do not touch the printer during calibration: 校准期间请勿触碰打印机
+  Dock: 归位
   Documentation: 文档
   Don't Save: 不保存
   Don't ask again: 不再询问
@@ -359,6 +377,7 @@ translations:
   Download update?: 下载更新？
   Download v{}?: 下载 v{}？
   Downloading...: 下载中...
+  Drive Cal: 驱动校准
   Drop shadow strength (0 = disabled): 阴影强度（0 = 禁用）
   Dryer: 干燥器
   Dryer Control: 干燥器控制
@@ -366,6 +385,7 @@ translations:
   Duplicated: 已复制
   Duration: 持续时间
   E-Stop Confirmation: 急停确认
+  EDDY CURRENT: EDDY CURRENT
   EMERGENCY CONTROLS: 紧急控制
   EMERGENCY STOP: 紧急停止
   Each fan can only be selected once: 每个风扇只能选择一次
@@ -399,6 +419,8 @@ translations:
   Ended: 已结束
   Enhancement Complete!: 增强完成！
   Enhancement Failed: 增强失败
+  Enter New PIN: 输入新 PIN
+  Enter PIN: 输入 PIN
   Enter WiFi Password: 输入 WiFi 密码
   'Enter a name for your custom theme:': 输入自定义主题名称：
   Enter a name to save this profile: 输入名称以保存此配置
@@ -463,6 +485,7 @@ translations:
   Feeding filament forward: 正在向前送料
   Filament: 耗材
   Filament Detected: 检测到耗材
+  Filament Mapping: 耗材映射
   Filament Sensor: 耗材传感器
   Filament Used: 已用耗材
   Filament already exists: 耗材已存在
@@ -472,6 +495,7 @@ translations:
   Filament is pulling tight: 耗材拉紧
   Filament runout and motion detection sensors: 耗材用尽和运动检测传感器
   Filament tension is balanced: 耗材张力平衡
+  Filament tracking & label printing: 耗材跟踪和标签打印
   Filament tracking and inventory: 耗材跟踪和库存
   File: 文件
   File Info: 文件信息
@@ -558,6 +582,7 @@ translations:
   In Progress: 进行中
   Inactive: 未激活
   Include Klipper/Moonraker logs: 包含 Klipper/Moonraker 日志
+  Incompatible: 不兼容
   Indexing G-code...: 正在索引 G-code...
   Initializing...: 初始化中...
   Input: 输入
@@ -583,9 +608,11 @@ translations:
   Interactive probe offset adjustment: 交互式探针偏移调整
   Invalid port number: '无效的端口号'
   Issue description: 问题描述
+  JabberWocky: JabberWocky
   Job Queue: 任务队列
   'Join the HelixScreen community on Discord for discussion, ': 加入 HelixScreen 的 Discord 社区进行讨论、
   Just now: 刚刚
+  KLICKY CONTROLS: KLICKY 控制
   Keep Printing: 继续打印
   Keep Required: 保持必需
   Keyboard Test (Gboard-style): 键盘测试（Gboard 风格）
@@ -626,6 +653,7 @@ translations:
   Light: 浅色
   Load: 加载
   Load Filament: 加载耗材
+  Load the required filaments or start anyway?: 加载所需耗材还是直接开始？
   Loaded: 已加载
   Loading Bed Mesh...: 正在加载热床网格...
   Loading Error: 加载错误
@@ -636,6 +664,8 @@ translations:
   Loading spools...: 正在加载料盘...
   Loading vendors...: 正在加载供应商…
   Loading...: 正在加载...
+  Location: 位置
+  Lock screen after idle timeout: 空闲超时后锁定屏幕
   Locked during print: 打印期间锁定
   'Lot # (optional)': 批号（可选）
   Lot/Batch Nr: 批次号
@@ -730,8 +760,10 @@ translations:
   New Version Available: 发现新版本
   New profile name: 新配置名称
   Next: 下一步
+  Niimbot (Bluetooth): Niimbot（蓝牙）
   No AMS system connected: 未连接 AMS 系统
   No AMS system connected.: 未连接 AMS 系统。
+  No Bluetooth printers found: 未找到蓝牙打印机
   No Filament Detected: 未检测到耗材
   No History: 无历史记录
   No LED macros detected on your printer.: 未在打印机上检测到 LED 宏。
@@ -820,6 +852,12 @@ translations:
   PRINTER: 打印机
   PRINTERS: '打印机'
   PROBE SENSORS: '探针传感器'
+  Pair: 配对
+  Pair Bluetooth Printer: 配对蓝牙打印机
+  Pair with: 配对
+  Paired successfully: 配对成功
+  Pairing failed: 配对失败
+  Pairing...: 正在配对...
   Paper Test Calibration: 纸张测试校准
   Parameters: '参数'
   Part: 零件
@@ -836,7 +874,8 @@ translations:
   Phase tracking disabled: 相位跟踪已禁用
   Phase tracking enabled: 相位跟踪已启用
   Phase tracking update failed: 相位跟踪更新失败
-  Phomemo M110: ''
+  Phomemo (Bluetooth): Phomemo（蓝牙）
+  Phomemo M110: Phomemo M110
   Pick: 选取
   Pick Color: 选择颜色
   'Place image files (PNG, JPEG, BMP, GIF) in config/custom_images/. Max size: 2048×2048 pixels.': '将图片文件 (PNG, JPEG, BMP, GIF) 放入 config/custom_images/。最大尺寸: 2048×2048 像素。'
@@ -859,12 +898,14 @@ translations:
   Power: 电源
   Power Control: 电源控制
   Power Devices: 电源设备
+  Preheat PLA: 预热 PLA
   Preparing: 准备中
   Preparing Print: 准备打印
   Preparing Print...: 正在准备打印...
   Preparing...: 正在准备...
   Preset: 预设
   Presets: 预设
+  Press Scan to search: 按扫描搜索
   'Pressure:': '压力:'
   Previous: 上一步
   Price: 价格
@@ -907,7 +948,7 @@ translations:
   Probe: 探针
   Probe Accuracy Test: 探针精度测试
   Probe Management: 探针管理
-  Probe Sensor: 探针传感器
+  Probe Speed: 探针速度
   Probe bed surface for compensation: 探测热床表面以进行补偿
   Probe controls, accuracy test, and settings: 探针控制、精度测试和设置
   Probing Bed Mesh: 正在探测热床网格
@@ -954,6 +995,7 @@ translations:
   Remaining: 剩余
   Remaining (g): 剩余 (g)
   Remaining Weight (g): 剩余重量（克）
+  Remove PIN: 移除 PIN
   Remove plugin from printer: 从打印机移除插件
   Rename: 重命名
   Rename Mesh Profile: 重命名网格配置
@@ -984,6 +1026,7 @@ translations:
   Resume: 恢复
   Resume Print: 恢复打印
   Retract: 回抽
+  Retract Distance: 回抽距离
   Retract Length: 回抽长度
   Retract Speed: 回抽速度
   Retraction: 回抽
@@ -1008,6 +1051,8 @@ translations:
   SYSTEM: 系统
   Sample %d/%d: 样本 %d/%d
   Sample Dialog: 示例对话框
+  Samples: 采样次数
+  Samples Tolerance: 采样容差
   Save: 保存
   Save & Restart: 保存并重启
   Save As New: 另存为新配置
@@ -1020,13 +1065,21 @@ translations:
   Saved Z-Offset: 已保存 Z 偏移
   Saved to crash_report.txt (QR not available): 已保存到 crash_report.txt（二维码不可用）
   Saved to printer configuration.: 已保存到打印机配置。
+  Saves to Klipper config and restarts firmware.: 保存到 Klipper 配置并重启固件。
   Saving Configuration...: 正在保存配置...
   Saving config... Klipper will restart.: 正在保存配置... Klipper 将重启。
   Saving will restart Klipper and CANCEL any active print!: 保存将重启 Klipper 并取消任何正在进行的打印！
+  Scan Cal: 扫描校准
+  Scan QR Code: 扫描 QR 码
+  Scan Spool QR Code: 扫描料盘 QR 码
+  Scan and select a Bluetooth printer first: 请先扫描并选择蓝牙打印机
+  Scan for Printers: 扫描打印机
   Scanning for networks...: 正在扫描网络...
+  Scanning...: 正在扫描...
   'Score: 0': '得分: 0'
   Screen Dim: 屏幕变暗
   Screen dims to lower brightness after period of inactivity: 一段时间不活动后屏幕会降低亮度
+  Screen lock and PIN settings: 屏幕锁定和 PIN 设置
   Screen sleeps after the selected period of inactivity: 在选定的不活动时间后屏幕将变暗
   Screensaver: 屏保
   Screws Tilt: 螺丝倾斜
@@ -1041,7 +1094,7 @@ translations:
   See exactly what data will be sent: 查看将发送的确切数据
   Select: 选择
   Select 'None' if you don't have a filament sensor, or if you don't want to pause on runout.: 如果您没有耗材传感器，或不想在断料时暂停，请选择「无」。
-  Select 'None' if you have a dedicated probe, or don't use bed mesh leveling.: 如果您有专用探针，或不使用热床网格调平，请选择「无」。
+  Select Filament: 选择耗材
   Select G-Code File: 选择 G-Code 文件
   Select Sensor: 选择传感器
   Select Sensors: '选择传感器'
@@ -1059,10 +1112,12 @@ translations:
   Send this crash report to help improve HelixScreen.: 发送此崩溃报告以帮助改进 HelixScreen。
   Sending...: 正在发送...
   Sensor Response: 传感器响应
+  Sensor Temperature: 传感器温度
   Sensors: 传感器
   Separate on/off macros. HelixScreen tracks the state.: 独立的开/关宏。HelixScreen 跟踪状态。
   'Set ': '设置 '
   Set Active: 设为活动
+  Set PIN: 设置 PIN
   Set up your label printer in Settings: '在设置中配置标签打印机'
   Settings: 设置
   Settings reset to defaults. Restarting...: 设置已重置为默认值。正在重启...
@@ -1085,6 +1140,7 @@ translations:
   Skip: 跳过
   Sleep While Printing: 打印时休眠
   Sleep adjusted to match dim timeout: 休眠超时已调整
+  Slot: 料仓
   Slot 1: 料仓 1
   Small labels help keep controls calm and focused.: 小标签有助于保持控件简洁专注。
   Some settings will take effect after restart.: 某些设置将在重启后生效。
@@ -1162,6 +1218,7 @@ translations:
   Target Temperature: 目标温度
   Telemetry Data: 遥测数据
   Telemetry queue cleared: 遥测队列已清除
+  Temp Compensation: 温度补偿
   Temperature: 温度
   Temperatures: 温度
   Temporary adjustment for this print, unless saved on Controls panel: 此打印的临时调整，除非在控制面板上保存
@@ -1171,7 +1228,6 @@ translations:
   Test Print: '测试打印'
   Test Sound: 测试声音
   Test label printed: '测试标签已打印'
-  Test probe repeatability: 测试探针重复性
   'Testing rotation: %d\xc2\xb0 (%d/%d) - %ds remaining': '测试旋转: %d\xc2\xb0 (%d/%d) - 剩余%ds'
   Thanks! Anonymous usage data helps improve HelixScreen.: 感谢！匿名使用数据有助于改进 HelixScreen。
   Thanks! TOTALLY anonymous usage data helps improve HelixScreen.: 感谢！完全匿名的使用数据有助于改进 HelixScreen。
@@ -1187,6 +1243,7 @@ translations:
   Theme changes apply after restart.: 主题更改在重启后生效。
   Theme reset to defaults: 主题已重置为默认值
   Theme, brightness, and sleep settings: 主题、亮度和休眠设置
+  'These tools have no matching filament loaded:': '以下工具未加载匹配的耗材：'
   This calibration uses the paper friction method to set your Z-offset.: 此校准使用纸张摩擦法设置 Z 偏移。
   This cannot be undone.: 此操作无法撤销。
   This is exactly the data that will be sent: 这正是将要发送的数据
@@ -1226,6 +1283,7 @@ translations:
   Toolhead Style: 工具头样式
   Top: 顶部
   Total Prints: 总打印数
+  Touch Cal: 触摸校准
   Touch Calibration: 触摸校准
   Touch anywhere to test calibration: 触摸任意位置测试校准
   Touch anywhere to verify accuracy: 触摸任意位置验证精度
@@ -1255,12 +1313,14 @@ translations:
   Unload: 卸载
   Unload Filament: 卸载耗材
   Unloading filament...: 正在卸载耗材...
+  Unmapped: 未映射
   Unretract Extra: 回抽恢复额外量
   Unretract Speed: 回抽恢复速度
   Update Available: 有可用更新
   Update Channel: 更新通道
   Update Failed: 更新失败
   Update installed!: 更新已安装！
+  Update your security PIN: 更新您的安全 PIN
   Updating Configuration...: 正在更新配置...
   Upload: 上传
   Upload Debug Bundle: 上传调试捆绑包
@@ -1303,7 +1363,6 @@ translations:
   Weekly Print Stats: '本周打印统计'
   ? Weight data is synced from Spoolman to display remaining filament. Changes are also synced when prints start, pause, or complete.
   : 重量数据从 Spoolman 同步以显示剩余耗材。打印开始、暂停或完成时也会同步更改。
-  Weight sync settings: 重量同步设置
   What We Collect: 我们收集的内容
   White: 白色
   WiFi: WiFi
@@ -1313,13 +1372,16 @@ translations:
   WiFi control unavailable: WiFi 控制不可用
   WiFi hardware unavailable: WiFi 硬件不可用
   Width: 宽度
+  Wrong PIN: PIN 错误
   X: X
   X Axis: X 轴
+  X Offset: X 偏移
   X axis applied, but Y axis failed: X 轴已应用，但 Y 轴失败
   'X:': X：
   XY: XY
   Y: Y
   Y Axis: Y 轴
+  Y Offset: Y 偏移
   'Y:': Y：
   Year: 年
   You can skip this and calibrate later in Settings.: 您可以跳过此步骤，稍后在设置中进行校准。

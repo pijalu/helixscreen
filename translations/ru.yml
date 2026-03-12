@@ -54,6 +54,7 @@ translations:
   A4T: A4T
   ABS: ABS
   ACCELEROMETERS: АКСЕЛЕРОМЕТРЫ
+  ACTIONS: ДЕЙСТВИЯ
   ADXL: ADXL
   AFC: 'AFC'
   AFC Version Warning: Предупреждение о версии AFC
@@ -95,7 +96,6 @@ translations:
   After running the commands, tap Check Again below.: После выполнения команд нажмите «Проверить снова» ниже.
   Alert: Оповещение
   All: Все
-  All screws are within tolerance.: Все винты в пределах допуска.
   Allow display to sleep during active prints: Разрешить спящий режим дисплея во время печати
   Allwinner: Allwinner
   Ambient Transfer: Теплообмен с окружающей средой
@@ -118,9 +118,12 @@ translations:
   Assign a role to enable sensor monitoring: Назначьте роль для мониторинга датчика
   Assisting: Помощь
   Auto: Авто
+  Auto (best match): Авто (лучшее совпадение)
   Auto Bed Mesh: Авто сетка стола
+  Auto Cal: Авто кал.
   Auto-Detect: Автоопределение
   Auto-Heat on Load: Автонагрев при загрузке
+  Auto-lock: Автоблокировка
   Auto-probe or manually check screw heights: Автозондирование или ручная проверка высоты винтов
   Auto-render video: Автоматический рендер видео
   Automatic: Автоматический
@@ -129,8 +132,10 @@ translations:
   Automatically poll Spoolman for weight updates: Автоматически опрашивать Spoolman для обновления веса
   Available Networks: Доступные сети
   Available networks: Доступные сети
+  BEACON: BEACON
   BETA: BETA
   BLTouch Controls: Управление BLTouch
+  BLUETOOTH PRINTERS: BLUETOOTH-ПРИНТЕРЫ
   Back: Назад
   Bed: Стол
   Bed Heater: Нагреватель стола
@@ -151,6 +156,9 @@ translations:
   'Beta features: ON': 'Beta-функции: ВКЛ'
   Black: Чёрный
   Bluetooth: Bluetooth
+  Bluetooth initialization failed: Ошибка инициализации Bluetooth
+  Bluetooth not available: Bluetooth недоступен
+  Bluetooth not initialized: Bluetooth не инициализирован
   Body text supports longer guidance while staying readable.: Основной текст поддерживает развёрнутые инструкции, оставаясь читаемым.
   Border Opacity: Прозрачность границы
   Border Radius: Радиус скругления
@@ -159,7 +167,8 @@ translations:
   Both: Оба
   Brightness: Яркость
   Brightness level when LEDs turn on at startup: Уровень яркости при включении LED при запуске
-  Brother QL: ''
+  Brother QL: Brother QL
+  Brother QL (Bluetooth): Brother QL (Bluetooth)
   Browse: Обзор
   'Browse guides, configuration references, and troubleshooting ': 'Руководства, справочники по настройке и устранение неполадок '
   Buffer Status: 'Статус буфера'
@@ -171,12 +180,15 @@ translations:
   C: К
   CALIBRATION: КАЛИБРОВКА
   CAPABILITIES: ВОЗМОЖНОСТИ
+  CARTOGRAPHER: CARTOGRAPHER
   CHANGED FROM LAST SESSION: ИЗМЕНЕНО С ПРОШЛОЙ СЕССИИ
   COLOR SENSORS: ДАТЧИКИ ЦВЕТА
   COLORS REQUIRED: ТРЕБУЕМЫЕ ЦВЕТА
+  CONFIGURATION: КОНФИГУРАЦИЯ
   CONNECTION TYPE: ТИП ПОДКЛЮЧЕНИЯ
   CRITICAL: КРИТИЧНО
   CUSTOM IMAGES: СВОИ ИЗОБРАЖЕНИЯ
+  Calibrate: Калибровать
   Calibrate All: Калибровать всё
   Calibrate X: Калибровать X
   Calibrate Y: Калибровать Y
@@ -195,12 +207,14 @@ translations:
   Cancel Escalation: Отменить эскалацию
   Cancel Print: Отменить печать
   Cancelled: Отменено
+  Center QR code in frame: Расположите QR-код в центре кадра
   Chamber: Камера
   Chamber Fan: Вентилятор камеры
   Chamber Temperature: Температура камеры
   Chamber and dryer humidity monitoring: Мониторинг влажности камеры и сушилки
   'Chamber:': 'Камера:'
   Change LED color based on printer state: Менять цвет LED в зависимости от состояния принтера
+  Change PIN: Изменить PIN
   Change Printer Host: Изменить хост принтера
   Change Saved Spool: 'Изменить сохранённую катушку'
   Changes apply immediately. Adjust during print for tuning.: Изменения применяются немедленно. Корректируйте во время печати.
@@ -234,6 +248,7 @@ translations:
   Close: Закрыть
   Closer: Ближе
   Closer = more squish | Farther = less squish: Ближе = больше сжатие | Дальше = меньше сжатие
+  Coil Temperature: Температура катушки
   Collect logs and system info for support: Собрать логи и информацию о системе для поддержки
   Collecting data...: Сбор данных...
   Color: Цвет
@@ -242,7 +257,6 @@ translations:
   Complete: Завершено
   Complete!: Готово!
   Completed: Завершено
-  Completed in 3 probes: Завершено за 3 замера
   Completed prints will appear here: Завершённые печати появятся здесь
   Computing calibration...: Вычисление калибровки...
   Config-defined (read-only): Определено в конфигурации (только чтение)
@@ -291,6 +305,7 @@ translations:
   Create New Filament: Создать новый филамент
   Create New Vendor: Создать нового производителя
   Create Spool: Создать катушку
+  Create a 4-6 digit security PIN: Создайте PIN-код из 4-6 цифр
   Create video when print completes: Создать видео после завершения печати
   Creating spool...: Создание катушки...
   Current / Target: Текущая / Цель
@@ -300,6 +315,7 @@ translations:
   Current Version: Текущая версия
   Current Z Position: Текущая позиция Z
   'Current name:': 'Текущее имя:'
+  'Current:': 'Текущий:'
   'Current: %s · Slot %d': 'Текущий: %s · Слот %d'
   'Current: Bypass': 'Текущий: Обход'
   'Current: Slot %d': 'Текущий: Слот %d'
@@ -342,6 +358,7 @@ translations:
   Device name is required: Требуется название устройства
   Disable: Отключить
   Disable Motors?: Отключить моторы?
+  Disable the security PIN: Отключить PIN-код
   Discard: Отменить
   Discard Changes?: Отменить изменения?
   Disconnected: Отключено
@@ -352,6 +369,7 @@ translations:
   Display Sleep: Спящий режим экрана
   Do not power off your printer.: Не выключайте принтер.
   Do not touch the printer during calibration: Не трогайте принтер во время калибровки
+  Dock: Парковать
   Documentation: Документация
   Don't Save: Не сохранять
   Don't ask again: Больше не спрашивать
@@ -359,6 +377,7 @@ translations:
   Download update?: Загрузить обновление?
   Download v{}?: Загрузить v{}?
   Downloading...: Загрузка...
+  Drive Cal: Кал. привода
   Drop shadow strength (0 = disabled): Интенсивность тени (0 = отключено)
   Dryer: Сушилка
   Dryer Control: Управление сушилкой
@@ -366,6 +385,7 @@ translations:
   Duplicated: Дублировано
   Duration: Длительность
   E-Stop Confirmation: Подтверждение аварийной остановки
+  EDDY CURRENT: EDDY CURRENT
   EMERGENCY CONTROLS: АВАРИЙНОЕ УПРАВЛЕНИЕ
   EMERGENCY STOP: АВАРИЙНАЯ ОСТАНОВКА
   Each fan can only be selected once: Каждый вентилятор можно выбрать только один раз
@@ -399,6 +419,8 @@ translations:
   Ended: Завершено
   Enhancement Complete!: Улучшение завершено!
   Enhancement Failed: Ошибка улучшения
+  Enter New PIN: Введите новый PIN
+  Enter PIN: Введите PIN
   Enter WiFi Password: Введите пароль WiFi
   'Enter a name for your custom theme:': 'Введите название для вашей темы:'
   Enter a name to save this profile: Введите имя для сохранения профиля
@@ -463,6 +485,7 @@ translations:
   Feeding filament forward: Подача филамента вперёд
   Filament: Филамент
   Filament Detected: Филамент обнаружен
+  Filament Mapping: Назначение филамента
   Filament Sensor: Датчик филамента
   Filament Used: Использовано филамента
   Filament already exists: Такой филамент уже существует
@@ -472,6 +495,7 @@ translations:
   Filament is pulling tight: Филамент натянут
   Filament runout and motion detection sensors: Датчики окончания и движения филамента
   Filament tension is balanced: Натяжение филамента сбалансировано
+  Filament tracking & label printing: Учёт филамента и печать этикеток
   Filament tracking and inventory: Отслеживание и учёт филамента
   File: Файл
   File Info: Информация о файле
@@ -558,6 +582,7 @@ translations:
   In Progress: В процессе
   Inactive: Неактивно
   Include Klipper/Moonraker logs: Включить логи Klipper/Moonraker
+  Incompatible: Несовместимо
   Indexing G-code...: Индексация G-code...
   Initializing...: Инициализация...
   Input: Ввод
@@ -583,9 +608,11 @@ translations:
   Interactive probe offset adjustment: Интерактивная настройка смещения датчика
   Invalid port number: 'Неверный номер порта'
   Issue description: Описание проблемы
+  JabberWocky: JabberWocky
   Job Queue: Очередь заданий
   'Join the HelixScreen community on Discord for discussion, ': 'Присоединяйтесь к сообществу HelixScreen в Discord для обсуждений, '
   Just now: Только что
+  KLICKY CONTROLS: УПРАВЛЕНИЕ KLICKY
   Keep Printing: Продолжить печать
   Keep Required: Оставить обязательным
   Keyboard Test (Gboard-style): Тест клавиатуры (стиль Gboard)
@@ -626,6 +653,7 @@ translations:
   Light: Подсветка
   Load: Загрузить
   Load Filament: Загрузить филамент
+  Load the required filaments or start anyway?: Загрузить нужные филаменты или начать без них?
   Loaded: Загружен
   Loading Bed Mesh...: Загрузка сетки стола...
   Loading Error: Ошибка загрузки
@@ -636,6 +664,8 @@ translations:
   Loading spools...: Загрузка катушек...
   Loading vendors...: Загрузка производителей...
   Loading...: Загрузка...
+  Location: Расположение
+  Lock screen after idle timeout: Блокировать экран после простоя
   Locked during print: Заблокировано во время печати
   'Lot # (optional)': 'Партия # (необязательно)'
   Lot/Batch Nr: Nr. партии/серии
@@ -730,8 +760,10 @@ translations:
   New Version Available: Доступна новая версия
   New profile name: Новое имя профиля
   Next: Далее
+  Niimbot (Bluetooth): Niimbot (Bluetooth)
   No AMS system connected: AMS-система не подключена
   No AMS system connected.: AMS-система не подключена.
+  No Bluetooth printers found: Bluetooth-принтеры не найдены
   No Filament Detected: Филамент не обнаружен
   No History: Нет истории
   No LED macros detected on your printer.: На вашем принтере не обнаружены LED-макросы.
@@ -820,6 +852,12 @@ translations:
   PRINTER: ПРИНТЕР
   PRINTERS: ПРИНТЕРЫ
   PROBE SENSORS: ДАТЧИКИ ЗОНДА
+  Pair: Сопряжение
+  Pair Bluetooth Printer: Подключить Bluetooth-принтер
+  Pair with: Сопряжение с
+  Paired successfully: Сопряжение выполнено
+  Pairing failed: Ошибка сопряжения
+  Pairing...: Сопряжение...
   Paper Test Calibration: Калибровка бумажным тестом
   Parameters: 'Параметры'
   Part: Деталь
@@ -836,7 +874,8 @@ translations:
   Phase tracking disabled: Отслеживание фазы отключено
   Phase tracking enabled: Отслеживание фазы включено
   Phase tracking update failed: Не удалось обновить отслеживание фазы
-  Phomemo M110: ''
+  Phomemo (Bluetooth): Phomemo (Bluetooth)
+  Phomemo M110: Phomemo M110
   Pick: Выбрать
   Pick Color: Выбрать цвет
   'Place image files (PNG, JPEG, BMP, GIF) in config/custom_images/. Max size: 2048×2048 pixels.': 'Поместите файлы изображений (PNG, JPEG, BMP, GIF) в config/custom_images/. Макс. размер: 2048×2048 пикселей.'
@@ -859,12 +898,14 @@ translations:
   Power: Питание
   Power Control: Управление питанием
   Power Devices: Устройства питания
+  Preheat PLA: Преднагрев PLA
   Preparing: Подготовка
   Preparing Print: Подготовка печати
   Preparing Print...: Подготовка печати...
   Preparing...: Подготовка...
   Preset: Пресет
   Presets: Пресеты
+  Press Scan to search: Нажмите «Поиск» для сканирования
   'Pressure:': 'Давление:'
   Previous: Назад
   Price: Цена
@@ -907,7 +948,7 @@ translations:
   Probe: Зонд
   Probe Accuracy Test: Тест точности датчика
   Probe Management: Управление датчиком
-  Probe Sensor: Датчик пробы
+  Probe Speed: Скорость зонда
   Probe bed surface for compensation: Зондировать поверхность стола для компенсации
   Probe controls, accuracy test, and settings: Управление датчиком, тест точности и настройки
   Probing Bed Mesh: Зондирование сетки стола
@@ -954,6 +995,7 @@ translations:
   Remaining: Осталось
   Remaining (g): Осталось (г)
   Remaining Weight (g): Оставшийся вес (г)
+  Remove PIN: Удалить PIN
   Remove plugin from printer: Удалить плагин с принтера
   Rename: Переименовать
   Rename Mesh Profile: Переименовать профиль сетки
@@ -984,6 +1026,7 @@ translations:
   Resume: Продолжить
   Resume Print: Продолжить печать
   Retract: Ретракция
+  Retract Distance: Расстояние ретракта
   Retract Length: Длина ретракта
   Retract Speed: Скорость ретракта
   Retraction: Ретракт
@@ -1008,6 +1051,8 @@ translations:
   SYSTEM: СИСТЕМА
   Sample %d/%d: Образец %d/%d
   Sample Dialog: Пример диалога
+  Samples: Образцы
+  Samples Tolerance: Допуск образцов
   Save: Сохранить
   Save & Restart: Сохранить и перезапустить
   Save As New: Сохранить как новый
@@ -1020,13 +1065,21 @@ translations:
   Saved Z-Offset: Сохранённый Z-Offset
   Saved to crash_report.txt (QR not available): Сохранено в crash_report.txt (QR недоступен)
   Saved to printer configuration.: Сохранено в конфигурацию принтера.
+  Saves to Klipper config and restarts firmware.: Сохраняет в конфигурацию Klipper и перезапускает прошивку.
   Saving Configuration...: Сохранение конфигурации...
   Saving config... Klipper will restart.: Сохранение конфигурации... Klipper перезапустится.
   Saving will restart Klipper and CANCEL any active print!: Сохранение перезапустит Klipper и ОТМЕНИТ любую активную печать!
+  Scan Cal: Кал. скана
+  Scan QR Code: Сканировать QR-код
+  Scan Spool QR Code: Сканировать QR-код катушки
+  Scan and select a Bluetooth printer first: Сначала найдите и выберите Bluetooth-принтер
+  Scan for Printers: Поиск принтеров
   Scanning for networks...: Поиск сетей...
+  Scanning...: Сканирование...
   'Score: 0': 'Счёт: 0'
   Screen Dim: Затемнение экрана
   Screen dims to lower brightness after period of inactivity: Экран затемняется после периода простоя
+  Screen lock and PIN settings: Блокировка экрана и настройки PIN
   Screen sleeps after the selected period of inactivity: Экран затемнится после выбранного периода простоя
   Screensaver: Заставка
   Screws Tilt: Наклон винтов
@@ -1041,7 +1094,7 @@ translations:
   See exactly what data will be sent: Посмотрите, какие именно данные будут отправлены
   Select: Выбрать
   Select 'None' if you don't have a filament sensor, or if you don't want to pause on runout.: Выберите 'Нет', если у вас нет датчика филамента или пауза по окончании филамента не нужна.
-  Select 'None' if you have a dedicated probe, or don't use bed mesh leveling.: Выберите 'Нет', если у вас отдельный зонд или вы не используете сетку стола.
+  Select Filament: Выбрать филамент
   Select G-Code File: Выбрать файл G-Code
   Select Sensor: Выбрать датчик
   Select Sensors: 'Выбрать датчики'
@@ -1059,10 +1112,12 @@ translations:
   Send this crash report to help improve HelixScreen.: Отправьте этот отчёт об ошибке, чтобы помочь улучшить HelixScreen.
   Sending...: Отправка...
   Sensor Response: Отклик датчика
+  Sensor Temperature: Температура датчика
   Sensors: Датчики
   Separate on/off macros. HelixScreen tracks the state.: Отдельные макросы вкл/выкл. HelixScreen отслеживает состояние.
   'Set ': 'Установить '
   Set Active: Сделать активной
+  Set PIN: Установить PIN
   Set up your label printer in Settings: 'Настройте принтер этикеток в Настройках'
   Settings: Настройки
   Settings reset to defaults. Restarting...: Настройки сброшены к значениям по умолчанию. Перезапуск...
@@ -1085,6 +1140,7 @@ translations:
   Skip: Пропустить
   Sleep While Printing: Спящий режим при печати
   Sleep adjusted to match dim timeout: Таймаут сна изменён
+  Slot: Слот
   Slot 1: Слот 1
   Small labels help keep controls calm and focused.: Мелкие надписи помогают сохранять элементы управления аккуратными.
   Some settings will take effect after restart.: Некоторые настройки вступят в силу после перезапуска.
@@ -1162,6 +1218,7 @@ translations:
   Target Temperature: Целевая температура
   Telemetry Data: Данные телеметрии
   Telemetry queue cleared: Очередь телеметрии очищена
+  Temp Compensation: Термокомпенсация
   Temperature: Температура
   Temperatures: Температуры
   Temporary adjustment for this print, unless saved on Controls panel: Временная настройка для этой печати, если не сохранена в панели управления
@@ -1171,7 +1228,6 @@ translations:
   Test Print: 'Тестовая печать'
   Test Sound: Тестовый звук
   Test label printed: 'Тестовая этикетка напечатана'
-  Test probe repeatability: Тест повторяемости датчика
   'Testing rotation: %d\xc2\xb0 (%d/%d) - %ds remaining': 'Тест поворота: %d\xc2\xb0 (%d/%d) - осталось %ds'
   Thanks! Anonymous usage data helps improve HelixScreen.: Спасибо! Анонимные данные использования помогают улучшить HelixScreen.
   Thanks! TOTALLY anonymous usage data helps improve HelixScreen.: Спасибо! ПОЛНОСТЬЮ анонимные данные использования помогают улучшить HelixScreen.
@@ -1187,6 +1243,7 @@ translations:
   Theme changes apply after restart.: Изменения темы применяются после перезапуска.
   Theme reset to defaults: Тема сброшена к настройкам по умолчанию
   Theme, brightness, and sleep settings: Тема, яркость и настройки сна
+  'These tools have no matching filament loaded:': 'В этих инструментах нет подходящего филамента:'
   This calibration uses the paper friction method to set your Z-offset.: Эта калибровка использует метод трения бумаги об сопло для установки Z-смещения.
   This cannot be undone.: Это действие нельзя отменить.
   This is exactly the data that will be sent: Это именно те данные, которые будут отправлены
@@ -1226,6 +1283,7 @@ translations:
   Toolhead Style: Стиль печатающей головки
   Top: Сверху
   Total Prints: Всего печатей
+  Touch Cal: Кал. касания
   Touch Calibration: Калибровка касания
   Touch anywhere to test calibration: Коснитесь в любом месте для проверки калибровки
   Touch anywhere to verify accuracy: Коснитесь в любом месте для проверки точности
@@ -1255,12 +1313,14 @@ translations:
   Unload: Выгрузить
   Unload Filament: Выгрузить филамент
   Unloading filament...: Выгрузка филамента...
+  Unmapped: Не назначен
   Unretract Extra: Дополнительная подача
   Unretract Speed: Скорость возврата
   Update Available: Доступно обновление
   Update Channel: Канал обновлений
   Update Failed: Ошибка обновления
   Update installed!: Обновление установлено!
+  Update your security PIN: Обновите ваш PIN-код
   Updating Configuration...: Обновление конфигурации...
   Upload: Отправить
   Upload Debug Bundle: Отправить пакет диагностики
@@ -1303,7 +1363,6 @@ translations:
   Weekly Print Stats: 'Статистика за неделю'
   ? Weight data is synced from Spoolman to display remaining filament. Changes are also synced when prints start, pause, or complete.
   : Данные о весе синхронизируются из Spoolman для отображения оставшегося филамента. Изменения также синхронизируются при начале, паузе или завершении печати.
-  Weight sync settings: Настройки синхронизации веса
   What We Collect: Что мы собираем
   White: Белый
   WiFi: WiFi
@@ -1313,13 +1372,16 @@ translations:
   WiFi control unavailable: Управление WiFi недоступно
   WiFi hardware unavailable: Оборудование WiFi недоступно
   Width: Ширина
+  Wrong PIN: Неверный PIN
   X: X
   X Axis: Ось X
+  X Offset: Смещение X
   X axis applied, but Y axis failed: Ось X применена, но ось Y не удалась
   'X:': 'X:'
   XY: XY
   Y: Y
   Y Axis: Ось Y
+  Y Offset: Смещение Y
   'Y:': 'Y:'
   Year: Год
   You can skip this and calibrate later in Settings.: Вы можете пропустить это и откалибровать позже в настройках.

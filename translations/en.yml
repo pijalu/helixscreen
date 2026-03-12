@@ -54,6 +54,7 @@ translations:
   A4T: A4T
   ABS: ABS
   ACCELEROMETERS: ACCELEROMETERS
+  ACTIONS: ACTIONS
   ADXL: ADXL
   AFC: AFC
   AFC Version Warning: AFC Version Warning
@@ -95,7 +96,6 @@ translations:
   After running the commands, tap Check Again below.: After running the commands, tap Check Again below.
   Alert: Alert
   All: All
-  All screws are within tolerance.: All screws are within tolerance.
   Allow display to sleep during active prints: Allow display to sleep during active prints
   Allwinner: Allwinner
   Ambient Transfer: Ambient Transfer
@@ -118,9 +118,12 @@ translations:
   Assign a role to enable sensor monitoring: Assign a role to enable sensor monitoring
   Assisting: Assisting
   Auto: Auto
+  Auto (best match): Auto (best match)
   Auto Bed Mesh: Auto Bed Mesh
+  Auto Cal: Auto Cal
   Auto-Detect: Auto-Detect
   Auto-Heat on Load: Auto-Heat on Load
+  Auto-lock: Auto-lock
   Auto-probe or manually check screw heights: Auto-probe or manually check screw heights
   Auto-render video: Auto-render video
   Automatic: Automatic
@@ -129,8 +132,10 @@ translations:
   Automatically poll Spoolman for weight updates: Automatically poll Spoolman for weight updates
   Available Networks: Available Networks
   Available networks: Available networks
+  BEACON: BEACON
   BETA: BETA
   BLTouch Controls: BLTouch Controls
+  BLUETOOTH PRINTERS: BLUETOOTH PRINTERS
   Back: Back
   Bed: Bed
   Bed Heater: Bed Heater
@@ -151,6 +156,9 @@ translations:
   'Beta features: ON': 'Beta features: ON'
   Black: Black
   Bluetooth: Bluetooth
+  Bluetooth initialization failed: Bluetooth initialization failed
+  Bluetooth not available: Bluetooth not available
+  Bluetooth not initialized: Bluetooth not initialized
   Body text supports longer guidance while staying readable.: Body text supports longer guidance while staying readable.
   Border Opacity: Border Opacity
   Border Radius: Border Radius
@@ -160,6 +168,7 @@ translations:
   Brightness: Brightness
   Brightness level when LEDs turn on at startup: Brightness level when LEDs turn on at startup
   Brother QL: Brother QL
+  Brother QL (Bluetooth): Brother QL (Bluetooth)
   Browse: Browse
   'Browse guides, configuration references, and troubleshooting ': 'Browse guides, configuration references, and troubleshooting '
   Buffer Status: Buffer Status
@@ -171,12 +180,15 @@ translations:
   C: C
   CALIBRATION: CALIBRATION
   CAPABILITIES: CAPABILITIES
+  CARTOGRAPHER: CARTOGRAPHER
   CHANGED FROM LAST SESSION: CHANGED FROM LAST SESSION
   COLOR SENSORS: COLOR SENSORS
   COLORS REQUIRED: COLORS REQUIRED
+  CONFIGURATION: CONFIGURATION
   CONNECTION TYPE: CONNECTION TYPE
   CRITICAL: CRITICAL
   CUSTOM IMAGES: CUSTOM IMAGES
+  Calibrate: Calibrate
   Calibrate All: Calibrate All
   Calibrate X: Calibrate X
   Calibrate Y: Calibrate Y
@@ -195,12 +207,14 @@ translations:
   Cancel Escalation: Cancel Escalation
   Cancel Print: Cancel Print
   Cancelled: Cancelled
+  Center QR code in frame: Center QR code in frame
   Chamber: Chamber
   Chamber Fan: Chamber Fan
   Chamber Temperature: Chamber Temperature
   Chamber and dryer humidity monitoring: Chamber and dryer humidity monitoring
   'Chamber:': 'Chamber:'
   Change LED color based on printer state: Change LED color based on printer state
+  Change PIN: Change PIN
   Change Printer Host: Change Printer Host
   Change Saved Spool: Change Saved Spool
   Changes apply immediately. Adjust during print for tuning.: Changes apply immediately. Adjust during print for tuning.
@@ -234,6 +248,7 @@ translations:
   Close: Close
   Closer: Closer
   Closer = more squish | Farther = less squish: Closer = more squish | Farther = less squish
+  Coil Temperature: Coil Temperature
   Collect logs and system info for support: Collect logs and system info for support
   Collecting data...: Collecting data...
   Color: Color
@@ -242,7 +257,6 @@ translations:
   Complete: Complete
   Complete!: Complete!
   Completed: Completed
-  Completed in 3 probes: Completed in 3 probes
   Completed prints will appear here: Completed prints will appear here
   Computing calibration...: Computing calibration...
   Config-defined (read-only): Config-defined (read-only)
@@ -291,6 +305,7 @@ translations:
   Create New Filament: Create New Filament
   Create New Vendor: Create New Vendor
   Create Spool: Create Spool
+  Create a 4-6 digit security PIN: Create a 4-6 digit security PIN
   Create video when print completes: Create video when print completes
   Creating spool...: Creating spool...
   Current / Target: Current / Target
@@ -300,6 +315,7 @@ translations:
   Current Version: Current Version
   Current Z Position: Current Z Position
   'Current name:': 'Current name:'
+  'Current:': 'Current:'
   'Current: %s · Slot %d': 'Current: %s · Slot %d'
   'Current: Bypass': 'Current: Bypass'
   'Current: Slot %d': 'Current: Slot %d'
@@ -342,6 +358,7 @@ translations:
   Device name is required: Device name is required
   Disable: Disable
   Disable Motors?: Disable Motors?
+  Disable the security PIN: Disable the security PIN
   Discard: Discard
   Discard Changes?: Discard Changes?
   Disconnected: Disconnected
@@ -352,6 +369,7 @@ translations:
   Display Sleep: Display Sleep
   Do not power off your printer.: Do not power off your printer.
   Do not touch the printer during calibration: Do not touch the printer during calibration
+  Dock: Dock
   Documentation: Documentation
   Don't Save: Don't Save
   Don't ask again: Don't ask again
@@ -359,6 +377,7 @@ translations:
   Download update?: Download update?
   Download v{}?: Download v{}?
   Downloading...: Downloading...
+  Drive Cal: Drive Cal
   Drop shadow strength (0 = disabled): Drop shadow strength (0 = disabled)
   Dryer: Dryer
   Dryer Control: Dryer Control
@@ -366,6 +385,7 @@ translations:
   Duplicated: Duplicated
   Duration: Duration
   E-Stop Confirmation: E-Stop Confirmation
+  EDDY CURRENT: EDDY CURRENT
   EMERGENCY CONTROLS: EMERGENCY CONTROLS
   EMERGENCY STOP: EMERGENCY STOP
   Each fan can only be selected once: Each fan can only be selected once
@@ -399,6 +419,8 @@ translations:
   Ended: Ended
   Enhancement Complete!: Enhancement Complete!
   Enhancement Failed: Enhancement Failed
+  Enter New PIN: Enter New PIN
+  Enter PIN: Enter PIN
   Enter WiFi Password: Enter WiFi Password
   'Enter a name for your custom theme:': 'Enter a name for your custom theme:'
   Enter a name to save this profile: Enter a name to save this profile
@@ -463,6 +485,7 @@ translations:
   Feeding filament forward: Feeding filament forward
   Filament: Filament
   Filament Detected: Filament Detected
+  Filament Mapping: Filament Mapping
   Filament Sensor: Filament Sensor
   Filament Used: Filament Used
   Filament already exists: Filament already exists
@@ -472,6 +495,7 @@ translations:
   Filament is pulling tight: Filament is pulling tight
   Filament runout and motion detection sensors: Filament runout and motion detection sensors
   Filament tension is balanced: Filament tension is balanced
+  Filament tracking & label printing: Filament tracking & label printing
   Filament tracking and inventory: Filament tracking and inventory
   File: File
   File Info: File Info
@@ -558,6 +582,7 @@ translations:
   In Progress: In Progress
   Inactive: Inactive
   Include Klipper/Moonraker logs: Include Klipper/Moonraker logs
+  Incompatible: Incompatible
   Indexing G-code...: Indexing G-code...
   Initializing...: Initializing...
   Input: Input
@@ -583,9 +608,11 @@ translations:
   Interactive probe offset adjustment: Interactive probe offset adjustment
   Invalid port number: Invalid port number
   Issue description: Issue description
+  JabberWocky: JabberWocky
   Job Queue: Job Queue
   'Join the HelixScreen community on Discord for discussion, ': 'Join the HelixScreen community on Discord for discussion, '
   Just now: Just now
+  KLICKY CONTROLS: KLICKY CONTROLS
   Keep Printing: Keep Printing
   Keep Required: Keep Required
   Keyboard Test (Gboard-style): Keyboard Test (Gboard-style)
@@ -626,6 +653,7 @@ translations:
   Light: Light
   Load: Load
   Load Filament: Load Filament
+  Load the required filaments or start anyway?: Load the required filaments or start anyway?
   Loaded: Loaded
   Loading Bed Mesh...: Loading Bed Mesh...
   Loading Error: Loading Error
@@ -636,6 +664,8 @@ translations:
   Loading spools...: Loading spools...
   Loading vendors...: Loading vendors...
   Loading...: Loading...
+  Location: Location
+  Lock screen after idle timeout: Lock screen after idle timeout
   Locked during print: Locked during print
   'Lot # (optional)': 'Lot # (optional)'
   Lot/Batch Nr: Lot/Batch Nr
@@ -730,8 +760,10 @@ translations:
   New Version Available: New Version Available
   New profile name: New profile name
   Next: Next
+  Niimbot (Bluetooth): Niimbot (Bluetooth)
   No AMS system connected: No AMS system connected
   No AMS system connected.: No AMS system connected.
+  No Bluetooth printers found: No Bluetooth printers found
   No Filament Detected: No Filament Detected
   No History: No History
   No LED macros detected on your printer.: No LED macros detected on your printer.
@@ -820,6 +852,12 @@ translations:
   PRINTER: PRINTER
   PRINTERS: PRINTERS
   PROBE SENSORS: PROBE SENSORS
+  Pair: Pair
+  Pair Bluetooth Printer: Pair Bluetooth Printer
+  Pair with: Pair with
+  Paired successfully: Paired successfully
+  Pairing failed: Pairing failed
+  Pairing...: Pairing...
   Paper Test Calibration: Paper Test Calibration
   Parameters: Parameters
   Part: Part
@@ -836,6 +874,7 @@ translations:
   Phase tracking disabled: Phase tracking disabled
   Phase tracking enabled: Phase tracking enabled
   Phase tracking update failed: Phase tracking update failed
+  Phomemo (Bluetooth): Phomemo (Bluetooth)
   Phomemo M110: Phomemo M110
   Pick: Pick
   Pick Color: Pick Color
@@ -859,12 +898,14 @@ translations:
   Power: Power
   Power Control: Power Control
   Power Devices: Power Devices
+  Preheat PLA: Preheat PLA
   Preparing: Preparing
   Preparing Print: Preparing Print
   Preparing Print...: Preparing Print...
   Preparing...: Preparing...
   Preset: Preset
   Presets: Presets
+  Press Scan to search: Press Scan to search
   'Pressure:': 'Pressure:'
   Previous: Previous
   Price: Price
@@ -907,7 +948,7 @@ translations:
   Probe: Probe
   Probe Accuracy Test: Probe Accuracy Test
   Probe Management: Probe Management
-  Probe Sensor: Probe Sensor
+  Probe Speed: Probe Speed
   Probe bed surface for compensation: Probe bed surface for compensation
   Probe controls, accuracy test, and settings: Probe controls, accuracy test, and settings
   Probing Bed Mesh: Probing Bed Mesh
@@ -954,6 +995,7 @@ translations:
   Remaining: Remaining
   Remaining (g): Remaining (g)
   Remaining Weight (g): Remaining Weight (g)
+  Remove PIN: Remove PIN
   Remove plugin from printer: Remove plugin from printer
   Rename: Rename
   Rename Mesh Profile: Rename Mesh Profile
@@ -984,6 +1026,7 @@ translations:
   Resume: Resume
   Resume Print: Resume Print
   Retract: Retract
+  Retract Distance: Retract Distance
   Retract Length: Retract Length
   Retract Speed: Retract Speed
   Retraction: Retraction
@@ -1008,6 +1051,8 @@ translations:
   SYSTEM: SYSTEM
   Sample %d/%d: Sample %d/%d
   Sample Dialog: Sample Dialog
+  Samples: Samples
+  Samples Tolerance: Samples Tolerance
   Save: Save
   Save & Restart: Save & Restart
   Save As New: Save As New
@@ -1020,13 +1065,21 @@ translations:
   Saved Z-Offset: Saved Z-Offset
   Saved to crash_report.txt (QR not available): Saved to crash_report.txt (QR not available)
   Saved to printer configuration.: Saved to printer configuration.
+  Saves to Klipper config and restarts firmware.: Saves to Klipper config and restarts firmware.
   Saving Configuration...: Saving Configuration...
   Saving config... Klipper will restart.: Saving config... Klipper will restart.
   Saving will restart Klipper and CANCEL any active print!: Saving will restart Klipper and CANCEL any active print!
+  Scan Cal: Scan Cal
+  Scan QR Code: Scan QR Code
+  Scan Spool QR Code: Scan Spool QR Code
+  Scan and select a Bluetooth printer first: Scan and select a Bluetooth printer first
+  Scan for Printers: Scan for Printers
   Scanning for networks...: Scanning for networks...
+  Scanning...: Scanning...
   'Score: 0': 'Score: 0'
   Screen Dim: Screen Dim
   Screen dims to lower brightness after period of inactivity: Screen dims to lower brightness after period of inactivity
+  Screen lock and PIN settings: Screen lock and PIN settings
   Screen sleeps after the selected period of inactivity: Screen sleeps after the selected period of inactivity
   Screensaver: Screensaver
   Screws Tilt: Screws Tilt
@@ -1041,7 +1094,7 @@ translations:
   See exactly what data will be sent: See exactly what data will be sent
   Select: Select
   Select 'None' if you don't have a filament sensor, or if you don't want to pause on runout.: Select 'None' if you don't have a filament sensor, or if you don't want to pause on runout.
-  Select 'None' if you have a dedicated probe, or don't use bed mesh leveling.: Select 'None' if you have a dedicated probe, or don't use bed mesh leveling.
+  Select Filament: Select Filament
   Select G-Code File: Select G-Code File
   Select Sensor: Select Sensor
   Select Sensors: Select Sensors
@@ -1059,10 +1112,12 @@ translations:
   Send this crash report to help improve HelixScreen.: Send this crash report to help improve HelixScreen.
   Sending...: Sending...
   Sensor Response: Sensor Response
+  Sensor Temperature: Sensor Temperature
   Sensors: Sensors
   Separate on/off macros. HelixScreen tracks the state.: Separate on/off macros. HelixScreen tracks the state.
   'Set ': 'Set '
   Set Active: Set Active
+  Set PIN: Set PIN
   Set up your label printer in Settings: Set up your label printer in Settings
   Settings: Settings
   Settings reset to defaults. Restarting...: Settings reset to defaults. Restarting...
@@ -1085,6 +1140,7 @@ translations:
   Skip: Skip
   Sleep While Printing: Sleep While Printing
   Sleep adjusted to match dim timeout: Sleep adjusted to match dim timeout
+  Slot: Slot
   Slot 1: Slot 1
   Small labels help keep controls calm and focused.: Small labels help keep controls calm and focused.
   Some settings will take effect after restart.: Some settings will take effect after restart.
@@ -1162,6 +1218,7 @@ translations:
   Target Temperature: Target Temperature
   Telemetry Data: Telemetry Data
   Telemetry queue cleared: Telemetry queue cleared
+  Temp Compensation: Temp Compensation
   Temperature: Temperature
   Temperatures: Temperatures
   Temporary adjustment for this print, unless saved on Controls panel: Temporary adjustment for this print, unless saved on Controls panel
@@ -1171,7 +1228,6 @@ translations:
   Test Print: Test Print
   Test Sound: Test Sound
   Test label printed: Test label printed
-  Test probe repeatability: Test probe repeatability
   'Testing rotation: %d\xc2\xb0 (%d/%d) - %ds remaining': 'Testing rotation: %d\xc2\xb0 (%d/%d) - %ds remaining'
   Thanks! Anonymous usage data helps improve HelixScreen.: Thanks! Anonymous usage data helps improve HelixScreen.
   Thanks! TOTALLY anonymous usage data helps improve HelixScreen.: Thanks! TOTALLY anonymous usage data helps improve HelixScreen.
@@ -1187,6 +1243,7 @@ translations:
   Theme changes apply after restart.: Theme changes apply after restart.
   Theme reset to defaults: Theme reset to defaults
   Theme, brightness, and sleep settings: Theme, brightness, and sleep settings
+  'These tools have no matching filament loaded:': 'These tools have no matching filament loaded:'
   This calibration uses the paper friction method to set your Z-offset.: This calibration uses the paper friction method to set your Z-offset.
   This cannot be undone.: This cannot be undone.
   This is exactly the data that will be sent: This is exactly the data that will be sent
@@ -1226,6 +1283,7 @@ translations:
   Toolhead Style: Toolhead Style
   Top: Top
   Total Prints: Total Prints
+  Touch Cal: Touch Cal
   Touch Calibration: Touch Calibration
   Touch anywhere to test calibration: Touch anywhere to test calibration
   Touch anywhere to verify accuracy: Touch anywhere to verify accuracy
@@ -1255,12 +1313,14 @@ translations:
   Unload: Unload
   Unload Filament: Unload Filament
   Unloading filament...: Unloading filament...
+  Unmapped: Unmapped
   Unretract Extra: Unretract Extra
   Unretract Speed: Unretract Speed
   Update Available: Update Available
   Update Channel: Update Channel
   Update Failed: Update Failed
   Update installed!: Update installed!
+  Update your security PIN: Update your security PIN
   Updating Configuration...: Updating Configuration...
   Upload: Upload
   Upload Debug Bundle: Upload Debug Bundle
@@ -1303,7 +1363,6 @@ translations:
   Weekly Print Stats: Weekly Print Stats
   ? Weight data is synced from Spoolman to display remaining filament. Changes are also synced when prints start, pause, or complete.
   : Weight data is synced from Spoolman to display remaining filament. Changes are also synced when prints start, pause, or complete.
-  Weight sync settings: Weight sync settings
   What We Collect: What We Collect
   White: White
   WiFi: WiFi
@@ -1313,13 +1372,16 @@ translations:
   WiFi control unavailable: WiFi control unavailable
   WiFi hardware unavailable: WiFi hardware unavailable
   Width: Width
+  Wrong PIN: Wrong PIN
   X: X
   X Axis: X Axis
+  X Offset: X Offset
   X axis applied, but Y axis failed: X axis applied, but Y axis failed
   'X:': 'X:'
   XY: XY
   Y: Y
   Y Axis: Y Axis
+  Y Offset: Y Offset
   'Y:': 'Y:'
   Year: Year
   You can skip this and calibrate later in Settings.: You can skip this and calibrate later in Settings.

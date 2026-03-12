@@ -54,6 +54,7 @@ translations:
   A4T: A4T
   ABS: ABS
   ACCELEROMETERS: ACCELEROMETRI
+  ACTIONS: AZIONI
   ADXL: ADXL
   AFC: 'AFC'
   AFC Version Warning: Avviso versione AFC
@@ -95,7 +96,6 @@ translations:
   After running the commands, tap Check Again below.: Dopo aver eseguito i comandi, tocca Ricontrolla sotto.
   Alert: Avviso
   All: Tutto
-  All screws are within tolerance.: Tutte le viti sono entro la tolleranza.
   Allow display to sleep during active prints: Consenti sospensione display durante la stampa
   Allwinner: Allwinner
   Ambient Transfer: Trasferimento ambiente
@@ -118,9 +118,12 @@ translations:
   Assign a role to enable sensor monitoring: Assegna un ruolo per abilitare il monitoraggio del sensore
   Assisting: Assistenza
   Auto: Auto
+  Auto (best match): Auto (migliore corrispondenza)
   Auto Bed Mesh: Mesh piano automatica
+  Auto Cal: Auto Cal
   Auto-Detect: Rilevamento auto
   Auto-Heat on Load: Riscaldamento automatico al caricamento
+  Auto-lock: Blocco automatico
   Auto-probe or manually check screw heights: Sondaggio automatico o controllo manuale dell'altezza delle viti
   Auto-render video: Rendering video automatico
   Automatic: Automatico
@@ -129,8 +132,10 @@ translations:
   Automatically poll Spoolman for weight updates: Interroga automaticamente Spoolman per aggiornamenti peso
   Available Networks: Reti disponibili
   Available networks: Reti disponibili
+  BEACON: BEACON
   BETA: BETA
   BLTouch Controls: Controlli BLTouch
+  BLUETOOTH PRINTERS: STAMPANTI BLUETOOTH
   Back: Indietro
   Bed: Piano
   Bed Heater: Riscaldatore piano
@@ -151,6 +156,9 @@ translations:
   'Beta features: ON': 'Funzioni Beta: ON'
   Black: Nero
   Bluetooth: Bluetooth
+  Bluetooth initialization failed: Inizializzazione Bluetooth fallita
+  Bluetooth not available: Bluetooth non disponibile
+  Bluetooth not initialized: Bluetooth non inizializzato
   Body text supports longer guidance while staying readable.: Il testo corpo supporta guide più lunghe restando leggibile.
   Border Opacity: Opacità bordo
   Border Radius: Raggio bordo
@@ -159,7 +167,8 @@ translations:
   Both: Entrambi
   Brightness: Luminosità
   Brightness level when LEDs turn on at startup: "Livello di luminosità quando i LED si accendono all'avvio"
-  Brother QL: ''
+  Brother QL: Brother QL
+  Brother QL (Bluetooth): Brother QL (Bluetooth)
   Browse: Sfoglia
   'Browse guides, configuration references, and troubleshooting ': 'Consulta guide, riferimenti di configurazione e risoluzione dei problemi '
   Buffer Status: 'Stato buffer'
@@ -171,12 +180,15 @@ translations:
   C: C
   CALIBRATION: CALIBRAZIONE
   CAPABILITIES: CAPABILITIES
+  CARTOGRAPHER: CARTOGRAPHER
   CHANGED FROM LAST SESSION: MODIFICATO DALLA SESSIONE PRECEDENTE
   COLOR SENSORS: SENSORI DI COLORE
   COLORS REQUIRED: COLORI RICHIESTI
+  CONFIGURATION: CONFIGURAZIONE
   CONNECTION TYPE: TIPO DI CONNESSIONE
   CRITICAL: CRITICO
   CUSTOM IMAGES: IMMAGINI PERSONALIZZATE
+  Calibrate: Calibra
   Calibrate All: Calibra tutto
   Calibrate X: Calibra X
   Calibrate Y: Calibra Y
@@ -195,12 +207,14 @@ translations:
   Cancel Escalation: Annulla escalation
   Cancel Print: Annulla stampa
   Cancelled: Annullato
+  Center QR code in frame: Centra il codice QR nell'inquadratura
   Chamber: Camera
   Chamber Fan: Ventola camera
   Chamber Temperature: Temperatura camera
   Chamber and dryer humidity monitoring: Monitoraggio umidità camera ed essiccatore
   'Chamber:': 'Camera:'
   Change LED color based on printer state: Cambia colore LED in base allo stato della stampante
+  Change PIN: Cambia PIN
   Change Printer Host: Cambia Host Stampante
   Change Saved Spool: 'Cambia bobina salvata'
   Changes apply immediately. Adjust during print for tuning.: Le modifiche si applicano immediatamente. Regolare durante la stampa per la messa a punto.
@@ -234,6 +248,7 @@ translations:
   Close: Chiudi
   Closer: Più vicino
   Closer = more squish | Farther = less squish: Più vicino = più schiacciamento | Più lontano = meno schiacciamento
+  Coil Temperature: Temperatura bobina
   Collect logs and system info for support: Raccogli log e info di sistema per il supporto
   Collecting data...: Raccolta dati...
   Color: Colore
@@ -242,7 +257,6 @@ translations:
   Complete: Completato
   Complete!: Completato!
   Completed: Completato
-  Completed in 3 probes: Completato in 3 sondaggi
   Completed prints will appear here: Le stampe completate appariranno qui
   Computing calibration...: Calcolo calibrazione...
   Config-defined (read-only): Definito nella configurazione (sola lettura)
@@ -291,6 +305,7 @@ translations:
   Create New Filament: Crea nuovo filamento
   Create New Vendor: Crea nuovo fornitore
   Create Spool: Crea bobina
+  Create a 4-6 digit security PIN: Crea un PIN di sicurezza da 4-6 cifre
   Create video when print completes: Crea video al completamento della stampa
   Creating spool...: Creazione bobina...
   Current / Target: Attuale / Target
@@ -300,6 +315,7 @@ translations:
   Current Version: Versione Attuale
   Current Z Position: Posizione Z attuale
   'Current name:': 'Nome attuale:'
+  'Current:': 'Attuale:'
   'Current: %s · Slot %d': 'Attuale: %s · Slot %d'
   'Current: Bypass': 'Attuale: Bypass'
   'Current: Slot %d': 'Attuale: Slot %d'
@@ -342,6 +358,7 @@ translations:
   Device name is required: Il nome dispositivo è obbligatorio
   Disable: Disabilita
   Disable Motors?: Disabilitare motori?
+  Disable the security PIN: Disabilita il PIN di sicurezza
   Discard: Scarta
   Discard Changes?: Scartare le modifiche?
   Disconnected: Disconnesso
@@ -352,6 +369,7 @@ translations:
   Display Sleep: Schermo in standby
   Do not power off your printer.: Non spegnere la stampante.
   Do not touch the printer during calibration: Non toccare la stampante durante la calibrazione
+  Dock: Aggancia
   Documentation: Documentazione
   Don't Save: Non salvare
   Don't ask again: Non chiedere più
@@ -359,6 +377,7 @@ translations:
   Download update?: Scaricare aggiornamento?
   Download v{}?: Scaricare v{}?
   Downloading...: Download in corso...
+  Drive Cal: Drive Cal
   Drop shadow strength (0 = disabled): Intensità ombra (0 = disabilitata)
   Dryer: Essiccatore
   Dryer Control: Controllo essiccatore
@@ -366,6 +385,7 @@ translations:
   Duplicated: Duplicato
   Duration: Durata
   E-Stop Confirmation: Conferma arresto emergenza
+  EDDY CURRENT: EDDY CURRENT
   EMERGENCY CONTROLS: CONTROLLI EMERGENZA
   EMERGENCY STOP: ARRESTO EMERGENZA
   Each fan can only be selected once: Ogni ventola può essere selezionata solo una volta
@@ -399,6 +419,8 @@ translations:
   Ended: Terminato
   Enhancement Complete!: Miglioramento completato!
   Enhancement Failed: Miglioramento fallito
+  Enter New PIN: Inserisci nuovo PIN
+  Enter PIN: Inserisci PIN
   Enter WiFi Password: Inserisci password WiFi
   'Enter a name for your custom theme:': 'Inserisci un nome per il tuo tema personalizzato:'
   Enter a name to save this profile: Inserisci un nome per salvare questo profilo
@@ -463,6 +485,7 @@ translations:
   Feeding filament forward: Avanzamento filamento
   Filament: Filamento
   Filament Detected: Filamento rilevato
+  Filament Mapping: Mappatura filamento
   Filament Sensor: Sensore filamento
   Filament Used: Filamento utilizzato
   Filament already exists: Filamento già esistente
@@ -472,6 +495,7 @@ translations:
   Filament is pulling tight: Il filamento è in tensione
   Filament runout and motion detection sensors: Sensori esaurimento filamento e rilevamento movimento
   Filament tension is balanced: La tensione del filamento è bilanciata
+  Filament tracking & label printing: Tracciamento filamento e stampa etichette
   Filament tracking and inventory: Tracciamento e inventario filamento
   File: File
   File Info: Info file
@@ -558,6 +582,7 @@ translations:
   In Progress: In corso
   Inactive: Inattivo
   Include Klipper/Moonraker logs: Includi log Klipper/Moonraker
+  Incompatible: Incompatibile
   Indexing G-code...: Indicizzazione G-code...
   Initializing...: Inizializzazione...
   Input: Input
@@ -583,9 +608,11 @@ translations:
   Interactive probe offset adjustment: Regolazione interattiva offset sonda
   Invalid port number: 'Numero di porta non valido'
   Issue description: Descrizione problema
+  JabberWocky: JabberWocky
   Job Queue: Coda lavori
   'Join the HelixScreen community on Discord for discussion, ': 'Unisciti alla community di HelixScreen su Discord per discussioni, '
   Just now: Adesso
+  KLICKY CONTROLS: CONTROLLI KLICKY
   Keep Printing: Continua a stampare
   Keep Required: Mantieni obbligatorio
   Keyboard Test (Gboard-style): Test tastiera (stile Gboard)
@@ -626,6 +653,7 @@ translations:
   Light: Chiaro
   Load: Carica
   Load Filament: Carica filamento
+  Load the required filaments or start anyway?: Caricare i filamenti richiesti o avviare comunque?
   Loaded: Caricato
   Loading Bed Mesh...: Caricamento mesh del piatto...
   Loading Error: Errore caricamento
@@ -636,6 +664,8 @@ translations:
   Loading spools...: Caricamento bobine...
   Loading vendors...: Caricamento fornitori...
   Loading...: Caricamento...
+  Location: Posizione
+  Lock screen after idle timeout: Blocca schermo dopo inattività
   Locked during print: Bloccato durante la stampa
   'Lot # (optional)': 'Lotto # (facoltativo)'
   Lot/Batch Nr: Nr. Lotto/Batch
@@ -730,8 +760,10 @@ translations:
   New Version Available: Nuova Versione Disponibile
   New profile name: Nome nuovo profilo
   Next: Avanti
+  Niimbot (Bluetooth): Niimbot (Bluetooth)
   No AMS system connected: Nessun sistema AMS connesso
   No AMS system connected.: Nessun sistema AMS connesso.
+  No Bluetooth printers found: Nessuna stampante Bluetooth trovata
   No Filament Detected: Nessun filamento rilevato
   No History: Nessuna cronologia
   No LED macros detected on your printer.: Nessuna macro LED rilevata sulla stampante.
@@ -820,6 +852,12 @@ translations:
   PRINTER: STAMPANTE
   PRINTERS: 'STAMPANTI'
   PROBE SENSORS: 'SENSORI SONDA'
+  Pair: Associa
+  Pair Bluetooth Printer: Associa stampante Bluetooth
+  Pair with: Associa con
+  Paired successfully: Associazione riuscita
+  Pairing failed: Associazione fallita
+  Pairing...: Associazione...
   Paper Test Calibration: Calibrazione test carta
   Parameters: 'Parametri'
   Part: Pezzo
@@ -836,7 +874,8 @@ translations:
   Phase tracking disabled: Tracciamento fase disabilitato
   Phase tracking enabled: Tracciamento fase abilitato
   Phase tracking update failed: Aggiornamento tracciamento fase fallito
-  Phomemo M110: ''
+  Phomemo (Bluetooth): Phomemo (Bluetooth)
+  Phomemo M110: Phomemo M110
   Pick: Scegli
   Pick Color: Scegli colore
   'Place image files (PNG, JPEG, BMP, GIF) in config/custom_images/. Max size: 2048×2048 pixels.': 'Posiziona file immagine (PNG, JPEG, BMP, GIF) in config/custom_images/. Dimensione max: 2048×2048 pixel.'
@@ -859,12 +898,14 @@ translations:
   Power: Alimentazione
   Power Control: Controllo alimentazione
   Power Devices: Dispositivi di alimentazione
+  Preheat PLA: Preriscalda PLA
   Preparing: Preparazione
   Preparing Print: Preparazione stampa
   Preparing Print...: Preparazione stampa...
   Preparing...: Preparazione...
   Preset: Preset
   Presets: Preset
+  Press Scan to search: Premi Scansiona per cercare
   'Pressure:': 'Pressione:'
   Previous: Precedente
   Price: Prezzo
@@ -907,7 +948,7 @@ translations:
   Probe: Sonda
   Probe Accuracy Test: Test precisione sonda
   Probe Management: Gestione sonda
-  Probe Sensor: Sensore sonda
+  Probe Speed: Velocità sonda
   Probe bed surface for compensation: Rileva superficie piatto per compensazione
   Probe controls, accuracy test, and settings: Controlli sonda, test precisione e impostazioni
   Probing Bed Mesh: Sondaggio mesh piano
@@ -954,6 +995,7 @@ translations:
   Remaining: Rimanente
   Remaining (g): Rimanente (g)
   Remaining Weight (g): Peso rimanente (g)
+  Remove PIN: Rimuovi PIN
   Remove plugin from printer: Rimuovi plugin dalla stampante
   Rename: Rinomina
   Rename Mesh Profile: Rinomina profilo mesh
@@ -984,6 +1026,7 @@ translations:
   Resume: Riprendi
   Resume Print: Riprendi stampa
   Retract: Retrazione
+  Retract Distance: Distanza retrazione
   Retract Length: Lunghezza retrazione
   Retract Speed: Velocità retrazione
   Retraction: Retrazione
@@ -1008,6 +1051,8 @@ translations:
   SYSTEM: SISTEMA
   Sample %d/%d: Campione %d/%d
   Sample Dialog: Dialogo di esempio
+  Samples: Campioni
+  Samples Tolerance: Tolleranza campioni
   Save: Salva
   Save & Restart: Salva e riavvia
   Save As New: Salva come nuovo
@@ -1020,13 +1065,21 @@ translations:
   Saved Z-Offset: Z-Offset Salvato
   Saved to crash_report.txt (QR not available): Salvato in crash_report.txt (QR non disponibile)
   Saved to printer configuration.: Salvato nella configurazione stampante.
+  Saves to Klipper config and restarts firmware.: Salva nella configurazione Klipper e riavvia il firmware.
   Saving Configuration...: Salvataggio configurazione...
   Saving config... Klipper will restart.: Salvataggio config... Klipper si riavvierà.
   Saving will restart Klipper and CANCEL any active print!: Il salvataggio riavvierà Klipper e ANNULLERÀ qualsiasi stampa attiva!
+  Scan Cal: Scan Cal
+  Scan QR Code: Scansiona codice QR
+  Scan Spool QR Code: Scansiona codice QR bobina
+  Scan and select a Bluetooth printer first: Prima scansiona e seleziona una stampante Bluetooth
+  Scan for Printers: Cerca stampanti
   Scanning for networks...: Scansione reti...
+  Scanning...: Scansione...
   'Score: 0': 'Punteggio: 0'
   Screen Dim: Attenuazione schermo
   Screen dims to lower brightness after period of inactivity: Lo schermo si attenua dopo un periodo di inattività
+  Screen lock and PIN settings: Blocco schermo e impostazioni PIN
   Screen sleeps after the selected period of inactivity: Lo schermo si attenuerà dopo il periodo di inattività selezionato
   Screensaver: Salvaschermo
   Screws Tilt: Inclinazione viti
@@ -1041,7 +1094,7 @@ translations:
   See exactly what data will be sent: Vedi esattamente quali dati verranno inviati
   Select: Seleziona
   Select 'None' if you don't have a filament sensor, or if you don't want to pause on runout.: Selezionare 'Nessuno' se non si dispone di un sensore filamento o se non si desidera la pausa all'esaurimento.
-  Select 'None' if you have a dedicated probe, or don't use bed mesh leveling.: Selezionare 'Nessuno' se si dispone di una sonda dedicata o non si utilizza il livellamento mesh piano.
+  Select Filament: Seleziona filamento
   Select G-Code File: Seleziona file G-Code
   Select Sensor: Seleziona sensore
   Select Sensors: 'Seleziona sensori'
@@ -1059,10 +1112,12 @@ translations:
   Send this crash report to help improve HelixScreen.: Invia questo report di crash per migliorare HelixScreen.
   Sending...: Invio...
   Sensor Response: Risposta sensore
+  Sensor Temperature: Temperatura sensore
   Sensors: Sensori
   Separate on/off macros. HelixScreen tracks the state.: Macro on/off separate. HelixScreen traccia lo stato.
   'Set ': 'Imposta '
   Set Active: Imposta attivo
+  Set PIN: Imposta PIN
   Set up your label printer in Settings: 'Configura la stampante etichette nelle Impostazioni'
   Settings: Impostazioni
   Settings reset to defaults. Restarting...: Impostazioni ripristinate ai valori predefiniti. Riavvio...
@@ -1085,6 +1140,7 @@ translations:
   Skip: Salta
   Sleep While Printing: Sospensione Durante Stampa
   Sleep adjusted to match dim timeout: Timeout standby regolato
+  Slot: Slot
   Slot 1: Slot 1
   Small labels help keep controls calm and focused.: Le etichette piccole aiutano a mantenere i controlli ordinati e mirati.
   Some settings will take effect after restart.: Alcune impostazioni avranno effetto dopo il riavvio.
@@ -1162,6 +1218,7 @@ translations:
   Target Temperature: Temperatura target
   Telemetry Data: Dati di telemetria
   Telemetry queue cleared: Coda telemetria svuotata
+  Temp Compensation: Compensazione temp.
   Temperature: Temperatura
   Temperatures: Temperature
   Temporary adjustment for this print, unless saved on Controls panel: Regolazione temporanea per questa stampa, salvo salvataggio nel pannello Controlli
@@ -1171,7 +1228,6 @@ translations:
   Test Print: 'Stampa di prova'
   Test Sound: Suono di prova
   Test label printed: 'Etichetta di prova stampata'
-  Test probe repeatability: Test ripetibilità sonda
   'Testing rotation: %d\xc2\xb0 (%d/%d) - %ds remaining': 'Test rotazione: %d\xc2\xb0 (%d/%d) - %ds rimanenti'
   Thanks! Anonymous usage data helps improve HelixScreen.: Grazie! I dati anonimi di utilizzo aiutano a migliorare HelixScreen.
   Thanks! TOTALLY anonymous usage data helps improve HelixScreen.: Grazie! I dati di utilizzo TOTALMENTE anonimi aiutano a migliorare HelixScreen.
@@ -1187,6 +1243,7 @@ translations:
   Theme changes apply after restart.: Le modifiche al tema si applicano dopo il riavvio.
   Theme reset to defaults: Tema ripristinato ai valori predefiniti
   Theme, brightness, and sleep settings: Tema, luminosità e impostazioni standby
+  'These tools have no matching filament loaded:': 'Questi strumenti non hanno filamento corrispondente caricato:'
   This calibration uses the paper friction method to set your Z-offset.: Questa calibrazione utilizza il metodo della frizione della carta per impostare lo Z-offset.
   This cannot be undone.: Questa azione non può essere annullata.
   This is exactly the data that will be sent: Questi sono esattamente i dati che verranno inviati
@@ -1226,6 +1283,7 @@ translations:
   Toolhead Style: Stile testina
   Top: Alto
   Total Prints: Stampe totali
+  Touch Cal: Cal. touch
   Touch Calibration: Calibrazione touch
   Touch anywhere to test calibration: Tocca ovunque per testare la calibrazione
   Touch anywhere to verify accuracy: Tocca ovunque per verificare la precisione
@@ -1255,12 +1313,14 @@ translations:
   Unload: Scarica
   Unload Filament: Scarica filamento
   Unloading filament...: Scaricamento filamento...
+  Unmapped: Non mappato
   Unretract Extra: Extra dopo retrazione
   Unretract Speed: Velocità dopo retrazione
   Update Available: Aggiornamento Disponibile
   Update Channel: Canale Aggiornamenti
   Update Failed: Aggiornamento Fallito
   Update installed!: Aggiornamento installato!
+  Update your security PIN: Aggiorna il tuo PIN di sicurezza
   Updating Configuration...: Aggiornamento configurazione...
   Upload: Carica
   Upload Debug Bundle: Carica bundle di debug
@@ -1303,7 +1363,6 @@ translations:
   Weekly Print Stats: 'Statistiche stampe settimanali'
   ? Weight data is synced from Spoolman to display remaining filament. Changes are also synced when prints start, pause, or complete.
   : I dati del peso sono sincronizzati da Spoolman per mostrare il filamento rimanente. Le modifiche vengono sincronizzate anche quando le stampe iniziano, si mettono in pausa o si completano.
-  Weight sync settings: Impostazioni sincronizzazione peso
   What We Collect: Cosa raccogliamo
   White: Bianco
   WiFi: WiFi
@@ -1313,13 +1372,16 @@ translations:
   WiFi control unavailable: Controllo WiFi non disponibile
   WiFi hardware unavailable: Hardware WiFi non disponibile
   Width: Larghezza
+  Wrong PIN: PIN errato
   X: X
   X Axis: Asse X
+  X Offset: Offset X
   X axis applied, but Y axis failed: Asse X applicato, ma asse Y fallito
   'X:': 'X:'
   XY: XY
   Y: Y
   Y Axis: Asse Y
+  Y Offset: Offset Y
   'Y:': 'Y:'
   Year: Anno
   You can skip this and calibrate later in Settings.: Puoi saltare e calibrare più tardi nelle Impostazioni.
