@@ -727,7 +727,8 @@ void DisplayManager::check_display_sleep() {
         }
     } else if (m_display_dimmed) {
         // Currently dimmed - wake on touch, or go to sleep if timeout exceeded
-        if (activity_detected) {
+        if (m_wake_requested || activity_detected) {
+            m_wake_requested = false;
             wake_display();
         } else if (sleep_timeout_sec > 0 && inactive_ms >= sleep_timeout_ms) {
             // Transition from dimmed to sleeping
@@ -994,11 +995,22 @@ void DisplayManager::sleep_aware_read_cb(lv_indev_t* indev, lv_indev_data_t* dat
         dm->m_original_pointer_read_cb(indev, data);
     }
 
-    // If sleeping and touch detected, absorb the touch and request wake
-    if (dm->m_display_sleeping && data->state == LV_INDEV_STATE_PRESSED) {
-        dm->m_wake_requested = true;
-        data->state = LV_INDEV_STATE_RELEASED; // Absorb - LVGL sees no press
-        spdlog::debug("[DisplayManager] Touch absorbed while sleeping, wake requested");
+    // If sleeping or dimmed and touch detected, request wake.
+    // During sleep: absorb the touch so it doesn't trigger UI actions.
+    // During dim: let the touch pass through but still flag for wake.
+    // This is necessary because LVGL only updates last_activity_time on PRESSED,
+    // but evdev drains all buffered events in one read — if press+release both
+    // arrive in one poll (quick tap or slow main loop), the final state is
+    // RELEASED and LVGL never registers activity.
+    if (data->state == LV_INDEV_STATE_PRESSED) {
+        if (dm->m_display_sleeping) {
+            dm->m_wake_requested = true;
+            data->state = LV_INDEV_STATE_RELEASED; // Absorb - LVGL sees no press
+            spdlog::debug("[DisplayManager] Touch absorbed while sleeping, wake requested");
+        } else if (dm->m_display_dimmed) {
+            dm->m_wake_requested = true;
+            spdlog::debug("[DisplayManager] Touch during dim, wake requested");
+        }
     }
 }
 
