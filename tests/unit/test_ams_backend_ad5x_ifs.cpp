@@ -4,6 +4,7 @@
 #include "ams_backend_ad5x_ifs.h"
 #include "ams_types.h"
 
+#include <chrono>
 #include <string>
 #include <vector>
 
@@ -46,6 +47,12 @@ class Ad5xIfsTestAccess {
     static void set_action(AmsBackendAd5xIfs& b, AmsAction a) {
         std::lock_guard<std::mutex> lock(b.mutex_);
         b.system_info_.action = a;
+        b.action_start_time_ = std::chrono::steady_clock::now();
+    }
+    static void check_action_timeout(AmsBackendAd5xIfs& b,
+                                     std::chrono::seconds elapsed) {
+        b.action_start_time_ = std::chrono::steady_clock::now() - elapsed;
+        b.check_action_timeout();
     }
 };
 
@@ -550,3 +557,125 @@ TEST_CASE("AD5X IFS path segments", "[ams][ad5x_ifs]") {
         REQUIRE(backend.get_slot_filament_segment(4) == PathSegment::NONE);
     }
 }
+
+// ==========================================================================
+// Helper to wrap raw status JSON in Moonraker notify_status_update format
+// ==========================================================================
+static json wrap_notification(const json& status) {
+    return json{{"method", "notify_status_update"}, {"params", json::array({status, 12345.678})}};
+}
+
+// ==========================================================================
+// 17. Wrapped notification format (real WebSocket path)
+// ==========================================================================
+
+TEST_CASE("AD5X IFS handles wrapped notify_status_update", "[ams][ad5x_ifs]") {
+    AmsBackendAd5xIfs backend(nullptr, nullptr);
+
+    SECTION("wrapped port sensor updates state") {
+        auto wrapped = wrap_notification(make_port_sensor(1, true));
+        Ad5xIfsTestAccess::handle_status(backend, wrapped);
+
+        REQUIRE(Ad5xIfsTestAccess::port_presence(backend, 0) == true);
+    }
+
+    SECTION("wrapped head sensor updates state") {
+        auto wrapped = wrap_notification(make_head_sensor(true));
+        Ad5xIfsTestAccess::handle_status(backend, wrapped);
+
+        REQUIRE(Ad5xIfsTestAccess::head_filament(backend));
+    }
+
+    SECTION("wrapped save_variables updates state") {
+        auto wrapped = wrap_notification(make_save_variables(standard_variables()));
+        Ad5xIfsTestAccess::handle_status(backend, wrapped);
+
+        REQUIRE(Ad5xIfsTestAccess::active_tool(backend) == 0);
+        auto info = backend.get_slot_info(0);
+        REQUIRE(info.color_rgb == 0xFF0000);
+        REQUIRE(info.material == "PLA");
+    }
+
+    SECTION("wrapped combined notification updates all state") {
+        json status;
+        status["save_variables"] = json{{"variables", standard_variables()}};
+        status["filament_switch_sensor _ifs_port_sensor_1"] =
+            json{{"filament_detected", true}};
+        status["filament_switch_sensor head_switch_sensor"] =
+            json{{"filament_detected", true}};
+
+        Ad5xIfsTestAccess::handle_status(backend, wrap_notification(status));
+
+        REQUIRE(Ad5xIfsTestAccess::port_presence(backend, 0));
+        REQUIRE(Ad5xIfsTestAccess::head_filament(backend));
+
+        auto sys = backend.get_system_info();
+        REQUIRE(sys.current_tool == 0);
+        REQUIRE(sys.current_slot == 0);
+        REQUIRE(sys.filament_loaded);
+
+        auto info = backend.get_slot_info(0);
+        REQUIRE(info.status == SlotStatus::LOADED);
+    }
+
+    SECTION("wrapped notification completes load action") {
+        Ad5xIfsTestAccess::set_action(backend, AmsAction::LOADING);
+        Ad5xIfsTestAccess::handle_status(backend, wrap_notification(make_head_sensor(true)));
+
+        REQUIRE(Ad5xIfsTestAccess::action(backend) == AmsAction::IDLE);
+    }
+
+    SECTION("wrapped notification completes unload action") {
+        Ad5xIfsTestAccess::set_action(backend, AmsAction::UNLOADING);
+        // Head sensor was true, now cleared
+        Ad5xIfsTestAccess::handle_status(backend, make_head_sensor(true));
+        Ad5xIfsTestAccess::set_action(backend, AmsAction::UNLOADING);
+        Ad5xIfsTestAccess::handle_status(backend, wrap_notification(make_head_sensor(false)));
+
+        REQUIRE(Ad5xIfsTestAccess::action(backend) == AmsAction::IDLE);
+    }
+
+    SECTION("unwrapped format still works (initial query response)") {
+        // on_started() callback sends unwrapped format — must still work
+        Ad5xIfsTestAccess::handle_status(backend, make_port_sensor(2, true));
+        REQUIRE(Ad5xIfsTestAccess::port_presence(backend, 1) == true);
+    }
+}
+
+// ==========================================================================
+// 18. Action timeout safety net
+// ==========================================================================
+
+TEST_CASE("AD5X IFS action timeout resets stuck operations", "[ams][ad5x_ifs]") {
+    AmsBackendAd5xIfs backend(nullptr, nullptr);
+
+    SECTION("LOADING resets to IDLE after timeout") {
+        Ad5xIfsTestAccess::set_action(backend, AmsAction::LOADING);
+        REQUIRE(Ad5xIfsTestAccess::action(backend) == AmsAction::LOADING);
+
+        Ad5xIfsTestAccess::check_action_timeout(backend, std::chrono::seconds(120));
+        REQUIRE(Ad5xIfsTestAccess::action(backend) == AmsAction::IDLE);
+    }
+
+    SECTION("UNLOADING resets to IDLE after timeout") {
+        Ad5xIfsTestAccess::set_action(backend, AmsAction::UNLOADING);
+
+        Ad5xIfsTestAccess::check_action_timeout(backend, std::chrono::seconds(120));
+        REQUIRE(Ad5xIfsTestAccess::action(backend) == AmsAction::IDLE);
+    }
+
+    SECTION("IDLE does not change on timeout check") {
+        Ad5xIfsTestAccess::set_action(backend, AmsAction::IDLE);
+
+        Ad5xIfsTestAccess::check_action_timeout(backend, std::chrono::seconds(120));
+        REQUIRE(Ad5xIfsTestAccess::action(backend) == AmsAction::IDLE);
+    }
+
+    SECTION("action does not reset before timeout") {
+        Ad5xIfsTestAccess::set_action(backend, AmsAction::LOADING);
+
+        Ad5xIfsTestAccess::check_action_timeout(backend, std::chrono::seconds(30));
+        REQUIRE(Ad5xIfsTestAccess::action(backend) == AmsAction::LOADING);
+    }
+}
+

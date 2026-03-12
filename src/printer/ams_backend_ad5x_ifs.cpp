@@ -69,6 +69,18 @@ void AmsBackendAd5xIfs::on_started() {
 // --- Status parsing ---
 
 void AmsBackendAd5xIfs::handle_status_update(const json& notification) {
+    // notify_status_update has format: { "method": "notify_status_update", "params": [{ ... },
+    // timestamp] }
+    // Initial query response sends unwrapped status directly — handle both formats.
+    const json* status = &notification;
+    if (notification.contains("params") && notification["params"].is_array() &&
+        !notification["params"].empty()) {
+        status = &notification["params"][0];
+        if (!status->is_object()) {
+            return;
+        }
+    }
+
     std::unique_lock<std::mutex> lock(mutex_);
 
     bool state_changed = false;
@@ -76,8 +88,8 @@ void AmsBackendAd5xIfs::handle_status_update(const json& notification) {
     bool was_unloading = (system_info_.action == AmsAction::UNLOADING);
 
     // Parse save_variables if present
-    if (notification.contains("save_variables")) {
-        const auto& sv = notification["save_variables"];
+    if (status->contains("save_variables")) {
+        const auto& sv = (*status)["save_variables"];
         if (sv.contains("variables") && sv["variables"].is_object()) {
             parse_save_variables(sv["variables"]);
             state_changed = true;
@@ -88,8 +100,8 @@ void AmsBackendAd5xIfs::handle_status_update(const json& notification) {
     // Leading space in sensor name is intentional — Klipper object naming convention
     for (int port = 1; port <= NUM_PORTS; ++port) {
         std::string key = "filament_switch_sensor _ifs_port_sensor_" + std::to_string(port);
-        if (notification.contains(key)) {
-            const auto& sensor = notification[key];
+        if (status->contains(key)) {
+            const auto& sensor = (*status)[key];
             if (sensor.contains("filament_detected") && sensor["filament_detected"].is_boolean()) {
                 parse_port_sensor(port, sensor["filament_detected"].get<bool>());
                 state_changed = true;
@@ -98,8 +110,8 @@ void AmsBackendAd5xIfs::handle_status_update(const json& notification) {
     }
 
     // Parse head sensor
-    if (notification.contains("filament_switch_sensor head_switch_sensor")) {
-        const auto& head = notification["filament_switch_sensor head_switch_sensor"];
+    if (status->contains("filament_switch_sensor head_switch_sensor")) {
+        const auto& head = (*status)["filament_switch_sensor head_switch_sensor"];
         if (head.contains("filament_detected") && head["filament_detected"].is_boolean()) {
             bool detected = head["filament_detected"].get<bool>();
             parse_head_sensor(detected);
@@ -138,6 +150,9 @@ void AmsBackendAd5xIfs::handle_status_update(const json& notification) {
             update_slot_from_state(i);
         }
     }
+
+    // Check for stuck operations on every status update
+    check_action_timeout();
 
     lock.unlock();
 
@@ -354,7 +369,10 @@ AmsError AmsBackendAd5xIfs::load_filament(int slot_index) {
     {
         std::lock_guard<std::mutex> lock(mutex_);
         system_info_.action = AmsAction::LOADING;
+        action_start_time_ = std::chrono::steady_clock::now();
     }
+    // NOTE: load may also need ensure_homed_then() if users report "must home first"
+    // errors on load. Unload confirmed to need it — load not yet reported as an issue.
     spdlog::info("{} Loading filament from port {}", backend_log_tag(), port);
     return execute_gcode("_INSERT_PRUTOK_IFS PRUTOK=" + std::to_string(port));
 }
@@ -366,17 +384,20 @@ AmsError AmsBackendAd5xIfs::unload_filament(int slot_index) {
     {
         std::lock_guard<std::mutex> lock(mutex_);
         system_info_.action = AmsAction::UNLOADING;
+        action_start_time_ = std::chrono::steady_clock::now();
     }
 
+    std::string unload_cmd;
     if (slot_index >= 0 && slot_index < NUM_PORTS) {
         int port = slot_index + 1;
         spdlog::info("{} Unloading filament from port {}", backend_log_tag(), port);
-        return execute_gcode("_REMOVE_PRUTOK_IFS PRUTOK=" + std::to_string(port));
+        unload_cmd = "_REMOVE_PRUTOK_IFS PRUTOK=" + std::to_string(port);
+    } else {
+        spdlog::info("{} Unloading current filament", backend_log_tag());
+        unload_cmd = "_IFS_REMOVE_PRUTOK";
     }
 
-    // Default: unload current
-    spdlog::info("{} Unloading current filament", backend_log_tag());
-    return execute_gcode("_IFS_REMOVE_PRUTOK");
+    return ensure_homed_then(std::move(unload_cmd));
 }
 
 AmsError AmsBackendAd5xIfs::select_slot(int slot_index) {
@@ -412,6 +433,7 @@ AmsError AmsBackendAd5xIfs::change_tool(int tool_number) {
     {
         std::lock_guard<std::mutex> lock(mutex_);
         system_info_.action = AmsAction::LOADING;
+        action_start_time_ = std::chrono::steady_clock::now();
     }
     spdlog::info("{} Changing to tool T{} (port {})", backend_log_tag(), tool_number, port);
     return execute_gcode("_A_CHANGE_FILAMENT CHANNEL=" + std::to_string(port));
@@ -617,4 +639,69 @@ int AmsBackendAd5xIfs::find_first_tool_for_port(int port_1based) const {
 
 bool AmsBackendAd5xIfs::validate_slot_index(int slot_index) const {
     return slot_index >= 0 && slot_index < NUM_PORTS;
+}
+
+AmsError AmsBackendAd5xIfs::ensure_homed_then(std::string gcode) {
+    if (!client_) {
+        return execute_gcode(gcode);
+    }
+
+    auto alive = alive_;
+    auto gcode_copy = std::move(gcode);
+    client_->send_jsonrpc(
+        "printer.objects.query",
+        json{{"objects", json{{"toolhead", json::array({"homed_axes"})}}}},
+        [this, alive, gcode_copy](const json& response) {
+            if (!alive->load()) return;
+
+            bool needs_home = true;
+            if (response.contains("result") && response["result"].contains("status")) {
+                const auto& status = response["result"]["status"];
+                if (status.contains("toolhead") &&
+                    status["toolhead"].contains("homed_axes") &&
+                    status["toolhead"]["homed_axes"].is_string()) {
+                    std::string axes = status["toolhead"]["homed_axes"].get<std::string>();
+                    needs_home = (axes.find("xyz") == std::string::npos);
+                }
+            }
+
+            if (needs_home) {
+                spdlog::info("{} Not homed, sending G28 before operation", backend_log_tag());
+                api_->execute_gcode(
+                    "G28",
+                    [this, alive, gcode_copy]() {
+                        if (!alive->load()) return;
+                        spdlog::info("{} Homing complete, proceeding with: {}",
+                                     backend_log_tag(), gcode_copy);
+                        execute_gcode(gcode_copy);
+                    },
+                    [this, alive](const MoonrakerError& err) {
+                        if (!alive->load()) return;
+                        spdlog::error("{} Homing failed: {}", backend_log_tag(), err.message);
+                        std::lock_guard<std::mutex> lock(mutex_);
+                        system_info_.action = AmsAction::IDLE;
+                    },
+                    MoonrakerAPI::HOMING_TIMEOUT_MS);
+            } else {
+                execute_gcode(gcode_copy);
+            }
+        });
+
+    return AmsErrorHelper::success();
+}
+
+void AmsBackendAd5xIfs::check_action_timeout() {
+    if (system_info_.action != AmsAction::LOADING &&
+        system_info_.action != AmsAction::UNLOADING) {
+        return;
+    }
+
+    auto elapsed = std::chrono::steady_clock::now() - action_start_time_;
+    if (elapsed >= std::chrono::seconds(ACTION_TIMEOUT_SECONDS)) {
+        spdlog::warn("{} {} timed out after {}s, resetting to IDLE",
+                     backend_log_tag(),
+                     ams_action_to_string(system_info_.action),
+                     std::chrono::duration_cast<std::chrono::seconds>(elapsed).count());
+        system_info_.action = AmsAction::IDLE;
+    }
 }

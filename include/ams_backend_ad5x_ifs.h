@@ -8,6 +8,7 @@
 
 #include <array>
 #include <atomic>
+#include <chrono>
 #include <memory>
 #include <string>
 
@@ -80,6 +81,8 @@ class AmsBackendAd5xIfs : public AmsSubscriptionBackend {
 
     int find_first_tool_for_port(int port_1based) const;
     bool validate_slot_index(int slot_index) const;
+    void check_action_timeout();
+    AmsError ensure_homed_then(std::string gcode);
 
     // Cached state from save_variables
     std::array<std::string, NUM_PORTS> colors_;    // Hex strings: "FF0000"
@@ -91,6 +94,10 @@ class AmsBackendAd5xIfs : public AmsSubscriptionBackend {
     bool head_filament_ = false;                   // Head sensor state
 
     helix::printer::SlotRegistry slots_;
+
+    // Action timeout tracking
+    static constexpr int ACTION_TIMEOUT_SECONDS = 90;
+    std::chrono::steady_clock::time_point action_start_time_;
 
     // Async callback safety: shared flag cleared on destruction
     std::shared_ptr<std::atomic<bool>> alive_;
