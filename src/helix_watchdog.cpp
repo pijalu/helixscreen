@@ -30,6 +30,7 @@
 #ifdef HELIX_DISPLAY_FBDEV
 #include "display_backend_fbdev.h"
 #endif
+#include "app_constants.h"
 #include "logging_init.h"
 
 #include <spdlog/spdlog.h>
@@ -853,6 +854,20 @@ static int run_watchdog(const WatchdogArgs& args) {
         // Clean up splash if still running (safety net)
         cleanup_splash(splash_pid);
 
+        // Check for update restart marker — always consume it to prevent staleness.
+        // Written by UpdateChecker before _exit(0) after a successful update install.
+        bool was_update_restart = false;
+        {
+            std::string marker = AppConstants::Update::update_restart_marker_path();
+            namespace fs = std::filesystem;
+            std::error_code ec;
+            if (fs::exists(marker, ec) && !ec) {
+                fs::remove(marker, ec);
+                was_update_restart = true;
+                spdlog::info("[Watchdog] Consumed update restart marker");
+            }
+        }
+
         // Check if we're shutting down
         if (g_quit) {
             spdlog::info("[Watchdog] Shutting down");
@@ -871,6 +886,14 @@ static int run_watchdog(const WatchdogArgs& args) {
             spdlog::info("[Watchdog] Child received {} ({}), shutting down gracefully",
                          crash.signal_num, crash.signal_name);
             break;
+        }
+
+        // Post-update restart: process crashed between marker write and _exit(0).
+        // This is expected — skip the crash dialog and restart silently.
+        if (was_update_restart) {
+            spdlog::info("[Watchdog] Post-update restart (exit={}), skipping crash dialog",
+                         crash.was_signaled ? crash.signal_num : crash.exit_code);
+            continue;
         }
 
         // Crash detected - show recovery dialog (no splash during dialog)
