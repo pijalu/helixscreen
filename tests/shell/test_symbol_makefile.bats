@@ -22,10 +22,10 @@ setup_file() {
 }
 
 @test "symbols and strip are in .PHONY" {
-    local phony_line
-    phony_line=$(grep '^\.PHONY:' "$MAKE_DB_CACHE" | head -1)
-    [[ "$phony_line" == *"symbols"* ]]
-    [[ "$phony_line" == *"strip"* ]]
+    local phony_lines
+    phony_lines=$(grep '^\.PHONY:' "$MAKE_DB_CACHE")
+    [[ "$phony_lines" == *"symbols"* ]]
+    [[ "$phony_lines" == *"strip"* ]]
 }
 
 @test "LDFLAGS does not contain -s for cross-compile builds" {

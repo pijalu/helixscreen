@@ -377,16 +377,18 @@ else
 endif
 
 # libhv (WebSocket client for Moonraker) - Use system version if available, otherwise build from submodule
+# LIBHV_DIR always points to the submodule — needed for internal headers (e.g. base/dns_resolv.h)
+LIBHV_DIR := lib/libhv
 LIBHV_PKG_CONFIG := $(shell pkg-config --exists libhv 2>/dev/null && echo "yes")
 ifeq ($(LIBHV_PKG_CONFIG),yes)
     # System libhv found via pkg-config (pkg-config already returns system include paths)
-    LIBHV_INC := $(shell pkg-config --cflags libhv)
+    # Also add submodule path for internal headers used by tests
+    LIBHV_INC := $(shell pkg-config --cflags libhv) -isystem $(LIBHV_DIR)
     LIBHV_LIBS := $(shell pkg-config --libs libhv)
     LIBHV_LIB :=
 else
     # No system libhv - build from submodule to $(BUILD_DIR)/lib/ for architecture isolation
     # This allows concurrent native/pi/ad5m builds without conflicts
-    LIBHV_DIR := lib/libhv
     # Use -isystem to suppress warnings from third-party headers in strict mode
     LIBHV_INC := -isystem $(LIBHV_DIR)/include -isystem $(LIBHV_DIR)/cpputil -isystem $(LIBHV_DIR)
     LIBHV_LIB := $(BUILD_DIR)/lib/libhv.a
