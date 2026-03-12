@@ -8,23 +8,23 @@
 
 namespace helix::timelapse {
 
-std::string TimelapseThumbnailer::cache_key(const std::string& video_filename) {
+std::string cache_key(const std::string& video_filename) {
     auto hash = std::hash<std::string>{}(video_filename);
     return "tl_" + std::to_string(hash);
 }
 
-std::string TimelapseThumbnailer::companion_filename(const std::string& video_filename) {
+std::string companion_filename(const std::string& video_filename) {
     auto dot = video_filename.rfind('.');
     if (dot == std::string::npos) return video_filename + ".thumb.jpg";
     return video_filename.substr(0, dot) + ".thumb.jpg";
 }
 
-std::string TimelapseThumbnailer::ffmpeg_extract_command(const std::string& input_path,
-                                                          const std::string& output_path) {
-    return "ffmpeg -y -i \"" + input_path + "\" -vframes 1 -q:v 3 \"" + output_path + "\"";
+std::vector<std::string> ffmpeg_extract_args(const std::string& input_path,
+                                             const std::string& output_path) {
+    return {"ffmpeg", "-y", "-i", input_path, "-vframes", "1", "-q:v", "3", output_path};
 }
 
-bool TimelapseThumbnailer::is_video_file(const std::string& filename) {
+bool is_video_file(const std::string& filename) {
     if (filename.size() < 5) return false;
     if (filename.find(".thumb.") != std::string::npos) return false;
 
@@ -39,11 +39,12 @@ bool is_local_host(const std::string& host) {
     return host == "127.0.0.1" || host == "localhost" || host == "::1";
 }
 
-std::string build_player_command(const std::string& player, const std::string& file_path) {
+std::vector<std::string> build_player_args(const std::string& player,
+                                           const std::string& file_path) {
     if (player == "mpv") {
-        return "mpv --fs \"" + file_path + "\"";
+        return {"mpv", "--fs", file_path};
     }
-    return "ffplay -autoexit -fs \"" + file_path + "\"";
+    return {"ffplay", "-autoexit", "-fs", file_path};
 }
 
 }  // namespace helix::timelapse

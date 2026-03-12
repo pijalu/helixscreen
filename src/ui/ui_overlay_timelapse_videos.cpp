@@ -6,10 +6,12 @@
 #include "helix-xml/src/xml/lv_xml.h"
 #include "static_panel_registry.h"
 #include "thumbnail_cache.h"
+#include "thumbnail_load_context.h"
 #include "thumbnail_processor.h"
 #include "timelapse_state.h"
 #include "timelapse_thumbnailer.h"
 #include "ui_callback_helpers.h"
+#include "ui_format_utils.h"
 #include "ui_modal.h"
 #include "ui_nav_manager.h"
 #include "ui_update_queue.h"
@@ -24,7 +26,12 @@
 #include <ctime>
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <sys/wait.h>
 #include <unistd.h>
+
+// Default path for timelapse files relative to $HOME.
+// TODO: Query Moonraker's data_path config if an API becomes available.
+static constexpr const char* TIMELAPSE_DATA_SUBPATH = "printer_data/timelapse/";
 
 // ============================================================================
 // GLOBAL INSTANCE
@@ -188,36 +195,14 @@ void TimelapseVideosOverlay::fetch_video_list() {
                 populate_video_grid(files);
             });
         },
-        [this](const MoonrakerError& error) {
-            spdlog::error("[{}] Failed to fetch video list: {}", get_name(), error.message);
+        [](const MoonrakerError& error) {
+            spdlog::error("[Timelapse Videos] Failed to fetch video list: {}", error.message);
         });
 }
 
 // ============================================================================
 // VIDEO GRID MANAGEMENT
 // ============================================================================
-
-/// Format byte size to human-readable string
-static std::string format_file_size(uint64_t bytes) {
-    if (bytes < 1024) {
-        return std::to_string(bytes) + " B";
-    }
-    if (bytes < 1024 * 1024) {
-        char buf[32];
-        snprintf(buf, sizeof(buf), "%.1f KB", static_cast<double>(bytes) / 1024.0);
-        return buf;
-    }
-    if (bytes < 1024ULL * 1024 * 1024) {
-        char buf[32];
-        snprintf(buf, sizeof(buf), "%.1f MB",
-                 static_cast<double>(bytes) / (1024.0 * 1024.0));
-        return buf;
-    }
-    char buf[32];
-    snprintf(buf, sizeof(buf), "%.1f GB",
-             static_cast<double>(bytes) / (1024.0 * 1024.0 * 1024.0));
-    return buf;
-}
 
 /// Format unix timestamp to "Mon DD" string
 static std::string format_date_short(double modified) {
@@ -235,14 +220,14 @@ void TimelapseVideosOverlay::populate_video_grid(const std::vector<FileInfo>& fi
 
     // Filter to video files only and build entries
     for (const auto& file : files) {
-        if (!helix::timelapse::TimelapseThumbnailer::is_video_file(file.filename)) {
+        if (!helix::timelapse::is_video_file(file.filename)) {
             continue;
         }
         VideoEntry entry;
         entry.filename = file.filename;
         entry.size = file.size;
         entry.modified = file.modified;
-        entry.file_info = format_file_size(file.size) + " \xC2\xB7 " + format_date_short(file.modified);
+        entry.file_info = helix::ui::format_file_size(static_cast<size_t>(file.size)) + " \xC2\xB7 " + format_date_short(file.modified);
         videos_.push_back(std::move(entry));
     }
 
@@ -331,7 +316,7 @@ void TimelapseVideosOverlay::load_thumbnail_for_card(
 
     // Use the companion filename (e.g., "video.thumb.jpg") as the Moonraker path
     // within the "timelapse" root for ThumbnailCache
-    auto companion = helix::timelapse::TimelapseThumbnailer::companion_filename(filename);
+    auto companion = helix::timelapse::companion_filename(filename);
 
     // Check if companion thumbnail file exists in the timelapse directory listing
     if (available_files.find(companion) == available_files.end()) {
@@ -353,7 +338,7 @@ void TimelapseVideosOverlay::load_thumbnail_for_card(
     // directly since these aren't gcode thumbnails.
 
     // Use the cache key from TimelapseThumbnailer as the cache identifier
-    auto cache_key = helix::timelapse::TimelapseThumbnailer::cache_key(filename);
+    auto cache_key = helix::timelapse::cache_key(filename);
     auto target = helix::ThumbnailProcessor::get_target_for_display(helix::ThumbnailSize::Card);
 
     // Check if already cached (synchronous, fast path)
@@ -493,10 +478,42 @@ void TimelapseVideosOverlay::clear_video_grid() {
 // ============================================================================
 
 void TimelapseVideosOverlay::detect_playback_capability() {
-    can_play_ = false;
-    player_command_.clear();
+    // Cache detection results: player availability doesn't change at runtime
+    static bool detected = false;
+    static bool cached_can_play = false;
+    static std::string cached_player;
 
-    // Check if we're running on the same host as Moonraker
+    if (!detected) {
+        detected = true;
+
+        // Check for available players (only once per process)
+        FILE* pipe = popen("which mpv 2>/dev/null", "r");
+        if (pipe) {
+            char buf[256];
+            if (fgets(buf, sizeof(buf), pipe) != nullptr) {
+                cached_player = "mpv";
+                cached_can_play = true;
+            }
+            pclose(pipe);
+        }
+
+        if (!cached_can_play) {
+            pipe = popen("which ffplay 2>/dev/null", "r");
+            if (pipe) {
+                char buf[256];
+                if (fgets(buf, sizeof(buf), pipe) != nullptr) {
+                    cached_player = "ffplay";
+                    cached_can_play = true;
+                }
+                pclose(pipe);
+            }
+        }
+    }
+
+    can_play_ = cached_can_play;
+    player_command_ = cached_player;
+
+    // Check if we're running on the same host as Moonraker (may change between connections)
     if (api_) {
         std::string ws_url = api_->get_websocket_url();
         // Extract host from ws://host:port/...
@@ -517,30 +534,6 @@ void TimelapseVideosOverlay::detect_playback_capability() {
         is_local_moonraker_ = helix::timelapse::is_local_host(host);
     }
 
-    // Check for available players
-    FILE* pipe = popen("which mpv 2>/dev/null", "r");
-    if (pipe) {
-        char buf[256];
-        if (fgets(buf, sizeof(buf), pipe) != nullptr) {
-            // mpv found
-            player_command_ = "mpv";
-            can_play_ = true;
-        }
-        pclose(pipe);
-    }
-
-    if (!can_play_) {
-        pipe = popen("which ffplay 2>/dev/null", "r");
-        if (pipe) {
-            char buf[256];
-            if (fgets(buf, sizeof(buf), pipe) != nullptr) {
-                player_command_ = "ffplay";
-                can_play_ = true;
-            }
-            pclose(pipe);
-        }
-    }
-
     spdlog::debug("[{}] Playback capability: can_play={} player='{}' local={}", get_name(),
                   can_play_, player_command_, is_local_moonraker_);
 }
@@ -548,6 +541,35 @@ void TimelapseVideosOverlay::detect_playback_capability() {
 // ============================================================================
 // VIDEO PLAYBACK
 // ============================================================================
+
+/// Launch a child process via double-fork to prevent zombie processes.
+/// The grandchild is adopted by init so no waitpid is needed long-term.
+static void spawn_detached(const std::vector<std::string>& args) {
+    if (args.empty()) return;
+
+    pid_t pid = fork();
+    if (pid < 0) {
+        spdlog::error("[Timelapse Videos] fork() failed for video playback");
+        return;
+    }
+    if (pid == 0) {
+        // First child: fork again and exit immediately
+        pid_t pid2 = fork();
+        if (pid2 < 0) _exit(127);
+        if (pid2 > 0) _exit(0);  // First child exits; grandchild continues
+
+        // Grandchild: exec the player
+        std::vector<const char*> argv;
+        argv.reserve(args.size() + 1);
+        for (const auto& a : args) argv.push_back(a.c_str());
+        argv.push_back(nullptr);
+        execvp(argv[0], const_cast<char* const*>(argv.data()));
+        _exit(127);
+    }
+    // Parent: reap the first child (exits immediately)
+    int status = 0;
+    waitpid(pid, &status, 0);
+}
 
 void TimelapseVideosOverlay::play_video(const std::string& filename) {
     if (!can_play_ || player_command_.empty()) {
@@ -557,19 +579,11 @@ void TimelapseVideosOverlay::play_video(const std::string& filename) {
 
     if (is_local_moonraker_) {
         // Local: construct path directly
-        std::string path = std::string(getenv("HOME") ? getenv("HOME") : "/root") +
-                           "/printer_data/timelapse/" + filename;
-        std::string cmd = helix::timelapse::build_player_command(player_command_, path);
-        spdlog::info("[{}] Playing local video: {}", get_name(), cmd);
-
-        pid_t pid = fork();
-        if (pid == 0) {
-            // Child process
-            execlp("/bin/sh", "sh", "-c", cmd.c_str(), nullptr);
-            _exit(127);
-        } else if (pid < 0) {
-            spdlog::error("[{}] fork() failed for video playback", get_name());
-        }
+        std::string home = getenv("HOME") ? getenv("HOME") : "/root";
+        std::string path = home + "/" + TIMELAPSE_DATA_SUBPATH + filename;
+        auto args = helix::timelapse::build_player_args(player_command_, path);
+        spdlog::info("[{}] Playing local video: {} {}", get_name(), args[0], path);
+        spawn_detached(args);
     } else {
         // Remote: download to /tmp then play
         if (!api_) return;
@@ -592,20 +606,14 @@ void TimelapseVideosOverlay::play_video(const std::string& filename) {
                 helix::ui::queue_update([this, alive, gen, dest_path, player]() {
                     if (!alive->load() || gen != nav_generation_.load()) return;
 
-                    std::string cmd = helix::timelapse::build_player_command(player, dest_path);
-                    spdlog::info("[{}] Playing downloaded video: {}", get_name(), cmd);
-
-                    pid_t pid = fork();
-                    if (pid == 0) {
-                        execlp("/bin/sh", "sh", "-c", cmd.c_str(), nullptr);
-                        _exit(127);
-                    } else if (pid < 0) {
-                        spdlog::error("[{}] fork() failed for video playback", get_name());
-                    }
+                    auto args = helix::timelapse::build_player_args(player, dest_path);
+                    spdlog::info("[{}] Playing downloaded video: {} {}", get_name(), args[0],
+                                 dest_path);
+                    spawn_detached(args);
                 });
             },
-            [this](const MoonrakerError& error) {
-                spdlog::error("[{}] Failed to download video: {}", get_name(), error.message);
+            [](const MoonrakerError& error) {
+                spdlog::error("[Timelapse Videos] Failed to download video: {}", error.message);
             });
     }
 }

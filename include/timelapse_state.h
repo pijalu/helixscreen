@@ -10,6 +10,7 @@
 #include "hv/json.hpp"
 
 #include <functional>
+#include <mutex>
 #include <string>
 
 namespace helix {
@@ -78,7 +79,10 @@ class TimelapseState {
     }
 
     /// Last rendered video filename (set on render success)
-    const std::string& get_last_rendered_filename() const { return last_rendered_filename_; }
+    std::string get_last_rendered_filename() const {
+        std::lock_guard<std::mutex> lock(render_mutex_);
+        return last_rendered_filename_;
+    }
 
     /// Callback type for render completion: receives the rendered filename
     using RenderCompleteCallback = std::function<void(const std::string& filename)>;
@@ -86,11 +90,11 @@ class TimelapseState {
     /**
      * @brief Register a callback for render completion
      *
-     * Called on the background (WebSocket) thread when a render succeeds.
-     * The callback receives the rendered filename and can trigger
-     * follow-up actions (e.g., thumbnail extraction via Moonraker API).
+     * Thread-safe. The callback is invoked via queue_update() on the UI thread,
+     * so it does not need its own synchronization.
      */
     void set_on_render_complete(RenderCompleteCallback callback) {
+        std::lock_guard<std::mutex> lock(render_mutex_);
         on_render_complete_ = std::move(callback);
     }
 
@@ -114,10 +118,14 @@ class TimelapseState {
     // Notification throttling: last progress value that triggered a notification
     int last_notified_progress_ = -1;
 
+    // Protects last_rendered_filename_ and on_render_complete_ (accessed from
+    // both the WebSocket background thread and the UI thread)
+    mutable std::mutex render_mutex_;
+
     // Last successfully rendered filename
     std::string last_rendered_filename_;
 
-    // Optional callback fired on render success
+    // Optional callback fired on render success (invoked via queue_update)
     RenderCompleteCallback on_render_complete_;
 };
 

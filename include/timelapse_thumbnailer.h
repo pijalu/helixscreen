@@ -3,24 +3,29 @@
 
 #pragma once
 
-#include <functional>
 #include <string>
+#include <vector>
 
 namespace helix::timelapse {
 
-class TimelapseThumbnailer {
-  public:
-    static std::string cache_key(const std::string& video_filename);
-    static std::string companion_filename(const std::string& video_filename);
-    static std::string ffmpeg_extract_command(const std::string& input_path,
-                                              const std::string& output_path);
-    static bool is_video_file(const std::string& filename);
-};
+// --- Thumbnail utilities ---
+
+std::string cache_key(const std::string& video_filename);
+std::string companion_filename(const std::string& video_filename);
+
+/// Build an argument list for ffmpeg thumbnail extraction (safe from shell injection)
+std::vector<std::string> ffmpeg_extract_args(const std::string& input_path,
+                                             const std::string& output_path);
+
+bool is_video_file(const std::string& filename);
+
+// --- Playback utilities ---
 
 /// Check if a Moonraker host is the local machine
 bool is_local_host(const std::string& host);
 
-/// Build a player command for the given player and file path
-std::string build_player_command(const std::string& player, const std::string& file_path);
+/// Build an argument list for video playback (safe from shell injection)
+std::vector<std::string> build_player_args(const std::string& player,
+                                           const std::string& file_path);
 
 }  // namespace helix::timelapse

@@ -8,7 +8,6 @@
 #include "moonraker_types.h"
 #include "overlay_base.h"
 #include "thumbnail_cache.h"
-#include "thumbnail_load_context.h"
 
 #include <atomic>
 #include <memory>
