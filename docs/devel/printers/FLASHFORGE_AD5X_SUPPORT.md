@@ -97,15 +97,72 @@ If touch input requires calibration (resistive panel with non-linear mapping), t
 
 ## IFS (Intelligent Filament System)
 
-The AD5X's 4-channel IFS is its distinguishing feature. **IFS support in HelixScreen is not yet implemented** — this is a future feature request.
+The AD5X's 4-channel IFS is its distinguishing feature. HelixScreen has a dedicated AMS backend (`AmsBackendAd5xIfs`) that fully integrates with the IFS.
 
-IFS capabilities:
-- 4 filament spools with auto-switching
-- Per-spool color and material tracking
-- Filament presence detection
-- Purge volume optimization during color changes
+### Supported Features
 
-The ZMOD ecosystem exposes IFS through Klipper macros and a custom color selection UI. HelixScreen IFS integration would need to interface with these macros via Moonraker's G-code API.
+- 4 filament slots with load/unload/select operations
+- Per-slot color and material tracking (via `save_variables`)
+- Filament presence detection (per-port switch sensors)
+- Tool-to-port mapping (T0-T15 → physical ports 1-4)
+- External spool mode (bypass IFS)
+- Spoolman integration for filament assignment
+
+### Architecture
+
+IFS state is stored in Klipper `save_variables` (not Moonraker database). HelixScreen subscribes to these and sends G-code commands for operations:
+
+| Variable | Contents |
+|----------|----------|
+| `less_waste_colors` | Hex color strings per slot (no `#` prefix) |
+| `less_waste_types` | Material name strings per slot |
+| `less_waste_tools` | Tool→port mapping array (index=tool, value=1-4 or 5=unmapped) |
+| `less_waste_current_tool` | Active tool number (-1 = none) |
+| `less_waste_external` | External spool mode (0/1) |
+
+### Macro Ecosystem: bambufy vs lessWaste
+
+Two major IFS macro packages exist for ZMOD. Both use the same `save_variables` schema and are compatible with HelixScreen:
+
+| | **bambufy** | **lessWaste** |
+|---|-----------|-------------|
+| **Repo** | [function3d/bambufy](https://github.com/function3d/bambufy) | [Hrybmo/lessWaste](https://github.com/Hrybmo/lesswaste) |
+| **Status** | Original, widely used | Fork of bambufy with enhancements |
+| **Tool macros** | T0-T3 (4 tools) | T0-T15 (16 virtual tools) |
+| **Backup/failover** | No | Yes — auto-switch to matching color/type slot on runout |
+| **Virtual channels** | No | Yes — map >4 slicer tools to 4 physical ports |
+| **Purge control** | Basic | Advanced — in-tower or out-the-back, per-material feedrates |
+| **Same-filament purge** | Always purges | Configurable skip (`same_filament_purge`) |
+| **Recovery** | Basic | Auto-recovery (head sensor, consume leftover, filament check) |
+| **Start UI** | No | Dialog-based tool-to-port assignment at print start |
+
+Both packages use **1-based port numbering** for hardware (ports 1-4) and define the same G-code commands (`IFS_F10`, `IFS_F11`, `IFS_F24`, `IFS_F39`, `SET_EXTRUDER_SLOT`).
+
+### lessWaste-Specific Variables (Not Yet Used by HelixScreen)
+
+| Variable | Purpose |
+|----------|---------|
+| `variable_backup` | Enable/disable automatic filament backup on runout |
+| `variable_backup_filament_spent` | `[0,0,0,0]` — marks consumed backup slots |
+| `variable_is_virtual_mode` | Virtual channel mode active (>4 tools mapped to 4 ports) |
+| `variable_same_filament_purge` | Skip start purge if same filament in hotend |
+| `variable_e_feedrates` | Per-tool extrusion feedrates |
+| `variable_kamp` | KAMP (adaptive bed mesh) enabled |
+| `variable_line_purge` | Purge line at print start |
+| `PAUSE REASON=` values | `jam`, `broken`, `runout`, `empty`, `backup`, `loading` |
+
+### Known Issue: Zmod Slot Renumbering
+
+Zmod has an option to rename slots from 0-indexed (0,1,2,3) to 1-indexed (1,2,3,4). This is a **slicer ↔ macro configuration issue**, not a HelixScreen issue. When enabled, the slicer sends T1-T4 instead of T0-T3, causing the wrong port to be selected.
+
+**HelixScreen is not affected** because we read the `less_waste_tools` mapping array which maps logical tool numbers to physical ports. The mapping is set by the macro package's start-of-print UI and is always consistent regardless of the slot naming scheme. The off-by-one only affects users whose slicer sends tool numbers that don't match the macro package's expectations.
+
+### Future Enhancements
+
+- Parse `PAUSE REASON=` for specific filament error UI (jam, runout, empty)
+- Display backup/failover status from lessWaste's `backup_filament_spent`
+- Support virtual channel visualization (>4 tools mapped to 4 physical ports)
+- Expose `same_filament_purge` toggle in settings
 
 ## Differences from AD5M
 
@@ -121,6 +178,5 @@ The ZMOD ecosystem exposes IFS through Klipper macros and a custom color selecti
 
 ## Known Limitations
 
-- **No IFS UI**: Multi-color filament management not implemented
 - **No inotify**: AD5X kernel may lack inotify support (same as AD5M) — XML hot reload may not work
 - **No WiFi management**: wpa_supplicant present but may not have usable interfaces

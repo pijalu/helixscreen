@@ -223,7 +223,76 @@ Available from `save_variables`:
 
 ---
 
-## 9. Open Questions
+## 9. Macro Packages: bambufy vs lessWaste
+
+Two IFS macro packages exist for ZMOD. Both use the same `save_variables` schema.
+
+### bambufy (Original)
+- **Repo**: [function3d/bambufy](https://github.com/function3d/bambufy)
+- Stock IFS macro package, 4 tools (T0-T3), basic load/unload/purge
+
+### lessWaste (Enhanced Fork)
+- **Repo**: [Hrybmo/lessWaste](https://github.com/Hrybmo/lesswaste)
+- Based on bambufy V1.2.10, adds significant features:
+  - **16 virtual tools** (T0-T15) mapped to 4 physical ports via `variable_tools`
+  - **Backup/failover**: `variable_backup` + `variable_backup_filament_spent` — auto-switch to matching color/type on runout
+  - **Virtual channel mode**: `variable_is_virtual_mode` — allows more slicer tools than physical slots
+  - **Purge control**: in-tower (`_NOPOOP`) or out-the-back, configurable flush volumes
+  - **Same-filament purge skip**: `variable_same_filament_purge`
+  - **Per-tool feedrates**: `variable_e_feedrates` array
+  - **Auto-recovery**: `_CHECK_FILAMENT` macro detects which port is loaded after unexpected state
+  - **PAUSE REASON values**: `jam`, `broken`, `runout`, `empty`, `backup`, `loading`
+  - **Start UI**: Dialog-based tool-to-port assignment before printing (`_IFS_COLORS`)
+  - **KAMP**: Adaptive bed mesh at print start (`variable_kamp`)
+  - **IFS unlock after boot**: `variable_ifs_unlock_after_boot` for stock screen glitch workaround
+
+### lessWaste _IFS_VARS (Complete Variable List)
+
+```ini
+variable_filament_unload_before_cutting: 24
+variable_filament_drop_length: 35
+variable_filament_unload_after_cutting: 2
+variable_filament_unload_speed: 1500
+variable_nozzle_cleaning_length: 70
+variable_filament_load_speed: 900
+variable_filament_home_speed: 700
+variable_filament_insert_speed: 2800
+variable_filament_tube_length: 1000
+variable_filament_catch_length: 5
+variable_filament_pressure_length: 1
+variable_filament_autoinsert_full_length: 550
+variable_tools: [1,2,3,4,5,5,5,5,5,5,5,5,5,5,5,5]  # index=tool, value=port
+variable_external: 0
+variable_extruder_port: -1
+variable_current_tool: -1
+variable_extruder_temp: 0
+variable_extruder_fan: 0
+variable_bed_temp: 0
+variable_e_feedrate: 130
+variable_e_feedrates: []
+variable_consume: 0
+variable_kamp: 0
+variable_line_purge: 0
+variable_backup: 0
+variable_types: ['PLA','PLA','PLA','PLA', ...]  # 16 entries
+variable_colors: ['000000','000000','000000','000000', ...]  # 16 entries
+variable_backup_filament_spent: [0,0,0,0]
+variable_start: 0
+variable_sbros_trash_speed: 4000
+variable_info_dialog: 1
+variable_same_filament_purge: 1
+variable_ifs_unlock_after_boot: 0
+```
+
+### Zmod Slot Renumbering Issue
+
+Zmod has an option to rename slots from 0-indexed (0,1,2,3) to 1-indexed (1,2,3,4). When enabled, the slicer sends T1-T4 instead of T0-T3, causing the `_T` macro to look up `ifs.tools[1]` through `ifs.tools[4]` instead of `ifs.tools[0]` through `ifs.tools[3]`. This is a slicer↔macro configuration mismatch.
+
+**HelixScreen is not affected** — we read the `less_waste_tools` mapping array directly, which is always consistent regardless of slot naming. The off-by-one only matters between the slicer's `T[next_extruder]` output and the Klipper `_T` macro.
+
+---
+
+## 10. Open Questions
 
 1. ~~What does the Moonraker object state actually look like for `zmod_ifs_*` objects?~~ (User's Moonraker API was behind broken reverse proxy — couldn't get state dump)
 2. Does `zmod_ifs` expose any Klipper object status attributes (like `get_status()` in the Python module)? Need to check if it implements that method.
@@ -232,7 +301,7 @@ Available from `save_variables`:
 
 ---
 
-## 10. Files Reference
+## 11. Files Reference
 
 ### On Device
 | Path | Contents |
