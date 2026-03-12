@@ -6,7 +6,6 @@
 #include "theme_manager.h"
 
 #include <cmath>
-#include <cstdio>
 
 // ============================================================================
 // Responsive Layout
@@ -85,27 +84,6 @@ const char* ui_brightness_to_lightbulb_icon(int brightness) {
 // ============================================================================
 // Color Utilities
 // ============================================================================
-
-std::optional<uint32_t> ui_parse_hex_color(const std::string& hex_str) {
-    if (hex_str.empty()) {
-        return std::nullopt;
-    }
-
-    std::string hex = hex_str;
-    if (hex[0] == '#') {
-        hex = hex.substr(1);
-    }
-
-    if (hex.length() != 6) {
-        return std::nullopt;
-    }
-
-    try {
-        return static_cast<uint32_t>(std::stoul(hex, nullptr, 16));
-    } catch (...) {
-        return std::nullopt;
-    }
-}
 
 int ui_color_distance(uint32_t color1, uint32_t color2) {
     int r1 = (color1 >> 16) & 0xFF;

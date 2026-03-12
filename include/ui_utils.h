@@ -10,8 +10,6 @@
 #include "static_panel_registry.h"
 
 #include <cstdint>
-#include <optional>
-#include <string>
 
 // ============================================================================
 // Responsive Layout Utilities
@@ -56,18 +54,6 @@ const char* ui_brightness_to_lightbulb_icon(int brightness);
 // ============================================================================
 // Color Utilities
 // ============================================================================
-
-/**
- * @brief Parse hex color string to RGB integer value
- *
- * Converts color strings like "#ED1C24" or "ED1C24" to 0xRRGGBB format.
- * Returns std::nullopt for invalid input, allowing black (#000000) to be
- * correctly distinguished from parse errors.
- *
- * @param hex_str Color string with optional # prefix (e.g., "#FF0000", "00FF00")
- * @return RGB value as 0xRRGGBB, or std::nullopt if invalid/empty
- */
-std::optional<uint32_t> ui_parse_hex_color(const std::string& hex_str);
 
 /**
  * @brief Calculate perceptual color distance between two RGB colors
