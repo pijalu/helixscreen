@@ -1961,6 +1961,45 @@ void AmsBackendMock::set_ifs_mode(bool enabled) {
         system_info_.supports_bypass = true;
         system_info_.supports_tool_mapping = true;
         system_info_.supports_endless_spool = false;
+        system_info_.supports_purge = false;
+
+        // IFS tool mapping: T0→port1, T1→port2, T2→port3, T3→port4
+        system_info_.tool_to_slot_map.resize(16, -1);
+        for (int i = 0; i < 4; ++i) {
+            system_info_.tool_to_slot_map[static_cast<size_t>(i)] = i;
+        }
+
+        // Reinitialize registry as single IFS unit with 4 ports
+        slots_.clear();
+        slots_.initialize("IFS", {"1", "2", "3", "4"});
+
+        // Populate 4 slots with typical IFS filament data
+        auto populate_slot = [this](int gi, const char* material, uint32_t color,
+                                    const char* color_name, SlotStatus status) {
+            auto* entry = slots_.get_mut(gi);
+            if (!entry) return;
+            entry->info.slot_index = gi;
+            entry->info.global_index = gi;
+            entry->info.material = material;
+            entry->info.color_rgb = color;
+            entry->info.color_name = color_name;
+            entry->info.status = status;
+            entry->info.mapped_tool = gi;
+            auto mat_info = filament::find_material(material);
+            if (mat_info) {
+                entry->info.nozzle_temp_min = mat_info->nozzle_min;
+                entry->info.nozzle_temp_max = mat_info->nozzle_max;
+                entry->info.bed_temp = mat_info->bed_temp;
+            }
+        };
+        populate_slot(0, "PLA", 0x000000, "Black", SlotStatus::LOADED);
+        populate_slot(1, "PETG", 0xFFFFFF, "White", SlotStatus::AVAILABLE);
+        populate_slot(2, "PLA", 0x8000FF, "Purple", SlotStatus::AVAILABLE);
+        populate_slot(3, "ABS", 0x804000, "Brown", SlotStatus::AVAILABLE);
+
+        system_info_.current_tool = 0;
+        system_info_.current_slot = 0;
+        system_info_.filament_loaded = true;
     }
 }
 

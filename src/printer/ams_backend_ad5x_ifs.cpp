@@ -52,11 +52,15 @@ void AmsBackendAd5xIfs::on_started() {
         "printer.objects.query",
         json{{"objects", json{
             {"save_variables", nullptr},
+            // lessWaste plugin: per-port filament switch sensors
             {"filament_switch_sensor _ifs_port_sensor_1", nullptr},
             {"filament_switch_sensor _ifs_port_sensor_2", nullptr},
             {"filament_switch_sensor _ifs_port_sensor_3", nullptr},
             {"filament_switch_sensor _ifs_port_sensor_4", nullptr},
-            {"filament_switch_sensor head_switch_sensor", nullptr}
+            // Shared: head switch sensor (both lessWaste and native ZMOD)
+            {"filament_switch_sensor head_switch_sensor", nullptr},
+            // Native ZMOD IFS: single motion sensor (replaces per-port sensors)
+            {"filament_motion_sensor ifs_motion_sensor", nullptr}
         }}},
         [this, alive](const json& response) {
             if (!alive->load()) return;
@@ -106,6 +110,17 @@ void AmsBackendAd5xIfs::handle_status_update(const json& notification) {
                 parse_port_sensor(port, sensor["filament_detected"].get<bool>());
                 state_changed = true;
             }
+        }
+    }
+
+    // Native ZMOD IFS: single motion sensor replaces per-port presence sensors.
+    // Maps to head_filament_ since it detects filament at the toolhead.
+    if (status->contains("filament_motion_sensor ifs_motion_sensor")) {
+        const auto& motion = (*status)["filament_motion_sensor ifs_motion_sensor"];
+        if (motion.contains("filament_detected") && motion["filament_detected"].is_boolean()) {
+            bool detected = motion["filament_detected"].get<bool>();
+            parse_head_sensor(detected);
+            state_changed = true;
         }
     }
 

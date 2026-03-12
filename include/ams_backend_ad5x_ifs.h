@@ -17,9 +17,16 @@ class Ad5xIfsTestAccess;
 /// AMS backend for FlashForge Adventurer 5X IFS (Intelligent Filament Switching).
 ///
 /// IFS is a 4-lane filament switching system controlled by a separate STM32 MCU,
-/// driven through ZMOD's zmod_ifs.py Klipper module. State is tracked via:
+/// driven through ZMOD's zmod_ifs.py Klipper module. Two firmware variants exist:
+///
+/// lessWaste plugin (has per-port sensors):
 /// - save_variables: colors, materials, tool mapping, current tool, external mode
 /// - filament_switch_sensor _ifs_port_sensor_{1-4}: per-port filament presence
+/// - filament_switch_sensor head_switch_sensor: filament at toolhead
+///
+/// Native ZMOD IFS (no per-port sensors):
+/// - save_variables: same as above
+/// - filament_motion_sensor ifs_motion_sensor: toolhead filament presence
 /// - filament_switch_sensor head_switch_sensor: filament at toolhead
 ///
 /// Ports are 1-based (1-4), slots are 0-based (0-3).

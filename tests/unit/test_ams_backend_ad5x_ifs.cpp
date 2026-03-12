@@ -74,6 +74,12 @@ static json make_head_sensor(bool detected) {
         {"filament_switch_sensor head_switch_sensor", json{{"filament_detected", detected}}}};
 }
 
+// Helper to build a native ZMOD motion sensor notification
+static json make_motion_sensor(bool detected) {
+    return json{
+        {"filament_motion_sensor ifs_motion_sensor", json{{"filament_detected", detected}}}};
+}
+
 // Standard test variables representing a typical IFS configuration
 static json standard_variables() {
     return json{
@@ -261,6 +267,51 @@ TEST_CASE("AD5X IFS head sensor parsing", "[ams][ad5x_ifs]") {
 
     Ad5xIfsTestAccess::handle_status(backend, make_head_sensor(false));
     REQUIRE_FALSE(Ad5xIfsTestAccess::head_filament(backend));
+}
+
+// ==========================================================================
+// 7b. Native ZMOD IFS motion sensor (no lessWaste per-port sensors)
+// ==========================================================================
+
+TEST_CASE("AD5X IFS native ZMOD motion sensor parsing", "[ams][ad5x_ifs]") {
+    AmsBackendAd5xIfs backend(nullptr, nullptr);
+
+    REQUIRE_FALSE(Ad5xIfsTestAccess::head_filament(backend));
+
+    // Native ZMOD motion sensor maps to head filament state
+    Ad5xIfsTestAccess::handle_status(backend, make_motion_sensor(true));
+    REQUIRE(Ad5xIfsTestAccess::head_filament(backend));
+
+    Ad5xIfsTestAccess::handle_status(backend, make_motion_sensor(false));
+    REQUIRE_FALSE(Ad5xIfsTestAccess::head_filament(backend));
+}
+
+TEST_CASE("AD5X IFS native ZMOD combined update (no per-port sensors)",
+          "[ams][ad5x_ifs]") {
+    AmsBackendAd5xIfs backend(nullptr, nullptr);
+
+    // Simulate a native ZMOD IFS status update:
+    // save_variables + motion sensor + head switch sensor, NO per-port sensors
+    json notification;
+    notification["save_variables"] = json{{"variables", standard_variables()}};
+    notification["filament_motion_sensor ifs_motion_sensor"] =
+        json{{"filament_detected", true}};
+    notification["filament_switch_sensor head_switch_sensor"] =
+        json{{"filament_detected", true}};
+
+    Ad5xIfsTestAccess::handle_status(backend, notification);
+
+    // Verify system state — should detect filament loaded via motion sensor
+    auto sys = backend.get_system_info();
+    REQUIRE(sys.type == AmsType::AD5X_IFS);
+    REQUIRE(sys.total_slots == 4);
+    REQUIRE(sys.filament_loaded);
+    REQUIRE(sys.current_tool == 0);
+
+    // Port presence is unknown in native ZMOD (no per-port sensors)
+    // but save_variables provides colors and tool mapping
+    REQUIRE(sys.units.size() == 1);
+    REQUIRE(sys.units[0].slots.size() == 4);
 }
 
 // ==========================================================================

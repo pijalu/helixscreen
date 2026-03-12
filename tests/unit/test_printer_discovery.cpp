@@ -1121,6 +1121,24 @@ TEST_CASE("PrinterDiscovery detects AD5X IFS via zmod sensors",
     REQUIRE(discovery.detected_ams_systems()[0].type == AmsType::AD5X_IFS);
 }
 
+TEST_CASE("PrinterDiscovery detects native ZMOD IFS via motion sensor",
+          "[printer_discovery][ad5x_ifs]") {
+    helix::PrinterDiscovery discovery;
+    // Native ZMOD IFS (without lessWaste) only exposes a motion sensor and head
+    // switch sensor — no per-port switch sensors
+    discovery.parse_objects(nlohmann::json::array({
+        "extruder",
+        "heater_bed",
+        "filament_motion_sensor ifs_motion_sensor",
+        "filament_switch_sensor head_switch_sensor",
+    }));
+
+    REQUIRE(discovery.has_mmu());
+    REQUIRE(discovery.mmu_type() == AmsType::AD5X_IFS);
+    REQUIRE(discovery.detected_ams_systems().size() == 1);
+    REQUIRE(discovery.detected_ams_systems()[0].type == AmsType::AD5X_IFS);
+}
+
 TEST_CASE("PrinterDiscovery does not detect AD5X IFS without zmod sensors",
           "[printer_discovery][ad5x_ifs]") {
     helix::PrinterDiscovery discovery;

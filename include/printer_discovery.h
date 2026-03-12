@@ -265,10 +265,14 @@ class PrinterDiscovery {
                 }
             }
             // AD5X IFS detection via ZMOD firmware sensors
-            // Leading space in sensor name is intentional — Klipper object naming convention
+            // Three sensor name patterns trigger detection:
+            //   1. lessWaste plugin:  "filament_switch_sensor _ifs_port_sensor_N"
+            //   2. Native ZMOD (old): "filament_motion_sensor _ifs_motion_sensor_N"
+            //   3. Native ZMOD:       "filament_motion_sensor ifs_motion_sensor"
             else if (!has_mmu_ &&
                      (name.rfind("filament_switch_sensor _ifs_port_sensor_", 0) == 0 ||
-                      name.rfind("filament_motion_sensor _ifs_motion_sensor_", 0) == 0)) {
+                      name.rfind("filament_motion_sensor _ifs_motion_sensor_", 0) == 0 ||
+                      name == "filament_motion_sensor ifs_motion_sensor")) {
                 has_mmu_ = true;
                 mmu_type_ = AmsType::AD5X_IFS;
             }

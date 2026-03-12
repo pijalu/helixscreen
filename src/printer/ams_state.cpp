@@ -439,6 +439,13 @@ void AmsState::init_backends_from_hardware(const helix::PrinterDiscovery& hardwa
     }
 
     spdlog::info("[AMS State] Initialized {} backends", backend_count());
+
+    // Sync immediately to propagate static system_info (total_slots, type, etc.)
+    // from the newly created backends to UI subjects. Without this, the
+    // ams_slot_count gate stays at 0 until the first async event arrives — which
+    // may never happen if the backend's initial query returns no matching objects
+    // (e.g. native ZMOD IFS without lessWaste per-port sensors).
+    sync_from_backend();
 }
 
 void AmsState::set_backend(std::unique_ptr<AmsBackend> backend) {
