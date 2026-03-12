@@ -233,6 +233,7 @@ static const IconMapping ICON_MAP[] = {
     {"speed_down",         "\xF3\xB0\xBE\x86"},  // F0F86 speedometer-slow
     {"speed_up",           "\xF3\xB0\xBE\x85"},  // F0F85 speedometer-medium
     {"spoolman",           "\xF3\xB0\x88\xAF"},  // F022F film (same as filament)
+    {"star",               "\xF3\xB0\x93\x8E"},  // F04CE star (favorites/recent)
     {"stop",               "\xF3\xB0\x93\x9B"},  // F04DB stop
     {"swap_vertical",      "\xF3\xB0\x93\xA2"},  // F04E2 swap-vertical
     {"sync",               "\xF3\xB0\x93\xA6"},  // F04E6 sync (auto-detect)
@@ -250,8 +251,8 @@ static const IconMapping ICON_MAP[] = {
     {"translate",          "\xF3\xB0\x97\x8A"},  // F05CA translate (language selection)
     {"trash_can_outline",  "\xF3\xB0\xA9\xBA"},  // F0A7A trash-can-outline (delete)
     {"tray_arrow_up",      "\xF3\xB0\x84\x9D"},  // F011D tray-arrow-up (unload/eject)
-    {"triangle_exclamation", "\xF3\xB0\x80\xA6"}, // F0026 alert (alias for FontAwesome compat)
     {"toolbox_outline",    "\xF3\xB0\xA6\xAD"},  // F09AD toolbox-outline (tools section)
+    {"triangle_exclamation", "\xF3\xB0\x80\xA6"}, // F0026 alert (alias for FontAwesome compat)
     {"tune",               "\xF3\xB0\x98\xAE"},  // F062E tune
     {"tune_variant",       "\xF3\xB1\x95\x82"},  // F1542 tune-variant
     {"tune_vertical_variant", "\xF3\xB1\x95\x83"},  // F1543 tune-vertical-variant
