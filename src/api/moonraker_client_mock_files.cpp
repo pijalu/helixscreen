@@ -86,28 +86,28 @@ static json build_mock_file_list_response(const std::string& root,
         result_array.push_back(
             {{"path", "benchy_timelapse_20260310.mp4"},
              {"size", 52428800},    // 50 MB
-             {"modified", 1741564800.0}}); // 2026-03-10
+             {"modified", 1773158400.0}}); // 2026-03-10
         result_array.push_back(
             {{"path", "vase_spiral_20260308.mp4"},
              {"size", 128849018},   // ~123 MB
-             {"modified", 1741392000.0}}); // 2026-03-08
+             {"modified", 1772985600.0}}); // 2026-03-08
         result_array.push_back(
             {{"path", "calibration_cube_20260305.mp4"},
              {"size", 15728640},    // 15 MB
-             {"modified", 1741132800.0}}); // 2026-03-05
+             {"modified", 1772730000.0}}); // 2026-03-05
         result_array.push_back(
             {{"path", "articulated_dragon_20260301.mp4"},
              {"size", 314572800},   // 300 MB
-             {"modified", 1740787200.0}}); // 2026-03-01
+             {"modified", 1772384400.0}}); // 2026-03-01
         result_array.push_back(
             {{"path", "flexi_rex_20260225.mkv"},
              {"size", 89128960},    // 85 MB
-             {"modified", 1740441600.0}}); // 2026-02-25
+             {"modified", 1772038800.0}}); // 2026-02-25
         // Companion thumbnail (should be filtered out by is_video_file)
         result_array.push_back(
             {{"path", "benchy_timelapse_20260310.thumb.jpg"},
              {"size", 24576},
-             {"modified", 1741564800.0}});
+             {"modified", 1773158400.0}});
 
         json response = {{"result", result_array}};
         spdlog::debug("[MoonrakerClientMock] Returning {} mock timelapse files",

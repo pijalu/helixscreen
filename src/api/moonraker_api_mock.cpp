@@ -208,7 +208,23 @@ void MoonrakerFileTransferAPIMock::download_file(const std::string& root, const 
                   path, filename);
 
     // Find the test file using fallback path search
-    std::string local_path = find_test_file(filename);
+    std::string local_path;
+
+    // For timelapse root, search timelapse test directory first
+    if (root == "timelapse") {
+        for (const auto& prefix : PATH_PREFIXES) {
+            std::string timelapse_path = prefix + "assets/test_timelapse/" + filename;
+            if (std::filesystem::exists(timelapse_path)) {
+                local_path = timelapse_path;
+                spdlog::debug("[MoonrakerAPIMock] Found timelapse test file at: {}", timelapse_path);
+                break;
+            }
+        }
+    }
+
+    if (local_path.empty()) {
+        local_path = find_test_file(filename);
+    }
 
     if (local_path.empty()) {
         // File not found in test directory
@@ -323,7 +339,23 @@ void MoonrakerFileTransferAPIMock::download_file_to_path(
         root, path, filename, dest_path);
 
     // Find the test file using fallback path search
-    std::string local_path = find_test_file(filename);
+    std::string local_path;
+
+    // For timelapse root, search timelapse test directory first
+    if (root == "timelapse") {
+        for (const auto& prefix : PATH_PREFIXES) {
+            std::string timelapse_path = prefix + "assets/test_timelapse/" + filename;
+            if (std::filesystem::exists(timelapse_path)) {
+                local_path = timelapse_path;
+                spdlog::debug("[MoonrakerAPIMock] Found timelapse test file at: {}", timelapse_path);
+                break;
+            }
+        }
+    }
+
+    if (local_path.empty()) {
+        local_path = find_test_file(filename);
+    }
 
     if (local_path.empty()) {
         spdlog::warn("[MoonrakerAPIMock] File not found in test directories: {}", filename);
