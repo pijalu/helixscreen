@@ -172,7 +172,8 @@ MDI_ICONS+=",0xF0553"    # usb
 MDI_ICONS+=",0xF05E1"    # check-circle-outline (check-circle)
 MDI_ICONS+=",0xF062C"    # source-branch (bypass)
 
-# Tune/Update
+# Toolbox/Tune/Update
+MDI_ICONS+=",0xF09AD"    # toolbox-outline (tools section header)
 MDI_ICONS+=",0xF062E"    # tune
 MDI_ICONS+=",0xF06A5"    # power-plug
 MDI_ICONS+=",0xF06B0"    # update
