@@ -106,6 +106,15 @@ std::string format_modified_date(time_t timestamp) {
     return format_localized_modified_date(timeinfo);
 }
 
+std::string format_short_date(time_t timestamp) {
+    struct tm tm_buf;
+    struct tm* timeinfo = localtime_r(&timestamp, &tm_buf);
+    if (!timeinfo) {
+        return "Unknown";
+    }
+    return format_localized_short_date(timeinfo);
+}
+
 std::string format_relative_time(uint64_t elapsed_ms) {
     if (elapsed_ms < 60000) { // < 1 min
         return lv_tr("Just now");

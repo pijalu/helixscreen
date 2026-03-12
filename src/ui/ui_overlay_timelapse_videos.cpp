@@ -301,16 +301,6 @@ TimelapseCardDimensions TimelapseVideosOverlay::calculate_card_dimensions() {
     return dims;
 }
 
-/// Format unix timestamp to "Mon DD" string
-static std::string format_date_short(double modified) {
-    auto t = static_cast<time_t>(modified);
-    struct tm tm_buf {};
-    localtime_r(&t, &tm_buf);
-    char buf[32];
-    strftime(buf, sizeof(buf), "%b %d", &tm_buf);
-    return buf;
-}
-
 void TimelapseVideosOverlay::populate_video_grid(const std::vector<FileInfo>& files) {
     clear_video_grid();
     videos_.clear();
@@ -324,7 +314,9 @@ void TimelapseVideosOverlay::populate_video_grid(const std::vector<FileInfo>& fi
         entry.filename = file.filename;
         entry.size = file.size;
         entry.modified = file.modified;
-        entry.file_info = helix::ui::format_file_size(static_cast<size_t>(file.size)) + " \xC2\xB7 " + format_date_short(file.modified);
+        entry.file_info = helix::ui::format_file_size(static_cast<size_t>(file.size)) +
+                          " \xC2\xB7 " +
+                          helix::ui::format_short_date(static_cast<time_t>(file.modified));
         videos_.push_back(std::move(entry));
     }
 

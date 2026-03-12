@@ -261,6 +261,58 @@ std::string format_localized_modified_date(const struct tm* tm_info) {
     return buf;
 }
 
+std::string format_localized_short_date(const struct tm* tm_info) {
+    if (!tm_info) {
+        return helix::format::UNAVAILABLE;
+    }
+
+    std::string mon = get_month_name(tm_info);
+    int dd = tm_info->tm_mday;
+    int mm = tm_info->tm_mon + 1;
+    int yy = tm_info->tm_year + 1900;
+
+    // Show year when date is not from the current year
+    time_t now = time(nullptr);
+    struct tm now_tm {};
+    localtime_r(&now, &now_tm);
+    bool show_year = (tm_info->tm_year != now_tm.tm_year);
+
+    char buf[32];
+
+    switch (get_modified_date_pattern(s_current_lang)) {
+        case ModifiedDatePatternGroup::EN:
+            // "Mar 09" or "Mar 09 '25"
+            if (show_year)
+                snprintf(buf, sizeof(buf), "%s %02d '%02d", mon.c_str(), dd, yy % 100);
+            else
+                snprintf(buf, sizeof(buf), "%s %02d", mon.c_str(), dd);
+            break;
+        case ModifiedDatePatternGroup::DE:
+            // "09. Mär." or "09. Mär. '25"
+            if (show_year)
+                snprintf(buf, sizeof(buf), "%02d. %s '%02d", dd, mon.c_str(), yy % 100);
+            else
+                snprintf(buf, sizeof(buf), "%02d. %s", dd, mon.c_str());
+            break;
+        case ModifiedDatePatternGroup::ROMANCE_RU:
+            // "09 mars" or "09 mars '25"
+            if (show_year)
+                snprintf(buf, sizeof(buf), "%02d %s '%02d", dd, mon.c_str(), yy % 100);
+            else
+                snprintf(buf, sizeof(buf), "%02d %s", dd, mon.c_str());
+            break;
+        case ModifiedDatePatternGroup::CJK:
+            // "3/9" or "3/9/25"
+            if (show_year)
+                snprintf(buf, sizeof(buf), "%d/%d/%02d", mm, dd, yy % 100);
+            else
+                snprintf(buf, sizeof(buf), "%d/%d", mm, dd);
+            break;
+    }
+
+    return buf;
+}
+
 bool locale_default_24h(const std::string& lang_code) {
     // English and unknown languages default to 12-hour format
     if (lang_code == "en" || k_locale_map.find(lang_code) == k_locale_map.end()) {
