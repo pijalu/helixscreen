@@ -35,4 +35,15 @@ bool TimelapseThumbnailer::is_video_file(const std::string& filename) {
     return ext == ".mp4" || ext == ".mkv" || ext == ".avi";
 }
 
+bool is_local_host(const std::string& host) {
+    return host == "127.0.0.1" || host == "localhost" || host == "::1";
+}
+
+std::string build_player_command(const std::string& player, const std::string& file_path) {
+    if (player == "mpv") {
+        return "mpv --fs \"" + file_path + "\"";
+    }
+    return "ffplay -autoexit -fs \"" + file_path + "\"";
+}
+
 }  // namespace helix::timelapse

@@ -17,4 +17,10 @@ class TimelapseThumbnailer {
     static bool is_video_file(const std::string& filename);
 };
 
+/// Check if a Moonraker host is the local machine
+bool is_local_host(const std::string& host);
+
+/// Build a player command for the given player and file path
+std::string build_player_command(const std::string& player, const std::string& file_path);
+
 }  // namespace helix::timelapse
