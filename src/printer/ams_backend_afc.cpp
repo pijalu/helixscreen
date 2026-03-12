@@ -1395,7 +1395,10 @@ void AmsBackendAfc::parse_afc_unit_object(AfcUnitInfo& unit_info, const nlohmann
         auto it = lane_hub_routing_.find(lane);
         bool is_hub = false;
         if (it != lane_hub_routing_.end()) {
-            is_hub = (it->second != "direct");
+            // AFC reports "direct" or "direct_load" for lanes that go straight
+            // to an extruder (no hub/merger). Any other value (e.g., "HTLF_1")
+            // indicates the lane is routed through a hub.
+            is_hub = (it->second.rfind("direct", 0) != 0);
         }
         unit_info.lane_is_hub_routed.push_back(is_hub);
         if (is_hub)

@@ -2038,6 +2038,48 @@ TEST_CASE("AFC all-direct lanes classified as PARALLEL topology", "[ams][afc][to
     }
 }
 
+TEST_CASE("AFC direct_load hub field classified as direct (not hub-routed)",
+          "[ams][afc][topology]") {
+    // Box Turtle lanes may report hub:"direct_load" instead of hub:"direct".
+    // Both must be treated as direct (not hub-routed). Regression: #392
+    AmsBackendAfcTestHelper helper;
+    helper.initialize_test_lanes_zero_based(4);
+    helper.initialize_slots_from_discovery();
+    helper.setup_toolchanger(4);
+
+    // Feed stepper data: all lanes with hub:"direct_load"
+    helper.feed_afc_stepper("lane0",
+                            {{"hub", "direct_load"}, {"extruder", "extruder"}, {"status", "Ready"}});
+    helper.feed_afc_stepper("lane1",
+                            {{"hub", "direct_load"}, {"extruder", "extruder1"}, {"status", "Ready"}});
+    helper.feed_afc_stepper("lane2",
+                            {{"hub", "direct_load"}, {"extruder", "extruder2"}, {"status", "Ready"}});
+    helper.feed_afc_stepper("lane3",
+                            {{"hub", "direct_load"}, {"extruder", "extruder3"}, {"status", "Ready"}});
+
+    nlohmann::json afc_state;
+    afc_state["units"] = nlohmann::json::array({"Box_Turtle Turtle_1"});
+    helper.feed_afc_state(afc_state);
+
+    nlohmann::json unit_data;
+    unit_data["lanes"] = nlohmann::json::array({"lane0", "lane1", "lane2", "lane3"});
+    unit_data["extruders"] =
+        nlohmann::json::array({"extruder", "extruder1", "extruder2", "extruder3"});
+    unit_data["hubs"] = nlohmann::json::array();
+    unit_data["buffers"] = nlohmann::json::array();
+
+    nlohmann::json params;
+    params["AFC_BoxTurtle Turtle_1"] = unit_data;
+    helper.feed_status_update(params);
+
+    const auto& unit_infos = helper.get_unit_infos();
+    REQUIRE(unit_infos.size() == 1);
+    REQUIRE(unit_infos[0].topology == PathTopology::PARALLEL);
+    for (bool routed : unit_infos[0].lane_is_hub_routed) {
+        REQUIRE(routed == false);
+    }
+}
+
 TEST_CASE("AFC unit with hubs AND multiple extruders gets PARALLEL topology",
           "[ams][afc][mixed][toolchanger]") {
     // Toolchanger scenario: HTLF unit has 4 lanes, 3 extruders, 1 hub.
