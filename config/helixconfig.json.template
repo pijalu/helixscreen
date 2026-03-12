@@ -1,7 +1,7 @@
 {
   "dark_mode": true,
-  "brightness": 50,
-  "_brightness_comment": "Screen brightness percentage (1-100). Default: 50%.",
+  "brightness": 80,
+  "_brightness_comment": "Screen brightness percentage (1-100). Default: 80%.",
   "sounds_enabled": true,
   "_sounds_enabled_comment": "Master switch for all sound effects. Default: true.",
   "ui_sounds_enabled": true,

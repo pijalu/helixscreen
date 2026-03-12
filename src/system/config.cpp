@@ -366,6 +366,15 @@ static void default_printer_switcher_off(json& config, int target_version) {
 static void migrate_v4_to_v5(json& config) { default_printer_switcher_off(config, 5); }
 static void migrate_v5_to_v6(json& config) { default_printer_switcher_off(config, 6); }
 
+/// Bump default brightness from 50% to 80% for users who never changed it.
+static void migrate_v6_to_v7(json& config) {
+    if (config.contains("brightness") && config["brightness"].is_number() &&
+        config["brightness"].get<int>() == 50) {
+        config["brightness"] = 80;
+        spdlog::info("[Config] Migration v7: updated default brightness from 50% to 80%");
+    }
+}
+
 /// Run all versioned migrations in sequence from current version to CURRENT_CONFIG_VERSION
 static void run_versioned_migrations(json& config) {
     int version = 0;
@@ -385,6 +394,8 @@ static void run_versioned_migrations(json& config) {
         migrate_v4_to_v5(config);
     if (version < 6)
         migrate_v5_to_v6(config);
+    if (version < 7)
+        migrate_v6_to_v7(config);
 
     config["config_version"] = CURRENT_CONFIG_VERSION;
 }
