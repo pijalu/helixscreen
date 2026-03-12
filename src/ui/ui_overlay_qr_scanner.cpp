@@ -106,6 +106,11 @@ lv_obj_t* QrScannerOverlay::create(lv_obj_t* parent) {
     status_text_ = lv_obj_find_by_name(overlay_root_, "status_text");
     success_flash_ = lv_obj_find_by_name(overlay_root_, "success_flash");
 
+    // Scale camera frames to cover the viewfinder area
+    if (viewfinder_) {
+        lv_image_set_inner_align(viewfinder_, LV_IMAGE_ALIGN_COVER);
+    }
+
     // Initially hidden until show() pushes it
     lv_obj_add_flag(overlay_root_, LV_OBJ_FLAG_HIDDEN);
 
@@ -180,6 +185,11 @@ void QrScannerOverlay::on_deactivate() {
     *alive_ = false;
     stop_scanning();
 
+    // Clear image source before camera is stopped to prevent dangling frame ref
+    if (viewfinder_ && lv_is_initialized()) {
+        lv_image_set_src(viewfinder_, nullptr);
+    }
+
     // Cancel pending timers
     if (success_timer_) {
         lv_timer_delete(success_timer_);
@@ -210,9 +220,8 @@ void QrScannerOverlay::start_scanning() {
 
 #if HELIX_HAS_CAMERA
     // Start camera if webcam URL is available
-    const auto& stream_url = get_printer_state().get_webcam_stream_url();
-    const auto& snapshot_url = get_printer_state().get_webcam_snapshot_url();
-    if (!stream_url.empty() || !snapshot_url.empty()) {
+    std::string stream_url, snapshot_url;
+    if (camera_->configure_from_printer(stream_url, snapshot_url)) {
         decode_busy_ = false;
         auto weak = std::weak_ptr<bool>(alive_);
         camera_->start(stream_url, snapshot_url,
@@ -277,25 +286,18 @@ void QrScannerOverlay::on_camera_frame(lv_draw_buf_t* frame) {
         return;
     }
 
-    // Throttle: skip frame if decoder is still busy
-    if (decode_busy_.exchange(true)) {
-        camera_->frame_consumed();
-        return;
-    }
-
-    // Extract frame dimensions and pixel data
+    // Extract frame dimensions and pixel data for grayscale conversion
     const int width = static_cast<int>(frame->header.w);
     const int height = static_cast<int>(frame->header.h);
     const auto* pixels = static_cast<const uint8_t*>(frame->data);
 
     if (!pixels || width <= 0 || height <= 0) {
-        decode_busy_ = false;
         camera_->frame_consumed();
         return;
     }
 
-    // Convert to grayscale for QR detection
-    // LVGL uses BGR888 format (3 bytes per pixel)
+    // Convert to grayscale for QR detection (copies pixel data so we can
+    // release the frame after the UI thread displays it)
     const int stride = static_cast<int>(frame->header.stride);
     const int pixel_size = (frame->header.cf == LV_COLOR_FORMAT_ARGB8888) ? 4 : 3;
 
@@ -305,27 +307,36 @@ void QrScannerOverlay::on_camera_frame(lv_draw_buf_t* frame) {
         const uint8_t* row = pixels + y * stride;
         for (int x = 0; x < width; ++x) {
             const uint8_t* px = row + x * pixel_size;
-            // Use green channel as fast grayscale approximation
-            // For BGR888: B=px[0], G=px[1], R=px[2]
-            // For ARGB8888: B=px[0], G=px[1], R=px[2], A=px[3]
             grayscale_buf_[static_cast<size_t>(y * width + x)] = px[1];
         }
     }
 
-    camera_->frame_consumed();
-
-    // Decode QR from grayscale
-    auto result = qr_decoder_->decode(grayscale_buf_.data(), width, height);
-    decode_busy_ = false;
-
-    if (result.success && result.spool_id >= 0) {
-        auto weak = std::weak_ptr<bool>(alive_);
-        int spool_id = result.spool_id;
-        helix::ui::queue_update([this, weak, spool_id]() {
-            if (auto alive = weak.lock(); alive && *alive) {
-                on_spool_id_detected(spool_id);
+    // Display the frame on the UI thread, then release it.
+    // frame pointer stays valid until frame_consumed() is called.
+    auto weak = std::weak_ptr<bool>(alive_);
+    helix::ui::queue_update([this, weak, frame]() {
+        if (auto alive = weak.lock(); alive && *alive) {
+            if (viewfinder_) {
+                lv_image_set_src(viewfinder_, frame);
             }
-        });
+        }
+        camera_->frame_consumed();
+    });
+
+    // Decode QR from grayscale copy (runs on background thread, doesn't
+    // need the frame buffer — we already copied the pixels above)
+    if (!decode_busy_.exchange(true)) {
+        auto result = qr_decoder_->decode(grayscale_buf_.data(), width, height);
+        decode_busy_ = false;
+
+        if (result.success && result.spool_id >= 0) {
+            int spool_id = result.spool_id;
+            helix::ui::queue_update([this, weak, spool_id]() {
+                if (auto alive = weak.lock(); alive && *alive) {
+                    on_spool_id_detected(spool_id);
+                }
+            });
+        }
     }
 }
 #endif

@@ -6,6 +6,10 @@
 
 #if HELIX_HAS_CAMERA
 
+#include "app_globals.h"
+#include "moonraker_api.h"
+#include "printer_state.h"
+
 #include "hv/requests.h"
 #include "spdlog/spdlog.h"
 #include "stb_image.h"
@@ -76,6 +80,29 @@ CameraStream::~CameraStream() {
 // ============================================================================
 // Public API
 // ============================================================================
+
+bool CameraStream::configure_from_printer(std::string& stream_url, std::string& snapshot_url) {
+    // Lazy includes — avoid header dependency on printer_state/moonraker in camera_stream.h
+    auto& state = get_printer_state();
+    stream_url = state.get_webcam_stream_url();
+    snapshot_url = state.get_webcam_snapshot_url();
+
+    if (stream_url.empty() && snapshot_url.empty()) {
+        return false;
+    }
+
+    // Resolve relative URLs against the web frontend (nginx on port 80)
+    auto* api = get_moonraker_api();
+    if (api) {
+        api->resolve_webcam_url(stream_url);
+        api->resolve_webcam_url(snapshot_url);
+    }
+
+    // Apply flip settings from webcam config
+    set_flip(state.get_webcam_flip_horizontal(), state.get_webcam_flip_vertical());
+
+    return true;
+}
 
 void CameraStream::start(const std::string& stream_url, const std::string& snapshot_url,
                           FrameCallback on_frame, ErrorCallback on_error) {

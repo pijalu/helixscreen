@@ -388,6 +388,34 @@ class MoonrakerAPI {
     }
 
     /**
+     * @brief Resolve a relative webcam URL against the web frontend base.
+     *
+     * Moonraker webcam URLs are often relative paths (e.g. "/webcam/?action=stream")
+     * meant for the nginx reverse proxy on port 80, not the Moonraker API port.
+     * This extracts "http://HOST" from the HTTP base URL and prepends it.
+     *
+     * @param url The URL to resolve (modified in place). Absolute URLs are unchanged.
+     */
+    void resolve_webcam_url(std::string& url) {
+        if (url.empty() || url[0] != '/') return;
+        ensure_http_base_url();
+        const auto& base = get_http_base_url();
+        if (base.empty()) return;
+        // Extract "http://HOST" — drop port and path
+        auto scheme_end = base.find("://");
+        if (scheme_end == std::string::npos) {
+            url = base + url;
+            return;
+        }
+        auto port_pos = base.find(':', scheme_end + 3);
+        if (port_pos != std::string::npos) {
+            url = base.substr(0, port_pos) + url;
+        } else {
+            url = base + url;
+        }
+    }
+
+    /**
      * @brief Ensure HTTP base URL is set, auto-deriving from WebSocket if needed
      *
      * If http_base_url_ is empty, attempts to derive it from the client's

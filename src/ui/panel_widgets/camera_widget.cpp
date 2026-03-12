@@ -64,26 +64,7 @@ static void on_camera_fullscreen_close(lv_event_t* /*e*/) {
     }
 }
 
-/// Extract "http://HOST" from "http://HOST:PORT/path", dropping port and path.
-static std::string extract_web_base(const std::string& base_url) {
-    auto scheme_end = base_url.find("://");
-    if (scheme_end == std::string::npos) {
-        return base_url;
-    }
-    auto host_start = scheme_end + 3;
-    auto port_pos = base_url.find(':', host_start);
-    if (port_pos != std::string::npos) {
-        return base_url.substr(0, port_pos);
-    }
-    return base_url;
-}
 
-/// Resolve a relative URL (starting with '/') against the web frontend base.
-static void resolve_relative_url(std::string& url, const std::string& web_base) {
-    if (!url.empty() && url[0] == '/') {
-        url = web_base + url;
-    }
-}
 
 namespace helix {
 void register_camera_widget() {
@@ -278,30 +259,12 @@ void CameraWidget::start_stream() {
         alive_ = std::make_shared<bool>(true);
     }
 
-    auto& state = get_printer_state();
-    std::string stream_url = state.get_webcam_stream_url();
-    std::string snapshot_url = state.get_webcam_snapshot_url();
-
-    if (stream_url.empty() && snapshot_url.empty()) {
+    stream_ = std::make_unique<CameraStream>();
+    std::string stream_url, snapshot_url;
+    if (!stream_->configure_from_printer(stream_url, snapshot_url)) {
         spdlog::debug("[CameraWidget] start_stream: no URLs available yet, waiting for observer");
+        stream_.reset();
         return;
-    }
-
-    // Resolve relative URLs against the web frontend (nginx on port 80).
-    // Moonraker's webcam URLs are relative paths meant for the nginx reverse
-    // proxy, NOT the Moonraker API port (7125).
-    auto* api = get_moonraker_api();
-    if (api) {
-        const auto& base = api->get_http_base_url();
-        spdlog::debug("[CameraWidget] HTTP base URL: '{}'", base);
-        if (!base.empty()) {
-            std::string web_base = extract_web_base(base);
-            spdlog::debug("[CameraWidget] Web frontend base: '{}'", web_base);
-            resolve_relative_url(stream_url, web_base);
-            resolve_relative_url(snapshot_url, web_base);
-        }
-    } else {
-        spdlog::warn("[CameraWidget] No MoonrakerAPI available for URL resolution");
     }
 
     set_status_text("Connecting Camera...");
@@ -312,9 +275,6 @@ void CameraWidget::start_stream() {
     if (camera_overlay_) {
         lv_obj_remove_flag(camera_overlay_, LV_OBJ_FLAG_HIDDEN);
     }
-
-    stream_ = std::make_unique<CameraStream>();
-    stream_->set_flip(state.get_webcam_flip_horizontal(), state.get_webcam_flip_vertical());
 
     // Capture alive guard by value for safe callback
     std::weak_ptr<bool> weak_alive = alive_;

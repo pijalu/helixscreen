@@ -48,6 +48,18 @@ class CameraStream {
     }
 
     /**
+     * @brief Configure stream URLs and flip from printer state.
+     *
+     * Reads webcam URLs from PrinterState, resolves relative URLs via
+     * MoonrakerAPI, and applies flip settings. Call before start().
+     *
+     * @param[out] stream_url Resolved stream URL (empty if no webcam)
+     * @param[out] snapshot_url Resolved snapshot URL (empty if no webcam)
+     * @return true if at least one URL is available
+     */
+    bool configure_from_printer(std::string& stream_url, std::string& snapshot_url);
+
+    /**
      * @brief Copy pixels to LVGL BGR format with optional flip.
      *
      * When using stb_image (fallback), source is RGB and R↔B swap is needed.
