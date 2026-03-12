@@ -42,9 +42,9 @@ bool is_local_host(const std::string& host) {
 std::vector<std::string> build_player_args(const std::string& player,
                                            const std::string& file_path) {
     if (player == "mpv") {
-        return {"mpv", "--fs", file_path};
+        return {"mpv", "--fs", "--keep-open=no", file_path};
     }
-    return {"ffplay", "-autoexit", "-fs", file_path};
+    return {"ffplay", "-autoexit", "-exitonmousedown", "-fs", file_path};
 }
 
 }  // namespace helix::timelapse
