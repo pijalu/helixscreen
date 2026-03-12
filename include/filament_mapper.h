@@ -75,7 +75,7 @@ public:
     static std::vector<int> find_unresolved_tools(const std::vector<ToolMapping>& mappings);
 
     /// Weighted RGB distance between two colors (luminance-weighted).
-    /// Matches the algorithm in ui_color_distance() from ui_utils.cpp.
+    /// Uses standard luminance coefficients: R=0.30, G=0.59, B=0.11.
     static int color_distance(uint32_t a, uint32_t b);
 
     /// Case-insensitive material comparison

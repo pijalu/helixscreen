@@ -356,7 +356,7 @@ void PrintStartController::on_filament_warning_cancel_static(lv_event_t* e) {
 }
 
 // ============================================================================
-// AMS Color Mismatch Detection
+// Filament Mismatch Detection
 // ============================================================================
 
 std::vector<int> PrintStartController::find_unresolved_tools() {
