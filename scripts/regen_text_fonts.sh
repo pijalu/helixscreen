@@ -37,15 +37,47 @@ for FONT in "$FONT_REGULAR" "$FONT_LIGHT" "$FONT_BOLD"; do
     fi
 done
 
-# Check if CJK fonts exist
-CJK_AVAILABLE=false
-if [ -f "$FONT_CJK_SC" ] && [ -f "$FONT_CJK_JP" ]; then
-    CJK_AVAILABLE=true
-    echo "CJK fonts found - will include Chinese and Japanese support"
-else
-    echo "CJK fonts not found - generating Latin-only fonts"
-    echo "To add CJK support, download Noto Sans CJK from GitHub"
+# CJK font download URLs (Google Noto CJK releases)
+CJK_SC_URL="https://github.com/notofonts/noto-cjk/raw/main/Sans/OTF/SimplifiedChinese/NotoSansCJKsc-Regular.otf"
+CJK_JP_URL="https://github.com/notofonts/noto-cjk/raw/main/Sans/OTF/Japanese/NotoSansCJKjp-Regular.otf"
+
+# Auto-download CJK fonts if missing
+download_cjk_font() {
+    local url="$1"
+    local dest="$2"
+    local name
+    name=$(basename "$dest")
+
+    if [ -f "$dest" ]; then
+        return 0
+    fi
+
+    echo "Downloading $name..."
+    if command -v curl >/dev/null 2>&1; then
+        curl -fSL --progress-bar -o "$dest" "$url"
+    elif command -v wget >/dev/null 2>&1; then
+        wget -q --show-progress -O "$dest" "$url"
+    else
+        echo "ERROR: Neither curl nor wget found - cannot download $name"
+        return 1
+    fi
+
+    if [ ! -f "$dest" ] || [ ! -s "$dest" ]; then
+        echo "ERROR: Download failed for $name"
+        rm -f "$dest"
+        return 1
+    fi
+
+    echo "Downloaded $name ($(du -h "$dest" | cut -f1))"
+}
+
+if [ ! -f "$FONT_CJK_SC" ] || [ ! -f "$FONT_CJK_JP" ]; then
+    echo "CJK fonts not found - downloading from GitHub notofonts/noto-cjk..."
+    download_cjk_font "$CJK_SC_URL" "$FONT_CJK_SC" || { echo "ERROR: Failed to download CJK SC font. CJK support is REQUIRED."; exit 1; }
+    download_cjk_font "$CJK_JP_URL" "$FONT_CJK_JP" || { echo "ERROR: Failed to download CJK JP font. CJK support is REQUIRED."; exit 1; }
 fi
+
+echo "CJK fonts found - will include Chinese and Japanese support"
 
 # Unicode ranges for Latin/Cyrillic
 UNICODE_RANGES=""
@@ -60,11 +92,9 @@ UNICODE_RANGES+=",0x2026"        # Ellipsis
 UNICODE_RANGES+=",0x20AC"        # Euro sign
 UNICODE_RANGES+=",0x2122"        # Trademark
 
-# Extract CJK characters from translations and C++ sources if fonts available
-CJKCHARS=""
-if [ "$CJK_AVAILABLE" = true ]; then
-    echo "Extracting CJK characters from translations and C++ sources..."
-    CJKCHARS=$(python3 << 'EOF'
+# Extract CJK characters from translations and C++ sources
+echo "Extracting CJK characters from translations and C++ sources..."
+CJKCHARS=$(python3 << 'EOF'
 import glob
 import re
 
@@ -108,10 +138,11 @@ if chars:
     print(','.join(f'0x{ord(c):04x}' for c in sorted(chars)))
 EOF
 )
-    if [ -n "$CJKCHARS" ]; then
-        CJK_COUNT=$(echo "$CJKCHARS" | tr ',' '\n' | wc -l | tr -d ' ')
-        echo "Found $CJK_COUNT unique CJK characters"
-    fi
+if [ -n "$CJKCHARS" ]; then
+    CJK_COUNT=$(echo "$CJKCHARS" | tr ',' '\n' | wc -l | tr -d ' ')
+    echo "Found $CJK_COUNT unique CJK characters"
+else
+    echo "WARNING: No CJK characters found in translations or source files"
 fi
 
 # Font sizes
@@ -129,7 +160,7 @@ for SIZE in $SIZES_REGULAR; do
     OUTPUT="assets/fonts/noto_sans_${SIZE}.c"
     echo "  Generating noto_sans_${SIZE} -> $OUTPUT"
 
-    if [ "$CJK_AVAILABLE" = true ] && [ -n "$CJKCHARS" ]; then
+    if [ -n "$CJKCHARS" ]; then
         lv_font_conv \
             --font "$FONT_REGULAR" --size "$SIZE" --range "$UNICODE_RANGES" \
             --font "$FONT_CJK_SC" --size "$SIZE" --range "$CJKCHARS" \
@@ -153,7 +184,7 @@ for SIZE in $SIZES_LIGHT; do
     OUTPUT="assets/fonts/noto_sans_light_${SIZE}.c"
     echo "  Generating noto_sans_light_${SIZE} -> $OUTPUT"
 
-    if [ "$CJK_AVAILABLE" = true ] && [ -n "$CJKCHARS" ]; then
+    if [ -n "$CJKCHARS" ]; then
         lv_font_conv \
             --font "$FONT_LIGHT" --size "$SIZE" --range "$UNICODE_RANGES" \
             --font "$FONT_CJK_SC" --size "$SIZE" --range "$CJKCHARS" \
@@ -177,7 +208,7 @@ for SIZE in $SIZES_BOLD; do
     OUTPUT="assets/fonts/noto_sans_bold_${SIZE}.c"
     echo "  Generating noto_sans_bold_${SIZE} -> $OUTPUT"
 
-    if [ "$CJK_AVAILABLE" = true ] && [ -n "$CJKCHARS" ]; then
+    if [ -n "$CJKCHARS" ]; then
         lv_font_conv \
             --font "$FONT_BOLD" --size "$SIZE" --range "$UNICODE_RANGES" \
             --font "$FONT_CJK_SC" --size "$SIZE" --range "$CJKCHARS" \
@@ -225,9 +256,7 @@ echo "  - ASCII (0x20-0x7F)"
 echo "  - Western European: é, è, ê, ñ, ü, ö, ß, etc."
 echo "  - Central European: ą, ę, ł, ő, etc."
 echo "  - Cyrillic: А-Яа-я (Russian, Ukrainian, etc.)"
-if [ "$CJK_AVAILABLE" = true ]; then
-    echo "  - Chinese: Simplified Chinese characters (from translations + C++ sources)"
-    echo "  - Japanese: Hiragana, Katakana, Kanji (from translations + C++ sources)"
-fi
+echo "  - Chinese: Simplified Chinese characters (from translations + C++ sources)"
+echo "  - Japanese: Hiragana, Katakana, Kanji (from translations + C++ sources)"
 echo ""
 echo "Rebuild the project: make -j"

@@ -70,15 +70,11 @@ TEXT_FONT_STAMP := .text-fonts.stamp
 
 # Check if any CJK translation YAML is newer than the text font stamp
 $(TEXT_FONT_STAMP): $(CJK_TRANS_YAML) scripts/regen_text_fonts.sh
-	$(Q)if [ -f "$(CJK_FONT_SC)" ] && [ -f "$(CJK_FONT_JP)" ]; then \
-		if command -v lv_font_conv >/dev/null 2>&1; then \
-			echo "$(YELLOW)→ CJK translations changed - regenerating text fonts...$(RESET)"; \
-			./scripts/regen_text_fonts.sh && touch $@ && echo "$(GREEN)✓ Text fonts regenerated with CJK$(RESET)"; \
-		else \
-			echo "$(YELLOW)⚠ lv_font_conv not found - skipping CJK font regeneration$(RESET)"; \
-			touch $@; \
-		fi; \
+	$(Q)if command -v lv_font_conv >/dev/null 2>&1; then \
+		echo "$(YELLOW)→ CJK translations changed - regenerating text fonts (will auto-download CJK fonts if needed)...$(RESET)"; \
+		./scripts/regen_text_fonts.sh && touch $@ && echo "$(GREEN)✓ Text fonts regenerated with CJK$(RESET)"; \
 	else \
+		echo "$(YELLOW)⚠ lv_font_conv not found - skipping CJK font regeneration$(RESET)"; \
 		touch $@; \
 	fi
 
