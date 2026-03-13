@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.98.4] - 2026-03-12
+
+Timelapse video browser, USB mouse support, runtime CJK fonts, and filament system improvements.
+
+### Added
+- Timelapse video browser with thumbnail grid, render progress tracking, and video playback
+- USB mouse support for DRM and fbdev backends with sysfs capability scanning
+- Runtime CJK font loading — wizard codepoints compiled in, full character sets loaded on demand
+- AntHead toolhead renderer for PrintersForAnts printers
+- Library card on home panel with Print Files, Print Last, and Recent actions
+- Compact locale-aware date formatting utility
+
+### Fixed
+- HDMI CEC devices falsely matched as mouse input, causing spurious pointer events
+- AMS ZMOD IFS detection without lessWaste plugin installed
+- AFC UNSELECT_TOOL sent invalid TOOL= parameter; added extruder LED support
+- Timelapse empty state centering and missing icons
+- Icon codepoint sort order in font generation
+- Print file detail header bar layout on narrow breakpoints
+- Timelapse switch background transparency on options card
+
+### Changed
+- Timelapse graduated from beta — feature gates removed
+- AMS overview and detail headers unified with context-aware back button
+- GitHub Actions upgraded from Node 20 to Node 24
+
 ## [0.98.3] - 2026-03-12
 
 Macro browser, toolhead renderer, touch and filament fixes, and internationalization improvements.
@@ -1886,6 +1912,7 @@ Initial tagged release. Foundation for all subsequent development.
 - Automated GitHub Actions release pipeline
 - One-liner installation script with platform auto-detection
 
+[0.98.4]: https://github.com/prestonbrown/helixscreen/compare/v0.98.3...v0.98.4
 [0.98.3]: https://github.com/prestonbrown/helixscreen/compare/v0.98.2...v0.98.3
 [0.98.2]: https://github.com/prestonbrown/helixscreen/compare/v0.98.1...v0.98.2
 [0.98.1]: https://github.com/prestonbrown/helixscreen/compare/v0.98.0...v0.98.1
