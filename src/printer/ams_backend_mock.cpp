@@ -1519,6 +1519,7 @@ void AmsBackendMock::set_multi_unit_mode(bool enabled) {
             u.has_slot_sensors = true;
             u.has_hub_sensor = true;
             u.hub_sensor_triggered = true;
+            u.hub_tool_label = 0; // Single toolhead — both units feed T0
             system_info_.units.push_back(u);
         }
         {
@@ -1534,6 +1535,7 @@ void AmsBackendMock::set_multi_unit_mode(bool enabled) {
             u.has_slot_sensors = true;
             u.has_hub_sensor = true;
             u.hub_sensor_triggered = false;
+            u.hub_tool_label = 0; // Single toolhead — both units feed T0
             system_info_.units.push_back(u);
         }
 
