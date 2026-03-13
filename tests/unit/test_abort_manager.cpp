@@ -9,7 +9,7 @@
  *
  * 1. TRY_HEATER_INTERRUPT - Probe for Kalico, try soft interrupt (1s timeout)
  * 2. PROBE_QUEUE - Send M115 to test if queue is responsive (2s timeout)
- * 3. SENT_CANCEL - Queue responsive, send CANCEL_PRINT (3s timeout)
+ * 3. SENT_CANCEL - Queue responsive, send printer.print.cancel RPC (configurable timeout)
  * 4. SENT_ESTOP - Queue blocked or cancel failed, send M112
  * 5. SENT_RESTART - Send FIRMWARE_RESTART after M112
  * 6. WAITING_RECONNECT - Wait for klippy_state == READY (15s timeout)
@@ -215,14 +215,14 @@ class AbortManagerTestFixture : public LVGLTestFixture {
     }
 
     /**
-     * @brief Simulate CANCEL_PRINT success
+     * @brief Simulate cancel RPC success
      */
     void simulate_cancel_success() {
         AbortManagerTestAccess::on_cancel_success(AbortManager::instance());
     }
 
     /**
-     * @brief Simulate CANCEL_PRINT timeout
+     * @brief Simulate cancel RPC timeout
      */
     void simulate_cancel_timeout() {
         AbortManagerTestAccess::on_cancel_timeout(AbortManager::instance());
@@ -441,14 +441,14 @@ TEST_CASE_METHOD(AbortManagerTestFixture, "AbortManager: M115 timeout indicates 
 // Cancel Print Tests
 // ============================================================================
 
-TEST_CASE_METHOD(AbortManagerTestFixture, "AbortManager: CANCEL_PRINT success completes abort",
+TEST_CASE_METHOD(AbortManagerTestFixture, "AbortManager: cancel RPC success completes abort",
                  "[abort][cancel][success]") {
     AbortManager::instance().start_abort();
     simulate_kalico_not_present();
     simulate_queue_responsive();
     REQUIRE(AbortManager::instance().get_state() == AbortManager::State::SENT_CANCEL);
 
-    // Simulate CANCEL_PRINT success
+    // Simulate cancel RPC success
     simulate_cancel_success();
 
     // Should complete successfully
@@ -456,14 +456,14 @@ TEST_CASE_METHOD(AbortManagerTestFixture, "AbortManager: CANCEL_PRINT success co
     REQUIRE(AbortManager::instance().is_aborting() == false);
 }
 
-TEST_CASE_METHOD(AbortManagerTestFixture, "AbortManager: CANCEL_PRINT timeout escalates to ESTOP",
+TEST_CASE_METHOD(AbortManagerTestFixture, "AbortManager: cancel RPC timeout escalates to ESTOP",
                  "[abort][cancel][timeout][escalation]") {
     AbortManager::instance().start_abort();
     simulate_kalico_not_present();
     simulate_queue_responsive();
     REQUIRE(AbortManager::instance().get_state() == AbortManager::State::SENT_CANCEL);
 
-    // Simulate CANCEL_PRINT timeout (3s without success)
+    // Simulate cancel RPC timeout
     simulate_cancel_timeout();
 
     // Should escalate to SENT_ESTOP
@@ -807,7 +807,7 @@ TEST_CASE_METHOD(AbortManagerTestFixture,
         REQUIRE(AbortManager::instance().is_aborting() == true);
     }
 
-    SECTION("API error during CANCEL_PRINT escalates to ESTOP") {
+    SECTION("API error during cancel RPC escalates to ESTOP") {
         AbortManager::instance().start_abort();
         simulate_kalico_not_present();
         simulate_queue_responsive();
@@ -912,7 +912,7 @@ TEST_CASE_METHOD(AbortManagerTestFixture, "AbortManager: Observes klippy_state f
 TEST_CASE_METHOD(AbortManagerTestFixture,
                  "AbortManager: Happy path - queue responsive, cancel succeeds",
                  "[abort][happy][path]") {
-    // This tests the ideal case: queue is responsive, CANCEL_PRINT works
+    // This tests the ideal case: queue is responsive, cancel RPC works
 
     AbortManager::instance().start_abort();
 

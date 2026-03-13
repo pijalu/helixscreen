@@ -24,7 +24,7 @@ namespace helix {
  *
  * 1. TRY_HEATER_INTERRUPT - Probe for Kalico, try soft interrupt (1s timeout)
  * 2. PROBE_QUEUE - Send M115 to test if queue is responsive (2s timeout)
- * 3. SENT_CANCEL - Queue responsive, send CANCEL_PRINT (3s timeout)
+ * 3. SENT_CANCEL - Queue responsive, send printer.print.cancel RPC (configurable timeout)
  * 4. SENT_ESTOP - Queue blocked or cancel failed, send M112
  * 5. SENT_RESTART - Send FIRMWARE_RESTART after M112
  * 6. WAITING_RECONNECT - Wait for klippy_state == READY (15s timeout)
@@ -69,7 +69,7 @@ class AbortManager {
         IDLE,                 ///< Not aborting, ready for new abort request
         TRY_HEATER_INTERRUPT, ///< Probing for Kalico with HEATER_INTERRUPT command
         PROBE_QUEUE,          ///< Sending M115 to check if G-code queue is responsive
-        SENT_CANCEL,          ///< Queue responsive, CANCEL_PRINT sent
+        SENT_CANCEL,          ///< Queue responsive, printer.print.cancel RPC sent
         SENT_ESTOP,           ///< Queue blocked or cancel failed, M112 sent
         SENT_RESTART,         ///< FIRMWARE_RESTART sent after M112
         WAITING_RECONNECT,    ///< Waiting for klippy_state to become READY
@@ -291,7 +291,7 @@ class AbortManager {
     void start_probe();
 
     /**
-     * @brief Send CANCEL_PRINT command
+     * @brief Send cancel via Moonraker printer.print.cancel RPC
      */
     void send_cancel_print();
 

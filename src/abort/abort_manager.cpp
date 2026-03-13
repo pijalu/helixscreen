@@ -292,7 +292,7 @@ void AbortManager::start_probe() {
 
 void AbortManager::send_cancel_print() {
     // Register observer on print_state_enum to detect when Klipper reports print ended
-    // This allows early completion before the timeout when the CANCEL_PRINT macro finishes
+    // This allows early completion before the timeout when the cancel finishes
     if (printer_state_) {
         cancel_state_observer_ = helix::ui::observe_int_immediate<AbortManager>(
             printer_state_->get_print_state_enum_subject(), this,
@@ -329,9 +329,10 @@ void AbortManager::send_cancel_print() {
         lv_timer_set_repeat_count(cancel_timer_, 1);
     }
 
-    // Send CANCEL_PRINT
-    api_->execute_gcode(
-        "CANCEL_PRINT",
+    // Use Moonraker RPC (printer.print.cancel) instead of raw CANCEL_PRINT gcode.
+    // The RPC calls Klipper's pause_resume/cancel endpoint which bypasses the gcode
+    // queue — works even if the queue blocks between our M115 probe and now.
+    api_->job().cancel_print(
         [this]() {
             // Success callback
             helix::ui::async_call(
@@ -342,7 +343,7 @@ void AbortManager::send_cancel_print() {
                 this);
         },
         [this](const MoonrakerError& err) {
-            spdlog::warn("[AbortManager] CANCEL_PRINT error: {}", err.message);
+            spdlog::warn("[AbortManager] printer.print.cancel error: {}", err.message);
             helix::ui::async_call(
                 [](void* user_data) {
                     auto* self = static_cast<AbortManager*>(user_data);
@@ -355,7 +356,7 @@ void AbortManager::send_cancel_print() {
                         self->on_cancel_timeout();
                     } else {
                         spdlog::warn(
-                            "[AbortManager] CANCEL_PRINT failed, escalation disabled");
+                            "[AbortManager] printer.print.cancel failed, escalation disabled");
                         self->complete_abort(
                             "Cancel command failed. Use E-Stop if print continues.");
                     }
@@ -562,7 +563,7 @@ void AbortManager::on_probe_response() {
         probe_timer_ = nullptr;
     }
 
-    spdlog::info("[AbortManager] Queue responsive, sending CANCEL_PRINT");
+    spdlog::info("[AbortManager] Queue responsive, sending cancel via RPC");
     set_state(State::SENT_CANCEL);
     set_progress_message("Stopping print...");
     send_cancel_print();
@@ -581,7 +582,7 @@ void AbortManager::on_probe_timeout() {
         escalate_to_estop();
     } else {
         spdlog::warn("[AbortManager] Queue blocked (M115 timed out), escalation disabled — "
-                     "sending CANCEL_PRINT anyway");
+                     "sending cancel via RPC anyway");
         set_state(State::SENT_CANCEL);
         set_progress_message("Stopping print...");
         send_cancel_print();
@@ -601,7 +602,7 @@ void AbortManager::on_cancel_success() {
 
     // Note: cancel_state_observer_ is cleaned up by complete_abort() → cancel_all_timers()
 
-    spdlog::info("[AbortManager] CANCEL_PRINT succeeded");
+    spdlog::info("[AbortManager] printer.print.cancel succeeded");
     complete_abort("Print cancelled");
 }
 
@@ -615,7 +616,7 @@ void AbortManager::on_cancel_timeout() {
     bool escalation_enabled = SafetySettingsManager::instance().get_cancel_escalation_enabled();
     if (escalation_enabled) {
         // Note: cancel_state_observer_ is cleaned up by escalate_to_estop() → cancel_all_timers()
-        spdlog::warn("[AbortManager] CANCEL_PRINT timed out, escalating to ESTOP");
+        spdlog::warn("[AbortManager] printer.print.cancel timed out, escalating to ESTOP");
         escalate_to_estop();
     } else {
         spdlog::info("[AbortManager] Cancel taking a while, escalation disabled — showing nudge");
