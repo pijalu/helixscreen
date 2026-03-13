@@ -244,18 +244,18 @@
                 <event_cb trigger="value_changed" callback="on_preprint_purge_line_toggled"/>
               </ui_switch>
             </lv_obj>
-            <!-- Recording options (visibility controlled by plugin availability) -->
-            <lv_obj name="timelapse_row"
-                    width="100%" flex_flow="row" style_flex_main_place="space_between" style_flex_cross_place="center"
-                    style_pad_ver="#space_xs">
-              <bind_flag_if_eq subject="printer_has_timelapse" flag="hidden" ref_value="0"/>
-              <text_body text="Record Timelapse" translation_tag="Record Timelapse"/>
-              <ui_switch name="timelapse_checkbox" size="small">
-                <bind_state_if_eq subject="preprint_timelapse" state="checked" ref_value="1"/>
-                <event_cb trigger="value_changed" callback="on_preprint_timelapse_toggled"/>
-              </ui_switch>
-            </lv_obj>
           </ui_card>
+          <!-- Recording options (outside card for transparent background) -->
+          <lv_obj name="timelapse_row"
+                  width="100%" flex_flow="row" style_flex_main_place="space_between" style_flex_cross_place="center"
+                  style_pad_ver="#space_xs" style_pad_hor="#space_md">
+            <bind_flag_if_eq subject="printer_has_timelapse" flag="hidden" ref_value="0"/>
+            <text_body text="Record Timelapse" translation_tag="Record Timelapse"/>
+            <ui_switch name="timelapse_checkbox" size="small">
+              <bind_state_if_eq subject="preprint_timelapse" state="checked" ref_value="1"/>
+              <event_cb trigger="value_changed" callback="on_preprint_timelapse_toggled"/>
+            </ui_switch>
+          </lv_obj>
 
           <!-- Spacer pushes buttons to bottom when options card is hidden -->
           <lv_obj flex_grow="1"/>
