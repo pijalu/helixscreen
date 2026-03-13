@@ -420,8 +420,8 @@ lv_indev_t* DisplayBackendDRM::create_input_pointer() {
         }
     }
 
-    if (!mouse_ && !pointer_) {
-        // No touch found — try libinput pointer discovery for mouse
+    if (!mouse_) {
+        // Try libinput pointer discovery for mouse (works alongside touchscreen)
         char* pointer_path = lv_libinput_find_dev(LV_LIBINPUT_CAPABILITY_POINTER, false);
         if (pointer_path) {
             mouse_ = lv_libinput_create(LV_INDEV_TYPE_POINTER, pointer_path);
