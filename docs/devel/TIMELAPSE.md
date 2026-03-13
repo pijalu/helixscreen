@@ -1,6 +1,6 @@
 # Timelapse Feature
 
-Integration with [moonraker-timelapse](https://github.com/mainsail-crew/moonraker-timelapse) plugin for automated timelapse recording during prints. Currently a **beta feature** gated behind the beta features flag.
+Integration with [moonraker-timelapse](https://github.com/mainsail-crew/moonraker-timelapse) plugin for automated timelapse recording during prints.
 
 **Design doc**: [archived](../../docs/archive/plans/2026-02-15-timelapse-feature.md) (phased plan, architecture decisions, future work)
 
@@ -15,21 +15,16 @@ HelixScreen does not implement timelapse recording itself. It provides:
 3. **Settings UI** -- configures the plugin (enable/disable, recording mode, framerate, auto-render)
 4. **Print status toggle** -- quick enable/disable button on the print status panel
 5. **Real-time event handling** -- subscribes to WebSocket `notify_timelapse_event` for frame capture and render progress tracking
-6. **Render progress notifications** -- toast notifications at 25% intervals during rendering, plus success/error alerts
-7. **Video management** -- list, render, and delete timelapse videos from the settings overlay
+6. **Render progress notifications** -- toast notification at render start and on completion
+7. **Video browser** -- dedicated video browser overlay with thumbnail grid, responsive cards, render controls, and video playback
 
 All actual frame capture, rendering, and video storage is handled by the moonraker-timelapse plugin on the printer.
 
 ---
 
-## Beta Feature Gating
+## Graduation from Beta
 
-Timelapse is wrapped in `<beta_feature>` XML containers and gated at the capability level:
-
-- **XML layer**: Advanced panel rows use `<beta_feature>` wrapper, which binds to the `show_beta_features` subject and auto-hides when beta is disabled
-- **Capability layer**: `PrinterCapabilitiesState::set_hardware()` and `set_timelapse_available()` both AND the detection result with `Config::is_beta_features_enabled()` before setting the `printer_has_timelapse` subject
-
-Users enable beta features via the 7-tap secret on the version row in Settings.
+Timelapse was initially a beta feature. As of v0.99, it is available to all users without enabling beta features. The `<beta_feature>` XML wrappers have been removed, and `PrinterCapabilitiesState` no longer gates timelapse behind `Config::is_beta_features_enabled()`.
 
 ---
 
@@ -133,6 +128,7 @@ Phase 2 adds real-time timelapse event handling, render progress tracking, and v
 | `timelapse_render_progress` | int (0-100) | Current render progress percentage |
 | `timelapse_render_status` | string | Render state: `"idle"`, `"rendering"`, `"complete"`, `"error"` |
 | `timelapse_frame_count` | int | Number of frames captured during current print |
+| `timelapse_capture_info` | string | Print filename and timestamp (e.g., "benchy.gcode · Mar 10, 14:32") |
 
 Subjects are initialized in `subject_initializer.cpp` and frame count resets when a new print starts.
 
@@ -159,10 +155,11 @@ Render events produce user-visible toast notifications:
 
 | Event | Notification |
 |-------|-------------|
-| Render starts (`progress == 0`) | "Rendering timelapse..." |
-| Progress at 25/50/75% | "Rendering timelapse... 25%" (throttled) |
+| Render starts (first progress event) | "Rendering timelapse..." |
 | Render complete (`status == "success"`) | "Timelapse rendered successfully" |
 | Render error (`status == "error"`) | "Timelapse render failed: {msg}" |
+
+On render success, the frame count resets to 0 and the render section hides automatically.
 
 ### Video Management
 
@@ -175,6 +172,43 @@ The timelapse settings overlay (Phase 1) was extended with video management capa
 | Save frames | `save_timelapse_frames()` | POST `/machine/timelapse/saveframes` -- saves frames as ZIP |
 | Get last frame | `get_last_frame_info()` | GET `/machine/timelapse/lastframeinfo` -- info about last captured frame |
 | Delete video | `delete_file("timelapse/filename.mp4")` | Removes a rendered timelapse file |
+
+### Video Browser Overlay
+
+`TimelapseVideosOverlay` provides a dedicated overlay for browsing, rendering, and playing timelapse videos. Accessed from **Settings > Timelapse Videos** row.
+
+**Features:**
+- **Responsive thumbnail grid** — cards auto-size to fit 2 rows on screen using `calculate_card_dimensions()` (same pattern as print file selection)
+- **Companion thumbnails** — extracted from video first frame via ffmpeg, stored as `.thumb.jpg` alongside videos
+- **Thumbnail caching** — uses the shared `ThumbnailCache` with `tl_` prefixed cache keys
+- **Render controls** — frame count with capture info (filename + date), progress bar with inline status text, Render Now button
+- **Video playback** — detects available player (mpv preferred, ffplay fallback), launches fullscreen with auto-exit
+- **Delete with confirmation** — long-press card for delete option, confirmation dialog before removal
+- **Generation-based stale rejection** — `nav_generation_` and `thumb_generation_` counters prevent stale async callbacks from modifying UI after navigation changes
+
+**Playback arguments:**
+| Player | Arguments |
+|--------|-----------|
+| `mpv` | `--fs --keep-open=no` |
+| `ffplay` | `-autoexit -exitonmousedown -fs` |
+
+**Thread safety:**
+- All subject updates via `helix::ui::queue_update()`
+- `alive_` shared_ptr pattern prevents callbacks after overlay destruction
+- `ScopedFreeze` on UpdateQueue during `clear_video_grid()` drain+destroy sequence
+
+### Timelapse Thumbnailer
+
+`TimelapseThumbnailer` (in `src/print/timelapse_thumbnailer.cpp`) provides utility functions:
+
+| Function | Purpose |
+|----------|---------|
+| `cache_key(filename)` | Generates `tl_` prefixed hash key for thumbnail cache |
+| `companion_filename(video)` | Converts `video.mp4` → `video.thumb.jpg` |
+| `ffmpeg_extract_args(input, output)` | Builds ffmpeg command to extract first frame as JPEG |
+| `is_video_file(filename)` | Checks for `.mp4`, `.mkv`, `.avi` extensions |
+| `is_local_host(host)` | Detects localhost for local playback capability |
+| `build_player_args(player, path)` | Builds player-specific argument list |
 
 ---
 
@@ -202,4 +236,13 @@ The timelapse settings overlay (Phase 1) was extended with video management capa
 | `include/timelapse_state.h` | TimelapseState singleton class |
 | `src/printer/timelapse_state.cpp` | Event dispatch, subject management, render notifications |
 | `tests/unit/test_timelapse_state.cpp` | Unit tests for TimelapseState event handling and notifications |
+| `include/ui_overlay_timelapse_videos.h` | Video browser overlay class |
+| `src/ui/ui_overlay_timelapse_videos.cpp` | Video grid, thumbnails, playback, render controls |
+| `ui_xml/timelapse_videos_overlay.xml` | Video browser layout (render section, grid, empty state) |
+| `ui_xml/timelapse_video_card.xml` | Individual video card component (thumbnail, gradient, labels) |
+| `include/timelapse_thumbnailer.h` | Thumbnail extraction and playback utilities |
+| `src/print/timelapse_thumbnailer.cpp` | Utility function implementations |
+| `tests/unit/test_timelapse_videos.cpp` | Playback argument and localhost detection tests |
+| `include/ui_format_utils.h` | `format_short_date()` for smart date display |
+| `src/ui/locale_formats.cpp` | `format_localized_short_date()` with 4 locale patterns |
 | `docs/archive/plans/2026-02-15-timelapse-feature.md` | Archived design doc with future phases |

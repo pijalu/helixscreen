@@ -227,6 +227,7 @@ class SettingsPanel : public PanelBase {
     static void on_animations_changed(lv_event_t* e);
     static void on_led_light_changed(lv_event_t* e);
     static void on_led_settings_clicked(lv_event_t* e);
+    static void on_timelapse_settings_clicked(lv_event_t* e);
     static void on_sound_settings_clicked(lv_event_t* e);
     static void on_security_clicked(lv_event_t* e);
     static void on_label_printer_settings_clicked(lv_event_t* e);

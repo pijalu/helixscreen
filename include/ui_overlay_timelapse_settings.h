@@ -9,7 +9,6 @@
 #include "overlay_base.h"
 
 #include <string>
-#include <vector>
 
 /**
  * @file ui_overlay_timelapse_settings.h
@@ -140,31 +139,12 @@ class TimelapseSettingsOverlay : public OverlayBase {
     TimelapseSettings current_settings_;
     bool settings_loaded_ = false;
 
-    // Video list management
-    void fetch_video_list();
-    void populate_video_list(const std::vector<FileInfo>& files);
-    void clear_video_list();
-
-    static void on_render_now(lv_event_t* e);
-    static void on_delete_video_confirmed(lv_event_t* e);
-    static void on_delete_video_cancelled(lv_event_t* e);
-
     // Widget references
     lv_obj_t* enable_switch_ = nullptr;
     lv_obj_t* mode_dropdown_ = nullptr;
     lv_obj_t* mode_info_text_ = nullptr;
     lv_obj_t* framerate_dropdown_ = nullptr;
     lv_obj_t* autorender_switch_ = nullptr;
-
-    // Widget references for video management
-    lv_obj_t* video_list_container_ = nullptr;
-    lv_obj_t* video_list_empty_ = nullptr;
-    lv_obj_t* render_progress_container_ = nullptr;
-    lv_obj_t* btn_render_now_ = nullptr;
-
-    // Track the filename being deleted (for confirmation dialog)
-    std::string pending_delete_filename_;
-    lv_obj_t* delete_confirmation_dialog_ = nullptr;
 
     // Framerate values for dropdown index mapping
     static constexpr int FRAMERATE_VALUES[] = {15, 24, 30, 60};

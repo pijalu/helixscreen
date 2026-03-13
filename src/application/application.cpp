@@ -38,6 +38,7 @@
 #include "subject_initializer.h"
 #include "temperature_history_manager.h"
 #include "timelapse_state.h"
+#include "ui_overlay_timelapse_videos.h"
 #include "wizard_config_paths.h"
 
 // UI headers
@@ -1791,6 +1792,11 @@ void Application::create_overlays() {
             NavigationManager::instance().push_overlay(panel_obj);
             spdlog::info("[Application] Opened print tune overlay via CLI");
         }
+    }
+
+    if (m_args.overlays.timelapse_videos) {
+        open_timelapse_videos();
+        spdlog::info("[Application] Opened timelapse videos overlay via CLI");
     }
 
     // Handle --release-notes flag: fetch latest release notes and show in modal

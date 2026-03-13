@@ -76,8 +76,44 @@ void mock_set_usb_symlink_active(bool active) {
                   active ? "active" : "inactive");
 }
 
-static json build_mock_file_list_response(const std::string& path = "") {
+static json build_mock_file_list_response(const std::string& root,
+                                              const std::string& path = "") {
     json result_array = json::array();
+
+    // Mock timelapse video files
+    if (root == "timelapse" || path == "timelapse") {
+        // Simulate a set of timelapse recordings with varied sizes and dates
+        result_array.push_back(
+            {{"path", "benchy_timelapse_20260310.mp4"},
+             {"size", 52428800},    // 50 MB
+             {"modified", 1773158400.0}}); // 2026-03-10
+        result_array.push_back(
+            {{"path", "vase_spiral_20260308.mp4"},
+             {"size", 128849018},   // ~123 MB
+             {"modified", 1772985600.0}}); // 2026-03-08
+        result_array.push_back(
+            {{"path", "calibration_cube_20260305.mp4"},
+             {"size", 15728640},    // 15 MB
+             {"modified", 1772730000.0}}); // 2026-03-05
+        result_array.push_back(
+            {{"path", "articulated_dragon_20260301.mp4"},
+             {"size", 314572800},   // 300 MB
+             {"modified", 1772384400.0}}); // 2026-03-01
+        result_array.push_back(
+            {{"path", "flexi_rex_20260225.mkv"},
+             {"size", 89128960},    // 85 MB
+             {"modified", 1772038800.0}}); // 2026-02-25
+        // Companion thumbnail (should be filtered out by is_video_file)
+        result_array.push_back(
+            {{"path", "benchy_timelapse_20260310.thumb.jpg"},
+             {"size", 24576},
+             {"modified", 1773158400.0}});
+
+        json response = {{"result", result_array}};
+        spdlog::debug("[MoonrakerClientMock] Returning {} mock timelapse files",
+                      result_array.size());
+        return response;
+    }
 
     // Simulate USB symlink directory
     if (path == "usb" && g_mock_usb_symlink_active) {
@@ -214,13 +250,17 @@ void register_file_handlers(std::unordered_map<std::string, MethodHandler>& regi
             return true;
         }
 
+        std::string root;
         std::string path;
+        if (params.contains("root")) {
+            root = params["root"].get<std::string>();
+        }
         if (params.contains("path")) {
             path = params["path"].get<std::string>();
         }
-        json response = build_mock_file_list_response(path);
-        spdlog::debug("[MoonrakerClientMock] Returning mock file list for path: '{}'",
-                      path.empty() ? "/" : path);
+        json response = build_mock_file_list_response(root, path);
+        spdlog::debug("[MoonrakerClientMock] Returning mock file list for root='{}' path='{}'",
+                      root, path.empty() ? "/" : path);
         success_cb(response);
         return true;
     };
@@ -235,13 +275,17 @@ void register_file_handlers(std::unordered_map<std::string, MethodHandler>& regi
             return true;
         }
 
+        std::string root;
         std::string path;
+        if (params.contains("root")) {
+            root = params["root"].get<std::string>();
+        }
         if (params.contains("path")) {
             path = params["path"].get<std::string>();
         }
-        json response = build_mock_file_list_response(path);
-        spdlog::debug("[MoonrakerClientMock] Returning mock directory listing for path: '{}'",
-                      path.empty() ? "/" : path);
+        json response = build_mock_file_list_response(root, path);
+        spdlog::debug("[MoonrakerClientMock] Returning mock directory listing for root='{}' path='{}'",
+                      root, path.empty() ? "/" : path);
         success_cb(response);
         return true;
     };

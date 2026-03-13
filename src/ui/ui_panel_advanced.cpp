@@ -6,7 +6,7 @@
 #include "ui_callback_helpers.h"
 #include "ui_nav_manager.h"
 #include "ui_overlay_timelapse_install.h"
-#include "ui_overlay_timelapse_settings.h"
+#include "ui_overlay_timelapse_videos.h"
 #include "ui_panel_calibration_pid.h"
 #include "ui_panel_console.h"
 #include "ui_panel_macros.h"
@@ -73,7 +73,7 @@ void AdvancedPanel::init_subjects() {
         {"on_helix_plugin_uninstall_clicked", on_helix_plugin_uninstall_clicked},
         {"on_phase_tracking_changed", on_phase_tracking_changed},
         {"on_pid_tuning_clicked", on_pid_tuning_clicked},
-        {"on_timelapse_row_clicked", on_timelapse_row_clicked},
+        {"on_timelapse_videos_clicked", on_timelapse_videos_clicked},
         {"on_timelapse_setup_clicked", on_timelapse_setup_clicked},
         {"on_power_row_clicked", on_power_row_clicked},
     });
@@ -241,8 +241,9 @@ void AdvancedPanel::on_pid_tuning_clicked(lv_event_t* /*e*/) {
     get_global_advanced_panel().handle_pid_tuning_clicked();
 }
 
-void AdvancedPanel::on_timelapse_row_clicked(lv_event_t* /*e*/) {
-    open_timelapse_settings();
+void AdvancedPanel::on_timelapse_videos_clicked(lv_event_t* /*e*/) {
+    spdlog::debug("[AdvancedPanel] Timelapse Videos clicked");
+    open_timelapse_videos();
 }
 
 void AdvancedPanel::on_timelapse_setup_clicked(lv_event_t* /*e*/) {

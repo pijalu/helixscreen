@@ -77,6 +77,17 @@ std::string format_file_size(size_t bytes);
 std::string format_modified_date(time_t timestamp);
 
 /**
+ * @brief Format timestamp as short date (no time)
+ *
+ * Converts timestamp to locale-aware short date.
+ * Examples: "Mar 09" (EN), "09. Mär." (DE), "3/9" (CJK)
+ *
+ * @param timestamp Unix timestamp (time_t)
+ * @return Formatted short date string
+ */
+std::string format_short_date(time_t timestamp);
+
+/**
  * @brief Format time portion only (no date)
  *
  * Returns time in user's preferred format.

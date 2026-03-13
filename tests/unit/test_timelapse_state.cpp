@@ -175,6 +175,69 @@ TEST_CASE("TimelapseState: reset clears all state", "[timelapse_state]") {
 }
 
 // ============================================================================
+// Render complete: filename storage and callback
+// ============================================================================
+
+TEST_CASE("TimelapseState: render success stores last rendered filename", "[timelapse_state]") {
+    lv_init_safe();
+    auto& state = TimelapseState::instance();
+    state.deinit_subjects();
+    state.init_subjects(false);
+
+    REQUIRE(state.get_last_rendered_filename().empty());
+
+    json success = {{"action", "render"}, {"status", "success"}, {"filename", "benchy_20260312.mp4"}};
+    state.handle_timelapse_event(success);
+    flush_queue();
+
+    REQUIRE(state.get_last_rendered_filename() == "benchy_20260312.mp4");
+
+    state.deinit_subjects();
+}
+
+TEST_CASE("TimelapseState: render success fires on_render_complete callback",
+          "[timelapse_state]") {
+    lv_init_safe();
+    auto& state = TimelapseState::instance();
+    state.deinit_subjects();
+    state.init_subjects(false);
+
+    std::string captured_filename;
+    state.set_on_render_complete(
+        [&captured_filename](const std::string& filename) { captured_filename = filename; });
+
+    json success = {{"action", "render"}, {"status", "success"}, {"filename", "vase.mp4"}};
+    state.handle_timelapse_event(success);
+    flush_queue();
+
+    REQUIRE(captured_filename == "vase.mp4");
+
+    // Clean up callback to avoid dangling references
+    state.set_on_render_complete(nullptr);
+    state.deinit_subjects();
+}
+
+TEST_CASE("TimelapseState: reset clears last rendered filename", "[timelapse_state]") {
+    lv_init_safe();
+    auto& state = TimelapseState::instance();
+    state.deinit_subjects();
+    state.init_subjects(false);
+
+    json success = {{"action", "render"}, {"status", "success"}, {"filename", "test.mp4"}};
+    state.handle_timelapse_event(success);
+    flush_queue();
+
+    REQUIRE_FALSE(state.get_last_rendered_filename().empty());
+
+    state.reset();
+    flush_queue();
+
+    REQUIRE(state.get_last_rendered_filename().empty());
+
+    state.deinit_subjects();
+}
+
+// ============================================================================
 // Edge cases: malformed/unknown events
 // ============================================================================
 

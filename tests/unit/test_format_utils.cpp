@@ -2,8 +2,10 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include "format_utils.h"
+#include "ui_format_utils.h"
 
 #include <cstring>
+#include <ctime>
 #include <string>
 
 #include "../catch_amalgamated.hpp"
@@ -272,4 +274,55 @@ TEST_CASE("format_filament_length formats correctly", "[format_utils][filament]"
         CHECK(format_filament_length(1000000) == "1.00km");
         CHECK(format_filament_length(1230000) == "1.23km");
     }
+}
+
+// =============================================================================
+// Short date formatting (helix::ui)
+// =============================================================================
+
+TEST_CASE("format_short_date current year omits year", "[format_utils][date]") {
+    // Build a timestamp for March 10 of the current year
+    time_t now = time(nullptr);
+    struct tm now_tm {};
+    localtime_r(&now, &now_tm);
+
+    struct tm target_tm {};
+    target_tm.tm_year = now_tm.tm_year; // current year
+    target_tm.tm_mon = 2;  // March (0-based)
+    target_tm.tm_mday = 10;
+    target_tm.tm_hour = 12;
+    time_t ts = mktime(&target_tm);
+
+    std::string result = helix::ui::format_short_date(ts);
+    // Should contain "Mar" and "10" but NOT a year suffix
+    CHECK(result.find("Mar") != std::string::npos);
+    CHECK(result.find("10") != std::string::npos);
+    CHECK(result.find("'") == std::string::npos); // no year tick mark
+}
+
+TEST_CASE("format_short_date previous year includes year", "[format_utils][date]") {
+    // Build a timestamp for June 15 of last year
+    time_t now = time(nullptr);
+    struct tm now_tm {};
+    localtime_r(&now, &now_tm);
+
+    struct tm target_tm {};
+    target_tm.tm_year = now_tm.tm_year - 1; // previous year
+    target_tm.tm_mon = 5;  // June (0-based)
+    target_tm.tm_mday = 15;
+    target_tm.tm_hour = 12;
+    time_t ts = mktime(&target_tm);
+
+    std::string result = helix::ui::format_short_date(ts);
+    // Should contain "Jun", "15", and a year indicator
+    CHECK(result.find("Jun") != std::string::npos);
+    CHECK(result.find("15") != std::string::npos);
+    CHECK(result.find("'") != std::string::npos); // year tick mark present
+}
+
+TEST_CASE("format_short_date handles zero timestamp", "[format_utils][date]") {
+    // Unix epoch (1970-01-01) — always a different year, should show year
+    std::string result = helix::ui::format_short_date(0);
+    CHECK(!result.empty());
+    CHECK(result != "Unknown");
 }

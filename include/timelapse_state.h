@@ -9,6 +9,11 @@
 
 #include "hv/json.hpp"
 
+#include <atomic>
+#include <functional>
+#include <mutex>
+#include <string>
+
 namespace helix {
 
 /**
@@ -74,6 +79,31 @@ class TimelapseState {
         return &timelapse_frame_count_;
     }
 
+    /// Capture info string (e.g., "benchy.gcode · Mar 10, 14:30")
+    lv_subject_t* get_capture_info_subject() {
+        return &timelapse_capture_info_;
+    }
+
+    /// Last rendered video filename (set on render success)
+    std::string get_last_rendered_filename() const {
+        std::lock_guard<std::mutex> lock(render_mutex_);
+        return last_rendered_filename_;
+    }
+
+    /// Callback type for render completion: receives the rendered filename
+    using RenderCompleteCallback = std::function<void(const std::string& filename)>;
+
+    /**
+     * @brief Register a callback for render completion
+     *
+     * Thread-safe. The callback is invoked via queue_update() on the UI thread,
+     * so it does not need its own synchronization.
+     */
+    void set_on_render_complete(RenderCompleteCallback callback) {
+        std::lock_guard<std::mutex> lock(render_mutex_);
+        on_render_complete_ = std::move(callback);
+    }
+
   private:
     TimelapseState() = default;
 
@@ -81,18 +111,30 @@ class TimelapseState {
     friend class TimelapseStateTestAccess;
 
     SubjectManager subjects_;
-    bool subjects_initialized_ = false;
+    std::atomic<bool> subjects_initialized_{false};
 
     // Subjects
     lv_subject_t timelapse_render_progress_{};
     lv_subject_t timelapse_render_status_{};
     lv_subject_t timelapse_frame_count_{};
+    lv_subject_t timelapse_capture_info_{};
 
-    // String buffer for render status
+    // String buffers for string subjects
     char timelapse_render_status_buf_[32]{};
+    char timelapse_capture_info_buf_[256]{};
 
     // Notification throttling: last progress value that triggered a notification
-    int last_notified_progress_ = -1;
+    std::atomic<int> last_notified_progress_{-1};
+
+    // Protects last_rendered_filename_ and on_render_complete_ (accessed from
+    // both the WebSocket background thread and the UI thread)
+    mutable std::mutex render_mutex_;
+
+    // Last successfully rendered filename
+    std::string last_rendered_filename_;
+
+    // Optional callback fired on render success (invoked via queue_update)
+    RenderCompleteCallback on_render_complete_;
 };
 
 } // namespace helix

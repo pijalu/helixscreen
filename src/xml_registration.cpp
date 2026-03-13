@@ -483,6 +483,8 @@ void register_xml_components() {
     register_xml("machine_limits_overlay.xml");
     register_xml("timelapse_settings_overlay.xml");
     register_xml("timelapse_install_overlay.xml");
+    register_xml("timelapse_video_card.xml");
+    register_xml("timelapse_videos_overlay.xml");
     register_xml("plugin_card.xml");
     register_xml("settings_plugins_overlay.xml");
     register_xml("touch_calibration_overlay.xml");

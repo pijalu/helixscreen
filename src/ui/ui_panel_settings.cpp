@@ -6,6 +6,7 @@
 #include "ui_ams_device_operations_overlay.h"
 #include "ui_spoolman_overlay.h"
 #include "ui_callback_helpers.h"
+#include "ui_overlay_timelapse_settings.h"
 #include "ui_change_host_modal.h"
 #include "ui_debug_bundle_modal.h"
 #include "ui_emergency_stop.h"
@@ -327,6 +328,7 @@ void SettingsPanel::init_subjects() {
         {"on_printers_clicked", on_printers_clicked},
         // Note: on_printer_image_clicked moved to PrinterManagerOverlay
         {"on_filament_sensors_clicked", on_filament_sensors_clicked},
+        {"on_timelapse_settings_clicked", on_timelapse_settings_clicked},
     });
 
     // Note: Sensors overlay callbacks are now handled by SensorSettingsOverlay
@@ -1182,6 +1184,12 @@ void SettingsPanel::on_led_settings_clicked(lv_event_t* /*e*/) {
     LVGL_SAFE_EVENT_CB_END();
 }
 
+void SettingsPanel::on_timelapse_settings_clicked(lv_event_t* /*e*/) {
+    LVGL_SAFE_EVENT_CB_BEGIN("[SettingsPanel] on_timelapse_settings_clicked");
+    open_timelapse_settings();
+    LVGL_SAFE_EVENT_CB_END();
+}
+
 void SettingsPanel::on_printers_clicked(lv_event_t* /*e*/) {
     LVGL_SAFE_EVENT_CB_BEGIN("[SettingsPanel] on_printers_clicked");
     get_global_settings_panel().handle_printers_clicked();
@@ -1347,6 +1355,7 @@ void register_settings_panel_callbacks() {
         {"on_animations_changed", SettingsPanel::on_animations_changed},
         {"on_led_light_changed", SettingsPanel::on_led_light_changed},
         {"on_led_settings_clicked", SettingsPanel::on_led_settings_clicked},
+        {"on_timelapse_settings_clicked", SettingsPanel::on_timelapse_settings_clicked},
         {"on_sound_settings_clicked", SettingsPanel::on_sound_settings_clicked},
         {"on_security_clicked", SettingsPanel::on_security_clicked},
         {"on_label_printer_settings_clicked", SettingsPanel::on_label_printer_settings_clicked},

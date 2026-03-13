@@ -176,41 +176,57 @@ Review past system notifications:
 
 ---
 
-## Timelapse Settings
+## Timelapse
 
-Configure Moonraker-Timelapse (beta feature):
+Record timelapse videos of your prints automatically using the [moonraker-timelapse](https://github.com/mainsail-crew/moonraker-timelapse) plugin.
 
-1. Navigate to **Advanced > Timelapse**
-2. If the timelapse plugin is not installed, HelixScreen detects this and offers an **Install Wizard** to set it up
-3. Once installed, configure settings:
-   - Enable/disable timelapse recording
-   - Select mode: **Layer Macro** (snapshot at each layer) or **Hyperlapse** (time-based)
-   - Set framerate (15/24/30/60 fps)
-   - Enable auto-render for automatic video creation
+### Setup
 
-### Render Controls
+If the timelapse plugin is not installed, HelixScreen detects this and offers a guided **Install Wizard**:
 
-Below the settings, a **Render Now** section shows:
+1. Navigate to **Settings > Timelapse Setup**
+2. Follow the on-screen instructions to install the plugin via SSH
+3. HelixScreen will configure your `moonraker.conf` automatically
+4. After installation, the setup row is replaced by timelapse settings and video browser
 
-- **Frame count**: How many frames have been captured during the current print
-- **Render progress bar**: Appears during rendering with a percentage indicator
-- **Render Now button**: Manually trigger video rendering from captured frames
+### Settings
 
-### Recorded Videos
+Navigate to **Settings > Timelapse** to configure:
 
-The bottom of the timelapse settings shows all rendered timelapse videos:
+- **Enable/disable** timelapse recording
+- **Recording mode**: Layer Macro (snapshot at each layer) or Hyperlapse (time-based)
+- **Framerate**: 15, 24, 30, or 60 fps
+- **Auto-render**: Automatically create videos when prints finish
 
-- View file names and sizes
-- Delete individual videos (with confirmation)
+A quick **toggle button** also appears on the print status panel to enable/disable timelapse without leaving the print view.
+
+### Video Browser
+
+Navigate to **Settings > Timelapse Videos** to browse your recorded timelapses:
+
+- **Thumbnail grid** with responsive card sizing that adapts to your screen
+- Each card shows a **video thumbnail**, filename, file size, and date
+- **Tap** a card to play the video fullscreen (requires mpv or ffplay on your device)
+- **Long-press** a card to delete it (with confirmation)
 - Videos are stored on your printer and managed by the timelapse plugin
+
+### Rendering
+
+When frames have been captured during a print, a **render section** appears above the video grid:
+
+- Shows the number of captured frames, print filename, and capture date
+- A **progress bar** appears during rendering with status text
+- Tap **Render Now** to manually create a video from captured frames
+- When rendering completes, the video list refreshes automatically to show the new video
+- A toast notification appears at the start and end of rendering
 
 ### Notifications
 
-During rendering, HelixScreen shows toast notifications:
-
-- Progress updates at 25%, 50%, 75%, and 100%
-- Success notification when rendering completes
-- Error notification if rendering fails
+| Event | Notification |
+|-------|-------------|
+| Rendering starts | "Rendering timelapse..." |
+| Rendering completes | "Timelapse rendered successfully" |
+| Rendering fails | "Timelapse render failed" with error details |
 
 ---
 

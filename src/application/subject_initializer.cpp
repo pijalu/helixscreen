@@ -14,6 +14,7 @@
 #include "ui_overlay_retraction_settings.h"
 #include "ui_overlay_timelapse_install.h"
 #include "ui_overlay_timelapse_settings.h"
+#include "ui_overlay_timelapse_videos.h"
 #include "ui_panel_advanced.h"
 #include "ui_panel_bed_mesh.h"
 #include "ui_panel_calibration_pid.h"
@@ -201,6 +202,9 @@ void SubjectInitializer::init_panel_subjects(MoonrakerAPI* api) {
 
     init_global_timelapse_install(api);
     get_global_timelapse_install().init_subjects();
+
+    init_global_timelapse_videos(api);
+    get_global_timelapse_videos().init_subjects();
 
     init_global_retraction_settings(api);
     get_global_retraction_settings().init_subjects();

@@ -105,6 +105,15 @@
                           description="Startup, auto-control, and macro devices"
                           description_tag="Startup, auto-control, and macro devices" callback="on_led_settings_clicked"/>
     </lv_obj>
+    <!-- Timelapse Settings (hidden if no timelapse capability) -->
+    <lv_obj name="container_timelapse_settings" width="100%" style_pad_all="0" scrollable="false">
+      <bind_flag_if_eq subject="printer_has_timelapse" flag="hidden" ref_value="0"/>
+      <setting_action_row name="row_timelapse_settings"
+                          label="Timelapse" label_tag="Timelapse" icon="camera_timer"
+                          description="Configure timelapse recording"
+                          description_tag="Configure timelapse recording"
+                          callback="on_timelapse_settings_clicked"/>
+    </lv_obj>
     <!-- Macro Buttons (opens overlay for configuring quick buttons and standard macros) -->
     <setting_action_row name="row_macro_buttons"
                         label="Macro Buttons" label_tag="Macro Buttons" icon="script_text"

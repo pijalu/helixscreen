@@ -117,7 +117,7 @@ class AdvancedPanel : public PanelBase {
     static void on_history_clicked(lv_event_t* e);
     static void on_configure_print_start_clicked(lv_event_t* e);
     static void on_pid_tuning_clicked(lv_event_t* e);
-    static void on_timelapse_row_clicked(lv_event_t* e);
+    static void on_timelapse_videos_clicked(lv_event_t* e);
     static void on_timelapse_setup_clicked(lv_event_t* e);
     static void on_helix_plugin_install_clicked(lv_event_t* e);
     static void on_helix_plugin_uninstall_clicked(lv_event_t* e);
