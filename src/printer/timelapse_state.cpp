@@ -3,7 +3,10 @@
 
 #include "timelapse_state.h"
 
+#include "app_globals.h"
+#include "printer_state.h"
 #include "ui_error_reporting.h"
+#include "ui_format_utils.h"
 #include "ui_toast_manager.h"
 #include "ui_update_queue.h"
 
@@ -31,10 +34,12 @@ void TimelapseState::init_subjects(bool register_xml) {
 
     std::memset(timelapse_render_status_buf_, 0, sizeof(timelapse_render_status_buf_));
     std::strcpy(timelapse_render_status_buf_, "idle");
+    std::memset(timelapse_capture_info_buf_, 0, sizeof(timelapse_capture_info_buf_));
 
     INIT_SUBJECT_INT(timelapse_render_progress, 0, subjects_, register_xml);
     INIT_SUBJECT_STRING(timelapse_render_status, "idle", subjects_, register_xml);
     INIT_SUBJECT_INT(timelapse_frame_count, 0, subjects_, register_xml);
+    INIT_SUBJECT_STRING(timelapse_capture_info, "", subjects_, register_xml);
 
     subjects_initialized_ = true;
 
@@ -75,6 +80,20 @@ void TimelapseState::handle_timelapse_event(const nlohmann::json& event) {
         helix::ui::queue_update([this]() {
             int current = lv_subject_get_int(&timelapse_frame_count_);
             lv_subject_set_int(&timelapse_frame_count_, current + 1);
+
+            // On first frame, set capture info with print filename and timestamp
+            if (current == 0) {
+                auto* fn_subject = get_printer_state().get_print_filename_subject();
+                const char* filename = fn_subject ? lv_subject_get_string(fn_subject) : "";
+                auto date_str = helix::ui::format_short_date(std::time(nullptr));
+                std::string info;
+                if (filename && filename[0] != '\0') {
+                    info = std::string(filename) + " \xC2\xB7 " + date_str;
+                } else {
+                    info = date_str;
+                }
+                lv_subject_copy_string(&timelapse_capture_info_, info.c_str());
+            }
         });
 
         spdlog::debug("[TimelapseState] New frame captured");
@@ -100,17 +119,17 @@ void TimelapseState::handle_timelapse_event(const nlohmann::json& event) {
         }
 
         if (status == "running") {
+            // Show start toast on first progress event
+            if (last_notified_progress_ < 0) {
+                ToastManager::instance().show(ToastSeverity::INFO,
+                                              lv_tr("Rendering timelapse..."), 3000);
+            }
+            last_notified_progress_ = progress;
+
             helix::ui::queue_update([this, progress]() {
                 lv_subject_set_int(&timelapse_render_progress_, progress);
                 lv_subject_copy_string(&timelapse_render_status_, "rendering");
             });
-
-            // Throttled notifications at 25% boundaries
-            int boundary = (progress / 25) * 25;
-            if (boundary > 0 && boundary != last_notified_progress_) {
-                last_notified_progress_ = boundary;
-                NOTIFY_INFO("Rendering timelapse... {}%", progress);
-            }
 
             spdlog::debug("[TimelapseState] Render progress: {}%", progress);
 
@@ -124,7 +143,9 @@ void TimelapseState::handle_timelapse_event(const nlohmann::json& event) {
 
             helix::ui::queue_update([this, filename, cb = std::move(cb)]() {
                 lv_subject_set_int(&timelapse_render_progress_, 0);
+                lv_subject_set_int(&timelapse_frame_count_, 0);
                 lv_subject_copy_string(&timelapse_render_status_, "complete");
+                lv_subject_copy_string(&timelapse_capture_info_, "");
                 if (cb) {
                     cb(filename);
                 }
@@ -164,6 +185,7 @@ void TimelapseState::reset() {
         lv_subject_set_int(&timelapse_frame_count_, 0);
         lv_subject_set_int(&timelapse_render_progress_, 0);
         lv_subject_copy_string(&timelapse_render_status_, "idle");
+        lv_subject_copy_string(&timelapse_capture_info_, "");
     });
 
     last_notified_progress_ = -1;

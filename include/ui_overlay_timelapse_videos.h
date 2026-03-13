@@ -45,6 +45,7 @@ class TimelapseVideosOverlay : public OverlayBase {
         double modified = 0.0;
     };
 
+    void fetch_frame_info();
     void fetch_video_list();
     TimelapseCardDimensions calculate_card_dimensions();
     void populate_video_grid(const std::vector<FileInfo>& files);

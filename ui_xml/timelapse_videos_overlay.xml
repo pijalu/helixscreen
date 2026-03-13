@@ -8,28 +8,36 @@
     <lv_obj name="overlay_content"
             width="100%" flex_grow="1" style_pad_top="0" style_pad_left="#space_lg" style_pad_right="#space_lg" style_pad_bottom="#space_lg" scrollable="true" flex_flow="column">
       <!-- ================================================================== -->
-      <!-- RENDER CONTROLS (moved from settings overlay) -->
+      <!-- RENDER CONTROLS -->
       <!-- ================================================================== -->
       <!-- Render section: hidden when 0 frames captured -->
       <lv_obj name="render_section"
               width="100%" height="content" scrollable="false" flex_flow="column"
-              style_pad_top="#space_sm" style_pad_bottom="#space_md">
+              style_pad_top="#space_xs" style_pad_bottom="0">
         <bind_flag_if_eq subject="timelapse_frame_count" flag="hidden" ref_value="0"/>
-        <!-- Frame count display -->
+        <!-- Frame count and capture info -->
         <lv_obj width="100%" height="content" scrollable="false" flex_flow="row"
                 style_flex_cross_place="center" style_pad_gap="#space_sm"
-                style_pad_bottom="#space_sm">
+                style_pad_bottom="#space_xs">
           <icon src="video" size="xs" variant="secondary"/>
           <text_small name="frame_count_label" bind_text="timelapse_frame_count" width="content"/>
-          <text_small text=" frames captured" translation_tag=" frames captured" style_text_color="#text_muted"/>
+          <text_small text=" frames" translation_tag=" frames" style_text_color="#text_muted"/>
+          <text_small text=" · " style_text_color="#text_muted" width="content"/>
+          <text_small name="capture_info_label" bind_text="timelapse_capture_info"
+                      style_text_color="#text_muted" flex_grow="1" long_mode="dot"/>
         </lv_obj>
-        <!-- Render progress bar - hidden when not rendering (progress == 0) -->
+        <!-- Render progress bar with inline status - hidden when not rendering -->
         <lv_obj name="render_progress_container" width="100%" height="content" scrollable="false"
-                style_pad_bottom="#space_sm">
+                flex_flow="column" style_pad_bottom="#space_xs">
           <bind_flag_if_eq subject="timelapse_render_progress" flag="hidden" ref_value="0"/>
-          <progress_bar name="render_progress_bar" bind_value="timelapse_render_progress"/>
-          <text_small name="render_status_text" bind_text="timelapse_render_status"
-                      style_text_color="#text_muted" style_pad_top="#space_xs"/>
+          <lv_obj width="100%" height="content" scrollable="false" flex_flow="row"
+                  style_flex_cross_place="center" style_pad_gap="#space_sm"
+                  style_pad_bottom="#space_xs">
+            <text_small name="render_status_text" bind_text="timelapse_render_status"
+                        style_text_color="#text_muted" width="content"/>
+            <progress_bar name="render_progress_bar" bind_value="timelapse_render_progress"
+                          flex_grow="1"/>
+          </lv_obj>
         </lv_obj>
         <!-- Render Now button -->
         <lv_button name="btn_render_now" width="100%" style_bg_color="#primary"
@@ -41,17 +49,11 @@
         </lv_button>
       </lv_obj>
       <!-- ================================================================== -->
-      <!-- DIVIDER -->
-      <!-- ================================================================== -->
-      <divider_subtle name="render_divider">
-        <bind_flag_if_eq subject="timelapse_frame_count" flag="hidden" ref_value="0"/>
-      </divider_subtle>
-      <!-- ================================================================== -->
       <!-- VIDEO GRID -->
       <!-- ================================================================== -->
       <lv_obj name="video_grid_container"
               width="100%" flex_grow="1" scrollable="true" flex_flow="row_wrap"
-              style_pad_top="#space_sm" style_pad_gap="#space_sm"
+              style_pad_top="#space_xs" style_pad_gap="#space_sm"
               style_flex_main_place="start"/>
       <!-- Empty state (centered icon + text, matching plugins/print files pattern) -->
       <!-- min_height ensures centering works inside scrollable parent (flex_grow can't) -->

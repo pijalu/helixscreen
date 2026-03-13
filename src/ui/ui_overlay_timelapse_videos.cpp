@@ -138,6 +138,7 @@ void TimelapseVideosOverlay::on_activate() {
     nav_generation_.fetch_add(1);
     spdlog::debug("[{}] on_activate() - fetching video list", get_name());
     detect_playback_capability();
+    fetch_frame_info();
     fetch_video_list();
 
     // Register render-complete callback to auto-refresh the video list
@@ -176,6 +177,24 @@ void TimelapseVideosOverlay::cleanup() {
 // ============================================================================
 // VIDEO LIST FETCHING
 // ============================================================================
+
+void TimelapseVideosOverlay::fetch_frame_info() {
+    if (!api_) return;
+
+    auto alive = alive_;
+    api_->timelapse().get_last_frame_info(
+        [alive](const LastFrameInfo& info) {
+            if (!alive || !alive->load()) return;
+            helix::ui::queue_update([info]() {
+                auto& tl = helix::TimelapseState::instance();
+                lv_subject_set_int(tl.get_frame_count_subject(), info.frame_count);
+                spdlog::debug("[Timelapse Videos] Frame info: {} frames", info.frame_count);
+            });
+        },
+        [](const MoonrakerError& err) {
+            spdlog::warn("[Timelapse Videos] Failed to get frame info: {}", err.message);
+        });
+}
 
 void TimelapseVideosOverlay::fetch_video_list() {
     if (!api_) {
@@ -240,24 +259,17 @@ TimelapseCardDimensions TimelapseVideosOverlay::calculate_card_dimensions() {
         render_height = lv_obj_get_height(render_section);
     }
 
-    // Check divider
-    lv_obj_t* divider = lv_obj_find_by_name(overlay_root_, "render_divider");
-    lv_coord_t divider_height = 0;
-    if (divider && !lv_obj_has_flag(divider, LV_OBJ_FLAG_HIDDEN)) {
-        divider_height = lv_obj_get_height(divider);
-    }
-
     // Grid container top padding
     lv_coord_t grid_pad_top =
         lv_obj_get_style_pad_top(video_grid_container_, LV_PART_MAIN);
 
-    // Content row gap (between render section, divider, grid)
+    // Content row gap (between render section and grid)
     lv_coord_t content_gap = content ? lv_obj_get_style_pad_row(content, LV_PART_MAIN) : 0;
 
     // Available height for video grid
     lv_coord_t available_height = overlay_height - header_height - content_pad_top -
-                                  content_pad_bottom - render_height - divider_height -
-                                  grid_pad_top - content_gap * 2;
+                                  content_pad_bottom - render_height -
+                                  grid_pad_top - content_gap;
 
     // Card gap from grid container
     int card_gap = lv_obj_get_style_pad_row(video_grid_container_, LV_PART_MAIN);
@@ -272,10 +284,9 @@ TimelapseCardDimensions TimelapseVideosOverlay::calculate_card_dimensions() {
     dims.card_height = std::min(dims.card_height, 280);
 
     spdlog::debug("[{}] Height calc: overlay={} - header={} - content_pad({}+{}) - "
-                  "render={} - divider={} - grid_pad={} - gaps={}*2 = available={}, "
-                  "card_height={}",
+                  "render={} - grid_pad={} - gap={} = available={}, card_height={}",
                   get_name(), overlay_height, header_height, content_pad_top, content_pad_bottom,
-                  render_height, divider_height, grid_pad_top, content_gap, available_height,
+                  render_height, grid_pad_top, content_gap, available_height,
                   dims.card_height);
 
     // Calculate card width: try column counts from 10 down to 1

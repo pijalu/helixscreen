@@ -6,6 +6,8 @@
 #include "../tests/mocks/mock_printer_state.h"
 #include "gcode_parser.h"
 #include "runtime_config.h"
+#include "timelapse_state.h"
+#include "ui_update_queue.h"
 
 #include <spdlog/spdlog.h>
 
@@ -15,6 +17,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdlib>
+#include <cstring>
 #include <ctime>
 #include <filesystem>
 #include <fstream>
@@ -1965,13 +1968,66 @@ void MoonrakerSpoolmanAPIMock::consume_filament(float grams, int slot_index) {
 
 MoonrakerTimelapseAPIMock::MoonrakerTimelapseAPIMock(MoonrakerClient& client,
                                                      const std::string& http_base_url)
-    : MoonrakerTimelapseAPI(client, http_base_url) {}
+    : MoonrakerTimelapseAPI(client, http_base_url) {
+    // Frame count and capture info are set in get_last_frame_info() which the
+    // overlay calls on_activate(). Can't set here — subjects not yet initialized.
+}
 
 void MoonrakerTimelapseAPIMock::render_timelapse(SuccessCallback on_success,
                                                  ErrorCallback /*on_error*/) {
-    spdlog::debug("[MoonrakerAPIMock] render_timelapse (mock)");
-    if (on_success)
-        on_success();
+    spdlog::info("[MoonrakerAPIMock] render_timelapse (mock) - simulating render progress");
+
+    // Guard against double-click — if already rendering, ignore
+    auto* status_subj = helix::TimelapseState::instance().get_render_status_subject();
+    if (status_subj) {
+        const char* status = lv_subject_get_string(status_subj);
+        if (status && std::strcmp(status, "rendering") == 0) {
+            spdlog::debug("[MoonrakerAPIMock] Render already in progress, ignoring");
+            return;
+        }
+    }
+
+    // Context struct to track state across timer callbacks
+    struct RenderSimContext {
+        SuccessCallback on_complete;
+        int current_progress = 0;
+    };
+
+    auto* ctx = new RenderSimContext{std::move(on_success)};
+
+    // Timer callback - advances render progress in 5% increments
+    auto timer_cb = [](lv_timer_t* t) {
+        auto* c = static_cast<RenderSimContext*>(lv_timer_get_user_data(t));
+        c->current_progress += 5;
+
+        if (c->current_progress < 100) {
+            // Send progress event
+            nlohmann::json event;
+            event["action"] = "render";
+            event["status"] = "running";
+            event["progress"] = c->current_progress;
+            helix::TimelapseState::instance().handle_timelapse_event(event);
+        }
+
+        if (c->current_progress >= 100) {
+            // Send success event with a mock filename
+            nlohmann::json event;
+            event["action"] = "render";
+            event["status"] = "success";
+            event["progress"] = 100;
+            event["filename"] = "mock_render_timelapse.mp4";
+            helix::TimelapseState::instance().handle_timelapse_event(event);
+
+            if (c->on_complete) {
+                c->on_complete();
+            }
+            delete c;
+            lv_timer_delete(t);
+        }
+    };
+
+    // 20 steps of 5% = 100%, at 150ms each = ~3 seconds total
+    lv_timer_create(timer_cb, 150, ctx);
 }
 
 void MoonrakerTimelapseAPIMock::save_timelapse_frames(SuccessCallback on_success,
@@ -1984,9 +2040,16 @@ void MoonrakerTimelapseAPIMock::save_timelapse_frames(SuccessCallback on_success
 void MoonrakerTimelapseAPIMock::get_last_frame_info(
     std::function<void(const LastFrameInfo&)> on_success, ErrorCallback /*on_error*/) {
     spdlog::debug("[MoonrakerAPIMock] get_last_frame_info (mock)");
+
+    // Set frame count and capture info subjects directly (we're on the UI thread)
+    auto& tl = helix::TimelapseState::instance();
+    lv_subject_set_int(tl.get_frame_count_subject(), 42);
+    lv_subject_copy_string(tl.get_capture_info_subject(),
+                           "3DBenchy.gcode \xC2\xB7 Mar 10, 14:32");
+
     if (on_success) {
         LastFrameInfo info;
-        info.frame_count = 0;
+        info.frame_count = 42;
         on_success(info);
     }
 }
