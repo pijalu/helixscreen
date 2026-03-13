@@ -146,6 +146,9 @@ void PrintSelectDetailView::init_subjects() {
     // Add-on switches default OFF (0) - "don't add extras by default"
     UI_MANAGED_SUBJECT_INT(preprint_timelapse_, 0, "preprint_timelapse", subjects_);
 
+    // Filament mismatch warning (0=hidden, 1=visible)
+    UI_MANAGED_SUBJECT_INT(filament_mismatch_, 0, "filament_mismatch", subjects_);
+
     subjects_initialized_ = true;
     spdlog::debug("[DetailView] Initialized pre-print option subjects");
 }
@@ -247,6 +250,8 @@ lv_obj_t* PrintSelectDetailView::create(lv_obj_t* parent_screen) {
     filament_mapping_card_.create(mapping_card, mapping_rows, mapping_warning);
     filament_mapping_card_.set_on_mappings_changed([this]() {
         apply_mapped_tool_colors();
+        lv_subject_set_int(&filament_mismatch_,
+                           filament_mapping_card_.has_mismatch() ? 1 : 0);
     });
 
     // Look up history status display
@@ -327,6 +332,10 @@ void PrintSelectDetailView::show(const std::string& filename, const std::string&
 
     // Update filament mapping card (shown when AMS is available)
     filament_mapping_card_.update(filament_colors, filament_materials);
+
+    // Update mismatch warning icon via subject binding
+    lv_subject_set_int(&filament_mismatch_,
+                       filament_mapping_card_.has_mismatch() ? 1 : 0);
 
     // Show either the interactive mapping card OR the simple color swatches, never both
     if (filament_mapping_card_.is_visible()) {

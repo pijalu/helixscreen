@@ -61,17 +61,15 @@
         <!-- No-thumbnail placeholder - shown when file has no real thumbnail -->
         <icon name="detail_no_thumbnail_icon"
               src="cube_outline" size="xl" variant="tertiary" align="center" style_translate_y="-20" hidden="true"/>
-        <!-- Metadata clip container - clips top rounded corners of inner overlay -->
-        <!-- Height sized for 2x3 metadata grid (filename + 3 rows of metadata) -->
+        <!-- Metadata clip - content-sized, hides top rounded corners of inner overlay -->
         <lv_obj name="detail_metadata_clip"
-                width="100%" height="#detail_metadata_clip_height" style_radius="0" style_pad_all="0" align="bottom_mid"
-                scrollable="false">
-          <!-- Inner overlay with rounded corners - slightly taller to hide top radius -->
+                width="100%" height="content" style_radius="0" style_pad_all="0"
+                align="bottom_mid" scrollable="false">
           <lv_obj name="detail_metadata_overlay"
-                  width="100%" height="#detail_metadata_overlay_height" style_bg_opa="160" style_radius="#border_radius"
-                  style_pad_left="#space_sm" style_pad_right="#space_sm" style_pad_top="#space_sm"
-                  style_pad_bottom="#space_sm" style_pad_gap="#space_xs" align="bottom_mid" flex_flow="column"
-                  scrollable="false">
+                  width="100%" height="content" style_bg_opa="160" style_radius="#border_radius"
+                  style_pad_left="#space_sm" style_pad_right="#space_sm" style_pad_top="#space_md"
+                  style_pad_bottom="#space_sm" style_pad_gap="#space_xs" style_translate_y="-12"
+                  flex_flow="column" scrollable="false">
             <!-- Filename with reactive binding - scrolls if too long for single line -->
             <!-- Uses selected_display_filename (without .gcode extension) for cleaner UI -->
             <text_body name="detail_filename_label"
@@ -177,17 +175,19 @@
 
         <!-- Filament mapping card (shown when AMS/toolchanger detected) -->
         <ui_card name="filament_mapping_card" width="100%" style_pad_all="0" style_border_width="0" flex_flow="column" hidden="true">
-          <text_small text="FILAMENT" translation_tag="FILAMENT"
-                      style_pad_bottom="#space_xs" clickable="false" event_bubble="true"/>
+          <lv_obj width="100%" height="content" style_pad_all="0" style_pad_gap="#space_xs"
+                  flex_flow="row" style_flex_cross_place="center" scrollable="false"
+                  clickable="false" event_bubble="true">
+            <text_small text="FILAMENT" translation_tag="FILAMENT" clickable="false" event_bubble="true"/>
+            <icon name="filament_mismatch_icon" src="alert" size="sm" variant="warning"
+                  clickable="false" event_bubble="true">
+              <bind_flag_if_eq subject="filament_mismatch" flag="hidden" ref_value="0"/>
+            </icon>
+          </lv_obj>
           <lv_obj name="filament_mapping_rows"
                   width="100%" height="content" style_pad_all="0" style_pad_gap="#space_xs"
                   flex_flow="column" scrollable="false" clickable="false" event_bubble="true">
             <!-- Rows added dynamically in C++ -->
-          </lv_obj>
-          <lv_obj name="filament_mapping_warning" width="100%" height="content"
-                  style_pad_all="0" style_pad_top="#space_xs" hidden="true" flex_flow="column"
-                  clickable="false" event_bubble="true">
-            <!-- Warning text added dynamically in C++ -->
           </lv_obj>
         </ui_card>
 

@@ -82,6 +82,11 @@ class FilamentMappingCard {
     void set_on_mappings_changed(MappingsChangedCallback cb) { on_mappings_changed_ = std::move(cb); }
 
     /**
+     * @brief Check if any mappings have material mismatches
+     */
+    [[nodiscard]] bool has_mismatch() const;
+
+    /**
      * @brief Check if card is currently visible
      */
     [[nodiscard]] bool is_visible() const;

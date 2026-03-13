@@ -132,10 +132,6 @@ class PrintSelectCardView {
      */
     static bool is_placeholder_thumbnail(const std::string& path);
 
-    // Directory card styling (reduced overlay heights)
-    static constexpr int DIR_METADATA_CLIP_HEIGHT = 40; ///< Metadata clip height for directories
-    static constexpr int DIR_METADATA_OVERLAY_HEIGHT =
-        48; ///< Metadata overlay height for directories
 
     // === Setup ===
 

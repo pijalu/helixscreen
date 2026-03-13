@@ -346,21 +346,9 @@ void PrintSelectCardView::configure_card(lv_obj_t* card, size_t pool_index, size
         }
     }
 
-    // Adjust overlay heights for directories (show less metadata)
     // Note: metadata_row visibility, folder_icon, and thumbnail visibility
-    // are handled declaratively via is_dir_subject bindings
-    lv_obj_t* metadata_clip = lv_obj_find_by_name(card, "metadata_clip");
-    lv_obj_t* metadata_overlay = lv_obj_find_by_name(card, "metadata_overlay");
-    if (metadata_clip && metadata_overlay) {
-        if (file.is_dir) {
-            lv_obj_set_height(metadata_clip, DIR_METADATA_CLIP_HEIGHT);
-            lv_obj_set_height(metadata_overlay, DIR_METADATA_OVERLAY_HEIGHT);
-        } else {
-            // Reset to default heights for files
-            lv_obj_set_height(metadata_clip, 70); // metadata_overlay_min_height from XML
-            lv_obj_set_height(metadata_overlay, 78);
-        }
-    }
+    // are handled declaratively via folder_type_subject bindings.
+    // Overlay is content-sized so it adapts automatically.
 
     // Update card sizing
     lv_obj_set_width(card, dims.card_width);

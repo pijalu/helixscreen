@@ -24,8 +24,6 @@
     <int name="metadata_overlay_opacity" value="160"/>
     <!-- Thumbnail height (overridden by C++ based on card width) -->
     <px name="thumbnail_height" value="150"/>
-    <!-- Metadata overlay minimum height -->
-    <px name="metadata_overlay_min_height" value="70"/>
   </consts>
   <view name="card_root"
         extends="ui_card" height="#card_height" style_flex_basis="#card_base_width" flex_grow="1"
@@ -50,38 +48,38 @@
     <!-- Parent directory icon - shown for ".." entries (folder_type=2) -->
     <icon name="parent_dir_icon" src="folder_arrow_up" size="xl" variant="warning"
           align="center" style_translate_y="-10" hidden="true"/>
-    <!-- Metadata clip container - sharp top edge, clips the inner overlay's top rounded corners -->
+    <!-- Metadata clip - content-sized, hides top rounded corners of inner overlay -->
     <lv_obj name="metadata_clip"
-            width="100%" height="#metadata_overlay_min_height" style_radius="0" style_pad_all="0" align="bottom_mid"
-            scrollable="false">
-      <!-- Inner overlay with rounded corners - taller to extend above clip, hiding top radius -->
+            width="100%" height="content" style_radius="0" style_pad_all="0"
+            align="bottom_mid" scrollable="false">
       <lv_obj name="metadata_overlay"
-              width="100%" height="78" style_bg_opa="#metadata_overlay_opacity" style_radius="#border_radius"
+              width="100%" height="content" style_bg_opa="#metadata_overlay_opacity" style_radius="#border_radius"
               style_pad_left="#space_xs" style_pad_right="#space_xs" style_pad_top="#space_lg"
-              style_pad_bottom="#space_xs" align="bottom_mid" flex_flow="column" scrollable="false">
-        <!-- Filename label (single line, truncated with ...) -->
-        <text_xs name="filename_label"
-                 width="100%" height="18" text="$filename" long_mode="dots" style_text_color="#text"/>
-        <!-- Metadata row (horizontal layout, responsive) -->
-        <lv_obj name="metadata_row"
-                width="100%" style_pad_all="0" style_pad_top="#metadata_top_pad" flex_flow="row"
-                style_pad_gap="#space_xs" flex_grow="1">
-          <!-- Print time (icon + text) -->
-          <lv_obj height="100%"
-                  flex_grow="1" style_pad_all="0" flex_flow="row" style_pad_gap="#icon_text_gap"
-                  style_flex_cross_place="center">
-            <icon src="clock" size="xs" variant="primary"/>
-            <text_xs name="time_label" text="$print_time" flex_grow="1" style_translate_y="2"/>
-          </lv_obj>
-          <!-- Filament weight (icon + text) -->
-          <lv_obj height="100%"
-                  flex_grow="1" style_pad_all="0" flex_flow="row" style_pad_gap="#icon_text_gap"
-                  style_flex_cross_place="center">
-            <icon src="weight" size="xs" variant="primary"/>
-            <text_xs name="filament_label" text="$filament_weight" flex_grow="1" style_translate_y="2"/>
-          </lv_obj>
+              style_pad_bottom="#space_xs" style_translate_y="-12" flex_flow="column" scrollable="false">
+      <!-- Filename label (single line, truncated with ...) -->
+      <text_xs name="filename_label"
+               width="100%" height="content" text="$filename" long_mode="dots" style_text_color="#text"/>
+      <!-- Metadata row (horizontal layout, responsive) -->
+      <!-- Hidden for directories via folder_type_subject binding in C++ -->
+      <lv_obj name="metadata_row"
+              width="100%" height="content" style_pad_all="0" style_pad_top="#metadata_top_pad" flex_flow="row"
+              style_pad_gap="#space_xs">
+        <!-- Print time (icon + text) -->
+        <lv_obj height="100%"
+                flex_grow="1" style_pad_all="0" flex_flow="row" style_pad_gap="#icon_text_gap"
+                style_flex_cross_place="center">
+          <icon src="clock" size="xs" variant="primary"/>
+          <text_xs name="time_label" text="$print_time" flex_grow="1" style_translate_y="2"/>
+        </lv_obj>
+        <!-- Filament weight (icon + text) -->
+        <lv_obj height="100%"
+                flex_grow="1" style_pad_all="0" flex_flow="row" style_pad_gap="#icon_text_gap"
+                style_flex_cross_place="center">
+          <icon src="weight" size="xs" variant="primary"/>
+          <text_xs name="filament_label" text="$filament_weight" flex_grow="1" style_translate_y="2"/>
         </lv_obj>
       </lv_obj>
+    </lv_obj>
     </lv_obj>
   </view>
 </component>

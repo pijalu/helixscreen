@@ -207,24 +207,7 @@
     <px name="temp_card_height_small" value="64"/>
     <px name="temp_card_height_medium" value="72"/>
     <px name="temp_card_height_large" value="80"/>
-    <!-- detail_metadata_clip_height: Clip container for print file detail overlay -->
-    <px name="detail_metadata_clip_height_tiny" value="72"/>
-    <px name="detail_metadata_clip_height_small" value="92"/>
-    <px name="detail_metadata_clip_height_medium" value="112"/>
-    <px name="detail_metadata_clip_height_large" value="112"/>
-    <!-- detail_metadata_overlay_height: Inner overlay for print file detail -->
-    <px name="detail_metadata_overlay_height_tiny" value="80"/>
-    <px name="detail_metadata_overlay_height_small" value="100"/>
-    <px name="detail_metadata_overlay_height_medium" value="120"/>
-    <px name="detail_metadata_overlay_height_large" value="120"/>
-    <!-- history_clip_height: Clip container for history detail overlay -->
-    <px name="history_clip_height_small" value="44"/>
-    <px name="history_clip_height_medium" value="50"/>
-    <px name="history_clip_height_large" value="55"/>
-    <!-- history_overlay_height: Inner overlay for history detail -->
-    <px name="history_overlay_height_small" value="50"/>
-    <px name="history_overlay_height_medium" value="57"/>
-    <px name="history_overlay_height_large" value="63"/>
+
 
     <!-- Row height for button containers -->
     <px name="input_height" value="48"/>

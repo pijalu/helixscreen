@@ -96,6 +96,10 @@ void FilamentMappingCard::hide() {
     }
 }
 
+bool FilamentMappingCard::has_mismatch() const {
+    return has_any_mismatch();
+}
+
 bool FilamentMappingCard::is_visible() const {
     if (!card_) {
         return false;
@@ -123,11 +127,11 @@ void FilamentMappingCard::rebuild_compact_view() {
     lv_obj_clean(rows_container_);
 
     // Responsive spacing from design tokens
-    int32_t swatch_sz = theme_manager_get_spacing("space_lg");
+    int32_t swatch_sz = theme_manager_get_spacing("space_md");
     int32_t inner_gap = theme_manager_get_spacing("space_xxs");
-    int32_t pair_gap = theme_manager_get_spacing("space_sm");
-    int32_t pill_pad_h = theme_manager_get_spacing("space_sm");
-    int32_t pill_pad_v = theme_manager_get_spacing("space_xs");
+    int32_t pair_gap = theme_manager_get_spacing("space_xs");
+    int32_t pill_pad_h = theme_manager_get_spacing("space_xs");
+    int32_t pill_pad_v = theme_manager_get_spacing("space_xxs");
     int32_t pill_radius = theme_manager_get_spacing("space_lg");
 
     // Configure as a horizontal flex row of swatch pairs (wrapping)
@@ -175,7 +179,7 @@ void FilamentMappingCard::rebuild_compact_view() {
         // Arrow
         lv_obj_t* arrow = lv_label_create(pair);
         lv_label_set_text(arrow, ICON_ARROW_RIGHT);
-        lv_obj_set_style_text_font(arrow, &mdi_icons_16, 0);
+        lv_obj_set_style_text_font(arrow, theme_manager_get_font("icon_font_xs"), 0);
         lv_obj_set_style_text_color(arrow, theme_manager_get_color("text_muted"), 0);
         lv_obj_remove_flag(arrow, LV_OBJ_FLAG_CLICKABLE);
         lv_obj_add_flag(arrow, LV_OBJ_FLAG_EVENT_BUBBLE);
@@ -205,20 +209,7 @@ void FilamentMappingCard::rebuild_compact_view() {
         lv_obj_add_flag(slot_sw, LV_OBJ_FLAG_EVENT_BUBBLE);
     }
 
-    // Add warning icon at the end if any mismatches
-    if (has_any_mismatch()) {
-        lv_obj_t* warn = lv_label_create(rows_container_);
-        lv_label_set_text(warn, ICON_TRIANGLE_EXCLAMATION);
-        lv_obj_set_style_text_font(warn, &mdi_icons_16, 0);
-        lv_obj_set_style_text_color(warn, theme_manager_get_color("warning"), 0);
-        lv_obj_remove_flag(warn, LV_OBJ_FLAG_CLICKABLE);
-        lv_obj_add_flag(warn, LV_OBJ_FLAG_EVENT_BUBBLE);
-    }
-
-    // Hide the verbose warning container (no longer needed in compact view)
-    if (warning_container_) {
-        lv_obj_add_flag(warning_container_, LV_OBJ_FLAG_HIDDEN);
-    }
+    // Warning icon visibility is handled by XML bind_flag_if_eq on "filament_mismatch" subject
 }
 
 bool FilamentMappingCard::has_any_mismatch() const {

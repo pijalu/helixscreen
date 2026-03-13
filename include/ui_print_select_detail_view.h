@@ -345,6 +345,7 @@ class PrintSelectDetailView : public OverlayBase {
     lv_subject_t preprint_nozzle_clean_{};
     lv_subject_t preprint_purge_line_{};
     lv_subject_t preprint_timelapse_{};
+    lv_subject_t filament_mismatch_{}; // 1 = material mismatch warning visible
     SubjectManager subjects_; // RAII manager for subject cleanup
     // Note: subjects_initialized_ inherited from OverlayBase
 
