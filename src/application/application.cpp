@@ -17,6 +17,7 @@
 #include "ui_update_queue.h"
 
 #include "asset_manager.h"
+#include "cjk_font_manager.h"
 #include "config.h"
 #include "display/lv_display_private.h"
 #include "display_manager.h"
@@ -1115,6 +1116,9 @@ bool Application::init_translations() {
     std::string lang = m_config->get_language();
     lv_translation_set_language(lang.c_str());
     lv_i18n_set_locale(lang.c_str());
+
+    // Load CJK runtime fonts if persisted language is CJK
+    helix::system::CjkFontManager::instance().on_language_changed(lang);
 
     // Re-enable translation warnings for runtime (post-init warnings are actionable)
     helix::logging::set_suppress_translation_warnings(false);
@@ -3076,6 +3080,9 @@ void Application::shutdown() {
     // After this, widgets have no observer callbacks, so lv_deinit() deletes them
     // cleanly without firing stale unsubscribe callbacks on corrupted linked lists.
     StaticSubjectRegistry::instance().deinit_all();
+
+    // Destroy runtime CJK fonts before LVGL shutdown
+    helix::system::CjkFontManager::instance().shutdown();
 
     // Deinitialize theme manager subjects (theme_changed_subject, swatch descriptions).
     // These are file-scope statics not tracked by StaticSubjectRegistry.

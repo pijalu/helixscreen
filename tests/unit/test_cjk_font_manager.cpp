@@ -107,3 +107,37 @@ TEST_CASE_METHOD(CjkFontManagerFixture,
     CjkFontManager::instance().on_language_changed("en");
     REQUIRE(noto_sans_14.fallback == nullptr);
 }
+
+TEST_CASE_METHOD(CjkFontManagerFixture,
+                 "CjkFontManager: full lifecycle — load, switch, unload, shutdown",
+                 "[cjk_font][integration]") {
+    auto& mgr = CjkFontManager::instance();
+
+    // Start with English
+    mgr.on_language_changed("en");
+    REQUIRE_FALSE(mgr.is_loaded());
+
+    // Switch to Chinese
+    mgr.on_language_changed("zh");
+    REQUIRE(mgr.is_loaded());
+
+    // Switch to Japanese (should stay loaded — both CJK)
+    mgr.on_language_changed("ja");
+    REQUIRE(mgr.is_loaded());
+
+    // Switch to French
+    mgr.on_language_changed("fr");
+    REQUIRE_FALSE(mgr.is_loaded());
+
+    // Back to Chinese
+    mgr.on_language_changed("zh");
+    REQUIRE(mgr.is_loaded());
+
+    // Shutdown
+    mgr.shutdown();
+    REQUIRE_FALSE(mgr.is_loaded());
+
+    // Double shutdown is safe
+    mgr.shutdown();
+    REQUIRE_FALSE(mgr.is_loaded());
+}

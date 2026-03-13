@@ -11,6 +11,7 @@
 #include "static_subject_registry.h"
 #include "system/telemetry_manager.h"
 #include "system/update_checker.h"
+#include "cjk_font_manager.h"
 
 #include <algorithm>
 
@@ -104,6 +105,9 @@ void SystemSettingsManager::set_language(const std::string& lang) {
     // 2. Call LVGL translation API for hot-reload
     // This sends LV_EVENT_TRANSLATION_LANGUAGE_CHANGED to all widgets
     lv_translation_set_language(lang.c_str());
+
+    // Load/unload CJK runtime fonts based on locale
+    helix::system::CjkFontManager::instance().on_language_changed(lang);
 
     // 3. Update locale formatting tables
     helix::ui::locale_set_language(lang);
