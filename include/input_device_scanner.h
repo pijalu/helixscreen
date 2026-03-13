@@ -16,9 +16,8 @@ struct ScannedDevice {
 /// Check if a specific bit is set in a sysfs capability hex bitmask.
 /// The kernel prints space-separated hex words (unsigned long), rightmost = lowest bits.
 /// Handles both 32-bit and 64-bit word widths automatically by inferring
-/// bits-per-word from the hex digit count of each word. This is correct even
-/// when the kernel omits leading zeros, because a bit can only appear set in a
-/// word whose hex representation includes that bit position.
+/// bits-per-word from the longest hex word in the bitmask (<=8 digits = 32-bit,
+/// >8 digits = 64-bit). Single-word bitmasks use actual digit count.
 bool check_capability_bit(const std::string& hex_bitmask, int bit);
 
 /// Scan /dev/input/event* for mouse devices (REL_X + REL_Y + BTN_LEFT, no ABS_X/ABS_Y).
