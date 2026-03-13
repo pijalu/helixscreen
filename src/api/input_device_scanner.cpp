@@ -58,31 +58,93 @@ bool check_capability_bit(const std::string& hex_bitmask, int bit) {
         return false;
     }
 
-    // Each word is an unsigned long printed in hex. Word width varies by arch
-    // (8 hex digits on 32-bit, 16 on 64-bit). We detect from the actual content.
-    // Approach: iterate words right-to-left, tracking cumulative bit offset.
-    // This is correct even when the kernel omits leading zeros, because a bit
-    // can only appear set in a word whose hex representation includes that
-    // bit position.
-    int cumulative_bit = 0;
-    for (int i = static_cast<int>(words.size()) - 1; i >= 0; --i) {
-        unsigned long val = std::strtoul(words[i].c_str(), nullptr, 16);
-        int bits_in_word = static_cast<int>(words[i].size()) * 4;  // 4 bits per hex digit
-
-        if (bit >= cumulative_bit && bit < cumulative_bit + bits_in_word) {
-            int bit_in_word = bit - cumulative_bit;
-            return (val & (1UL << bit_in_word)) != 0;
+    // Each word is an unsigned long printed in hex. The kernel strips leading
+    // zeros, so "0" could be 32-bit or 64-bit. For single-word bitmasks, we
+    // use the actual digit count. For multi-word bitmasks, we infer the arch
+    // word width from the longest word and apply it uniformly.
+    int bits_per_word = 0;
+    if (words.size() == 1) {
+        bits_per_word = static_cast<int>(words[0].size()) * 4;
+    } else {
+        // Find max hex digit count to infer arch word width
+        size_t max_digits = 0;
+        for (const auto& w : words) {
+            if (w.size() > max_digits) {
+                max_digits = w.size();
+            }
         }
-
-        cumulative_bit += bits_in_word;
+        // Round up to 32-bit (8 digits) or 64-bit (16 digits) boundary
+        if (max_digits <= 8) {
+            bits_per_word = 32;
+        } else {
+            bits_per_word = 64;
+        }
     }
 
-    return false;
+    // Determine which word contains our bit (right-to-left, 0-indexed)
+    int word_index_from_right = bit / bits_per_word;
+    int bit_in_word = bit % bits_per_word;
+
+    // Convert to array index (words[0] = leftmost = highest bits)
+    int array_index = static_cast<int>(words.size()) - 1 - word_index_from_right;
+    if (array_index < 0 || array_index >= static_cast<int>(words.size())) {
+        return false;
+    }
+
+    unsigned long val = std::strtoul(words[array_index].c_str(), nullptr, 16);
+    return (val & (1UL << bit_in_word)) != 0;
 }
 
 std::optional<ScannedDevice> find_mouse_device(const std::string& dev_base,
                                                 const std::string& sysfs_base) {
-    // STUB: will be implemented in Phase 2
+    DIR* dir = opendir(dev_base.c_str());
+    if (!dir) {
+        spdlog::debug("[InputScanner] Cannot open {}", dev_base);
+        return std::nullopt;
+    }
+
+    struct dirent* entry;
+    while ((entry = readdir(dir)) != nullptr) {
+        if (strncmp(entry->d_name, "event", 5) != 0) {
+            continue;
+        }
+
+        int event_num = -1;
+        if (sscanf(entry->d_name, "event%d", &event_num) != 1 || event_num < 0) {
+            continue;
+        }
+
+        std::string device_path = dev_base + "/" + entry->d_name;
+        if (access(device_path.c_str(), R_OK) != 0) {
+            continue;
+        }
+
+        // Skip touchscreens: devices with ABS_X (bit 0) + ABS_Y (bit 1)
+        std::string abs_caps = read_sysfs_capability(sysfs_base, event_num, "abs");
+        if (check_capability_bit(abs_caps, 0) && check_capability_bit(abs_caps, 1)) {
+            continue;
+        }
+
+        // Require REL_X (bit 0) + REL_Y (bit 1)
+        std::string rel_caps = read_sysfs_capability(sysfs_base, event_num, "rel");
+        if (!check_capability_bit(rel_caps, 0) || !check_capability_bit(rel_caps, 1)) {
+            continue;
+        }
+
+        // Require BTN_LEFT (bit 272)
+        std::string key_caps = read_sysfs_capability(sysfs_base, event_num, "key");
+        if (!check_capability_bit(key_caps, 272)) {
+            continue;
+        }
+
+        std::string name = read_device_name(sysfs_base, event_num);
+        spdlog::info("[InputScanner] Found mouse: {} ({})", device_path, name);
+
+        closedir(dir);
+        return ScannedDevice{device_path, name, event_num};
+    }
+
+    closedir(dir);
     return std::nullopt;
 }
 

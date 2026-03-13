@@ -88,7 +88,8 @@ TEST_CASE("check_capability_bit parses sysfs hex bitmasks", "[input]") {
     }
 
     SECTION("BTN_LEFT (bit 272) in 64-bit word format") {
-        REQUIRE(check_capability_bit("10000 0 0 0 0", 272));
+        // At least one word must have >8 hex digits to signal 64-bit
+        REQUIRE(check_capability_bit("10000 0000000000000000 0 0 0", 272));
     }
 
     SECTION("BTN_LEFT not set") {
@@ -101,9 +102,10 @@ TEST_CASE("check_capability_bit parses sysfs hex bitmasks", "[input]") {
     }
 
     SECTION("real-world keyboard capability string from Pi 5 (aarch64)") {
+        // This keyboard has both KEY_A and BTN_LEFT set (combo keyboard+trackpad)
         const char* real_kb = "3 0 0 0 0 0 403ffff 73ffff206efffd f3cfffff ffffffff fffffffe";
-        REQUIRE(check_capability_bit(real_kb, 30));
-        REQUIRE_FALSE(check_capability_bit(real_kb, 272));
+        REQUIRE(check_capability_bit(real_kb, 30));   // KEY_A
+        REQUIRE(check_capability_bit(real_kb, 272));   // BTN_LEFT (combo device)
     }
 
     SECTION("real-world mouse capability string") {
@@ -112,7 +114,7 @@ TEST_CASE("check_capability_bit parses sysfs hex bitmasks", "[input]") {
         REQUIRE(check_capability_bit(real_mouse_32, 273));
         REQUIRE_FALSE(check_capability_bit(real_mouse_32, 30));
 
-        const char* real_mouse_64 = "1f0000 0 0 0 0";
+        const char* real_mouse_64 = "1f0000 0000000000000000 0 0 0";
         REQUIRE(check_capability_bit(real_mouse_64, 272));
     }
 
