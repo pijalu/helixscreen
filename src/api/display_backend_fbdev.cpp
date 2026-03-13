@@ -8,6 +8,7 @@
 #include "display_backend_fbdev.h"
 
 #include "config.h"
+#include "input_device_scanner.h"
 #include "touch_calibration.h"
 
 #include <spdlog/spdlog.h>
@@ -514,6 +515,40 @@ lv_indev_t* DisplayBackendFbdev::create_input_pointer() {
     lv_indev_set_read_cb(touch_, calibrated_read_cb);
 
     spdlog::info("[Fbdev Backend] Evdev touch input created on {}", touch_path);
+
+    // Detect USB HID mouse (in addition to touchscreen)
+    const char* mouse_env = std::getenv("HELIX_MOUSE_DEVICE");
+    if (mouse_env && mouse_env[0] != '\0') {
+        mouse_ = lv_evdev_create(LV_INDEV_TYPE_POINTER, mouse_env);
+        if (mouse_) {
+            spdlog::info("[Fbdev Backend] Mouse created on {} (env override)", mouse_env);
+        }
+    }
+
+    if (!mouse_) {
+        auto mouse_dev = helix::input::find_mouse_device();
+        if (mouse_dev) {
+            mouse_ = lv_evdev_create(LV_INDEV_TYPE_POINTER, mouse_dev->path.c_str());
+            if (mouse_) {
+                spdlog::info("[Fbdev Backend] Mouse created on {} ({})",
+                             mouse_dev->path, mouse_dev->name);
+            }
+        }
+    }
+
+    if (mouse_) {
+        lv_obj_t* cursor_obj = lv_obj_create(lv_screen_active());
+        lv_obj_set_size(cursor_obj, 12, 12);
+        lv_obj_set_style_radius(cursor_obj, LV_RADIUS_CIRCLE, 0);
+        lv_obj_set_style_bg_color(cursor_obj, lv_color_white(), 0);
+        lv_obj_set_style_bg_opa(cursor_obj, LV_OPA_80, 0);
+        lv_obj_set_style_border_width(cursor_obj, 1, 0);
+        lv_obj_set_style_border_color(cursor_obj, lv_color_black(), 0);
+        lv_obj_clear_flag(cursor_obj, LV_OBJ_FLAG_CLICKABLE);
+        lv_indev_set_cursor(mouse_, cursor_obj);
+        spdlog::info("[Fbdev Backend] Mouse cursor enabled");
+    }
+
     return touch_;
 }
 

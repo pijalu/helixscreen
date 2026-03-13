@@ -147,6 +147,7 @@ class DisplayBackendFbdev : public DisplayBackend {
     std::string touch_device_; // Empty = auto-detect
     lv_display_t* display_ = nullptr;
     lv_indev_t* touch_ = nullptr;
+    lv_indev_t* mouse_ = nullptr;
     lv_indev_t* keyboard_ = nullptr;
 
     /// Affine touch calibration coefficients
