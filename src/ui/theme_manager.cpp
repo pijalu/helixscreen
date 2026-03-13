@@ -588,10 +588,15 @@ static ThemePalette convert_to_theme_palette(const theme_palette_t* p,
  */
 static lv_theme_t* theme_init_lvgl(lv_display_t* display, const theme_palette_t* palette,
                                    bool is_dark, const lv_font_t* base_font) {
-    // Build BOTH dark and light palettes from active_theme for contrast calculations
-    // The contrast system needs both palettes to pick appropriate text colors
-    theme_palette_t dark_theme_pal = build_palette_from_mode(active_theme.dark);
-    theme_palette_t light_theme_pal = build_palette_from_mode(active_theme.light);
+    // Build palettes from active_theme for contrast calculations.
+    // For single-mode themes, use the valid palette for both sides to avoid
+    // parsing empty color strings from the unsupported mode.
+    bool has_dark = active_theme.supports_dark();
+    bool has_light = active_theme.supports_light();
+    const auto& dark_src = has_dark ? active_theme.dark : active_theme.light;
+    const auto& light_src = has_light ? active_theme.light : active_theme.dark;
+    theme_palette_t dark_theme_pal = build_palette_from_mode(dark_src);
+    theme_palette_t light_theme_pal = build_palette_from_mode(light_src);
 
     const auto& props = active_theme.properties;
     ThemePalette dark_pal = convert_to_theme_palette(&dark_theme_pal, props);
@@ -627,12 +632,13 @@ static lv_theme_t* theme_init_lvgl(lv_display_t* display, const theme_palette_t*
 static void theme_update_colors(bool is_dark) {
     auto& tm = ThemeManager::instance();
 
-    // Build BOTH palettes from active_theme so each side keeps its own colors.
-    // The contrast system needs both palettes to detect text colors from either
-    // mode (e.g., recognizing dark-mode white as a text color after switching
-    // to light mode).
-    theme_palette_t dark_theme_pal = build_palette_from_mode(active_theme.dark);
-    theme_palette_t light_theme_pal = build_palette_from_mode(active_theme.light);
+    // Build palettes, falling back to the valid mode for single-mode themes
+    bool has_dark = active_theme.supports_dark();
+    bool has_light = active_theme.supports_light();
+    const auto& dark_src = has_dark ? active_theme.dark : active_theme.light;
+    const auto& light_src = has_light ? active_theme.light : active_theme.dark;
+    theme_palette_t dark_theme_pal = build_palette_from_mode(dark_src);
+    theme_palette_t light_theme_pal = build_palette_from_mode(light_src);
 
     const auto& props = active_theme.properties;
     ThemePalette dark_pal = convert_to_theme_palette(&dark_theme_pal, props);
