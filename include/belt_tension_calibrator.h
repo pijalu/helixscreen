@@ -1,0 +1,190 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+#pragma once
+
+/**
+ * @file belt_tension_calibrator.h
+ * @brief High-level orchestrator for belt tension calibration workflow
+ *
+ * BeltTensionCalibrator manages the belt tension measurement process:
+ * 1. Detect printer hardware (kinematics, ADXL, belted Z, PWM LED)
+ * 2. Home printer if needed
+ * 3. Run resonance sweeps on belt paths A and B
+ * 4. Compute PSD, find peaks, calculate similarity
+ * 5. Optionally enter strobe mode for manual tuning
+ * 6. Optionally measure Z belt corners
+ *
+ * This is a state machine that coordinates MoonrakerAPI calls and
+ * provides progress/error callbacks to the UI layer.
+ *
+ * @see InputShaperCalibrator for the equivalent input shaper workflow
+ */
+
+#include "belt_tension_types.h"
+
+#include <atomic>
+#include <memory>
+#include <string>
+
+// Forward declaration
+class MoonrakerAPI;
+
+namespace helix::calibration {
+
+class BeltTensionCalibrator {
+  public:
+    /// State machine states
+    enum class State {
+        IDLE,                ///< Ready to start, no measurement in progress
+        DETECTING_HARDWARE,  ///< Querying printer for capabilities
+        CHECKING_ADXL,       ///< Verifying accelerometer connectivity
+        HOMING,              ///< Homing printer axes
+        TESTING_PATH_A,      ///< Running resonance sweep on path A
+        TESTING_PATH_B,      ///< Running resonance sweep on path B
+        RESULTS_READY,       ///< Both paths measured, results available
+        STROBE_MODE,         ///< PWM LED strobing at belt frequency
+        Z_BELT_GUIDE,        ///< Showing Z belt measurement instructions
+        Z_LISTENING,         ///< Listening for Z belt pluck
+        Z_RESULTS_READY,     ///< Z belt measurements complete
+        ERROR,               ///< An error occurred
+    };
+
+    /**
+     * @brief Default constructor for tests without API
+     *
+     * Operations will fail with error callbacks when no API is available.
+     */
+    BeltTensionCalibrator();
+
+    /**
+     * @brief Constructor with API dependency injection
+     *
+     * @param api Non-owning pointer to MoonrakerAPI instance
+     */
+    explicit BeltTensionCalibrator(MoonrakerAPI* api);
+
+    ~BeltTensionCalibrator();
+
+    // Non-copyable, non-movable (shared alive_ makes move unsound)
+    BeltTensionCalibrator(const BeltTensionCalibrator&) = delete;
+    BeltTensionCalibrator& operator=(const BeltTensionCalibrator&) = delete;
+    BeltTensionCalibrator(BeltTensionCalibrator&&) = delete;
+    BeltTensionCalibrator& operator=(BeltTensionCalibrator&&) = delete;
+
+    // ========================================================================
+    // State Queries
+    // ========================================================================
+
+    [[nodiscard]] State get_state() const { return state_.load(); }
+    [[nodiscard]] const BeltTensionResult& get_results() const { return results_; }
+    [[nodiscard]] const BeltTensionHardware& get_hardware() const { return hardware_; }
+
+    // ========================================================================
+    // Hardware Detection
+    // ========================================================================
+
+    /**
+     * @brief Detect printer hardware capabilities
+     *
+     * Queries printer.objects.list and printer.objects.query to determine
+     * kinematics type, ADXL presence, belted Z, and PWM LED availability.
+     *
+     * @param on_complete Called with detected hardware on success
+     * @param on_error Called with error message on failure
+     */
+    void detect_hardware(BeltHardwareDetectCallback on_complete, BeltErrorCallback on_error);
+
+    // ========================================================================
+    // Auto-Sweep Measurement (ADXL required)
+    // ========================================================================
+
+    /**
+     * @brief Run complete auto-sweep measurement on both belt paths
+     *
+     * Sequence: detect_hardware -> ensure_homed -> test A -> test B -> results
+     *
+     * @param on_progress Called with percentage (0-100) during test
+     * @param on_complete Called with complete results
+     * @param on_error Called with error message on failure
+     */
+    void run_auto_sweep(BeltProgressCallback on_progress, BeltResultCallback on_complete,
+                        BeltErrorCallback on_error);
+
+    /**
+     * @brief Run resonance test on a single belt path
+     *
+     * @param path Belt path to test
+     * @param on_progress Called with percentage (0-100) during test
+     * @param on_complete Called with measurement result
+     * @param on_error Called with error message on failure
+     */
+    void test_path(BeltPath path, BeltProgressCallback on_progress, BeltMeasurementCallback on_complete,
+                   BeltErrorCallback on_error);
+
+    // ========================================================================
+    // Strobe Mode
+    // ========================================================================
+
+    /**
+     * @brief Start PWM LED strobe at specified frequency
+     * @param frequency_hz Strobe frequency in Hz
+     * @param on_error Called with error message on failure
+     */
+    void start_strobe(float frequency_hz, BeltErrorCallback on_error);
+
+    /// Update strobe frequency while in strobe mode
+    void set_strobe_frequency(float frequency_hz);
+
+    /// Stop strobe mode and return to RESULTS_READY or IDLE
+    void stop_strobe();
+
+    // ========================================================================
+    // Z Belt Operations
+    // ========================================================================
+
+    /**
+     * @brief Start listening for Z belt pluck on a specific corner
+     * @param corner Corner to listen on
+     * @param on_complete Called with measurement on success
+     * @param on_error Called with error message on failure
+     */
+    void start_z_belt_listening(ZBeltCorner corner, BeltMeasurementCallback on_complete,
+                                BeltErrorCallback on_error);
+
+    // ========================================================================
+    // Control
+    // ========================================================================
+
+    /// Cancel any in-progress operation and return to IDLE
+    void cancel();
+
+    /// Reset calibrator to initial state, clearing all results
+    void reset();
+
+    // ========================================================================
+    // Configuration
+    // ========================================================================
+
+    void set_target_frequency(float hz) { results_.target_frequency = hz; }
+    void set_tolerance(float hz) { results_.tolerance = hz; }
+
+  private:
+    /// Must be called from main thread (reads lv_subject)
+    void ensure_homed_then(std::function<void()> then, BeltErrorCallback on_error);
+    void execute_resonance_test(BeltPath path, BeltProgressCallback on_progress,
+                                BeltMeasurementCallback on_complete, BeltErrorCallback on_error);
+    void process_csv_data(const std::string& csv_data, BeltMeasurementCallback on_complete,
+                          BeltErrorCallback on_error);
+    std::string belt_path_to_axis_param(BeltPath path) const;
+    static std::string belt_path_to_name(BeltPath path);
+
+    std::atomic<State> state_{State::IDLE};
+    MoonrakerAPI* api_ = nullptr;
+    BeltTensionResult results_;
+    BeltTensionHardware hardware_;
+    float strobe_frequency_ = 0.0f;
+
+    /// Shared alive flag for async callback safety
+    std::shared_ptr<std::atomic<bool>> alive_ = std::make_shared<std::atomic<bool>>(true);
+};
+
+}  // namespace helix::calibration

@@ -74,6 +74,7 @@
 #include "ui_panel_glyphs.h"
 #include "ui_panel_history_dashboard.h"
 #include "ui_panel_home.h"
+#include "ui_panel_belt_tension.h"
 #include "ui_panel_input_shaper.h"
 #include "ui_panel_macros.h"
 #include "ui_panel_memory_stats.h"
@@ -1162,6 +1163,7 @@ bool Application::init_panel_subjects() {
     helix::ui::notification_register_callbacks();
     ui_panel_screws_tilt_register_callbacks();
     ui_panel_input_shaper_register_callbacks();
+    ui_panel_belt_tension_register_callbacks();
     ui_probe_overlay_register_callbacks();
 
     // Create temperature history manager (collects temp samples from PrinterState subjects)

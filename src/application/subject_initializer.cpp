@@ -25,6 +25,7 @@
 #include "ui_panel_history_dashboard.h"
 #include "ui_panel_history_list.h"
 #include "ui_panel_home.h"
+#include "ui_panel_belt_tension.h"
 #include "ui_panel_input_shaper.h"
 #include "ui_panel_motion.h"
 #include "ui_panel_print_select.h"
@@ -221,6 +222,7 @@ void SubjectInitializer::init_panel_subjects(MoonrakerAPI* api) {
     // Row handlers for advanced features
     init_screws_tilt_row_handler();
     init_input_shaper_row_handler();
+    init_belt_tension_row_handler();
     init_zoffset_row_handler();
     init_zoffset_event_callbacks();
     init_probe_row_handler();

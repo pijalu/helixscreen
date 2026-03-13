@@ -13,6 +13,7 @@
 #pragma once
 
 #include "advanced_panel_types.h"
+#include "belt_tension_types.h"
 #include "calibration_types.h"
 #include "moonraker_error.h"
 #include "moonraker_types.h"
@@ -58,6 +59,7 @@ class MoonrakerAdvancedAPI {
     static constexpr uint32_t MPC_TIMEOUT_MS = 900000; // 15 min - MPC_CALIBRATE
     static constexpr uint32_t PROBING_TIMEOUT_MS =
         180000; // 3 min - PROBE_CALIBRATE, Z_ENDSTOP_CALIBRATE
+    static constexpr uint32_t BELT_TENSION_TIMEOUT_MS = 120000; // 2 min per path
 
     using SuccessCallback = std::function<void()>;
     using ErrorCallback = std::function<void(const MoonrakerError&)>;
@@ -433,6 +435,87 @@ class MoonrakerAdvancedAPI {
      * @return Vector of macro information
      */
     std::vector<MacroInfo> get_user_macros(bool include_system = false) const;
+
+    // ========================================================================
+    // Belt Tension Operations
+    // ========================================================================
+
+    /// Callback for belt resonance test completion (returns output name for CSV lookup)
+    using BeltResonanceCallback = std::function<void(const std::string& csv_path)>;
+
+    /// Callback for belt hardware detection
+    using BeltHardwareCallback =
+        std::function<void(const helix::calibration::BeltTensionHardware&)>;
+
+    /**
+     * @brief Detect printer hardware for belt tension calibration
+     *
+     * Two-phase detection: queries printer.objects.list for ADXL/QGL/PWM presence,
+     * then printer.objects.query for kinematics type.
+     *
+     * @param on_complete Called with detected hardware capabilities
+     * @param on_error Called on failure
+     */
+    virtual void detect_belt_hardware(BeltHardwareCallback on_complete, ErrorCallback on_error);
+
+    /**
+     * @brief Run TEST_RESONANCES for belt tension measurement
+     *
+     * Executes TEST_RESONANCES with OUTPUT=raw_data to produce a CSV file
+     * of accelerometer data for belt tension analysis.
+     *
+     * @param axis_param Axis parameter: "1,1" for CoreXY Path A, "1,-1" for Path B, "X"/"Y" for Cartesian
+     * @param output_name Name for the CSV output file
+     * @param on_progress Called with progress percentage (0-100)
+     * @param on_complete Called with output name on success
+     * @param on_error Called on failure
+     */
+    virtual void test_belt_resonance(const std::string& axis_param,
+                                     const std::string& output_name,
+                                     helix::AdvancedProgressCallback on_progress,
+                                     BeltResonanceCallback on_complete, ErrorCallback on_error);
+
+    /**
+     * @brief Run TEST_RESONANCES at a fixed frequency (for strobe mode)
+     *
+     * Holds near freq_hz for ~5 seconds by using a narrow frequency band
+     * (FREQ_START=F FREQ_END=F+0.5 HZ_PER_SEC=0.1).
+     *
+     * @param axis_param Axis parameter (same as test_belt_resonance)
+     * @param freq_hz Frequency to excite at
+     * @param on_complete Called when excitation completes
+     * @param on_error Called on failure
+     */
+    virtual void excite_belt_at_frequency(const std::string& axis_param, float freq_hz,
+                                          SuccessCallback on_complete, ErrorCallback on_error);
+
+    /**
+     * @brief Set PWM LED strobe frequency
+     *
+     * Controls a Klipper [pwm_cycle_time] pin for visual strobe tuning.
+     * Pass freq_hz <= 0 to turn off the strobe.
+     *
+     * @param pin_name Klipper pin name (from [pwm_cycle_time] section)
+     * @param freq_hz Strobe frequency in Hz, 0 to turn off
+     * @param on_success Called on success
+     * @param on_error Called on failure
+     */
+    virtual void set_strobe_frequency(const std::string& pin_name, float freq_hz,
+                                      SuccessCallback on_success, ErrorCallback on_error);
+
+    /**
+     * @brief Download raw accelerometer CSV from Klipper data store
+     *
+     * Retrieves the raw resonance CSV file produced by TEST_RESONANCES.
+     * The file is typically at /tmp/raw_data_<name>*.csv on the printer host.
+     *
+     * @param filename CSV filename to download
+     * @param on_complete Called with raw CSV data on success
+     * @param on_error Called on failure
+     */
+    virtual void download_accel_csv(const std::string& filename,
+                                    std::function<void(const std::string& csv_data)> on_complete,
+                                    ErrorCallback on_error);
 
   protected:
     helix::MoonrakerClient& client_;

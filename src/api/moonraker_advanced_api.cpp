@@ -10,6 +10,7 @@
 #include "moonraker_api.h"
 #include "shaper_csv_parser.h"
 #include "spdlog/spdlog.h"
+#include <spdlog/fmt/fmt.h>
 
 #include <algorithm>
 #include <chrono>
@@ -2271,6 +2272,270 @@ void MoonrakerAdvancedAPI::start_mpc_calibrate(
                 on_error(err);
         },
         MPC_TIMEOUT_MS, true);
+}
+
+// ============================================================================
+// Belt Tension Operations
+// ============================================================================
+
+void MoonrakerAdvancedAPI::detect_belt_hardware(BeltHardwareCallback on_complete,
+                                                ErrorCallback on_error) {
+    spdlog::info("[MoonrakerAPI] Detecting belt tension hardware capabilities");
+
+    // Step 1: Query printer.objects.list to discover available objects
+    json params = json::object();
+    client_.send_jsonrpc(
+        "printer.objects.list", params,
+        [this, on_complete, on_error](const json& response) {
+            helix::calibration::BeltTensionHardware hw;
+
+            try {
+                auto objects = response.value("objects", json::array());
+
+                for (const auto& obj : objects) {
+                    std::string name = obj.get<std::string>();
+                    if (name.find("adxl345") != std::string::npos ||
+                        name.find("lis2dw") != std::string::npos ||
+                        name.find("mpu") != std::string::npos) {
+                        hw.has_adxl = true;
+                    }
+                    if (name == "quad_gantry_level") {
+                        hw.has_belted_z = true;
+                    }
+                    if (name.find("pwm_cycle_time") != std::string::npos) {
+                        hw.has_pwm_led = true;
+                        size_t space = name.find(' ');
+                        if (space != std::string::npos) {
+                            hw.pwm_led_pin = name.substr(space + 1);
+                        }
+                    }
+                }
+
+                spdlog::info("[MoonrakerAPI] Belt HW scan: adxl={}, belted_z={}, pwm_led={}",
+                             hw.has_adxl, hw.has_belted_z, hw.has_pwm_led);
+
+            } catch (const std::exception& e) {
+                spdlog::error("[MoonrakerAPI] Failed to parse object list: {}", e.what());
+                if (on_error)
+                    on_error(MoonrakerError{MoonrakerErrorType::JSON_RPC_ERROR, 0,
+                                            fmt::format("Failed to parse printer objects: {}", e.what())});
+                return;
+            }
+
+            // Step 2: Query kinematics type
+            json query_params;
+            query_params["objects"]["configfile"] = json::array({"settings"});
+            client_.send_jsonrpc(
+                "printer.objects.query", query_params,
+                [hw, on_complete, on_error](const json& config_response) mutable {
+                    try {
+                        const auto& status = config_response["status"];
+                        const auto& configfile = status["configfile"];
+                        const auto& settings = configfile["settings"];
+
+                        if (settings.contains("printer") &&
+                            settings["printer"].contains("kinematics")) {
+                            hw.kinematics_name =
+                                settings["printer"]["kinematics"].get<std::string>();
+
+                            if (hw.kinematics_name == "corexy" ||
+                                hw.kinematics_name == "corexz") {
+                                hw.kinematics = helix::calibration::KinematicsType::COREXY;
+                            } else if (hw.kinematics_name == "cartesian") {
+                                hw.kinematics = helix::calibration::KinematicsType::CARTESIAN;
+                            } else {
+                                hw.kinematics = helix::calibration::KinematicsType::UNKNOWN;
+                            }
+                        }
+
+                        spdlog::info("[MoonrakerAPI] Belt HW kinematics: {} (type={})",
+                                     hw.kinematics_name,
+                                     static_cast<int>(hw.kinematics));
+
+                        if (on_complete)
+                            on_complete(hw);
+                    } catch (const std::exception& e) {
+                        spdlog::error("[MoonrakerAPI] Failed to parse kinematics: {}", e.what());
+                        if (on_error)
+                            on_error(MoonrakerError{
+                                MoonrakerErrorType::JSON_RPC_ERROR, 0,
+                                fmt::format("Failed to detect kinematics: {}", e.what())});
+                    }
+                },
+                [on_error](const MoonrakerError& err) {
+                    spdlog::error("[MoonrakerAPI] Kinematics query failed: {}", err.message);
+                    if (on_error)
+                        on_error(err);
+                });
+        },
+        [on_error](const MoonrakerError& err) {
+            spdlog::error("[MoonrakerAPI] Object list query failed: {}", err.message);
+            if (on_error)
+                on_error(err);
+        });
+}
+
+void MoonrakerAdvancedAPI::test_belt_resonance(const std::string& axis_param,
+                                               const std::string& output_name,
+                                               AdvancedProgressCallback on_progress,
+                                               BeltResonanceCallback on_complete,
+                                               ErrorCallback on_error) {
+    spdlog::info("[MoonrakerAPI] Starting belt resonance test: axis={}, name={}", axis_param,
+                 output_name);
+
+    // Build G-code: TEST_RESONANCES AXIS=<param> OUTPUT=raw_data NAME=<name>
+    std::string gcode =
+        fmt::format("TEST_RESONANCES AXIS={} OUTPUT=raw_data NAME={}", axis_param, output_name);
+
+    api_.execute_gcode(
+        gcode,
+        [output_name, on_complete]() {
+            spdlog::info("[MoonrakerAPI] Belt resonance test complete for {}", output_name);
+            // The CSV file will be at /tmp/raw_data_<name>*.csv
+            if (on_complete)
+                on_complete(output_name);
+        },
+        [on_error](const MoonrakerError& err) {
+            spdlog::error("[MoonrakerAPI] Belt resonance test failed: {}", err.message);
+            if (on_error)
+                on_error(err);
+        },
+        BELT_TENSION_TIMEOUT_MS);
+}
+
+void MoonrakerAdvancedAPI::excite_belt_at_frequency(const std::string& axis_param, float freq_hz,
+                                                    SuccessCallback on_complete,
+                                                    ErrorCallback on_error) {
+    spdlog::info("[MoonrakerAPI] Exciting belt at {:.1f} Hz, axis={}", freq_hz, axis_param);
+
+    // Narrow frequency band: holds near freq_hz for ~5 seconds
+    // FREQ_START=F FREQ_END=F+0.5 HZ_PER_SEC=0.1 -> 5 seconds of excitation
+    std::string gcode = fmt::format(
+        "TEST_RESONANCES AXIS={} FREQ_START={:.1f} FREQ_END={:.1f} HZ_PER_SEC=0.1 OUTPUT=raw_data",
+        axis_param, freq_hz, freq_hz + 0.5f);
+
+    api_.execute_gcode(
+        gcode,
+        [on_complete]() {
+            spdlog::debug("[MoonrakerAPI] Belt excitation complete");
+            if (on_complete)
+                on_complete();
+        },
+        [on_error](const MoonrakerError& err) {
+            spdlog::error("[MoonrakerAPI] Belt excitation failed: {}", err.message);
+            if (on_error)
+                on_error(err);
+        },
+        30000); // 30 second timeout for fixed-freq excitation
+}
+
+void MoonrakerAdvancedAPI::set_strobe_frequency(const std::string& pin_name, float freq_hz,
+                                                SuccessCallback on_success,
+                                                ErrorCallback on_error) {
+    if (freq_hz <= 0.0f) {
+        // Turn off strobe
+        spdlog::info("[MoonrakerAPI] Turning off strobe LED on pin {}", pin_name);
+        std::string gcode = fmt::format("SET_PIN PIN={} VALUE=0", pin_name);
+        api_.execute_gcode(
+            gcode, on_success,
+            [on_error](const MoonrakerError& err) {
+                if (on_error)
+                    on_error(err);
+            });
+        return;
+    }
+
+    spdlog::info("[MoonrakerAPI] Setting strobe LED {} to {:.1f} Hz", pin_name, freq_hz);
+
+    // For pwm_cycle_time pins, set CYCLE_TIME to 1/freq and VALUE to 0.5 for 50% duty cycle
+    float cycle_time = 1.0f / freq_hz;
+    std::string gcode =
+        fmt::format("SET_PIN PIN={} VALUE=0.5 CYCLE_TIME={:.6f}", pin_name, cycle_time);
+
+    api_.execute_gcode(
+        gcode, on_success,
+        [on_error](const MoonrakerError& err) {
+            if (on_error)
+                on_error(err);
+        });
+}
+
+void MoonrakerAdvancedAPI::download_accel_csv(
+    const std::string& name, std::function<void(const std::string&)> on_complete,
+    ErrorCallback on_error) {
+    spdlog::debug("[MoonrakerAPI] Downloading accel CSV for: {}", name);
+
+    // List files in data_store directory to find the CSV.
+    // Klipper stores TEST_RESONANCES OUTPUT=raw_data files in the data directory,
+    // accessible via Moonraker's file API under the 'config' root.
+    json params;
+    params["path"] = "data_store";
+    params["root"] = "config";
+
+    client_.send_jsonrpc(
+        "server.files.list", params,
+        [this, name, on_complete, on_error](const json& response) {
+            std::string target_prefix = "raw_data_" + name;
+            std::string best_file;
+
+            try {
+                for (const auto& file : response) {
+                    std::string filename = file.value("path", "");
+                    if (filename.find(target_prefix) != std::string::npos &&
+                        filename.find(".csv") != std::string::npos) {
+                        if (filename > best_file) {
+                            best_file = filename;
+                        }
+                    }
+                }
+            } catch (const std::exception& e) {
+                spdlog::error("[MoonrakerAPI] Failed to parse file list: {}", e.what());
+                if (on_error)
+                    on_error(MoonrakerError{MoonrakerErrorType::JSON_RPC_ERROR, 0,
+                                            "Failed to find CSV data file"});
+                return;
+            }
+
+            if (best_file.empty()) {
+                spdlog::error("[MoonrakerAPI] No CSV file found matching: {}", target_prefix);
+                if (on_error)
+                    on_error(MoonrakerError{MoonrakerErrorType::JSON_RPC_ERROR, 0,
+                                            "No accelerometer data file found"});
+                return;
+            }
+
+            spdlog::info("[MoonrakerAPI] Found CSV file: {}", best_file);
+
+            // Download the CSV file content
+            json dl_params;
+            dl_params["filename"] = "data_store/" + best_file;
+            dl_params["root"] = "config";
+            client_.send_jsonrpc(
+                "server.files.get_file", dl_params,
+                [on_complete, on_error](const json& file_response) {
+                    try {
+                        std::string csv_data = file_response.get<std::string>();
+                        if (on_complete)
+                            on_complete(csv_data);
+                    } catch (const std::exception& e) {
+                        spdlog::error("[MoonrakerAPI] Failed to read CSV data: {}", e.what());
+                        if (on_error)
+                            on_error(MoonrakerError{MoonrakerErrorType::JSON_RPC_ERROR, 0,
+                                                    fmt::format("Failed to read CSV data: {}",
+                                                                e.what())});
+                    }
+                },
+                [on_error](const MoonrakerError& err) {
+                    spdlog::error("[MoonrakerAPI] Failed to download CSV: {}", err.message);
+                    if (on_error)
+                        on_error(err);
+                });
+        },
+        [on_error](const MoonrakerError& err) {
+            spdlog::error("[MoonrakerAPI] Failed to list data files: {}", err.message);
+            if (on_error)
+                on_error(err);
+        });
 }
 
 // ============================================================================

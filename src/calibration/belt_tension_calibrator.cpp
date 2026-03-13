@@ -1,0 +1,638 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+
+/**
+ * @file belt_tension_calibrator.cpp
+ * @brief Implementation of BeltTensionCalibrator state machine
+ *
+ * Orchestrates belt tension measurement workflow by delegating API calls
+ * to MoonrakerAdvancedAPI and handling calibration-specific data processing
+ * (PSD analysis, peak detection, similarity calculation).
+ */
+
+#include "belt_tension_calibrator.h"
+
+#include "app_globals.h"
+#include "moonraker_api.h"
+#include "printer_state.h"
+#include "spdlog/spdlog.h"
+
+#include <sstream>
+
+namespace helix::calibration {
+
+// ============================================================================
+// Constructors / Destructor
+// ============================================================================
+
+BeltTensionCalibrator::BeltTensionCalibrator() : api_(nullptr) {
+    spdlog::debug("[BeltTension] Created without API (test mode)");
+}
+
+BeltTensionCalibrator::BeltTensionCalibrator(MoonrakerAPI* api) : api_(api) {
+    spdlog::debug("[BeltTension] Created with API");
+}
+
+BeltTensionCalibrator::~BeltTensionCalibrator() {
+    if (alive_) {
+        alive_->store(false);
+    }
+}
+
+// ============================================================================
+// belt_path_to_axis_param() / belt_path_to_name()
+// ============================================================================
+
+std::string BeltTensionCalibrator::belt_path_to_axis_param(BeltPath path) const {
+    switch (path) {
+    case BeltPath::PATH_A:
+        return "1,1";
+    case BeltPath::PATH_B:
+        return "1,-1";
+    case BeltPath::X_AXIS:
+        return "x";
+    case BeltPath::Y_AXIS:
+        return "y";
+    default:
+        return "1,1";
+    }
+}
+
+std::string BeltTensionCalibrator::belt_path_to_name(BeltPath path) {
+    switch (path) {
+    case BeltPath::PATH_A:
+        return "belt_path_a";
+    case BeltPath::PATH_B:
+        return "belt_path_b";
+    case BeltPath::X_AXIS:
+        return "belt_x";
+    case BeltPath::Y_AXIS:
+        return "belt_y";
+    default:
+        return "belt_path_a";
+    }
+}
+
+// ============================================================================
+// ensure_homed_then() — must be called from main thread
+// ============================================================================
+
+void BeltTensionCalibrator::ensure_homed_then(std::function<void()> then, BeltErrorCallback on_error) {
+    const char* homed = lv_subject_get_string(get_printer_state().get_homed_axes_subject());
+    bool all_homed = homed && std::string(homed).find("xyz") != std::string::npos;
+
+    if (all_homed) {
+        spdlog::debug("[BeltTension] Already homed, proceeding");
+        then();
+        return;
+    }
+
+    spdlog::info("[BeltTension] Not fully homed (axes={}), sending G28", homed ? homed : "none");
+
+    auto alive = alive_;
+    api_->execute_gcode(
+        "G28",
+        [alive, then = std::move(then)]() {
+            if (!alive->load()) {
+                return;
+            }
+            spdlog::info("[BeltTension] G28 complete, proceeding");
+            then();
+        },
+        [alive, this, on_error](const MoonrakerError& err) {
+            if (!alive->load()) {
+                return;
+            }
+            if (err.type == MoonrakerErrorType::TIMEOUT) {
+                spdlog::warn("[BeltTension] G28 response timed out (may still be running)");
+                if (on_error) {
+                    on_error("Homing timed out — printer may still be homing");
+                }
+            } else {
+                spdlog::error("[BeltTension] Homing failed: {}", err.message);
+                if (on_error) {
+                    on_error("Homing failed: " + err.message);
+                }
+            }
+            state_.store(State::IDLE);
+        },
+        MoonrakerAPI::HOMING_TIMEOUT_MS);
+}
+
+// ============================================================================
+// detect_hardware() — thin wrapper around API
+// ============================================================================
+
+void BeltTensionCalibrator::detect_hardware(BeltHardwareDetectCallback on_complete,
+                                            BeltErrorCallback on_error) {
+    if (!api_) {
+        spdlog::warn("[BeltTension] detect_hardware called without API");
+        if (on_error) {
+            on_error("No API available");
+        }
+        return;
+    }
+
+    state_.store(State::DETECTING_HARDWARE);
+    spdlog::info("[BeltTension] Detecting printer hardware capabilities");
+
+    auto alive = alive_;
+
+    api_->advanced().detect_belt_hardware(
+        [this, alive, on_complete](const BeltTensionHardware& hw) {
+            if (!alive->load())
+                return;
+            hardware_ = hw;
+            state_.store(State::IDLE);
+            if (on_complete)
+                on_complete(hw);
+        },
+        [this, alive, on_error](const MoonrakerError& err) {
+            if (!alive->load())
+                return;
+            state_.store(State::ERROR);
+            if (on_error)
+                on_error("Hardware detection failed: " + err.message);
+        });
+}
+
+// ============================================================================
+// process_csv_data() — calibration-layer data processing
+// ============================================================================
+
+void BeltTensionCalibrator::process_csv_data(const std::string& csv_data,
+                                              BeltMeasurementCallback on_complete,
+                                              BeltErrorCallback on_error) {
+    auto samples = parse_accel_csv(csv_data);
+    if (samples.empty()) {
+        if (on_error)
+            on_error("No valid samples in accelerometer data");
+        return;
+    }
+
+    // Estimate sample rate from timestamps
+    float sample_rate = 3200.0f; // Default Klipper ADXL rate
+    if (samples.size() >= 2) {
+        float duration = samples.back().time - samples.front().time;
+        if (duration > 0.0f) {
+            sample_rate = static_cast<float>(samples.size() - 1) / duration;
+        }
+    }
+
+    auto psd = compute_psd(samples, sample_rate);
+    auto peak = find_peak_frequency(psd, 20.0f, 200.0f);
+
+    BeltMeasurement measurement;
+    measurement.freq_response = std::move(psd);
+    measurement.peak_frequency = peak.frequency;
+    measurement.peak_amplitude = peak.amplitude;
+    measurement.status =
+        evaluate_belt_status(peak.frequency, results_.target_frequency, results_.tolerance);
+
+    spdlog::info("[BeltTension] Measurement: peak={:.1f} Hz, status={}",
+                 measurement.peak_frequency, static_cast<int>(measurement.status));
+
+    if (on_complete) {
+        on_complete(measurement);
+    }
+}
+
+// ============================================================================
+// execute_resonance_test() — delegates to API
+// ============================================================================
+
+void BeltTensionCalibrator::execute_resonance_test(BeltPath path, BeltProgressCallback on_progress,
+                                                   BeltMeasurementCallback on_complete,
+                                                   BeltErrorCallback on_error) {
+    std::string axis_param = belt_path_to_axis_param(path);
+    std::string name = belt_path_to_name(path);
+
+    spdlog::info("[BeltTension] Starting resonance test: axis={}, name={}", axis_param, name);
+
+    if (on_progress) {
+        on_progress(10);
+    }
+
+    auto alive = alive_;
+    api_->advanced().test_belt_resonance(
+        axis_param, name,
+        nullptr, // API-level progress (not used currently)
+        [this, alive, name, on_progress, on_complete, on_error](const std::string& output_name) {
+            if (!alive->load())
+                return;
+
+            spdlog::info("[BeltTension] Resonance test complete for {}", output_name);
+            if (on_progress) {
+                on_progress(50);
+            }
+
+            // Download and process the CSV
+            api_->advanced().download_accel_csv(
+                output_name,
+                [this, alive, on_complete, on_error](const std::string& csv_data) {
+                    if (!alive->load())
+                        return;
+                    process_csv_data(csv_data, on_complete, on_error);
+                },
+                [alive, on_error](const MoonrakerError& err) {
+                    if (!alive->load())
+                        return;
+                    if (on_error)
+                        on_error("Failed to download data: " + err.message);
+                });
+        },
+        [this, alive, on_error](const MoonrakerError& err) {
+            if (!alive->load())
+                return;
+            state_.store(State::ERROR);
+            if (on_error)
+                on_error("Resonance test failed: " + err.message);
+        });
+}
+
+// ============================================================================
+// test_path()
+// ============================================================================
+
+void BeltTensionCalibrator::test_path(BeltPath path, BeltProgressCallback on_progress,
+                                      BeltMeasurementCallback on_complete, BeltErrorCallback on_error) {
+    if (!api_) {
+        spdlog::warn("[BeltTension] test_path called without API");
+        if (on_error) {
+            on_error("No API available");
+        }
+        return;
+    }
+
+    // Guard against concurrent runs
+    State current = state_.load();
+    if (current != State::IDLE && current != State::RESULTS_READY) {
+        spdlog::warn("[BeltTension] Test already in progress (state={})",
+                     static_cast<int>(current));
+        if (on_error) {
+            on_error("Measurement already in progress");
+        }
+        return;
+    }
+
+    state_.store((path == BeltPath::PATH_A || path == BeltPath::X_AXIS) ? State::TESTING_PATH_A
+                                                                         : State::TESTING_PATH_B);
+
+    spdlog::info("[BeltTension] Starting test for path {}", static_cast<int>(path));
+
+    auto alive = alive_;
+    ensure_homed_then(
+        [this, alive, path, on_progress, on_complete, on_error]() {
+            if (!alive->load()) {
+                return;
+            }
+            execute_resonance_test(
+                path, on_progress,
+                [this, alive, path, on_complete](const BeltMeasurement& measurement) {
+                    if (!alive->load()) {
+                        return;
+                    }
+
+                    // Store result in appropriate slot
+                    BeltMeasurement result = measurement;
+                    result.path = path;
+
+                    if (path == BeltPath::PATH_A || path == BeltPath::X_AXIS) {
+                        results_.path_a = result;
+                    } else {
+                        results_.path_b = result;
+                    }
+
+                    // Update derived fields if both paths complete
+                    if (results_.is_complete()) {
+                        results_.frequency_delta = std::abs(results_.path_a.peak_frequency -
+                                                            results_.path_b.peak_frequency);
+                        results_.similarity_percent = calculate_similarity(
+                            results_.path_a.freq_response, results_.path_b.freq_response);
+                        state_.store(State::RESULTS_READY);
+                        spdlog::info("[BeltTension] Both paths complete: delta={:.1f} Hz, "
+                                     "similarity={:.0f}%",
+                                     results_.frequency_delta, results_.similarity_percent);
+                    } else {
+                        state_.store(State::IDLE);
+                    }
+
+                    if (on_complete) {
+                        on_complete(result);
+                    }
+                },
+                on_error);
+        },
+        on_error);
+}
+
+// ============================================================================
+// run_auto_sweep()
+// ============================================================================
+
+void BeltTensionCalibrator::run_auto_sweep(BeltProgressCallback on_progress,
+                                           BeltResultCallback on_complete, BeltErrorCallback on_error) {
+    if (!api_) {
+        spdlog::warn("[BeltTension] run_auto_sweep called without API");
+        if (on_error) {
+            on_error("No API available");
+        }
+        return;
+    }
+
+    // Guard against concurrent runs
+    State current = state_.load();
+    if (current != State::IDLE && current != State::RESULTS_READY) {
+        spdlog::warn("[BeltTension] Auto sweep already in progress (state={})",
+                     static_cast<int>(current));
+        if (on_error) {
+            on_error("Measurement already in progress");
+        }
+        return;
+    }
+
+    spdlog::info("[BeltTension] Starting auto-sweep measurement");
+
+    // Determine belt paths based on kinematics
+    BeltPath first_path = BeltPath::PATH_A;
+    BeltPath second_path = BeltPath::PATH_B;
+    if (hardware_.kinematics == KinematicsType::CARTESIAN) {
+        first_path = BeltPath::X_AXIS;
+        second_path = BeltPath::Y_AXIS;
+    }
+
+    auto alive = alive_;
+
+    // Wrap progress to scale across both paths (0-50 for A, 50-100 for B)
+    auto progress_a = [on_progress](int pct) {
+        if (on_progress) {
+            on_progress(pct / 2);
+        }
+    };
+
+    auto progress_b = [on_progress](int pct) {
+        if (on_progress) {
+            on_progress(50 + pct / 2);
+        }
+    };
+
+    // Test path A, then path B
+    test_path(
+        first_path, progress_a,
+        [this, alive, second_path, progress_b, on_complete, on_error](const BeltMeasurement&) {
+            if (!alive->load()) {
+                return;
+            }
+            // Now test path B
+            test_path(
+                second_path, progress_b,
+                [this, alive, on_complete](const BeltMeasurement&) {
+                    if (!alive->load()) {
+                        return;
+                    }
+                    spdlog::info("[BeltTension] Auto-sweep complete");
+                    if (on_complete) {
+                        on_complete(results_);
+                    }
+                },
+                on_error);
+        },
+        on_error);
+}
+
+// ============================================================================
+// start_strobe() — delegates to API
+// ============================================================================
+
+void BeltTensionCalibrator::start_strobe(float frequency_hz, BeltErrorCallback on_error) {
+    if (!api_) {
+        spdlog::warn("[BeltTension] start_strobe called without API");
+        if (on_error) {
+            on_error("No API available");
+        }
+        return;
+    }
+
+    if (!hardware_.has_pwm_led) {
+        spdlog::warn("[BeltTension] No PWM LED available for strobe mode");
+        if (on_error) {
+            on_error("No PWM LED detected on printer");
+        }
+        return;
+    }
+
+    if (frequency_hz <= 0.0f) {
+        if (on_error)
+            on_error("Invalid strobe frequency");
+        return;
+    }
+
+    strobe_frequency_ = frequency_hz;
+    state_.store(State::STROBE_MODE);
+
+    spdlog::info("[BeltTension] Starting strobe at {:.1f} Hz on pin {}", frequency_hz,
+                 hardware_.pwm_led_pin);
+
+    auto alive = alive_;
+    api_->advanced().set_strobe_frequency(
+        hardware_.pwm_led_pin, frequency_hz,
+        []() {}, // Strobe started successfully
+        [this, alive, on_error](const MoonrakerError& err) {
+            if (!alive->load())
+                return;
+            spdlog::error("[BeltTension] Failed to start strobe: {}", err.message);
+            state_.store(State::IDLE);
+            if (on_error)
+                on_error("Failed to start strobe: " + err.message);
+        });
+}
+
+// ============================================================================
+// set_strobe_frequency() — delegates to API
+// ============================================================================
+
+void BeltTensionCalibrator::set_strobe_frequency(float frequency_hz) {
+    if (state_.load() != State::STROBE_MODE || !api_ || frequency_hz <= 0.0f) {
+        return;
+    }
+
+    strobe_frequency_ = frequency_hz;
+
+    auto alive = alive_;
+    api_->advanced().set_strobe_frequency(
+        hardware_.pwm_led_pin, frequency_hz,
+        []() {},
+        [alive](const MoonrakerError& err) {
+            if (!alive->load())
+                return;
+            spdlog::warn("[BeltTension] Failed to update strobe frequency: {}", err.message);
+        });
+}
+
+// ============================================================================
+// stop_strobe() — delegates to API
+// ============================================================================
+
+void BeltTensionCalibrator::stop_strobe() {
+    if (state_.load() != State::STROBE_MODE) {
+        return;
+    }
+
+    spdlog::info("[BeltTension] Stopping strobe");
+
+    if (api_ && !hardware_.pwm_led_pin.empty()) {
+        auto alive = alive_;
+        api_->advanced().set_strobe_frequency(
+            hardware_.pwm_led_pin, 0.0f, // 0 = turn off
+            []() {},
+            [alive](const MoonrakerError& err) {
+                if (!alive->load())
+                    return;
+                spdlog::warn("[BeltTension] Failed to stop strobe: {}", err.message);
+            });
+    }
+
+    strobe_frequency_ = 0.0f;
+    state_.store(results_.is_complete() ? State::RESULTS_READY : State::IDLE);
+}
+
+// ============================================================================
+// start_z_belt_listening() — uses G-code for accelerometer, API for CSV
+// ============================================================================
+
+void BeltTensionCalibrator::start_z_belt_listening(ZBeltCorner corner,
+                                                    BeltMeasurementCallback on_complete,
+                                                    BeltErrorCallback on_error) {
+    if (!api_) {
+        spdlog::warn("[BeltTension] start_z_belt_listening called without API");
+        if (on_error) {
+            on_error("No API available");
+        }
+        return;
+    }
+
+    if (!hardware_.has_adxl) {
+        spdlog::warn("[BeltTension] No accelerometer available for Z belt listening");
+        if (on_error) {
+            on_error("Accelerometer required for Z belt measurement");
+        }
+        return;
+    }
+
+    state_.store(State::Z_LISTENING);
+    spdlog::info("[BeltTension] Listening for Z belt pluck on corner {}",
+                 static_cast<int>(corner));
+
+    // Use ACCELEROMETER_MEASURE to capture a short burst (generic G-code)
+    auto alive = alive_;
+    api_->execute_gcode(
+        "ACCELEROMETER_MEASURE CHIP=adxl345",
+        [this, alive, corner, on_complete, on_error]() {
+            if (!alive->load())
+                return;
+            // Brief capture, then stop and analyze
+            api_->execute_gcode(
+                "ACCELEROMETER_MEASURE CHIP=adxl345 NAME=z_belt",
+                [this, alive, corner, on_complete, on_error]() {
+                    if (!alive->load())
+                        return;
+
+                    // Download and analyze the captured data via API
+                    api_->advanced().download_accel_csv(
+                        "z_belt",
+                        [this, alive, corner, on_complete, on_error](const std::string& csv_data) {
+                            if (!alive->load())
+                                return;
+
+                            process_csv_data(
+                                csv_data,
+                                [this, alive, corner,
+                                 on_complete](const BeltMeasurement& measurement) {
+                                    if (!alive->load())
+                                        return;
+
+                                    ZBeltMeasurement z_result;
+                                    z_result.corner = corner;
+                                    z_result.peak_frequency = measurement.peak_frequency;
+                                    z_result.status = measurement.status;
+
+                                    results_.z_belts.push_back(z_result);
+
+                                    spdlog::info(
+                                        "[BeltTension] Z belt corner {} measured: {:.1f} Hz",
+                                        static_cast<int>(corner), z_result.peak_frequency);
+
+                                    if (on_complete)
+                                        on_complete(measurement);
+
+                                    state_.store(State::Z_RESULTS_READY);
+                                },
+                                [this, alive, on_error](const std::string& err_msg) {
+                                    if (!alive->load())
+                                        return;
+                                    state_.store(State::ERROR);
+                                    if (on_error)
+                                        on_error(err_msg);
+                                });
+                        },
+                        [this, alive, on_error](const MoonrakerError& err) {
+                            if (!alive->load())
+                                return;
+                            state_.store(State::ERROR);
+                            if (on_error)
+                                on_error("Failed to download Z belt data: " + err.message);
+                        });
+                },
+                [this, alive, on_error](const MoonrakerError& err) {
+                    if (!alive->load())
+                        return;
+                    spdlog::error("[BeltTension] Z belt capture failed: {}", err.message);
+                    state_.store(State::ERROR);
+                    if (on_error)
+                        on_error("Z belt measurement failed: " + err.message);
+                });
+        },
+        [this, alive, on_error](const MoonrakerError& err) {
+            if (!alive->load())
+                return;
+            spdlog::error("[BeltTension] Failed to start accelerometer: {}", err.message);
+            state_.store(State::ERROR);
+            if (on_error)
+                on_error("Failed to start accelerometer: " + err.message);
+        });
+}
+
+// ============================================================================
+// cancel()
+// ============================================================================
+
+void BeltTensionCalibrator::cancel() {
+    spdlog::info("[BeltTension] Cancelling (was state={})", static_cast<int>(state_.load()));
+
+    // Stop strobe if active
+    if (state_.load() == State::STROBE_MODE) {
+        stop_strobe();
+        return;
+    }
+
+    state_.store(State::IDLE);
+}
+
+// ============================================================================
+// reset()
+// ============================================================================
+
+void BeltTensionCalibrator::reset() {
+    spdlog::info("[BeltTension] Resetting calibrator");
+
+    // Stop strobe if active
+    if (state_.load() == State::STROBE_MODE) {
+        stop_strobe();
+    }
+
+    state_.store(State::IDLE);
+    results_ = BeltTensionResult{};
+    hardware_ = BeltTensionHardware{};
+    strobe_frequency_ = 0.0f;
+}
+
+}  // namespace helix::calibration
