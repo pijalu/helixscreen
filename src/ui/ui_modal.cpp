@@ -138,6 +138,15 @@ lv_obj_t* ModalStack::backdrop_for(lv_obj_t* dialog) const {
     return nullptr;
 }
 
+bool ModalStack::backdrop_for_backdrop(lv_obj_t* backdrop) const {
+    for (const auto& entry : stack_) {
+        if (entry.backdrop == backdrop) {
+            return true;
+        }
+    }
+    return false;
+}
+
 bool ModalStack::empty() const {
     // Returns true if no visible (non-exiting) modals
     for (const auto& entry : stack_) {
@@ -245,9 +254,11 @@ void ModalStack::animate_entrance(lv_obj_t* dialog) {
 void ModalStack::exit_animation_done(lv_anim_t* anim) {
     lv_obj_t* backdrop = static_cast<lv_obj_t*>(anim->var);
 
-    // Safety check: ensure backdrop is still valid (could be deleted by another path)
-    if (!lv_obj_is_valid(backdrop)) {
-        spdlog::debug("[ModalStack] Exit animation complete - backdrop already deleted");
+    // Safety check: if backdrop was already removed from stack (e.g., by
+    // Modal::~Modal or clear()), it's already been deleted — nothing to do.
+    auto& stack = ModalStack::instance();
+    if (!stack.backdrop_for_backdrop(backdrop)) {
+        spdlog::debug("[ModalStack] Exit animation complete - backdrop already removed from stack");
         return;
     }
 
@@ -263,23 +274,18 @@ void ModalStack::exit_animation_done(lv_anim_t* anim) {
     lv_anim_delete(backdrop, nullptr);
 
     // Remove from stack (animation is complete, safe to remove)
-    ModalStack::instance().remove(backdrop);
+    stack.remove(backdrop);
 
-    // Hide immediately, then defer actual deletion to the next LVGL tick via
-    // lv_async_call(). Using safe_delete() here is unsafe: this callback runs
-    // inside UpdateQueue::process_pending(), and multiple deletions in the same
-    // batch can corrupt LVGL's global event linked list (crash #356).
+    // Hide immediately, then defer actual deletion to the next LVGL tick.
+    // MUST use lv_obj_delete_async() (not a custom lv_async_call lambda) so
+    // that obj_delete_core() can cancel the pending async if something else
+    // deletes the backdrop first (e.g., Modal::~Modal via safe_delete).
+    // Custom lambdas aren't cancelled by LVGL's built-in cancellation logic
+    // which only matches lv_obj_delete_async_cb — crash #399.
     spdlog::debug("[ModalStack] Exit animation complete - deferring backdrop deletion");
     helix::ui::defocus_tree(backdrop);
     lv_obj_add_flag(backdrop, LV_OBJ_FLAG_HIDDEN);
-    lv_async_call(
-        [](void* obj) {
-            auto* widget = static_cast<lv_obj_t*>(obj);
-            if (lv_obj_is_valid(widget)) {
-                lv_obj_delete(widget);
-            }
-        },
-        backdrop);
+    lv_obj_delete_async(backdrop);
 }
 
 void ModalStack::animate_exit(lv_obj_t* backdrop, lv_obj_t* dialog) {
@@ -294,14 +300,7 @@ void ModalStack::animate_exit(lv_obj_t* backdrop, lv_obj_t* dialog) {
         spdlog::debug("[ModalStack] Animations disabled - deferring modal deletion");
         helix::ui::defocus_tree(backdrop);
         lv_obj_add_flag(backdrop, LV_OBJ_FLAG_HIDDEN);
-        lv_async_call(
-            [](void* obj) {
-                auto* widget = static_cast<lv_obj_t*>(obj);
-                if (lv_obj_is_valid(widget)) {
-                    lv_obj_delete(widget);
-                }
-            },
-            backdrop);
+        lv_obj_delete_async(backdrop);
         return;
     }
 
@@ -499,27 +498,11 @@ void Modal::hide(lv_obj_t* dialog) {
         return;
     }
 
-    // Validate dialog widget is still alive (may have been deleted by another path)
-    if (!lv_obj_is_valid(dialog)) {
-        spdlog::warn("[Modal] hide() called with already-deleted dialog");
-        return;
-    }
-
-    // Find backdrop for this dialog
+    // Find backdrop for this dialog — if not in stack, it was already deleted
     auto& stack = ModalStack::instance();
     lv_obj_t* backdrop = stack.backdrop_for(dialog);
     if (!backdrop) {
-        spdlog::warn("[Modal] Dialog not found in stack - deferring deletion");
-        helix::ui::defocus_tree(dialog);
-        lv_obj_add_flag(dialog, LV_OBJ_FLAG_HIDDEN);
-        lv_async_call(
-            [](void* obj) {
-                auto* widget = static_cast<lv_obj_t*>(obj);
-                if (lv_obj_is_valid(widget)) {
-                    lv_obj_delete(widget);
-                }
-            },
-            dialog);
+        spdlog::warn("[Modal] Dialog not found in stack - already deleted or orphaned");
         return;
     }
 
@@ -609,9 +592,9 @@ void Modal::hide() {
         return; // Already hidden, safe to call multiple times
     }
 
-    // Validate backdrop is still a live LVGL object
-    if (!lv_obj_is_valid(backdrop_)) {
-        spdlog::warn("[{}] hide() called but backdrop already deleted", get_name());
+    // Check if backdrop is still tracked — if not, it was deleted by another path
+    if (!ModalStack::instance().backdrop_for_backdrop(backdrop_)) {
+        spdlog::warn("[{}] hide() called but backdrop already removed from stack", get_name());
         backdrop_ = nullptr;
         dialog_ = nullptr;
         return;

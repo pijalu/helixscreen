@@ -291,6 +291,9 @@ class ModalStack {
     // Get backdrop for a dialog
     lv_obj_t* backdrop_for(lv_obj_t* dialog) const;
 
+    // Check if a backdrop is still tracked in the stack
+    bool backdrop_for_backdrop(lv_obj_t* backdrop) const;
+
     // Check if any modals are visible (not counting those in exit animation)
     bool empty() const;
 
@@ -302,8 +305,8 @@ class ModalStack {
     // Delete modal widgets and clear tracking (used during teardown after lv_anim_delete_all)
     void clear() {
         for (auto& entry : stack_) {
-            if (entry.backdrop && lv_obj_is_valid(entry.backdrop)) {
-                lv_obj_del(entry.backdrop);  // dialog is a child of backdrop — deleted too
+            if (entry.backdrop) {
+                lv_obj_delete(entry.backdrop);  // dialog is a child of backdrop — deleted too
             }
         }
         stack_.clear();
