@@ -44,8 +44,7 @@ FBDEV_DISPLAY_CXXFLAGS := $(filter-out -DHELIX_DISPLAY_DRM -DHELIX_ENABLE_OPENGL
 # Fbdev display sources — same as DRM but we exclude display_backend_drm.cpp
 FBDEV_DISPLAY_API_SRCS := \
     src/api/display_backend.cpp \
-    src/api/display_backend_fbdev.cpp \
-    src/api/input_device_scanner.cpp
+    src/api/display_backend_fbdev.cpp
 
 FBDEV_DISPLAY_UI_SRCS := \
     src/ui/touch_calibration.cpp
