@@ -29,6 +29,7 @@ Timelapse video browser, USB mouse support, runtime CJK fonts, and filament syst
 - Timelapse switch background transparency on options card
 - Crash from deferred MacrosPanel rebuild and unguarded CameraStream callbacks
 - Duplicate linker symbols for input device scanner in Pi fbdev builds
+- Print thumbnails showing grey box and uploaded files not appearing
 
 ### Changed
 - Timelapse graduated from beta — feature gates removed

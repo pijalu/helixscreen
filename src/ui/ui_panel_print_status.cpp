@@ -183,6 +183,23 @@ PrintStatusPanel::PrintStatusPanel(PrinterState& printer_state, MoonrakerAPI* ap
         AmsState::instance().get_current_color_subject(), this,
         [](PrintStatusPanel* self, int /*color_rgb*/) { self->build_and_apply_tool_colors(); });
 
+    // Subscribe to shared print thumbnail path set by ActivePrintMediaManager.
+    // Use observe_string_immediate: the handler only calls lv_image_set_src
+    // (no observer lifecycle changes), and set_print_thumbnail_path is always called
+    // from the UI thread via queue_update.
+    print_thumbnail_path_observer_ = ui::observe_string_immediate<PrintStatusPanel>(
+        printer_state_.get_print_thumbnail_path_subject(), this,
+        [](PrintStatusPanel* self, const char* path) {
+            if (!path || path[0] == '\0')
+                return;
+            self->cached_thumbnail_path_ = path;
+            if (self->print_thumbnail_) {
+                lv_image_set_src(self->print_thumbnail_, path);
+                spdlog::debug("[{}] Thumbnail updated from shared subject: {}", self->get_name(),
+                              path);
+            }
+        });
+
     spdlog::debug("[{}] Subscribed to PrinterState subjects", get_name());
 
     // LED configuration is read lazily by PrintLightTimelapseControls::handle_light_button()

@@ -1497,6 +1497,14 @@ void PrintSelectPanel::on_deactivate() {
         return_home_activation_count_ = 0;
     }
 
+    // Clear detail view state so file notifications aren't deferred while panel is hidden.
+    // If user navigates away via navbar with detail view open, this flag would otherwise
+    // stay true and suppress all notify_filelist_changed updates until next detail close.
+    if (detail_view_open_) {
+        detail_view_open_ = false;
+        spdlog::debug("[{}] Cleared detail_view_open_ on deactivate", get_name());
+    }
+
     // Pause file list polling while panel is hidden — no point polling when not visible
     if (file_poll_timer_) {
         lv_timer_pause(file_poll_timer_);
