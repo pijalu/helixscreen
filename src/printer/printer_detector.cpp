@@ -1344,7 +1344,8 @@ bool PrinterDetector::auto_detect_and_save(const helix::PrinterDiscovery& discov
     return false;
 }
 
-bool PrinterDetector::is_voron_printer() {
+/// Case-insensitive check whether the configured printer type contains @p needle.
+static bool printer_type_contains(const std::string& needle) {
     Config* config = Config::get_instance();
     if (!config) {
         return false;
@@ -1356,11 +1357,23 @@ bool PrinterDetector::is_voron_printer() {
         return false;
     }
 
-    // Case-insensitive search for "voron"
     std::string lower_type = printer_type;
     for (auto& c : lower_type) {
         c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
     }
 
-    return lower_type.find("voron") != std::string::npos;
+    std::string lower_needle = needle;
+    for (auto& c : lower_needle) {
+        c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+    }
+
+    return lower_type.find(lower_needle) != std::string::npos;
+}
+
+bool PrinterDetector::is_voron_printer() {
+    return printer_type_contains("voron");
+}
+
+bool PrinterDetector::is_pfa_printer() {
+    return printer_type_contains("pfa");
 }

@@ -359,4 +359,13 @@ class PrinterDetector {
      * @return true if printer type contains "Voron" (case-insensitive)
      */
     static bool is_voron_printer();
+
+    /**
+     * @brief Check if the detected printer is a PrintersForAnts (PFA) model
+     *
+     * Used to select AntHead toolhead rendering when toolhead style is Auto.
+     *
+     * @return true if printer type contains "PFA" (case-insensitive)
+     */
+    static bool is_pfa_printer();
 };

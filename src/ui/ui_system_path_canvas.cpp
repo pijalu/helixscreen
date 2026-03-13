@@ -12,6 +12,7 @@
 #include "helix-xml/src/xml/parsers/lv_xml_obj_parser.h"
 #include "lvgl/lvgl.h"
 #include "nozzle_renderer_a4t.h"
+#include "nozzle_renderer_anthead.h"
 #include "nozzle_renderer_bambu.h"
 #include "nozzle_renderer_faceted.h"
 #include "nozzle_renderer_jabberwocky.h"
@@ -921,14 +922,17 @@ static void system_path_draw_cb(lv_event_t* e) {
 
             lv_color_t noz_color = is_active_tool ? active_color_lv : nozzle_color;
             switch (helix::SettingsManager::instance().get_effective_toolhead_style()) {
-                case helix::ToolheadStyle::STEALTHBURNER:
-                    draw_nozzle_faceted(layer, tool_x, tools_y, noz_color, small_scale);
-                    break;
                 case helix::ToolheadStyle::A4T:
                     draw_nozzle_a4t(layer, tool_x, tools_y, noz_color, small_scale);
                     break;
+                case helix::ToolheadStyle::ANTHEAD:
+                    draw_nozzle_anthead(layer, tool_x, tools_y, noz_color, small_scale);
+                    break;
                 case helix::ToolheadStyle::JABBERWOCKY:
                     draw_nozzle_jabberwocky(layer, tool_x, tools_y, noz_color, small_scale);
+                    break;
+                case helix::ToolheadStyle::STEALTHBURNER:
+                    draw_nozzle_faceted(layer, tool_x, tools_y, noz_color, small_scale);
                     break;
                 default:
                     draw_nozzle_bambu(layer, tool_x, tools_y, noz_color, small_scale);
@@ -1105,14 +1109,17 @@ static void system_path_draw_cb(lv_event_t* e) {
             }
 
             switch (helix::SettingsManager::instance().get_effective_toolhead_style()) {
-                case helix::ToolheadStyle::STEALTHBURNER:
-                    draw_nozzle_faceted(layer, center_x, nozzle_y, noz_color, data->extruder_scale);
-                    break;
                 case helix::ToolheadStyle::A4T:
                     draw_nozzle_a4t(layer, center_x, nozzle_y, noz_color, data->extruder_scale);
                     break;
+                case helix::ToolheadStyle::ANTHEAD:
+                    draw_nozzle_anthead(layer, center_x, nozzle_y, noz_color, data->extruder_scale);
+                    break;
                 case helix::ToolheadStyle::JABBERWOCKY:
                     draw_nozzle_jabberwocky(layer, center_x, nozzle_y, noz_color, data->extruder_scale);
+                    break;
+                case helix::ToolheadStyle::STEALTHBURNER:
+                    draw_nozzle_faceted(layer, center_x, nozzle_y, noz_color, data->extruder_scale);
                     break;
                 default:
                     draw_nozzle_bambu(layer, center_x, nozzle_y, noz_color, data->extruder_scale);

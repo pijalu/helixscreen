@@ -16,6 +16,7 @@
 #include "helix-xml/src/xml/parsers/lv_xml_obj_parser.h"
 #include "lvgl/lvgl.h"
 #include "nozzle_renderer_a4t.h"
+#include "nozzle_renderer_anthead.h"
 #include "nozzle_renderer_bambu.h"
 #include "nozzle_renderer_faceted.h"
 #include "nozzle_renderer_jabberwocky.h"
@@ -1520,15 +1521,18 @@ static void draw_parallel_topology(lv_event_t* e, FilamentPathData* data) {
         }
 
         switch (helix::SettingsManager::instance().get_effective_toolhead_style()) {
-            case helix::ToolheadStyle::STEALTHBURNER:
-                draw_nozzle_faceted(layer, slot_x, toolhead_y, noz_color, tool_scale, toolhead_opa);
-                break;
             case helix::ToolheadStyle::A4T:
                 draw_nozzle_a4t(layer, slot_x, toolhead_y, noz_color, tool_scale * 6 / 5,
                                 toolhead_opa);
                 break;
+            case helix::ToolheadStyle::ANTHEAD:
+                draw_nozzle_anthead(layer, slot_x, toolhead_y, noz_color, tool_scale, toolhead_opa);
+                break;
             case helix::ToolheadStyle::JABBERWOCKY:
                 draw_nozzle_jabberwocky(layer, slot_x, toolhead_y, noz_color, tool_scale, toolhead_opa);
+                break;
+            case helix::ToolheadStyle::STEALTHBURNER:
+                draw_nozzle_faceted(layer, slot_x, toolhead_y, noz_color, tool_scale, toolhead_opa);
                 break;
             default:
                 draw_nozzle_bambu(layer, slot_x, toolhead_y, noz_color, tool_scale, toolhead_opa);
@@ -1791,17 +1795,21 @@ static void draw_mixed_topology(lv_event_t* e, FilamentPathData* data) {
                 lv_opa_t hub_noz_opa = LV_OPA_COVER;
 
                 switch (helix::SettingsManager::instance().get_effective_toolhead_style()) {
-                    case helix::ToolheadStyle::STEALTHBURNER:
-                        draw_nozzle_faceted(layer, hub_cx, toolhead_y, noz_color, tool_scale,
-                                            hub_noz_opa);
-                        break;
                     case helix::ToolheadStyle::A4T:
                         draw_nozzle_a4t(layer, hub_cx, toolhead_y, noz_color, tool_scale * 6 / 5,
                                         hub_noz_opa);
                         break;
+                    case helix::ToolheadStyle::ANTHEAD:
+                        draw_nozzle_anthead(layer, hub_cx, toolhead_y, noz_color, tool_scale,
+                                            hub_noz_opa);
+                        break;
                     case helix::ToolheadStyle::JABBERWOCKY:
                         draw_nozzle_jabberwocky(layer, hub_cx, toolhead_y, noz_color, tool_scale,
                                                 hub_noz_opa);
+                        break;
+                    case helix::ToolheadStyle::STEALTHBURNER:
+                        draw_nozzle_faceted(layer, hub_cx, toolhead_y, noz_color, tool_scale,
+                                            hub_noz_opa);
                         break;
                     default:
                         draw_nozzle_bambu(layer, hub_cx, toolhead_y, noz_color, tool_scale,
@@ -1866,17 +1874,21 @@ static void draw_mixed_topology(lv_event_t* e, FilamentPathData* data) {
             lv_opa_t toolhead_opa = is_mounted ? LV_OPA_COVER : LV_OPA_40;
 
             switch (helix::SettingsManager::instance().get_effective_toolhead_style()) {
-                case helix::ToolheadStyle::STEALTHBURNER:
-                    draw_nozzle_faceted(layer, slot_x, toolhead_y, noz_color, tool_scale,
-                                        toolhead_opa);
-                    break;
                 case helix::ToolheadStyle::A4T:
                     draw_nozzle_a4t(layer, slot_x, toolhead_y, noz_color, tool_scale * 6 / 5,
                                     toolhead_opa);
                     break;
+                case helix::ToolheadStyle::ANTHEAD:
+                    draw_nozzle_anthead(layer, slot_x, toolhead_y, noz_color, tool_scale,
+                                        toolhead_opa);
+                    break;
                 case helix::ToolheadStyle::JABBERWOCKY:
                     draw_nozzle_jabberwocky(layer, slot_x, toolhead_y, noz_color, tool_scale,
                                             toolhead_opa);
+                    break;
+                case helix::ToolheadStyle::STEALTHBURNER:
+                    draw_nozzle_faceted(layer, slot_x, toolhead_y, noz_color, tool_scale,
+                                        toolhead_opa);
                     break;
                 default:
                     draw_nozzle_bambu(layer, slot_x, toolhead_y, noz_color, tool_scale,
@@ -2615,15 +2627,18 @@ static void filament_path_draw_cb(lv_event_t* e) {
         // Extruder/print head icon (responsive size)
         // Draw nozzle first so heat glow can render on top
         switch (helix::SettingsManager::instance().get_effective_toolhead_style()) {
-            case helix::ToolheadStyle::STEALTHBURNER:
-                draw_nozzle_faceted(layer, center_x, nozzle_y, noz_color, data->extruder_scale);
-                break;
             case helix::ToolheadStyle::A4T:
                 draw_nozzle_a4t(layer, center_x, nozzle_y, noz_color,
                                 data->extruder_scale * 6 / 5);
                 break;
+            case helix::ToolheadStyle::ANTHEAD:
+                draw_nozzle_anthead(layer, center_x, nozzle_y, noz_color, data->extruder_scale);
+                break;
             case helix::ToolheadStyle::JABBERWOCKY:
                 draw_nozzle_jabberwocky(layer, center_x, nozzle_y, noz_color, data->extruder_scale);
+                break;
+            case helix::ToolheadStyle::STEALTHBURNER:
+                draw_nozzle_faceted(layer, center_x, nozzle_y, noz_color, data->extruder_scale);
                 break;
             default:
                 draw_nozzle_bambu(layer, center_x, nozzle_y, noz_color, data->extruder_scale);
@@ -2634,20 +2649,16 @@ static void filament_path_draw_cb(lv_event_t* e) {
         if (data->heat_active) {
             int32_t tip_y;
             switch (helix::SettingsManager::instance().get_effective_toolhead_style()) {
-                case helix::ToolheadStyle::STEALTHBURNER:
-                    // Stealthburner: nozzle tip is further below center due to larger body
-                    tip_y = nozzle_y + (data->extruder_scale * 46) / 10 - 6;
-                    break;
                 case helix::ToolheadStyle::A4T:
                     // A4T: 20% larger scale, tip proportionally further down
                     tip_y = nozzle_y + (data->extruder_scale * 6 / 5 * 46) / 10 - 6;
                     break;
-                case helix::ToolheadStyle::JABBERWOCKY:
-                    tip_y = nozzle_y + (data->extruder_scale * 26) / 10;
+                case helix::ToolheadStyle::STEALTHBURNER:
+                    // Stealthburner: nozzle tip is further below center due to larger body
+                    tip_y = nozzle_y + (data->extruder_scale * 46) / 10 - 6;
                     break;
                 default:
-                    // Bambu: tip is at cy + body_height/2 + tip_height
-                    // = cy + scale*2 + scale*0.6 = cy + scale*2.6
+                    // Bambu, JabberWocky, AntHead: tip at cy + scale*2.6
                     tip_y = nozzle_y + (data->extruder_scale * 26) / 10;
                     break;
             }

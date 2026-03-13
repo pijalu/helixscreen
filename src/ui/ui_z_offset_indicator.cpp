@@ -11,6 +11,7 @@
 #include "helix-xml/src/xml/parsers/lv_xml_obj_parser.h"
 #include "lvgl/lvgl.h"
 #include "nozzle_renderer_a4t.h"
+#include "nozzle_renderer_anthead.h"
 #include "nozzle_renderer_bambu.h"
 #include "nozzle_renderer_faceted.h"
 #include "nozzle_renderer_jabberwocky.h"
@@ -244,6 +245,9 @@ static void indicator_draw_cb(lv_event_t* e) {
             break;
         case helix::ToolheadStyle::JABBERWOCKY:
             draw_nozzle_jabberwocky(layer, nozzle_cx, nozzle_y, nozzle_color, nozzle_scale);
+            break;
+        case helix::ToolheadStyle::ANTHEAD:
+            draw_nozzle_anthead(layer, nozzle_cx, nozzle_y, nozzle_color, nozzle_scale);
             break;
         default:
             draw_nozzle_bambu(layer, nozzle_cx, nozzle_y, nozzle_color, nozzle_scale);

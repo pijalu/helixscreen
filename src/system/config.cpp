@@ -375,6 +375,34 @@ static void migrate_v6_to_v7(json& config) {
     }
 }
 
+/// Remap toolhead_style after alphabetical reorder of enum values.
+/// Old: AUTO=0, DEFAULT=1, STEALTHBURNER=2, A4T=3, JABBERWOCKY=4
+/// New: AUTO=0, DEFAULT=1, A4T=2, ANTHEAD=3, JABBERWOCKY=4, STEALTHBURNER=5
+static void migrate_v7_to_v8(json& config) {
+    auto remap_toolhead = [](json& printers_obj) {
+        for (auto& [id, printer] : printers_obj.items()) {
+            json::json_pointer ptr("/appearance/toolhead_style");
+            if (printer.contains(ptr) && printer[ptr].is_number_integer()) {
+                int old_val = printer[ptr].get<int>();
+                // Only 2 (old STEALTHBURNER) and 3 (old A4T) need remapping
+                if (old_val == 2) {
+                    printer[ptr] = 5; // STEALTHBURNER
+                    spdlog::info("[Config] Migration v8: remapped toolhead_style 2→5 (Stealthburner) "
+                                 "for printer {}", id);
+                } else if (old_val == 3) {
+                    printer[ptr] = 2; // A4T
+                    spdlog::info("[Config] Migration v8: remapped toolhead_style 3→2 (A4T) "
+                                 "for printer {}", id);
+                }
+            }
+        }
+    };
+
+    if (config.contains("printers") && config["printers"].is_object()) {
+        remap_toolhead(config["printers"]);
+    }
+}
+
 /// Run all versioned migrations in sequence from current version to CURRENT_CONFIG_VERSION
 static void run_versioned_migrations(json& config) {
     int version = 0;
@@ -396,6 +424,8 @@ static void run_versioned_migrations(json& config) {
         migrate_v5_to_v6(config);
     if (version < 7)
         migrate_v6_to_v7(config);
+    if (version < 8)
+        migrate_v7_to_v8(config);
 
     config["config_version"] = CURRENT_CONFIG_VERSION;
 }
