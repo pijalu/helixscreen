@@ -5,6 +5,7 @@
 
 #include "ui_callback_helpers.h"
 #include "ui_frequency_response_chart.h"
+#include "ui_modal.h"
 #include "ui_nav_manager.h"
 #include "ui_toast_manager.h"
 #include "ui_update_queue.h"
@@ -125,6 +126,38 @@ void ui_panel_belt_tension_register_callbacks() {
          }},
         {"belt_tension_retry_cb",
          [](lv_event_t* /*e*/) { get_global_belt_tension_panel().handle_retry_clicked(); }},
+        {"belt_tension_help_cb",
+         [](lv_event_t* /*e*/) {
+             helix::ui::modal_show_alert(
+                 lv_tr("Belt Tension Check"),
+                 "Uneven belt tension causes print artifacts like layer shifts, "
+                 "VFAs (vertical fine artifacts), and ringing.\n\n"
+                 "This tool vibrates each belt path and measures the resonant "
+                 "frequency \u2014 matched frequencies mean balanced tension.\n\n"
+                 "For CoreXY, Path A and B should be within a few Hz of each other.",
+                 ModalSeverity::Info, lv_tr("Got it"));
+         }},
+        {"belt_tension_results_help_cb",
+         [](lv_event_t* /*e*/) {
+             helix::ui::modal_show_alert(
+                 lv_tr("Understanding Results"),
+                 "Frequency Delta: Difference between Path A and B. "
+                 "Ideally under 5 Hz; over 15 Hz needs adjustment.\n\n"
+                 "Path Similarity: How closely the vibration profiles match. "
+                 "Above 90% is excellent; below 70% suggests uneven tension.",
+                 ModalSeverity::Info, lv_tr("Got it"));
+         }},
+        {"belt_tension_strobe_help_cb",
+         [](lv_event_t* /*e*/) {
+             helix::ui::modal_show_alert(
+                 lv_tr("Visual Fine-Tuning"),
+                 "The motor vibrates the belt while a strobe light flashes at the "
+                 "same frequency. When the belt appears to stand still (frozen), "
+                 "you have found the resonant frequency.\n\n"
+                 "Use the frequency buttons to sweep through values until the belt "
+                 "looks stationary, then lock the reading.",
+                 ModalSeverity::Info, lv_tr("Got it"));
+         }},
     });
 
     // Initialize subjects BEFORE XML creation
