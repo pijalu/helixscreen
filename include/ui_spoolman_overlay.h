@@ -22,6 +22,9 @@
 #include <lvgl/lvgl.h>
 
 #include <memory>
+#include <string>
+#include <utility>
+#include <vector>
 
 // Forward declarations
 class MoonrakerAPI;
@@ -234,6 +237,34 @@ class SpoolmanOverlay : public OverlayBase {
 
     // Label printer sub-panel launcher
     static void on_label_printer_clicked(lv_event_t* e);
+
+    // === Server Setup Methods ===
+    void probe_spoolman_server(const std::string& host, const std::string& port);
+    void configure_spoolman(const std::string& host, const std::string& port);
+    void finish_configure(const std::string& helix_content,
+                          const std::vector<std::pair<std::string, std::string>>& entries);
+    void ensure_moonraker_include();
+    void restart_and_verify();
+    void verify_spoolman_connected();
+    void remove_spoolman_config();
+    void update_server_url_display();
+    void set_setup_status(const char* text, bool is_error = false);
+
+    // === Server Setup Callbacks ===
+    static void on_connect_clicked(lv_event_t* e);
+    static void on_change_clicked(lv_event_t* e);
+    static void on_remove_clicked(lv_event_t* e);
+
+    // === Server Setup Widgets ===
+    lv_obj_t* host_input_ = nullptr;
+    lv_obj_t* port_input_ = nullptr;
+    lv_obj_t* setup_status_text_ = nullptr;
+    lv_obj_t* server_url_text_ = nullptr;
+    lv_obj_t* connect_btn_ = nullptr;
+    lv_obj_t* setup_card_ = nullptr;
+    lv_obj_t* status_card_ = nullptr;
+
+    std::shared_ptr<bool> alive_guard_ = std::make_shared<bool>(true);
 };
 
 /**

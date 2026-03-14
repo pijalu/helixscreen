@@ -8,18 +8,27 @@
 
 #include "ui_spoolman_overlay.h"
 
+#include "theme_manager.h"
+#include "ui_emergency_stop.h"
 #include "ui_event_safety.h"
+#include "ui_modal.h"
 #include "ui_nav_manager.h"
 #include "ui_settings_label_printer.h"
+#include "ui_spoolman_setup.h"
+#include "ui_toast_manager.h"
 #include "ui_update_queue.h"
 
 #include "ams_state.h"
 #include "moonraker_api.h"
+#include "moonraker_config_manager.h"
 #include "static_panel_registry.h"
+
+#include "hv/requests.h"
 
 #include <spdlog/spdlog.h>
 
 #include <memory>
+#include <thread>
 
 namespace helix::ui {
 
@@ -56,6 +65,9 @@ SpoolmanOverlay::SpoolmanOverlay() {
 }
 
 SpoolmanOverlay::~SpoolmanOverlay() {
+    if (alive_guard_)
+        *alive_guard_ = false;
+
     if (subjects_initialized_ && lv_is_initialized()) {
         lv_subject_deinit(&sync_enabled_subject_);
         lv_subject_deinit(&refresh_interval_subject_);
@@ -94,6 +106,11 @@ void SpoolmanOverlay::register_callbacks() {
     // Label printer sub-panel launcher
     lv_xml_register_event_cb(nullptr, "on_spoolman_label_printer_clicked", on_label_printer_clicked);
 
+    // Server setup callbacks
+    lv_xml_register_event_cb(nullptr, "on_spoolman_connect_clicked", on_connect_clicked);
+    lv_xml_register_event_cb(nullptr, "on_spoolman_change_clicked", on_change_clicked);
+    lv_xml_register_event_cb(nullptr, "on_spoolman_remove_clicked", on_remove_clicked);
+
     spdlog::debug("[{}] Callbacks registered", get_name());
 }
 
@@ -119,6 +136,15 @@ lv_obj_t* SpoolmanOverlay::create(lv_obj_t* parent) {
     // Find control widgets for programmatic access
     sync_toggle_ = lv_obj_find_by_name(overlay_, "sync_toggle");
     interval_dropdown_ = lv_obj_find_by_name(overlay_, "interval_dropdown");
+
+    // Server setup widgets
+    host_input_ = lv_obj_find_by_name(overlay_, "spoolman_host_input");
+    port_input_ = lv_obj_find_by_name(overlay_, "spoolman_port_input");
+    setup_status_text_ = lv_obj_find_by_name(overlay_, "setup_status_text");
+    server_url_text_ = lv_obj_find_by_name(overlay_, "server_url_text");
+    connect_btn_ = lv_obj_find_by_name(overlay_, "connect_btn");
+    setup_card_ = lv_obj_find_by_name(overlay_, "setup_card");
+    status_card_ = lv_obj_find_by_name(overlay_, "status_card");
 
     // Initially hidden until show() pushes it
     lv_obj_add_flag(overlay_, LV_OBJ_FLAG_HIDDEN);
@@ -153,6 +179,9 @@ void SpoolmanOverlay::show(lv_obj_t* parent_screen) {
 
     // Update UI controls to match subject values
     update_ui_from_subjects();
+
+    // Show current server URL if connected
+    update_server_url_display();
 
     // Register with NavigationManager for lifecycle callbacks
     NavigationManager::instance().register_overlay_instance(overlay_, this);
@@ -344,6 +373,13 @@ void SpoolmanOverlay::update_ui_from_subjects() {
 void SpoolmanOverlay::on_ui_destroyed() {
     sync_toggle_ = nullptr;
     interval_dropdown_ = nullptr;
+    host_input_ = nullptr;
+    port_input_ = nullptr;
+    setup_status_text_ = nullptr;
+    server_url_text_ = nullptr;
+    connect_btn_ = nullptr;
+    setup_card_ = nullptr;
+    status_card_ = nullptr;
 }
 
 // ============================================================================
@@ -416,6 +452,341 @@ void SpoolmanOverlay::on_label_printer_clicked(lv_event_t* /*e*/) {
     auto& spoolman = get_spoolman_overlay();
     overlay.show(spoolman.parent_screen_);
     LVGL_SAFE_EVENT_CB_END();
+}
+
+// ============================================================================
+// SERVER SETUP
+// ============================================================================
+
+void SpoolmanOverlay::set_setup_status(const char* text, bool is_error) {
+    if (setup_status_text_) {
+        lv_label_set_text(setup_status_text_, text);
+        lv_obj_set_style_text_color(setup_status_text_,
+            theme_manager_get_color(is_error ? "danger" : "text_muted"), LV_PART_MAIN);
+    }
+}
+
+void SpoolmanOverlay::on_connect_clicked(lv_event_t* /*e*/) {
+    LVGL_SAFE_EVENT_CB_BEGIN("[SpoolmanOverlay] on_connect_clicked");
+
+    auto& overlay = get_spoolman_overlay();
+    const char* host_raw = overlay.host_input_ ? lv_textarea_get_text(overlay.host_input_) : "";
+    const char* port_raw = overlay.port_input_ ? lv_textarea_get_text(overlay.port_input_) : "";
+
+    std::string host(host_raw ? host_raw : "");
+    std::string port(port_raw ? port_raw : "");
+
+    auto trim = [](std::string& s) {
+        size_t start = s.find_first_not_of(" \t");
+        size_t end = s.find_last_not_of(" \t");
+        s = (start == std::string::npos) ? "" : s.substr(start, end - start + 1);
+    };
+    trim(host);
+    trim(port);
+
+    if (port.empty()) port = DEFAULT_SPOOLMAN_PORT;
+
+    if (!SpoolmanSetup::validate_host(host)) {
+        overlay.set_setup_status(lv_tr("Please enter an IP address or hostname."), true);
+        return;
+    }
+    if (!SpoolmanSetup::validate_port(port)) {
+        overlay.set_setup_status(lv_tr("Please enter a valid port (1-65535)."), true);
+        return;
+    }
+
+    overlay.set_setup_status(lv_tr("Checking Spoolman server..."));
+    overlay.probe_spoolman_server(host, port);
+
+    LVGL_SAFE_EVENT_CB_END();
+}
+
+void SpoolmanOverlay::probe_spoolman_server(const std::string& host, const std::string& port) {
+    auto alive = alive_guard_;
+    std::string probe_url = SpoolmanSetup::build_probe_url(host, port);
+    std::string host_copy = host;
+    std::string port_copy = port;
+
+    spdlog::info("[{}] Probing Spoolman at {}", get_name(), probe_url);
+
+    std::thread([this, alive, probe_url, host_copy, port_copy]() {
+        auto req = std::make_shared<HttpRequest>();
+        req->method = HTTP_GET;
+        req->url = probe_url;
+        req->timeout = 5;
+        auto resp = requests::request(req);
+        bool success = (resp && resp->status_code == 200);
+
+        helix::ui::queue_update([this, alive, success, host_copy, port_copy]() {
+            if (!alive || !*alive) return;
+            if (success) {
+                spdlog::info("[{}] Spoolman probe succeeded", get_name());
+                set_setup_status(lv_tr("Spoolman found! Configuring..."));
+                configure_spoolman(host_copy, port_copy);
+            } else {
+                spdlog::warn("[{}] Spoolman probe failed at {}:{}", get_name(), host_copy, port_copy);
+                auto msg = fmt::format("{} {}:{}", lv_tr("Could not reach Spoolman at"), host_copy, port_copy);
+                set_setup_status(msg.c_str(), true);
+            }
+        });
+    }).detach();
+}
+
+// ============================================================================
+// CONFIG WRITE CHAIN
+// ============================================================================
+
+void SpoolmanOverlay::configure_spoolman(const std::string& host, const std::string& port) {
+    if (!api_) {
+        set_setup_status(lv_tr("Not connected to printer."), true);
+        return;
+    }
+    auto alive = alive_guard_;
+    auto entries = SpoolmanSetup::build_spoolman_config_entries(host, port);
+
+    api_->transfers().download_file("config", "helixscreen.conf",
+        [this, alive, entries](const std::string& content) {
+            if (!alive || !*alive) return;
+            finish_configure(content, entries);
+        },
+        [this, alive, entries](const MoonrakerError& err) {
+            if (!alive || !*alive) return;
+            if (err.type == MoonrakerErrorType::FILE_NOT_FOUND) {
+                finish_configure("", entries);
+            } else {
+                helix::ui::queue_update([this, alive]() {
+                    if (!alive || !*alive) return;
+                    set_setup_status(lv_tr("Failed to read config. Check connection."), true);
+                });
+            }
+        });
+}
+
+void SpoolmanOverlay::finish_configure(
+    const std::string& helix_content,
+    const std::vector<std::pair<std::string, std::string>>& entries) {
+    auto alive = alive_guard_;
+    std::string modified = helix::MoonrakerConfigManager::add_section(
+        helix_content, "spoolman", entries, "Spoolman - added by HelixScreen");
+
+    api_->transfers().upload_file("config", "helixscreen.conf", modified,
+        [this, alive]() {
+            if (!alive || !*alive) return;
+            ensure_moonraker_include();
+        },
+        [this, alive](const MoonrakerError& err) {
+            if (!alive || !*alive) return;
+            helix::ui::queue_update([this, alive, err]() {
+                if (!alive || !*alive) return;
+                spdlog::error("[{}] Failed to upload helixscreen.conf: {}", get_name(), err.message);
+                set_setup_status(lv_tr("Failed to save config."), true);
+            });
+        });
+}
+
+void SpoolmanOverlay::ensure_moonraker_include() {
+    auto alive = alive_guard_;
+    api_->transfers().download_file("config", "moonraker.conf",
+        [this, alive](const std::string& content) {
+            if (!alive || !*alive) return;
+            if (helix::MoonrakerConfigManager::has_include_line(content)) {
+                restart_and_verify();
+                return;
+            }
+            std::string modified = helix::MoonrakerConfigManager::add_include_line(content);
+            api_->transfers().upload_file("config", "moonraker.conf", modified,
+                [this, alive]() {
+                    if (!alive || !*alive) return;
+                    restart_and_verify();
+                },
+                [this, alive](const MoonrakerError&) {
+                    if (!alive || !*alive) return;
+                    helix::ui::queue_update([this, alive]() {
+                        if (!alive || !*alive) return;
+                        set_setup_status(lv_tr("Failed to update moonraker.conf."), true);
+                    });
+                });
+        },
+        [this, alive](const MoonrakerError&) {
+            if (!alive || !*alive) return;
+            helix::ui::queue_update([this, alive]() {
+                if (!alive || !*alive) return;
+                set_setup_status(lv_tr("Failed to read moonraker.conf."), true);
+            });
+        });
+}
+
+void SpoolmanOverlay::restart_and_verify() {
+    auto alive = alive_guard_;
+    helix::ui::queue_update([this, alive]() {
+        if (!alive || !*alive) return;
+        set_setup_status(lv_tr("Restarting Moonraker..."));
+    });
+
+    EmergencyStopOverlay::instance().suppress_recovery_dialog(15000);
+
+    api_->restart_moonraker(
+        [this, alive]() {
+            if (!alive || !*alive) return;
+            spdlog::info("[{}] Moonraker restart initiated", get_name());
+            helix::ui::queue_update([this, alive]() {
+                if (!alive || !*alive) return;
+                set_setup_status(lv_tr("Waiting for Moonraker..."));
+                lv_timer_create([](lv_timer_t* timer) {
+                    lv_timer_delete(timer);
+                    auto& overlay = get_spoolman_overlay();
+                    overlay.verify_spoolman_connected();
+                }, 8000, nullptr);
+            });
+        },
+        [this, alive](const MoonrakerError&) {
+            if (!alive || !*alive) return;
+            helix::ui::queue_update([this, alive]() {
+                if (!alive || !*alive) return;
+                set_setup_status(lv_tr("Failed to restart Moonraker."), true);
+            });
+        });
+}
+
+void SpoolmanOverlay::verify_spoolman_connected() {
+    if (!api_) return;
+    auto alive = alive_guard_;
+    api_->spoolman().get_spoolman_status(
+        [this, alive](bool connected, int /*spool_id*/) {
+            helix::ui::queue_update([this, alive, connected]() {
+                if (!alive || !*alive) return;
+                if (connected) {
+                    spdlog::info("[{}] Spoolman verified connected!", get_name());
+                    set_setup_status("");
+                    update_server_url_display();
+                    ToastManager::instance().show(ToastSeverity::SUCCESS, lv_tr("Spoolman connected!"), 3000);
+                } else {
+                    set_setup_status(lv_tr("Moonraker restarted but Spoolman not connected. Check server."), true);
+                }
+            });
+        },
+        [this, alive](const MoonrakerError&) {
+            helix::ui::queue_update([this, alive]() {
+                if (!alive || !*alive) return;
+                set_setup_status(lv_tr("Could not verify Spoolman status. Moonraker may still be restarting."), true);
+            });
+        });
+}
+
+// ============================================================================
+// CHANGE, REMOVE, URL DISPLAY
+// ============================================================================
+
+void SpoolmanOverlay::update_server_url_display() {
+    if (!server_url_text_ || !api_) return;
+    auto alive = alive_guard_;
+    api_->transfers().download_file("config", "helixscreen.conf",
+        [this, alive](const std::string& content) {
+            auto url = helix::MoonrakerConfigManager::get_section_value(content, "spoolman", "server");
+            helix::ui::queue_update([this, alive, url]() {
+                if (!alive || !*alive || !server_url_text_) return;
+                if (!url.empty()) {
+                    auto text = fmt::format("{} {}", lv_tr("Connected to"), url);
+                    lv_label_set_text(server_url_text_, text.c_str());
+                } else {
+                    lv_label_set_text(server_url_text_, lv_tr("Connected"));
+                }
+            });
+        },
+        [this, alive](const MoonrakerError&) {
+            helix::ui::queue_update([this, alive]() {
+                if (!alive || !*alive || !server_url_text_) return;
+                lv_label_set_text(server_url_text_, lv_tr("Connected"));
+            });
+        });
+}
+
+void SpoolmanOverlay::on_change_clicked(lv_event_t* /*e*/) {
+    LVGL_SAFE_EVENT_CB_BEGIN("[SpoolmanOverlay] on_change_clicked");
+    auto& overlay = get_spoolman_overlay();
+
+    if (overlay.api_) {
+        auto alive = overlay.alive_guard_;
+        overlay.api_->transfers().download_file("config", "helixscreen.conf",
+            [&overlay, alive](const std::string& content) {
+                auto url = helix::MoonrakerConfigManager::get_section_value(content, "spoolman", "server");
+                auto [host, port] = SpoolmanSetup::parse_url_components(url);
+                helix::ui::queue_update([&overlay, alive, host, port]() {
+                    if (!alive || !*alive) return;
+                    if (overlay.host_input_)
+                        lv_textarea_set_text(overlay.host_input_, host.c_str());
+                    if (overlay.port_input_)
+                        lv_textarea_set_text(overlay.port_input_, port.c_str());
+                });
+            },
+            [](const MoonrakerError&) {});
+    }
+
+    if (overlay.setup_card_) lv_obj_remove_flag(overlay.setup_card_, LV_OBJ_FLAG_HIDDEN);
+    if (overlay.status_card_) lv_obj_add_flag(overlay.status_card_, LV_OBJ_FLAG_HIDDEN);
+
+    LVGL_SAFE_EVENT_CB_END();
+}
+
+void SpoolmanOverlay::on_remove_clicked(lv_event_t* /*e*/) {
+    LVGL_SAFE_EVENT_CB_BEGIN("[SpoolmanOverlay] on_remove_clicked");
+
+    modal_show_confirmation(
+        lv_tr("Remove Spoolman?"),
+        lv_tr("This will remove the Spoolman configuration from Moonraker and restart the service."),
+        ModalSeverity::Warning,
+        lv_tr("Remove"),
+        [](lv_event_t*) {
+            auto& overlay = get_spoolman_overlay();
+            overlay.remove_spoolman_config();
+        },
+        nullptr, nullptr);
+
+    LVGL_SAFE_EVENT_CB_END();
+}
+
+void SpoolmanOverlay::remove_spoolman_config() {
+    if (!api_) return;
+    auto alive = alive_guard_;
+    api_->transfers().download_file("config", "helixscreen.conf",
+        [this, alive](const std::string& content) {
+            if (!alive || !*alive) return;
+            std::string modified = helix::MoonrakerConfigManager::remove_section(content, "spoolman");
+            api_->transfers().upload_file("config", "helixscreen.conf", modified,
+                [this, alive]() {
+                    if (!alive || !*alive) return;
+                    helix::ui::queue_update([this, alive]() {
+                        if (!alive || !*alive) return;
+                        set_setup_status(lv_tr("Restarting Moonraker..."));
+                    });
+                    EmergencyStopOverlay::instance().suppress_recovery_dialog(15000);
+                    api_->restart_moonraker(
+                        [this, alive]() {
+                            helix::ui::queue_update([this, alive]() {
+                                if (!alive || !*alive) return;
+                                ToastManager::instance().show(ToastSeverity::SUCCESS, lv_tr("Spoolman removed."), 3000);
+                            });
+                        },
+                        [this, alive](const MoonrakerError&) {
+                            helix::ui::queue_update([this, alive]() {
+                                if (!alive || !*alive) return;
+                                set_setup_status(lv_tr("Failed to restart Moonraker."), true);
+                            });
+                        });
+                },
+                [this, alive](const MoonrakerError&) {
+                    helix::ui::queue_update([this, alive]() {
+                        if (!alive || !*alive) return;
+                        set_setup_status(lv_tr("Failed to save config."), true);
+                    });
+                });
+        },
+        [this, alive](const MoonrakerError&) {
+            helix::ui::queue_update([this, alive]() {
+                if (!alive || !*alive) return;
+                set_setup_status(lv_tr("Failed to read config."), true);
+            });
+        });
 }
 
 } // namespace helix::ui
