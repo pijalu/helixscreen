@@ -760,8 +760,8 @@ void SettingsPanel::handle_docs_clicked() {
         .title = lv_tr("Documentation"),
         .message = lv_tr("Browse guides, configuration references, and troubleshooting "
                          "resources for HelixScreen."),
-        .url = "https://docs.helixscreen.org",
-        .url_text = "docs.helixscreen.org",
+        .url = "https://helixscreen.org/docs/guide/getting-started/",
+        .url_text = "helixscreen.org/docs",
     });
     modal->show_modal(lv_screen_active());
 }

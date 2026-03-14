@@ -10,7 +10,7 @@ Three quick links at the bottom of the Settings panel:
 |--------|--------------|
 | **Upload Debug Bundle** | Collects logs and system info for support (see below) |
 | **Discord Community** | Join **discord.gg/helixscreen** for community help and feedback |
-| **Documentation** | Visit **docs.helixscreen.org** for guides and reference |
+| **Documentation** | Visit **helixscreen.org/docs** for guides and reference |
 
 ### Debug Bundles
 
