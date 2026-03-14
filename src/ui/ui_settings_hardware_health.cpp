@@ -128,6 +128,11 @@ void HardwareHealthOverlay::on_activate() {
 void HardwareHealthOverlay::on_deactivate() {
     OverlayBase::on_deactivate();
 
+    // Invalidate alive guard so pending lv_async_call callbacks become no-ops,
+    // then create a fresh guard for the next on_activate() cycle
+    *alive_guard_ = false;
+    alive_guard_ = std::make_shared<bool>(true);
+
     // Clean up any open modal dialog
     if (hardware_save_dialog_) {
         helix::ui::modal_hide(hardware_save_dialog_);

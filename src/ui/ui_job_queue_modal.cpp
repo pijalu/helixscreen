@@ -128,6 +128,10 @@ void JobQueueModal::on_show() {
 
 void JobQueueModal::on_hide() {
     count_observer_ = {};
+    list_rebuild_pending_ = false;
+    // Invalidate alive guard so pending lv_async_call / API callbacks become no-ops
+    if (alive_guard_) *alive_guard_ = false;
+    alive_guard_ = std::make_shared<bool>(true);
     s_active_instance_ = nullptr;
 }
 

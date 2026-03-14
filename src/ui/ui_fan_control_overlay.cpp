@@ -173,8 +173,10 @@ void FanControlOverlay::on_deactivate() {
 
 void FanControlOverlay::cleanup() {
     spdlog::debug("[{}] Cleanup", get_name());
-    // Invalidate alive guard so pending lv_async_call callbacks become no-ops
+    // Invalidate alive guard so pending lv_async_call callbacks become no-ops,
+    // then create a fresh guard for the next create() cycle
     *alive_guard_ = false;
+    alive_guard_ = std::make_shared<bool>(true);
     // Clear observers first (they reference this object)
     fans_observer_.reset();
     anim_settings_observer_.reset();
