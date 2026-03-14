@@ -72,7 +72,19 @@ From the menu, install **Moonraker** at minimum. Optionally install Fluidd or Ma
 
 ## Step 4: Install HelixScreen
 
-The K1 series uses BusyBox without SSL library support, so `curl https://...` won't work directly on the printer. Use a two-step process — download on your computer, then copy to the printer.
+### Option A: Direct Install (Recommended)
+
+If your K1C has internet access, install directly on the printer via SSH:
+
+```bash
+wget -O - http://dl.helixscreen.org/install.sh | sh
+```
+
+This works because `dl.helixscreen.org` serves over plain HTTP, which BusyBox wget supports. No need to download anything on your computer first.
+
+### Option B: Two-Step Install
+
+If your printer doesn't have internet access, download on your computer first, then copy to the printer.
 
 **On your computer:**
 

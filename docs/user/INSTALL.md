@@ -39,7 +39,11 @@ curl -sSL https://raw.githubusercontent.com/prestonbrown/helixscreen/main/script
 
 The installer automatically detects your platform and downloads the correct release.
 
-**Creality K1/K1C/K1 Max:** The K1 environment has no SSL library support (like the AD5M), so `curl https://...` won't work. See the [Creality K1 Series](#creality-k1-series) section for the two-step install process, or follow the complete [K1C Setup Guide](guide/creality-k1c-setup.md).
+**Creality K1/K1C/K1 Max:** Run directly on the printer via SSH:
+```bash
+wget -O - http://dl.helixscreen.org/install.sh | sh
+```
+No SSL required — uses plain HTTP. See [Creality K1 Series](#creality-k1-series) for details.
 
 **Flashforge Adventurer 5M:** The easiest option is our [ready-made firmware image](https://github.com/prestonbrown/ff5m) — just flash from a USB drive. For manual installation on existing Forge-X or Klipper Mod setups, see [Flashforge Adventurer 5M Installation](#flashforge-adventurer-5m-installation).
 
@@ -131,7 +135,19 @@ See the **[Creality K1C Setup Guide](guide/creality-k1c-setup.md)** for complete
 
 **Quick version** (if you already have root + Moonraker running):
 
-The K1 series uses BusyBox without SSL library support, so HTTPS downloads don't work directly on the printer (same as the AD5M). Use a two-step process:
+### One-Liner Install (Recommended)
+
+If your K1 has internet access, install directly on the printer:
+
+```bash
+wget -O - http://dl.helixscreen.org/install.sh | sh
+```
+
+This works because `dl.helixscreen.org` serves over plain HTTP, which BusyBox wget supports.
+
+### Two-Step Install (No Internet on Printer)
+
+If your printer doesn't have internet access, download on another computer first:
 
 **Step 1: Download on your computer**
 
