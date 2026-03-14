@@ -12,7 +12,7 @@ This guide walks you through installing HelixScreen on your 3D printer's touchsc
 - [Prerequisites](#prerequisites)
 - [MainsailOS Installation](#mainsailos-installation)
 - [Flashforge Adventurer 5M Installation](#flashforge-adventurer-5m-installation)
-- [Creality K1 Installation](#creality-k1-series-simple-af)
+- [Creality K1 Installation](#creality-k1-series)
 - [Creality K2 Series (Untested)](#creality-k2-series-untested)
 - [FlashForge Adventurer 5X (Testing)](#flashforge-adventurer-5x-testing)
 - [Elegoo Centauri Carbon 1 (Testing)](#elegoo-centauri-carbon-1-testing)
@@ -121,35 +121,20 @@ The HelixScreen installer will:
 
 On uninstall, all ForgeX changes are reversed and GuppyScreen is restored.
 
-### Creality K1 Series (Simple AF)
+### Creality K1 Series
 
-- **Hardware:**
-  - Creality K1, K1C, K1 Max, or similar
-  - Stock touchscreen display
-  - Network connection
+Creality K1, K1C, and K1 Max. Requires rooting and community firmware (for Moonraker).
 
-- **Software:**
-  - [Simple AF](https://github.com/pellcorp/creality) installed and working
-  - SSH access to the printer (`root@<printer-ip>`)
-  - About 100MB free disk space in `/usr/data`
+See the **[Creality K1C Setup Guide](guide/creality-k1c-setup.md)** for complete instructions — covers rooting, firmware options, and HelixScreen installation.
 
-The installer automatically detects Simple AF and configures paths:
+**Quick version** (if you already have root + Moonraker running):
 
-| Environment | Replaces | Install Location | Init Script |
-|-------------|----------|------------------|-------------|
-| **Simple AF** | GuppyScreen | `/usr/data/helixscreen/` | `S99helixscreen` |
+```bash
+ssh root@<printer-ip>   # password: creality_2023
+curl -sSL https://raw.githubusercontent.com/prestonbrown/helixscreen/main/scripts/install.sh | sh
+```
 
-**Prerequisites:**
-1. Install Simple AF following [their instructions](https://github.com/pellcorp/creality)
-2. Verify GuppyScreen works on the touchscreen
-3. Then run the HelixScreen installer
-
-The HelixScreen installer will:
-- Stop and disable GuppyScreen
-- Install HelixScreen to `/usr/data/helixscreen/`
-- Configure Moonraker update_manager for one-click updates from Fluidd/Mainsail
-
-On uninstall, GuppyScreen is restored.
+Installs to `/usr/data/helixscreen/`, boot service at `/etc/init.d/S99helixscreen`.
 
 ### Creality K2 Series (Untested)
 
