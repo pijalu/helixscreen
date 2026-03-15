@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.98.8] - 2026-03-15
+
+### Added
+- Crash reporter now includes stack dumps, extended ARM32 registers, and full memory maps
+- Crash analysis worker displays stack scanning results and memory map details
+
+### Fixed
+- Temperature keypad showing raw centidegree values instead of degrees (#401 related)
+- Temperature validation falsely flagging valid temperatures as out-of-range
+- Heater display dividing by 100 instead of 10 for centidegree conversion
+- Config files in Fluidd/Mainsail not editable due to Moonraker reserved path conflict (#401)
+- Screensaver async deletion crash and arc subject null guard (#409, #410, #411, #412)
+- XML style constants triggering LVGL warnings from incorrect hex color prefix
+- Bluetooth plugin missing from Pi release packages
+- C++17 structured binding capture incompatibility with GCC 11
+
+### Changed
+- Animations disabled on K1, AD5M, and AD5X platforms for improved performance
+
 ## [0.98.7] - 2026-03-14
 
 ### Added
@@ -1983,6 +2002,7 @@ Initial tagged release. Foundation for all subsequent development.
 - Automated GitHub Actions release pipeline
 - One-liner installation script with platform auto-detection
 
+[0.98.8]: https://github.com/prestonbrown/helixscreen/compare/v0.98.7...v0.98.8
 [0.98.7]: https://github.com/prestonbrown/helixscreen/compare/v0.98.6...v0.98.7
 [0.98.6]: https://github.com/prestonbrown/helixscreen/compare/v0.98.5...v0.98.6
 [0.98.5]: https://github.com/prestonbrown/helixscreen/compare/v0.98.4...v0.98.5
