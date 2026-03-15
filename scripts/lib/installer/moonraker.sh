@@ -64,10 +64,6 @@ type: web
 channel: stable
 repo: prestonbrown/helixscreen
 path: ${INSTALL_DIR}
-persistent_files:
-    config/helixconfig.json
-    config/helixscreen.env
-    config/.disabled_services
 EOF
 }
 
@@ -137,39 +133,35 @@ migrate_to_web_type() {
     log_success "Migrated to type: web update manager"
 }
 
-# Ensure the helixscreen section in moonraker.conf has persistent_files.
-# Older installs may have the section without persistent_files, causing
-# Moonraker's shutil.rmtree to wipe the user config on every update.
+# Remove persistent_files from moonraker.conf if present.
+# User config files now live in printer_data/config/helixscreen/ (outside the
+# update_manager's managed path), so persistent_files is no longer needed.
+# Cleans up old installs that had persistent_files.
 # Args: $1 = moonraker.conf path
 ensure_persistent_files() {
     local conf="$1"
 
-    # Check if persistent_files already present in the helixscreen section
-    if awk '/^\[update_manager helixscreen\]/{found=1; next} found && /^\[/{exit} found && /^persistent_files:/{print; exit}' "$conf" | grep -q 'persistent_files'; then
-        return 0
+    # Check if persistent_files is present in the helixscreen section
+    if ! awk '/^\[update_manager helixscreen\]/{found=1; next} found && /^\[/{exit} found && /^persistent_files:/{print; exit}' "$conf" | grep -q 'persistent_files'; then
+        return 0  # Not present, nothing to do
     fi
 
-    log_warn "Moonraker config missing persistent_files — adding to prevent config loss on update"
+    log_info "Removing obsolete persistent_files from moonraker.conf (config now in printer_data)"
     local fs
     fs=$(file_sudo "$conf")
     $fs cp "$conf" "${conf}.bak.helixscreen" 2>/dev/null || true
 
-    # Insert persistent_files block after the path: line in the helixscreen section
+    # Remove persistent_files: line and its indented continuation lines
     $fs awk '
         /^\[update_manager helixscreen\]/ { in_section=1 }
-        in_section && /^path:/ {
-            print
-            print "persistent_files:"
-            print "    config/helixconfig.json"
-            print "    config/helixscreen.env"
-            print "    config/.disabled_services"
-            in_section=0
-            next
-        }
+        in_section && /^\[/ && !/^\[update_manager helixscreen\]/ { in_section=0 }
+        in_section && /^persistent_files:/ { in_persistent=1; next }
+        in_persistent && /^    / { next }
+        in_persistent { in_persistent=0 }
         { print }
     ' "$conf" > "${conf}.tmp" && $fs mv "${conf}.tmp" "$conf"
 
-    log_success "Added persistent_files to moonraker.conf"
+    log_success "Removed persistent_files from moonraker.conf"
 }
 
 # Write release_info.json if not already present

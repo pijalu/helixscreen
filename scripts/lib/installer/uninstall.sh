@@ -163,6 +163,11 @@ uninstall() {
         $(file_sudo "$pattern") rm -f "$pattern" 2>/dev/null || true
     done
 
+    # Remove config symlinks (preserves user files in printer_data)
+    if type remove_config_symlink >/dev/null 2>&1; then
+        remove_config_symlink || true
+    fi
+
     # Remove update_manager section from moonraker.conf (if present)
     if type remove_update_manager_section >/dev/null 2>&1; then
         remove_update_manager_section || true
@@ -266,6 +271,15 @@ clean_old_installation() {
     $SUDO rm -f /etc/polkit-1/rules.d/49-helixscreen-network.rules
     $SUDO rm -f /etc/polkit-1/rules.d/50-helixscreen-network.rules
     $SUDO systemctl daemon-reload 2>/dev/null || true
+
+    # Remove printer_data/config/helixscreen/ (user config) in clean mode
+    if [ -n "${KLIPPER_HOME:-}" ]; then
+        local pd_helix="${KLIPPER_HOME}/printer_data/config/helixscreen"
+        if [ -d "$pd_helix" ] || [ -L "$pd_helix" ]; then
+            log_info "Removing user config: $pd_helix"
+            $SUDO rm -rf "$pd_helix"
+        fi
+    fi
 
     log_success "Old installation cleaned"
     echo ""

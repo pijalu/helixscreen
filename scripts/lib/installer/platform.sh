@@ -433,10 +433,25 @@ set_install_paths() {
     detect_tmp_dir
 }
 
-# Create symlink from printer_data/config/helixscreen → INSTALL_DIR/config
-# Allows Mainsail/Fluidd users to edit HelixScreen config from the web UI.
-# Only applies to Pi/Klipper platforms where printer_data exists.
-# Gracefully skips if printer_data/config doesn't exist or permissions fail.
+# User-editable config files that live in printer_data/config/helixscreen/.
+# These are the files users may want to edit from Fluidd/Mainsail, and that
+# the app writes to at runtime. All other files in INSTALL_DIR/config/ are
+# static assets reinstalled on each update.
+HELIX_USER_CONFIG_FILES="helixconfig.json helixscreen.env .disabled_services tool_spools.json"
+
+# Set up editable config directory in printer_data/config/helixscreen/.
+#
+# Creates a real directory (not a symlink) in printer_data/config/helixscreen/
+# and symlinks user-editable files FROM the install dir INTO printer_data.
+# This reverses the old approach (directory symlink into install dir) which
+# was blocked by Moonraker's update_manager reserved path protection.
+#
+# Layout after setup:
+#   ~/printer_data/config/helixscreen/           (real directory)
+#   ~/printer_data/config/helixscreen/helixconfig.json  (real file)
+#   ~/helixscreen/config/helixconfig.json → above       (symlink)
+#
+# On upgrade from old layout, migrates files from install dir to printer_data.
 # Reads: KLIPPER_HOME, INSTALL_DIR
 setup_config_symlink() {
     # Only proceed if we have a Klipper home and install directory
@@ -444,47 +459,109 @@ setup_config_symlink() {
         return 0
     fi
 
-    local config_dir="${KLIPPER_HOME}/printer_data/config"
-    local symlink_path="${config_dir}/helixscreen"
-    local target="${INSTALL_DIR}/config"
+    local pd_config="${KLIPPER_HOME}/printer_data/config"
+    local pd_helix="${pd_config}/helixscreen"
+    local install_config="${INSTALL_DIR}/config"
 
     # Skip if printer_data/config doesn't exist
-    if [ ! -d "$config_dir" ]; then
+    if [ ! -d "$pd_config" ]; then
         log_info "No printer_data/config found, skipping config symlink"
         return 0
     fi
 
-    # Skip if target config directory doesn't exist
-    if [ ! -d "$target" ]; then
-        log_warn "Install config directory not found: $target"
+    # Skip if install config directory doesn't exist
+    if [ ! -d "$install_config" ]; then
+        log_warn "Install config directory not found: $install_config"
         return 0
     fi
 
-    # Check if symlink already exists
-    if [ -L "$symlink_path" ]; then
-        local current_target
-        current_target=$(readlink "$symlink_path" 2>/dev/null || echo "")
-        if [ "$current_target" = "$target" ]; then
-            log_info "Config symlink already exists and is correct"
+    # --- Migrate from old layout (directory symlink) ---
+    if [ -L "$pd_helix" ]; then
+        log_info "Migrating from old config symlink layout..."
+        local old_target
+        old_target=$(readlink "$pd_helix" 2>/dev/null || echo "")
+        $(file_sudo "$pd_helix") rm -f "$pd_helix"
+        log_info "Removed old directory symlink (was: $old_target)"
+    fi
+
+    # --- Create printer_data/config/helixscreen/ directory ---
+    if [ ! -d "$pd_helix" ]; then
+        if $(file_sudo "$pd_config") mkdir -p "$pd_helix" 2>/dev/null; then
+            log_info "Created $pd_helix"
+        else
+            log_warn "Could not create $pd_helix (permission denied?)"
             return 0
         fi
-        # Wrong target — update it
-        log_info "Updating config symlink (was: $current_target)"
-        $(file_sudo "$symlink_path") rm -f "$symlink_path"
-    elif [ -e "$symlink_path" ]; then
-        # Something exists but isn't a symlink — don't destroy it
-        log_warn "Config symlink path already exists as a regular file/directory: $symlink_path"
-        log_warn "Skipping symlink creation to avoid data loss"
+    fi
+
+    # --- Set up per-file symlinks ---
+    local file
+    for file in $HELIX_USER_CONFIG_FILES; do
+        local pd_file="${pd_helix}/${file}"
+        local install_file="${install_config}/${file}"
+
+        # If the install dir has a real file (not a symlink), move it to printer_data
+        if [ -f "$install_file" ] && [ ! -L "$install_file" ]; then
+            if [ ! -f "$pd_file" ]; then
+                # Move the file to printer_data
+                $(file_sudo "$pd_helix") cp "$install_file" "$pd_file" 2>/dev/null
+                log_info "Migrated $file to printer_data"
+            fi
+            # Remove the original so we can create the symlink
+            $(file_sudo "$install_config") rm -f "$install_file" 2>/dev/null
+        fi
+
+        # Create symlink: install_dir/config/file → printer_data/config/helixscreen/file
+        if [ -L "$install_file" ]; then
+            local current_target
+            current_target=$(readlink "$install_file" 2>/dev/null || echo "")
+            if [ "$current_target" = "$pd_file" ]; then
+                continue  # Already correct
+            fi
+            $(file_sudo "$install_config") rm -f "$install_file" 2>/dev/null
+        fi
+
+        if $(file_sudo "$install_config") ln -s "$pd_file" "$install_file" 2>/dev/null; then
+            : # Symlink created
+        else
+            log_warn "Could not create symlink for $file"
+        fi
+    done
+
+    log_success "Config directory: $pd_helix"
+    log_info "You can now edit HelixScreen config from Mainsail/Fluidd"
+    return 0
+}
+
+# Remove config symlinks and optionally the printer_data directory.
+# Called during uninstall. Preserves user files in printer_data.
+# Reads: KLIPPER_HOME, INSTALL_DIR
+remove_config_symlink() {
+    if [ -z "${KLIPPER_HOME:-}" ] || [ -z "${INSTALL_DIR:-}" ]; then
         return 0
     fi
 
-    # Create the symlink
-    if $(file_sudo "$config_dir") ln -s "$target" "$symlink_path" 2>/dev/null; then
-        log_success "Config symlink: $symlink_path → $target"
-        log_info "You can now edit HelixScreen config from Mainsail/Fluidd"
-    else
-        log_warn "Could not create config symlink (permission denied?)"
-        log_warn "To create manually: ln -s $target $symlink_path"
+    local pd_helix="${KLIPPER_HOME}/printer_data/config/helixscreen"
+    local install_config="${INSTALL_DIR}/config"
+
+    # Remove per-file symlinks from install dir
+    local file
+    for file in $HELIX_USER_CONFIG_FILES; do
+        local install_file="${install_config}/${file}"
+        if [ -L "$install_file" ]; then
+            rm -f "$install_file" 2>/dev/null
+        fi
+    done
+
+    # Remove old-style directory symlink if present
+    if [ -L "$pd_helix" ]; then
+        rm -f "$pd_helix" 2>/dev/null
+        log_info "Removed old config directory symlink"
+    fi
+
+    # Leave printer_data/config/helixscreen/ directory intact — user's config files
+    if [ -d "$pd_helix" ]; then
+        log_info "User config preserved at: $pd_helix"
     fi
 
     return 0
