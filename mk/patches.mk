@@ -349,6 +349,13 @@ $(PATCHES_STAMP): $(PATCH_FILES) $(LVGL_HEAD) $(LIBHV_HEAD)
 	else \
 		echo "$(GREEN)✓ LVGL arc draw guard patch already applied$(RESET)"; \
 	fi
+	$(Q)if git -C $(LVGL_DIR) apply --check ../../patches/lvgl_arc_subject_null_guard.patch 2>/dev/null; then \
+		echo "$(YELLOW)→ Applying LVGL arc subject NULL guard patch...$(RESET)"; \
+		git -C $(LVGL_DIR) apply ../../patches/lvgl_arc_subject_null_guard.patch && \
+		echo "$(GREEN)✓ Arc subject NULL guard patch applied$(RESET)"; \
+	else \
+		echo "$(GREEN)✓ LVGL arc subject NULL guard patch already applied$(RESET)"; \
+	fi
 	$(Q)if git -C $(LVGL_DIR) apply --check ../../patches/lvgl_draw_sw_img_buf_height_guard.patch 2>/dev/null; then \
 		echo "$(YELLOW)→ Applying LVGL draw_sw_img buf_h guard patch (upstream ca18403)...$(RESET)"; \
 		git -C $(LVGL_DIR) apply ../../patches/lvgl_draw_sw_img_buf_height_guard.patch && \

@@ -113,7 +113,8 @@ void StarfieldScreensaver::stop() {
     }
 
     if (overlay_) {
-        lv_obj_delete(overlay_);
+        lv_obj_add_flag(overlay_, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_delete_async(overlay_);
         overlay_ = nullptr;
         canvas_ = nullptr; // deleted as child of overlay
     }
