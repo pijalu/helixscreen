@@ -710,8 +710,8 @@ void TempControlPanel::setup_panel(HeaterType type, lv_obj_t* panel, lv_obj_t* p
 
 void TempControlPanel::set_heater(HeaterType type, int current, int target) {
     auto& h = heaters_[idx(type)];
-    helix::ui::temperature::validate_and_clamp_pair(current, target, h.min_temp, h.max_temp,
-                                                    heater_label(type));
+    helix::ui::temperature::validate_and_clamp_pair(current, target, h.min_temp * 10,
+                                                    h.max_temp * 10, heater_label(type));
     h.current = current;
     h.target = target;
     update_display(type);
@@ -836,7 +836,7 @@ void TempControlPanel::on_heater_custom_clicked(lv_event_t* e) {
     auto& h = self->heaters_[idx(type)];
     s_keypad_data[idx(type)] = {self, type};
 
-    ui_keypad_config_t keypad_config = {.initial_value = static_cast<float>(h.target),
+    ui_keypad_config_t keypad_config = {.initial_value = static_cast<float>(h.target / 10),
                                         .min_value = h.config.keypad_range.min,
                                         .max_value = h.config.keypad_range.max,
                                         .title_label = h.config.title,
@@ -1091,7 +1091,7 @@ void TempControlPanel::on_nozzle_custom_clicked(lv_event_t* e) {
     auto& h = self->heaters_[idx(HeaterType::Nozzle)];
     s_keypad_data[idx(HeaterType::Nozzle)] = {self, HeaterType::Nozzle};
 
-    ui_keypad_config_t keypad_config = {.initial_value = static_cast<float>(h.target),
+    ui_keypad_config_t keypad_config = {.initial_value = static_cast<float>(h.target / 10),
                                         .min_value = h.config.keypad_range.min,
                                         .max_value = h.config.keypad_range.max,
                                         .title_label = "Nozzle Temp",
@@ -1113,7 +1113,7 @@ void TempControlPanel::on_bed_custom_clicked(lv_event_t* e) {
     auto& h = self->heaters_[idx(HeaterType::Bed)];
     s_keypad_data[idx(HeaterType::Bed)] = {self, HeaterType::Bed};
 
-    ui_keypad_config_t keypad_config = {.initial_value = static_cast<float>(h.target),
+    ui_keypad_config_t keypad_config = {.initial_value = static_cast<float>(h.target / 10),
                                         .min_value = h.config.keypad_range.min,
                                         .max_value = h.config.keypad_range.max,
                                         .title_label = "Heat Bed Temp",

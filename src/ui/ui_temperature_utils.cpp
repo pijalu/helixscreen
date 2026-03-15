@@ -122,8 +122,8 @@ HeaterDisplayResult heater_display(int current_centi, int target_centi) {
     HeaterDisplayResult result;
 
     // Convert centi-degrees to degrees (integer division is fine for display)
-    int current_deg = current_centi / 100;
-    int target_deg = target_centi / 100;
+    int current_deg = current_centi / 10;
+    int target_deg = target_centi / 10;
 
     // Format temperature string
     char buf[32];

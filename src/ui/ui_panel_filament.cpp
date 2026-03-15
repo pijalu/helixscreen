@@ -1441,8 +1441,8 @@ void FilamentPanel::handle_cooldown() {
 
 void FilamentPanel::set_temp(int current, int target) {
     // Validate temperature ranges
-    helix::ui::temperature::validate_and_clamp_pair(current, target, nozzle_min_temp_,
-                                                    nozzle_max_temp_, "Filament");
+    helix::ui::temperature::validate_and_clamp_pair(current, target, nozzle_min_temp_ * 10,
+                                                    nozzle_max_temp_ * 10, "Filament");
 
     nozzle_current_ = current;
     nozzle_target_ = target;
