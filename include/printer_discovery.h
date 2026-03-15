@@ -377,12 +377,22 @@ class PrinterDiscovery {
             }
         }
 
-        // AFC_stepper objects are only treated as lanes when no AFC_lane objects exist.
-        // Box Turtle firmware uses "AFC_stepper lane1" etc. as the lane objects, while
-        // Vivid firmware uses "AFC_stepper Vivid_1_drive"/"Vivid_1_selector" for motors
-        // and "AFC_lane lane1" etc. for actual lanes.
+        // AFC_stepper objects can be lanes (Box Turtle: "AFC_stepper lane0") or motor
+        // components (Vivid: "AFC_stepper Vivid_1_drive"/"Vivid_1_selector").
+        // When no AFC_lane objects exist, treat all steppers as lanes (pure Box Turtle).
+        // When BOTH exist (e.g., Box Turtle + OpenAMS + ACE), merge stepper names
+        // that look like lanes ("lane" prefix + digit) into the lane list.
         if (afc_lane_names_.empty() && !afc_stepper_names.empty()) {
             afc_lane_names_ = std::move(afc_stepper_names);
+        } else if (!afc_lane_names_.empty() && !afc_stepper_names.empty()) {
+            // Mixed setup: merge AFC_stepper lane names not already in AFC_lane list
+            std::unordered_set<std::string> existing(afc_lane_names_.begin(),
+                                                     afc_lane_names_.end());
+            for (auto& name : afc_stepper_names) {
+                if (name.rfind("lane", 0) == 0 && existing.find(name) == existing.end()) {
+                    afc_lane_names_.push_back(std::move(name));
+                }
+            }
         }
 
         // Sort AFC lane names using natural sort (lane2 before lane10)

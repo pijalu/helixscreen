@@ -449,6 +449,45 @@ TEST_CASE("PrinterDiscovery detects new AFC object types", "[printer_discovery][
         CHECK(lanes[0] == "lane1");
     }
 
+    SECTION("Mixed AFC_stepper lanes merged with AFC_lane (Box Turtle + OpenAMS)") {
+        // Box Turtle uses AFC_stepper for lanes, OpenAMS/ACE use AFC_lane.
+        // When both exist, stepper names matching "lane\d+" should be merged.
+        json objects = {"AFC",
+                        "AFC_stepper lane0",
+                        "AFC_stepper lane1",
+                        "AFC_stepper lane2",
+                        "AFC_stepper lane3",
+                        "AFC_lane lane4",
+                        "AFC_lane lane5",
+                        "AFC_lane lane6",
+                        "AFC_lane lane7"};
+        hw.parse_objects(objects);
+
+        auto lanes = hw.afc_lane_names();
+        REQUIRE(lanes.size() == 8); // All 8 lanes merged
+        // Natural sort: lane0-7
+        CHECK(lanes[0] == "lane0");
+        CHECK(lanes[3] == "lane3");
+        CHECK(lanes[4] == "lane4");
+        CHECK(lanes[7] == "lane7");
+    }
+
+    SECTION("Vivid motors not merged with AFC_lane objects") {
+        // Vivid has AFC_stepper for motors (not lanes) + AFC_lane for actual lanes.
+        // Motor names should NOT be merged since they don't match "lane" prefix.
+        json objects = {"AFC",
+                        "AFC_stepper Vivid_1_drive",
+                        "AFC_stepper Vivid_1_selector",
+                        "AFC_lane lane1",
+                        "AFC_lane lane2"};
+        hw.parse_objects(objects);
+
+        auto lanes = hw.afc_lane_names();
+        REQUIRE(lanes.size() == 2); // Only AFC_lane, not motor steppers
+        CHECK(lanes[0] == "lane1");
+        CHECK(lanes[1] == "lane2");
+    }
+
     SECTION("AFC_BoxTurtle detected in afc_unit_object_names") {
         json objects = {"AFC", "AFC_BoxTurtle Turtle_1"};
         hw.parse_objects(objects);

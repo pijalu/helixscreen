@@ -249,7 +249,7 @@ class AmsBackendAfcTestHelper : public AmsBackendAfc {
         return system_info_.operation_detail;
     }
     std::vector<int> get_tool_to_slot_map() const {
-        return system_info_.tool_to_slot_map;
+        return get_system_info().tool_to_slot_map;
     }
 
     std::vector<helix::printer::EndlessSpoolConfig> get_endless_spool_configs() const {

@@ -551,26 +551,25 @@ void AmsBackendAfc::handle_status_update(const nlohmann::json& notification) {
             }
         }
 
-        // Tool changer reconciliation: when we have a populated tool-to-slot
-        // map and an active tool, the tool authoritatively determines
+        // Tool changer reconciliation: when we have a live tool-to-slot
+        // mapping and an active tool, the tool authoritatively determines
         // current_slot. During tool swaps current_load may briefly go null
         // while current_tool already reflects the new tool.
         // Skip if AFC_extruder already set the slot for the active tool —
-        // lane_loaded is more authoritative than the default tool_to_slot_map.
+        // lane_loaded is more authoritative than the tool-to-slot map.
+        // Uses the registry's live mapping (updated from lane "map" fields).
         if (!extruder_set_active_slot && !current_slot_set_by_afc_state &&
-            !system_info_.tool_to_slot_map.empty() && system_info_.current_tool >= 0) {
+            slots_.is_initialized() && system_info_.current_tool >= 0) {
             int tool = system_info_.current_tool;
-            if (tool < static_cast<int>(system_info_.tool_to_slot_map.size())) {
-                int slot = system_info_.tool_to_slot_map[tool];
-                if (slot >= 0 && slot < slots_.slot_count()) {
-                    if (system_info_.current_slot != slot) {
-                        spdlog::debug("[AMS AFC] Tool changer reconciliation: T{} -> slot {} "
-                                      "(was {})",
-                                      tool, slot, system_info_.current_slot);
-                    }
-                    system_info_.current_slot = slot;
-                    system_info_.filament_loaded = true;
+            int slot = slots_.slot_for_tool(tool);
+            if (slot >= 0 && slot < slots_.slot_count()) {
+                if (system_info_.current_slot != slot) {
+                    spdlog::debug("[AMS AFC] Tool changer reconciliation: T{} -> slot {} "
+                                  "(was {})",
+                                  tool, slot, system_info_.current_slot);
                 }
+                system_info_.current_slot = slot;
+                system_info_.filament_loaded = true;
             }
         }
     }
@@ -1866,15 +1865,14 @@ void AmsBackendAfc::initialize_slots(const std::vector<std::string>& lane_names)
     system_info_.units.push_back(unit);
     system_info_.total_slots = lane_count;
 
-    // Initialize tool-to-lane mapping (1:1 default)
-    system_info_.tool_to_slot_map.clear();
-    system_info_.tool_to_slot_map.reserve(lane_count);
-    for (int i = 0; i < lane_count; ++i) {
-        system_info_.tool_to_slot_map.push_back(i);
-    }
-
-    // Set up tool mapping in registry
-    slots_.set_tool_map(system_info_.tool_to_slot_map);
+    // Initialize tool-to-lane mapping (1:1 default) in the registry.
+    // The registry is the single source of truth for tool mappings — lane
+    // "map" fields update it, and get_system_info() reads it via
+    // build_system_info(). No cached copy needed in system_info_.
+    std::vector<int> default_map(lane_count);
+    for (int i = 0; i < lane_count; ++i)
+        default_map[i] = i;
+    slots_.set_tool_map(default_map);
 
     // Clear pre-init storage now that registry is initialized
     discovered_lane_names_.clear();
