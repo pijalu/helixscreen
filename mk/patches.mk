@@ -48,6 +48,7 @@ LVGL_PATCHED_FILES := \
 	src/lv_conf_internal.h \
 	src/misc/lv_event.c \
 	src/misc/lv_event.h \
+	src/core/lv_obj_pos.c \
 	lv_conf_template.h
 
 # Files modified by libhv patches
@@ -315,6 +316,13 @@ $(PATCHES_STAMP): $(PATCH_FILES) $(LVGL_HEAD) $(LIBHV_HEAD)
 		fi \
 	else \
 		echo "$(GREEN)✓ LVGL blur goto_xy NULL guard patch already applied$(RESET)"; \
+	fi
+	$(Q)if git -C $(LVGL_DIR) apply --check ../../patches/lvgl_obj_pos_null_guards.patch 2>/dev/null; then \
+		echo "$(YELLOW)→ Applying LVGL obj_pos NULL guards patch (blur_walk_cb + layout_update_core)...$(RESET)"; \
+		git -C $(LVGL_DIR) apply ../../patches/lvgl_obj_pos_null_guards.patch && \
+		echo "$(GREEN)✓ obj_pos NULL guards patch applied$(RESET)"; \
+	else \
+		echo "$(GREEN)✓ LVGL obj_pos NULL guards patch already applied$(RESET)"; \
 	fi
 	$(Q)if grep -q 'LV_ASSERT_MALLOC(draw_buf)' $(LVGL_DIR)/src/draw/lv_draw_buf.c 2>/dev/null; then \
 		echo "$(YELLOW)→ Applying LVGL draw_buf OOM guard patch...$(RESET)"; \

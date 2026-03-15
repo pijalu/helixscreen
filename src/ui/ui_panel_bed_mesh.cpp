@@ -365,33 +365,42 @@ void BedMeshPanel::on_activate() {
 
     spdlog::debug("[{}] on_activate()", get_name());
 
-    // Force layout computation so the canvas has valid dimensions before loading data.
-    // on_activate() is called from push_overlay() right after removing HIDDEN,
-    // but LVGL may not have computed the flex layout yet, leaving the canvas
-    // at 0x0. Without valid dimensions, the render thread won't start.
-    if (canvas_) {
-        lv_obj_update_layout(canvas_);
-    }
+    // Defer layout computation and data loading to after the current timer cycle.
+    // on_activate() runs inside push_overlay()'s queue_update lambda, which fires
+    // during lv_timer_handler(). Calling lv_obj_update_layout() here can crash in
+    // layout_update_core() because lv_obj_move_foreground() just modified the
+    // children array in the same cycle (#417, #419).
+    std::weak_ptr<std::atomic<bool>> weak = alive_;
+    lv_async_call(
+        [](void* data) {
+            auto weak_alive =
+                *static_cast<std::weak_ptr<std::atomic<bool>>*>(data);
+            delete static_cast<std::weak_ptr<std::atomic<bool>>*>(data);
+            auto alive = weak_alive.lock();
+            if (!alive || !alive->load()) return;
 
-    // Refresh mesh data when panel becomes visible
-    MoonrakerAPI* api = get_moonraker_api();
-    if (api && api->advanced().has_bed_mesh()) {
-        const BedMeshProfile* mesh = api->advanced().get_active_bed_mesh();
-        if (mesh) {
-            on_mesh_update_internal(*mesh);
-        }
-    }
+            auto& panel = get_global_bed_mesh_panel();
 
-    // Always refresh profile list — saved profiles exist even without an active mesh
-    if (api) {
-        update_profile_list_subjects();
-    }
+            if (panel.canvas_) {
+                lv_obj_update_layout(panel.canvas_);
+            }
 
-    // Enable async rendering ONLY if the renderer has mesh data.
-    // When no mesh is loaded, the "No mesh loaded" overlay is shown instead.
-    // Async mode will be started later when mesh data arrives (via subscription
-    // or profile load).
-    ensure_async_rendering();
+            MoonrakerAPI* api = get_moonraker_api();
+            if (api && api->advanced().has_bed_mesh()) {
+                const BedMeshProfile* mesh = api->advanced().get_active_bed_mesh();
+                if (mesh) {
+                    panel.on_mesh_update_internal(*mesh);
+                }
+            }
+
+            if (api) {
+                panel.update_profile_list_subjects();
+            }
+
+            panel.ensure_async_rendering();
+        },
+        new std::weak_ptr<std::atomic<bool>>(weak));
+
 }
 
 void BedMeshPanel::ensure_async_rendering() {

@@ -1,0 +1,25 @@
+diff --git a/src/core/lv_obj_pos.c b/src/core/lv_obj_pos.c
+index 177b0fb5b..1b5142db9 100644
+--- a/src/core/lv_obj_pos.c
++++ b/src/core/lv_obj_pos.c
+@@ -1040,6 +1040,7 @@ static lv_obj_tree_walk_res_t blur_walk_cb(lv_obj_t * obj, void * user_data)
+         for(i = 0; i < obj->style_cnt; i++) {
+             lv_obj_style_t * obj_style = &obj->styles[i];
+             if(obj_style->is_disabled) continue;
++            if(obj_style->style == NULL) continue;
+ 
+             lv_state_t state_style = lv_obj_style_get_selector_state(obj->styles[i].selector);
+             if((state_style & state_inv)) continue;
+@@ -1530,10 +1531,12 @@ static int32_t calc_content_height(lv_obj_t * obj)
+ 
+ static void layout_update_core(lv_obj_t * obj)
+ {
++    if(obj == NULL) return;
+     uint32_t i;
+     uint32_t child_cnt = lv_obj_get_child_count(obj);
+     for(i = 0; i < child_cnt; i++) {
+         lv_obj_t * child = obj->spec_attr->children[i];
++        if(child == NULL) continue;
+         layout_update_core(child);
+     }
+ 
