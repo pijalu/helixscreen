@@ -5,7 +5,7 @@
     <event_cb trigger="clicked" callback="on_camera_clicked"/>
     <lv_image name="camera_image" width="100%" height="100%"
               style_radius="#border_radius" style_clip_corner="true"
-              style_image_recolor="#000000" style_image_recolor_opa="0"
+              style_image_recolor="0x000000" style_image_recolor_opa="0"
               clickable="false" event_bubble="true"/>
     <lv_obj name="camera_overlay" align="center"
             width="100%" height="100%"

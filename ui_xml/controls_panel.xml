@@ -6,7 +6,7 @@
   <styles>
     <!-- Homing button styles -->
     <style name="home_btn_homed" bg_color="#success"/>
-    <style name="home_btn_unhomed" bg_color="#FFFFFF" bg_opa="50"/>
+    <style name="home_btn_unhomed" bg_color="0xFFFFFF" bg_opa="50"/>
     <!-- Note: home_label styles removed - ui_button auto-contrast handles text color -->
     <!-- Motor icon styles: warning when enabled, dimmed when disabled -->
     <style name="icon_motors_enabled" text_color="#warning"/>
