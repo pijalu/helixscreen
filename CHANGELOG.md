@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.98.7] - 2026-03-14
+
+### Added
+- Spoolman server setup: configure, change, or remove Spoolman directly from Settings
+- MakeID/Wewin BLE label printer support (beta)
+- QR scanner flash-bulb effect on successful recognition
+- Beacon onboard accelerometer detection for input shaper
+- Configurable sections in print status widget
+- K1 platform preset with PRINT_PREPARED pre-start gcode
+- HTTP fallback installer for no-SSL environments (K1/AD5M)
+- K1C and K1 SE printer images
+
+### Fixed
+- First-boot rotation probe leaving overlays at half-width until restart
+- QR scanner use-after-free crash on successful scan
+- Overlay use-after-hide crash from stale alive guard
+- Buffer meter destructor crash from dangling on_draw callback (#400)
+- KIAUH installer PermissionError when probing install paths (#403)
+- Installer failing to stop K1 stock Creality UI during setup
+- Installer missing trailing newline when appending to moonraker.asvc (#408)
+- LED wizard not saving selection to selected_strips config
+- Docs URL pointing to non-existent docs.helixscreen.org
+
 ## [0.98.6] - 2026-03-13
 
 ### Added
@@ -1960,6 +1983,7 @@ Initial tagged release. Foundation for all subsequent development.
 - Automated GitHub Actions release pipeline
 - One-liner installation script with platform auto-detection
 
+[0.98.7]: https://github.com/prestonbrown/helixscreen/compare/v0.98.6...v0.98.7
 [0.98.6]: https://github.com/prestonbrown/helixscreen/compare/v0.98.5...v0.98.6
 [0.98.5]: https://github.com/prestonbrown/helixscreen/compare/v0.98.4...v0.98.5
 [0.98.4]: https://github.com/prestonbrown/helixscreen/compare/v0.98.3...v0.98.4
