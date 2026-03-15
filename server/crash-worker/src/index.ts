@@ -289,6 +289,10 @@ function formatIssueBody(r: CrashReport, fingerprint: string, resolved: Resolved
     md += `| **Fault** | ${r.fault_code_name} at ${r.fault_addr} |\n`;
   }
 
+  if (r.queue_callback) {
+    md += `| **Queue Callback** | \`${r.queue_callback}\` |\n`;
+  }
+
   // Register state (Phase 2) — with resolved symbols when available
   if (r.registers) {
     md += `\n## Registers
@@ -306,6 +310,15 @@ function formatIssueBody(r: CrashReport, fingerprint: string, resolved: Resolved
       } else {
         md += `| **${label}** | \`${val}\` |\n`;
       }
+    }
+  }
+
+  // Extra registers (ARM32: r0-r12, fp, ip)
+  if (r.extra_registers && Object.keys(r.extra_registers).length > 0) {
+    md += `\n### All Registers\n\n`;
+    md += `| Register | Value |\n|----------|-------|\n`;
+    for (const [reg, val] of Object.entries(r.extra_registers)) {
+      md += `| **${reg}** | \`${val}\` |\n`;
     }
   }
 
@@ -355,6 +368,22 @@ function formatIssueBody(r: CrashReport, fingerprint: string, resolved: Resolved
         md += `\n<sub>No symbol file found for v${r.app_version}/${r.platform || r.app_platform || "unknown"}</sub>\n`;
       }
     }
+  }
+
+  // Stack scan results (ARM32: return addresses found in stack dump)
+  if (resolved?.stackScan && resolved.stackScan.length > 0) {
+    md += `\n## Stack Scan (likely call chain)\n\n`;
+    md += `Addresses found on the stack within the binary's .text range:\n\n`;
+    md += `| SP+offset | Address | Symbol |\n|-----------|---------|--------|\n`;
+    for (const entry of resolved.stackScan) {
+      md += `| SP+0x${entry.offset.toString(16)} | \`${entry.raw}\` | \`${entry.symbol}\` |\n`;
+    }
+  }
+
+  // Memory map (collapsed — helps identify what's at crash addresses)
+  if (r.memory_map && r.memory_map.length > 0) {
+    md += `\n<details>\n<summary>Memory Map (${r.memory_map.length} regions)</summary>\n\n`;
+    md += `\`\`\`\n${r.memory_map.join("\n")}\n\`\`\`\n\n</details>\n`;
   }
 
   // Log tail in a collapsed section

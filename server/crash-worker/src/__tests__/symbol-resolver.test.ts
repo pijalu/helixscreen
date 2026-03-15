@@ -8,6 +8,7 @@ import {
   autoDetectLoadBase,
   resolveBacktrace,
   isSharedLibAddr,
+  scanStackForReturnAddresses,
 } from "../symbol-resolver";
 
 // ---------- Sample nm -nC output ----------
@@ -436,5 +437,55 @@ describe("resolveBacktrace", () => {
     expect(result.autoDetectedBase).toBe(false);
     expect(result.frames[0].symbol).toBe("Application::run()+0x0");
     expect(result.frames[1].symbol).toBe("main+0x0");
+  });
+});
+
+// ---------- scanStackForReturnAddresses ----------
+
+describe("scanStackForReturnAddresses", () => {
+  it("finds return addresses in stack dump within text range", () => {
+    const symText = [
+      "00010000 T _start",
+      "00020000 T main",
+      "00030000 T some_function",
+      "00040000 T another_function",
+      "00050000 T _fini",
+    ].join("\n");
+
+    const symbols = parseSymbolTable(symText);
+    const stackDump = [
+      "0x00025678", // in main
+      "0xb1c6b0a0", // NOT in binary
+      "0x00035abc", // in some_function
+      "0x00000000", // null
+      "0x00045def", // in another_function
+    ];
+
+    const results = scanStackForReturnAddresses(symbols, stackDump, "0xb1c6b070", 0);
+
+    expect(results.length).toBe(3);
+    expect(results[0].symbol).toContain("main+");
+    expect(results[0].offset).toBe(0);
+    expect(results[1].symbol).toContain("some_function+");
+    expect(results[1].offset).toBe(8);
+    expect(results[2].symbol).toContain("another_function+");
+  });
+
+  it("returns empty array when no stack dump provided", () => {
+    const symbols = parseSymbolTable("00010000 T _start\n00050000 T _fini");
+    const results = scanStackForReturnAddresses(symbols, [], "0x0", 0);
+    expect(results).toEqual([]);
+  });
+
+  it("applies load_base offset to stack addresses", () => {
+    const symText = "00010000 T _start\n00020000 T main\n00050000 T _fini";
+    const symbols = parseSymbolTable(symText);
+    const loadBase = 0xb0a00000;
+    const stackDump = [`0x${(loadBase + 0x20123).toString(16)}`];
+
+    const results = scanStackForReturnAddresses(symbols, stackDump, "0xb1c6b070", loadBase);
+
+    expect(results.length).toBe(1);
+    expect(results[0].symbol).toContain("main+0x123");
   });
 });

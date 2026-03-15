@@ -25,6 +25,7 @@ export interface ResolvedBacktrace {
   loadBase?: string;
   autoDetectedBase: boolean;
   symbolFileFound: boolean;
+  stackScan?: { offset: number; raw: string; fileAddr: string; symbol: string }[];
 }
 
 /** Crash report fields used by the symbol resolver. */
@@ -47,6 +48,11 @@ export interface CrashReport {
   klipper_version?: string;
   display_backend?: string;
   log_tail?: string[];
+  stack_base?: string;
+  stack_dump?: string[];
+  extra_registers?: Record<string, string>;
+  memory_map?: string[];
+  queue_callback?: string;
 }
 
 /**
@@ -222,6 +228,42 @@ function resolveAddr(symbols: Symbol[], addr: number): string | null {
 }
 
 /**
+ * Scan raw stack words for addresses that fall within the binary's .text range.
+ * Returns resolved symbols for likely return addresses found on the stack.
+ */
+export function scanStackForReturnAddresses(
+  symbols: Symbol[],
+  stackDump: string[],
+  stackBase: string,
+  loadBase: number
+): { offset: number; raw: string; fileAddr: string; symbol: string }[] {
+  if (symbols.length === 0 || stackDump.length === 0) return [];
+
+  const results: { offset: number; raw: string; fileAddr: string; symbol: string }[] = [];
+
+  for (let i = 0; i < stackDump.length; i++) {
+    const raw = stackDump[i];
+    const runtimeAddr = parseHexAddr(raw);
+    const fileAddr = loadBase > 0 ? runtimeAddr - loadBase : runtimeAddr;
+
+    // Skip addresses outside the binary
+    if (isSharedLibAddr(symbols, fileAddr)) continue;
+
+    const resolved = resolveAddr(symbols, fileAddr);
+    if (!resolved) continue;
+
+    results.push({
+      offset: i * 4, // ARM32: 4 bytes per word
+      raw,
+      fileAddr: `0x${fileAddr.toString(16)}`,
+      symbol: resolved,
+    });
+  }
+
+  return results;
+}
+
+/**
  * Resolve a crash backtrace using symbol files from R2.
  * Never throws — returns gracefully degraded results on any error.
  */
@@ -316,6 +358,12 @@ export async function resolveBacktrace(bucket: R2Bucket, report: CrashReport): P
       if (Object.keys(resolved).length > 0) {
         result.resolvedRegisters = resolved;
       }
+    }
+    // Scan stack dump for return addresses (ARM32/MIPS where backtrace() fails)
+    if (report.stack_dump && report.stack_dump.length > 0 && report.stack_base) {
+      result.stackScan = scanStackForReturnAddresses(
+        symbols, report.stack_dump, report.stack_base, loadBase
+      );
     }
   } catch {
     // Never throw — return whatever we have so far
