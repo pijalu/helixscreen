@@ -738,7 +738,9 @@ void SpoolmanOverlay::on_change_clicked(lv_event_t* /*e*/) {
         overlay.api_->transfers().download_file("config", "helixscreen.conf",
             [&overlay, alive](const std::string& content) {
                 auto url = helix::MoonrakerConfigManager::get_section_value(content, "spoolman", "server");
-                auto [host, port] = SpoolmanSetup::parse_url_components(url);
+                auto parsed = SpoolmanSetup::parse_url_components(url);
+                auto host = std::move(parsed.first);
+                auto port = std::move(parsed.second);
                 helix::ui::queue_update([&overlay, alive, host, port]() {
                     if (!alive || !*alive) return;
                     if (overlay.host_input_)
