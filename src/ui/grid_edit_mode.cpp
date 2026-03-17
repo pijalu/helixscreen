@@ -3,6 +3,8 @@
 #include "grid_edit_mode.h"
 
 #include "ui_fonts.h"
+#include "ui_toast_manager.h"
+#include "ui_update_queue.h"
 #include "ui_utils.h"
 #include "ui_widget_catalog_overlay.h"
 
@@ -13,8 +15,6 @@
 #include "panel_widget_config.h"
 #include "panel_widget_registry.h"
 #include "theme_manager.h"
-#include "ui_toast_manager.h"
-#include "ui_update_queue.h"
 
 #include <spdlog/spdlog.h>
 
@@ -1610,7 +1610,8 @@ void GridEditMode::handle_resize_end(lv_event_t* /*e*/) {
     if (!selected_ || !container_ || !config_) {
         resizing_ = false;
         if (resize_preview_) {
-            lv_obj_delete(resize_preview_);
+            lv_obj_add_flag(resize_preview_, LV_OBJ_FLAG_HIDDEN);
+            lv_obj_delete_async(resize_preview_);
             resize_preview_ = nullptr;
         }
         return;
@@ -1705,7 +1706,8 @@ void GridEditMode::handle_resize_end(lv_event_t* /*e*/) {
         // Snap back: clean up previews and restore selection
         lv_obj_t* was_selected = selected_;
         if (resize_preview_) {
-            lv_obj_delete(resize_preview_);
+            lv_obj_add_flag(resize_preview_, LV_OBJ_FLAG_HIDDEN);
+            lv_obj_delete_async(resize_preview_);
             resize_preview_ = nullptr;
         }
         destroy_snap_preview();
@@ -1946,7 +1948,8 @@ void GridEditMode::commit_resize_with_snap(const ResizeResult& result) {
     } else {
         // No animation: clean up and rebuild immediately
         if (resize_preview_) {
-            lv_obj_delete(resize_preview_);
+            lv_obj_add_flag(resize_preview_, LV_OBJ_FLAG_HIDDEN);
+            lv_obj_delete_async(resize_preview_);
             resize_preview_ = nullptr;
         }
         do_rebuild();
@@ -2304,7 +2307,8 @@ void GridEditMode::place_widget_from_catalog(const std::string& widget_id) {
             // Try shrinking rowspan first (wider but shorter), then colspan
             for (int try_r = rowspan; try_r >= min_r && place_col < 0; --try_r) {
                 for (int try_c = colspan; try_c >= min_c && place_col < 0; --try_c) {
-                    if (try_c == colspan && try_r == rowspan) continue; // Already tried
+                    if (try_c == colspan && try_r == rowspan)
+                        continue; // Already tried
 
                     if (catalog_origin_col_ >= 0 && catalog_origin_row_ >= 0 &&
                         temp_grid.can_place(catalog_origin_col_, catalog_origin_row_, try_c,

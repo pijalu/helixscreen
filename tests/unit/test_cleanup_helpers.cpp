@@ -93,11 +93,30 @@ TEST_CASE_METHOD(LVGLTestFixture, "safe_delete_timer can be called multiple time
 // safe_delete_deferred() tests
 // ============================================================================
 
-#include "test_helpers/update_queue_test_access.h"
 #include "ui_utils.h"
 
-using helix::ui::UpdateQueue;
-using helix::ui::UpdateQueueTestAccess;
+#include "misc/lv_timer_private.h"
+
+/// Process pending lv_async_call / lv_obj_delete_async one-shot timers.
+/// Unlike lv_timer_handler(), this only fires one-shot timers and avoids
+/// the infinite-loop problem with display refresh timers in the test fixture.
+static void process_async_timers() {
+    for (int safety = 0; safety < 100; safety++) {
+        bool found = false;
+        lv_timer_t* t = lv_timer_get_next(nullptr);
+        while (t) {
+            lv_timer_t* next = lv_timer_get_next(t);
+            if (t->repeat_count > 0 && t->timer_cb) {
+                t->timer_cb(t);
+                found = true;
+                break; // Restart — list may have changed
+            }
+            t = next;
+        }
+        if (!found)
+            break;
+    }
+}
 
 TEST_CASE_METHOD(LVGLTestFixture, "safe_delete_deferred nullifies pointer immediately",
                  "[cleanup][cleanup_helpers]") {
@@ -108,11 +127,11 @@ TEST_CASE_METHOD(LVGLTestFixture, "safe_delete_deferred nullifies pointer immedi
 
     REQUIRE(obj == nullptr);
 
-    // Drain queue to clean up the pending deletion
-    UpdateQueueTestAccess::drain(UpdateQueue::instance());
+    // Process timers to execute the pending lv_obj_delete_async
+    process_async_timers();
 }
 
-TEST_CASE_METHOD(LVGLTestFixture, "safe_delete_deferred deletes object after drain",
+TEST_CASE_METHOD(LVGLTestFixture, "safe_delete_deferred deletes object after timer tick",
                  "[cleanup][cleanup_helpers]") {
     lv_obj_t* obj = lv_obj_create(test_screen());
     lv_obj_t* raw_copy = obj;
@@ -120,17 +139,17 @@ TEST_CASE_METHOD(LVGLTestFixture, "safe_delete_deferred deletes object after dra
 
     helix::ui::safe_delete_deferred(obj);
 
-    // Pointer is nullified but object still exists until drain
+    // Pointer is nullified but object still exists until timer fires
     REQUIRE(obj == nullptr);
-    REQUIRE(lv_obj_is_valid(raw_copy));
+    // Object is hidden immediately
+    REQUIRE(lv_obj_has_flag(raw_copy, LV_OBJ_FLAG_HIDDEN));
 
-    // After drain, the object is deleted
-    UpdateQueueTestAccess::drain(UpdateQueue::instance());
+    // After timer tick, the async deletion executes
+    process_async_timers();
     REQUIRE_FALSE(lv_obj_is_valid(raw_copy));
 }
 
-TEST_CASE_METHOD(LVGLTestFixture,
-                 "multiple safe_delete_deferred in same batch does not crash",
+TEST_CASE_METHOD(LVGLTestFixture, "multiple safe_delete_deferred in same batch does not crash",
                  "[cleanup][cleanup_helpers]") {
     constexpr int COUNT = 5;
     lv_obj_t* objs[COUNT];
@@ -141,7 +160,9 @@ TEST_CASE_METHOD(LVGLTestFixture,
         raw_copies[i] = objs[i];
     }
 
-    // Delete all in quick succession (simulates the #356 crash scenario)
+    // Delete all in quick succession (simulates the #356 crash scenario).
+    // Now uses lv_obj_delete_async so multiple deletes in the same tick
+    // are safe — LVGL processes them individually, not in a batch.
     for (int i = 0; i < COUNT; ++i) {
         helix::ui::safe_delete_deferred(objs[i]);
     }
@@ -151,40 +172,31 @@ TEST_CASE_METHOD(LVGLTestFixture,
         REQUIRE(objs[i] == nullptr);
     }
 
-    // Drain should not crash
-    REQUIRE_NOTHROW(UpdateQueueTestAccess::drain(UpdateQueue::instance()));
+    // Timer tick should not crash — processes all async deletions
+    REQUIRE_NOTHROW(process_async_timers());
 
-    // All objects deleted after drain
+    // All objects deleted after timer tick
     for (int i = 0; i < COUNT; ++i) {
         REQUIRE_FALSE(lv_obj_is_valid(raw_copies[i]));
     }
 }
 
-TEST_CASE_METHOD(LVGLTestFixture,
-                 "hide plus deferred deletion pattern",
+TEST_CASE_METHOD(LVGLTestFixture, "safe_delete_deferred hides and defers deletion",
                  "[cleanup][cleanup_helpers]") {
     lv_obj_t* obj = lv_obj_create(test_screen());
     lv_obj_t* raw_copy = obj;
     REQUIRE(lv_obj_is_valid(raw_copy));
 
-    // Apply the hide + deferred deletion pattern:
-    // 1. Hide immediately so the widget disappears from the UI
-    lv_obj_add_flag(obj, LV_OBJ_FLAG_HIDDEN);
-    REQUIRE(lv_obj_has_flag(obj, LV_OBJ_FLAG_HIDDEN));
+    // safe_delete_deferred hides immediately and defers via lv_obj_delete_async
+    helix::ui::safe_delete_deferred(obj);
 
-    // 2. Queue deletion for the next drain cycle
-    helix::ui::queue_update("test_deferred_delete", [raw_copy]() {
-        if (lv_obj_is_valid(raw_copy)) {
-            lv_obj_delete(raw_copy);
-        }
-    });
-
-    // Object still exists before drain
+    // Pointer nullified immediately
+    REQUIRE(obj == nullptr);
+    // Object hidden immediately but still exists
     REQUIRE(lv_obj_is_valid(raw_copy));
+    REQUIRE(lv_obj_has_flag(raw_copy, LV_OBJ_FLAG_HIDDEN));
 
-    // After drain, the deferred deletion executes
-    UpdateQueueTestAccess::drain(UpdateQueue::instance());
-
-    // Object should be deleted after processing
+    // After timer tick, the async deletion executes
+    process_async_timers();
     REQUIRE_FALSE(lv_obj_is_valid(raw_copy));
 }

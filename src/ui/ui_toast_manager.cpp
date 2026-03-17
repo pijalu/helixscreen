@@ -424,26 +424,18 @@ void ToastManager::create_toast_internal(ToastSeverity severity, const char* mes
 }
 
 void ToastManager::deferred_delete_toast(lv_obj_t*& toast_ptr) {
-    if (!toast_ptr) return;
+    if (!toast_ptr)
+        return;
     lv_obj_t* to_delete = toast_ptr;
     toast_ptr = nullptr;
     // Hide immediately so the old toast isn't visible while deletion is deferred
     lv_obj_add_flag(to_delete, LV_OBJ_FLAG_HIDDEN);
-    // Use lv_async_call instead of queue_update — deletion inside
-    // UpdateQueue::process_pending() corrupts LVGL's observer linked list
-    // when recursive obj_delete_core removes shared-subject observers.
-    // lv_async_call runs in the next lv_timer_handler tick, safely outside
-    // the event processing batch.
-    lv_async_call(
-        [](void* ptr) {
-            auto* obj = static_cast<lv_obj_t*>(ptr);
-            if (!lv_is_initialized()) return;
-            if (!lv_obj_is_valid(obj)) return;
-            helix::ui::defocus_tree(obj);
-            lv_obj_delete(obj);
-            spdlog::debug("[ToastManager] Deferred toast deletion complete");
-        },
-        to_delete);
+    helix::ui::defocus_tree(to_delete);
+    // Use lv_obj_delete_async (not lv_async_call with a custom lambda) so that
+    // LVGL's built-in cancellation logic works — if something else deletes the
+    // object first, obj_delete_core() cancels the pending async callback.
+    // Custom lambdas aren't matched by LVGL's cancellation (crash #399/#430).
+    lv_obj_delete_async(to_delete);
 }
 
 void ToastManager::dismiss_timer_cb(lv_timer_t* timer) {

@@ -455,14 +455,9 @@ void DisplaySettingsOverlay::handle_theme_settings_clicked() {
                     lv_obj_add_flag(theme_explorer_overlay_, LV_OBJ_FLAG_HIDDEN);
                     lv_obj_t* to_delete = theme_explorer_overlay_;
                     theme_explorer_overlay_ = nullptr;
-                    lv_async_call(
-                        [](void* obj) {
-                            auto* widget = static_cast<lv_obj_t*>(obj);
-                            if (lv_obj_is_valid(widget)) {
-                                lv_obj_delete(widget);
-                            }
-                        },
-                        to_delete);
+                    // Use lv_obj_delete_async (not lv_async_call) so LVGL's
+                    // built-in cancellation works if object is deleted elsewhere
+                    lv_obj_delete_async(to_delete);
                 }
                 // Clear cache so next open picks up filesystem changes
                 cached_themes_.clear();

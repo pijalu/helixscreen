@@ -77,7 +77,9 @@ void create_ripple(lv_obj_t* parent, lv_coord_t x, lv_coord_t y, int start_size,
         // Validate first — parent deletion may have already freed this widget
         lv_obj_t* widget = static_cast<lv_obj_t*>(a->var);
         if (widget && lv_obj_is_valid(widget)) {
-            lv_obj_delete(widget);
+            // Defer deletion — this callback fires inside lv_timer_handler,
+            // and synchronous deletion corrupts LVGL's event linked list
+            lv_obj_delete_async(widget);
         }
     });
     lv_anim_start(&fade_anim);

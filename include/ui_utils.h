@@ -128,32 +128,39 @@ inline bool safe_delete(lv_obj_t*& obj) {
 }
 
 /**
- * @brief Queue LVGL object deletion for the next frame
+ * @brief Queue LVGL object deletion for the next timer tick
  *
- * Immediately nullifies the pointer to prevent further use, then queues
- * the actual deletion via UpdateQueue. This prevents crashes when deleting
- * objects that have pending timer events or are referenced by in-flight
- * event processing (e.g., spinners with animation timers).
+ * Immediately nullifies the pointer to prevent further use, hides the
+ * object, and defers actual deletion via lv_obj_delete_async(). This
+ * avoids crashes from calling lv_obj_delete() inside UpdateQueue's
+ * process_pending() batch, where multiple deletions corrupt LVGL's
+ * global event linked list (SIGSEGV in lv_event_mark_deleted).
+ *
+ * Uses lv_obj_delete_async() (not lv_async_call with a custom lambda)
+ * so that LVGL's built-in cancellation logic works — if something else
+ * deletes the object first, obj_delete_core() cancels the pending async.
  *
  * @param obj Reference to pointer to the LVGL object (set to nullptr immediately)
  */
 inline void safe_delete_deferred(lv_obj_t*& obj) {
     if (!obj)
         return;
+    if (!lv_is_initialized() || !lv_display_get_next(nullptr) ||
+        StaticPanelRegistry::is_destroying_all()) {
+        obj = nullptr;
+        return;
+    }
+    if (!lv_obj_is_valid(obj)) {
+        obj = nullptr;
+        return;
+    }
     lv_obj_t* to_delete = obj;
     obj = nullptr;
-    queue_update("safe_delete_deferred", [to_delete]() {
-        if (!lv_is_initialized())
-            return;
-        if (!lv_display_get_next(nullptr))
-            return;
-        if (StaticPanelRegistry::is_destroying_all())
-            return;
-        if (!lv_obj_is_valid(to_delete))
-            return;
-        defocus_tree(to_delete);
-        lv_obj_delete(to_delete);
-    });
+    // Hide immediately so the widget isn't visible while deletion is deferred
+    lv_obj_add_flag(to_delete, LV_OBJ_FLAG_HIDDEN);
+    defocus_tree(to_delete);
+    // Defer deletion to next lv_timer_handler tick — outside UpdateQueue batch
+    lv_obj_delete_async(to_delete);
 }
 
 // ============================================================================
@@ -169,11 +176,13 @@ inline void safe_delete_deferred(lv_obj_t*& obj) {
  * @param obj Parent object whose descendants will have CLICKABLE removed
  */
 inline void disable_widget_clicks_recursive(lv_obj_t* obj) {
-    if (!obj) return;
+    if (!obj)
+        return;
     uint32_t count = lv_obj_get_child_count(obj);
     for (uint32_t i = 0; i < count; ++i) {
         lv_obj_t* child = lv_obj_get_child(obj, static_cast<int32_t>(i));
-        if (!child) continue;
+        if (!child)
+            continue;
         lv_obj_remove_flag(child, LV_OBJ_FLAG_CLICKABLE);
         disable_widget_clicks_recursive(child);
     }
@@ -188,7 +197,8 @@ inline void disable_widget_clicks_recursive(lv_obj_t* obj) {
  * @param obj Root object to clear PRESSED state from
  */
 inline void clear_pressed_state_recursive(lv_obj_t* obj) {
-    if (!obj) return;
+    if (!obj)
+        return;
     lv_obj_remove_state(obj, LV_STATE_PRESSED);
     uint32_t count = lv_obj_get_child_count(obj);
     for (uint32_t i = 0; i < count; ++i) {

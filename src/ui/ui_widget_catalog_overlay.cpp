@@ -6,12 +6,12 @@
 #include "ui_fonts.h"
 #include "ui_nav_manager.h"
 
+#include "lvgl/src/others/translation/lv_translation.h"
 #include "panel_widget_config.h"
 #include "panel_widget_registry.h"
 #include "theme_manager.h"
 
 #include <lvgl/lvgl.h>
-#include "lvgl/src/others/translation/lv_translation.h"
 #include <spdlog/spdlog.h>
 
 #include <string>
@@ -44,9 +44,12 @@ void close_catalog() {
         NavigationManager::instance().unregister_overlay_close_callback(
             g_catalog_state.overlay_root);
         NavigationManager::instance().go_back();
-        // Delete backdrop after nav pop (overlay is deleted by NavigationManager)
+        // Defer backdrop deletion — close_catalog() can be called from
+        // LV_EVENT_CLICKED handlers, and synchronous deletion during event
+        // processing corrupts LVGL's event linked list
         if (g_catalog_state.backdrop) {
-            lv_obj_delete(g_catalog_state.backdrop);
+            lv_obj_add_flag(g_catalog_state.backdrop, LV_OBJ_FLAG_HIDDEN);
+            lv_obj_delete_async(g_catalog_state.backdrop);
             g_catalog_state.backdrop = nullptr;
         }
         g_catalog_state.overlay_root = nullptr;
@@ -219,8 +222,8 @@ void WidgetCatalogOverlay::populate_rows(lv_obj_t* scroll, const PanelWidgetConf
             }
 
             const char* desc = def.description ? lv_tr(def.description) : nullptr;
-            lv_obj_t* row = create_row(scroll, name_str.c_str(), def.icon, desc,
-                                       def.colspan, def.rowspan, all_placed,
+            lv_obj_t* row = create_row(scroll, name_str.c_str(), def.icon, desc, def.colspan,
+                                       def.rowspan, all_placed,
                                        /*hardware_gated=*/false);
 
             if (!all_placed) {
@@ -230,12 +233,10 @@ void WidgetCatalogOverlay::populate_rows(lv_obj_t* scroll, const PanelWidgetConf
                     lv_obj_add_event_cb(
                         row,
                         [](lv_event_t* ev) {
-                            auto* widget_id =
-                                static_cast<const char*>(lv_event_get_user_data(ev));
+                            auto* widget_id = static_cast<const char*>(lv_event_get_user_data(ev));
                             if (!widget_id)
                                 return;
-                            spdlog::info("[WidgetCatalog] Selected grouped widget: {}",
-                                         widget_id);
+                            spdlog::info("[WidgetCatalog] Selected grouped widget: {}", widget_id);
                             auto cb = g_catalog_state.on_select;
                             std::string id_copy(widget_id);
                             close_catalog();
@@ -264,14 +265,14 @@ void WidgetCatalogOverlay::populate_rows(lv_obj_t* scroll, const PanelWidgetConf
             // Build display name with hardware hint if gated
             std::string name_str(display_name);
             if (hardware_gated) {
-                const char* hint = def.hardware_gate_hint ? lv_tr(def.hardware_gate_hint)
-                                                          : lv_tr("not detected");
+                const char* hint =
+                    def.hardware_gate_hint ? lv_tr(def.hardware_gate_hint) : lv_tr("not detected");
                 name_str += std::string(" (") + hint + ")";
             }
 
             const char* desc = def.description ? lv_tr(def.description) : nullptr;
-            lv_obj_t* row = create_row(scroll, name_str.c_str(), def.icon, desc,
-                                       def.colspan, def.rowspan, already_placed, hardware_gated);
+            lv_obj_t* row = create_row(scroll, name_str.c_str(), def.icon, desc, def.colspan,
+                                       def.rowspan, already_placed, hardware_gated);
 
             if (!already_placed && !hardware_gated) {
                 // Store widget ID in user data for the click handler.
@@ -283,8 +284,7 @@ void WidgetCatalogOverlay::populate_rows(lv_obj_t* scroll, const PanelWidgetConf
                 lv_obj_add_event_cb(
                     row,
                     [](lv_event_t* ev) {
-                        auto* widget_id =
-                            static_cast<const char*>(lv_event_get_user_data(ev));
+                        auto* widget_id = static_cast<const char*>(lv_event_get_user_data(ev));
                         if (!widget_id) {
                             return;
                         }
@@ -351,9 +351,11 @@ void WidgetCatalogOverlay::show(lv_obj_t* parent_screen, const PanelWidgetConfig
     lv_obj_add_event_cb(
         overlay,
         [](lv_event_t* /*e*/) {
-            // Clean up backdrop if still present
+            // Clean up backdrop if still present — defer deletion since
+            // this runs inside LV_EVENT_DELETE processing
             if (g_catalog_state.backdrop) {
-                lv_obj_delete(g_catalog_state.backdrop);
+                lv_obj_add_flag(g_catalog_state.backdrop, LV_OBJ_FLAG_HIDDEN);
+                lv_obj_delete_async(g_catalog_state.backdrop);
                 g_catalog_state.backdrop = nullptr;
             }
             auto on_close_cb = std::move(g_catalog_state.on_close);

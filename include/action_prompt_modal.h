@@ -98,11 +98,14 @@ class ActionPromptModal : public Modal {
      * @brief Data passed as user_data to button event callbacks
      *
      * Owns a copy of the gcode string (not a pointer into prompt_data_.buttons)
-     * and holds a weak_ptr to the alive flag to detect modal destruction.
+     * and holds a shared_ptr to the alive flag to keep the control block alive
+     * until LVGL delivers (or discards) the button event. Using weak_ptr here
+     * caused SIGSEGV in weak_ptr::lock() when the control block was freed
+     * before the queued click event fired (crash #437).
      */
     struct ButtonCallbackData {
         ActionPromptModal* modal;
-        std::weak_ptr<std::atomic<bool>> alive;
+        std::shared_ptr<std::atomic<bool>> alive;
         std::string gcode; // Owned copy, safe from vector reallocation
     };
 

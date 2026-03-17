@@ -141,13 +141,21 @@ int MoonrakerManager::connect(const std::string& websocket_url, const std::strin
     MoonrakerClient* client = m_client.get();
     MoonrakerAPI* api = m_api.get();
     helix::MacroModificationManager* macro_mgr = m_macro_analysis.get();
+    // Capture alive flag so callbacks can detect shutdown. Raw pointers (client,
+    // api, macro_mgr) become dangling after shutdown() destroys the unique_ptrs.
+    // The alive flag is set to false FIRST in shutdown() before any cleanup (#435).
+    auto alive = m_alive;
     return m_client->connect(
         websocket_url.c_str(),
-        [client, api, macro_mgr]() {
+        [client, api, macro_mgr, alive]() {
+            if (!alive->load())
+                return;
             // Connection established - start printer discovery
             // This queries printer capabilities and subscribes to status updates
             spdlog::info("[MoonrakerManager] Connected, starting printer discovery...");
-            client->discover_printer([api, macro_mgr]() {
+            client->discover_printer([api, macro_mgr, alive]() {
+                if (!alive->load())
+                    return;
                 spdlog::info("[MoonrakerManager] Printer discovery complete");
 
                 // Clean up any stale .helix_temp files from previous sessions
@@ -165,7 +173,9 @@ int MoonrakerManager::connect(const std::string& websocket_url, const std::strin
                 }
             });
         },
-        []() {
+        [alive]() {
+            if (!alive->load())
+                return;
             // Disconnected - state changes are handled via notification queue
         });
 }
@@ -211,7 +221,8 @@ void MoonrakerManager::process_notifications() {
             // Regular Moonraker notification — extract status and update directly
             if (notification.contains("method") && notification.contains("params")) {
                 const auto& method_str = notification["method"];
-                if (method_str.is_string() && method_str.get<std::string>() == "notify_status_update") {
+                if (method_str.is_string() &&
+                    method_str.get<std::string>() == "notify_status_update") {
                     auto& params = notification["params"];
                     if (params.is_array() && !params.empty()) {
                         get_printer_state().update_from_status(params[0]);

@@ -907,19 +907,20 @@ void NavigationManager::wire_events(lv_obj_t* navbar) {
         printer_dot_observer_ = observe_int_sync<NavigationManager>(
             get_printer_state().get_printer_connection_state_subject(), this,
             [](NavigationManager* mgr, int state) {
-                if (!mgr->printer_dot_widget_) return;
+                if (!mgr->printer_dot_widget_)
+                    return;
                 lv_color_t color;
                 switch (state) {
-                    case 2: // connected
-                        color = theme_manager_get_color("success");
-                        break;
-                    case 1: // connecting
-                    case 3: // reconnecting
-                        color = theme_manager_get_color("warning");
-                        break;
-                    default: // disconnected, failed
-                        color = theme_manager_get_color("danger");
-                        break;
+                case 2: // connected
+                    color = theme_manager_get_color("success");
+                    break;
+                case 1: // connecting
+                case 3: // reconnecting
+                    color = theme_manager_get_color("warning");
+                    break;
+                default: // disconnected, failed
+                    color = theme_manager_get_color("danger");
+                    break;
                 }
                 lv_obj_set_style_bg_color(mgr->printer_dot_widget_, color, 0);
             });
@@ -1384,8 +1385,13 @@ bool NavigationManager::go_back() {
             mgr.panel_stack_.pop_back();
             auto it = mgr.overlay_backdrops_.find(popped);
             if (it != mgr.overlay_backdrops_.end()) {
-                lv_obj_del(it->second);
+                lv_obj_t* bd = it->second;
                 mgr.overlay_backdrops_.erase(it);
+                // Defer backdrop deletion — synchronous lv_obj_del() here
+                // races with pending overlay slide/zoom animations that still
+                // reference this backdrop (crash #422)
+                lv_obj_add_flag(bd, LV_OBJ_FLAG_HIDDEN);
+                lv_obj_delete_async(bd);
             }
         }
 
@@ -1530,27 +1536,28 @@ void NavigationManager::on_printer_badge_clicked() {
     }
 
     lv_obj_t* badge = lv_obj_find_by_name(navbar_widget_, "nav_printer_badge");
-    if (!badge) return;
+    if (!badge)
+        return;
 
     lv_obj_t* screen = lv_obj_get_screen(navbar_widget_);
 
     printer_switch_menu_.set_switch_callback(
         [this](helix::ui::PrinterSwitchMenu::MenuAction action, const std::string& printer_id) {
             switch (action) {
-                case helix::ui::PrinterSwitchMenu::MenuAction::SWITCH:
-                    spdlog::info("[Nav] Switching to printer '{}'", printer_id);
-                    if (printer_switch_cb_) {
-                        printer_switch_cb_(printer_id);
-                    }
-                    break;
-                case helix::ui::PrinterSwitchMenu::MenuAction::ADD_PRINTER:
-                    spdlog::info("[Nav] Adding new printer via wizard");
-                    if (add_printer_cb_) {
-                        add_printer_cb_();
-                    }
-                    break;
-                case helix::ui::PrinterSwitchMenu::MenuAction::CANCELLED:
-                    break;
+            case helix::ui::PrinterSwitchMenu::MenuAction::SWITCH:
+                spdlog::info("[Nav] Switching to printer '{}'", printer_id);
+                if (printer_switch_cb_) {
+                    printer_switch_cb_(printer_id);
+                }
+                break;
+            case helix::ui::PrinterSwitchMenu::MenuAction::ADD_PRINTER:
+                spdlog::info("[Nav] Adding new printer via wizard");
+                if (add_printer_cb_) {
+                    add_printer_cb_();
+                }
+                break;
+            case helix::ui::PrinterSwitchMenu::MenuAction::CANCELLED:
+                break;
             }
         });
 

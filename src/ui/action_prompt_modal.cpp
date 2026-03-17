@@ -5,8 +5,9 @@
 
 #include "theme_manager.h"
 
-#include <cstdlib>
 #include <spdlog/spdlog.h>
+
+#include <cstdlib>
 
 namespace helix::ui {
 
@@ -319,9 +320,10 @@ void ActionPromptModal::on_button_cb(lv_event_t* e) {
         return;
     }
 
-    // Check if the modal is still alive (guards against use-after-free)
-    auto alive = cbd->alive.lock();
-    if (!alive || !alive->load()) {
+    // Check if the modal is still alive (guards against use-after-free).
+    // ButtonCallbackData holds a shared_ptr to keep the control block alive
+    // until this callback fires — prevents SIGSEGV in weak_ptr::lock() (#437).
+    if (!cbd->alive || !cbd->alive->load()) {
         spdlog::debug("[ActionPromptModal] Modal destroyed before button callback fired");
         return;
     }
