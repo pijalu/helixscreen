@@ -198,6 +198,7 @@ void PrinterManagerOverlay::on_chip_timelapse_clicked(lv_event_t* e) {
 void PrinterManagerOverlay::on_chip_screws_tilt_clicked(lv_event_t* e) {
     (void)e;
     spdlog::debug("[Printer Manager] Screws Tilt chip clicked");
+    get_global_screws_tilt_panel().set_client(get_moonraker_client(), get_moonraker_api());
     auto& pm = get_printer_manager_overlay();
     helix::ui::lazy_create_and_push_overlay<ScrewsTiltPanel>(
         get_global_screws_tilt_panel, pm.screws_tilt_panel_, lv_display_get_screen_active(nullptr),

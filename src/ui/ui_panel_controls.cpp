@@ -1508,6 +1508,7 @@ void ControlsPanel::handle_calibration_zoffset() {
 }
 
 void ControlsPanel::handle_calibration_screws() {
+    get_global_screws_tilt_panel().set_client(get_moonraker_client(), get_moonraker_api());
     helix::ui::lazy_create_and_push_overlay<ScrewsTiltPanel>(
         get_global_screws_tilt_panel, screws_panel_, parent_screen_, "Bed Screws", get_name());
 }
