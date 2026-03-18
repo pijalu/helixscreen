@@ -123,6 +123,11 @@ void NavigationManager::overlay_slide_out_complete_cb(lv_anim_t* anim) {
         return; // Shutdown in progress — widget may be freed
     }
     lv_obj_t* panel = static_cast<lv_obj_t*>(anim->var);
+    if (!lv_obj_is_valid(panel)) {
+        spdlog::warn("[NavigationManager] Animation completed but panel {} already freed",
+                     anim->var);
+        return;
+    }
     lv_obj_add_flag(panel, LV_OBJ_FLAG_HIDDEN);
     // Reset all transform and opacity properties for potential reuse
     // (covers both slide and zoom animation properties)
@@ -200,6 +205,8 @@ void NavigationManager::overlay_animate_slide_in(lv_obj_t* panel) {
     lv_anim_set_duration(&slide_anim, OVERLAY_ANIM_DURATION_MS);
     lv_anim_set_path_cb(&slide_anim, lv_anim_path_ease_out);
     lv_anim_set_exec_cb(&slide_anim, [](void* obj, int32_t value) {
+        if (!lv_obj_is_valid(static_cast<lv_obj_t*>(obj)))
+            return;
         lv_obj_set_style_translate_x(static_cast<lv_obj_t*>(obj), value, LV_PART_MAIN);
     });
     lv_anim_start(&slide_anim);
@@ -212,6 +219,8 @@ void NavigationManager::overlay_animate_slide_in(lv_obj_t* panel) {
     lv_anim_set_duration(&fade_anim, OVERLAY_ANIM_DURATION_MS);
     lv_anim_set_path_cb(&fade_anim, lv_anim_path_ease_out);
     lv_anim_set_exec_cb(&fade_anim, [](void* obj, int32_t value) {
+        if (!lv_obj_is_valid(static_cast<lv_obj_t*>(obj)))
+            return;
         lv_obj_set_style_opa(static_cast<lv_obj_t*>(obj), value, LV_PART_MAIN);
     });
     lv_anim_start(&fade_anim);
@@ -278,6 +287,8 @@ void NavigationManager::overlay_animate_slide_out(lv_obj_t* panel) {
     lv_anim_set_duration(&slide_anim, OVERLAY_ANIM_DURATION_MS);
     lv_anim_set_path_cb(&slide_anim, lv_anim_path_ease_in);
     lv_anim_set_exec_cb(&slide_anim, [](void* obj, int32_t value) {
+        if (!lv_obj_is_valid(static_cast<lv_obj_t*>(obj)))
+            return;
         lv_obj_set_style_translate_x(static_cast<lv_obj_t*>(obj), value, LV_PART_MAIN);
     });
     lv_anim_set_completed_cb(&slide_anim, overlay_slide_out_complete_cb);
@@ -291,6 +302,8 @@ void NavigationManager::overlay_animate_slide_out(lv_obj_t* panel) {
     lv_anim_set_duration(&fade_anim, OVERLAY_ANIM_DURATION_MS);
     lv_anim_set_path_cb(&fade_anim, lv_anim_path_ease_in);
     lv_anim_set_exec_cb(&fade_anim, [](void* obj, int32_t value) {
+        if (!lv_obj_is_valid(static_cast<lv_obj_t*>(obj)))
+            return;
         lv_obj_set_style_opa(static_cast<lv_obj_t*>(obj), value, LV_PART_MAIN);
     });
     lv_anim_start(&fade_anim);
@@ -365,6 +378,8 @@ void NavigationManager::overlay_animate_zoom_in(lv_obj_t* panel, lv_area_t sourc
     lv_anim_set_duration(&tx_anim, ZOOM_ANIM_DURATION_MS);
     lv_anim_set_path_cb(&tx_anim, lv_anim_path_ease_out);
     lv_anim_set_exec_cb(&tx_anim, [](void* obj, int32_t value) {
+        if (!lv_obj_is_valid(static_cast<lv_obj_t*>(obj)))
+            return;
         lv_obj_set_style_translate_x(static_cast<lv_obj_t*>(obj), value, LV_PART_MAIN);
     });
     lv_anim_start(&tx_anim);
@@ -377,6 +392,8 @@ void NavigationManager::overlay_animate_zoom_in(lv_obj_t* panel, lv_area_t sourc
     lv_anim_set_duration(&ty_anim, ZOOM_ANIM_DURATION_MS);
     lv_anim_set_path_cb(&ty_anim, lv_anim_path_ease_out);
     lv_anim_set_exec_cb(&ty_anim, [](void* obj, int32_t value) {
+        if (!lv_obj_is_valid(static_cast<lv_obj_t*>(obj)))
+            return;
         lv_obj_set_style_translate_y(static_cast<lv_obj_t*>(obj), value, LV_PART_MAIN);
     });
     lv_anim_start(&ty_anim);
@@ -389,6 +406,8 @@ void NavigationManager::overlay_animate_zoom_in(lv_obj_t* panel, lv_area_t sourc
     lv_anim_set_duration(&scale_anim, ZOOM_ANIM_DURATION_MS);
     lv_anim_set_path_cb(&scale_anim, lv_anim_path_ease_out);
     lv_anim_set_exec_cb(&scale_anim, [](void* obj, int32_t value) {
+        if (!lv_obj_is_valid(static_cast<lv_obj_t*>(obj)))
+            return;
         lv_obj_set_style_transform_scale(static_cast<lv_obj_t*>(obj), static_cast<int16_t>(value),
                                          LV_PART_MAIN);
     });
@@ -402,6 +421,8 @@ void NavigationManager::overlay_animate_zoom_in(lv_obj_t* panel, lv_area_t sourc
     lv_anim_set_duration(&opa_anim, ZOOM_ANIM_DURATION_MS);
     lv_anim_set_path_cb(&opa_anim, lv_anim_path_ease_out);
     lv_anim_set_exec_cb(&opa_anim, [](void* obj, int32_t value) {
+        if (!lv_obj_is_valid(static_cast<lv_obj_t*>(obj)))
+            return;
         lv_obj_set_style_opa(static_cast<lv_obj_t*>(obj), value, LV_PART_MAIN);
     });
     lv_anim_start(&opa_anim);
@@ -485,6 +506,8 @@ void NavigationManager::overlay_animate_zoom_out(lv_obj_t* panel, lv_area_t sour
     lv_anim_set_duration(&tx_anim, ZOOM_ANIM_DURATION_MS);
     lv_anim_set_path_cb(&tx_anim, lv_anim_path_ease_in);
     lv_anim_set_exec_cb(&tx_anim, [](void* obj, int32_t value) {
+        if (!lv_obj_is_valid(static_cast<lv_obj_t*>(obj)))
+            return;
         lv_obj_set_style_translate_x(static_cast<lv_obj_t*>(obj), value, LV_PART_MAIN);
     });
     lv_anim_start(&tx_anim);
@@ -497,6 +520,8 @@ void NavigationManager::overlay_animate_zoom_out(lv_obj_t* panel, lv_area_t sour
     lv_anim_set_duration(&ty_anim, ZOOM_ANIM_DURATION_MS);
     lv_anim_set_path_cb(&ty_anim, lv_anim_path_ease_in);
     lv_anim_set_exec_cb(&ty_anim, [](void* obj, int32_t value) {
+        if (!lv_obj_is_valid(static_cast<lv_obj_t*>(obj)))
+            return;
         lv_obj_set_style_translate_y(static_cast<lv_obj_t*>(obj), value, LV_PART_MAIN);
     });
     lv_anim_start(&ty_anim);
@@ -509,6 +534,8 @@ void NavigationManager::overlay_animate_zoom_out(lv_obj_t* panel, lv_area_t sour
     lv_anim_set_duration(&scale_anim, ZOOM_ANIM_DURATION_MS);
     lv_anim_set_path_cb(&scale_anim, lv_anim_path_ease_in);
     lv_anim_set_exec_cb(&scale_anim, [](void* obj, int32_t value) {
+        if (!lv_obj_is_valid(static_cast<lv_obj_t*>(obj)))
+            return;
         lv_obj_set_style_transform_scale(static_cast<lv_obj_t*>(obj), static_cast<int16_t>(value),
                                          LV_PART_MAIN);
     });
@@ -522,6 +549,8 @@ void NavigationManager::overlay_animate_zoom_out(lv_obj_t* panel, lv_area_t sour
     lv_anim_set_duration(&opa_anim, ZOOM_ANIM_DURATION_MS);
     lv_anim_set_path_cb(&opa_anim, lv_anim_path_ease_in);
     lv_anim_set_exec_cb(&opa_anim, [](void* obj, int32_t value) {
+        if (!lv_obj_is_valid(static_cast<lv_obj_t*>(obj)))
+            return;
         lv_obj_set_style_opa(static_cast<lv_obj_t*>(obj), value, LV_PART_MAIN);
     });
     // Reuse the existing slide-out completion callback for post-animation cleanup
