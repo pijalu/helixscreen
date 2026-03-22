@@ -44,6 +44,11 @@ class ConfigTestFixture {
         return config.data.contains(key);
     }
 
+    // Helper to set config file path for save tests
+    void set_path(const std::string& p) {
+        config.path = p;
+    }
+
     // Helper to apply migration to config data
     void apply_migration() {
         // Re-implement the migration logic for testing
@@ -1742,9 +1747,7 @@ TEST_CASE("Config: v3→v4 migration moves printer_image to per-printer path",
     json v3_config = {
         {"config_version", 3},
         {"printer",
-         {{"name", "My Printer"},
-          {"moonraker_host", "192.168.1.100"},
-          {"moonraker_port", 7125}}},
+         {{"name", "My Printer"}, {"moonraker_host", "192.168.1.100"}, {"moonraker_port", 7125}}},
         {"display", {{"printer_image", "shipped:voron-24r2"}, {"rotate", 0}}}};
 
     {
@@ -1785,10 +1788,7 @@ TEST_CASE("Config: v4→v5 migration disables printer switcher for single-printe
     json v4_config = {
         {"config_version", 4},
         {"active_printer_id", "ender3"},
-        {"printers",
-         {{"ender3",
-           {{"moonraker_host", "192.168.1.50"},
-            {"moonraker_port", 7125}}}}}};
+        {"printers", {{"ender3", {{"moonraker_host", "192.168.1.50"}, {"moonraker_port", 7125}}}}}};
 
     {
         std::ofstream o(temp_path);
@@ -1811,14 +1811,11 @@ TEST_CASE("Config: v4→v5 migration skips when multiple printers configured",
     std::filesystem::create_directories(temp_dir);
     std::string temp_path = temp_dir + "/test_config.json";
 
-    json v4_config = {
-        {"config_version", 4},
-        {"active_printer_id", "ender3"},
-        {"printers",
-         {{"ender3",
-           {{"moonraker_host", "192.168.1.50"}}},
-          {"voron",
-           {{"moonraker_host", "192.168.1.51"}}}}}};
+    json v4_config = {{"config_version", 4},
+                      {"active_printer_id", "ender3"},
+                      {"printers",
+                       {{"ender3", {{"moonraker_host", "192.168.1.50"}}},
+                        {"voron", {{"moonraker_host", "192.168.1.51"}}}}}};
 
     {
         std::ofstream o(temp_path);
@@ -1846,9 +1843,7 @@ TEST_CASE("Config: v4→v5 migration preserves explicit show_printer_switcher se
         {"config_version", 4},
         {"active_printer_id", "ender3"},
         {"printers",
-         {{"show_printer_switcher", true},
-          {"ender3",
-           {{"moonraker_host", "192.168.1.50"}}}}}};
+         {{"show_printer_switcher", true}, {"ender3", {{"moonraker_host", "192.168.1.50"}}}}}};
 
     {
         std::ofstream o(temp_path);
@@ -1969,8 +1964,7 @@ TEST_CASE_METHOD(ConfigTestFixture, "Config: remove_printer keeps active if remo
     REQUIRE(config.get_active_printer_id() == "voron");
 }
 
-TEST_CASE_METHOD(ConfigTestFixture,
-                 "Config: remove_printer prevents removing last printer",
+TEST_CASE_METHOD(ConfigTestFixture, "Config: remove_printer prevents removing last printer",
                  "[core][config][multi-printer]") {
     set_data_for_plural_test({{"active_printer_id", "voron"},
                               {"printers", {{"voron", {{"moonraker_host", "192.168.1.10"}}}}}});
@@ -2069,4 +2063,78 @@ TEST_CASE_METHOD(ConfigTestFixture, "has_preset returns false for empty preset s
     get_data() = {{"preset", ""}};
     REQUIRE(config.has_preset() == false);
     REQUIRE(config.get_preset().empty());
+}
+
+// --- Config::save() symlink preservation tests ---
+
+TEST_CASE_METHOD(ConfigTestFixture, "save preserves symlink when config path is a symlink",
+                 "[config][save][symlink]") {
+    namespace fs = std::filesystem;
+
+    // Create a temp directory structure: real file lives in "target/", symlink in "link/"
+    auto tmp = fs::temp_directory_path() / ("helix_test_symlink_" + std::to_string(getpid()));
+    fs::create_directories(tmp / "target");
+    fs::create_directories(tmp / "link");
+
+    auto real_file = tmp / "target" / "helixconfig.json";
+    auto symlink_path = tmp / "link" / "helixconfig.json";
+
+    // Write initial content to real file
+    {
+        std::ofstream o(real_file);
+        o << R"({"initial": true})";
+    }
+
+    // Create symlink pointing to real file
+    fs::create_symlink(real_file, symlink_path);
+    REQUIRE(fs::is_symlink(symlink_path));
+
+    // Set up config to save through the symlink
+    set_path(symlink_path.string());
+    get_data() = {{"saved", true}, {"value", 42}};
+
+    REQUIRE(config.save());
+
+    // Symlink must still exist and point to the same target
+    REQUIRE(fs::is_symlink(symlink_path));
+    REQUIRE(fs::read_symlink(symlink_path) == real_file);
+
+    // Real file must contain the new data
+    std::ifstream in(real_file);
+    std::string content((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+    REQUIRE(content.find("\"saved\": true") != std::string::npos);
+    REQUIRE(content.find("\"value\": 42") != std::string::npos);
+
+    // Cleanup
+    fs::remove_all(tmp);
+}
+
+TEST_CASE_METHOD(ConfigTestFixture, "save works normally with regular file (no symlink)",
+                 "[config][save]") {
+    namespace fs = std::filesystem;
+
+    auto tmp = fs::temp_directory_path() / ("helix_test_regular_" + std::to_string(getpid()));
+    fs::create_directories(tmp);
+
+    auto file_path = tmp / "helixconfig.json";
+
+    // Write initial content
+    {
+        std::ofstream o(file_path);
+        o << R"({"initial": true})";
+    }
+
+    set_path(file_path.string());
+    get_data() = {{"regular_save", true}};
+
+    REQUIRE(config.save());
+
+    // File should be a regular file (not a symlink)
+    REQUIRE(!fs::is_symlink(file_path));
+
+    std::ifstream in(file_path);
+    std::string content((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+    REQUIRE(content.find("\"regular_save\": true") != std::string::npos);
+
+    fs::remove_all(tmp);
 }

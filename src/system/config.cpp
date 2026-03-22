@@ -3,10 +3,10 @@
 
 #include "config.h"
 
-#include "config_backup.h"
 #include "ui_error_reporting.h"
 
 #include "app_constants.h"
+#include "config_backup.h"
 #include "runtime_config.h"
 
 #include <algorithm>
@@ -27,11 +27,10 @@ namespace fs = std::experimental::filesystem;
 
 using namespace helix;
 
-using AppConstants::Update::CONFIG_BACKUP_PRIMARY;
-using AppConstants::Update::ENV_BACKUP_PRIMARY;
 using AppConstants::Update::config_backup_fallback;
+using AppConstants::Update::CONFIG_BACKUP_PRIMARY;
 using AppConstants::Update::env_backup_fallback;
-
+using AppConstants::Update::ENV_BACKUP_PRIMARY;
 
 Config* Config::instance{NULL};
 
@@ -71,9 +70,8 @@ json get_default_printer_config(const std::string& moonraker_host) {
 /// Default display configuration section
 /// Used for both new configs and ensuring display section exists with defaults
 json get_default_display_config() {
-    return {{"sleep_sec", 600},         {"dim_sec", 300},         {"dim_brightness", 30},
-            {"drm_device", ""},         {"gcode_render_mode", 0},
-            {"bed_mesh_render_mode", 0}};
+    return {{"sleep_sec", 600}, {"dim_sec", 300},         {"dim_brightness", 30},
+            {"drm_device", ""}, {"gcode_render_mode", 0}, {"bed_mesh_render_mode", 0}};
 }
 
 /// Migrate legacy display settings from root level to /display/ section
@@ -333,8 +331,9 @@ static void migrate_v3_to_v4(json& config) {
     if (config.contains("display") && config["display"].contains("printer_image")) {
         config["printers"][slug]["printer_image"] = config["display"]["printer_image"];
         config["display"].erase("printer_image");
-        spdlog::info("[Config] Migration v4: moved /display/printer_image to /printers/{}/printer_image",
-                     slug);
+        spdlog::info(
+            "[Config] Migration v4: moved /display/printer_image to /printers/{}/printer_image",
+            slug);
     }
 
     spdlog::info("[Config] Migration v4: restructured /printer to /printers/{}", slug);
@@ -358,13 +357,18 @@ static void default_printer_switcher_off(json& config, int target_version) {
 
     if (printer_count <= 1) {
         config["/printers/show_printer_switcher"_json_pointer] = false;
-        spdlog::info("[Config] Migration v{}: disabled show_printer_switcher for single-printer config",
-                     target_version);
+        spdlog::info(
+            "[Config] Migration v{}: disabled show_printer_switcher for single-printer config",
+            target_version);
     }
 }
 
-static void migrate_v4_to_v5(json& config) { default_printer_switcher_off(config, 5); }
-static void migrate_v5_to_v6(json& config) { default_printer_switcher_off(config, 6); }
+static void migrate_v4_to_v5(json& config) {
+    default_printer_switcher_off(config, 5);
+}
+static void migrate_v5_to_v6(json& config) {
+    default_printer_switcher_off(config, 6);
+}
 
 /// Bump default brightness from 50% to 80% for users who never changed it.
 static void migrate_v6_to_v7(json& config) {
@@ -387,12 +391,15 @@ static void migrate_v7_to_v8(json& config) {
                 // Only 2 (old STEALTHBURNER) and 3 (old A4T) need remapping
                 if (old_val == 2) {
                     printer[ptr] = 5; // STEALTHBURNER
-                    spdlog::info("[Config] Migration v8: remapped toolhead_style 2→5 (Stealthburner) "
-                                 "for printer {}", id);
+                    spdlog::info(
+                        "[Config] Migration v8: remapped toolhead_style 2→5 (Stealthburner) "
+                        "for printer {}",
+                        id);
                 } else if (old_val == 3) {
                     printer[ptr] = 2; // A4T
                     spdlog::info("[Config] Migration v8: remapped toolhead_style 3→2 (A4T) "
-                                 "for printer {}", id);
+                                 "for printer {}",
+                                 id);
                 }
             }
         }
@@ -458,8 +465,7 @@ json get_default_config(const std::string& moonraker_host, bool include_user_pre
                        {"d", 0.0},
                        {"e", 1.0},
                        {"f", 0.0}}}}},
-                   {"printers",
-                    {{"show_printer_switcher", false}, {printer_id, printer_data}}}};
+                   {"printers", {{"show_printer_switcher", false}, {printer_id, printer_data}}}};
 
     if (include_user_prefs) {
         config["brightness"] = 50;
@@ -537,8 +543,7 @@ void Config::init(const std::string& config_path) {
 
     // Restore helixscreen.env independently — it can be lost even if config survived
     {
-        std::string env_path =
-            (fs::path(config_path).parent_path() / "helixscreen.env").string();
+        std::string env_path = (fs::path(config_path).parent_path() / "helixscreen.env").string();
         restore_from_backup(env_path, "helixscreen.env",
                             {ENV_BACKUP_PRIMARY, env_backup_fallback()});
     }
@@ -805,8 +810,7 @@ void Config::init(const std::string& config_path) {
 
     // Back up helixscreen.env outside install dir (env only changes at startup via launcher)
     {
-        std::string env_path =
-            (fs::path(config_path).parent_path() / "helixscreen.env").string();
+        std::string env_path = (fs::path(config_path).parent_path() / "helixscreen.env").string();
         write_rolling_backup(env_path, ENV_BACKUP_PRIMARY, env_backup_fallback());
     }
 
@@ -847,7 +851,8 @@ std::vector<std::string> Config::get_printer_ids() const {
     std::vector<std::string> ids;
     if (data.contains("printers") && data["printers"].is_object()) {
         for (auto& [key, val] : data["printers"].items()) {
-            if (!val.is_object()) continue;
+            if (!val.is_object())
+                continue;
             ids.push_back(key);
         }
     }
@@ -871,7 +876,7 @@ void Config::remove_printer(const std::string& printer_id) {
     // Prevent removing the last printer
     if (data["printers"].size() <= 1) {
         spdlog::error("[Config] Cannot remove last printer '{}' — at least one printer must exist",
-                       printer_id);
+                      printer_id);
         return;
     }
 
@@ -937,8 +942,21 @@ bool Config::save() {
     spdlog::trace("[Config] Saving config to {}", path);
 
     try {
+        // Resolve symlinks so atomic rename targets the real file, not the symlink
+        std::string target_path = path;
+        {
+            std::error_code ec;
+            if (fs::is_symlink(path, ec)) {
+                auto real = fs::canonical(path, ec);
+                if (!ec) {
+                    spdlog::debug("[Config] Resolved symlink {} -> {}", path, real.string());
+                    target_path = real.string();
+                }
+            }
+        }
+
         // Atomic save: write to temp file, then rename to avoid partial writes on crash/power loss
-        std::string tmp_path = path + ".tmp";
+        std::string tmp_path = target_path + ".tmp";
         {
             std::ofstream o(tmp_path);
             if (!o.is_open()) {
@@ -958,9 +976,9 @@ bool Config::save() {
             }
         }
 
-        if (std::rename(tmp_path.c_str(), path.c_str()) != 0) {
+        if (std::rename(tmp_path.c_str(), target_path.c_str()) != 0) {
             NOTIFY_ERROR("Failed to save configuration file");
-            LOG_ERROR_INTERNAL("Failed to rename temp file '{}' to '{}': {}", tmp_path, path,
+            LOG_ERROR_INTERNAL("Failed to rename temp file '{}' to '{}': {}", tmp_path, target_path,
                                strerror(errno));
             std::remove(tmp_path.c_str());
             return false;
