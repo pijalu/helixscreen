@@ -131,8 +131,8 @@ void PIDCalibrationPanel::init_subjects() {
     UI_MANAGED_SUBJECT_INT(subj_fan_is_thorough_, 0, "cal_fan_is_thorough", subjects_);
     UI_MANAGED_SUBJECT_INT(subj_show_pid_fan_, 1, "cal_show_pid_fan", subjects_);
 
-    UI_MANAGED_SUBJECT_STRING(subj_fan_speed_text_, buf_fan_speed_text_, "0%",
-                              "cal_fan_speed_text", subjects_);
+    UI_MANAGED_SUBJECT_STRING(subj_fan_speed_text_, buf_fan_speed_text_, "0%", "cal_fan_speed_text",
+                              subjects_);
 
     UI_MANAGED_SUBJECT_STRING(subj_wattage_display_, buf_wattage_display_, "50W",
                               "cal_wattage_display", subjects_);
@@ -355,7 +355,7 @@ void PIDCalibrationPanel::on_deactivate() {
     // If calibration is in progress, abort it
     if (state_ == State::CALIBRATING) {
         spdlog::info("[PIDCal] Aborting calibration on deactivate");
-        EmergencyStopOverlay::instance().suppress_recovery_dialog(15000);
+        EmergencyStopOverlay::instance().suppress_recovery_dialog(RecoverySuppression::LONG);
         if (api_) {
             api_->execute_gcode("TURN_OFF_HEATERS", nullptr, nullptr);
         }
@@ -448,7 +448,7 @@ void PIDCalibrationPanel::update_fan_slider(int speed) {
 }
 
 void PIDCalibrationPanel::format_pid_value(char* buf, size_t buf_size, float new_val,
-                                            float old_val) {
+                                           float old_val) {
     if (has_old_values_ && old_val > 0.001f) {
         float pct = ((new_val - old_val) / old_val) * 100.0f;
         snprintf(buf, buf_size, "%.3f (%+.0f%%)", new_val, pct);
@@ -596,7 +596,7 @@ void PIDCalibrationPanel::send_pid_calibrate() {
 
     // Update calibrating state label
     const char* label = (selected_heater_ == Heater::EXTRUDER) ? lv_tr("Extruder PID Tuning")
-                                                              : lv_tr("Heated Bed PID Tuning");
+                                                               : lv_tr("Heated Bed PID Tuning");
     lv_subject_copy_string(&subj_calibrating_heater_, label);
 
     spdlog::info("[PIDCal] Starting PID calibration: {} at {}°C", heater_name, target_temp_);
@@ -646,7 +646,7 @@ void PIDCalibrationPanel::send_save_config() {
         return;
 
     // Suppress recovery modal — SAVE_CONFIG triggers an expected Klipper restart
-    EmergencyStopOverlay::instance().suppress_recovery_dialog(15000);
+    EmergencyStopOverlay::instance().suppress_recovery_dialog(RecoverySuppression::LONG);
 
     spdlog::info("[PIDCal] Sending SAVE_CONFIG");
     api_->advanced().save_config(
@@ -806,7 +806,7 @@ void PIDCalibrationPanel::handle_abort_clicked() {
     spdlog::info("[PIDCal] Abort clicked, sending emergency stop + firmware restart");
 
     // Suppress recovery modal — E-stop + restart triggers expected reconnect
-    EmergencyStopOverlay::instance().suppress_recovery_dialog(15000);
+    EmergencyStopOverlay::instance().suppress_recovery_dialog(RecoverySuppression::LONG);
 
     // M112 emergency stop halts immediately at MCU level (bypasses blocked gcode queue),
     // then firmware restart brings Klipper back online
@@ -1113,7 +1113,7 @@ void PIDCalibrationPanel::start_migration() {
     spdlog::info("[PIDCal] Starting PID->MPC migration for '{}' with heater_power={}W", section,
                  heater_wattage_);
 
-    EmergencyStopOverlay::instance().suppress_recovery_dialog(30000);
+    EmergencyStopOverlay::instance().suppress_recovery_dialog(RecoverySuppression::EXTRA);
 
     config_editor_.safe_multi_edit(
         *api_, section, edits,
@@ -1149,8 +1149,9 @@ void PIDCalibrationPanel::send_mpc_calibrate() {
     }
 
     const char* heater = (selected_heater_ == Heater::EXTRUDER) ? "extruder" : "heater_bed";
-    const char* label = (selected_heater_ == Heater::EXTRUDER) ? lv_tr("Extruder MPC Calibration")
-                                                              : lv_tr("Heated Bed MPC Calibration");
+    const char* label = (selected_heater_ == Heater::EXTRUDER)
+                            ? lv_tr("Extruder MPC Calibration")
+                            : lv_tr("Heated Bed MPC Calibration");
     lv_subject_copy_string(&subj_calibrating_heater_, label);
 
     spdlog::info("[PIDCal] Starting MPC calibration: {} at {}°C, fan_breakpoints={}", heater,

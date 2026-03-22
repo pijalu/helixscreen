@@ -3,6 +3,7 @@
 
 #include "power_widget.h"
 
+#include "ui_emergency_stop.h"
 #include "ui_event_safety.h"
 #include "ui_icon.h"
 #include "ui_panel_power.h"
@@ -100,6 +101,12 @@ void PowerWidget::handle_power_toggle() {
     // Determine action: if currently on -> turn off, else turn on
     const char* action = power_on_ ? "off" : "on";
     bool new_state = !power_on_;
+
+    // Suppress "Printer Firmware Disconnected" modal when turning off power devices.
+    // The device may have bound_services: klipper, causing an expected Klipper disconnect.
+    if (!new_state) {
+        EmergencyStopOverlay::instance().suppress_recovery_dialog(RecoverySuppression::NORMAL);
+    }
 
     std::weak_ptr<bool> weak_alive = alive_;
     for (const auto& device : selected) {

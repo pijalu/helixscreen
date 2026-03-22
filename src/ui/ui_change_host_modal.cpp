@@ -193,7 +193,7 @@ void ChangeHostModal::handle_test_connection() {
     }
 
     // Suppress recovery modal during intentional host change
-    EmergencyStopOverlay::instance().suppress_recovery_dialog(10000);
+    EmergencyStopOverlay::instance().suppress_recovery_dialog(RecoverySuppression::NORMAL);
     client->disconnect();
 
     // Increment generation for stale callback detection

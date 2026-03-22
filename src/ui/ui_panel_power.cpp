@@ -3,6 +3,7 @@
 
 #include "ui_panel_power.h"
 
+#include "ui_emergency_stop.h"
 #include "ui_error_reporting.h"
 #include "ui_event_safety.h"
 #include "ui_led_chip_factory.h"
@@ -129,28 +130,32 @@ void PowerPanel::fetch_devices() {
             // 2. lv_async_call: defers widget deletion to the next lv_timer_handler
             //    cycle where event_head is guaranteed NULL (issue #190).
             auto devices_ptr = std::make_shared<std::vector<PowerDevice>>(devices);
-            helix::ui::queue_update("PowerPanel::list_power_devices", [weak_alive, self_ptr, devices_ptr]() {
-                auto alive = weak_alive.lock();
-                if (!alive || !*alive)
-                    return;
-                spdlog::info("[{}] Received {} power devices", self_ptr->get_name(),
-                             devices_ptr->size());
-                // Further defer the actual populate (which calls safe_delete) to avoid
-                // corrupting the LVGL event linked list while process_pending() is running.
-                struct AsyncCtx {
-                    std::weak_ptr<std::atomic<bool>> weak_alive;
-                    PowerPanel* self;
-                    std::shared_ptr<std::vector<PowerDevice>> devices;
-                };
-                auto* ctx = new AsyncCtx{weak_alive, self_ptr, devices_ptr};
-                lv_async_call([](void* data) {
-                    auto* ctx = static_cast<AsyncCtx*>(data);
-                    auto alive = ctx->weak_alive.lock();
-                    if (alive && *alive)
-                        ctx->self->populate_device_list(*ctx->devices);
-                    delete ctx;
-                }, ctx);
-            });
+            helix::ui::queue_update("PowerPanel::list_power_devices",
+                                    [weak_alive, self_ptr, devices_ptr]() {
+                                        auto alive = weak_alive.lock();
+                                        if (!alive || !*alive)
+                                            return;
+                                        spdlog::info("[{}] Received {} power devices",
+                                                     self_ptr->get_name(), devices_ptr->size());
+                                        // Further defer the actual populate (which calls
+                                        // safe_delete) to avoid corrupting the LVGL event linked
+                                        // list while process_pending() is running.
+                                        struct AsyncCtx {
+                                            std::weak_ptr<std::atomic<bool>> weak_alive;
+                                            PowerPanel* self;
+                                            std::shared_ptr<std::vector<PowerDevice>> devices;
+                                        };
+                                        auto* ctx = new AsyncCtx{weak_alive, self_ptr, devices_ptr};
+                                        lv_async_call(
+                                            [](void* data) {
+                                                auto* ctx = static_cast<AsyncCtx*>(data);
+                                                auto alive = ctx->weak_alive.lock();
+                                                if (alive && *alive)
+                                                    ctx->self->populate_device_list(*ctx->devices);
+                                                delete ctx;
+                                            },
+                                            ctx);
+                                    });
         },
         [weak_alive, self_ptr](const MoonrakerError& err) {
             helix::ui::queue_update([weak_alive, self_ptr, msg = err.message]() {
@@ -297,6 +302,12 @@ void PowerPanel::handle_device_toggle(const std::string& device, bool power_on) 
     const char* action = power_on ? "on" : "off";
     spdlog::info("[{}] Toggling device '{}' to {}", get_name(), device, action);
 
+    // Suppress "Printer Firmware Disconnected" modal when turning off a power device.
+    // The device may have bound_services: klipper, causing an expected Klipper disconnect.
+    if (!power_on) {
+        EmergencyStopOverlay::instance().suppress_recovery_dialog(RecoverySuppression::NORMAL);
+    }
+
     std::weak_ptr<std::atomic<bool>> weak_alive = alive_;
     PowerPanel* self_ptr = this;
     api_->set_device_power(
@@ -435,12 +446,14 @@ void PowerPanel::populate_device_chips() {
     // from corrupting the LVGL event linked list during chip rebuild (issue #190).
     if (!chips_rebuild_pending_) {
         chips_rebuild_pending_ = true;
-        lv_async_call([](void* data) {
-            auto* self = static_cast<PowerPanel*>(data);
-            self->chips_rebuild_pending_ = false;
-            if (self->chip_container_)
-                self->populate_device_chips_impl();
-        }, this);
+        lv_async_call(
+            [](void* data) {
+                auto* self = static_cast<PowerPanel*>(data);
+                self->chips_rebuild_pending_ = false;
+                if (self->chip_container_)
+                    self->populate_device_chips_impl();
+            },
+            this);
     }
 }
 

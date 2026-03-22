@@ -469,8 +469,7 @@ void TimelapseInstallOverlay::download_and_modify_config() {
                         return;
                     set_status(
                         lv_tr("Failed to download moonraker.conf.\nCheck printer connection."));
-                    show_action_button(lv_tr("Retry"),
-                                       [this]() { download_and_modify_config(); });
+                    show_action_button(lv_tr("Retry"), [this]() { download_and_modify_config(); });
                 });
             }
         });
@@ -550,8 +549,7 @@ void TimelapseInstallOverlay::write_timelapse_config(const std::string& helix_co
             helix::ui::queue_update([this, alive]() {
                 if (!alive || !*alive || !wizard_active_)
                     return;
-                set_status(
-                    lv_tr("Failed to update configuration.\nCheck printer connection."));
+                set_status(lv_tr("Failed to update configuration.\nCheck printer connection."));
                 show_action_button(lv_tr("Retry"), [this]() { download_and_modify_config(); });
             });
         });
@@ -613,7 +611,7 @@ void TimelapseInstallOverlay::step_restart_moonraker() {
     auto alive = alive_guard_;
 
     // Suppress recovery modal during intentional restart
-    EmergencyStopOverlay::instance().suppress_recovery_dialog(15000);
+    EmergencyStopOverlay::instance().suppress_recovery_dialog(RecoverySuppression::LONG);
 
     api_->restart_moonraker(
         [this, alive]() {

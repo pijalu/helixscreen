@@ -4,9 +4,7 @@
 #include "ui_panel_settings.h"
 
 #include "ui_ams_device_operations_overlay.h"
-#include "ui_spoolman_overlay.h"
 #include "ui_callback_helpers.h"
-#include "ui_overlay_timelapse_settings.h"
 #include "ui_change_host_modal.h"
 #include "ui_debug_bundle_modal.h"
 #include "ui_emergency_stop.h"
@@ -15,6 +13,7 @@
 #include "ui_modal.h"
 #include "ui_nav_manager.h"
 #include "ui_overlay_network_settings.h"
+#include "ui_overlay_timelapse_settings.h"
 #include "ui_panel_history_dashboard.h"
 #include "ui_panel_memory_stats.h"
 #include "ui_panel_power.h"
@@ -22,18 +21,19 @@
 #include "ui_settings_about.h"
 #include "ui_settings_display.h"
 #include "ui_settings_hardware_health.h"
+#include "ui_settings_label_printer.h"
 #include "ui_settings_led.h"
 #include "ui_settings_machine_limits.h"
 #include "ui_settings_macro_buttons.h"
 #include "ui_settings_material_temps.h"
 #include "ui_settings_plugins.h"
-#include "ui_settings_sensors.h"
-#include "ui_settings_label_printer.h"
 #include "ui_settings_security.h"
+#include "ui_settings_sensors.h"
 #include "ui_settings_sound.h"
 #include "ui_settings_telemetry_data.h"
 #include "ui_severity_card.h"
 #include "ui_snake_game.h"
+#include "ui_spoolman_overlay.h"
 #include "ui_toast_manager.h"
 #include "ui_touch_calibration_overlay.h"
 #include "ui_update_queue.h"
@@ -555,8 +555,10 @@ void SettingsPanel::setup_toggle_handlers() {
             // Map stored render mode to reduced dropdown index
             int mode = display_settings.get_gcode_render_mode();
             int index = 0; // Auto
-            if (mode == 2) index = 1;      // 2D Layers
-            else if (mode == 3) index = 2; // Thumbnail Only
+            if (mode == 2)
+                index = 1; // 2D Layers
+            else if (mode == 3)
+                index = 2; // Thumbnail Only
             // mode == 1 (3D) falls through to Auto on non-GLES
             lv_dropdown_set_selected(gcode_dropdown, index);
 #else
@@ -898,7 +900,7 @@ void SettingsPanel::handle_change_host_clicked() {
         }
 
         // Suppress recovery modal during intentional switch
-        EmergencyStopOverlay::instance().suppress_recovery_dialog(5000);
+        EmergencyStopOverlay::instance().suppress_recovery_dialog(RecoverySuppression::SHORT);
 
         // Disconnect current connection
         client->disconnect();

@@ -561,7 +561,9 @@ void InputShaperPanel::start_with_preflight(char axis) {
     auto gen = calibration_gen_;
 
     set_state(State::MEASURING);
-    spdlog::info("[InputShaper] Starting pre-flight noise check before {} axis calibration (gen={})", axis, gen);
+    spdlog::info(
+        "[InputShaper] Starting pre-flight noise check before {} axis calibration (gen={})", axis,
+        gen);
 
     auto alive = alive_;
     calibrator_->check_accelerometer(
@@ -657,7 +659,9 @@ void InputShaperPanel::start_calibration(char axis) {
                 if (!alive->load())
                     return;
                 if (gen != calibration_gen_) {
-                    spdlog::debug("[InputShaper] Discarding stale progress callback (gen={}, current={})", gen, calibration_gen_);
+                    spdlog::debug(
+                        "[InputShaper] Discarding stale progress callback (gen={}, current={})",
+                        gen, calibration_gen_);
                     return;
                 }
                 lv_subject_set_int(&is_measuring_progress_, percent);
@@ -684,7 +688,9 @@ void InputShaperPanel::start_calibration(char axis) {
                 if (!alive->load())
                     return;
                 if (gen != calibration_gen_) {
-                    spdlog::debug("[InputShaper] Discarding stale result callback (gen={}, current={})", gen, calibration_gen_);
+                    spdlog::debug(
+                        "[InputShaper] Discarding stale result callback (gen={}, current={})", gen,
+                        calibration_gen_);
                     return;
                 }
                 on_calibration_result(result);
@@ -695,7 +701,9 @@ void InputShaperPanel::start_calibration(char axis) {
                 if (!alive->load())
                     return;
                 if (gen != calibration_gen_) {
-                    spdlog::debug("[InputShaper] Discarding stale error callback (gen={}, current={})", gen, calibration_gen_);
+                    spdlog::debug(
+                        "[InputShaper] Discarding stale error callback (gen={}, current={})", gen,
+                        calibration_gen_);
                     return;
                 }
                 on_calibration_error(err);
@@ -759,7 +767,7 @@ void InputShaperPanel::cancel_calibration() {
     }
 
     // Suppress shutdown/disconnect modals — E-stop + restart triggers expected reconnect
-    EmergencyStopOverlay::instance().suppress_recovery_dialog(15000);
+    EmergencyStopOverlay::instance().suppress_recovery_dialog(RecoverySuppression::LONG);
     if (api_) {
         api_->suppress_disconnect_modal(15000);
     }
@@ -928,8 +936,9 @@ void InputShaperPanel::save_configuration() {
 // ============================================================================
 
 void InputShaperPanel::on_calibration_result(const InputShaperResult& result) {
-    spdlog::debug("[InputShaper] on_calibration_result: axis={}, calibrate_all={}, state={}, current_axis={}",
-                  result.axis, calibrate_all_mode_, static_cast<int>(state_), current_axis_);
+    spdlog::debug(
+        "[InputShaper] on_calibration_result: axis={}, calibrate_all={}, state={}, current_axis={}",
+        result.axis, calibrate_all_mode_, static_cast<int>(state_), current_axis_);
 
     // Ignore if we're not in measuring state (user may have cancelled)
     if (state_ != State::MEASURING) {
@@ -971,8 +980,9 @@ void InputShaperPanel::on_calibration_result(const InputShaperResult& result) {
 }
 
 void InputShaperPanel::on_calibration_error(const std::string& message) {
-    spdlog::debug("[InputShaper] on_calibration_error: msg='{}', calibrate_all={}, state={}, current_axis={}",
-                  message, calibrate_all_mode_, static_cast<int>(state_), current_axis_);
+    spdlog::debug(
+        "[InputShaper] on_calibration_error: msg='{}', calibrate_all={}, state={}, current_axis={}",
+        message, calibrate_all_mode_, static_cast<int>(state_), current_axis_);
 
     // Ignore if we're not in measuring state
     if (state_ != State::MEASURING) {
@@ -1286,8 +1296,8 @@ void InputShaperPanel::populate_chart(char axis, const InputShaperResult& result
 
     // Guard against empty data (max_element on empty range is UB / SIGSEGV)
     if (amps.empty()) {
-        spdlog::warn("[InputShaper] {} axis: freq_response non-empty but produced no amplitude data",
-                     axis);
+        spdlog::warn(
+            "[InputShaper] {} axis: freq_response non-empty but produced no amplitude data", axis);
         lv_subject_set_int(&has_freq_data, 0);
         return;
     }
@@ -1481,10 +1491,8 @@ void InputShaperPanel::inject_demo_results() {
         };
     } else {
         shaper_options = {
-            {"zv", 59.0f, 5.2f, 0.045f, 13400.0f},
-            {"mzv", 53.8f, 1.6f, 0.130f, 4000.0f},
-            {"ei", 56.2f, 0.7f, 0.120f, 4600.0f},
-            {"2hump_ei", 71.8f, 0.0f, 0.076f, 8800.0f},
+            {"zv", 59.0f, 5.2f, 0.045f, 13400.0f},      {"mzv", 53.8f, 1.6f, 0.130f, 4000.0f},
+            {"ei", 56.2f, 0.7f, 0.120f, 4600.0f},       {"2hump_ei", 71.8f, 0.0f, 0.076f, 8800.0f},
             {"3hump_ei", 89.6f, 0.0f, 0.076f, 8800.0f},
         };
     }
@@ -1541,9 +1549,8 @@ void InputShaperPanel::inject_demo_results() {
             for (size_t i = 0; i < shapers.size(); i++) {
                 float shaper_freq_val = shapers[i].frequency;
                 float dist = std::abs(freq - shaper_freq_val);
-                float attenuation = (dist < 15.0f)
-                                        ? 0.05f + 0.95f * (dist / 15.0f) * (dist / 15.0f)
-                                        : 1.0f;
+                float attenuation =
+                    (dist < 15.0f) ? 0.05f + 0.95f * (dist / 15.0f) * (dist / 15.0f) : 1.0f;
                 shaper_curves[i].values.push_back(psd_xyz * attenuation);
             }
         }

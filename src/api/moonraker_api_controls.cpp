@@ -184,13 +184,15 @@ void MoonrakerAPI::get_power_devices(PowerDevicesCallback on_success, ErrorCallb
             std::vector<PowerDevice> devices;
 
             if (j.contains("result") && j["result"].contains("devices")) {
-                for (const auto& [name, info] : j["result"]["devices"].items()) {
+                for (const auto& info : j["result"]["devices"]) {
                     PowerDevice dev;
-                    dev.device = name;
+                    dev.device = info.value("device", "");
                     dev.type = info.value("type", "unknown");
                     dev.status = info.value("status", "off");
                     dev.locked_while_printing = info.value("locked_while_printing", false);
-                    devices.push_back(dev);
+                    if (!dev.device.empty()) {
+                        devices.push_back(dev);
+                    }
                 }
             }
 
@@ -251,9 +253,21 @@ void MoonrakerAPI::set_device_power(const std::string& device, const std::string
         return;
     }
 
+    // URL-encode device name (spaces, special chars) for safe query param
+    std::string encoded_device;
+    for (char c : device) {
+        if (std::isalnum(static_cast<unsigned char>(c)) || c == '_' || c == '-' || c == '.') {
+            encoded_device += c;
+        } else {
+            char buf[4];
+            std::snprintf(buf, sizeof(buf), "%%%02X", static_cast<unsigned char>(c));
+            encoded_device += buf;
+        }
+    }
+
     // Build URL with query params
-    std::string url =
-        http_base_url_ + "/machine/device_power/device?device=" + device + "&action=" + action;
+    std::string url = http_base_url_ + "/machine/device_power/device?device=" + encoded_device +
+                      "&action=" + action;
 
     spdlog::info("[Moonraker API] Setting power device '{}' to '{}'", device, action);
 

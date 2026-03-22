@@ -702,7 +702,7 @@ void PrintStartEnhancer::restart_klipper(MoonrakerAPI* api, std::function<void()
                                          EnhancementErrorCallback on_error) {
     // Suppress recovery modal during intentional restart.
     // Without this, users see error modals even though we just told Klipper to restart.
-    EmergencyStopOverlay::instance().suppress_recovery_dialog(10000);
+    EmergencyStopOverlay::instance().suppress_recovery_dialog(RecoverySuppression::NORMAL);
 
     api->restart_klipper(on_success, on_error);
 }

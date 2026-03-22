@@ -26,6 +26,14 @@ enum class RecoveryReason {
     DISCONNECTED, ///< Klipper firmware disconnected from Moonraker
 };
 
+/// Recovery dialog suppression durations (milliseconds)
+namespace RecoverySuppression {
+static constexpr uint32_t SHORT = 5000;   ///< Brief operations (settings switch)
+static constexpr uint32_t NORMAL = 10000; ///< Standard restarts (firmware restart, power toggle)
+static constexpr uint32_t LONG = 15000;   ///< Extended operations (calibration, service install)
+static constexpr uint32_t EXTRA = 30000;  ///< Multi-step operations (PID→MPC migration)
+} // namespace RecoverySuppression
+
 /**
  * @brief Emergency stop visibility coordinator
  *
@@ -131,9 +139,9 @@ class EmergencyStopOverlay {
      * Unified suppression for both SHUTDOWN and DISCONNECTED modals.
      * Used before expected restarts (SAVE_CONFIG, PID calibration).
      *
-     * @param duration_ms How long to suppress (default 15 seconds)
+     * @param duration_ms How long to suppress (default LONG)
      */
-    void suppress_recovery_dialog(uint32_t duration_ms = 15000);
+    void suppress_recovery_dialog(uint32_t duration_ms = RecoverySuppression::LONG);
 
     /**
      * @brief Check if recovery dialog suppression is active
