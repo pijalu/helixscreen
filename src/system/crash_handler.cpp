@@ -395,59 +395,48 @@ static void crash_signal_handler(int sig, siginfo_t* info, void* ucontext) {
         safe_write(fd, "\n");
 #elif defined(__mips__)
         safe_write(fd, "reg_pc:");
-        safe_write(fd,
-                   ptr_to_hex(hex_buf, sizeof(hex_buf),
-                              static_cast<uintptr_t>(uctx->uc_mcontext.pc)));
+        safe_write(
+            fd, ptr_to_hex(hex_buf, sizeof(hex_buf), static_cast<uintptr_t>(uctx->uc_mcontext.pc)));
         safe_write(fd, "\n");
         safe_write(fd, "reg_sp:");
-        safe_write(fd,
-                   ptr_to_hex(hex_buf, sizeof(hex_buf),
-                              static_cast<uintptr_t>(uctx->uc_mcontext.gregs[29])));
+        safe_write(fd, ptr_to_hex(hex_buf, sizeof(hex_buf),
+                                  static_cast<uintptr_t>(uctx->uc_mcontext.gregs[29])));
         safe_write(fd, "\n");
         safe_write(fd, "reg_ra:");
-        safe_write(fd,
-                   ptr_to_hex(hex_buf, sizeof(hex_buf),
-                              static_cast<uintptr_t>(uctx->uc_mcontext.gregs[31])));
+        safe_write(fd, ptr_to_hex(hex_buf, sizeof(hex_buf),
+                                  static_cast<uintptr_t>(uctx->uc_mcontext.gregs[31])));
         safe_write(fd, "\n");
         safe_write(fd, "reg_fp:");
-        safe_write(fd,
-                   ptr_to_hex(hex_buf, sizeof(hex_buf),
-                              static_cast<uintptr_t>(uctx->uc_mcontext.gregs[30])));
+        safe_write(fd, ptr_to_hex(hex_buf, sizeof(hex_buf),
+                                  static_cast<uintptr_t>(uctx->uc_mcontext.gregs[30])));
         safe_write(fd, "\n");
         safe_write(fd, "reg_at:");
-        safe_write(fd,
-                   ptr_to_hex(hex_buf, sizeof(hex_buf),
-                              static_cast<uintptr_t>(uctx->uc_mcontext.gregs[1])));
+        safe_write(fd, ptr_to_hex(hex_buf, sizeof(hex_buf),
+                                  static_cast<uintptr_t>(uctx->uc_mcontext.gregs[1])));
         safe_write(fd, "\n");
         safe_write(fd, "reg_v0:");
-        safe_write(fd,
-                   ptr_to_hex(hex_buf, sizeof(hex_buf),
-                              static_cast<uintptr_t>(uctx->uc_mcontext.gregs[2])));
+        safe_write(fd, ptr_to_hex(hex_buf, sizeof(hex_buf),
+                                  static_cast<uintptr_t>(uctx->uc_mcontext.gregs[2])));
         safe_write(fd, "\n");
         safe_write(fd, "reg_v1:");
-        safe_write(fd,
-                   ptr_to_hex(hex_buf, sizeof(hex_buf),
-                              static_cast<uintptr_t>(uctx->uc_mcontext.gregs[3])));
+        safe_write(fd, ptr_to_hex(hex_buf, sizeof(hex_buf),
+                                  static_cast<uintptr_t>(uctx->uc_mcontext.gregs[3])));
         safe_write(fd, "\n");
         safe_write(fd, "reg_a0:");
-        safe_write(fd,
-                   ptr_to_hex(hex_buf, sizeof(hex_buf),
-                              static_cast<uintptr_t>(uctx->uc_mcontext.gregs[4])));
+        safe_write(fd, ptr_to_hex(hex_buf, sizeof(hex_buf),
+                                  static_cast<uintptr_t>(uctx->uc_mcontext.gregs[4])));
         safe_write(fd, "\n");
         safe_write(fd, "reg_a1:");
-        safe_write(fd,
-                   ptr_to_hex(hex_buf, sizeof(hex_buf),
-                              static_cast<uintptr_t>(uctx->uc_mcontext.gregs[5])));
+        safe_write(fd, ptr_to_hex(hex_buf, sizeof(hex_buf),
+                                  static_cast<uintptr_t>(uctx->uc_mcontext.gregs[5])));
         safe_write(fd, "\n");
         safe_write(fd, "reg_a2:");
-        safe_write(fd,
-                   ptr_to_hex(hex_buf, sizeof(hex_buf),
-                              static_cast<uintptr_t>(uctx->uc_mcontext.gregs[6])));
+        safe_write(fd, ptr_to_hex(hex_buf, sizeof(hex_buf),
+                                  static_cast<uintptr_t>(uctx->uc_mcontext.gregs[6])));
         safe_write(fd, "\n");
         safe_write(fd, "reg_a3:");
-        safe_write(fd,
-                   ptr_to_hex(hex_buf, sizeof(hex_buf),
-                              static_cast<uintptr_t>(uctx->uc_mcontext.gregs[7])));
+        safe_write(fd, ptr_to_hex(hex_buf, sizeof(hex_buf),
+                                  static_cast<uintptr_t>(uctx->uc_mcontext.gregs[7])));
         safe_write(fd, "\n");
 #endif
     }
@@ -514,14 +503,12 @@ static void crash_signal_handler(int sig, siginfo_t* info, void* ucontext) {
         safe_write(fd, "\n");
 #elif defined(__mips__)
         safe_write(fd, "bt:");
-        safe_write(fd,
-                   ptr_to_hex(hex_buf, sizeof(hex_buf),
-                              static_cast<uintptr_t>(uctx->uc_mcontext.pc)));
+        safe_write(
+            fd, ptr_to_hex(hex_buf, sizeof(hex_buf), static_cast<uintptr_t>(uctx->uc_mcontext.pc)));
         safe_write(fd, "\n");
         safe_write(fd, "bt:");
-        safe_write(fd,
-                   ptr_to_hex(hex_buf, sizeof(hex_buf),
-                              static_cast<uintptr_t>(uctx->uc_mcontext.gregs[31])));
+        safe_write(fd, ptr_to_hex(hex_buf, sizeof(hex_buf),
+                                  static_cast<uintptr_t>(uctx->uc_mcontext.gregs[31])));
         safe_write(fd, "\n");
 #endif
     }
@@ -554,8 +541,8 @@ static void crash_signal_handler(int sig, siginfo_t* info, void* ucontext) {
         const auto* stack_ptr = reinterpret_cast<const uint32_t*>(sp);
         for (int i = 0; i < 128; ++i) {
             safe_write(fd, "stk:");
-            safe_write(
-                fd, ptr_to_hex(hex_buf, sizeof(hex_buf), static_cast<uintptr_t>(stack_ptr[i])));
+            safe_write(fd,
+                       ptr_to_hex(hex_buf, sizeof(hex_buf), static_cast<uintptr_t>(stack_ptr[i])));
             safe_write(fd, "\n");
         }
     }
@@ -569,8 +556,8 @@ static void crash_signal_handler(int sig, siginfo_t* info, void* ucontext) {
         const auto* stack_ptr = reinterpret_cast<const uint32_t*>(sp);
         for (int i = 0; i < 128; ++i) {
             safe_write(fd, "stk:");
-            safe_write(
-                fd, ptr_to_hex(hex_buf, sizeof(hex_buf), static_cast<uintptr_t>(stack_ptr[i])));
+            safe_write(fd,
+                       ptr_to_hex(hex_buf, sizeof(hex_buf), static_cast<uintptr_t>(stack_ptr[i])));
             safe_write(fd, "\n");
         }
     }
@@ -617,8 +604,7 @@ static void crash_signal_handler(int sig, siginfo_t* info, void* ucontext) {
 
     // Re-raise with default handler so the process exits with the correct status
     // and generates a core dump if configured
-    struct sigaction sa;
-    memset(&sa, 0, sizeof(sa));
+    struct sigaction sa = {}; // Aggregate init (async-signal-safe, no memset)
     sa.sa_handler = SIG_DFL;
     sigaction(sig, &sa, nullptr);
     raise(sig);
