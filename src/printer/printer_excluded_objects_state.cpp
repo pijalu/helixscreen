@@ -75,6 +75,25 @@ void PrinterExcludedObjectsState::set_defined_objects(const std::vector<std::str
     }
 }
 
+void PrinterExcludedObjectsState::set_defined_objects_with_geometry(
+    const std::vector<ObjectInfo>& objects) {
+    std::vector<std::string> names;
+    names.reserve(objects.size());
+    object_geometry_.clear();
+    for (const auto& obj : objects) {
+        names.push_back(obj.name);
+        object_geometry_[obj.name] = obj;
+    }
+    set_defined_objects(names);
+}
+
+std::optional<PrinterExcludedObjectsState::ObjectInfo>
+PrinterExcludedObjectsState::get_object_geometry(const std::string& name) const {
+    auto it = object_geometry_.find(name);
+    if (it != object_geometry_.end()) return it->second;
+    return std::nullopt;
+}
+
 void PrinterExcludedObjectsState::set_current_object(const std::string& name) {
     if (current_object_ != name) {
         current_object_ = name;

@@ -40,6 +40,7 @@
 #include <algorithm>
 #include <cctype>
 #include <cstring>
+#include <limits>
 
 // ============================================================================
 // PrintJobState Free Functions
@@ -371,15 +372,49 @@ void PrinterState::update_from_status(const json& state) {
             set_excluded_objects(excluded);
         }
 
-        // Parse defined objects list
+        // Parse defined objects list with geometry (center + polygon bounding box)
         if (eo.contains("objects") && eo["objects"].is_array()) {
-            std::vector<std::string> defined;
+            std::vector<PrinterExcludedObjectsState::ObjectInfo> objects;
             for (const auto& obj : eo["objects"]) {
-                if (obj.is_object() && obj.contains("name") && obj["name"].is_string()) {
-                    defined.push_back(obj["name"].get<std::string>());
+                if (!obj.is_object() || !obj.contains("name")) continue;
+
+                PrinterExcludedObjectsState::ObjectInfo info;
+                info.name = obj["name"].get<std::string>();
+
+                if (obj.contains("center") && obj["center"].is_array() &&
+                    obj["center"].size() >= 2) {
+                    info.center.x = obj["center"][0].get<float>();
+                    info.center.y = obj["center"][1].get<float>();
+                    info.has_center = true;
+                } else {
+                    info.has_center = false;
                 }
+
+                if (obj.contains("polygon") && obj["polygon"].is_array() &&
+                    !obj["polygon"].empty()) {
+                    float min_x = std::numeric_limits<float>::max();
+                    float min_y = min_x;
+                    float max_x = std::numeric_limits<float>::lowest();
+                    float max_y = max_x;
+                    for (const auto& pt : obj["polygon"]) {
+                        if (pt.is_array() && pt.size() >= 2) {
+                            float x = pt[0].get<float>(), y = pt[1].get<float>();
+                            min_x = std::min(min_x, x);
+                            min_y = std::min(min_y, y);
+                            max_x = std::max(max_x, x);
+                            max_y = std::max(max_y, y);
+                        }
+                    }
+                    info.bbox_min = {min_x, min_y};
+                    info.bbox_max = {max_x, max_y};
+                    info.has_bbox = true;
+                } else {
+                    info.has_bbox = false;
+                }
+
+                objects.push_back(std::move(info));
             }
-            excluded_objects_state_.set_defined_objects(defined);
+            excluded_objects_state_.set_defined_objects_with_geometry(objects);
         }
 
         // Parse current object

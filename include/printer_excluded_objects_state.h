@@ -3,8 +3,11 @@
 
 #include "subject_managed_panel.h"
 
+#include <glm/vec2.hpp>
 #include <lvgl.h>
+#include <optional>
 #include <string>
+#include <unordered_map>
 #include <unordered_set>
 #include <vector>
 
@@ -27,6 +30,18 @@ namespace helix {
  */
 class PrinterExcludedObjectsState {
   public:
+    /**
+     * @brief Geometry and metadata for a single printable object defined in the print job
+     */
+    struct ObjectInfo {
+        std::string name;
+        glm::vec2 center{0.0f, 0.0f};
+        glm::vec2 bbox_min{0.0f, 0.0f};
+        glm::vec2 bbox_max{0.0f, 0.0f};
+        bool has_center{true};
+        bool has_bbox{true};
+    };
+
     PrinterExcludedObjectsState() = default;
     ~PrinterExcludedObjectsState() = default;
 
@@ -68,6 +83,17 @@ class PrinterExcludedObjectsState {
      * @param objects Vector of all object names from Klipper
      */
     void set_defined_objects(const std::vector<std::string>& objects);
+
+    /**
+     * @brief Update defined objects with full geometry from Moonraker
+     *
+     * Stores center and bounding box for each object so the overhead map view
+     * can position them spatially. Calls set_defined_objects() internally to
+     * also update the names list and bump the version subject.
+     *
+     * @param objects Vector of ObjectInfo with names and geometry
+     */
+    void set_defined_objects_with_geometry(const std::vector<ObjectInfo>& objects);
 
     /**
      * @brief Update currently printing object name
@@ -141,6 +167,18 @@ class PrinterExcludedObjectsState {
     }
 
     /**
+     * @brief Get geometry for a specific object by name
+     *
+     * Returns the stored ObjectInfo (center + bbox) for an object that was
+     * previously loaded via set_defined_objects_with_geometry(). Returns
+     * nullopt if the name is unknown or no geometry was loaded.
+     *
+     * @param name Object name as reported by Klipper
+     * @return Optional ObjectInfo, or nullopt if not found
+     */
+    std::optional<ObjectInfo> get_object_geometry(const std::string& name) const;
+
+    /**
      * @brief Check if any objects are defined for exclude_object
      *
      * @return true if the print has defined objects available for exclusion
@@ -169,6 +207,10 @@ class PrinterExcludedObjectsState {
 
     // Version subject for defined objects list (incremented when list changes)
     lv_subject_t defined_objects_version_{};
+
+    // Geometry map: object name -> ObjectInfo (center + bbox)
+    // Populated by set_defined_objects_with_geometry(); empty if only names are known
+    std::unordered_map<std::string, ObjectInfo> object_geometry_;
 };
 
 } // namespace helix
