@@ -608,6 +608,47 @@ TEST_CASE("find_brand - returns correct brand entries", "[bluetooth][discovery]"
     REQUIRE_FALSE(b->is_brother);
 }
 
+TEST_CASE("find_brand - MakeID and YichipFPGA variants", "[bluetooth][discovery]") {
+    auto* b = find_brand("MakeID E1");
+    REQUIRE(b != nullptr);
+    REQUIRE(b->is_makeid);
+    REQUIRE(b->is_ble);
+    REQUIRE_FALSE(b->is_brother);
+
+    b = find_brand("MAKEID L1");
+    REQUIRE(b != nullptr);
+    REQUIRE(b->is_makeid);
+
+    b = find_brand("YichipFPGA-1308");
+    REQUIRE(b != nullptr);
+    REQUIRE(b->is_makeid);
+    REQUIRE(b->is_ble);
+}
+
+TEST_CASE("is_likely_label_printer - MakeID and YichipFPGA variants", "[bluetooth][discovery]") {
+    REQUIRE(is_likely_label_printer("MakeID E1"));
+    REQUIRE(is_likely_label_printer("MAKEID L1"));
+    REQUIRE(is_likely_label_printer("YichipFPGA-1308"));
+    REQUIRE(is_likely_label_printer("YichipFPGA-2000"));
+}
+
+TEST_CASE("name_suggests_ble - MakeID and YichipFPGA are BLE", "[bluetooth][discovery]") {
+    REQUIRE(name_suggests_ble("MakeID E1"));
+    REQUIRE(name_suggests_ble("MAKEID L1"));
+    REQUIRE(name_suggests_ble("YichipFPGA-1308"));
+}
+
+TEST_CASE("is_makeid_printer - MakeID and YichipFPGA", "[bluetooth][discovery]") {
+    using helix::bluetooth::is_makeid_printer;
+    REQUIRE(is_makeid_printer("MakeID E1"));
+    REQUIRE(is_makeid_printer("MAKEID L1"));
+    REQUIRE(is_makeid_printer("YichipFPGA-1308"));
+    REQUIRE_FALSE(is_makeid_printer("QL-820NWB"));
+    REQUIRE_FALSE(is_makeid_printer("Niimbot B21"));
+    REQUIRE_FALSE(is_makeid_printer(nullptr));
+    REQUIRE_FALSE(is_makeid_printer(""));
+}
+
 TEST_CASE("find_brand - unknown returns nullptr", "[bluetooth][discovery]") {
     REQUIRE(find_brand(nullptr) == nullptr);
     REQUIRE(find_brand("") == nullptr);

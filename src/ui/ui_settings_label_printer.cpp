@@ -15,6 +15,7 @@
 #include "bt_discovery_utils.h"
 #include "label_printer_settings.h"
 #include "label_printer_utils.h"
+#include "makeid_protocol.h"
 #include "niimbot_protocol.h"
 #include "phomemo_printer.h"
 #include "runtime_config.h"
@@ -34,13 +35,23 @@ namespace helix::settings {
 // HELPERS
 // ============================================================================
 
-/// Build dropdown label for a BT device showing paired/connected status.
+/// Map cryptic BLE chip names to user-friendly product names.
+/// Some printers advertise their SoC name rather than the product brand.
+static std::string friendly_bt_name(const std::string& name) {
+    // MakeID E1 uses Yichip BLE SoC — advertises as "YichipFPGA-XXXX"
+    if (strncasecmp(name.c_str(), "YichipFPGA", 10) == 0) {
+        return "MakeID (" + name + ")"; // i18n: do not translate — product name
+    }
+    return name;
+}
+
+/// Build dropdown label for a BT device showing connection status.
 static std::string bt_device_label(const std::string& name, bool paired, bool connected) {
-    std::string label = name;
-    if (paired && connected) {
-        label += " (Paired, Connected)";
+    std::string label = friendly_bt_name(name);
+    if (connected) {
+        label += " (Connected)";
     } else if (paired) {
-        label += " (Paired)";
+        label += " (Saved)";
     }
     return label;
 }
@@ -69,6 +80,9 @@ static std::vector<helix::LabelSize> get_sizes_for_current_printer() {
         }
         if (helix::bluetooth::is_niimbot_printer(bt_name.c_str())) {
             return helix::label::niimbot_sizes_for_model(bt_name);
+        }
+        if (helix::bluetooth::is_makeid_printer(bt_name.c_str())) {
+            return helix::label::makeid_default_sizes();
         }
         return helix::PhomemoPrinter::supported_sizes_static();
     }
@@ -104,6 +118,11 @@ LabelPrinterSettingsOverlay::~LabelPrinterSettingsOverlay() {
     stop_usb_detection();
     stop_bt_discovery();
 
+    // Deinit subjects
+    if (subjects_initialized_) {
+        lv_subject_deinit(&bt_scanning_subject_);
+    }
+
     // Deinit BT context only in destructor, not in stop_bt_discovery()
     if (bt_ctx_) {
         auto& loader = helix::bluetooth::BluetoothLoader::instance();
@@ -131,6 +150,10 @@ void LabelPrinterSettingsOverlay::init_subjects() {
     // Register C++-owned subject globally so XML bind_flag_if_not_eq can find it
     lv_xml_register_subject(nullptr, "printer_type_subject",
                             LabelPrinterSettingsManager::instance().subject_printer_type());
+
+    // BT scanning state subject (0=idle, 1=scanning)
+    lv_subject_init_int(&bt_scanning_subject_, 0);
+    lv_xml_register_subject(nullptr, "bt_scanning", &bt_scanning_subject_);
 
     subjects_initialized_ = true;
     spdlog::debug("[{}] Subjects initialized", get_name());
@@ -805,28 +828,48 @@ void LabelPrinterSettingsOverlay::init_bt_printer_dropdown() {
         BtDeviceInfo saved_dev;
         saved_dev.mac = saved_addr;
         saved_dev.name = saved_name.empty() ? saved_addr : saved_name;
-        saved_dev.paired = true;
-        saved_dev.is_ble = (settings.get_bt_transport() == "ble");
+        // Name-based BLE detection overrides saved transport setting —
+        // some devices were incorrectly saved as "spp" before the fix
+        saved_dev.is_ble = helix::bluetooth::name_suggests_ble(saved_dev.name.c_str())
+            || (settings.get_bt_transport() == "ble");
+        if (saved_dev.is_ble && settings.get_bt_transport() != "ble") {
+            spdlog::info("[{}] Correcting saved transport from spp to ble for {}",
+                         get_name(), saved_dev.name);
+            settings.set_bt_transport("ble");
+        }
 
-        // Check current connection state (need a BT context)
+        // Check actual paired/connected state from BlueZ (don't assume paired)
         auto& loader = helix::bluetooth::BluetoothLoader::instance();
         if (!bt_ctx_ && loader.is_available() && loader.init) {
             bt_ctx_ = loader.init();
         }
+        if (bt_ctx_ && loader.is_paired) {
+            int paired_result = loader.is_paired(bt_ctx_, saved_addr.c_str());
+            saved_dev.paired = (paired_result == 1);
+            spdlog::debug("[{}] BlueZ is_paired({}) = {}", get_name(), saved_addr, paired_result);
+        } else {
+            saved_dev.paired = false;
+            spdlog::debug("[{}] No BT context or is_paired unavailable, assuming unpaired", get_name());
+        }
         saved_dev.connected = check_bt_connected(bt_ctx_, saved_addr);
+        spdlog::debug("[{}] Saved device {} paired={} connected={}", get_name(),
+                      saved_dev.name, saved_dev.paired, saved_dev.connected);
 
         bt_devices_.clear();
         bt_devices_.push_back(saved_dev);
 
+        // For saved devices, show "(Saved)" even if BlueZ doesn't report paired
+        // (BLE devices don't persist pairing — our settings ARE the "saved" state)
         lv_dropdown_set_options(
             dropdown,
-            bt_device_label(saved_dev.name, saved_dev.paired, saved_dev.connected).c_str());
+            bt_device_label(saved_dev.name, true, saved_dev.connected).c_str());
         lv_dropdown_set_selected(dropdown, 0);
 
-        // Enable connect button if paired but not connected
+        // Enable connect button for saved devices that aren't connected
+        // (BLE devices may not show as "paired" between sessions)
         lv_obj_t* btn = lv_obj_find_by_name(overlay_root_, "btn_bt_connect");
         if (btn) {
-            if (saved_dev.paired && !saved_dev.connected) {
+            if (!saved_dev.connected) {
                 lv_obj_remove_state(btn, LV_STATE_DISABLED);
             } else {
                 lv_obj_add_state(btn, LV_STATE_DISABLED);
@@ -866,7 +909,8 @@ void LabelPrinterSettingsOverlay::start_bt_discovery() {
                                      [](const BtDeviceInfo& d) { return !d.paired; }),
                       bt_devices_.end());
 
-    // Update dropdown to show scanning state
+    // Update UI to show scanning state
+    lv_subject_set_int(&bt_scanning_subject_, 1);
     if (overlay_root_) {
         lv_obj_t* row = lv_obj_find_by_name(overlay_root_, "row_bt_printers");
         if (row) {
@@ -954,6 +998,7 @@ void LabelPrinterSettingsOverlay::start_bt_discovery() {
 
             auto* overlay = disc_ctx->overlay;
             overlay->bt_discovering_ = false;
+            lv_subject_set_int(&overlay->bt_scanning_subject_, 0);
 
             if (overlay->overlay_root_) {
                 lv_obj_t* row = lv_obj_find_by_name(overlay->overlay_root_, "row_bt_printers");
@@ -1001,6 +1046,7 @@ void LabelPrinterSettingsOverlay::stop_bt_discovery() {
     }
 
     bt_discovering_ = false;
+    lv_subject_set_int(&bt_scanning_subject_, 0);
     spdlog::debug("[{}] Stopped Bluetooth discovery", get_name());
 }
 
@@ -1011,8 +1057,12 @@ void LabelPrinterSettingsOverlay::handle_bt_printer_selected(int index) {
     const auto& device = bt_devices_[index];
     spdlog::info("[{}] Selected BT printer: {} ({})", get_name(), device.name, device.mac);
 
-    // If not paired, prompt for pairing
-    if (!device.paired) {
+    // If not paired and not already saved (i.e. a newly discovered device), prompt for pairing.
+    // Saved devices (address matches settings) can skip re-pairing — BLE devices don't
+    // persist pairing between sessions but the saved address is enough to reconnect.
+    auto& settings = LabelPrinterSettingsManager::instance();
+    bool is_saved = (device.mac == settings.get_bt_address());
+    if (!device.paired && !is_saved) {
         // Allocate a copy of the MAC for the modal callback user_data
         auto* mac_copy = new std::string(device.mac);
 
@@ -1028,17 +1078,16 @@ void LabelPrinterSettingsOverlay::handle_bt_printer_selected(int index) {
         return;
     }
 
-    // Already paired — save settings
-    auto& settings = LabelPrinterSettingsManager::instance();
+    // Already paired or saved — update settings
     settings.set_bt_address(device.mac);
     settings.set_bt_name(device.name);
     settings.set_bt_transport(device.is_ble ? "ble" : "spp");
 
-    // Enable/disable connect button based on connection state
+    // Enable connect button when not connected
     if (overlay_root_) {
         lv_obj_t* btn = lv_obj_find_by_name(overlay_root_, "btn_bt_connect");
         if (btn) {
-            if (device.paired && !device.connected) {
+            if (!device.connected) {
                 lv_obj_remove_state(btn, LV_STATE_DISABLED);
             } else {
                 lv_obj_add_state(btn, LV_STATE_DISABLED);
@@ -1162,13 +1211,35 @@ void LabelPrinterSettingsOverlay::handle_bt_connect() {
     auto* ctx = bt_ctx_;
 
     std::thread([mac, ctx, alive]() {
-        // BlueZ Device1.Connect() — establishes BLE connection
         auto& ldr = helix::bluetooth::BluetoothLoader::instance();
         auto* init_ctx = ctx;
         int ret = -1;
+
         if (ldr.pair) {
-            // pair() already does Connect() for BLE devices
             ret = ldr.pair(init_ctx, mac.c_str());
+        }
+
+        // If pair failed (device may have been removed from BlueZ cache),
+        // try a brief scan to rediscover, then retry
+        if (ret < 0 && ldr.discover && ldr.pair) {
+            spdlog::info("[LabelPrinterSettings] Pair failed, scanning to rediscover {}...", mac);
+            struct ScanCtx { std::string target; bool found = false; };
+            ScanCtx scan_ctx{mac};
+            ldr.discover(init_ctx, 8000,
+                [](const helix_bt_device* dev, void* user_data) {
+                    auto* sc = static_cast<ScanCtx*>(user_data);
+                    if (dev->mac && sc->target == dev->mac) {
+                        sc->found = true;
+                    }
+                },
+                &scan_ctx);
+
+            if (scan_ctx.found) {
+                spdlog::info("[LabelPrinterSettings] Rediscovered {}, retrying pair", mac);
+                ret = ldr.pair(init_ctx, mac.c_str());
+            } else {
+                spdlog::warn("[LabelPrinterSettings] Device {} not found during rescan", mac);
+            }
         }
 
         bool connected = (ret == 0);
@@ -1276,12 +1347,17 @@ void LabelPrinterSettingsOverlay::on_pair_confirm(lv_event_t* e) {
                 ToastManager::instance().show(ToastSeverity::SUCCESS, lv_tr("Paired successfully"),
                                               2000);
 
-                // Find the device info, mark paired, and save settings
+                // Find the device info, verify paired state, and save settings
                 auto& ov = get_label_printer_settings_overlay();
+                auto& ldr2 = helix::bluetooth::BluetoothLoader::instance();
                 for (auto& dev : ov.bt_devices_) {
                     if (dev.mac == mac) {
-                        dev.paired = true;
+                        int paired_r = (ov.bt_ctx_ && ldr2.is_paired)
+                            ? ldr2.is_paired(ov.bt_ctx_, mac.c_str()) : -1;
+                        dev.paired = (paired_r == 1);
                         dev.connected = check_bt_connected(ov.bt_ctx_, mac);
+                        spdlog::info("[LabelPrinterSettings] Post-pair: is_paired={} connected={}",
+                                     paired_r, dev.connected);
                         auto& settings = LabelPrinterSettingsManager::instance();
                         settings.set_bt_address(mac);
                         settings.set_bt_name(dev.name);

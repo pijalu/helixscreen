@@ -64,8 +64,12 @@
                               dropdown_width="66%"
                               hide_description="true" callback="on_lp_bt_printer_selected"/>
         <lv_obj name="row_bt_scan" width="100%" height="content" flex_flow="row"
-                style_flex_main_place="center" style_pad_all="#space_md" style_bg_opa="0"
+                style_flex_main_place="center" style_flex_cross_place="center"
+                style_pad_all="#space_md" style_bg_opa="0"
                 style_border_width="0" style_flex_gap="#space_md" scrollable="false">
+          <spinner name="bt_scan_spinner" size="sm" hidden="true">
+            <bind_flag_if_eq subject="bt_scanning" flag="hidden" ref_value="0"/>
+          </spinner>
           <ui_button name="btn_bt_scan" text="Scan for Printers" text_tag="Scan for Printers"
                      icon="magnify_scan" width="200">
             <event_cb trigger="clicked" callback="on_lp_bt_scan"/>

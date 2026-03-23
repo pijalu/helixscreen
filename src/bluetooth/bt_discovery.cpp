@@ -138,8 +138,12 @@ static void parse_device_properties(sd_bus_message* msg, discover_ctx* dctx)
             address.c_str(), name.c_str(),
             dominated_by_uuid, dominated_by_name, dominated_by_paired);
 
-    // If no UUID available, use name heuristic for BLE detection
-    if (!has_printer_uuid && has_real_name) {
+    // Name-based BLE override: some BLE printers (e.g. MakeID/YichipFPGA) also
+    // advertise SPP UUID but actually communicate via BLE GATT. The brand table
+    // knows which devices are BLE-only, so let it override UUID-based detection.
+    if (has_real_name && helix::bluetooth::name_suggests_ble(name.c_str())) {
+        is_ble = true;
+    } else if (!has_printer_uuid && has_real_name) {
         is_ble = helix::bluetooth::name_suggests_ble(name.c_str());
     }
 

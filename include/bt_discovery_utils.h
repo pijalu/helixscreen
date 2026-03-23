@@ -84,6 +84,7 @@ inline constexpr PrinterBrand KNOWN_BRANDS[] = {
     // MakeID — BLE only, custom protocol
     {"MakeID", true, false, false, true},
     {"MAKEID", true, false, false, true},
+    {"YichipFPGA", true, false, false, true},  // MakeID E1 uses Yichip BLE SoC
 
     // Supvan / KataSymbol — BLE only
     {"Supvan", true, false, false, false},
