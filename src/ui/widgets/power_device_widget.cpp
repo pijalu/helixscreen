@@ -402,7 +402,6 @@ void PowerDeviceWidget::show_device_picker() {
     lv_obj_set_style_pad_gap(card, space_xs, 0);
     lv_obj_set_flex_flow(card, LV_FLEX_FLOW_COLUMN);
     lv_obj_add_flag(card, LV_OBJ_FLAG_CLICKABLE); // Prevent clicks passing through
-    lv_obj_remove_flag(card, LV_OBJ_FLAG_SCROLLABLE);
 
     // Title
     lv_obj_t* title = lv_label_create(card);
@@ -426,7 +425,7 @@ void PowerDeviceWidget::show_device_picker() {
     lv_obj_t* list = lv_obj_create(card);
     lv_obj_set_width(list, LV_PCT(100));
     lv_obj_set_height(list, LV_SIZE_CONTENT);
-    lv_obj_set_style_max_height(list, screen_h * 55 / 100, 0);
+    lv_obj_set_style_max_height(list, screen_h * 35 / 100, 0);
     lv_obj_set_flex_flow(list, LV_FLEX_FLOW_COLUMN);
     lv_obj_set_style_pad_all(list, 0, 0);
     lv_obj_set_style_pad_gap(list, 2, 0);
