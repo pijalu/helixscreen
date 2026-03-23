@@ -666,7 +666,7 @@ void TelemetryManager::write_update_success_flag(const std::string& config_dir,
     // Use ISO 8601 timestamp
     auto now = std::chrono::system_clock::now();
     auto tt = std::chrono::system_clock::to_time_t(now);
-    struct tm utc {};
+    struct tm utc{};
     gmtime_r(&tt, &utc);
     char buf[32];
     strftime(buf, sizeof(buf), "%Y-%m-%dT%H:%M:%SZ", &utc);
@@ -1121,7 +1121,8 @@ void TelemetryManager::check_previous_crash() {
             const auto& s = line.get_ref<const std::string&>();
             // Only include executable mappings (r-xp) that map a file
             if (s.find("r-xp") != std::string::npos &&
-                (s.find(".so") != std::string::npos || s.find("helix-screen") != std::string::npos ||
+                (s.find(".so") != std::string::npos ||
+                 s.find("helix-screen") != std::string::npos ||
                  s.find("helix_screen") != std::string::npos)) {
                 filtered_maps.push_back(line);
             }
@@ -1560,16 +1561,46 @@ nlohmann::json TelemetryManager::build_hw_fans_section(const helix::PrinterDisco
     fans["heater_fan"] = heater_fan;
     fans["controller_fan"] = controller_fan;
     fans["generic"] = generic;
+
+    // Name-level data for printer detection analysis
+    json names = json::array();
+    size_t cap = 200;
+    for (const auto& fan_name : hw.fans()) {
+        if (names.size() >= cap)
+            break;
+        names.push_back(fan_name);
+    }
+    fans["names"] = std::move(names);
+
     return fans;
 }
 
-nlohmann::json TelemetryManager::build_hw_sensors_section() {
+nlohmann::json TelemetryManager::build_hw_sensors_section(const helix::PrinterDiscovery& hw) {
     json sensors;
     sensors["filament"] = static_cast<int>(FilamentSensorManager::instance().sensor_count());
     sensors["temperature_extra"] =
         static_cast<int>(sensors::TemperatureSensorManager::instance().sensor_count());
     sensors["color"] = static_cast<int>(sensors::ColorSensorManager::instance().sensor_count());
     sensors["accel"] = static_cast<int>(sensors::AccelSensorManager::instance().sensor_count());
+
+    // Name-level data for printer detection analysis
+    constexpr size_t cap = 200;
+    json temp_names = json::array();
+    for (const auto& name : hw.sensors()) {
+        if (temp_names.size() >= cap)
+            break;
+        temp_names.push_back(name);
+    }
+    sensors["temperature_names"] = std::move(temp_names);
+
+    json fil_names = json::array();
+    for (const auto& name : hw.filament_sensor_names()) {
+        if (fil_names.size() >= cap)
+            break;
+        fil_names.push_back(name);
+    }
+    sensors["filament_names"] = std::move(fil_names);
+
     return sensors;
 }
 
@@ -1632,6 +1663,17 @@ nlohmann::json TelemetryManager::build_hw_macros_section(const helix::PrinterDis
     macros["has_purge_line"] = hw.has_macro("PURGE_LINE") || hw.has_macro("PRIME_LINE") ||
                                hw.has_macro("INTRO_LINE") || hw.has_macro("LINE_PURGE");
     macros["led_macro_count"] = static_cast<int>(hw.led_macros().size());
+
+    // Name-level data for printer detection analysis
+    json names = json::array();
+    constexpr size_t cap = 200;
+    for (const auto& macro_name : hw.macros()) {
+        if (names.size() >= cap)
+            break;
+        names.push_back(macro_name);
+    }
+    macros["names"] = std::move(names);
+
     return macros;
 }
 
@@ -1701,15 +1743,31 @@ nlohmann::json TelemetryManager::build_hardware_profile_event() const {
             // ---- steppers section ----
             json steppers;
             steppers["count"] = static_cast<int>(hw.steppers().size());
+            json stepper_names = json::array();
+            constexpr size_t stepper_cap = 200;
+            for (const auto& name : hw.steppers()) {
+                if (stepper_names.size() >= stepper_cap)
+                    break;
+                stepper_names.push_back(name);
+            }
+            steppers["names"] = std::move(stepper_names);
             event["steppers"] = steppers;
 
             // ---- leds section ----
             json leds;
             leds["count"] = static_cast<int>(hw.leds().size());
             leds["has_led_effects"] = hw.has_led_effects();
+            json led_names = json::array();
+            constexpr size_t led_cap = 200;
+            for (const auto& name : hw.leds()) {
+                if (led_names.size() >= led_cap)
+                    break;
+                led_names.push_back(name);
+            }
+            leds["names"] = std::move(led_names);
             event["leds"] = leds;
 
-            event["sensors"] = build_hw_sensors_section();
+            event["sensors"] = build_hw_sensors_section(hw);
             event["probe"] = build_hw_probe_section(hw);
             event["capabilities"] = build_hw_capabilities_section(hw);
 
@@ -1725,6 +1783,16 @@ nlohmann::json TelemetryManager::build_hardware_profile_event() const {
             event["tools"] = tools;
 
             event["macros"] = build_hw_macros_section(hw);
+
+            // Full Klipper object list for detection analysis
+            json objects = json::array();
+            constexpr size_t obj_cap = 500;
+            for (const auto& obj : hw.printer_objects()) {
+                if (objects.size() >= obj_cap)
+                    break;
+                objects.push_back(obj);
+            }
+            event["printer_objects"] = std::move(objects);
         } else {
             event["printer"] = printer;
         }
@@ -1859,8 +1927,8 @@ void TelemetryManager::record_error(const std::string& category, const std::stri
     }
 
     // Validate category against allow-list to prevent unbounded map growth
-    static const std::array<std::string_view, 5> ALLOWED_CATEGORIES = {"moonraker_api", "websocket",
-                                                                       "file_io", "display", "memory"};
+    static const std::array<std::string_view, 5> ALLOWED_CATEGORIES = {
+        "moonraker_api", "websocket", "file_io", "display", "memory"};
     if (std::find(ALLOWED_CATEGORIES.begin(), ALLOWED_CATEGORIES.end(), category) ==
         ALLOWED_CATEGORIES.end()) {
         spdlog::trace("[TelemetryManager] Ignoring error with unknown category: {}", category);

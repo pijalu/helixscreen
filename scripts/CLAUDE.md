@@ -57,6 +57,7 @@ Build, asset generation, deployment, and developer tooling for HelixScreen.
 |--------|---------|
 | `telemetry-pull.sh` | Pull events from telemetry worker API. Needs `HELIX_TELEMETRY_ADMIN_KEY` |
 | `telemetry-analyze.py` | Adoption, reliability, crash metrics. Output: terminal/JSON/HTML |
+| `telemetry-printer-profiles.py` | Printer detection analysis: model distribution, name clustering, candidate heuristics, DB validation |
 | `telemetry-crashes.py` | Resolve ASLR crash addresses → function names, group by signature |
 | `telemetry-backfill.sh` | Backfill Analytics Engine from R2 (90-day retention limit) |
 | `resolve-backtrace.sh` | Resolve raw backtrace addresses using `.sym` files from R2 |

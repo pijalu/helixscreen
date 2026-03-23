@@ -91,9 +91,15 @@ Recorded once per session. Helps us prioritize feature development and hardware 
 | `mcus.primary` | Main MCU chip | `"stm32h723xx"` |
 | `extruders.count` | Number of extruders | `1` |
 | `fans.total` | Total fan count | `5` |
+| `fans.names` | Fan object names | `["fan", "heater_fan hotend_fan"]` |
+| `sensors.temperature_names` | Temperature sensor names | `["chamber", "mcu_temp"]` |
+| `leds.names` | LED/neopixel names | `["neopixel sb_leds"]` |
+| `steppers.names` | Stepper motor names | `["stepper_x", "stepper_y"]` |
+| `macros.names` | G-code macro names | `["PRINT_START", "CLEAN_NOZZLE"]` |
+| `printer_objects` | Klipper object list | `["toolhead", "bed_mesh"]` |
 | `capabilities.*` | Boolean feature flags | `true`/`false` |
 
-Only aggregate hardware data is collected. No serial numbers, hostnames, or unique identifiers.
+Hardware names (fans, sensors, macros, etc.) are firmware-defined identifiers from your Klipper configuration — not personally identifiable. No serial numbers, hostnames, or unique identifiers are collected.
 
 ### Settings Snapshot
 

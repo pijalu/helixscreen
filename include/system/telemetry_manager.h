@@ -393,7 +393,9 @@ class TelemetryManager {
 
     /// True if crash.txt was suppressed because update_success.json was present.
     /// Used by Application to skip the crash report modal.
-    bool had_update_restart() const { return had_update_restart_; }
+    bool had_update_restart() const {
+        return had_update_restart_;
+    }
 
     // =========================================================================
     // QUEUE MANAGEMENT
@@ -673,7 +675,7 @@ class TelemetryManager {
 
     // Hardware profile helper methods (used by build_hardware_profile_event)
     static nlohmann::json build_hw_fans_section(const helix::PrinterDiscovery& hw);
-    static nlohmann::json build_hw_sensors_section();
+    static nlohmann::json build_hw_sensors_section(const helix::PrinterDiscovery& hw);
     static nlohmann::json build_hw_probe_section(const helix::PrinterDiscovery& hw);
     static nlohmann::json build_hw_capabilities_section(const helix::PrinterDiscovery& hw);
     nlohmann::json build_hw_ams_section(const helix::PrinterDiscovery& hw) const;

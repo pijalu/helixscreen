@@ -198,7 +198,7 @@ If `HELIX_ANALYTICS_READ_TOKEN` needs to be recreated:
 | `update_success` | Update completed | version, from_version, platform |
 | `memory_snapshot` | Periodic memory check | trigger, uptime_sec, rss_kb, vm_size_kb, vm_peak_kb, vm_hwm_kb, private_dirty_kb, private_clean_kb, shared_clean_kb, pss_kb, system_total_mb, system_available_mb |
 | `memory_warning` | Memory threshold breach | level, reason, rss_kb, vm_size_kb, vm_hwm_kb, vm_swap_kb, system_total_mb, system_available_mb, growth_5min_kb, private_dirty_kb, pss_kb |
-| `hardware_profile` | Hardware/feature inventory | printer.*, mcus.*, extruders.*, fans.*, capabilities.*, ams.*, tools.* |
+| `hardware_profile` | Hardware/feature inventory | printer.*, mcus.*, extruders.*, fans.*, steppers.*, leds.*, sensors.*, probe.*, capabilities.*, ams.*, tools.*, macros.*, printer_objects[] |
 | `settings_snapshot` | User configuration | theme, brightness_pct, locale, animations_enabled, time_format |
 | `panel_usage` | Session navigation summary | session_duration_sec, panel_time_sec.*, panel_visits.*, overlay_open_count |
 | `connection_stability` | Connection lifecycle | connect_count, disconnect_count, total_connected_sec, klippy_error_count |
@@ -224,6 +224,26 @@ If `HELIX_ANALYTICS_READ_TOKEN` needs to be recreated:
 | `update_success` | Next boot after update | Once per update |
 
 > **Note:** The dashboard views (Overview, Adoption, Prints, Crashes, Releases) currently query `session`, `print_outcome`, and `crash` events. Dashboard views for the newer event types (`hardware_profile`, `settings_snapshot`, `memory_snapshot`, `memory_warning`, `panel_usage`, `connection_stability`, `print_start_context`, `error_encountered`, `update_failed`, `update_success`) will be added in a future update.
+
+### hardware_profile Event Details
+
+Recorded once per session after printer discovery. Contains a full hardware inventory including name-level data for printer detection analysis.
+
+**Name arrays** (for detection heuristic development):
+
+| Field | Source | Cap | Description |
+|-------|--------|-----|-------------|
+| `fans.names[]` | `PrinterDiscovery::fans()` | 200 | Fan object names (e.g., `"heater_fan hotend_fan"`) |
+| `sensors.temperature_names[]` | `PrinterDiscovery::sensors()` | 200 | Temperature sensor names (e.g., `"chamber"`, `"tvocValue"`) |
+| `sensors.filament_names[]` | `PrinterDiscovery::filament_sensor_names()` | 200 | Filament sensor names |
+| `leds.names[]` | `PrinterDiscovery::leds()` | 200 | LED/neopixel object names |
+| `steppers.names[]` | `PrinterDiscovery::steppers()` | 200 | Stepper motor names |
+| `macros.names[]` | `PrinterDiscovery::macros()` | 200 | G-code macro names |
+| `printer_objects[]` | `PrinterDiscovery::printer_objects()` | 500 | Full Klipper object list |
+
+These names are firmware/config-defined identifiers (no PII). Hostnames are explicitly excluded.
+
+**Analysis:** Use `scripts/telemetry-printer-profiles.py` to analyze hardware profiles — finds discriminating names per detected model, clusters undetected printers, and generates candidate heuristics for `config/printer_database.json`.
 
 ### memory_warning Event Details
 
