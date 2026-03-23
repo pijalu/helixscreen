@@ -197,7 +197,14 @@ static const IconMapping ICON_MAP[] = {
     {"plus",               "\xF3\xB0\x90\x95"},  // F0415 plus
     {"power",              "\xF3\xB0\x90\xA5"},  // F0425 power
     {"power_cycle",        "\xF3\xB0\xA4\x81"},  // F0901 power-cycle
+    {"power_off",          "\xF3\xB0\xA4\x82"},  // F0902 power-off
+    {"power_on",           "\xF3\xB0\xA4\x83"},  // F0903 power-on
     {"power_plug",         "\xF3\xB0\x9A\xA5"},  // F06A5 power-plug
+    {"power_plug_battery", "\xF3\xB1\xB0\xBB"},  // F1C3B power-plug-battery
+    {"power_plug_off",     "\xF3\xB0\x9A\xA6"},  // F06A6 power-plug-off
+    {"power_plug_outline", "\xF3\xB1\x90\xA5"},  // F1425 power-plug-outline
+    {"power_socket",       "\xF3\xB0\x90\xA7"},  // F0427 power-socket
+    {"power_standby",      "\xF3\xB0\xA4\x86"},  // F0906 power-standby
     {"print",              "\xF3\xB0\x90\xAA"},  // F042A printer
     {"printer",            "\xF3\xB0\x90\xAA"},  // F042A printer (alias)
     {"printer_3d",         "\xF3\xB0\x90\xAB"},  // F042B printer-3d
