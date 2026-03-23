@@ -36,6 +36,7 @@ void register_print_stats_widget();
 void register_gcode_console_widget();
 void register_bed_temperature_widget();
 void register_preheat_widget();
+void register_power_device_widget();
 #if HELIX_HAS_CAMERA
 void register_camera_widget();
 #endif
@@ -51,6 +52,7 @@ static std::vector<PanelWidgetDef> s_widget_defs = {
     {"shutdown",         "Shutdown/Reboot",   "power",            "Shutdown or reboot the printer host",          "Shutdown/Reboot",  nullptr,              nullptr,                               false, 1, 1, 1, 1, 1, 1},
     {"lock",             "Lock Screen",       "lock",             "PIN-protected screen lock",                    "Lock Screen",      nullptr,              nullptr,                               false, 1, 1, 1, 1, 1, 1},
     {"power",            "Power",            "power_cycle",      "Moonraker power device controls",              "Power",            "power_device_count", "Requires Moonraker power device",     false, 1, 1, 1, 1, 1, 1},
+    {"power_device",     "Power Device",     "power_cycle",      "Toggle a Moonraker power device",              "Power Device",     "power_device_count", "Requires Moonraker power device",     false, 1, 1, 1, 1, 1, 1, true},
     {"network",          "Network",          "wifi_strength_4",  "Wi-Fi and ethernet connection status",         "Network",          nullptr,              nullptr,                               false, 1, 1, 1, 1, 2, 1},
     {"firmware_restart", "Firmware Restart",  "refresh",          "Restart Klipper firmware",                     "Firmware Restart", nullptr,              nullptr,                               false, 1, 1, 1, 1, 1, 1},
     {"ams",              "AMS Status",        "filament",         "Multi-material spool status and control",      "AMS Status",       "ams_slot_count",     "Requires AMS or MMU hardware",        true,  1, 1, 1, 1, 2, 2},
@@ -138,6 +140,7 @@ void init_widget_registrations() {
     register_printer_image_widget();
     register_print_status_widget();
     register_power_widget();
+    register_power_device_widget();
     register_network_widget();
     register_temperature_widget();
     register_bed_temperature_widget();

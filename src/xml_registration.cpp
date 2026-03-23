@@ -7,28 +7,28 @@
 #include "ui_ams_device_operations_overlay.h"
 #include "ui_ams_device_section_detail_overlay.h"
 #include "ui_button.h"
-#include "ui_split_button.h"
 #include "ui_carousel.h"
 #include "ui_confetti.h"
 #include "ui_fan_dial.h"
-#include "ui_overlay_temp_graph.h"
 #include "ui_fonts.h"
 #include "ui_gcode_viewer.h"
 #include "ui_hsv_picker.h"
 #include "ui_icon_codepoints.h"
+#include "ui_lock_screen.h"
 #include "ui_markdown.h"
 #include "ui_notification_badge.h"
+#include "ui_overlay_temp_graph.h"
 #include "ui_panel_home.h"
 #include "ui_panel_settings.h"
+#include "ui_pin_entry_modal.h"
 #include "ui_printer_switch_menu.h"
 #include "ui_progress_bar.h"
 #include "ui_spinner.h"
+#include "ui_split_button.h"
 #include "ui_spool_canvas.h"
 #include "ui_switch.h"
 #include "ui_text.h"
 #include "ui_text_input.h"
-#include "ui_lock_screen.h"
-#include "ui_pin_entry_modal.h"
 #include "ui_z_offset_indicator.h"
 
 #include "layout_manager.h"
@@ -123,7 +123,8 @@ static void register_color_picker_component_constants() {
     int32_t computed_sv;
     if (ver_res <= UI_BREAKPOINT_TINY_MAX) {
         // Full-screen: fill available vertical space
-        // Chrome: header(48) + divider(1) + tabs(36) + content pad(16) + spacer divider(1) + buttons(40)
+        // Chrome: header(48) + divider(1) + tabs(36) + content pad(16) + spacer divider(1) +
+        // buttons(40)
         constexpr int32_t chrome = 142;
         int32_t available = ver_res - chrome;
         // sv_size + gap(4) + hue_height, where hue = sv/8
@@ -347,6 +348,7 @@ void register_xml_components() {
     register_xml("components/panel_widget_fan_stack.xml");
     register_xml("components/panel_widget_fan_carousel.xml");
     register_xml("components/panel_widget_favorite_macro.xml");
+    register_xml("components/panel_widget_power_device.xml");
     register_xml("components/panel_widget_clock.xml");
     register_xml("components/panel_widget_tips.xml");
     register_xml("components/panel_widget_print_status.xml");
