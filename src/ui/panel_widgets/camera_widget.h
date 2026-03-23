@@ -13,6 +13,8 @@
 
 namespace helix {
 
+class CameraConfigModal;
+
 class CameraWidget : public PanelWidget {
   public:
     CameraWidget();
@@ -21,6 +23,9 @@ class CameraWidget : public PanelWidget {
     void attach(lv_obj_t* widget_obj, lv_obj_t* parent_screen) override;
     void detach() override;
     const char* id() const override { return "camera"; }
+    void set_config(const nlohmann::json& config) override;
+    bool has_edit_configure() const override { return true; }
+    bool on_edit_configure() override;
 
     void on_activate() override;
     void on_deactivate() override;
@@ -34,6 +39,7 @@ class CameraWidget : public PanelWidget {
   private:
     void start_stream();
     void stop_stream();
+    void apply_transform(); // Push rotation/flip config to stream
     void set_status_text(const char* text);
     void destroy_fullscreen(); // Synchronous cleanup of fullscreen overlay
 
@@ -57,6 +63,12 @@ class CameraWidget : public PanelWidget {
 
     // Alive guard — prevents use-after-free in queued callbacks
     std::shared_ptr<bool> alive_;
+
+    // Config modal (owned, destroyed when modal closes)
+    std::unique_ptr<CameraConfigModal> config_modal_;
+
+    // Persisted transform config
+    nlohmann::json config_;
 };
 
 } // namespace helix

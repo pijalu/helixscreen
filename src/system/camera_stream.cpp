@@ -98,8 +98,8 @@ bool CameraStream::configure_from_printer(std::string& stream_url, std::string& 
         api->resolve_webcam_url(snapshot_url);
     }
 
-    // Apply flip settings from webcam config
-    set_flip(state.get_webcam_flip_horizontal(), state.get_webcam_flip_vertical());
+    // Flip/rotation are set by the caller (CameraWidget::apply_transform)
+    // which XORs Moonraker values with user overrides.
 
     return true;
 }
@@ -589,6 +589,93 @@ void CameraStream::copy_pixels_to_lvgl(const uint8_t* src, uint8_t* dst, int wid
 }
 
 // ============================================================================
+// Pixel Transpose (90° CW rotation)
+// ============================================================================
+
+void CameraStream::transpose_pixels_cw(const uint8_t* src, uint8_t* dst, int src_width,
+                                        int src_height, int src_stride, int dst_stride,
+                                        bool swap_rb) {
+    // 90° CW: pixel at (x, y) → (src_height - 1 - y, x)
+    // Output dimensions: width = src_height, height = src_width
+    for (int y = 0; y < src_height; y++) {
+        const uint8_t* src_row = src + y * src_stride;
+        int dst_x = src_height - 1 - y;
+        for (int x = 0; x < src_width; x++) {
+            uint8_t* dst_pixel = dst + x * dst_stride + dst_x * 3;
+            if (swap_rb) {
+                dst_pixel[0] = src_row[x * 3 + 2];
+                dst_pixel[1] = src_row[x * 3 + 1];
+                dst_pixel[2] = src_row[x * 3 + 0];
+            } else {
+                dst_pixel[0] = src_row[x * 3 + 0];
+                dst_pixel[1] = src_row[x * 3 + 1];
+                dst_pixel[2] = src_row[x * 3 + 2];
+            }
+        }
+    }
+}
+
+// ============================================================================
+// Transform Helpers
+// ============================================================================
+
+CameraStream::TransformParams CameraStream::resolve_transform(int src_w, int src_h) const {
+    TransformParams p;
+    p.rotation = static_cast<CameraRotation>(rotation_.load());
+    p.flip_h = flip_h_.load();
+    p.flip_v = flip_v_.load();
+
+    // 180° is equivalent to flip_h + flip_v
+    if (p.rotation == CameraRotation::Rotate180) {
+        p.flip_h = !p.flip_h;
+        p.flip_v = !p.flip_v;
+        p.rotation = CameraRotation::None;
+    }
+
+    p.needs_transpose = (p.rotation == CameraRotation::Rotate90 ||
+                         p.rotation == CameraRotation::Rotate270);
+    p.out_w = p.needs_transpose ? src_h : src_w;
+    p.out_h = p.needs_transpose ? src_w : src_h;
+    return p;
+}
+
+void CameraStream::apply_pixel_transform(const uint8_t* src, int src_w, int src_h,
+                                          int src_stride, bool swap_rb,
+                                          const TransformParams& params) {
+    auto* dst = static_cast<uint8_t*>(back_buf_->data);
+    int dst_stride = static_cast<int>(back_buf_->header.stride);
+
+    if (params.needs_transpose) {
+        // 270° CW = 90° CW + flip both axes
+        bool eff_fh = params.flip_h;
+        bool eff_fv = params.flip_v;
+        if (params.rotation == CameraRotation::Rotate270) {
+            eff_fh = !eff_fh;
+            eff_fv = !eff_fv;
+        }
+
+        if (!eff_fh && !eff_fv) {
+            transpose_pixels_cw(src, dst, src_w, src_h, src_stride, dst_stride, swap_rb);
+        } else {
+            // Transpose to cached scratch buffer, then flip-copy to dst
+            int trans_stride = params.out_w * 3;
+            auto trans_size = static_cast<size_t>(trans_stride) * static_cast<size_t>(params.out_h);
+            if (trans_size > transpose_buf_size_) {
+                transpose_buf_ = std::make_unique<uint8_t[]>(trans_size);
+                transpose_buf_size_ = trans_size;
+            }
+            transpose_pixels_cw(src, transpose_buf_.get(), src_w, src_h, src_stride,
+                                trans_stride, swap_rb);
+            copy_pixels_to_lvgl(transpose_buf_.get(), dst, params.out_w, params.out_h,
+                                trans_stride, dst_stride, eff_fh, eff_fv, false);
+        }
+    } else {
+        copy_pixels_to_lvgl(src, dst, src_w, src_h, src_stride, dst_stride,
+                            params.flip_h, params.flip_v, swap_rb);
+    }
+}
+
+// ============================================================================
 // JPEG Decode
 // ============================================================================
 
@@ -627,18 +714,19 @@ bool CameraStream::decode_jpeg_turbojpeg(const uint8_t* data, size_t len) {
         return false;
     }
 
-    ensure_buffers(width, height);
+    auto params = resolve_transform(width, height);
+    ensure_buffers(params.out_w, params.out_h);
 
     if (!back_buf_) {
         return false;
     }
 
-    auto* dst = static_cast<uint8_t*>(back_buf_->data);
-    int dst_stride = static_cast<int>(back_buf_->header.stride);
-    bool need_flip = flip_h_.load() || flip_v_.load();
+    bool need_transform = params.flip_h || params.flip_v || params.needs_transpose;
 
-    if (!need_flip) {
+    if (!need_transform) {
         // Fast path: decode directly into LVGL buffer as BGR
+        auto* dst = static_cast<uint8_t*>(back_buf_->data);
+        int dst_stride = static_cast<int>(back_buf_->header.stride);
         if (fn_decompress_(tj_, data, static_cast<unsigned long>(len),
                            dst, width, dst_stride, height,
                            kTJPF_BGR, kTJFLAG_FASTDCT) != 0) {
@@ -646,7 +734,7 @@ bool CameraStream::decode_jpeg_turbojpeg(const uint8_t* data, size_t len) {
             return false;
         }
     } else {
-        // Flip path: decode to temp buffer, then copy with flip
+        // Decode to temp buffer, then transform
         int src_stride = width * 3;
         auto temp_size = static_cast<size_t>(src_stride) * static_cast<size_t>(height);
         auto temp = std::make_unique<uint8_t[]>(temp_size);
@@ -658,11 +746,11 @@ bool CameraStream::decode_jpeg_turbojpeg(const uint8_t* data, size_t len) {
             return false;
         }
 
-        copy_pixels_to_lvgl(temp.get(), dst, width, height, src_stride, dst_stride,
-                            flip_h_.load(), flip_v_.load(), false);
+        apply_pixel_transform(temp.get(), width, height, src_stride, false, params);
     }
 
-    spdlog::trace("[CameraStream] Decoded frame {}x{} (turbojpeg)", width, height);
+    spdlog::trace("[CameraStream] Decoded frame {}x{} → {}x{} (turbojpeg)", width, height,
+                  params.out_w, params.out_h);
     return true;
 }
 
@@ -684,7 +772,8 @@ bool CameraStream::decode_jpeg_stb(const uint8_t* data, size_t len) {
         return false;
     }
 
-    ensure_buffers(width, height);
+    auto params = resolve_transform(width, height);
+    ensure_buffers(params.out_w, params.out_h);
 
     if (!back_buf_) {
         stbi_image_free(pixels);
@@ -692,15 +781,12 @@ bool CameraStream::decode_jpeg_stb(const uint8_t* data, size_t len) {
     }
 
     // stb_image outputs RGB, LVGL stores BGR — need R↔B swap
-    auto* dst = static_cast<uint8_t*>(back_buf_->data);
-    int dst_stride = static_cast<int>(back_buf_->header.stride);
     int src_stride = width * 3;
-
-    copy_pixels_to_lvgl(pixels, dst, width, height, src_stride, dst_stride,
-                        flip_h_.load(), flip_v_.load(), true);
+    apply_pixel_transform(pixels, width, height, src_stride, true, params);
 
     stbi_image_free(pixels);
-    spdlog::trace("[CameraStream] Decoded frame {}x{} (stb_image)", width, height);
+    spdlog::trace("[CameraStream] Decoded frame {}x{} → {}x{} (stb_image)", width, height,
+                  params.out_w, params.out_h);
     return true;
 }
 
@@ -802,6 +888,8 @@ void CameraStream::free_buffers() {
         destroy_draw_buf(buf);
     }
     retired_bufs_.clear();
+    transpose_buf_.reset();
+    transpose_buf_size_ = 0;
     frame_width_ = 0;
     frame_height_ = 0;
 }

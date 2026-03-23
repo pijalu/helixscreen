@@ -6,6 +6,7 @@
 
 #if HELIX_HAS_CAMERA
 
+#include "camera_config_modal.h"
 #include "ui_nav_manager.h"
 #include "ui_update_queue.h"
 
@@ -72,6 +73,14 @@ void register_camera_widget() {
     register_widget_subjects("camera", camera_widget_init_subjects);
     lv_xml_register_event_cb(nullptr, "on_camera_clicked", on_camera_clicked);
     lv_xml_register_event_cb(nullptr, "on_camera_fullscreen_close", on_camera_fullscreen_close);
+
+    // Camera config modal callbacks (registered once, not per-modal-instance)
+    lv_xml_register_event_cb(nullptr, "on_cam_rotate_0", CameraConfigModal::on_rotate_0);
+    lv_xml_register_event_cb(nullptr, "on_cam_rotate_90", CameraConfigModal::on_rotate_90);
+    lv_xml_register_event_cb(nullptr, "on_cam_rotate_180", CameraConfigModal::on_rotate_180);
+    lv_xml_register_event_cb(nullptr, "on_cam_rotate_270", CameraConfigModal::on_rotate_270);
+    lv_xml_register_event_cb(nullptr, "on_cam_flip_h_toggled", CameraConfigModal::on_flip_h_toggled);
+    lv_xml_register_event_cb(nullptr, "on_cam_flip_v_toggled", CameraConfigModal::on_flip_v_toggled);
 }
 
 CameraWidget::CameraWidget() : alive_(std::make_shared<bool>(true)) {}
@@ -268,6 +277,9 @@ void CameraWidget::start_stream() {
         return;
     }
 
+    // Apply user rotation/flip config (XOR'd with Moonraker values)
+    apply_transform();
+
     set_status_text("Connecting Camera...");
 
     // Unhide the overlay so the user sees "Connecting Camera..." instead of
@@ -357,6 +369,57 @@ void CameraWidget::stop_stream() {
     alive_ = std::make_shared<bool>(true);
 
     spdlog::debug("[CameraWidget] Stream stopped");
+}
+
+void CameraWidget::set_config(const nlohmann::json& config) {
+    config_ = config;
+}
+
+bool CameraWidget::on_edit_configure() {
+    spdlog::info("[CameraWidget] Configure requested - showing config modal");
+    config_modal_ = std::make_unique<CameraConfigModal>(
+        id(), panel_id(), [this](const nlohmann::json& config) {
+            config_ = config;
+            apply_transform();
+        });
+    config_modal_->show(lv_screen_active());
+    return false;
+}
+
+void CameraWidget::apply_transform() {
+    if (!stream_)
+        return;
+
+    int rotation = 0;
+    bool user_flip_h = false;
+    bool user_flip_v = false;
+
+    if (config_.contains("rotation") && config_["rotation"].is_number_integer())
+        rotation = config_["rotation"].get<int>();
+    if (config_.contains("flip_h") && config_["flip_h"].is_boolean())
+        user_flip_h = config_["flip_h"].get<bool>();
+    if (config_.contains("flip_v") && config_["flip_v"].is_boolean())
+        user_flip_v = config_["flip_v"].get<bool>();
+
+    auto cam_rotation = CameraRotation::None;
+    switch (rotation) {
+    case 90: cam_rotation = CameraRotation::Rotate90; break;
+    case 180: cam_rotation = CameraRotation::Rotate180; break;
+    case 270: cam_rotation = CameraRotation::Rotate270; break;
+    default: break;
+    }
+    stream_->set_rotation(cam_rotation);
+
+    // XOR user flip with Moonraker flip — toggling when Moonraker already flips = undo
+    auto& state = get_printer_state();
+    bool moonraker_flip_h = state.get_webcam_flip_horizontal();
+    bool moonraker_flip_v = state.get_webcam_flip_vertical();
+    stream_->set_flip(moonraker_flip_h != user_flip_h, moonraker_flip_v != user_flip_v);
+
+    spdlog::debug("[CameraWidget] Transform: rotation={}, flip_h={} (moon={} ^ user={}), "
+                  "flip_v={} (moon={} ^ user={})",
+                  rotation, moonraker_flip_h != user_flip_h, moonraker_flip_h, user_flip_h,
+                  moonraker_flip_v != user_flip_v, moonraker_flip_v, user_flip_v);
 }
 
 void CameraWidget::set_status_text(const char* text) {

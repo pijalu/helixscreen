@@ -20,6 +20,16 @@ class HttpRequest;
 namespace helix {
 
 /**
+ * @brief Camera image rotation (applied after decode, before LVGL delivery)
+ */
+enum class CameraRotation {
+    None = 0,
+    Rotate90 = 90,
+    Rotate180 = 180,
+    Rotate270 = 270,
+};
+
+/**
  * @brief MJPEG camera stream decoder with snapshot fallback
  *
  * Connects to an MJPEG stream URL, parses multipart boundaries, decodes
@@ -48,10 +58,24 @@ class CameraStream {
     }
 
     /**
-     * @brief Configure stream URLs and flip from printer state.
+     * @brief Set rotation applied after decode.
      *
-     * Reads webcam URLs from PrinterState, resolves relative URLs via
-     * MoonrakerAPI, and applies flip settings. Call before start().
+     * 90/270 swap output dimensions; 180 is flip_h + flip_v.
+     * Thread-safe — takes effect on next decoded frame.
+     */
+    void set_rotation(CameraRotation rotation) {
+        rotation_.store(static_cast<int>(rotation));
+    }
+
+    CameraRotation get_rotation() const {
+        return static_cast<CameraRotation>(rotation_.load());
+    }
+
+    /**
+     * @brief Configure stream URLs from printer state.
+     *
+     * Reads webcam URLs from PrinterState and resolves relative URLs via
+     * MoonrakerAPI. Flip/rotation must be set separately by the caller.
      *
      * @param[out] stream_url Resolved stream URL (empty if no webcam)
      * @param[out] snapshot_url Resolved snapshot URL (empty if no webcam)
@@ -69,6 +93,15 @@ class CameraStream {
     static void copy_pixels_to_lvgl(const uint8_t* src, uint8_t* dst, int width, int height,
                                     int src_stride, int dst_stride, bool flip_h, bool flip_v,
                                     bool swap_rb);
+
+    /**
+     * @brief Transpose pixels (90° CW rotation) with optional R↔B swap.
+     *
+     * Input WxH → output HxW. Each pixel at (x,y) maps to (height-1-y, x).
+     * Exposed as public static for unit testing.
+     */
+    static void transpose_pixels_cw(const uint8_t* src, uint8_t* dst, int src_width, int src_height,
+                                    int src_stride, int dst_stride, bool swap_rb);
 
     // Legacy name kept for test compatibility
     static void copy_pixels_rgb_to_lvgl(const uint8_t* src, uint8_t* dst, int width, int height,
@@ -104,12 +137,29 @@ class CameraStream {
     void ensure_buffers(int width, int height);
     void free_buffers();
 
+    // Resolve rotation + flip atomics into output dimensions and effective transform
+    struct TransformParams {
+        CameraRotation rotation;
+        bool flip_h;
+        bool flip_v;
+        bool needs_transpose;
+        int out_w;
+        int out_h;
+    };
+    TransformParams resolve_transform(int src_w, int src_h) const;
+
+    // Apply transpose and/or flip from decoded pixels (src) into back_buf_
+    void apply_pixel_transform(const uint8_t* src, int src_w, int src_h,
+                               int src_stride, bool swap_rb,
+                               const TransformParams& params);
+
     std::string stream_url_;
     std::string snapshot_url_;
     FrameCallback on_frame_;
     ErrorCallback on_error_;
     std::atomic<bool> flip_h_{false};
     std::atomic<bool> flip_v_{false};
+    std::atomic<int> rotation_{0}; // CameraRotation cast to int
 
     // Draw buffer helpers — use system malloc (thread-safe) instead of
     // lv_draw_buf_create which calls lv_malloc (NOT thread-safe)
@@ -126,6 +176,10 @@ class CameraStream {
     // Old front buffers awaiting safe cleanup — LVGL may still reference
     // them via lv_image_set_src until the widget clears the source
     std::vector<lv_draw_buf_t*> retired_bufs_;
+
+    // Scratch buffer for transpose+flip (reused across frames to avoid per-frame alloc)
+    std::unique_ptr<uint8_t[]> transpose_buf_;
+    size_t transpose_buf_size_ = 0;
 
     // MJPEG parser state
     std::vector<uint8_t> recv_buf_;
