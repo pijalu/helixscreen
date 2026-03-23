@@ -2,11 +2,12 @@
 
 #include "print_stats_widget.h"
 
+#include "ui_event_safety.h"
+
 #include "app_globals.h"
 #include "panel_widget_registry.h"
 #include "static_subject_registry.h"
 #include "subject_debug_registry.h"
-#include "ui_event_safety.h"
 
 #include <spdlog/spdlog.h>
 
@@ -37,24 +38,24 @@ static char s_last_print_buf[64] = "";
 static bool s_subjects_initialized = false;
 
 static void print_stats_init_subjects() {
-    if (s_subjects_initialized) return;
+    if (s_subjects_initialized)
+        return;
 
     lv_subject_init_int(&s_size_mode, 2);
     lv_subject_init_int(&s_show_title, 1);
     lv_subject_init_int(&s_view_mode, 0);
     lv_subject_init_string(&s_title, s_title_buf, nullptr, sizeof(s_title_buf),
                            "Lifetime Print Stats");
-    lv_subject_init_string(&s_total_prints, s_total_prints_buf, nullptr,
-                           sizeof(s_total_prints_buf), "--");
+    lv_subject_init_string(&s_total_prints, s_total_prints_buf, nullptr, sizeof(s_total_prints_buf),
+                           "--");
     lv_subject_init_string(&s_total_time, s_total_time_buf, nullptr, sizeof(s_total_time_buf),
                            "--");
     lv_subject_init_string(&s_total_time_short, s_total_time_short_buf, nullptr,
                            sizeof(s_total_time_short_buf), "--");
-    lv_subject_init_string(&s_success_rate, s_success_rate_buf, nullptr,
-                           sizeof(s_success_rate_buf), "--");
+    lv_subject_init_string(&s_success_rate, s_success_rate_buf, nullptr, sizeof(s_success_rate_buf),
+                           "--");
     lv_subject_init_string(&s_weekly, s_weekly_buf, nullptr, sizeof(s_weekly_buf), "--");
-    lv_subject_init_string(&s_last_print, s_last_print_buf, nullptr, sizeof(s_last_print_buf),
-                           "");
+    lv_subject_init_string(&s_last_print, s_last_print_buf, nullptr, sizeof(s_last_print_buf), "");
 
     lv_xml_register_subject(nullptr, "print_stats_size_mode", &s_size_mode);
     lv_xml_register_subject(nullptr, "print_stats_show_title", &s_show_title);
@@ -67,27 +68,27 @@ static void print_stats_init_subjects() {
     lv_xml_register_subject(nullptr, "print_stats_weekly", &s_weekly);
     lv_xml_register_subject(nullptr, "print_stats_last_print", &s_last_print);
 
-    SubjectDebugRegistry::instance().register_subject(
-        &s_size_mode, "print_stats_size_mode", LV_SUBJECT_TYPE_INT, __FILE__, __LINE__);
-    SubjectDebugRegistry::instance().register_subject(
-        &s_show_title, "print_stats_show_title", LV_SUBJECT_TYPE_INT, __FILE__, __LINE__);
-    SubjectDebugRegistry::instance().register_subject(
-        &s_view_mode, "print_stats_view_mode", LV_SUBJECT_TYPE_INT, __FILE__, __LINE__);
-    SubjectDebugRegistry::instance().register_subject(
-        &s_title, "print_stats_title", LV_SUBJECT_TYPE_STRING, __FILE__, __LINE__);
-    SubjectDebugRegistry::instance().register_subject(
-        &s_total_prints, "print_stats_total_prints", LV_SUBJECT_TYPE_STRING, __FILE__, __LINE__);
-    SubjectDebugRegistry::instance().register_subject(
-        &s_total_time, "print_stats_total_time", LV_SUBJECT_TYPE_STRING, __FILE__, __LINE__);
+    SubjectDebugRegistry::instance().register_subject(&s_size_mode, "print_stats_size_mode",
+                                                      LV_SUBJECT_TYPE_INT, __FILE__, __LINE__);
+    SubjectDebugRegistry::instance().register_subject(&s_show_title, "print_stats_show_title",
+                                                      LV_SUBJECT_TYPE_INT, __FILE__, __LINE__);
+    SubjectDebugRegistry::instance().register_subject(&s_view_mode, "print_stats_view_mode",
+                                                      LV_SUBJECT_TYPE_INT, __FILE__, __LINE__);
+    SubjectDebugRegistry::instance().register_subject(&s_title, "print_stats_title",
+                                                      LV_SUBJECT_TYPE_STRING, __FILE__, __LINE__);
+    SubjectDebugRegistry::instance().register_subject(&s_total_prints, "print_stats_total_prints",
+                                                      LV_SUBJECT_TYPE_STRING, __FILE__, __LINE__);
+    SubjectDebugRegistry::instance().register_subject(&s_total_time, "print_stats_total_time",
+                                                      LV_SUBJECT_TYPE_STRING, __FILE__, __LINE__);
     SubjectDebugRegistry::instance().register_subject(&s_total_time_short,
                                                       "print_stats_total_time_short",
                                                       LV_SUBJECT_TYPE_STRING, __FILE__, __LINE__);
-    SubjectDebugRegistry::instance().register_subject(
-        &s_success_rate, "print_stats_success_rate", LV_SUBJECT_TYPE_STRING, __FILE__, __LINE__);
-    SubjectDebugRegistry::instance().register_subject(
-        &s_weekly, "print_stats_weekly", LV_SUBJECT_TYPE_STRING, __FILE__, __LINE__);
-    SubjectDebugRegistry::instance().register_subject(
-        &s_last_print, "print_stats_last_print", LV_SUBJECT_TYPE_STRING, __FILE__, __LINE__);
+    SubjectDebugRegistry::instance().register_subject(&s_success_rate, "print_stats_success_rate",
+                                                      LV_SUBJECT_TYPE_STRING, __FILE__, __LINE__);
+    SubjectDebugRegistry::instance().register_subject(&s_weekly, "print_stats_weekly",
+                                                      LV_SUBJECT_TYPE_STRING, __FILE__, __LINE__);
+    SubjectDebugRegistry::instance().register_subject(&s_last_print, "print_stats_last_print",
+                                                      LV_SUBJECT_TYPE_STRING, __FILE__, __LINE__);
 
     s_subjects_initialized = true;
 
@@ -113,8 +114,8 @@ static void print_stats_init_subjects() {
 namespace helix {
 
 void register_print_stats_widget() {
-    register_widget_factory("print_stats",
-                            []() { return std::make_unique<PrintStatsWidget>(); });
+    register_widget_factory(
+        "print_stats", [](const std::string&) { return std::make_unique<PrintStatsWidget>(); });
     register_widget_subjects("print_stats", print_stats_init_subjects);
     lv_xml_register_event_cb(nullptr, "print_stats_clicked_cb",
                              PrintStatsWidget::print_stats_clicked_cb);
@@ -143,7 +144,8 @@ void PrintStatsWidget::attach(lv_obj_t* widget_obj, lv_obj_t* parent_screen) {
     if (hm) {
         std::weak_ptr<bool> weak = alive_;
         history_observer_ = [this, weak]() {
-            if (weak.expired()) return;
+            if (weak.expired())
+                return;
             update_stats();
         };
         hm->add_observer(&history_observer_);
@@ -154,7 +156,8 @@ void PrintStatsWidget::attach(lv_obj_t* widget_obj, lv_obj_t* parent_screen) {
 
 void PrintStatsWidget::on_activate() {
     auto* hm = get_print_history_manager();
-    if (!hm) return;
+    if (!hm)
+        return;
 
     if (hm->is_loaded()) {
         update_stats();
@@ -211,7 +214,8 @@ void PrintStatsWidget::on_size_changed(int colspan, int rowspan, int /*width_px*
 
 void PrintStatsWidget::update_stats() {
     auto* hm = get_print_history_manager();
-    if (!hm) return;
+    if (!hm)
+        return;
 
     const auto& jobs = hm->get_jobs();
     bool weekly_mode = (lv_subject_get_int(&s_view_mode) == 1);
@@ -279,7 +283,8 @@ void PrintStatsWidget::update_stats() {
     auto week_ago_ts = std::chrono::duration_cast<std::chrono::seconds>(
                            (now - std::chrono::hours(24 * 7)).time_since_epoch())
                            .count();
-    auto recent = weekly_mode ? filtered_jobs : hm->get_jobs_since(static_cast<double>(week_ago_ts));
+    auto recent =
+        weekly_mode ? filtered_jobs : hm->get_jobs_since(static_cast<double>(week_ago_ts));
     std::snprintf(s_weekly_buf, sizeof(s_weekly_buf), "%zu/wk", recent.size());
     lv_subject_copy_string(&s_weekly, s_weekly_buf);
 
@@ -288,20 +293,30 @@ void PrintStatsWidget::update_stats() {
         const auto& last = jobs.front();
         std::string name = last.filename;
         auto slash = name.rfind('/');
-        if (slash != std::string::npos) name = name.substr(slash + 1);
+        if (slash != std::string::npos)
+            name = name.substr(slash + 1);
         auto dot = name.rfind(".gcode");
-        if (dot != std::string::npos) name = name.substr(0, dot);
-        if (name.length() > 20) name = name.substr(0, 18) + "..";
+        if (dot != std::string::npos)
+            name = name.substr(0, dot);
+        if (name.length() > 20)
+            name = name.substr(0, 18) + "..";
 
         const char* status_icon = "";
         switch (last.status) {
-        case PrintJobStatus::COMPLETED: status_icon = "OK"; break;
-        case PrintJobStatus::CANCELLED: status_icon = "X"; break;
-        case PrintJobStatus::ERROR: status_icon = "!"; break;
-        default: break;
+        case PrintJobStatus::COMPLETED:
+            status_icon = "OK";
+            break;
+        case PrintJobStatus::CANCELLED:
+            status_icon = "X";
+            break;
+        case PrintJobStatus::ERROR:
+            status_icon = "!";
+            break;
+        default:
+            break;
         }
-        std::snprintf(s_last_print_buf, sizeof(s_last_print_buf), "%s: %s %s",
-                      lv_tr("Last"), name.c_str(), status_icon);
+        std::snprintf(s_last_print_buf, sizeof(s_last_print_buf), "%s: %s %s", lv_tr("Last"),
+                      name.c_str(), status_icon);
     } else {
         std::snprintf(s_last_print_buf, sizeof(s_last_print_buf), "%s", lv_tr("No prints yet"));
     }

@@ -25,7 +25,7 @@
 
 namespace helix {
 void register_temp_stack_widget() {
-    register_widget_factory("temp_stack", []() {
+    register_widget_factory("temp_stack", [](const std::string&) {
         auto& ps = get_printer_state();
         auto* tcp = PanelWidgetManager::instance().shared_resource<TempControlPanel>();
         return std::make_unique<TempStackWidget>(ps, tcp);

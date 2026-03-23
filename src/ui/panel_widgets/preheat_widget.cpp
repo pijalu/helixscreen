@@ -27,7 +27,7 @@ static helix::PreheatWidget* s_active_instance = nullptr;
 namespace helix {
 
 void register_preheat_widget() {
-    register_widget_factory("preheat", []() {
+    register_widget_factory("preheat", [](const std::string&) {
         auto& ps = get_printer_state();
         return std::make_unique<PreheatWidget>(ps);
     });
@@ -80,9 +80,11 @@ void PreheatWidget::attach(lv_obj_t* widget_obj, lv_obj_t* parent_screen) {
 
     // Set user_data on temp tap rows for callback recovery
     lv_obj_t* nozzle_row = lv_obj_find_by_name(widget_obj_, "preheat_nozzle_row");
-    if (nozzle_row) lv_obj_set_user_data(nozzle_row, this);
+    if (nozzle_row)
+        lv_obj_set_user_data(nozzle_row, this);
     lv_obj_t* bed_row = lv_obj_find_by_name(widget_obj_, "preheat_bed_row");
-    if (bed_row) lv_obj_set_user_data(bed_row, this);
+    if (bed_row)
+        lv_obj_set_user_data(bed_row, this);
 
     spdlog::debug("[PreheatWidget] Attached (material={})", PRESET_NAMES[selected_material_]);
 }
@@ -97,10 +99,13 @@ void PreheatWidget::detach() {
         split_btn_ = nullptr;
     }
 
-    lv_obj_t* nozzle_row = widget_obj_ ? lv_obj_find_by_name(widget_obj_, "preheat_nozzle_row") : nullptr;
-    if (nozzle_row) lv_obj_set_user_data(nozzle_row, nullptr);
+    lv_obj_t* nozzle_row =
+        widget_obj_ ? lv_obj_find_by_name(widget_obj_, "preheat_nozzle_row") : nullptr;
+    if (nozzle_row)
+        lv_obj_set_user_data(nozzle_row, nullptr);
     lv_obj_t* bed_row = widget_obj_ ? lv_obj_find_by_name(widget_obj_, "preheat_bed_row") : nullptr;
-    if (bed_row) lv_obj_set_user_data(bed_row, nullptr);
+    if (bed_row)
+        lv_obj_set_user_data(bed_row, nullptr);
 
     widget_obj_ = nullptr;
     parent_screen_ = nullptr;
@@ -109,7 +114,8 @@ void PreheatWidget::detach() {
 }
 
 void PreheatWidget::update_button_label() {
-    if (!split_btn_) return;
+    if (!split_btn_)
+        return;
 
     auto mat = filament::find_material(PRESET_NAMES[selected_material_]);
     int nozzle = mat ? mat->nozzle_recommended() : 0;
@@ -122,8 +128,8 @@ void PreheatWidget::update_button_label() {
         std::snprintf(label, sizeof(label), "%s", PRESET_NAMES[selected_material_]);
     } else if (nozzle > 0 && bed > 0) {
         // Wide (3-col+): material + target temps
-        std::snprintf(label, sizeof(label), "Preheat %s (%d/%d)",
-                      PRESET_NAMES[selected_material_], nozzle, bed);
+        std::snprintf(label, sizeof(label), "Preheat %s (%d/%d)", PRESET_NAMES[selected_material_],
+                      nozzle, bed);
     } else {
         std::snprintf(label, sizeof(label), "Preheat %s", PRESET_NAMES[selected_material_]);
     }
@@ -131,7 +137,8 @@ void PreheatWidget::update_button_label() {
 }
 
 void PreheatWidget::handle_selection_changed() {
-    if (!split_btn_) return;
+    if (!split_btn_)
+        return;
 
     uint32_t idx = ui_split_button_get_selected(split_btn_);
     if (idx < static_cast<uint32_t>(PRESET_COUNT)) {

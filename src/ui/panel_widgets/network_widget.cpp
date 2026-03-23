@@ -61,7 +61,8 @@ static void network_widget_init_subjects() {
 
 namespace helix {
 void register_network_widget() {
-    register_widget_factory("network", []() { return std::make_unique<NetworkWidget>(); });
+    register_widget_factory("network",
+                            [](const std::string&) { return std::make_unique<NetworkWidget>(); });
     register_widget_subjects("network", network_widget_init_subjects);
 
     // Register XML event callbacks at startup (before any XML is parsed)

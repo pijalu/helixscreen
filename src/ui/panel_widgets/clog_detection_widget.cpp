@@ -2,24 +2,25 @@
 
 #include "clog_detection_widget.h"
 
-#include "ams_state.h"
-#include "ams_types.h"
-#include "buffer_status_modal.h"
-#include "clog_detection_config_modal.h"
-#include "panel_widget_registry.h"
 #include "ui_buffer_meter.h"
 #include "ui_carousel.h"
 #include "ui_clog_meter.h"
 #include "ui_update_queue.h"
 
+#include "ams_state.h"
+#include "ams_types.h"
+#include "buffer_status_modal.h"
+#include "clog_detection_config_modal.h"
 #include "helix-xml/src/xml/lv_xml.h"
+#include "panel_widget_registry.h"
 
 #include <spdlog/spdlog.h>
 
 namespace helix {
 void register_clog_detection_widget() {
-    register_widget_factory("clog_detection",
-                            []() { return std::make_unique<ClogDetectionWidget>(); });
+    register_widget_factory("clog_detection", [](const std::string&) {
+        return std::make_unique<ClogDetectionWidget>();
+    });
 
     lv_xml_register_event_cb(nullptr, "on_clog_detection_widget_clicked", [](lv_event_t* /*e*/) {
         auto* backend = AmsState::instance().get_backend();
@@ -98,8 +99,7 @@ void ClogDetectionWidget::build_carousel_pages() {
     }
     ui_carousel_rebuild_indicators(carousel_);
 
-    spdlog::debug("[ClogDetectionWidget] Built carousel with {} page(s)",
-                  has_buffer_page_ ? 2 : 1);
+    spdlog::debug("[ClogDetectionWidget] Built carousel with {} page(s)", has_buffer_page_ ? 2 : 1);
 }
 
 void ClogDetectionWidget::detach() {
@@ -165,5 +165,6 @@ void ClogDetectionWidget::apply_config() {
     ams.set_source_override(source);
     ams.set_danger_threshold_override(threshold);
 
-    spdlog::debug("[ClogDetectionWidget] Applied config: source={}, threshold={}", source, threshold);
+    spdlog::debug("[ClogDetectionWidget] Applied config: source={}, threshold={}", source,
+                  threshold);
 }

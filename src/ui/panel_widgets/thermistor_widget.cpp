@@ -27,7 +27,7 @@
 
 namespace helix {
 void register_thermistor_widget() {
-    register_widget_factory("thermistor", []() {
+    register_widget_factory("thermistor", [](const std::string&) {
         auto& ps = get_printer_state();
         return std::make_unique<ThermistorWidget>(ps);
     });
@@ -79,11 +79,9 @@ void cleanup_picker_row_strings(lv_obj_t* backdrop) {
 
 /// Create a sensor row in a picker list. Returns the row object.
 /// @param is_multi  If true, adds a checkbox; if false, adds highlight styling.
-lv_obj_t* create_sensor_row(lv_obj_t* list,
-                             const std::string& display_name,
-                             const std::string& klipper_name,
-                             bool is_selected, bool is_multi,
-                             int space_sm, int space_xs) {
+lv_obj_t* create_sensor_row(lv_obj_t* list, const std::string& display_name,
+                            const std::string& klipper_name, bool is_selected, bool is_multi,
+                            int space_sm, int space_xs) {
     auto& tsm = helix::sensors::TemperatureSensorManager::instance();
 
     lv_obj_t* row = lv_obj_create(list);
@@ -121,10 +119,11 @@ lv_obj_t* create_sensor_row(lv_obj_t* list,
     auto state = tsm.get_sensor_state(klipper_name);
     char temp_buf[16];
     if (state && state->available) {
-        helix::ui::temperature::format_temperature(static_cast<int>(state->temperature),
-                                                   temp_buf, sizeof(temp_buf));
+        helix::ui::temperature::format_temperature(static_cast<int>(state->temperature), temp_buf,
+                                                   sizeof(temp_buf));
     } else {
-        std::strcpy(temp_buf, "--\xC2\xB0" "C");
+        std::strcpy(temp_buf, "--\xC2\xB0"
+                              "C");
     }
     lv_obj_t* temp = lv_label_create(row);
     lv_label_set_text(temp, temp_buf);
@@ -135,8 +134,8 @@ lv_obj_t* create_sensor_row(lv_obj_t* list,
 }
 
 /// Position a context_menu card near a widget, clamped to screen.
-void position_picker_card(lv_obj_t* backdrop, lv_obj_t* widget_obj,
-                           lv_obj_t* parent_screen, int card_w) {
+void position_picker_card(lv_obj_t* backdrop, lv_obj_t* widget_obj, lv_obj_t* parent_screen,
+                          int card_w) {
     lv_obj_t* card = lv_obj_find_by_name(backdrop, "context_menu");
     if (!card || !widget_obj)
         return;
@@ -243,8 +242,7 @@ void ThermistorWidget::attach_carousel() {
     auto& tsm = helix::sensors::TemperatureSensorManager::instance();
     std::weak_ptr<bool> weak_alive = alive_;
     version_observer_ = helix::ui::observe_int_sync<ThermistorWidget>(
-        tsm.get_sensor_count_subject(), this,
-        [weak_alive](ThermistorWidget* self, int /*count*/) {
+        tsm.get_sensor_count_subject(), this, [weak_alive](ThermistorWidget* self, int /*count*/) {
             if (weak_alive.expired())
                 return;
             self->bind_carousel_sensors();
@@ -335,7 +333,8 @@ void ThermistorWidget::bind_carousel_sensors() {
         lv_obj_remove_flag(page, LV_OBJ_FLAG_SCROLLABLE);
 
         // Thermometer icon
-        const char* icon_attrs[] = {"src", "thermometer", "size", "sm", "variant", "secondary", nullptr};
+        const char* icon_attrs[] = {"src",     "thermometer", "size", "sm",
+                                    "variant", "secondary",   nullptr};
         lv_xml_create(page, "icon", icon_attrs);
 
         // Temperature label
@@ -559,8 +558,7 @@ void ThermistorWidget::set_config(const nlohmann::json& config) {
             selected_sensor_ = sensors_.front();
             resolve_display_name();
         }
-        spdlog::debug("[ThermistorWidget] Config: {} sensors, mode={}",
-                      sensors_.size(),
+        spdlog::debug("[ThermistorWidget] Config: {} sensors, mode={}", sensors_.size(),
                       is_carousel_mode() ? "carousel" : "single");
     }
 }
@@ -595,8 +593,8 @@ void ThermistorWidget::save_config() {
     }
     config_ = config;
     save_widget_config(config);
-    spdlog::debug("[ThermistorWidget] Saved config: {} sensors, mode={}",
-                  sensors_.size(), is_carousel_mode() ? "carousel" : "single");
+    spdlog::debug("[ThermistorWidget] Saved config: {} sensors, mode={}", sensors_.size(),
+                  is_carousel_mode() ? "carousel" : "single");
 }
 
 void ThermistorWidget::show_sensor_picker() {
@@ -612,8 +610,8 @@ void ThermistorWidget::show_sensor_picker() {
     }
 
     // Create picker from existing single-select XML
-    picker_backdrop_ = static_cast<lv_obj_t*>(
-        lv_xml_create(parent_screen_, "thermistor_sensor_picker", nullptr));
+    picker_backdrop_ =
+        static_cast<lv_obj_t*>(lv_xml_create(parent_screen_, "thermistor_sensor_picker", nullptr));
     if (!picker_backdrop_) {
         spdlog::error("[ThermistorWidget] Failed to create sensor picker from XML");
         return;
@@ -634,9 +632,8 @@ void ThermistorWidget::show_sensor_picker() {
 
     for (const auto& sensor : sensors) {
         bool is_selected = (sensor.klipper_name == selected_sensor_);
-        lv_obj_t* row = create_sensor_row(sensor_list, sensor.display_name,
-                                           sensor.klipper_name, is_selected, false,
-                                           space_sm, space_xs);
+        lv_obj_t* row = create_sensor_row(sensor_list, sensor.display_name, sensor.klipper_name,
+                                          is_selected, false, space_sm, space_xs);
 
         // Store klipper_name for click handler
         auto* klipper_name_copy = new std::string(sensor.klipper_name);
@@ -744,9 +741,8 @@ void ThermistorWidget::show_configure_picker() {
 
     for (const auto& sensor : sensors) {
         bool selected = selected_set.count(sensor.klipper_name) > 0;
-        lv_obj_t* row = create_sensor_row(sensor_list, sensor.display_name,
-                                           sensor.klipper_name, selected, true,
-                                           space_sm, space_xs);
+        lv_obj_t* row = create_sensor_row(sensor_list, sensor.display_name, sensor.klipper_name,
+                                          selected, true, space_sm, space_xs);
 
         // Store klipper_name for Done handler to read back
         auto* klipper_name_copy = new std::string(sensor.klipper_name);

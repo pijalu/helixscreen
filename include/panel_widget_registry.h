@@ -6,6 +6,7 @@
 #include <cstddef>
 #include <functional>
 #include <memory>
+#include <string>
 #include <string_view>
 #include <vector>
 
@@ -13,25 +14,26 @@ namespace helix {
 
 class PanelWidget;
 
-using WidgetFactory = std::function<std::unique_ptr<PanelWidget>()>;
+using WidgetFactory = std::function<std::unique_ptr<PanelWidget>(const std::string& instance_id)>;
 using SubjectInitFn = std::function<void()>;
 
 struct PanelWidgetDef {
-    const char* id;                        // Stable string for JSON config
-    const char* display_name;              // For settings overlay UI
-    const char* icon;                      // Icon name
-    const char* description;               // Short description for settings overlay
-    const char* translation_tag;           // For i18n
-    const char* hardware_gate_subject;     // nullptr = always available
-    const char* hardware_gate_hint;        // Human-readable reason, e.g., "Requires AMS or MMU hardware"
-    bool default_enabled = true;           // Whether enabled in fresh/default config
-    int colspan = 1;                       // Default grid columns spanned
-    int rowspan = 1;                       // Default grid rows spanned
-    int min_colspan = 0;                   // Minimum columns (0 = use colspan)
-    int min_rowspan = 0;                   // Minimum rows (0 = use rowspan)
-    int max_colspan = 0;                   // Maximum columns (0 = use colspan, i.e. not scalable)
-    int max_rowspan = 0;                   // Maximum rows (0 = use rowspan, i.e. not scalable)
+    const char* id;                    // Stable string for JSON config
+    const char* display_name;          // For settings overlay UI
+    const char* icon;                  // Icon name
+    const char* description;           // Short description for settings overlay
+    const char* translation_tag;       // For i18n
+    const char* hardware_gate_subject; // nullptr = always available
+    const char* hardware_gate_hint; // Human-readable reason, e.g., "Requires AMS or MMU hardware"
+    bool default_enabled = true;    // Whether enabled in fresh/default config
+    int colspan = 1;                // Default grid columns spanned
+    int rowspan = 1;                // Default grid rows spanned
+    int min_colspan = 0;            // Minimum columns (0 = use colspan)
+    int min_rowspan = 0;            // Minimum rows (0 = use rowspan)
+    int max_colspan = 0;            // Maximum columns (0 = use colspan, i.e. not scalable)
+    int max_rowspan = 0;            // Maximum rows (0 = use rowspan, i.e. not scalable)
     const char* catalog_group = nullptr;   // Group multiple defs under one catalog entry
+    bool multi_instance = false;           // Allows dynamic instance creation with base_id:N IDs
     WidgetFactory factory = nullptr;       // nullptr = pure XML or externally managed
     SubjectInitFn init_subjects = nullptr; // Called once before XML creation
 

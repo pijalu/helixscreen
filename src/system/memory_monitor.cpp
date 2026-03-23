@@ -5,6 +5,7 @@
 
 #include <spdlog/spdlog.h>
 
+#include <algorithm>
 #include <cstdio>
 #include <cstring>
 
@@ -23,8 +24,8 @@ MemoryThresholds MemoryThresholds::for_device(const MemoryInfo& info) {
 
     if (info.is_constrained_device()) {
         // <256MB (AD5M ~110MB): very tight budgets
-        t.warn_rss_kb = 15 * 1024;
-        t.critical_rss_kb = 20 * 1024;
+        t.warn_rss_kb = 20 * 1024;
+        t.critical_rss_kb = 28 * 1024;
         t.warn_available_kb = 15 * 1024;
         t.critical_available_kb = 8 * 1024;
         t.growth_5min_kb = 1 * 1024;
@@ -43,6 +44,13 @@ MemoryThresholds MemoryThresholds::for_device(const MemoryInfo& info) {
         t.critical_available_kb = 24 * 1024;
         t.growth_5min_kb = 5 * 1024;
     }
+
+    // Hysteresis: clear thresholds at 90% of trigger for RSS,
+    // 110% of trigger for available (available must rise above clear to dismiss)
+    t.clear_warn_rss_kb = t.warn_rss_kb * 90 / 100;
+    t.clear_critical_rss_kb = t.critical_rss_kb * 90 / 100;
+    t.clear_warn_available_kb = t.warn_available_kb * 110 / 100;
+    t.clear_critical_available_kb = t.critical_available_kb * 110 / 100;
 
     return t;
 }
@@ -116,6 +124,25 @@ void MemoryMonitor::set_warning_callback(WarningCallback cb) {
     warning_callback_ = std::move(cb);
 }
 
+MemoryMonitor::PressureResponderId
+MemoryMonitor::add_pressure_responder(std::function<void(MemoryPressureLevel)> cb) {
+    std::lock_guard<std::mutex> lock(callback_mutex_);
+    auto id = next_responder_id_.fetch_add(1);
+    pressure_responders_.emplace_back(id, std::move(cb));
+    spdlog::debug("[MemoryMonitor] Registered pressure responder (id={})", id);
+    return id;
+}
+
+void MemoryMonitor::remove_pressure_responder(PressureResponderId id) {
+    std::lock_guard<std::mutex> lock(callback_mutex_);
+    auto it = std::remove_if(pressure_responders_.begin(), pressure_responders_.end(),
+                             [id](const auto& pair) { return pair.first == id; });
+    if (it != pressure_responders_.end()) {
+        pressure_responders_.erase(it, pressure_responders_.end());
+        spdlog::debug("[MemoryMonitor] Removed pressure responder (id={})", id);
+    }
+}
+
 MemoryStats MemoryMonitor::get_current_stats() {
     MemoryStats stats;
 
@@ -164,65 +191,122 @@ void MemoryMonitor::log_now(const char* context, spdlog::level::level_enum level
     }
 }
 
-void MemoryMonitor::evaluate_thresholds(const MemoryStats& stats) {
-    auto sys_info = get_system_memory_info();
+MemoryPressureLevel compute_pressure_level(const MemoryStats& stats,
+                                           const MemoryThresholds& thresholds,
+                                           MemoryPressureLevel current_level,
+                                           const MemoryInfo& sys_info, int64_t growth_kb) {
     MemoryPressureLevel level = MemoryPressureLevel::none;
-    std::string reason;
 
-    // Check RSS against thresholds (highest severity first)
-    if (stats.vm_rss_kb >= thresholds_.critical_rss_kb) {
+    // RSS thresholds — check escalations first, then hysteresis holds
+    if (stats.vm_rss_kb >= thresholds.critical_rss_kb) {
         level = MemoryPressureLevel::critical;
-        reason = fmt::format("RSS {}MB exceeds critical threshold {}MB", stats.vm_rss_kb / 1024,
-                             thresholds_.critical_rss_kb / 1024);
-    } else if (stats.vm_rss_kb >= thresholds_.warn_rss_kb) {
+    } else if (current_level >= MemoryPressureLevel::critical &&
+               stats.vm_rss_kb >= thresholds.clear_critical_rss_kb) {
+        level = MemoryPressureLevel::critical; // Hold critical — hasn't cleared
+    } else if (stats.vm_rss_kb >= thresholds.warn_rss_kb) {
         level = MemoryPressureLevel::warning;
-        reason = fmt::format("RSS {}MB exceeds warning threshold {}MB", stats.vm_rss_kb / 1024,
-                             thresholds_.warn_rss_kb / 1024);
+    } else if (current_level >= MemoryPressureLevel::warning &&
+               stats.vm_rss_kb >= thresholds.clear_warn_rss_kb) {
+        level = MemoryPressureLevel::warning; // Hold warning — hasn't cleared
     }
 
-    // Check available system memory (may escalate level)
+    // System available memory (may escalate level)
+    // Note: lower available_kb = worse, so clear thresholds are ABOVE trigger thresholds
     if (sys_info.available_kb > 0) {
-        if (sys_info.available_kb <= thresholds_.critical_available_kb &&
+        if (sys_info.available_kb <= thresholds.critical_available_kb &&
             level < MemoryPressureLevel::critical) {
             level = MemoryPressureLevel::critical;
-            reason = fmt::format("System available {}MB below critical threshold {}MB",
-                                 sys_info.available_mb(), thresholds_.critical_available_kb / 1024);
-        } else if (sys_info.available_kb <= thresholds_.warn_available_kb &&
+        } else if (current_level >= MemoryPressureLevel::critical &&
+                   sys_info.available_kb <= thresholds.clear_critical_available_kb &&
+                   level < MemoryPressureLevel::critical) {
+            level = MemoryPressureLevel::critical; // Hold critical
+        } else if (sys_info.available_kb <= thresholds.warn_available_kb &&
                    level < MemoryPressureLevel::warning) {
             level = MemoryPressureLevel::warning;
-            reason = fmt::format("System available {}MB below warning threshold {}MB",
-                                 sys_info.available_mb(), thresholds_.warn_available_kb / 1024);
+        } else if (current_level >= MemoryPressureLevel::warning &&
+                   sys_info.available_kb <= thresholds.clear_warn_available_kb &&
+                   level < MemoryPressureLevel::warning) {
+            level = MemoryPressureLevel::warning; // Hold warning
         }
     }
 
-    // Check growth rate (may trigger elevated)
+    // Growth rate (may trigger elevated)
+    if (growth_kb > static_cast<int64_t>(thresholds.growth_5min_kb)) {
+        if (level < MemoryPressureLevel::elevated) {
+            level = MemoryPressureLevel::elevated;
+        }
+    }
+
+    return level;
+}
+
+void MemoryMonitor::evaluate_thresholds(const MemoryStats& stats) {
+    // No meaningful stats on non-Linux — skip evaluation
+    if (stats.vm_rss_kb == 0 && stats.vm_size_kb == 0) {
+        return;
+    }
+
+    auto sys_info = get_system_memory_info();
+
+    // Compute smoothed growth from circular buffer
     int64_t growth_kb = 0;
     if (rss_history_count_ >= RSS_HISTORY_SIZE) {
-        size_t oldest_index = rss_history_index_; // Next slot is the oldest when full
-        growth_kb = static_cast<int64_t>(stats.vm_rss_kb) -
-                    static_cast<int64_t>(rss_history_[oldest_index]);
-
-        if (growth_kb > static_cast<int64_t>(thresholds_.growth_5min_kb)) {
-            if (level < MemoryPressureLevel::elevated) {
-                level = MemoryPressureLevel::elevated;
-                reason = fmt::format("RSS growth {:+}KB over 5 minutes exceeds threshold {}KB",
-                                     growth_kb, thresholds_.growth_5min_kb);
-            }
+        // Average of 3 oldest samples
+        size_t avg_oldest = 0;
+        for (size_t i = 0; i < 3; i++) {
+            avg_oldest += rss_history_[(rss_history_index_ + i) % RSS_HISTORY_SIZE];
         }
+        avg_oldest /= 3;
+
+        // Average of 3 newest samples (the 3 before rss_history_index_)
+        size_t avg_newest = 0;
+        for (size_t i = 1; i <= 3; i++) {
+            avg_newest +=
+                rss_history_[(rss_history_index_ + RSS_HISTORY_SIZE - i) % RSS_HISTORY_SIZE];
+        }
+        avg_newest /= 3;
+
+        growth_kb = static_cast<int64_t>(avg_newest) - static_cast<int64_t>(avg_oldest);
     }
+
+    auto current = pressure_level_.load();
+    MemoryPressureLevel level =
+        compute_pressure_level(stats, thresholds_, current, sys_info, growth_kb);
 
     // Update atomic level
     pressure_level_.store(level);
 
-    // Log and fire callback if we have a non-none level
+    // Rate-limited log and fire callback on non-none levels
     if (level != MemoryPressureLevel::none) {
-        // Rate limit: max 1 callback per level per 5 minutes
         auto now = std::chrono::steady_clock::now();
         int level_idx = static_cast<int>(level);
         if (now - last_warning_time_[level_idx] >= RATE_LIMIT_INTERVAL) {
             last_warning_time_[level_idx] = now;
 
-            // Log at appropriate severity
+            std::string reason;
+            if (stats.vm_rss_kb >= thresholds_.critical_rss_kb) {
+                reason = fmt::format("RSS {}MB exceeds critical threshold {}MB",
+                                     stats.vm_rss_kb / 1024, thresholds_.critical_rss_kb / 1024);
+            } else if (stats.vm_rss_kb >= thresholds_.warn_rss_kb) {
+                reason = fmt::format("RSS {}MB exceeds warning threshold {}MB",
+                                     stats.vm_rss_kb / 1024, thresholds_.warn_rss_kb / 1024);
+            } else if (sys_info.available_kb > 0 &&
+                       sys_info.available_kb <= thresholds_.critical_available_kb) {
+                reason =
+                    fmt::format("System available {}MB below critical threshold {}MB",
+                                sys_info.available_mb(), thresholds_.critical_available_kb / 1024);
+            } else if (sys_info.available_kb > 0 &&
+                       sys_info.available_kb <= thresholds_.warn_available_kb) {
+                reason = fmt::format("System available {}MB below warning threshold {}MB",
+                                     sys_info.available_mb(), thresholds_.warn_available_kb / 1024);
+            } else if (growth_kb > static_cast<int64_t>(thresholds_.growth_5min_kb)) {
+                reason = fmt::format("RSS growth {:+}KB over 5 minutes exceeds threshold {}KB",
+                                     growth_kb, thresholds_.growth_5min_kb);
+            } else {
+                reason = fmt::format("Pressure level {} held by hysteresis",
+                                     pressure_level_to_string(level));
+            }
+
             switch (level) {
             case MemoryPressureLevel::elevated:
                 spdlog::info("[MemoryMonitor] ELEVATED: {}", reason);
@@ -237,27 +321,44 @@ void MemoryMonitor::evaluate_thresholds(const MemoryStats& stats) {
                 break;
             }
 
-            fire_warning(level, reason, stats, growth_kb);
+            fire_warning(level, reason, stats, sys_info, growth_kb);
         }
     }
 }
 
 void MemoryMonitor::fire_warning(MemoryPressureLevel level, const std::string& reason,
-                                 const MemoryStats& stats, int64_t growth_kb) {
-    std::lock_guard<std::mutex> lock(callback_mutex_);
-    if (!warning_callback_) {
-        return;
-    }
-
+                                 const MemoryStats& stats, const MemoryInfo& sys_info,
+                                 int64_t growth_kb) {
+    // Build event and read smaps BEFORE acquiring the lock (smaps_rollup can be slow)
     MemoryWarningEvent event;
     event.level = level;
     event.reason = reason;
     event.stats = stats;
-    event.system_info = get_system_memory_info();
+    event.system_info = sys_info;
     event.growth_5min_kb = growth_kb;
     read_smaps_rollup(event.smaps);
 
-    warning_callback_(event);
+    // Copy callbacks under lock, then invoke outside to minimize hold time
+    WarningCallback warning_cb;
+    std::vector<std::pair<PressureResponderId, std::function<void(MemoryPressureLevel)>>>
+        responders;
+    {
+        std::lock_guard<std::mutex> lock(callback_mutex_);
+        warning_cb = warning_callback_;
+        responders = pressure_responders_;
+    }
+
+    if (warning_cb) {
+        warning_cb(event);
+    }
+
+    for (const auto& [id, responder] : responders) {
+        try {
+            responder(level);
+        } catch (const std::exception& e) {
+            spdlog::error("[MemoryMonitor] Pressure responder {} threw: {}", id, e.what());
+        }
+    }
 }
 
 void MemoryMonitor::monitor_loop() {

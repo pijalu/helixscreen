@@ -23,7 +23,7 @@
 namespace helix {
 
 void register_power_widget() {
-    register_widget_factory("power", []() {
+    register_widget_factory("power", [](const std::string&) {
         auto* api = PanelWidgetManager::instance().shared_resource<MoonrakerAPI>();
         return std::make_unique<PowerWidget>(api);
     });

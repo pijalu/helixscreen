@@ -21,7 +21,7 @@
 
 namespace helix {
 void register_temperature_widget() {
-    register_widget_factory("temperature", []() {
+    register_widget_factory("temperature", [](const std::string&) {
         auto& ps = get_printer_state();
         auto* tcp = PanelWidgetManager::instance().shared_resource<TempControlPanel>();
         return std::make_unique<TemperatureWidget>(ps, tcp);

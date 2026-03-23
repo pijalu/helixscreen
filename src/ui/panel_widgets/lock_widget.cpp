@@ -3,17 +3,19 @@
 
 #include "lock_widget.h"
 
-#include "lock_manager.h"
-#include "panel_widget.h"
-#include "panel_widget_manager.h"
-#include "panel_widget_registry.h"
 #include "ui_callback_helpers.h"
 #include "ui_event_safety.h"
 #include "ui_lock_screen.h"
 #include "ui_settings_security.h"
 
-#include <lvgl.h>
+#include "lock_manager.h"
+#include "panel_widget.h"
+#include "panel_widget_manager.h"
+#include "panel_widget_registry.h"
+
 #include <spdlog/spdlog.h>
+
+#include <lvgl.h>
 
 // ============================================================================
 // Module-level subject (no PIN state needed in widget — LockManager owns it)
@@ -31,7 +33,9 @@ namespace helix {
 class LockWidget : public PanelWidget {
   public:
     LockWidget() = default;
-    ~LockWidget() override { detach(); }
+    ~LockWidget() override {
+        detach();
+    }
 
     void attach(lv_obj_t* widget_obj, lv_obj_t* parent_screen) override {
         (void)parent_screen;
@@ -42,7 +46,9 @@ class LockWidget : public PanelWidget {
         widget_obj_ = nullptr;
     }
 
-    const char* id() const override { return "lock"; }
+    const char* id() const override {
+        return "lock";
+    }
 
   private:
     lv_obj_t* widget_obj_ = nullptr;
@@ -53,7 +59,8 @@ class LockWidget : public PanelWidget {
 // ============================================================================
 
 void register_lock_widget() {
-    register_widget_factory("lock", []() { return std::make_unique<LockWidget>(); });
+    register_widget_factory("lock",
+                            [](const std::string&) { return std::make_unique<LockWidget>(); });
 
     // Register XML event callback before any XML is parsed
     lv_xml_register_event_cb(nullptr, "lock_screen_clicked_cb", lock_screen_clicked_cb);

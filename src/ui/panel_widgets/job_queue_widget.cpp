@@ -46,7 +46,8 @@ static void job_queue_widget_init_subjects() {
 
 namespace helix {
 void register_job_queue_widget() {
-    register_widget_factory("job_queue", []() { return std::make_unique<JobQueueWidget>(); });
+    register_widget_factory("job_queue",
+                            [](const std::string&) { return std::make_unique<JobQueueWidget>(); });
     register_widget_subjects("job_queue", job_queue_widget_init_subjects);
 
     // Register click callback for opening the modal (L039: unique name)
@@ -56,7 +57,8 @@ void register_job_queue_widget() {
         while (obj && !lv_obj_get_user_data(obj)) {
             obj = lv_obj_get_parent(obj);
         }
-        if (!obj) return;
+        if (!obj)
+            return;
         auto* widget = static_cast<JobQueueWidget*>(lv_obj_get_user_data(obj));
         if (widget) {
             widget->open_modal();
@@ -100,16 +102,19 @@ void JobQueueWidget::attach(lv_obj_t* widget_obj, lv_obj_t* parent_screen) {
                         JobQueueWidget* self;
                     };
                     auto* ctx = new RebuildCtx{self->alive_guard_, self};
-                    lv_async_call([](void* data) {
-                        auto* ctx = static_cast<RebuildCtx*>(data);
-                        auto guard = ctx->alive.lock();
-                        auto* widget = ctx->self;
-                        delete ctx;
-                        if (!guard || !*guard) return;
-                        widget->list_rebuild_pending_ = false;
-                        if (widget->job_list_container_)
-                            widget->rebuild_job_list();
-                    }, ctx);
+                    lv_async_call(
+                        [](void* data) {
+                            auto* ctx = static_cast<RebuildCtx*>(data);
+                            auto guard = ctx->alive.lock();
+                            auto* widget = ctx->self;
+                            delete ctx;
+                            if (!guard || !*guard)
+                                return;
+                            widget->list_rebuild_pending_ = false;
+                            if (widget->job_list_container_)
+                                widget->rebuild_job_list();
+                        },
+                        ctx);
                 }
             });
     }
@@ -148,7 +153,8 @@ void JobQueueWidget::on_deactivate() {
     // Nothing needed — no timer to stop
 }
 
-void JobQueueWidget::on_size_changed(int colspan, int rowspan, int /*width_px*/, int /*height_px*/) {
+void JobQueueWidget::on_size_changed(int colspan, int rowspan, int /*width_px*/,
+                                     int /*height_px*/) {
     // Determine size mode based on grid span
     int mode;
     if (colspan < 2 || rowspan < 2) {
@@ -169,7 +175,8 @@ void JobQueueWidget::on_size_changed(int colspan, int rowspan, int /*width_px*/,
 }
 
 void JobQueueWidget::rebuild_job_list() {
-    if (!job_list_container_) return;
+    if (!job_list_container_)
+        return;
 
     // Clear existing children
     lv_obj_clean(job_list_container_);
@@ -192,7 +199,8 @@ void JobQueueWidget::rebuild_job_list() {
         }
     }
 
-    if (!has_jobs || !show_list) return;
+    if (!has_jobs || !show_list)
+        return;
 
     const auto& jobs = jqs->get_jobs();
     const lv_font_t* item_font = theme_manager_get_font("font_small");
@@ -250,6 +258,7 @@ void JobQueueWidget::rebuild_job_list() {
 }
 
 void JobQueueWidget::open_modal() {
-    if (!parent_screen_) return;
+    if (!parent_screen_)
+        return;
     job_queue_modal_.show(parent_screen_);
 }

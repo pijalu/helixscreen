@@ -173,15 +173,32 @@ GCodeStreamingController::GCodeStreamingController()
                  "using {}MB cache budget{}",
                  tier_name, mem.total_mb(), mem.available_mb(), budget / (1024 * 1024),
                  mem.is_good_device() ? "" : " with adaptive mode");
+
+    register_memory_responder();
 }
 
 GCodeStreamingController::GCodeStreamingController(size_t cache_budget_bytes)
     : cache_(std::max(cache_budget_bytes, MIN_CACHE_BUDGET)) {
     spdlog::debug("[StreamingController] Created with {:.1f}MB cache budget",
                   static_cast<double>(cache_budget_bytes) / (1024 * 1024));
+    register_memory_responder();
+}
+
+void GCodeStreamingController::register_memory_responder() {
+    memory_responder_id_ = helix::MemoryMonitor::instance().add_pressure_responder(
+        [this](helix::MemoryPressureLevel level) {
+            if (level >= helix::MemoryPressureLevel::warning) {
+                respond_to_memory_pressure();
+            }
+        });
 }
 
 GCodeStreamingController::~GCodeStreamingController() {
+    if (memory_responder_id_ != 0) {
+        helix::MemoryMonitor::instance().remove_pressure_responder(memory_responder_id_);
+        memory_responder_id_ = 0;
+    }
+
     // Wait for any async indexing to complete
     if (index_future_.valid()) {
         indexing_.store(false); // Signal cancellation

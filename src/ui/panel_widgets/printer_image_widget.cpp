@@ -73,8 +73,8 @@ static void printer_image_widget_init_subjects() {
 
 namespace helix {
 void register_printer_image_widget() {
-    register_widget_factory("printer_image",
-                            []() { return std::make_unique<PrinterImageWidget>(); });
+    register_widget_factory(
+        "printer_image", [](const std::string&) { return std::make_unique<PrinterImageWidget>(); });
     register_widget_subjects("printer_image", printer_image_widget_init_subjects);
 
     // Register XML event callbacks at startup (before any XML is parsed)
@@ -158,7 +158,8 @@ void PrinterImageWidget::reload_from_config() {
     }
 
     // Update printer type in PrinterState (triggers capability cache refresh)
-    std::string printer_type = config->get<std::string>(config->df() + helix::wizard::PRINTER_TYPE, "");
+    std::string printer_type =
+        config->get<std::string>(config->df() + helix::wizard::PRINTER_TYPE, "");
     get_printer_state().set_printer_type_sync(printer_type);
 
     // Update printer image

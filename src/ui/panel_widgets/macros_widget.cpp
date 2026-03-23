@@ -4,10 +4,10 @@
 #include "macros_widget.h"
 
 #include "ui_event_safety.h"
-#include "ui/ui_lazy_panel_helper.h"
 #include "ui_panel_macros.h"
 
 #include "panel_widget_registry.h"
+#include "ui/ui_lazy_panel_helper.h"
 
 #include <spdlog/spdlog.h>
 
@@ -15,10 +15,9 @@ namespace helix {
 
 void register_macros_widget() {
     register_widget_factory("macros",
-                            []() { return std::make_unique<MacrosWidget>(); });
+                            [](const std::string&) { return std::make_unique<MacrosWidget>(); });
 
-    lv_xml_register_event_cb(nullptr, "macros_widget_clicked_cb",
-                             MacrosWidget::clicked_cb);
+    lv_xml_register_event_cb(nullptr, "macros_widget_clicked_cb", MacrosWidget::clicked_cb);
 }
 
 MacrosWidget::MacrosWidget() = default;
@@ -48,8 +47,7 @@ void MacrosWidget::detach() {
 
 void MacrosWidget::handle_click() {
     helix::ui::lazy_create_and_push_overlay<MacrosPanel>(
-        get_global_macros_panel, macros_panel_, parent_screen_, "Macros",
-        "MacrosWidget", true);
+        get_global_macros_panel, macros_panel_, parent_screen_, "Macros", "MacrosWidget", true);
 }
 
 void MacrosWidget::clicked_cb(lv_event_t* e) {

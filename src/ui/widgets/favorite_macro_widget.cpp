@@ -3,7 +3,6 @@
 
 #include "favorite_macro_widget.h"
 
-#include "macro_executor.h"
 #include "ui_event_safety.h"
 #include "ui_fonts.h"
 #include "ui_icon.h"
@@ -14,6 +13,7 @@
 #include "app_globals.h"
 #include "device_display_name.h"
 #include "lvgl/src/others/translation/lv_translation.h"
+#include "macro_executor.h"
 #include "moonraker_api.h"
 #include "panel_widget_registry.h"
 #include "theme_manager.h"
@@ -28,13 +28,11 @@ namespace helix {
 void register_favorite_macro_widgets() {
     for (int i = 1; i <= kMaxFavoriteMacroSlots; ++i) {
         std::string id = "favorite_macro_" + std::to_string(i);
-        register_widget_factory(id, [id]() {
-            return std::make_unique<FavoriteMacroWidget>(id);
-        });
+        register_widget_factory(
+            id, [id](const std::string&) { return std::make_unique<FavoriteMacroWidget>(id); });
     }
     // Register XML callbacks early — before any XML is parsed
-    lv_xml_register_event_cb(nullptr, "favorite_macro_clicked_cb",
-                             FavoriteMacroWidget::clicked_cb);
+    lv_xml_register_event_cb(nullptr, "favorite_macro_clicked_cb", FavoriteMacroWidget::clicked_cb);
     lv_xml_register_event_cb(nullptr, "fav_macro_picker_backdrop_cb",
                              FavoriteMacroWidget::picker_backdrop_cb);
     lv_xml_register_event_cb(nullptr, "fav_macro_picker_done_cb",
@@ -46,11 +44,11 @@ namespace {
 
 // Curated icon list for the picker grid (verified against ui_icon_codepoints.h)
 static const char* const kCuratedIcons[] = {
-    "play",       "pause",     "stop",              "refresh",   "home",
-    "cog",        "wrench",    "fan",               "thermometer", "lightbulb_outline",
-    "power",      "bell",      "flash",             "water",     "fire",
-    "printer_3d", "check",     "bed",               "filament",  "cooldown",
-    "script_text","hourglass", "speed",             "arrow_up",  "arrow_down",
+    "play",        "pause",     "stop",  "refresh",     "home",
+    "cog",         "wrench",    "fan",   "thermometer", "lightbulb_outline",
+    "power",       "bell",      "flash", "water",       "fire",
+    "printer_3d",  "check",     "bed",   "filament",    "cooldown",
+    "script_text", "hourglass", "speed", "arrow_up",    "arrow_down",
 };
 static constexpr size_t kCuratedIconCount = std::size(kCuratedIcons);
 
@@ -58,22 +56,22 @@ static constexpr size_t kCuratedIconCount = std::size(kCuratedIcons);
 // First entry (0) = sentinel for theme secondary (default).
 // 4×4 grid: rainbow row 1, rainbow row 2, warm/cool accents, neutrals.
 static constexpr uint32_t kIconColors[] = {
-    0xE53935,  // Red
-    0xFF5722,  // Deep Orange
-    0xFF9800,  // Orange
-    0xFFC107,  // Amber
-    0xFFEB3B,  // Yellow
-    0x8BC34A,  // Lime
-    0x43A047,  // Green
-    0x009688,  // Teal
-    0x00BCD4,  // Cyan
-    0x1E88E5,  // Blue
-    0x3F51B5,  // Indigo
-    0x7B1FA2,  // Purple
-    0xE91E63,  // Pink
-    0xFFFFFF,  // White
-    0x808080,  // Gray
-    0x000000,  // sentinel: theme default (secondary variant)
+    0xE53935, // Red
+    0xFF5722, // Deep Orange
+    0xFF9800, // Orange
+    0xFFC107, // Amber
+    0xFFEB3B, // Yellow
+    0x8BC34A, // Lime
+    0x43A047, // Green
+    0x009688, // Teal
+    0x00BCD4, // Cyan
+    0x1E88E5, // Blue
+    0x3F51B5, // Indigo
+    0x7B1FA2, // Purple
+    0xE91E63, // Pink
+    0xFFFFFF, // White
+    0x808080, // Gray
+    0x000000, // sentinel: theme default (secondary variant)
 };
 static constexpr size_t kIconColorCount = std::size(kIconColors);
 
@@ -293,8 +291,7 @@ void FavoriteMacroWidget::fetch_and_execute() {
         if (parent_screen_) {
             std::weak_ptr<bool> weak_alive = alive_;
             get_shared_param_modal().show_for_unknown_params(
-                parent_screen_, macro_name_,
-                [this, weak_alive](const MacroParamResult& result) {
+                parent_screen_, macro_name_, [this, weak_alive](const MacroParamResult& result) {
                     if (weak_alive.expired())
                         return;
                     execute_with_params(result);
@@ -478,7 +475,7 @@ void FavoriteMacroWidget::select_color(uint32_t color) {
 }
 
 void FavoriteMacroWidget::populate_macro_list(lv_obj_t* list,
-                                               const std::vector<std::string>& macros) {
+                                              const std::vector<std::string>& macros) {
     int space_xs = resolve_space_token("space_xs", 4);
     int space_sm = resolve_space_token("space_sm", 6);
 
@@ -494,8 +491,7 @@ void FavoriteMacroWidget::populate_macro_list(lv_obj_t* list,
         lv_obj_set_style_pad_all(row, space_sm, 0);
         lv_obj_set_style_pad_gap(row, space_xs, 0);
         lv_obj_set_flex_flow(row, LV_FLEX_FLOW_ROW);
-        lv_obj_set_flex_align(row, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER,
-                              LV_FLEX_ALIGN_CENTER);
+        lv_obj_set_flex_align(row, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
         lv_obj_remove_flag(row, LV_OBJ_FLAG_SCROLLABLE);
         lv_obj_add_flag(row, LV_OBJ_FLAG_CLICKABLE);
 
@@ -523,8 +519,7 @@ void FavoriteMacroWidget::populate_macro_list(lv_obj_t* list,
 
         // Free heap string when row is deleted
         lv_obj_add_event_cb(
-            row,
-            [](lv_event_t* e) { delete static_cast<std::string*>(lv_event_get_user_data(e)); },
+            row, [](lv_event_t* e) { delete static_cast<std::string*>(lv_event_get_user_data(e)); },
             LV_EVENT_DELETE, macro_name_copy);
 
         // Click no longer auto-dismisses — picker stays open for icon/color selection
@@ -587,8 +582,8 @@ void FavoriteMacroWidget::populate_icon_grid(lv_obj_t* grid) {
             [](lv_event_t* e) {
                 LVGL_SAFE_EVENT_CB_BEGIN("[FavoriteMacroWidget] icon_cell_cb");
                 auto* target = static_cast<lv_obj_t*>(lv_event_get_current_target(e));
-                auto idx = static_cast<size_t>(
-                    reinterpret_cast<intptr_t>(lv_obj_get_user_data(target)));
+                auto idx =
+                    static_cast<size_t>(reinterpret_cast<intptr_t>(lv_obj_get_user_data(target)));
                 if (idx < kCuratedIconCount && FavoriteMacroWidget::s_active_picker_) {
                     FavoriteMacroWidget::s_active_picker_->select_icon(kCuratedIcons[idx]);
                 }
@@ -658,10 +653,9 @@ void FavoriteMacroWidget::refresh_picker_highlights() {
         uint32_t count = lv_obj_get_child_count(picker_icon_grid_);
         for (uint32_t i = 0; i < count; ++i) {
             lv_obj_t* cell = lv_obj_get_child(picker_icon_grid_, i);
-            auto idx = static_cast<size_t>(
-                reinterpret_cast<intptr_t>(lv_obj_get_user_data(cell)));
-            apply_icon_cell_highlight(
-                cell, idx < kCuratedIconCount && kCuratedIcons[idx] == effective);
+            auto idx = static_cast<size_t>(reinterpret_cast<intptr_t>(lv_obj_get_user_data(cell)));
+            apply_icon_cell_highlight(cell,
+                                      idx < kCuratedIconCount && kCuratedIcons[idx] == effective);
         }
     }
 
@@ -670,8 +664,8 @@ void FavoriteMacroWidget::refresh_picker_highlights() {
         uint32_t count = lv_obj_get_child_count(picker_color_grid_);
         for (uint32_t i = 0; i < count; ++i) {
             lv_obj_t* swatch = lv_obj_get_child(picker_color_grid_, i);
-            auto color = static_cast<uint32_t>(
-                reinterpret_cast<uintptr_t>(lv_obj_get_user_data(swatch)));
+            auto color =
+                static_cast<uint32_t>(reinterpret_cast<uintptr_t>(lv_obj_get_user_data(swatch)));
             apply_color_swatch_highlight(swatch, color == icon_color_);
         }
     }

@@ -3,12 +3,13 @@
 
 #include "clock_widget.h"
 
+#include "ui_format_utils.h"
+
 #include "locale_formats.h"
 #include "panel_widget_registry.h"
 #include "static_subject_registry.h"
 #include "subject_debug_registry.h"
 #include "theme_manager.h"
-#include "ui_format_utils.h"
 
 #include <spdlog/spdlog.h>
 
@@ -111,7 +112,8 @@ static void clock_widget_init_subjects() {
 
 namespace helix {
 void register_clock_widget() {
-    register_widget_factory("clock", []() { return std::make_unique<ClockWidget>(); });
+    register_widget_factory("clock",
+                            [](const std::string&) { return std::make_unique<ClockWidget>(); });
     register_widget_subjects("clock", clock_widget_init_subjects);
 }
 } // namespace helix
@@ -159,7 +161,8 @@ void ClockWidget::on_activate() {
 
     if (!clock_timer_) {
         clock_timer_ = lv_timer_create(clock_timer_cb, CLOCK_UPDATE_INTERVAL_MS, this);
-        spdlog::debug("[ClockWidget] Started clock timer ({}ms interval)", CLOCK_UPDATE_INTERVAL_MS);
+        spdlog::debug("[ClockWidget] Started clock timer ({}ms interval)",
+                      CLOCK_UPDATE_INTERVAL_MS);
     }
 }
 

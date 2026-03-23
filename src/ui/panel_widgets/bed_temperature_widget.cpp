@@ -21,7 +21,7 @@
 
 namespace helix {
 void register_bed_temperature_widget() {
-    register_widget_factory("bed_temperature", []() {
+    register_widget_factory("bed_temperature", [](const std::string&) {
         auto& ps = get_printer_state();
         auto* tcp = PanelWidgetManager::instance().shared_resource<TempControlPanel>();
         return std::make_unique<BedTemperatureWidget>(ps, tcp);
@@ -36,7 +36,8 @@ void register_bed_temperature_widget() {
 using namespace helix;
 using helix::ui::temperature::centi_to_degrees;
 
-BedTemperatureWidget::BedTemperatureWidget(PrinterState& printer_state, TempControlPanel* temp_panel)
+BedTemperatureWidget::BedTemperatureWidget(PrinterState& printer_state,
+                                           TempControlPanel* temp_panel)
     : printer_state_(printer_state), temp_control_panel_(temp_panel) {}
 
 BedTemperatureWidget::~BedTemperatureWidget() {
@@ -122,7 +123,8 @@ void BedTemperatureWidget::update_temp_icon_animation() {
 }
 
 void BedTemperatureWidget::handle_temp_clicked() {
-    spdlog::info("[BedTemperatureWidget] Bed temperature icon clicked - opening temp graph overlay");
+    spdlog::info(
+        "[BedTemperatureWidget] Bed temperature icon clicked - opening temp graph overlay");
     get_global_temp_graph_overlay().open(TempGraphOverlay::Mode::Bed, parent_screen_);
 }
 
@@ -133,7 +135,8 @@ void BedTemperatureWidget::bed_temp_clicked_cb(lv_event_t* e) {
     if (self) {
         self->handle_temp_clicked();
     } else {
-        spdlog::warn("[BedTemperatureWidget] bed_temp_clicked_cb: could not recover widget instance");
+        spdlog::warn(
+            "[BedTemperatureWidget] bed_temp_clicked_cb: could not recover widget instance");
     }
     LVGL_SAFE_EVENT_CB_END();
 }

@@ -26,6 +26,7 @@
 #include <mutex>
 #include <string>
 #include <thread>
+#include <vector>
 
 namespace helix {
 
@@ -43,6 +44,11 @@ struct MemoryThresholds {
     size_t warn_available_kb = 0;
     size_t critical_available_kb = 0;
     size_t growth_5min_kb = 0; ///< Max acceptable RSS growth over 5 minutes
+
+    size_t clear_warn_rss_kb = 0;
+    size_t clear_critical_rss_kb = 0;
+    size_t clear_warn_available_kb = 0;
+    size_t clear_critical_available_kb = 0;
 
     /// Build thresholds appropriate for the device tier
     static MemoryThresholds for_device(const MemoryInfo& info);
@@ -124,6 +130,27 @@ class MemoryMonitor {
      */
     void set_warning_callback(WarningCallback cb);
 
+    /// Unique ID for a registered pressure responder
+    using PressureResponderId = uint32_t;
+
+    /**
+     * @brief Register a pressure responder callback
+     *
+     * Called from the monitor thread when a threshold is breached.
+     * Responders receive only the pressure level (not full diagnostic data).
+     * Must be thread-safe — called with callback_mutex_ held.
+     *
+     * @return ID for later removal
+     */
+    PressureResponderId add_pressure_responder(std::function<void(MemoryPressureLevel)> cb);
+
+    /**
+     * @brief Remove a previously registered pressure responder
+     *
+     * Blocks if a callback is currently in flight (holds callback_mutex_).
+     */
+    void remove_pressure_responder(PressureResponderId id);
+
     /**
      * @brief Get current memory pressure level (lock-free)
      */
@@ -141,7 +168,7 @@ class MemoryMonitor {
     void monitor_loop();
     void evaluate_thresholds(const MemoryStats& stats);
     void fire_warning(MemoryPressureLevel level, const std::string& reason,
-                      const MemoryStats& stats, int64_t growth_kb);
+                      const MemoryStats& stats, const MemoryInfo& sys_info, int64_t growth_kb);
 
     std::atomic<bool> running_{false};
     std::atomic<int> interval_ms_{5000};
@@ -152,6 +179,9 @@ class MemoryMonitor {
     std::atomic<MemoryPressureLevel> pressure_level_{MemoryPressureLevel::none};
     WarningCallback warning_callback_;
     std::mutex callback_mutex_;
+    std::vector<std::pair<PressureResponderId, std::function<void(MemoryPressureLevel)>>>
+        pressure_responders_;
+    std::atomic<uint32_t> next_responder_id_{1};
 
     // Growth tracking: circular buffer of RSS samples at 30s intervals (5-min window)
     static constexpr size_t RSS_HISTORY_SIZE = 10;
@@ -166,5 +196,11 @@ class MemoryMonitor {
 };
 
 const char* pressure_level_to_string(MemoryPressureLevel level);
+
+/// Compute pressure level from stats — extracted for testability
+MemoryPressureLevel compute_pressure_level(const MemoryStats& stats,
+                                           const MemoryThresholds& thresholds,
+                                           MemoryPressureLevel current_level,
+                                           const MemoryInfo& sys_info, int64_t growth_kb);
 
 } // namespace helix

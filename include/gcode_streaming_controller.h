@@ -483,6 +483,9 @@ class GCodeStreamingController {
 
     // Empty stats for when not open
     static const LayerIndexStats empty_stats_;
+
+    void register_memory_responder();
+    uint32_t memory_responder_id_{0};
 };
 
 } // namespace gcode

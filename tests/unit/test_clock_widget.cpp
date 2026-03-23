@@ -1,15 +1,15 @@
 // Copyright (C) 2025-2026 356C LLC
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-#include "../lvgl_test_fixture.h"
-#include "src/ui/panel_widgets/clock_widget.h"
-#include "panel_widget_manager.h"
-#include "panel_widget_registry.h"
+#include "ui_format_utils.h"
 
+#include "../lvgl_test_fixture.h"
 #include "format_utils.h"
 #include "locale_formats.h"
+#include "panel_widget_manager.h"
+#include "panel_widget_registry.h"
+#include "src/ui/panel_widgets/clock_widget.h"
 #include "system_settings_manager.h"
-#include "ui_format_utils.h"
 
 #include "../catch_amalgamated.hpp"
 
@@ -50,13 +50,12 @@ TEST_CASE_METHOD(ClockWidgetFixture, "ClockWidget: factory registration", "[cloc
     REQUIRE(def != nullptr);
     REQUIRE(def->factory != nullptr);
 
-    auto widget = def->factory();
+    auto widget = def->factory("clock");
     REQUIRE(widget != nullptr);
     REQUIRE(std::string(widget->id()) == "clock");
 }
 
-TEST_CASE_METHOD(ClockWidgetFixture, "ClockWidget: attach sets user_data",
-                 "[clock_widget]") {
+TEST_CASE_METHOD(ClockWidgetFixture, "ClockWidget: attach sets user_data", "[clock_widget]") {
     ClockWidget widget;
     lv_obj_t* container = create_mock_clock(test_screen());
 
@@ -67,8 +66,7 @@ TEST_CASE_METHOD(ClockWidgetFixture, "ClockWidget: attach sets user_data",
     REQUIRE(lv_obj_get_user_data(container) == nullptr);
 }
 
-TEST_CASE_METHOD(ClockWidgetFixture, "ClockWidget: timer lifecycle",
-                 "[clock_widget]") {
+TEST_CASE_METHOD(ClockWidgetFixture, "ClockWidget: timer lifecycle", "[clock_widget]") {
     ClockWidget widget;
     lv_obj_t* container = create_mock_clock(test_screen());
     widget.attach(container, test_screen());
@@ -119,8 +117,7 @@ TEST_CASE_METHOD(ClockWidgetFixture, "ClockWidget: timer lifecycle",
     widget.detach();
 }
 
-TEST_CASE_METHOD(ClockWidgetFixture, "ClockWidget: detach stops timer",
-                 "[clock_widget]") {
+TEST_CASE_METHOD(ClockWidgetFixture, "ClockWidget: detach stops timer", "[clock_widget]") {
     ClockWidget widget;
     lv_obj_t* container = create_mock_clock(test_screen());
     widget.attach(container, test_screen());
@@ -193,7 +190,7 @@ TEST_CASE("Locale date formatting", "[clock_widget][i18n]") {
     test_tm.tm_mday = 28;
     test_tm.tm_hour = 14;
     test_tm.tm_min = 30;
-    test_tm.tm_wday = 5;   // Friday (0=Sunday)
+    test_tm.tm_wday = 5; // Friday (0=Sunday)
 
     SECTION("English: Day, Mon DD") {
         helix::SystemSettingsManager::instance().set_language("en");
@@ -257,10 +254,8 @@ TEST_CASE("Locale date formatting: all months cycle", "[clock_widget][i18n]") {
     helix::ui::locale_set_language("en");
 
     // Verify all 12 months produce correct English abbreviations
-    const char* expected_months[] = {
-        "Jan", "Feb", "Mar", "Apr", "May", "Jun",
-        "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
-    };
+    const char* expected_months[] = {"Jan", "Feb", "Mar", "Apr", "May", "Jun",
+                                     "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"};
 
     for (int m = 0; m < 12; ++m) {
         struct tm test_tm = {};
@@ -327,7 +322,7 @@ TEST_CASE("Locale date formatting: Spanish and Portuguese", "[clock_widget][i18n
 TEST_CASE("Locale modified date formatting", "[clock_widget][i18n]") {
     struct tm test_tm = {};
     test_tm.tm_year = 126;
-    test_tm.tm_mon = 1;    // February
+    test_tm.tm_mon = 1; // February
     test_tm.tm_mday = 28;
     test_tm.tm_hour = 14;
     test_tm.tm_min = 30;
@@ -440,7 +435,7 @@ TEST_CASE("Locale default 24h", "[clock_widget][i18n]") {
     REQUIRE(helix::ui::locale_default_24h("ja"));
     REQUIRE(helix::ui::locale_default_24h("zh"));
     REQUIRE_FALSE(helix::ui::locale_default_24h("xx")); // unknown = en default
-    REQUIRE_FALSE(helix::ui::locale_default_24h(""));    // empty = en default
+    REQUIRE_FALSE(helix::ui::locale_default_24h(""));   // empty = en default
 }
 
 TEST_CASE("Locale set language caching", "[clock_widget][i18n]") {

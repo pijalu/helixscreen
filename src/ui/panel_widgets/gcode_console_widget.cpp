@@ -4,21 +4,20 @@
 #include "gcode_console_widget.h"
 
 #include "ui_event_safety.h"
-#include "ui/ui_lazy_panel_helper.h"
 #include "ui_panel_console.h"
 
 #include "panel_widget_registry.h"
+#include "ui/ui_lazy_panel_helper.h"
 
 #include <spdlog/spdlog.h>
 
 namespace helix {
 
 void register_gcode_console_widget() {
-    register_widget_factory("gcode_console",
-                            []() { return std::make_unique<GCodeConsoleWidget>(); });
+    register_widget_factory(
+        "gcode_console", [](const std::string&) { return std::make_unique<GCodeConsoleWidget>(); });
 
-    lv_xml_register_event_cb(nullptr, "gcode_console_clicked_cb",
-                             GCodeConsoleWidget::clicked_cb);
+    lv_xml_register_event_cb(nullptr, "gcode_console_clicked_cb", GCodeConsoleWidget::clicked_cb);
 }
 
 GCodeConsoleWidget::GCodeConsoleWidget() = default;
@@ -47,9 +46,9 @@ void GCodeConsoleWidget::detach() {
 }
 
 void GCodeConsoleWidget::handle_click() {
-    helix::ui::lazy_create_and_push_overlay<ConsolePanel>(
-        get_global_console_panel, console_panel_, parent_screen_, "Console",
-        "GCodeConsoleWidget", true);
+    helix::ui::lazy_create_and_push_overlay<ConsolePanel>(get_global_console_panel, console_panel_,
+                                                          parent_screen_, "Console",
+                                                          "GCodeConsoleWidget", true);
 }
 
 void GCodeConsoleWidget::clicked_cb(lv_event_t* e) {
