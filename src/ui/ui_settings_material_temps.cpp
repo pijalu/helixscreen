@@ -3,6 +3,10 @@
 
 #include "ui_settings_material_temps.h"
 
+#include "app_globals.h"
+#include "device_display_name.h"
+#include "moonraker_api.h"
+#include "ui_button.h"
 #include "ui_callback_helpers.h"
 #include "ui_event_safety.h"
 #include "ui_nav_manager.h"
@@ -49,6 +53,7 @@ MaterialTempsOverlay::MaterialTempsOverlay() {
 
 MaterialTempsOverlay::~MaterialTempsOverlay() {
     if (subjects_initialized_ && lv_is_initialized()) {
+        lv_subject_deinit(&has_macro_subject_);
         lv_subject_deinit(&editing_subject_);
         lv_subject_deinit(&edit_name_subject_);
         lv_subject_deinit(&edit_defaults_subject_);
@@ -80,6 +85,9 @@ void MaterialTempsOverlay::init_subjects() {
                            sizeof(edit_defaults_buf_), edit_defaults_buf_);
     lv_xml_register_subject(nullptr, "material_edit_defaults", &edit_defaults_subject_);
 
+    lv_subject_init_int(&has_macro_subject_, 0);
+    lv_xml_register_subject(nullptr, "material_has_macro", &has_macro_subject_);
+
     subjects_initialized_ = true;
     spdlog::debug("[{}] Subjects initialized", get_name());
 }
@@ -88,6 +96,7 @@ void MaterialTempsOverlay::register_callbacks() {
     register_xml_callbacks({
         {"on_material_save", on_material_save},
         {"on_material_reset_defaults", on_material_reset_defaults},
+        {"on_open_macro_picker", on_open_macro_picker},
     });
 
     spdlog::debug("[{}] Callbacks registered", get_name());
@@ -115,6 +124,11 @@ lv_obj_t* MaterialTempsOverlay::create(lv_obj_t* parent) {
     // Cache view refs
     list_view_ = lv_obj_find_by_name(overlay_root_, "material_list_view");
     edit_view_ = lv_obj_find_by_name(overlay_root_, "material_edit_view");
+
+    if (edit_view_) {
+        macro_picker_btn_ = lv_obj_find_by_name(edit_view_, "macro_picker_btn");
+        macro_heating_switch_ = lv_obj_find_by_name(edit_view_, "macro_heating_switch");
+    }
 
     // Rewire back button to intercept when in edit view
     // Exception to "NO lv_obj_add_event_cb" rule: need to intercept back for view switching
@@ -317,6 +331,23 @@ void MaterialTempsOverlay::show_edit_view(const std::string& material_name) {
         }
     }
 
+    // Populate macro state
+    selected_macro_.clear();
+    bool switch_on = true; // Default: macro handles heating
+    if (ovr && ovr->preheat_macro && !ovr->preheat_macro->empty()) {
+        selected_macro_ = *ovr->preheat_macro;
+        switch_on = ovr->macro_handles_heating.value_or(true);
+    }
+    populate_macro_picker_btn();
+
+    if (macro_heating_switch_) {
+        if (switch_on) {
+            lv_obj_add_state(macro_heating_switch_, LV_STATE_CHECKED);
+        } else {
+            lv_obj_remove_state(macro_heating_switch_, LV_STATE_CHECKED);
+        }
+    }
+
     // Switch to edit view
     lv_subject_set_int(&editing_subject_, 1);
     spdlog::debug("[{}] Editing material: {}", get_name(), material_name);
@@ -391,8 +422,19 @@ void MaterialTempsOverlay::handle_save() {
         }
     }
 
+    // Add macro override if selected
+    if (!selected_macro_.empty()) {
+        ovr.preheat_macro = selected_macro_;
+        bool switch_checked = macro_heating_switch_ &&
+                              lv_obj_has_state(macro_heating_switch_, LV_STATE_CHECKED);
+        // Only store macro_handles_heating if it differs from default (true)
+        if (!switch_checked) {
+            ovr.macro_handles_heating = false;
+        }
+    }
+
     // Only save if there are actual overrides
-    if (ovr.nozzle_min || ovr.nozzle_max || ovr.bed_temp) {
+    if (ovr.nozzle_min || ovr.nozzle_max || ovr.bed_temp || ovr.preheat_macro) {
         MaterialSettingsManager::instance().set_override(editing_material_, ovr);
     } else {
         // All values match defaults — clear any existing override
@@ -444,6 +486,133 @@ void MaterialTempsOverlay::handle_reset_defaults() {
 }
 
 // ============================================================================
+// MACRO PICKER
+// ============================================================================
+
+void MaterialTempsOverlay::populate_macro_picker_btn() {
+    if (!macro_picker_btn_) return;
+
+    if (selected_macro_.empty()) {
+        ui_button_set_text(macro_picker_btn_, lv_tr("None"));
+        lv_subject_set_int(&has_macro_subject_, 0);
+    } else {
+        ui_button_set_text(macro_picker_btn_, selected_macro_.c_str());
+        lv_subject_set_int(&has_macro_subject_, 1);
+    }
+}
+
+void MaterialTempsOverlay::show_macro_picker() {
+    auto* api = get_moonraker_api();
+    if (!api) {
+        ToastManager::instance().show(ToastSeverity::WARNING,
+                                      "Connect to a printer to see macros", 3000);
+        return;
+    }
+
+    const auto& macros = api->hardware().macros();
+
+    // Create a simple overlay with scrollable list
+    auto* parent = overlay_root_ ? lv_obj_get_parent(overlay_root_) : lv_screen_active();
+    auto* picker = lv_obj_create(parent);
+    lv_obj_set_size(picker, lv_pct(90), lv_pct(80));
+    lv_obj_center(picker);
+    lv_obj_set_style_bg_color(picker, theme_manager_get_color("card_bg"), 0);
+    lv_obj_set_style_bg_opa(picker, LV_OPA_COVER, 0);
+    lv_obj_set_style_radius(picker, 16, 0);
+    lv_obj_set_style_pad_all(picker, theme_manager_get_spacing("space_md"), 0);
+    lv_obj_set_flex_flow(picker, LV_FLEX_FLOW_COLUMN);
+    lv_obj_set_name(picker, "macro_picker_modal");
+
+    // Title (lv_label_set_text justified: programmatic UI, no XML binding available)
+    auto* title = lv_label_create(picker);
+    lv_label_set_text(title, lv_tr("Select Preheat Macro"));
+    lv_obj_set_style_text_color(title, theme_manager_get_color("text"), 0);
+    lv_obj_set_style_text_font(title, theme_manager_get_font("font_heading"), 0);
+    lv_obj_set_style_pad_bottom(title, theme_manager_get_spacing("space_sm"), 0);
+    lv_obj_remove_flag(title, LV_OBJ_FLAG_CLICKABLE);
+
+    // Scrollable list
+    auto* list = lv_obj_create(picker);
+    lv_obj_set_width(list, lv_pct(100));
+    lv_obj_set_flex_grow(list, 1);
+    lv_obj_set_flex_flow(list, LV_FLEX_FLOW_COLUMN);
+    lv_obj_set_style_bg_opa(list, LV_OPA_TRANSP, 0);
+    lv_obj_set_style_border_width(list, 0, 0);
+    lv_obj_set_style_pad_all(list, 0, 0);
+    lv_obj_set_style_pad_gap(list, 0, 0);
+
+    // "None" entry at top
+    // Exception to "NO lv_obj_add_event_cb" rule: rows created programmatically, not from XML
+    auto* none_row = lv_obj_create(list);
+    lv_obj_set_name(none_row, "");  // Empty name = clear macro
+    lv_obj_set_width(none_row, lv_pct(100));
+    lv_obj_set_height(none_row, LV_SIZE_CONTENT);
+    lv_obj_set_style_bg_opa(none_row, LV_OPA_TRANSP, 0);
+    lv_obj_set_style_border_width(none_row, 0, 0);
+    lv_obj_set_style_pad_all(none_row, theme_manager_get_spacing("space_sm"), 0);
+    lv_obj_add_flag(none_row, LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_set_style_bg_color(none_row, theme_manager_get_color("primary"), LV_STATE_PRESSED);
+    lv_obj_set_style_bg_opa(none_row, 40, LV_STATE_PRESSED);
+    lv_obj_set_style_radius(none_row, 8, 0);
+    lv_obj_add_event_cb(none_row, on_macro_picker_row_clicked, LV_EVENT_CLICKED, nullptr);
+    auto* none_label = lv_label_create(none_row);
+    lv_label_set_text(none_label, lv_tr("None"));
+    lv_obj_set_style_text_color(none_label, theme_manager_get_color("text_muted"), 0);
+    lv_obj_add_flag(none_label, LV_OBJ_FLAG_EVENT_BUBBLE);
+    lv_obj_remove_flag(none_label, LV_OBJ_FLAG_CLICKABLE);
+
+    // Sort macros alphabetically
+    std::vector<std::string> sorted_macros(macros.begin(), macros.end());
+    std::sort(sorted_macros.begin(), sorted_macros.end());
+
+    for (const auto& macro_name : sorted_macros) {
+        // Skip system macros (underscore prefix)
+        if (!macro_name.empty() && macro_name[0] == '_') continue;
+
+        auto* row = lv_obj_create(list);
+        lv_obj_set_name(row, macro_name.c_str());
+        lv_obj_set_width(row, lv_pct(100));
+        lv_obj_set_height(row, LV_SIZE_CONTENT);
+        lv_obj_set_style_bg_opa(row, LV_OPA_TRANSP, 0);
+        lv_obj_set_style_border_width(row, 0, 0);
+        lv_obj_set_style_pad_all(row, theme_manager_get_spacing("space_sm"), 0);
+        lv_obj_add_flag(row, LV_OBJ_FLAG_CLICKABLE);
+        lv_obj_set_style_bg_color(row, theme_manager_get_color("primary"), LV_STATE_PRESSED);
+        lv_obj_set_style_bg_opa(row, 40, LV_STATE_PRESSED);
+        lv_obj_set_style_radius(row, 8, 0);
+        lv_obj_add_event_cb(row, on_macro_picker_row_clicked, LV_EVENT_CLICKED, nullptr);
+
+        auto* label = lv_label_create(row);
+        std::string display = helix::get_display_name(macro_name, helix::DeviceType::MACRO);
+        lv_label_set_text(label, display.c_str());
+        lv_obj_set_style_text_color(label, theme_manager_get_color("text"), 0);
+        lv_obj_add_flag(label, LV_OBJ_FLAG_EVENT_BUBBLE);
+        lv_obj_remove_flag(label, LV_OBJ_FLAG_CLICKABLE);
+
+        // Highlight currently selected
+        if (macro_name == selected_macro_) {
+            lv_obj_set_style_bg_color(row, theme_manager_get_color("primary"), 0);
+            lv_obj_set_style_bg_opa(row, 30, 0);
+        }
+    }
+}
+
+void MaterialTempsOverlay::handle_macro_selected(const std::string& macro_name) {
+    selected_macro_ = macro_name;
+    populate_macro_picker_btn();
+
+    // Close the picker modal
+    lv_obj_t* picker = lv_obj_find_by_name(
+        lv_obj_get_parent(overlay_root_), "macro_picker_modal");
+    if (picker) {
+        lv_obj_delete(picker);
+    }
+
+    spdlog::debug("[{}] Macro selected: '{}'", get_name(),
+                  macro_name.empty() ? "(none)" : macro_name);
+}
+
+// ============================================================================
 // STATIC CALLBACKS
 // ============================================================================
 
@@ -472,6 +641,20 @@ void MaterialTempsOverlay::on_material_reset_defaults(lv_event_t* /*e*/) {
 void MaterialTempsOverlay::on_back_clicked(lv_event_t* /*e*/) {
     LVGL_SAFE_EVENT_CB_BEGIN("[MaterialTempsOverlay] on_back_clicked");
     get_material_temps_overlay().handle_back_clicked();
+    LVGL_SAFE_EVENT_CB_END();
+}
+
+void MaterialTempsOverlay::on_open_macro_picker(lv_event_t* /*e*/) {
+    LVGL_SAFE_EVENT_CB_BEGIN("[MaterialTempsOverlay] on_open_macro_picker");
+    get_material_temps_overlay().show_macro_picker();
+    LVGL_SAFE_EVENT_CB_END();
+}
+
+void MaterialTempsOverlay::on_macro_picker_row_clicked(lv_event_t* e) {
+    LVGL_SAFE_EVENT_CB_BEGIN("[MaterialTempsOverlay] on_macro_picker_row_clicked");
+    auto* row = static_cast<lv_obj_t*>(lv_event_get_current_target(e));
+    const char* name = lv_obj_get_name(row);
+    get_material_temps_overlay().handle_macro_selected(name ? name : "");
     LVGL_SAFE_EVENT_CB_END();
 }
 
