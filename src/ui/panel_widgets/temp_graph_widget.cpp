@@ -167,8 +167,22 @@ void TempGraphWidget::on_deactivate() {
 }
 
 bool TempGraphWidget::on_edit_configure() {
-    // TODO(Task 4): Open TempGraphConfigModal for sensor selection
-    return false;
+    std::weak_ptr<bool> weak = alive_;
+    auto* saved_widget = widget_obj_;
+    auto* saved_parent = parent_screen_;
+
+    config_modal_ = std::make_unique<TempGraphConfigModal>(
+        config_,
+        [this, weak, saved_widget, saved_parent](const nlohmann::json& new_config) {
+            if (weak.expired()) return;
+            config_ = new_config;
+            save_widget_config(config_);
+            generation_++;
+            detach();
+            attach(saved_widget, saved_parent);
+        });
+    config_modal_->show(lv_screen_active());
+    return true;
 }
 
 // ============================================================================
@@ -429,6 +443,177 @@ void TempGraphWidget::build_default_config() {
     config_["sensors"] = sensors;
     spdlog::debug("[TempGraphWidget] Built default config with {} sensors for '{}'",
                   sensors.size(), instance_id_);
+}
+
+// ============================================================================
+// TempGraphConfigModal
+// ============================================================================
+
+TempGraphWidget::TempGraphConfigModal::TempGraphConfigModal(
+    const nlohmann::json& config, SaveCallback on_save)
+    : config_(config), on_save_(std::move(on_save)) {}
+
+void TempGraphWidget::TempGraphConfigModal::on_show() {
+    wire_ok_button("btn_primary");
+    wire_cancel_button("btn_secondary");
+
+    populate_sensor_list();
+
+    spdlog::debug("[TempGraphConfigModal] Opened with {} sensor rows", rows_.size());
+}
+
+void TempGraphWidget::TempGraphConfigModal::on_ok() {
+    // Collect current toggle/color states back into config
+    nlohmann::json sensors = nlohmann::json::array();
+    for (auto& row : rows_) {
+        // Read current switch state
+        if (row.sw) {
+            row.enabled = lv_obj_has_state(row.sw, LV_STATE_CHECKED);
+        }
+
+        lv_color_t c = SERIES_COLORS[row.color_idx % PALETTE_SIZE];
+        uint32_t color_hex = (static_cast<uint32_t>(c.red) << 16)
+                           | (static_cast<uint32_t>(c.green) << 8)
+                           | static_cast<uint32_t>(c.blue);
+
+        sensors.push_back({
+            {"name", row.name},
+            {"enabled", row.enabled},
+            {"color", color_hex},
+        });
+    }
+
+    nlohmann::json new_config = config_;
+    new_config["sensors"] = sensors;
+
+    if (on_save_) {
+        on_save_(new_config);
+    }
+
+    spdlog::info("[TempGraphConfigModal] Saved config with {} sensors", sensors.size());
+    hide();
+}
+
+std::string TempGraphWidget::TempGraphConfigModal::sensor_display_name(
+    const std::string& klipper_name) {
+    if (klipper_name == "extruder") return "Nozzle";
+    if (klipper_name == "heater_bed") return "Bed";
+    if (klipper_name == "chamber") return "Chamber";
+
+    // Strip common prefixes for auxiliary sensors
+    std::string display = klipper_name;
+    const char* prefixes[] = {"temperature_sensor ", "temperature_fan "};
+    for (const char* prefix : prefixes) {
+        if (display.find(prefix) == 0) {
+            display = display.substr(strlen(prefix));
+            break;
+        }
+    }
+
+    // Capitalize first letter
+    if (!display.empty()) {
+        display[0] = static_cast<char>(toupper(static_cast<unsigned char>(display[0])));
+    }
+
+    // Replace underscores with spaces
+    for (auto& ch : display) {
+        if (ch == '_') ch = ' ';
+    }
+
+    return display;
+}
+
+void TempGraphWidget::TempGraphConfigModal::populate_sensor_list() {
+    lv_obj_t* list = find_widget("sensor_list");
+    if (!list) {
+        spdlog::warn("[TempGraphConfigModal] sensor_list container not found");
+        return;
+    }
+
+    rows_.clear();
+
+    if (!config_.contains("sensors")) return;
+
+    const auto& sensors = config_["sensors"];
+    for (size_t i = 0; i < sensors.size(); ++i) {
+        const auto& entry = sensors[i];
+        if (!entry.contains("name")) continue;
+
+        SensorRow row;
+        row.name = entry["name"].get<std::string>();
+        row.display = sensor_display_name(row.name);
+        row.enabled = entry.value("enabled", true);
+
+        // Find the matching color index from the palette
+        if (entry.contains("color")) {
+            uint32_t cfg_hex = entry["color"].get<uint32_t>();
+            lv_color_t cfg_color = lv_color_hex(cfg_hex);
+            row.color_idx = static_cast<int>(i) % PALETTE_SIZE; // default
+            for (int ci = 0; ci < PALETTE_SIZE; ++ci) {
+                if (SERIES_COLORS[ci].red == cfg_color.red &&
+                    SERIES_COLORS[ci].green == cfg_color.green &&
+                    SERIES_COLORS[ci].blue == cfg_color.blue) {
+                    row.color_idx = ci;
+                    break;
+                }
+            }
+        } else {
+            row.color_idx = static_cast<int>(i) % PALETTE_SIZE;
+        }
+
+        // Build the row container: [color swatch] [name label] [spacer] [switch]
+        lv_obj_t* row_obj = lv_obj_create(list);
+        lv_obj_set_size(row_obj, LV_PCT(100), LV_SIZE_CONTENT);
+        lv_obj_set_flex_flow(row_obj, LV_FLEX_FLOW_ROW);
+        lv_obj_set_flex_align(row_obj, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER,
+                              LV_FLEX_ALIGN_CENTER);
+        lv_obj_set_style_pad_ver(row_obj, 6, 0);
+        lv_obj_set_style_pad_gap(row_obj, 12, 0);
+
+        // Color swatch — small colored square, clickable to cycle
+        lv_obj_t* swatch = lv_obj_create(row_obj);
+        lv_obj_set_size(swatch, 24, 24);
+        lv_obj_set_style_radius(swatch, 4, 0);
+        lv_obj_set_style_bg_opa(swatch, LV_OPA_COVER, 0);
+        lv_obj_set_style_bg_color(swatch, SERIES_COLORS[row.color_idx % PALETTE_SIZE], 0);
+        lv_obj_set_style_border_width(swatch, 0, 0);
+        lv_obj_add_flag(swatch, LV_OBJ_FLAG_CLICKABLE);
+        row.swatch = swatch;
+
+        // Store row index in user data for the click callback
+        lv_obj_set_user_data(swatch, reinterpret_cast<void*>(static_cast<uintptr_t>(rows_.size())));
+        lv_obj_add_event_cb(swatch, color_swatch_clicked, LV_EVENT_CLICKED, this);
+
+        // Sensor name label
+        lv_obj_t* label = lv_label_create(row_obj);
+        lv_label_set_text(label, row.display.c_str());
+        lv_obj_set_flex_grow(label, 1);
+        lv_obj_set_style_text_color(label, lv_color_white(), 0);
+
+        // Toggle switch
+        lv_obj_t* sw = lv_switch_create(row_obj);
+        lv_obj_set_size(sw, 44, 24);
+        if (row.enabled) {
+            lv_obj_add_state(sw, LV_STATE_CHECKED);
+        }
+        row.sw = sw;
+
+        rows_.push_back(std::move(row));
+    }
+}
+
+void TempGraphWidget::TempGraphConfigModal::color_swatch_clicked(lv_event_t* e) {
+    auto* modal = static_cast<TempGraphConfigModal*>(lv_event_get_user_data(e));
+    auto* swatch = static_cast<lv_obj_t*>(lv_event_get_target(e));
+    auto idx = static_cast<size_t>(reinterpret_cast<uintptr_t>(lv_obj_get_user_data(swatch)));
+
+    if (!modal || idx >= modal->rows_.size()) return;
+
+    auto& row = modal->rows_[idx];
+    row.color_idx = (row.color_idx + 1) % PALETTE_SIZE;
+    lv_obj_set_style_bg_color(swatch, SERIES_COLORS[row.color_idx % PALETTE_SIZE], 0);
+
+    spdlog::debug("[TempGraphConfigModal] Cycled '{}' to color index {}", row.name, row.color_idx);
 }
 
 // ============================================================================

@@ -346,6 +346,7 @@ void register_xml_components() {
     register_xml("components/panel_widget_thermistor.xml");
     register_xml("components/panel_widget_thermistor_carousel.xml");
     register_xml("components/panel_widget_temp_graph.xml");
+    register_xml("components/temp_graph_config_modal.xml");
     register_xml("components/panel_widget_fan.xml");
     register_xml("components/panel_widget_fan_stack.xml");
     register_xml("components/panel_widget_fan_carousel.xml");

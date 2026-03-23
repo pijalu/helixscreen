@@ -4,9 +4,13 @@
 #pragma once
 
 #include "panel_widget.h"
+#include "ui_modal.h"
 #include "ui_observer_guard.h"
 #include "ui_temp_graph.h"
 
+#include "hv/json.hpp"
+
+#include <functional>
 #include <memory>
 #include <string>
 #include <vector>
@@ -79,6 +83,43 @@ class TempGraphWidget : public PanelWidget {
     // Color palette (matches TempGraphOverlay)
     static constexpr int PALETTE_SIZE = 8;
     static const lv_color_t SERIES_COLORS[PALETTE_SIZE];
+
+    /// Modal for sensor toggle + color picker configuration
+    class TempGraphConfigModal : public Modal {
+      public:
+        using SaveCallback = std::function<void(const nlohmann::json& new_config)>;
+
+        TempGraphConfigModal(const nlohmann::json& config, SaveCallback on_save);
+        ~TempGraphConfigModal() override = default;
+
+        const char* get_name() const override { return "Temperature Graph Config"; }
+        const char* component_name() const override { return "temp_graph_config_modal"; }
+
+      protected:
+        void on_show() override;
+        void on_ok() override;
+
+      private:
+        /// Per-row state for sensor toggles
+        struct SensorRow {
+            std::string name;       ///< Klipper sensor key
+            std::string display;    ///< Human-readable name
+            bool enabled = true;
+            int color_idx = 0;      ///< Index into SERIES_COLORS palette
+            lv_obj_t* swatch = nullptr;
+            lv_obj_t* sw = nullptr;
+        };
+
+        void populate_sensor_list();
+        static std::string sensor_display_name(const std::string& klipper_name);
+        static void color_swatch_clicked(lv_event_t* e);
+
+        nlohmann::json config_;
+        SaveCallback on_save_;
+        std::vector<SensorRow> rows_;
+    };
+
+    std::unique_ptr<TempGraphConfigModal> config_modal_;
 };
 
 } // namespace helix
