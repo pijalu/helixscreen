@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.98.10] - 2026-03-22
+
+A stability-focused release addressing over 30 crash reports, plus a new power device dashboard widget, multi-instance widget system, and fixes for power device detection, config symlinks, and memory management.
+
+### Added
+- Power device dashboard widget with live on/off state, device picker, and icon customization (#467)
+- Multi-instance widget system: mint, delete, and rearrange multiple copies of the same widget (#342)
+- Favorite macro widget migrated to multi-instance system (#342)
+- Power-related MDI icons added to icon font (#467)
+- Hardware name telemetry for improved printer detection analytics
+
+### Fixed
+- Multiple crash-causing animation callbacks, null dereferences, threading violations, and delete-during-iteration (#442–#482)
+- Crash handler using async-signal-unsafe `memset` (#441, #445, #447, #481)
+- Cache loader crash from dangling reference and unguarded layer load (#446)
+- Power device names not parsed from Moonraker array response (#466, #469)
+- Disconnect triggered when turning off power devices (#469)
+- Config save breaking symlinks for helixconfig.json (#471)
+- Shutdown crash from JobQueueState destruction ordering
+- Shutdown crash from held SubjectLifetime in power device widget (#467)
+- Memory monitor improved with hysteresis, smoothed growth tracking, and pressure responders
+- Debug bundle warnings silenced, printer database compacted for memory savings
+- Fan arc widget not applying track width when arc already at target size
+
 ## [0.98.9] - 2026-03-17
 
 ### Fixed
@@ -2012,6 +2036,7 @@ Initial tagged release. Foundation for all subsequent development.
 - Automated GitHub Actions release pipeline
 - One-liner installation script with platform auto-detection
 
+[0.98.10]: https://github.com/prestonbrown/helixscreen/compare/v0.98.9...v0.98.10
 [0.98.9]: https://github.com/prestonbrown/helixscreen/compare/v0.98.8...v0.98.9
 [0.98.8]: https://github.com/prestonbrown/helixscreen/compare/v0.98.7...v0.98.8
 [0.98.7]: https://github.com/prestonbrown/helixscreen/compare/v0.98.6...v0.98.7
