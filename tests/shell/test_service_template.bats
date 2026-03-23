@@ -153,6 +153,35 @@ setup() {
     [ "$stop_line" -lt "$chown_line" ]
 }
 
+# --- Shell syntax safety tests (#495) ---
+
+@test "Exec* lines with shell operators must use /bin/sh -c wrapper" {
+    # systemd does NOT invoke a shell for Exec* commands. Shell operators like
+    # 2>/dev/null, ||, &&, >, |, ; are silently passed as literal arguments,
+    # causing systemctl to fail with "Invalid unit name" errors.
+    # Every Exec* line that uses shell syntax MUST be wrapped in /bin/sh -c '...'.
+    local failures=""
+    while IFS= read -r line; do
+        # Skip comments and empty lines
+        [[ "$line" =~ ^[[:space:]]*# ]] && continue
+        [[ -z "$line" ]] && continue
+        # Only check Exec* directives
+        [[ "$line" =~ ^Exec ]] || continue
+        # Strip the Exec* prefix and optional + (root) prefix to get the command
+        local cmd="${line#Exec*=}"
+        cmd="${cmd#+}"
+        # If the command uses shell operators but doesn't start with /bin/sh
+        if echo "$cmd" | grep -qE '2>/dev/null|\|\||&&|[^>]>[^>]|\|[^|]|;' && \
+           ! echo "$cmd" | grep -qE '^/bin/sh\b'; then
+            failures="${failures}\n  ${line}"
+        fi
+    done < "$SERVICE_TEMPLATE"
+    if [ -n "$failures" ]; then
+        echo "Exec* lines use shell syntax without /bin/sh -c wrapper:${failures}"
+        false
+    fi
+}
+
 @test "substitution replaces @@INSTALL_PARENT@@ with parent of install dir" {
     cp "$SERVICE_TEMPLATE" "$BATS_TEST_TMPDIR/test.service"
     sed -i '' "s|@@INSTALL_DIR@@|/opt/helixscreen|g;s|@@INSTALL_PARENT@@|/opt|g" "$BATS_TEST_TMPDIR/test.service" 2>/dev/null || \

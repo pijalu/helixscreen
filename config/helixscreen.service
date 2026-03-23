@@ -39,7 +39,7 @@ WorkingDirectory=@@INSTALL_DIR@@
 # Pause update watcher during startup to prevent ExecStartPre side-effects
 # (e.g., chown changing ctime on release_info.json) from triggering a
 # spurious restart via helixscreen-update.path → helixscreen-update.service.
-ExecStartPre=+/bin/systemctl stop helixscreen-update.path 2>/dev/null || true
+ExecStartPre=+/bin/sh -c '/bin/systemctl stop helixscreen-update.path 2>/dev/null || true'
 
 # Stop firmware display-management services that conflict with HelixScreen.
 # Creality SonicPad/Nebula ships display-sleep.sh which kills the backlight
@@ -69,10 +69,10 @@ ExecStartPre=+/bin/sh -c 'for f in /sys/class/vtconsole/vtcon*/bind; do echo 0 >
 ExecStart=@@INSTALL_DIR@@/bin/helix-launcher.sh
 
 # Re-arm update watcher after main process starts
-ExecStartPost=+/bin/systemctl start helixscreen-update.path 2>/dev/null || true
+ExecStartPost=+/bin/sh -c '/bin/systemctl start helixscreen-update.path 2>/dev/null || true'
 # Re-arm on stop/crash too — prevents watcher staying disabled if service
 # fails before ExecStartPost runs (e.g., startup crash hitting StartLimitBurst)
-ExecStopPost=+/bin/systemctl start helixscreen-update.path 2>/dev/null || true
+ExecStopPost=+/bin/sh -c '/bin/systemctl start helixscreen-update.path 2>/dev/null || true'
 
 # Environment variables
 # Display backend: auto-detected by launcher (DRM if GL libs present, else fbdev).
