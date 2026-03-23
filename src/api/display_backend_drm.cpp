@@ -589,9 +589,13 @@ bool DisplayBackendDRM::supports_hardware_rotation(lv_display_rotation_t rot) co
     }
 
 #ifdef HELIX_ENABLE_OPENGLES
-    // LVGL's OpenGL ES renderer handles rotation natively via vertex
-    // transforms in the shader — no DRM plane rotation needed.
-    return true;
+    // EGL/OpenGL ES displays cannot rotate via DRM plane properties, and
+    // LVGL's GL vertex-transform rotation produces a black screen on Pi 5
+    // (FULL render mode + lv_display_set_rotation works in theory but the
+    // EGL driver doesn't composite the rotated framebuffer correctly).
+    // Users needing rotation on EGL displays should use the kernel's
+    // panel_orientation parameter in /boot/firmware/cmdline.txt instead.
+    return false;
 #else
     uint64_t supported_mask =
         lv_linux_drm_get_plane_rotation_mask(const_cast<lv_display_t*>(display_));

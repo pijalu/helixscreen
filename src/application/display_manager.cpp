@@ -285,20 +285,21 @@ bool DisplayManager::init(const Config& config) {
             // If DRM backend can't do hardware rotation, fall back to fbdev
             // which handles software rotation flicker-free via LVGL's native path.
             if (!try_drm_to_fbdev_fallback(lv_rot, config.splash_active)) {
-                m_backend.reset();
-                lv_xml_deinit();
-                lv_deinit();
-                return false;
+                // Fallback failed (EGL/DSI display without fbdev).
+                // Continue without rotation rather than aborting — a
+                // working unrotated display is better than no display.
+                spdlog::warn("[DisplayManager] Continuing without rotation");
+                rotation_degrees = 0;
+            } else {
+                lv_display_set_rotation(m_display, lv_rot);
+
+                // Update tracked dimensions to match rotated resolution
+                m_width = lv_display_get_horizontal_resolution(m_display);
+                m_height = lv_display_get_vertical_resolution(m_display);
+
+                // Auto-rotate touch coordinates to match display rotation
+                m_backend->set_display_rotation(lv_rot, phys_w, phys_h);
             }
-
-            lv_display_set_rotation(m_display, lv_rot);
-
-            // Update tracked dimensions to match rotated resolution
-            m_width = lv_display_get_horizontal_resolution(m_display);
-            m_height = lv_display_get_vertical_resolution(m_display);
-
-            // Auto-rotate touch coordinates to match display rotation
-            m_backend->set_display_rotation(lv_rot, phys_w, phys_h);
 
             spdlog::info("[DisplayManager] Display rotated {}° — effective resolution: {}x{}",
                          rotation_degrees, m_width, m_height);
@@ -1056,7 +1057,11 @@ bool DisplayManager::try_drm_to_fbdev_fallback(lv_display_rotation_t rot, bool s
         m_display = m_backend->create_display(m_width, m_height);
     }
     if (!m_display) {
-        spdlog::error("[DisplayManager] Fbdev fallback for rotation also failed");
+        spdlog::error("[DisplayManager] Fbdev fallback for rotation also failed. "
+                      "For DSI/EGL displays, use the kernel panel_orientation parameter "
+                      "instead: add panel_orientation=right_side_up (or left_side_up, "
+                      "upside_down) to /boot/firmware/cmdline.txt and remove the "
+                      "\"rotate\" key from helixconfig.json.");
         return false;
     }
     spdlog::info("[DisplayManager] Fbdev fallback succeeded at {}x{}", m_width, m_height);
