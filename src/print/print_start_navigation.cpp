@@ -5,6 +5,7 @@
 
 #include "ui_nav_manager.h"
 #include "ui_panel_print_status.h"
+#include "ui_update_queue.h"
 
 #include "app_globals.h"
 #include "printer_state.h"
@@ -18,7 +19,12 @@ namespace helix {
 // Track previous state to detect transitions TO printing
 static PrintJobState prev_print_state = PrintJobState::STANDBY;
 
-// Callback for print state changes - auto-navigates to print status on print start
+// Callback for print state changes - auto-navigates to print status on print start.
+// This observer fires synchronously from lv_subject_set_int which may be called on
+// the WebSocket background thread. All LVGL widget creation MUST happen on the UI
+// thread, so we defer push_overlay via queue_update. This fixes the thumbnail race
+// condition (#450) where widgets created on the background thread were in an
+// inconsistent state when deferred observer callbacks tried to update them.
 static void on_print_state_changed_for_navigation(lv_observer_t* observer, lv_subject_t* subject) {
     (void)observer;
     auto current = static_cast<PrintJobState>(lv_subject_get_int(subject));
@@ -40,10 +46,12 @@ static void on_print_state_changed_for_navigation(lv_observer_t* observer, lv_su
             return;
         }
 
-        // A print just started - auto-navigate to print status from any panel
-        // Use push_overlay() which handles lazy widget creation and duplicate-push guard
+        // Defer to UI thread — this observer may fire on the WebSocket background
+        // thread, and push_overlay() creates LVGL widgets which must be on UI thread.
         spdlog::info("[PrintStartNav] Auto-navigating to print status (print started)");
-        PrintStatusPanel::push_overlay(lv_display_get_screen_active(nullptr));
+        helix::ui::queue_update([]() {
+            PrintStatusPanel::push_overlay(lv_display_get_screen_active(nullptr));
+        });
     }
 
     prev_print_state = current;
