@@ -350,6 +350,33 @@ void TempGraphWidget::setup_observers() {
                 s.lifetime);
         }
     }
+
+    // Observe printer connection state to clear/rebuild on disconnect/reconnect
+    auto* conn_subj = ps.get_printer_connection_state_subject();
+    if (conn_subj) {
+        std::weak_ptr<bool> weak = alive_;
+        uint32_t conn_gen = generation_;
+        connection_observer_ = observe_int_sync<TempGraphWidget>(
+            conn_subj, this,
+            [weak, conn_gen](TempGraphWidget* self, int state) {
+                if (weak.expired() || conn_gen != self->generation_) return;
+                if (state == 2) { // Connected
+                    spdlog::debug("[TempGraphWidget:{}] Reconnected, rebuilding series",
+                                  self->instance_id_);
+                    self->generation_++;
+                    auto* w = self->widget_obj_;
+                    auto* p = self->parent_screen_;
+                    self->detach();
+                    self->attach(w, p);
+                } else if (state == 0) { // Disconnected
+                    spdlog::debug("[TempGraphWidget:{}] Disconnected, clearing chart",
+                                  self->instance_id_);
+                    if (self->graph_) {
+                        ui_temp_graph_clear(self->graph_);
+                    }
+                }
+            });
+    }
 }
 
 // ============================================================================
