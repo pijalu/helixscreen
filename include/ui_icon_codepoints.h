@@ -92,6 +92,7 @@ static const IconMapping ICON_MAP[] = {
     {"cog",                "\xF3\xB0\x92\x93"},  // F0493 cog/settings
     {"console",            "\xF3\xB0\x86\x8D"},  // F018D console/terminal
     {"content_copy",       "\xF3\xB0\x86\x8F"},  // F018F content-copy (duplicate)
+    {"coolant_temperature","\xF3\xB0\x8F\x88"},  // F03C8 coolant-temperature
     {"cooldown",           "\xF3\xB0\x9C\x97"},  // F0717 snowflake
     {"crosshairs_gps",     "\xF3\xB0\x86\xA4"},  // F01A4 crosshairs-gps (probe)
     {"cube",               "\xF3\xB0\x86\xA7"},  // F01A7 cube-outline
@@ -140,6 +141,7 @@ static const IconMapping ICON_MAP[] = {
     {"help_circle",        "\xF3\xB0\x8B\x97"},  // F02D7 help-circle/question
     {"home",               "\xF3\xB0\x8B\x9C"},  // F02DC home
     {"home_import",        "\xF3\xB0\xBE\x9C"},  // F0F9C home-import-outline (home-z)
+    {"home_thermometer",   "\xF3\xB0\xBD\x94"},  // F0F54 home-thermometer
     {"hourglass",          "\xF3\xB0\x94\x9F"},  // F051F timer-sand (hourglass)
 
     // Info/Image
@@ -260,8 +262,11 @@ static const IconMapping ICON_MAP[] = {
 
     // Temperature
     {"thermometer",        "\xF3\xB0\x94\x8F"},  // F050F thermometer
+    {"thermometer_lines",  "\xF3\xB0\x94\x90"},  // F0510 thermometer-lines
     {"thermometer_minus",  "\xF3\xB0\xB8\x84"},  // F0E04 thermometer-minus
+    {"thermometer_off",    "\xF3\xB1\x94\xB1"},  // F1531 thermometer-off
     {"thermometer_plus",   "\xF3\xB0\xB8\x85"},  // F0E05 thermometer-plus
+    {"thermometer_probe",  "\xF3\xB1\xAC\xAB"},  // F1B2B thermometer-probe
     {"toolbox_outline",    "\xF3\xB0\xA6\xAD"},  // F09AD toolbox-outline (tools section)
     {"tortoise",           "\xF3\xB0\xB4\xBB"},  // F0D3B tortoise (AFC/Box Turtle logo)
     {"toy_brick_outline",  "\xF3\xB1\x8A\x8D"},  // F128D toy-brick-outline (building block)

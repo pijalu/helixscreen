@@ -1180,12 +1180,11 @@ TEST_CASE("PanelWidgetConfig: build_default_grid produces correct layout",
         REQUIRE_FALSE(e.has_grid_position());
     }
 
-    // fan_stack and notifications must be enabled (default_enabled, no gate) but NOT placed
+    // fan_stack is multi_instance — not auto-included in defaults (user creates instances)
     auto* fs = find_entry("fan_stack");
-    REQUIRE(fs);
-    REQUIRE(fs->enabled);
-    REQUIRE_FALSE(fs->has_grid_position());
+    REQUIRE_FALSE(fs);
 
+    // notifications must be enabled (default_enabled, no gate) but NOT placed
     auto* notif = find_entry("notifications");
     REQUIRE(notif);
     REQUIRE(notif->enabled);

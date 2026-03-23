@@ -20,7 +20,7 @@ class PrinterState;
 /// Clicking opens the fan control overlay.
 class FanStackWidget : public PanelWidget {
   public:
-    explicit FanStackWidget(PrinterState& printer_state);
+    FanStackWidget(const std::string& instance_id, PrinterState& printer_state);
     ~FanStackWidget() override;
 
     void set_config(const nlohmann::json& config) override;
@@ -28,18 +28,25 @@ class FanStackWidget : public PanelWidget {
     void attach(lv_obj_t* widget_obj, lv_obj_t* parent_screen) override;
     void detach() override;
     void on_size_changed(int colspan, int rowspan, int width_px, int height_px) override;
-    bool has_edit_configure() const override { return true; }
+    bool has_edit_configure() const override {
+        return true;
+    }
     bool on_edit_configure() override;
     const char* id() const override {
-        return "fan_stack";
+        return instance_id_.c_str();
     }
 
     /// XML event callback — opens fan control overlay
     static void on_fan_stack_clicked(lv_event_t* e);
 
   private:
+    std::string instance_id_;
     PrinterState& printer_state_;
     nlohmann::json config_;
+
+    // Per-instance config
+    std::string selected_fan_; // Specific fan object_name (empty = auto-classify)
+    std::string icon_name_;    // Custom icon name (empty = default "fan")
 
     lv_obj_t* widget_obj_ = nullptr;
     lv_obj_t* parent_screen_ = nullptr;
@@ -95,6 +102,16 @@ class FanStackWidget : public PanelWidget {
     void handle_clicked();
     void bind_fans();
     void bind_carousel_fans();
+
+    // Picker for fan + icon selection
+    lv_obj_t* picker_backdrop_ = nullptr;
+    static FanStackWidget* s_active_picker_;
+
+    void show_fan_picker();
+    void dismiss_fan_picker();
+    void select_fan(const std::string& object_name);
+    void select_icon(const std::string& name);
+    void save_fan_config();
     void update_label(lv_obj_t* label, int speed_pct);
     void update_fan_animation(lv_obj_t* icon, int speed_pct);
     void refresh_all_animations();

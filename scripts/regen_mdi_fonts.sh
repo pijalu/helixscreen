@@ -149,10 +149,15 @@ MDI_ICONS+=",0xF04DB"    # stop
 MDI_ICONS+=",0xF04E2"    # swap-vertical
 MDI_ICONS+=",0xF06E4"    # infinity (endless spool)
 MDI_ICONS+=",0xF04E6"    # sync (auto-detect)
+MDI_ICONS+=",0xF03C8"    # coolant-temperature
 MDI_ICONS+=",0xF050F"    # thermometer
+MDI_ICONS+=",0xF0510"    # thermometer-lines
 MDI_ICONS+=",0xF054C"    # undo (counter-clockwise arrow - for loosen)
 MDI_ICONS+=",0xF0E04"    # thermometer-minus
 MDI_ICONS+=",0xF0E05"    # thermometer-plus
+MDI_ICONS+=",0xF0F54"    # home-thermometer
+MDI_ICONS+=",0xF1531"    # thermometer-off
+MDI_ICONS+=",0xF1B2B"    # thermometer-probe
 
 # View/Dashboard
 MDI_ICONS+=",0xF0566"    # vibrate (input shaper)

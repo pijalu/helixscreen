@@ -9,8 +9,11 @@
 #include "ui_fan_arc_resize.h"
 #include "ui_fan_control_overlay.h"
 #include "ui_fonts.h"
+#include "ui_icon.h"
+#include "ui_icon_codepoints.h"
 #include "ui_nav_manager.h"
 #include "ui_update_queue.h"
+#include "ui_utils.h"
 
 #include "app_globals.h"
 #include "display_settings_manager.h"
@@ -26,11 +29,13 @@
 
 #include <spdlog/spdlog.h>
 
+#include <algorithm>
+
 namespace helix {
 void register_fan_stack_widget() {
-    register_widget_factory("fan_stack", [](const std::string&) {
+    register_widget_factory("fan_stack", [](const std::string& instance_id) {
         auto& ps = get_printer_state();
-        return std::make_unique<FanStackWidget>(ps);
+        return std::make_unique<FanStackWidget>(instance_id, ps);
     });
 
     // Register XML event callbacks at startup (before any XML is parsed)
@@ -38,9 +43,45 @@ void register_fan_stack_widget() {
 }
 } // namespace helix
 
+namespace {
+
+// Fan-related icons available in the font
+static const char* const kFanIcons[] = {
+    // clang-format off
+    "fan",       "fan_off",    "cooldown",   "heat_wave",
+    // clang-format on
+};
+static constexpr size_t kFanIconCount = std::size(kFanIcons);
+static constexpr int kIconCellSize = 36;
+static constexpr const char* kDefaultFanIcon = "fan";
+
+/// Resolve a responsive spacing token to pixels, with a fallback.
+int resolve_space_token(const char* name, int fallback) {
+    const char* s = lv_xml_get_const(nullptr, name);
+    return s ? std::atoi(s) : fallback;
+}
+
+/// Apply highlight styling to an icon grid cell.
+void apply_icon_cell_highlight(lv_obj_t* cell, bool selected) {
+    if (selected) {
+        lv_obj_set_style_border_width(cell, 2, 0);
+        lv_obj_set_style_border_color(cell, theme_manager_get_color("primary"), 0);
+        lv_obj_set_style_bg_opa(cell, 20, 0);
+        lv_obj_set_style_bg_color(cell, theme_manager_get_color("primary"), 0);
+    } else {
+        lv_obj_set_style_border_width(cell, 0, 0);
+        lv_obj_set_style_bg_opa(cell, 0, 0);
+    }
+}
+
+} // namespace
+
 using namespace helix;
 
-FanStackWidget::FanStackWidget(PrinterState& printer_state) : printer_state_(printer_state) {}
+FanStackWidget* FanStackWidget::s_active_picker_ = nullptr;
+
+FanStackWidget::FanStackWidget(const std::string& instance_id, PrinterState& printer_state)
+    : instance_id_(instance_id), printer_state_(printer_state) {}
 
 FanStackWidget::~FanStackWidget() {
     detach();
@@ -48,6 +89,15 @@ FanStackWidget::~FanStackWidget() {
 
 void FanStackWidget::set_config(const nlohmann::json& config) {
     config_ = config;
+    if (config.contains("fan") && config["fan"].is_string()) {
+        selected_fan_ = config["fan"].get<std::string>();
+    }
+    if (config.contains("icon") && config["icon"].is_string()) {
+        icon_name_ = config["icon"].get<std::string>();
+    }
+    spdlog::debug("[FanStackWidget] Config: {} fan={} icon={}", instance_id_,
+                  selected_fan_.empty() ? "(auto)" : selected_fan_,
+                  icon_name_.empty() ? "fan (default)" : icon_name_);
 }
 
 std::string FanStackWidget::get_component_name() const {
@@ -58,17 +108,9 @@ std::string FanStackWidget::get_component_name() const {
 }
 
 bool FanStackWidget::on_edit_configure() {
-    bool was_carousel = is_carousel_mode();
-    nlohmann::json new_config = config_;
-    if (was_carousel) {
-        new_config.erase("display_mode");
-    } else {
-        new_config["display_mode"] = "carousel";
-    }
-    spdlog::info("[FanStackWidget] Toggling display_mode: {} → {}",
-                 was_carousel ? "carousel" : "stack", was_carousel ? "stack" : "carousel");
-    save_widget_config(new_config);
-    return true;
+    spdlog::info("[FanStackWidget] {} configure requested - showing picker", instance_id_);
+    show_fan_picker();
+    return false;
 }
 
 bool FanStackWidget::is_carousel_mode() const {
@@ -141,6 +183,7 @@ void FanStackWidget::attach_carousel(lv_obj_t* widget_obj) {
 
 void FanStackWidget::detach() {
     *alive_ = false;
+    dismiss_fan_picker();
     part_observer_.reset();
     hotend_observer_.reset();
     aux_observer_.reset();
@@ -659,4 +702,334 @@ void FanStackWidget::on_fan_stack_clicked(lv_event_t* e) {
         spdlog::warn("[FanStackWidget] on_fan_stack_clicked: could not recover widget instance");
     }
     LVGL_SAFE_EVENT_CB_END();
+}
+
+void FanStackWidget::show_fan_picker() {
+    if (picker_backdrop_ || !parent_screen_) {
+        return;
+    }
+
+    // Dismiss any other widget's picker
+    if (s_active_picker_ && s_active_picker_ != this) {
+        s_active_picker_->dismiss_fan_picker();
+    }
+
+    const auto& fans = printer_state_.get_fans();
+
+    int space_xs = resolve_space_token("space_xs", 4);
+    int space_sm = resolve_space_token("space_sm", 6);
+    int space_md = resolve_space_token("space_md", 10);
+
+    int screen_w = lv_obj_get_width(parent_screen_);
+    int screen_h = lv_obj_get_height(parent_screen_);
+
+    // Backdrop (full screen, transparent, catches clicks to dismiss)
+    picker_backdrop_ = lv_obj_create(parent_screen_);
+    lv_obj_set_size(picker_backdrop_, screen_w, screen_h);
+    lv_obj_set_pos(picker_backdrop_, 0, 0);
+    lv_obj_set_style_bg_color(picker_backdrop_, lv_color_black(), 0);
+    lv_obj_set_style_bg_opa(picker_backdrop_, LV_OPA_50, 0);
+    lv_obj_set_style_border_width(picker_backdrop_, 0, 0);
+    lv_obj_set_style_radius(picker_backdrop_, 0, 0);
+    lv_obj_remove_flag(picker_backdrop_, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_add_flag(picker_backdrop_, LV_OBJ_FLAG_CLICKABLE);
+
+    // Backdrop click dismisses picker
+    lv_obj_add_event_cb(
+        picker_backdrop_,
+        [](lv_event_t* /*e*/) {
+            LVGL_SAFE_EVENT_CB_BEGIN("[FanStackWidget] backdrop_cb");
+            if (s_active_picker_) {
+                s_active_picker_->dismiss_fan_picker();
+            }
+            LVGL_SAFE_EVENT_CB_END();
+        },
+        LV_EVENT_CLICKED, nullptr);
+
+    // Card container
+    lv_obj_t* card = lv_obj_create(picker_backdrop_);
+    int card_w = std::clamp(screen_w * 50 / 100, 200, 360);
+    lv_obj_set_width(card, card_w);
+    lv_obj_set_height(card, LV_SIZE_CONTENT);
+    lv_obj_set_style_max_height(card, screen_h * 70 / 100, 0);
+    lv_obj_set_style_bg_color(card, theme_manager_get_color("card_bg"), 0);
+    lv_obj_set_style_bg_opa(card, LV_OPA_COVER, 0);
+    lv_obj_set_style_radius(card, 12, 0);
+    lv_obj_set_style_border_width(card, 1, 0);
+    lv_obj_set_style_border_color(card, theme_manager_get_color("border"), 0);
+    lv_obj_set_style_pad_all(card, space_md, 0);
+    lv_obj_set_style_pad_gap(card, space_xs, 0);
+    lv_obj_set_flex_flow(card, LV_FLEX_FLOW_COLUMN);
+    lv_obj_add_flag(card, LV_OBJ_FLAG_CLICKABLE); // Prevent clicks passing through
+    lv_obj_remove_flag(card, LV_OBJ_FLAG_SCROLLABLE);
+
+    // Title
+    lv_obj_t* title = lv_label_create(card);
+    lv_label_set_text(title, lv_tr("Configure Fan Widget"));
+    lv_obj_set_style_text_font(title, lv_font_get_default(), 0);
+    lv_obj_set_style_text_color(title, theme_manager_get_color("text"), 0);
+    lv_obj_set_width(title, LV_PCT(100));
+
+    // --- Display mode toggle ---
+    lv_obj_t* mode_divider = lv_obj_create(card);
+    lv_obj_set_width(mode_divider, LV_PCT(100));
+    lv_obj_set_height(mode_divider, 1);
+    lv_obj_set_style_bg_color(mode_divider, theme_manager_get_color("text_muted"), 0);
+    lv_obj_set_style_bg_opa(mode_divider, 38, 0);
+    lv_obj_set_style_pad_all(mode_divider, 0, 0);
+    lv_obj_set_style_border_width(mode_divider, 0, 0);
+    lv_obj_remove_flag(mode_divider, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_remove_flag(mode_divider, LV_OBJ_FLAG_CLICKABLE);
+
+    lv_obj_t* mode_title = lv_label_create(card);
+    lv_label_set_text(mode_title, lv_tr("Display Mode"));
+    lv_obj_set_style_text_font(mode_title, lv_font_get_default(), 0);
+    lv_obj_set_style_text_color(mode_title, theme_manager_get_color("text"), 0);
+    lv_obj_set_width(mode_title, LV_PCT(100));
+
+    // Mode options: stack and carousel
+    bool is_carousel = is_carousel_mode();
+    const char* mode_labels[] = {"Stack", "Carousel"};
+    const char* mode_values[] = {"stack", "carousel"};
+    for (int i = 0; i < 2; ++i) {
+        bool is_selected = (i == 0) ? !is_carousel : is_carousel;
+
+        lv_obj_t* row = lv_obj_create(card);
+        lv_obj_set_width(row, LV_PCT(100));
+        lv_obj_set_height(row, LV_SIZE_CONTENT);
+        lv_obj_set_style_pad_all(row, space_sm, 0);
+        lv_obj_set_flex_flow(row, LV_FLEX_FLOW_ROW);
+        lv_obj_set_flex_align(row, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+        lv_obj_remove_flag(row, LV_OBJ_FLAG_SCROLLABLE);
+        lv_obj_add_flag(row, LV_OBJ_FLAG_CLICKABLE);
+        lv_obj_set_style_radius(row, 6, 0);
+        lv_obj_set_style_bg_opa(row, is_selected ? 30 : 0, 0);
+        if (is_selected) {
+            lv_obj_set_style_bg_color(row, theme_manager_get_color("primary"), 0);
+        }
+        lv_obj_set_style_bg_color(row, theme_manager_get_color("text_muted"),
+                                  LV_PART_MAIN | LV_STATE_PRESSED);
+        lv_obj_set_style_bg_opa(row, LV_OPA_20, LV_PART_MAIN | LV_STATE_PRESSED);
+        lv_obj_set_style_border_width(row, 0, 0);
+
+        lv_obj_t* label = lv_label_create(row);
+        lv_label_set_text(label, lv_tr(mode_labels[i]));
+        lv_obj_set_style_text_font(label, lv_font_get_default(), 0);
+        lv_obj_set_style_text_color(label, theme_manager_get_color("text"), 0);
+        lv_obj_remove_flag(label, LV_OBJ_FLAG_CLICKABLE);
+        lv_obj_add_flag(label, LV_OBJ_FLAG_EVENT_BUBBLE);
+
+        auto* mode_copy = new std::string(mode_values[i]);
+        lv_obj_set_user_data(row, mode_copy);
+        lv_obj_add_event_cb(
+            row,
+            [](lv_event_t* ev) { delete static_cast<std::string*>(lv_event_get_user_data(ev)); },
+            LV_EVENT_DELETE, mode_copy);
+
+        lv_obj_add_event_cb(
+            row,
+            [](lv_event_t* ev) {
+                LVGL_SAFE_EVENT_CB_BEGIN("[FanStackWidget] mode_row_cb");
+                auto* target = static_cast<lv_obj_t*>(lv_event_get_current_target(ev));
+                auto* mode_ptr = static_cast<std::string*>(lv_obj_get_user_data(target));
+                if (!mode_ptr || !FanStackWidget::s_active_picker_)
+                    return;
+                auto* self = FanStackWidget::s_active_picker_;
+                std::string mode = *mode_ptr;
+                if (mode == "carousel") {
+                    self->config_["display_mode"] = "carousel";
+                } else {
+                    self->config_.erase("display_mode");
+                }
+                spdlog::info("[FanStackWidget] {} display_mode -> {}", self->instance_id_, mode);
+                self->save_fan_config();
+                self->dismiss_fan_picker();
+                LVGL_SAFE_EVENT_CB_END();
+            },
+            LV_EVENT_CLICKED, nullptr);
+    }
+
+    // --- Icon section ---
+    lv_obj_t* icon_divider = lv_obj_create(card);
+    lv_obj_set_width(icon_divider, LV_PCT(100));
+    lv_obj_set_height(icon_divider, 1);
+    lv_obj_set_style_bg_color(icon_divider, theme_manager_get_color("text_muted"), 0);
+    lv_obj_set_style_bg_opa(icon_divider, 38, 0);
+    lv_obj_set_style_pad_all(icon_divider, 0, 0);
+    lv_obj_set_style_border_width(icon_divider, 0, 0);
+    lv_obj_remove_flag(icon_divider, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_remove_flag(icon_divider, LV_OBJ_FLAG_CLICKABLE);
+
+    lv_obj_t* icon_title = lv_label_create(card);
+    lv_label_set_text(icon_title, lv_tr("Icon"));
+    lv_obj_set_style_text_font(icon_title, lv_font_get_default(), 0);
+    lv_obj_set_style_text_color(icon_title, theme_manager_get_color("text"), 0);
+    lv_obj_set_width(icon_title, LV_PCT(100));
+
+    // Icon grid (wrap flow)
+    lv_obj_t* icon_grid = lv_obj_create(card);
+    lv_obj_set_width(icon_grid, LV_PCT(100));
+    lv_obj_set_height(icon_grid, LV_SIZE_CONTENT);
+    lv_obj_set_flex_flow(icon_grid, LV_FLEX_FLOW_ROW_WRAP);
+    lv_obj_set_flex_align(icon_grid, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_START);
+    lv_obj_set_style_pad_all(icon_grid, 0, 0);
+    lv_obj_set_style_pad_gap(icon_grid, 4, 0);
+    lv_obj_set_style_bg_opa(icon_grid, 0, 0);
+    lv_obj_set_style_border_width(icon_grid, 0, 0);
+    lv_obj_remove_flag(icon_grid, LV_OBJ_FLAG_SCROLLABLE);
+
+    std::string effective_icon = icon_name_.empty() ? kDefaultFanIcon : icon_name_;
+
+    for (size_t i = 0; i < kFanIconCount; ++i) {
+        lv_obj_t* cell = lv_obj_create(icon_grid);
+        lv_obj_set_size(cell, kIconCellSize, kIconCellSize);
+        lv_obj_remove_flag(cell, LV_OBJ_FLAG_SCROLLABLE);
+        lv_obj_add_flag(cell, LV_OBJ_FLAG_CLICKABLE);
+        lv_obj_set_style_bg_opa(cell, 0, 0);
+        lv_obj_set_style_radius(cell, 4, 0);
+        lv_obj_set_style_pad_all(cell, 0, 0);
+
+        // Pressed feedback
+        lv_obj_set_style_bg_color(cell, theme_manager_get_color("text_muted"),
+                                  LV_PART_MAIN | LV_STATE_PRESSED);
+        lv_obj_set_style_bg_opa(cell, LV_OPA_20, LV_PART_MAIN | LV_STATE_PRESSED);
+
+        apply_icon_cell_highlight(cell, kFanIcons[i] == effective_icon);
+
+        // Icon glyph
+        const char* cp = ui_icon::lookup_codepoint(kFanIcons[i]);
+        if (cp) {
+            lv_obj_t* icon = lv_label_create(cell);
+            lv_label_set_text(icon, cp);
+            lv_obj_set_style_text_font(icon, &mdi_icons_24, 0);
+            lv_obj_set_style_text_color(icon, theme_manager_get_color("text"), 0);
+            lv_obj_center(icon);
+            lv_obj_remove_flag(icon, LV_OBJ_FLAG_CLICKABLE);
+            lv_obj_add_flag(icon, LV_OBJ_FLAG_EVENT_BUBBLE);
+        }
+
+        // Store index as user_data
+        lv_obj_set_user_data(cell, reinterpret_cast<void*>(static_cast<intptr_t>(i)));
+
+        lv_obj_add_event_cb(
+            cell,
+            [](lv_event_t* e) {
+                LVGL_SAFE_EVENT_CB_BEGIN("[FanStackWidget] icon_cell_cb");
+                auto* target = static_cast<lv_obj_t*>(lv_event_get_current_target(e));
+                auto idx =
+                    static_cast<size_t>(reinterpret_cast<intptr_t>(lv_obj_get_user_data(target)));
+                if (idx < kFanIconCount && FanStackWidget::s_active_picker_) {
+                    FanStackWidget::s_active_picker_->select_icon(kFanIcons[idx]);
+                }
+                LVGL_SAFE_EVENT_CB_END();
+            },
+            LV_EVENT_CLICKED, nullptr);
+    }
+
+    s_active_picker_ = this;
+
+    // Self-clearing delete callback for parent deletion safety
+    lv_obj_add_event_cb(
+        picker_backdrop_,
+        [](lv_event_t* ev) {
+            auto* self = static_cast<FanStackWidget*>(lv_event_get_user_data(ev));
+            if (!self)
+                return;
+            self->picker_backdrop_ = nullptr;
+            if (s_active_picker_ == self) {
+                s_active_picker_ = nullptr;
+            }
+        },
+        LV_EVENT_DELETE, this);
+
+    // Position card near the widget
+    if (card && widget_obj_) {
+        lv_area_t widget_area;
+        lv_obj_get_coords(widget_obj_, &widget_area);
+
+        int card_x = (widget_area.x1 + widget_area.x2) / 2 - card_w / 2;
+        int card_y = widget_area.y2 + space_xs;
+
+        // Clamp to screen bounds
+        if (card_x < space_md)
+            card_x = space_md;
+        if (card_x + card_w > screen_w - space_md)
+            card_x = screen_w - card_w - space_md;
+
+        int card_max_h = screen_h * 70 / 100;
+        if (card_y + card_max_h > screen_h - space_md) {
+            card_y = widget_area.y1 - card_max_h - space_xs;
+            if (card_y < space_md)
+                card_y = space_md;
+        }
+
+        lv_obj_set_pos(card, card_x, card_y);
+    }
+
+    spdlog::debug("[FanStackWidget] Picker shown with {} fans, {} icons", fans.size(),
+                  kFanIconCount);
+}
+
+void FanStackWidget::dismiss_fan_picker() {
+    if (!picker_backdrop_) {
+        return;
+    }
+
+    lv_obj_t* backdrop = picker_backdrop_;
+    picker_backdrop_ = nullptr;
+    s_active_picker_ = nullptr;
+
+    if (lv_obj_is_valid(backdrop)) {
+        helix::ui::safe_delete(backdrop);
+    }
+
+    spdlog::debug("[FanStackWidget] Picker dismissed");
+}
+
+void FanStackWidget::select_fan(const std::string& object_name) {
+    selected_fan_ = object_name;
+    save_fan_config();
+    dismiss_fan_picker();
+    spdlog::info("[FanStackWidget] {} selected fan: {}", instance_id_, object_name);
+}
+
+void FanStackWidget::select_icon(const std::string& name) {
+    icon_name_ = (name == kDefaultFanIcon) ? "" : name;
+    save_fan_config();
+
+    // Update icon grid highlights if picker is still open
+    if (picker_backdrop_) {
+        lv_obj_t* card_obj = lv_obj_get_child(picker_backdrop_, 0);
+        if (card_obj) {
+            uint32_t child_count = lv_obj_get_child_count(card_obj);
+            if (child_count > 0) {
+                lv_obj_t* icon_grid = lv_obj_get_child(card_obj, child_count - 1);
+                std::string effective = icon_name_.empty() ? kDefaultFanIcon : icon_name_;
+                uint32_t grid_count = lv_obj_get_child_count(icon_grid);
+                for (uint32_t i = 0; i < grid_count; ++i) {
+                    lv_obj_t* cell = lv_obj_get_child(icon_grid, i);
+                    auto idx =
+                        static_cast<size_t>(reinterpret_cast<intptr_t>(lv_obj_get_user_data(cell)));
+                    if (idx < kFanIconCount) {
+                        apply_icon_cell_highlight(cell, kFanIcons[idx] == effective);
+                    }
+                }
+            }
+        }
+    }
+
+    spdlog::info("[FanStackWidget] {} selected icon: {}", instance_id_,
+                 icon_name_.empty() ? "fan (default)" : icon_name_);
+}
+
+void FanStackWidget::save_fan_config() {
+    nlohmann::json config = config_;
+    if (!selected_fan_.empty())
+        config["fan"] = selected_fan_;
+    if (!icon_name_.empty())
+        config["icon"] = icon_name_;
+    save_widget_config(config);
+    spdlog::debug("[FanStackWidget] Saved config: {} fan={} icon={}", instance_id_,
+                  selected_fan_.empty() ? "(auto)" : selected_fan_,
+                  icon_name_.empty() ? kDefaultFanIcon : icon_name_);
 }
