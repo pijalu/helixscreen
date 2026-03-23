@@ -31,6 +31,7 @@
 #include "led/led_controller.h"
 #include "moonraker_manager.h"
 #include "panel_factory.h"
+#include "power_device_state.h"
 #include "print_history_manager.h"
 #include "screenshot.h"
 #include "sound_manager.h"
@@ -1929,6 +1930,11 @@ void Application::setup_discovery_callbacks() {
                     helix::TimelapseState::instance().handle_timelapse_event(data);
                 });
 
+            // Subscribe to power device state change notifications
+            if (c->api) {
+                helix::PowerDeviceState::instance().subscribe(*c->api);
+            }
+
             // Hardware validation: check config expectations vs discovered hardware
             HardwareValidator validator;
             auto validation_result = validator.validate(Config::get_instance(), c->hardware);
@@ -2804,6 +2810,11 @@ void Application::tear_down_printer_state() {
                                                           "timelapse_state");
     }
 
+    // 8b. Unsubscribe power device state
+    if (m_moonraker && m_moonraker->api()) {
+        helix::PowerDeviceState::instance().unsubscribe(*m_moonraker->api());
+    }
+
     // 9. Unregister action prompt callback
     if (m_moonraker && m_moonraker->client() && m_action_prompt_manager) {
         m_moonraker->client()->unregister_method_callback("notify_gcode_response",
@@ -3044,6 +3055,11 @@ void Application::shutdown() {
     if (m_moonraker && m_moonraker->client()) {
         m_moonraker->client()->unregister_method_callback("notify_timelapse_event",
                                                           "timelapse_state");
+    }
+
+    // Unsubscribe power device state
+    if (m_moonraker && m_moonraker->api()) {
+        helix::PowerDeviceState::instance().unsubscribe(*m_moonraker->api());
     }
 
     // Unregister action prompt callback before moonraker is destroyed

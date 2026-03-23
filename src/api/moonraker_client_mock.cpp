@@ -10,6 +10,7 @@
 #include "gcode_parser.h"
 #include "macro_param_cache.h"
 #include "moonraker_client_mock_internal.h"
+#include "power_device_state.h"
 #include "printer_state.h"
 #include "runtime_config.h"
 
@@ -389,8 +390,8 @@ void MoonrakerClientMock::populate_capabilities() {
     discovery_.hardware().parse_config_keys(mock_config);
 
     // Populate macro param cache from mock config (same as real discovery sequence)
-    helix::MacroParamCache::instance().populate_from_configfile(
-        mock_config, discovery_.hardware().macros());
+    helix::MacroParamCache::instance().populate_from_configfile(mock_config,
+                                                                discovery_.hardware().macros());
 
     spdlog::debug("[MoonrakerClientMock] Mock config: adxl345, resonance_tester, kinematics={}",
                   mock_kinematics);
@@ -604,9 +605,17 @@ void MoonrakerClientMock::discover_printer(
             // Real client queries machine.device_power.devices during discovery
             if (std::getenv("MOCK_EMPTY_POWER")) {
                 get_printer_state().set_power_device_count(0);
+                helix::PowerDeviceState::instance().set_devices({});
                 spdlog::debug("[MoonrakerClientMock] Power devices: 0 (MOCK_EMPTY_POWER set)");
             } else {
                 get_printer_state().set_power_device_count(4);
+                std::vector<PowerDevice> mock_power_devices = {
+                    {"printer_psu", "gpio", "on", false},
+                    {"chamber_light", "klipper_device", "on", true},
+                    {"exhaust_fan", "klipper_device", "off", false},
+                    {"led_strip", "gpio", "on", false},
+                };
+                helix::PowerDeviceState::instance().set_devices(mock_power_devices);
                 spdlog::debug("[MoonrakerClientMock] Power devices: 4 (mock default)");
             }
 
@@ -646,9 +655,11 @@ void MoonrakerClientMock::populate_hardware() {
         discovery_.heaters() = {"heater_bed", "extruder"};
         discovery_.sensors() = {"heater_bed", // Bed thermistor (Klipper naming: bare heater name)
                                 "extruder", // Hotend thermistor (Klipper naming: bare heater name)
-                                "temperature_sensor chamber", "temperature_sensor raspberry_pi",
+                                "temperature_sensor chamber",
+                                "temperature_sensor raspberry_pi",
                                 "temperature_sensor mcu_temp",
-                                "tmc2240 stepper_x", "tmc2240 stepper_y"};
+                                "tmc2240 stepper_x",
+                                "tmc2240 stepper_y"};
         discovery_.fans() = {"heater_fan hotend_fan",
                              "fan", // Part cooling fan
                              "fan_generic nevermore", "controller_fan controller_fan"};
@@ -665,7 +676,8 @@ void MoonrakerClientMock::populate_hardware() {
                                 "temperature_sensor raspberry_pi",
                                 "temperature_sensor mcu_temp",
                                 "temperature_sensor z_thermal_adjust",
-                                "tmc2240 stepper_x", "tmc2240 stepper_y"};
+                                "tmc2240 stepper_x",
+                                "tmc2240 stepper_y"};
         discovery_.fans() = {"heater_fan hotend_fan", "fan", "fan_generic exhaust_fan",
                              "controller_fan electronics_fan"};
         discovery_.leds() = {"neopixel sb_leds", "neopixel chamber_leds"};

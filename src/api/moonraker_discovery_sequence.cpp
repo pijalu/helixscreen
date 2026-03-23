@@ -10,6 +10,7 @@
 #include "led/led_controller.h"
 #include "macro_param_cache.h"
 #include "moonraker_client.h"
+#include "power_device_state.h"
 #include "printer_state.h"
 
 #include <algorithm>
@@ -263,8 +264,8 @@ void MoonrakerDiscoverySequence::continue_discovery_objects() {
                         spdlog::info("[Moonraker Client] Webcam detection: {}{}",
                                      has_webcam ? "found" : "none",
                                      has_webcam ? " stream=" + stream_url : "");
-                        get_printer_state().set_webcam_available(has_webcam, stream_url, snapshot_url,
-                                                                 flip_h, flip_v);
+                        get_printer_state().set_webcam_available(has_webcam, stream_url,
+                                                                 snapshot_url, flip_h, flip_v);
                     },
                     [](const MoonrakerError& err) {
                         spdlog::warn("[Moonraker Client] Webcam detection failed: {}", err.message);
@@ -276,13 +277,27 @@ void MoonrakerDiscoverySequence::continue_discovery_objects() {
                 client_.send_jsonrpc(
                     "machine.device_power.devices", json::object(),
                     [](json response) {
-                        int device_count = 0;
+                        std::vector<PowerDevice> devices;
                         if (response.contains("result") && response["result"].contains("devices")) {
-                            device_count = static_cast<int>(response["result"]["devices"].size());
+                            for (const auto& dev : response["result"]["devices"]) {
+                                if (!dev.is_object())
+                                    continue;
+                                PowerDevice pd;
+                                pd.device = dev.value("device", "");
+                                pd.type = dev.value("type", "");
+                                pd.status = dev.value("status", "off");
+                                pd.locked_while_printing =
+                                    dev.value("locked_while_printing", false);
+                                if (!pd.device.empty()) {
+                                    devices.push_back(std::move(pd));
+                                }
+                            }
                         }
                         spdlog::info("[Moonraker Client] Power device detection: {} devices",
-                                     device_count);
-                        get_printer_state().set_power_device_count(device_count);
+                                     devices.size());
+                        get_printer_state().set_power_device_count(
+                            static_cast<int>(devices.size()));
+                        helix::PowerDeviceState::instance().set_devices(devices);
                     },
                     [](const MoonrakerError& err) {
                         spdlog::debug("[Moonraker Client] Power device detection failed: {}",
@@ -630,21 +645,45 @@ void MoonrakerDiscoverySequence::complete_discovery_subscription() {
     // Subscribe to specific fields only — nullptr means ALL fields, which causes
     // excessive notifications and Klipper-side serialization cost (#388)
     if (hardware_.has_mmu()) {
-        subscription_objects["mmu"] = json::array({
-            "gate", "tool", "filament", "action", "reason_for_pause", "filament_pos",
-            "gate_status", "gate_color_rgb", "gate_color", "gate_material",
-            "gate_name", "gate_filament_name", "gate_spool_id", "gate_temperature",
-            "has_bypass", "num_units", "num_gates", "unit_gate_counts", "unit",
-            "ttg_map", "endless_spool_groups",
-            "sensors", "bowden_progress",
-            "clog_detection_enabled", "encoder", "flowguard",
-            "drying_state",
-            "sync_feedback_state", "sync_feedback_bias_modelled",
-            "sync_feedback_bias_raw", "sync_feedback_flow_rate", "sync_drive",
-            "spoolman_support", "pending_spool_id", "espooler_active",
-            "num_toolchanges", "slicer_tool_map", "toolchange_purge_volume",
-            "leds"
-        });
+        subscription_objects["mmu"] = json::array({"gate",
+                                                   "tool",
+                                                   "filament",
+                                                   "action",
+                                                   "reason_for_pause",
+                                                   "filament_pos",
+                                                   "gate_status",
+                                                   "gate_color_rgb",
+                                                   "gate_color",
+                                                   "gate_material",
+                                                   "gate_name",
+                                                   "gate_filament_name",
+                                                   "gate_spool_id",
+                                                   "gate_temperature",
+                                                   "has_bypass",
+                                                   "num_units",
+                                                   "num_gates",
+                                                   "unit_gate_counts",
+                                                   "unit",
+                                                   "ttg_map",
+                                                   "endless_spool_groups",
+                                                   "sensors",
+                                                   "bowden_progress",
+                                                   "clog_detection_enabled",
+                                                   "encoder",
+                                                   "flowguard",
+                                                   "drying_state",
+                                                   "sync_feedback_state",
+                                                   "sync_feedback_bias_modelled",
+                                                   "sync_feedback_bias_raw",
+                                                   "sync_feedback_flow_rate",
+                                                   "sync_drive",
+                                                   "spoolman_support",
+                                                   "pending_spool_id",
+                                                   "espooler_active",
+                                                   "num_toolchanges",
+                                                   "slicer_tool_map",
+                                                   "toolchange_purge_volume",
+                                                   "leds"});
         spdlog::info("[Moonraker Client] Subscribing to MMU object (Happy Hare)");
     }
 
@@ -714,7 +753,6 @@ void MoonrakerDiscoverySequence::complete_discovery_subscription() {
                     } else {
                         spdlog::warn("[Moonraker Client] INITIAL status has NO print_stats!");
                     }
-
                 }
             } else if (sub_response.contains("error")) {
                 spdlog::error("[Moonraker Client] Subscription failed: {}",
