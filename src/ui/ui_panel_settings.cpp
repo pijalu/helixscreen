@@ -997,11 +997,13 @@ void SettingsPanel::handle_factory_reset_clicked() {
             // Start hidden
             lv_obj_add_flag(factory_reset_dialog_, LV_OBJ_FLAG_HIDDEN);
 
-            // Register close callback to delete dialog when animation completes
+            // Register close callback to delete dialog when animation completes.
+            // Must use safe_delete_deferred — this lambda runs inside
+            // UpdateQueue::process_pending(), and synchronous deletion
+            // during a batch corrupts LVGL's event linked list (#356, #491).
             NavigationManager::instance().register_overlay_close_callback(
                 factory_reset_dialog_, [this]() {
-                    helix::ui::safe_delete(factory_reset_dialog_);
-                    factory_reset_dialog_ = nullptr;
+                    helix::ui::safe_delete_deferred(factory_reset_dialog_);
                 });
 
             spdlog::info("[{}] Factory reset dialog created", get_name());
