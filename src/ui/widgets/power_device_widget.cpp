@@ -59,6 +59,42 @@ static const char* const kPowerIcons[] = {
 };
 static constexpr size_t kPowerIconCount = std::size(kPowerIcons);
 static constexpr int kIconCellSize = 36;
+static constexpr const char* kDefaultIcon = "power_cycle";
+
+// Icons with distinct on/off glyphs. Config always stores the ON variant;
+// resolve_icon_for_state() derives the OFF variant from this table.
+struct IconPair {
+    const char* on_icon;
+    const char* off_icon;
+};
+static const IconPair kIconPairs[] = {
+    {"power_on", "power_off"},
+    {"power_plug", "power_plug_off"},
+    {"lightbulb_on", "lightbulb_outline"},
+    {"fan", "fan_off"},
+};
+
+/// Map an off-variant icon name to its on-variant (e.g., "fan_off" → "fan").
+/// Returns the input unchanged if it's not an off-variant.
+static const char* to_on_variant(const char* icon) {
+    for (const auto& pair : kIconPairs) {
+        if (std::strcmp(icon, pair.off_icon) == 0)
+            return pair.on_icon;
+    }
+    return icon;
+}
+
+/// Return the icon to display for a given power status.
+/// For paired icons, returns the off-variant when the device is off/locked.
+static const char* resolve_icon_for_state(const char* base_icon, int status) {
+    if (status == 1)
+        return base_icon;
+    for (const auto& pair : kIconPairs) {
+        if (std::strcmp(base_icon, pair.on_icon) == 0)
+            return pair.off_icon;
+    }
+    return base_icon;
+}
 
 /// Apply highlight styling to an icon grid cell.
 void apply_icon_cell_highlight(lv_obj_t* cell, bool selected) {
@@ -94,7 +130,7 @@ void PowerDeviceWidget::set_config(const nlohmann::json& config) {
     }
     spdlog::debug("[PowerDeviceWidget] Config: {}={} icon={}", instance_id_,
                   device_name_.empty() ? "(unconfigured)" : device_name_,
-                  icon_name_.empty() ? "power_cycle" : icon_name_);
+                  icon_name_.empty() ? kDefaultIcon : icon_name_);
 }
 
 void PowerDeviceWidget::attach(lv_obj_t* widget_obj, lv_obj_t* parent_screen) {
@@ -195,8 +231,9 @@ void PowerDeviceWidget::update_display(int status) {
     }
 
     if (icon_obj_) {
-        // Apply custom icon (or default "power_cycle")
-        const char* effective_icon = icon_name_.empty() ? "power_cycle" : icon_name_.c_str();
+        // Apply icon — for paired icons, toggle between on/off variants
+        const char* base_icon = icon_name_.empty() ? kDefaultIcon : icon_name_.c_str();
+        const char* effective_icon = resolve_icon_for_state(base_icon, status);
         ui_icon_set_source(icon_obj_, effective_icon);
 
         switch (status) {
@@ -492,7 +529,7 @@ void PowerDeviceWidget::show_device_picker() {
     lv_obj_set_style_border_width(icon_grid, 0, 0);
     lv_obj_remove_flag(icon_grid, LV_OBJ_FLAG_SCROLLABLE);
 
-    std::string effective_icon = icon_name_.empty() ? "power_cycle" : icon_name_;
+    std::string effective_icon = icon_name_.empty() ? kDefaultIcon : icon_name_;
 
     for (size_t i = 0; i < kPowerIconCount; ++i) {
         lv_obj_t* cell = lv_obj_create(icon_grid);
@@ -637,13 +674,14 @@ void PowerDeviceWidget::select_device(const std::string& name) {
 }
 
 void PowerDeviceWidget::select_icon(const std::string& name) {
-    // Store empty for the default icon to avoid persisting the default name
-    icon_name_ = (name == "power_cycle") ? "" : name;
+    // Store the ON variant so update_display can derive the OFF icon from the pair table
+    std::string canonical(to_on_variant(name.c_str()));
+    icon_name_ = (canonical == kDefaultIcon) ? "" : canonical;
     save_config();
 
     // Update the widget icon immediately
     if (icon_obj_) {
-        const char* effective = icon_name_.empty() ? "power_cycle" : icon_name_.c_str();
+        const char* effective = icon_name_.empty() ? kDefaultIcon : icon_name_.c_str();
         ui_icon_set_source(icon_obj_, effective);
     }
 
@@ -657,7 +695,7 @@ void PowerDeviceWidget::select_icon(const std::string& name) {
             uint32_t child_count = lv_obj_get_child_count(card);
             if (child_count > 0) {
                 lv_obj_t* icon_grid = lv_obj_get_child(card, child_count - 1);
-                std::string effective_icon = icon_name_.empty() ? "power_cycle" : icon_name_;
+                std::string effective_icon = icon_name_.empty() ? kDefaultIcon : icon_name_;
                 uint32_t grid_count = lv_obj_get_child_count(icon_grid);
                 for (uint32_t i = 0; i < grid_count; ++i) {
                     lv_obj_t* cell = lv_obj_get_child(icon_grid, i);
@@ -682,5 +720,5 @@ void PowerDeviceWidget::save_config() {
         config["icon"] = icon_name_;
     save_widget_config(config);
     spdlog::debug("[PowerDeviceWidget] Saved config: {}={} icon={}", instance_id_, device_name_,
-                  icon_name_.empty() ? "power_cycle" : icon_name_);
+                  icon_name_.empty() ? kDefaultIcon : icon_name_);
 }
