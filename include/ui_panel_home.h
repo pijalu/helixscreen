@@ -11,6 +11,7 @@
 #include "subject_managed_panel.h"
 
 #include <memory>
+#include <string>
 #include <vector>
 
 /**
@@ -68,17 +69,33 @@ class HomePanel : public PanelBase {
     // Cached image path for skipping redundant refresh_printer_image() calls
     std::string last_printer_image_path_;
 
-    // Cached widget ID list for skipping redundant populate_widgets() rebuilds
-    std::vector<std::string> last_visible_widget_ids_;
-
-    // Active PanelWidget instances (factory-created, lifecycle-managed)
-    std::vector<std::unique_ptr<helix::PanelWidget>> active_widgets_;
-
     // Grid edit mode state machine (long-press to rearrange widgets)
     helix::GridEditMode grid_edit_mode_;
 
     // Image change observer (triggers printer image refresh)
     ObserverGuard image_changed_observer_;
+
+    // Multi-page carousel state
+    lv_obj_t* carousel_ = nullptr;
+    lv_obj_t* carousel_host_ = nullptr;
+    lv_obj_t* add_page_tile_ = nullptr;
+    lv_obj_t* arrow_left_ = nullptr;
+    lv_obj_t* arrow_right_ = nullptr;
+    std::vector<std::vector<std::unique_ptr<helix::PanelWidget>>> page_widgets_;
+    std::vector<lv_obj_t*> page_containers_;
+    std::vector<std::vector<std::string>> page_visible_ids_;
+    int active_page_index_ = 0;
+    lv_subject_t page_subject_{};
+    ObserverGuard page_observer_;
+
+    static constexpr int kMaxPages = 8;
+
+    void build_carousel();
+    void rebuild_carousel();
+    void on_page_changed(int new_page);
+    void on_add_page_clicked();
+    void update_arrow_visibility(int page);
+    void populate_page(int page_index, bool force);
 
     // Grid and widget lifecycle
     void setup_widget_gate_observers();

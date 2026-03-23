@@ -4,7 +4,10 @@
 #include "ui_panel_home.h"
 
 #include "ui_callback_helpers.h"
+#include "ui_carousel.h"
 #include "ui_event_safety.h"
+#include "ui_fonts.h"
+#include "ui_icon_codepoints.h"
 #include "ui_nav_manager.h"
 #include "ui_panel_ams.h"
 #include "ui_update_queue.h"
@@ -13,15 +16,18 @@
 #include "ams_state.h"
 #include "app_globals.h"
 #include "observer_factory.h"
+#include "panel_widget_config.h"
 #include "panel_widget_manager.h"
 #include "panel_widgets/print_status_widget.h"
 #include "panel_widgets/printer_image_widget.h"
 #include "printer_image_manager.h"
 #include "printer_state.h"
 #include "static_panel_registry.h"
+#include "theme_manager.h"
 
 #include <spdlog/spdlog.h>
 
+#include <algorithm>
 #include <memory>
 
 using namespace helix;
@@ -62,11 +68,20 @@ HomePanel::~HomePanel() {
     helix::PanelWidgetManager::instance().clear_gate_observers("home");
     helix::PanelWidgetManager::instance().unregister_rebuild_callback("home");
 
-    // Detach active PanelWidget instances
-    for (auto& w : active_widgets_) {
-        if (w) w->detach();
+    // Detach all page widget instances
+    for (auto& page : page_widgets_) {
+        for (auto& w : page) {
+            if (w) w->detach();
+        }
     }
-    active_widgets_.clear();
+    page_widgets_.clear();
+    page_containers_.clear();
+    page_visible_ids_.clear();
+    carousel_ = nullptr;
+    carousel_host_ = nullptr;
+    add_page_tile_ = nullptr;
+    arrow_left_ = nullptr;
+    arrow_right_ = nullptr;
 }
 
 void HomePanel::init_subjects() {
@@ -105,13 +120,469 @@ void HomePanel::deinit_subjects() {
     // Release gate observers BEFORE subjects are freed
     helix::PanelWidgetManager::instance().clear_gate_observers("home");
 
+    // Disconnect page observer before deiniting the subject
+    page_observer_.reset();
+
     // Clear cached widget IDs so reconnects get a fresh rebuild
-    last_visible_widget_ids_.clear();
+    page_visible_ids_.clear();
 
     // SubjectManager handles all lv_subject_deinit() calls via RAII
     subjects_.deinit_all();
     subjects_initialized_ = false;
     spdlog::debug("[{}] Subjects deinitialized", get_name());
+}
+
+// ============================================================================
+// Carousel construction and lifecycle
+// ============================================================================
+
+void HomePanel::build_carousel() {
+    carousel_host_ = lv_obj_find_by_name(panel_, "carousel_host");
+    if (!carousel_host_) {
+        spdlog::error("[{}] carousel_host not found in XML", get_name());
+        return;
+    }
+
+    auto& config = helix::PanelWidgetManager::instance().get_widget_config("home");
+    int num_pages = static_cast<int>(config.page_count());
+    int main_page = static_cast<int>(config.main_page_index());
+
+    spdlog::debug("[{}] Building carousel: {} pages, main={}", get_name(), num_pages, main_page);
+
+    // Create carousel programmatically inside the host
+    carousel_ = ui_carousel_create_obj(carousel_host_);
+    if (!carousel_) {
+        spdlog::error("[{}] Failed to create carousel", get_name());
+        return;
+    }
+
+    // Init page subject and connect to carousel
+    lv_subject_init_int(&page_subject_, 0);
+    subjects_.register_subject(&page_subject_);
+
+    CarouselState* cstate = ui_carousel_get_state(carousel_);
+    if (cstate) {
+        cstate->page_subject = &page_subject_;
+        cstate->wrap = false;
+    }
+
+    // Resize vectors for page tracking
+    page_widgets_.resize(static_cast<size_t>(num_pages));
+    page_containers_.resize(static_cast<size_t>(num_pages), nullptr);
+    page_visible_ids_.resize(static_cast<size_t>(num_pages));
+
+    // Add one tile per config page
+    for (int i = 0; i < num_pages; ++i) {
+        lv_obj_t* container = lv_obj_create(carousel_host_);
+        lv_obj_set_size(container, LV_PCT(100), LV_PCT(100));
+        lv_obj_set_style_pad_all(container, theme_manager_get_spacing("space_sm"), LV_PART_MAIN);
+        lv_obj_set_style_border_width(container, 0, LV_PART_MAIN);
+        lv_obj_set_style_bg_opa(container, LV_OPA_TRANSP, LV_PART_MAIN);
+        lv_obj_remove_flag(container, LV_OBJ_FLAG_SCROLLABLE);
+        lv_obj_add_flag(container, LV_OBJ_FLAG_CLICKABLE);
+
+        ui_carousel_add_item(carousel_, container);
+        page_containers_[static_cast<size_t>(i)] = container;
+    }
+
+    // Add "+" tile for adding new pages
+    if (num_pages < kMaxPages) {
+        add_page_tile_ = lv_obj_create(carousel_host_);
+        lv_obj_set_size(add_page_tile_, LV_PCT(100), LV_PCT(100));
+        lv_obj_set_style_bg_opa(add_page_tile_, LV_OPA_TRANSP, LV_PART_MAIN);
+        lv_obj_set_style_border_width(add_page_tile_, 0, LV_PART_MAIN);
+        lv_obj_remove_flag(add_page_tile_, LV_OBJ_FLAG_SCROLLABLE);
+
+        // Plus icon centered in the tile
+        lv_obj_t* plus_btn = lv_obj_create(add_page_tile_);
+        lv_obj_set_size(plus_btn, 64, 64);
+        lv_obj_set_style_radius(plus_btn, 32, LV_PART_MAIN);
+        lv_obj_set_style_bg_color(plus_btn, theme_manager_get_color("card_bg"), LV_PART_MAIN);
+        lv_obj_set_style_bg_opa(plus_btn, LV_OPA_COVER, LV_PART_MAIN);
+        lv_obj_set_style_border_width(plus_btn, 0, LV_PART_MAIN);
+        lv_obj_align(plus_btn, LV_ALIGN_CENTER, 0, 0);
+        lv_obj_remove_flag(plus_btn, LV_OBJ_FLAG_SCROLLABLE);
+
+        lv_obj_t* plus_label = lv_label_create(plus_btn);
+        lv_label_set_text(plus_label, ui_icon::lookup_codepoint("plus"));
+        lv_obj_set_style_text_font(plus_label, &mdi_icons_32, LV_PART_MAIN);
+        lv_obj_set_style_text_color(plus_label, theme_manager_get_color("icon_secondary"),
+                                    LV_PART_MAIN);
+        lv_obj_align(plus_label, LV_ALIGN_CENTER, 0, 0);
+
+        ui_carousel_add_item(carousel_, add_page_tile_);
+
+        // Click handler on the "+" button (acceptable exception for programmatic creation)
+        lv_obj_add_event_cb(
+            plus_btn,
+            [](lv_event_t* /*e*/) {
+                LVGL_SAFE_EVENT_CB_BEGIN("[HomePanel] on_add_page_clicked");
+                get_global_home_panel().on_add_page_clicked();
+                LVGL_SAFE_EVENT_CB_END();
+            },
+            LV_EVENT_CLICKED, nullptr);
+    }
+
+    // Exclude "+" tile from indicator dots
+    ui_carousel_set_real_page_count(carousel_, num_pages);
+
+    // Enable event bubbling through the carousel LVGL tree so that
+    // long_press/click/pressing/released events from widgets inside page
+    // containers propagate up through tile -> scroll -> carousel -> carousel_host_
+    // where the edit mode handlers are registered via XML.
+    if (cstate) {
+        lv_obj_add_flag(carousel_, LV_OBJ_FLAG_EVENT_BUBBLE);
+        if (cstate->scroll_container) {
+            lv_obj_add_flag(cstate->scroll_container, LV_OBJ_FLAG_EVENT_BUBBLE);
+        }
+        for (auto* tile : cstate->real_tiles) {
+            lv_obj_add_flag(tile, LV_OBJ_FLAG_EVENT_BUBBLE);
+        }
+    }
+
+    // Also add event bubbling on the page containers themselves
+    for (auto* pc : page_containers_) {
+        if (pc) {
+            lv_obj_add_flag(pc, LV_OBJ_FLAG_EVENT_BUBBLE);
+        }
+    }
+
+    // Create arrow buttons (absolutely positioned over the carousel)
+    auto create_arrow = [this](const char* icon_name, lv_align_t align,
+                               int x_offset) -> lv_obj_t* {
+        lv_obj_t* arrow = lv_obj_create(carousel_host_);
+        lv_obj_set_size(arrow, 40, 40);
+        lv_obj_set_style_radius(arrow, 20, LV_PART_MAIN);
+        lv_obj_set_style_bg_color(arrow, theme_manager_get_color("card_bg"), LV_PART_MAIN);
+        lv_obj_set_style_bg_opa(arrow, LV_OPA_80, LV_PART_MAIN);
+        lv_obj_set_style_border_width(arrow, 0, LV_PART_MAIN);
+        lv_obj_align(arrow, align, x_offset, 0);
+        lv_obj_add_flag(arrow, LV_OBJ_FLAG_FLOATING);
+        lv_obj_add_flag(arrow, LV_OBJ_FLAG_CLICKABLE);
+        lv_obj_remove_flag(arrow, LV_OBJ_FLAG_SCROLLABLE);
+
+        lv_obj_t* label = lv_label_create(arrow);
+        lv_label_set_text(label, ui_icon::lookup_codepoint(icon_name));
+        lv_obj_set_style_text_font(label, &mdi_icons_24, LV_PART_MAIN);
+        lv_obj_set_style_text_color(label, theme_manager_get_color("icon_secondary"),
+                                    LV_PART_MAIN);
+        lv_obj_align(label, LV_ALIGN_CENTER, 0, 0);
+        return arrow;
+    };
+
+    arrow_left_ = create_arrow("chevron_left", LV_ALIGN_LEFT_MID, 4);
+    arrow_right_ = create_arrow("chevron_right", LV_ALIGN_RIGHT_MID, -4);
+
+    // Arrow click handlers (acceptable exception for programmatic creation)
+    lv_obj_add_event_cb(
+        arrow_left_,
+        [](lv_event_t* /*e*/) {
+            LVGL_SAFE_EVENT_CB_BEGIN("[HomePanel] arrow_left_clicked");
+            auto& panel = get_global_home_panel();
+            if (panel.carousel_) {
+                int cur = ui_carousel_get_current_page(panel.carousel_);
+                if (cur > 0) {
+                    ui_carousel_goto_page(panel.carousel_, cur - 1, true);
+                }
+            }
+            LVGL_SAFE_EVENT_CB_END();
+        },
+        LV_EVENT_CLICKED, nullptr);
+
+    lv_obj_add_event_cb(
+        arrow_right_,
+        [](lv_event_t* /*e*/) {
+            LVGL_SAFE_EVENT_CB_BEGIN("[HomePanel] arrow_right_clicked");
+            auto& panel = get_global_home_panel();
+            if (panel.carousel_) {
+                auto& config =
+                    helix::PanelWidgetManager::instance().get_widget_config("home");
+                int cur = ui_carousel_get_current_page(panel.carousel_);
+                int max_page = static_cast<int>(config.page_count()) - 1;
+                if (cur < max_page) {
+                    ui_carousel_goto_page(panel.carousel_, cur + 1, true);
+                }
+            }
+            LVGL_SAFE_EVENT_CB_END();
+        },
+        LV_EVENT_CLICKED, nullptr);
+
+    // Observe page subject for page change callbacks
+    page_observer_ = helix::ui::observe_int_sync<HomePanel>(
+        &page_subject_, this, [](HomePanel* self, int page) { self->on_page_changed(page); });
+
+    // Navigate to main page
+    if (main_page > 0) {
+        ui_carousel_goto_page(carousel_, main_page, false);
+    }
+    active_page_index_ = main_page;
+
+    // Populate all pages, activate only the main page widgets
+    for (int i = 0; i < num_pages; ++i) {
+        populate_page(i, true);
+    }
+
+    update_arrow_visibility(active_page_index_);
+
+    spdlog::debug("[{}] Carousel built with {} pages", get_name(), num_pages);
+}
+
+void HomePanel::rebuild_carousel() {
+    spdlog::debug("[{}] Rebuilding carousel", get_name());
+
+    int prev_page = active_page_index_;
+
+    // Deactivate current page widgets
+    if (active_page_index_ >= 0 &&
+        active_page_index_ < static_cast<int>(page_widgets_.size())) {
+        for (auto& w : page_widgets_[static_cast<size_t>(active_page_index_)]) {
+            if (w) w->on_deactivate();
+        }
+    }
+
+    // Detach all widget instances across all pages
+    for (auto& page : page_widgets_) {
+        for (auto& w : page) {
+            if (w) w->detach();
+        }
+    }
+    page_widgets_.clear();
+    page_containers_.clear();
+    page_visible_ids_.clear();
+
+    // Disconnect page observer before deiniting subject
+    page_observer_.reset();
+
+    // Freeze queue, drain, delete carousel
+    {
+        auto freeze = helix::ui::UpdateQueue::instance().scoped_freeze();
+        helix::ui::UpdateQueue::instance().drain();
+        if (carousel_host_) {
+            lv_obj_clean(carousel_host_);
+        }
+    }
+
+    // Null all pointers
+    carousel_ = nullptr;
+    add_page_tile_ = nullptr;
+    arrow_left_ = nullptr;
+    arrow_right_ = nullptr;
+
+    // Unregister page subject from SubjectManager before deiniting
+    // (SubjectManager tracks it, but we need to re-init with a fresh one)
+    subjects_.deinit_all();
+
+    // Re-register subjects (page_subject_ will be re-inited in build_carousel)
+    // Note: subjects_initialized_ stays true since init_subjects() registered callbacks
+
+    // Rebuild
+    build_carousel();
+
+    // Restore previous page, clamped to valid range
+    auto& config = helix::PanelWidgetManager::instance().get_widget_config("home");
+    int max_page = static_cast<int>(config.page_count()) - 1;
+    int restored = std::min(prev_page, max_page);
+    if (restored > 0 && carousel_) {
+        ui_carousel_goto_page(carousel_, restored, false);
+    }
+}
+
+void HomePanel::populate_page(int page_index, bool force) {
+    if (populating_widgets_) {
+        spdlog::debug("[{}] populate_page: already in progress, skipping", get_name());
+        return;
+    }
+
+    if (page_index < 0 || page_index >= static_cast<int>(page_containers_.size())) {
+        spdlog::error("[{}] populate_page: page_index {} out of range", get_name(), page_index);
+        return;
+    }
+
+    populating_widgets_ = true;
+    auto idx = static_cast<size_t>(page_index);
+
+    lv_obj_t* container = page_containers_[idx];
+    if (!container) {
+        spdlog::error("[{}] populate_page: null container for page {}", get_name(), page_index);
+        populating_widgets_ = false;
+        return;
+    }
+
+    // Skip rebuild if the resulting widget list would be identical
+    if (!force) {
+        auto new_ids =
+            helix::PanelWidgetManager::instance().compute_visible_widget_ids("home", page_index);
+        if (idx < page_visible_ids_.size() && new_ids == page_visible_ids_[idx]) {
+            spdlog::debug("[{}] Page {} widget list unchanged, skipping rebuild", get_name(),
+                          page_index);
+            populating_widgets_ = false;
+            return;
+        }
+    }
+
+    // Extract reusable widget instances
+    helix::WidgetReuseMap reuse;
+    if (idx < page_widgets_.size()) {
+        for (auto& w : page_widgets_[idx]) {
+            if (w) {
+                w->detach();
+                if (w->supports_reuse()) {
+                    reuse[w->id()] = std::move(w);
+                }
+            }
+        }
+        // Remove null entries
+        page_widgets_[idx].erase(
+            std::remove_if(page_widgets_[idx].begin(), page_widgets_[idx].end(),
+                           [](const auto& w) { return !w; }),
+            page_widgets_[idx].end());
+    }
+
+    // Flush deferred callbacks and clean LVGL tree
+    {
+        auto freeze = helix::ui::UpdateQueue::instance().scoped_freeze();
+        helix::ui::UpdateQueue::instance().drain();
+        lv_obj_update_layout(container);
+        lv_obj_clean(container);
+    }
+
+    if (idx < page_widgets_.size()) {
+        page_widgets_[idx].clear();
+    }
+
+    // Populate widgets for this page
+    auto widgets = helix::PanelWidgetManager::instance().populate_widgets(
+        "home", container, page_index, std::move(reuse));
+
+    // Enable event bubbling for edit mode detection
+    set_event_bubble_recursive(container);
+
+    // If edit mode is active, disable clickability
+    if (grid_edit_mode_.is_active()) {
+        disable_widget_clicks_recursive(container);
+    }
+
+    // Activate widgets if this is the active page and panel is active
+    if (panel_active_ && page_index == active_page_index_) {
+        for (auto& w : widgets) {
+            if (w) w->on_activate();
+        }
+    }
+
+    // Store widgets
+    if (idx >= page_widgets_.size()) {
+        page_widgets_.resize(idx + 1);
+    }
+    page_widgets_[idx] = std::move(widgets);
+
+    // Cache visible widget IDs
+    if (idx >= page_visible_ids_.size()) {
+        page_visible_ids_.resize(idx + 1);
+    }
+    page_visible_ids_[idx] =
+        helix::PanelWidgetManager::instance().compute_visible_widget_ids("home", page_index);
+
+    populating_widgets_ = false;
+}
+
+void HomePanel::on_page_changed(int new_page) {
+    if (new_page == active_page_index_) {
+        return;
+    }
+
+    auto& config = helix::PanelWidgetManager::instance().get_widget_config("home");
+    int num_pages = static_cast<int>(config.page_count());
+
+    // Ignore page changes to the "+" tile
+    if (new_page >= num_pages) {
+        return;
+    }
+
+    spdlog::debug("[{}] Page changed: {} -> {}", get_name(), active_page_index_, new_page);
+
+    // Deactivate old page widgets
+    if (active_page_index_ >= 0 &&
+        active_page_index_ < static_cast<int>(page_widgets_.size())) {
+        for (auto& w : page_widgets_[static_cast<size_t>(active_page_index_)]) {
+            if (w) w->on_deactivate();
+        }
+    }
+
+    active_page_index_ = new_page;
+
+    // Activate new page widgets if panel is active
+    if (panel_active_ && new_page >= 0 &&
+        new_page < static_cast<int>(page_widgets_.size())) {
+        for (auto& w : page_widgets_[static_cast<size_t>(new_page)]) {
+            if (w) w->on_activate();
+        }
+    }
+
+    update_arrow_visibility(new_page);
+}
+
+void HomePanel::on_add_page_clicked() {
+    auto& config = helix::PanelWidgetManager::instance().get_widget_config("home");
+    if (static_cast<int>(config.page_count()) >= kMaxPages) {
+        spdlog::info("[{}] Max page count reached ({})", get_name(), kMaxPages);
+        return;
+    }
+
+    std::string page_id = config.generate_page_id();
+    int new_idx = config.add_page(page_id);
+    if (new_idx < 0) {
+        spdlog::error("[{}] Failed to add page", get_name());
+        return;
+    }
+
+    config.save();
+    spdlog::info("[{}] Added new page '{}' at index {}", get_name(), page_id, new_idx);
+
+    rebuild_carousel();
+
+    // Animate to the new page
+    if (carousel_) {
+        ui_carousel_goto_page(carousel_, new_idx, true);
+    }
+}
+
+void HomePanel::update_arrow_visibility(int page) {
+    auto& config = helix::PanelWidgetManager::instance().get_widget_config("home");
+    int num_pages = static_cast<int>(config.page_count());
+
+    // Hide arrows entirely when there's only one page
+    if (num_pages <= 1) {
+        if (arrow_left_) lv_obj_add_flag(arrow_left_, LV_OBJ_FLAG_HIDDEN);
+        if (arrow_right_) lv_obj_add_flag(arrow_right_, LV_OBJ_FLAG_HIDDEN);
+        return;
+    }
+
+    // Left hidden on page 0
+    if (arrow_left_) {
+        if (page <= 0) {
+            lv_obj_add_flag(arrow_left_, LV_OBJ_FLAG_HIDDEN);
+        } else {
+            lv_obj_remove_flag(arrow_left_, LV_OBJ_FLAG_HIDDEN);
+        }
+    }
+
+    // Right hidden on last real page
+    if (arrow_right_) {
+        if (page >= num_pages - 1) {
+            lv_obj_add_flag(arrow_right_, LV_OBJ_FLAG_HIDDEN);
+        } else {
+            lv_obj_remove_flag(arrow_right_, LV_OBJ_FLAG_HIDDEN);
+        }
+    }
+}
+
+void HomePanel::populate_widgets(bool force) {
+    // Multi-page path: populate all pages
+    auto& config = helix::PanelWidgetManager::instance().get_widget_config("home");
+    int num_pages = static_cast<int>(config.page_count());
+    for (int i = 0; i < num_pages && i < static_cast<int>(page_containers_.size()); ++i) {
+        populate_page(i, force);
+    }
 }
 
 void HomePanel::setup_widget_gate_observers() {
@@ -127,113 +598,18 @@ void HomePanel::setup_widget_gate_observers() {
             spdlog::debug("[{}] Skipping gate rebuild during edit mode", get_name());
             return;
         }
-        // Skip if any widget has a fullscreen overlay open — detach() would
-        // destroy the overlay LVGL objects mid-display (camera fullscreen).
-        for (const auto& w : active_widgets_) {
-            if (w && w->has_overlay_open()) {
-                spdlog::debug("[{}] Skipping gate rebuild while widget '{}' has overlay open",
-                              get_name(), w->id());
-                return;
+        // Skip if any widget on any page has a fullscreen overlay open
+        for (const auto& page : page_widgets_) {
+            for (const auto& w : page) {
+                if (w && w->has_overlay_open()) {
+                    spdlog::debug("[{}] Skipping gate rebuild while widget '{}' has overlay open",
+                                  get_name(), w->id());
+                    return;
+                }
             }
         }
         populate_widgets(/*force=*/false);
     });
-}
-
-void HomePanel::populate_widgets(bool force) {
-    if (populating_widgets_) {
-        spdlog::debug("[{}] populate_widgets: already in progress, skipping", get_name());
-        return;
-    }
-    populating_widgets_ = true;
-
-    lv_obj_t* container = lv_obj_find_by_name(panel_, "widget_container");
-    if (!container) {
-        spdlog::error("[{}] widget_container not found", get_name());
-        populating_widgets_ = false;
-        return;
-    }
-
-    // Skip rebuild if the resulting widget list would be identical.
-    // Only applies to gate observer rebuilds (force=false). Config changes
-    // and grid edit mode pass force=true to always rebuild, since positions
-    // and per-widget config can change without affecting the widget ID list.
-    if (!force) {
-        auto new_ids = helix::PanelWidgetManager::instance().compute_visible_widget_ids("home");
-        if (new_ids == last_visible_widget_ids_) {
-            spdlog::debug("[{}] Widget list unchanged, skipping rebuild", get_name());
-            populating_widgets_ = false;
-            return;
-        }
-    }
-
-    // Extract reusable widget instances before destroying the rest.
-    // Widgets that support reuse (e.g. CameraWidget) keep expensive C++ state
-    // (camera stream) alive across LVGL tree rebuilds.
-    helix::WidgetReuseMap reuse;
-    for (auto& w : active_widgets_) {
-        w->detach();
-        if (w->supports_reuse()) {
-            reuse[w->id()] = std::move(w);
-        }
-    }
-    // Remove null entries left by std::move() above so that drain() below
-    // cannot trigger re-entrant iteration (e.g. on_deactivate) over nullptrs.
-    active_widgets_.erase(
-        std::remove_if(active_widgets_.begin(), active_widgets_.end(),
-                        [](const auto& w) { return !w; }),
-        active_widgets_.end());
-
-    // Flush any deferred observer callbacks that captured raw widget pointers.
-    // observe_int_sync / observe_string defer via ui_queue_update(), so lambdas
-    // may already be queued with a `self` pointer to a widget we're about to
-    // destroy.  Draining now ensures they run while the C++ objects still exist
-    // (detach() cleared widget_obj_ so the guards will skip the work).
-    auto freeze = helix::ui::UpdateQueue::instance().scoped_freeze();
-    helix::ui::UpdateQueue::instance().drain();
-
-    // Flush any pending layout before destroying children. If a previous
-    // frame invalidated layout, layout_update_core would traverse stale
-    // children after lv_obj_clean() freed them (SIGSEGV in get_prop_core).
-    lv_obj_update_layout(container);
-
-    // Destroy LVGL children BEFORE destroying C++ widget instances.
-    // Must happen here (not in the manager) to ensure correct ordering:
-    // drain → clean LVGL → clear C++. Manager's lv_obj_clean is a no-op.
-    lv_obj_clean(container);
-    active_widgets_.clear();
-
-    // Delegate generic widget creation to the manager, passing reusable instances
-    active_widgets_ =
-        helix::PanelWidgetManager::instance().populate_widgets("home", container, 0,
-                                                                     std::move(reuse));
-
-    // Enable event bubbling on the entire widget subtree so touch events
-    // (long_press, click, etc.) propagate from deeply-nested clickable
-    // elements up to the widget_container, where the grid edit mode
-    // handlers are registered via XML.
-    set_event_bubble_recursive(container);
-
-    // If edit mode is active (e.g. rebuild triggered during editing),
-    // disable clickability so widget click handlers don't fire.
-    if (grid_edit_mode_.is_active()) {
-        disable_widget_clicks_recursive(container);
-    }
-
-    // If the panel is already active (rebuild triggered by gate observer or
-    // settings change), activate the new widgets so timers/observers start.
-    if (panel_active_) {
-        for (auto& w : active_widgets_) {
-            w->on_activate();
-        }
-    }
-
-    // Cache the visible widget IDs AFTER successful rebuild so that
-    // gate observer rebuilds can skip if the list hasn't changed.
-    last_visible_widget_ids_ =
-        helix::PanelWidgetManager::instance().compute_visible_widget_ids("home");
-
-    populating_widgets_ = false;
 }
 
 void HomePanel::setup(lv_obj_t* panel, lv_obj_t* parent_screen) {
@@ -247,8 +623,8 @@ void HomePanel::setup(lv_obj_t* panel, lv_obj_t* parent_screen) {
 
     spdlog::debug("[{}] Setting up...", get_name());
 
-    // Dynamically populate grid widgets from PanelWidgetConfig
-    populate_widgets();
+    // Build carousel with pages from config
+    build_carousel();
 
     // Observe hardware gate subjects so widgets appear/disappear when
     // capabilities change (e.g. power devices discovered after startup).
@@ -266,18 +642,18 @@ void HomePanel::setup(lv_obj_t* panel, lv_obj_t* parent_screen) {
     // Set grid edit mode rebuild callback once (used when edit mode rearranges widgets)
     grid_edit_mode_.set_rebuild_callback([this]() { populate_widgets(); });
 
-    // Widgets handle their own initialization via version observers
-    // (no explicit config reload needed)
-
     spdlog::debug("[{}] Setup complete!", get_name());
 }
 
 void HomePanel::on_activate() {
     panel_active_ = true;
 
-    // Notify all widgets that the panel is visible
-    for (auto& w : active_widgets_) {
-        if (w) w->on_activate();
+    // Notify only the active page's widgets that the panel is visible
+    if (active_page_index_ >= 0 &&
+        active_page_index_ < static_cast<int>(page_widgets_.size())) {
+        for (auto& w : page_widgets_[static_cast<size_t>(active_page_index_)]) {
+            if (w) w->on_activate();
+        }
     }
 
     // Start Spoolman polling for AMS mini status updates
@@ -292,10 +668,12 @@ void HomePanel::on_deactivate() {
         grid_edit_mode_.exit();
     }
 
-    // Notify all widgets that the panel is going offscreen
-    // (null check: entries may be moved-from during rebuild; see gate rebuild code)
-    for (auto& w : active_widgets_) {
-        if (w) w->on_deactivate();
+    // Notify only the active page's widgets that the panel is going offscreen
+    if (active_page_index_ >= 0 &&
+        active_page_index_ < static_cast<int>(page_widgets_.size())) {
+        for (auto& w : page_widgets_[static_cast<size_t>(active_page_index_)]) {
+            if (w) w->on_deactivate();
+        }
     }
 
     AmsState::instance().stop_spoolman_polling();
@@ -308,19 +686,25 @@ void HomePanel::apply_printer_config() {
 }
 
 void HomePanel::refresh_printer_image() {
-    for (auto& w : active_widgets_) {
-        if (auto* piw = dynamic_cast<helix::PrinterImageWidget*>(w.get())) {
-            piw->refresh_printer_image();
-            return;
+    // Search all pages for the PrinterImageWidget
+    for (auto& page : page_widgets_) {
+        for (auto& w : page) {
+            if (auto* piw = dynamic_cast<helix::PrinterImageWidget*>(w.get())) {
+                piw->refresh_printer_image();
+                return;
+            }
         }
     }
 }
 
 void HomePanel::trigger_idle_runout_check() {
-    for (auto& w : active_widgets_) {
-        if (auto* psw = dynamic_cast<helix::PrintStatusWidget*>(w.get())) {
-            psw->trigger_idle_runout_check();
-            return;
+    // Search all pages for the PrintStatusWidget
+    for (auto& page : page_widgets_) {
+        for (auto& w : page) {
+            if (auto* psw = dynamic_cast<helix::PrintStatusWidget*>(w.get())) {
+                psw->trigger_idle_runout_check();
+                return;
+            }
         }
     }
     spdlog::debug("[{}] PrintStatusWidget not active - skipping runout check", get_name());
@@ -405,18 +789,31 @@ void HomePanel::on_home_grid_long_press(lv_event_t* e) {
             lv_indev_t* indev = lv_indev_active();
             if (indev) lv_indev_reset(indev, nullptr);
 
-            // Clear PRESSED state from all descendants — the pressed button
-            // may be deeply nested inside a widget (e.g., print_status card).
-            auto* container = lv_obj_find_by_name(panel.panel_, "widget_container");
-            clear_pressed_state_recursive(container);
+            // Clear PRESSED state from active page container
+            lv_obj_t* container = nullptr;
+            if (panel.active_page_index_ >= 0 &&
+                panel.active_page_index_ <
+                    static_cast<int>(panel.page_containers_.size())) {
+                container =
+                    panel.page_containers_[static_cast<size_t>(panel.active_page_index_)];
+            }
+            if (container) {
+                clear_pressed_state_recursive(container);
+            }
 
-            // Enter edit mode on first long-press
+            // Enter edit mode on the active page container
             auto& config = helix::PanelWidgetManager::instance().get_widget_config("home");
-            panel.grid_edit_mode_.enter(container, &config);
-            // Select the widget under the finger and start dragging immediately.
-            panel.grid_edit_mode_.handle_click(e);
-            if (panel.grid_edit_mode_.selected_widget()) {
-                panel.grid_edit_mode_.handle_drag_start(e);
+            if (container) {
+                panel.grid_edit_mode_.enter(container, &config);
+                // Disable carousel swiping during edit mode
+                if (panel.carousel_) {
+                    ui_carousel_set_scroll_enabled(panel.carousel_, false);
+                }
+                // Select the widget under the finger and start dragging immediately.
+                panel.grid_edit_mode_.handle_click(e);
+                if (panel.grid_edit_mode_.selected_widget()) {
+                    panel.grid_edit_mode_.handle_drag_start(e);
+                }
             }
         } else {
             // Already in edit mode — start drag if a widget is selected
@@ -460,6 +857,10 @@ void HomePanel::on_home_grid_released(lv_event_t* e) {
 void HomePanel::exit_grid_edit_mode() {
     if (grid_edit_mode_.is_active()) {
         grid_edit_mode_.exit();
+        // Re-enable carousel swiping after edit mode
+        if (carousel_) {
+            ui_carousel_set_scroll_enabled(carousel_, true);
+        }
     }
 }
 
