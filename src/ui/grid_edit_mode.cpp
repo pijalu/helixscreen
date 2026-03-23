@@ -2367,8 +2367,15 @@ void GridEditMode::place_widget_from_catalog(const std::string& widget_id) {
     }
 
     if (!found) {
-        spdlog::warn("[GridEditMode] Widget '{}' not found in config entries", widget_id);
-        return;
+        // Multi-instance widgets are user-created — add a new entry
+        if (def->multi_instance) {
+            mutable_entries.push_back(
+                {widget_id, true, {}, place_col, place_row, colspan, rowspan});
+            spdlog::info("[GridEditMode] Created new multi-instance entry '{}'", widget_id);
+        } else {
+            spdlog::warn("[GridEditMode] Widget '{}' not found in config entries", widget_id);
+            return;
+        }
     }
 
     spdlog::info("[GridEditMode] Placed widget '{}' at ({},{}) {}x{}", widget_id, place_col,
