@@ -20,35 +20,12 @@ namespace helix {
 PanelWidgetConfig::PanelWidgetConfig(const std::string& panel_id, Config& config)
     : panel_id_(panel_id), config_(config) {}
 
-void PanelWidgetConfig::load() {
-    entries_.clear();
-
-    // Per-panel path: /printers/{active}/panel_widgets/<panel_id>
-    std::string panel_path = config_.df() + "panel_widgets/" + panel_id_;
-    auto saved = config_.get<json>(panel_path, json());
-
-    // Migration: move legacy "home_widgets" to "panel_widgets.home"
-    if (panel_id_ == "home" && (saved.is_null() || !saved.is_array())) {
-        auto legacy = config_.get<json>("/home_widgets", json());
-        if (legacy.is_array() && !legacy.empty()) {
-            spdlog::info("[PanelWidgetConfig] Migrating legacy home_widgets to panel_widgets.home");
-            config_.set<json>(panel_path, legacy);
-            // Remove legacy key
-            config_.get_json("").erase("home_widgets");
-            config_.save();
-            saved = legacy;
-        }
-    }
-
-    if (!saved.is_array()) {
-        entries_ = build_defaults();
-        save(); // Persist default grid positions for future launches
-        return;
-    }
-
+std::vector<PanelWidgetEntry> PanelWidgetConfig::parse_widget_array(const nlohmann::json& arr,
+                                                                    bool append_registry_defaults) {
+    std::vector<PanelWidgetEntry> result;
     std::set<std::string> seen_ids;
 
-    for (const auto& item : saved) {
+    for (const auto& item : arr) {
         if (!item.is_object() || !item.contains("id") || !item.contains("enabled")) {
             continue;
         }
@@ -117,58 +94,166 @@ void PanelWidgetConfig::load() {
         }
 
         seen_ids.insert(id);
-        entries_.push_back({id, enabled, widget_config, col, row_val, colspan, rowspan});
+        result.push_back({id, enabled, widget_config, col, row_val, colspan, rowspan});
     }
 
     // Append any new widgets from registry that are not in saved config
-    for (const auto& def : get_all_widget_defs()) {
-        if (seen_ids.count(def.id) == 0) {
-            if (def.multi_instance)
-                continue;
-            spdlog::debug("[PanelWidgetConfig] Appending new widget: {} (default_enabled={})",
-                          def.id, def.default_enabled);
-            entries_.push_back({def.id, def.default_enabled, {}, -1, -1, def.colspan, def.rowspan});
+    // (only for primary/main page — secondary pages are user-curated)
+    if (append_registry_defaults) {
+        for (const auto& def : get_all_widget_defs()) {
+            if (seen_ids.count(def.id) == 0) {
+                if (def.multi_instance)
+                    continue;
+                spdlog::debug(
+                    "[PanelWidgetConfig] Appending new widget: {} (default_enabled={})", def.id,
+                    def.default_enabled);
+                result.push_back(
+                    {def.id, def.default_enabled, {}, -1, -1, def.colspan, def.rowspan});
+            }
         }
     }
 
-    if (entries_.empty()) {
-        entries_ = build_defaults();
+    return result;
+}
+
+void PanelWidgetConfig::load() {
+    pages_.clear();
+    main_page_index_ = 0;
+    next_page_id_ = 1;
+
+    // Per-panel path: /printers/{active}/panel_widgets/<panel_id>
+    std::string panel_path = config_.df() + "panel_widgets/" + panel_id_;
+    auto saved = config_.get<json>(panel_path, json());
+
+    // Migration: move legacy "home_widgets" to "panel_widgets.home"
+    if (panel_id_ == "home" && (saved.is_null() || (!saved.is_array() && !saved.is_object()))) {
+        auto legacy = config_.get<json>("/home_widgets", json());
+        if (legacy.is_array() && !legacy.empty()) {
+            spdlog::info("[PanelWidgetConfig] Migrating legacy home_widgets to panel_widgets.home");
+            config_.set<json>(panel_path, legacy);
+            // Remove legacy key
+            config_.get_json("").erase("home_widgets");
+            config_.save();
+            saved = legacy;
+        }
+    }
+
+    // Format detection: object with "pages" key = new multi-page format
+    if (saved.is_object() && saved.contains("pages") && saved["pages"].is_array()) {
+        // New multi-page format
+        main_page_index_ = saved.value("main_page_index", 0);
+        next_page_id_ = saved.value("next_page_id", 0);
+
+        size_t page_idx = 0;
+        for (const auto& page_json : saved["pages"]) {
+            PageConfig page;
+            page.id = page_json.value("id", "");
+            if (page_json.contains("widgets") && page_json["widgets"].is_array()) {
+                // Only append registry defaults for the first page (main/default page)
+                bool append_defaults = (page_idx == 0);
+                page.widgets = parse_widget_array(page_json["widgets"], append_defaults);
+            }
+            pages_.push_back(std::move(page));
+            ++page_idx;
+        }
+
+        // Default next_page_id to pages_.size() if missing/zero
+        if (next_page_id_ <= 0) {
+            next_page_id_ = static_cast<int>(pages_.size());
+        }
+
+        // Clamp main_page_index
+        if (main_page_index_ >= pages_.size()) {
+            main_page_index_ = 0;
+        }
+
+        // Ensure at least one page
+        if (pages_.empty()) {
+            PageConfig page;
+            page.id = "main";
+            page.widgets = build_defaults();
+            pages_.push_back(std::move(page));
+            save();
+        }
+
         return;
     }
 
-    // If no entries have grid positions, this is a pre-grid config — reset to defaults.
-    bool has_any_grid =
-        std::any_of(entries_.begin(), entries_.end(),
-                    [](const PanelWidgetEntry& e) { return e.has_grid_position(); });
-    if (!has_any_grid) {
-        spdlog::info(
-            "[PanelWidgetConfig] Pre-grid config detected, resetting to default grid for '{}'",
-            panel_id_);
-        entries_ = build_defaults();
+    // Legacy format: flat JSON array or null/missing
+    if (saved.is_array()) {
+        auto entries = parse_widget_array(saved);
+
+        if (entries.empty()) {
+            entries = build_defaults();
+        } else {
+            // If no entries have grid positions, this is a pre-grid config — reset to defaults.
+            bool has_any_grid =
+                std::any_of(entries.begin(), entries.end(),
+                            [](const PanelWidgetEntry& e) { return e.has_grid_position(); });
+            if (!has_any_grid) {
+                spdlog::info("[PanelWidgetConfig] Pre-grid config detected, resetting to default "
+                             "grid for '{}'",
+                             panel_id_);
+                entries = build_defaults();
+            }
+        }
+
+        // Wrap in a single page
+        PageConfig page;
+        page.id = "main";
+        page.widgets = std::move(entries);
+        pages_.push_back(std::move(page));
+        next_page_id_ = 1;
+
+        // Migrate to new format on disk
         save();
+        return;
     }
+
+    // No saved config — build defaults
+    PageConfig page;
+    page.id = "main";
+    page.widgets = build_defaults();
+    pages_.push_back(std::move(page));
+    next_page_id_ = 1;
+    save(); // Persist default grid positions for future launches
 }
 
 void PanelWidgetConfig::save() {
-    json widgets_array = json::array();
-    for (const auto& entry : entries_) {
-        json item = {{"id", entry.id}, {"enabled", entry.enabled}};
-        if (!entry.config.empty()) {
-            item["config"] = entry.config;
+    json pages_json = json::array();
+    for (const auto& page : pages_) {
+        json page_obj;
+        page_obj["id"] = page.id;
+
+        json widgets_array = json::array();
+        for (const auto& entry : page.widgets) {
+            json item = {{"id", entry.id}, {"enabled", entry.enabled}};
+            if (!entry.config.empty()) {
+                item["config"] = entry.config;
+            }
+            // Always write grid coordinates so auto-placed positions survive reload
+            item["col"] = entry.col;
+            item["row"] = entry.row;
+            item["colspan"] = entry.colspan;
+            item["rowspan"] = entry.rowspan;
+            widgets_array.push_back(std::move(item));
         }
-        // Always write grid coordinates so auto-placed positions survive reload
-        item["col"] = entry.col;
-        item["row"] = entry.row;
-        item["colspan"] = entry.colspan;
-        item["rowspan"] = entry.rowspan;
-        widgets_array.push_back(std::move(item));
+        page_obj["widgets"] = std::move(widgets_array);
+        pages_json.push_back(std::move(page_obj));
     }
-    config_.set<json>(config_.df() + "panel_widgets/" + panel_id_, widgets_array);
+
+    json root;
+    root["pages"] = std::move(pages_json);
+    root["main_page_index"] = main_page_index_;
+    root["next_page_id"] = next_page_id_;
+
+    config_.set<json>(config_.df() + "panel_widgets/" + panel_id_, root);
     config_.save();
 }
 
 void PanelWidgetConfig::reorder(size_t from_index, size_t to_index) {
-    if (from_index >= entries_.size() || to_index >= entries_.size()) {
+    auto& e = pages_[0].widgets;
+    if (from_index >= e.size() || to_index >= e.size()) {
         return;
     }
     if (from_index == to_index) {
@@ -176,33 +261,44 @@ void PanelWidgetConfig::reorder(size_t from_index, size_t to_index) {
     }
 
     // Extract element, then insert at new position
-    auto entry = std::move(entries_[from_index]);
-    entries_.erase(entries_.begin() + static_cast<ptrdiff_t>(from_index));
-    entries_.insert(entries_.begin() + static_cast<ptrdiff_t>(to_index), std::move(entry));
+    auto entry = std::move(e[from_index]);
+    e.erase(e.begin() + static_cast<ptrdiff_t>(from_index));
+    e.insert(e.begin() + static_cast<ptrdiff_t>(to_index), std::move(entry));
 }
 
 void PanelWidgetConfig::set_enabled(size_t index, bool enabled) {
-    if (index >= entries_.size()) {
+    auto& e = pages_[0].widgets;
+    if (index >= e.size()) {
         return;
     }
-    entries_[index].enabled = enabled;
+    e[index].enabled = enabled;
 }
 
 void PanelWidgetConfig::reset_to_defaults() {
-    entries_ = build_defaults();
+    // Reset page 0 to defaults, remove all other pages
+    pages_.resize(1);
+    pages_[0].id = "main";
+    pages_[0].widgets = build_defaults();
+    main_page_index_ = 0;
+    next_page_id_ = 1;
 }
 
 std::string PanelWidgetConfig::mint_instance_id(const std::string& base_id) {
     int max_n = 0;
     std::string prefix = base_id + ":";
-    for (const auto& entry : entries_) {
-        if (entry.id.size() > prefix.size() && entry.id.substr(0, prefix.size()) == prefix) {
-            auto suffix = entry.id.substr(prefix.size());
-            try {
-                int n = std::stoi(suffix);
-                if (n > max_n)
-                    max_n = n;
-            } catch (...) {
+
+    // Scan ALL pages for existing instance IDs
+    for (const auto& page : pages_) {
+        for (const auto& entry : page.widgets) {
+            if (entry.id.size() > prefix.size() &&
+                entry.id.substr(0, prefix.size()) == prefix) {
+                auto suffix = entry.id.substr(prefix.size());
+                try {
+                    int n = std::stoi(suffix);
+                    if (n > max_n)
+                        max_n = n;
+                } catch (...) {
+                }
             }
         }
     }
@@ -210,35 +306,87 @@ std::string PanelWidgetConfig::mint_instance_id(const std::string& base_id) {
 }
 
 void PanelWidgetConfig::delete_entry(const std::string& id) {
-    entries_.erase(std::remove_if(entries_.begin(), entries_.end(),
-                                  [&id](const PanelWidgetEntry& e) { return e.id == id; }),
-                   entries_.end());
+    // Search all pages, remove first match
+    for (auto& page : pages_) {
+        auto it = std::find_if(page.widgets.begin(), page.widgets.end(),
+                               [&id](const PanelWidgetEntry& e) { return e.id == id; });
+        if (it != page.widgets.end()) {
+            page.widgets.erase(it);
+            return;
+        }
+    }
 }
 
 bool PanelWidgetConfig::is_enabled(const std::string& id) const {
-    auto it = std::find_if(entries_.begin(), entries_.end(),
-                           [&id](const PanelWidgetEntry& e) { return e.id == id; });
-    return it != entries_.end() && it->enabled;
+    for (const auto& page : pages_) {
+        auto it = std::find_if(page.widgets.begin(), page.widgets.end(),
+                               [&id](const PanelWidgetEntry& e) { return e.id == id; });
+        if (it != page.widgets.end()) {
+            return it->enabled;
+        }
+    }
+    return false;
 }
 
 nlohmann::json PanelWidgetConfig::get_widget_config(const std::string& id) const {
-    auto it = std::find_if(entries_.begin(), entries_.end(),
-                           [&id](const PanelWidgetEntry& e) { return e.id == id; });
-    if (it != entries_.end() && !it->config.empty()) {
-        return it->config;
+    for (const auto& page : pages_) {
+        auto it = std::find_if(page.widgets.begin(), page.widgets.end(),
+                               [&id](const PanelWidgetEntry& e) { return e.id == id; });
+        if (it != page.widgets.end() && !it->config.empty()) {
+            return it->config;
+        }
     }
     return nlohmann::json::object();
 }
 
 void PanelWidgetConfig::set_widget_config(const std::string& id, const nlohmann::json& config) {
-    auto it = std::find_if(entries_.begin(), entries_.end(),
-                           [&id](const PanelWidgetEntry& e) { return e.id == id; });
-    if (it != entries_.end()) {
-        it->config = config;
-        save();
-    } else {
-        spdlog::debug("[PanelWidgetConfig] set_widget_config: widget '{}' not found", id);
+    for (auto& page : pages_) {
+        auto it = std::find_if(page.widgets.begin(), page.widgets.end(),
+                               [&id](const PanelWidgetEntry& e) { return e.id == id; });
+        if (it != page.widgets.end()) {
+            it->config = config;
+            save();
+            return;
+        }
     }
+    spdlog::debug("[PanelWidgetConfig] set_widget_config: widget '{}' not found", id);
+}
+
+int PanelWidgetConfig::add_page(const std::string& name) {
+    if (pages_.size() >= kMaxPages) {
+        spdlog::warn("[PanelWidgetConfig] Cannot add page: at maximum ({} pages)", kMaxPages);
+        return -1;
+    }
+
+    PageConfig page;
+    page.id = name.empty() ? generate_page_id() : name;
+    pages_.push_back(std::move(page));
+    return static_cast<int>(pages_.size() - 1);
+}
+
+bool PanelWidgetConfig::remove_page(size_t page_index) {
+    if (pages_.size() <= 1) {
+        spdlog::warn("[PanelWidgetConfig] Cannot remove last page");
+        return false;
+    }
+    if (page_index >= pages_.size()) {
+        return false;
+    }
+
+    pages_.erase(pages_.begin() + static_cast<ptrdiff_t>(page_index));
+
+    // Adjust main_page_index
+    if (main_page_index_ == page_index) {
+        main_page_index_ = 0;
+    } else if (main_page_index_ > page_index) {
+        --main_page_index_;
+    }
+
+    return true;
+}
+
+std::string PanelWidgetConfig::generate_page_id() {
+    return "page_" + std::to_string(next_page_id_++);
 }
 
 // Breakpoint name to index mapping for default_layout.json
@@ -348,8 +496,13 @@ std::vector<PanelWidgetEntry> PanelWidgetConfig::build_default_grid() {
 }
 
 bool PanelWidgetConfig::is_grid_format() const {
-    return std::any_of(entries_.begin(), entries_.end(),
-                       [](const PanelWidgetEntry& e) { return e.has_grid_position(); });
+    for (const auto& page : pages_) {
+        if (std::any_of(page.widgets.begin(), page.widgets.end(),
+                        [](const PanelWidgetEntry& e) { return e.has_grid_position(); })) {
+            return true;
+        }
+    }
+    return false;
 }
 
 std::vector<PanelWidgetEntry> PanelWidgetConfig::build_defaults() {

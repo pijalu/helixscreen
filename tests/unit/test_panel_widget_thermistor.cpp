@@ -129,8 +129,10 @@ TEST_CASE_METHOD(helix::ThermistorConfigFixture,
     auto cfg = wc.get_widget_config("thermistor:1");
     REQUIRE(cfg["sensor"].get<std::string>() == "temperature_sensor chamber");
 
-    // Verify persisted in underlying JSON
-    auto& saved = get_data()["printers"]["default"]["panel_widgets"]["home"];
+    // Verify persisted in underlying JSON (now in pages format)
+    auto& root = get_data()["printers"]["default"]["panel_widgets"]["home"];
+    REQUIRE(root.is_object());
+    auto& saved = root["pages"][0]["widgets"];
     bool found = false;
     for (const auto& item : saved) {
         if (item["id"] == "thermistor:1" && item.contains("config")) {
@@ -150,7 +152,8 @@ TEST_CASE_METHOD(helix::ThermistorConfigFixture,
     wc.save();
 
     // No widget should have a "config" key since none was set
-    auto& saved = get_data()["printers"]["default"]["panel_widgets"]["home"];
+    auto& root = get_data()["printers"]["default"]["panel_widgets"]["home"];
+    auto& saved = root["pages"][0]["widgets"];
     for (const auto& item : saved) {
         CAPTURE(item["id"].get<std::string>());
         REQUIRE_FALSE(item.contains("config"));

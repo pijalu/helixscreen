@@ -35,9 +35,30 @@ class PanelWidgetConfigFixture {
     }
 
     /// Set up per-panel config under /printers/default/panel_widgets/<panel_id>
+    /// Accepts either a flat JSON array (legacy format) or a pages object (new format)
     void setup_with_widgets(const json& widgets_json, const std::string& panel_id = "home") {
         config.data = json::object();
         config.data["printers"]["default"]["panel_widgets"][panel_id] = widgets_json;
+    }
+
+    /// Set up multi-page config in new format
+    void setup_with_pages(const std::vector<std::pair<std::string, json>>& pages,
+                          size_t main_page_index = 0, int next_page_id = -1,
+                          const std::string& panel_id = "home") {
+        config.data = json::object();
+        json root;
+        json pages_arr = json::array();
+        for (const auto& [id, widgets] : pages) {
+            json page;
+            page["id"] = id;
+            page["widgets"] = widgets;
+            pages_arr.push_back(std::move(page));
+        }
+        root["pages"] = std::move(pages_arr);
+        root["main_page_index"] = main_page_index;
+        root["next_page_id"] =
+            next_page_id >= 0 ? next_page_id : static_cast<int>(pages.size());
+        config.data["printers"]["default"]["panel_widgets"][panel_id] = root;
     }
 
     /// Set up legacy flat home_widgets key (for migration testing)
@@ -53,6 +74,21 @@ class PanelWidgetConfigFixture {
     /// Get the per-printer data where PanelWidgetConfig reads/writes
     json& get_printer_data() {
         return config.data["printers"]["default"];
+    }
+
+    /// Get the saved data after save(), as a JSON object with pages format
+    json get_saved_root(const std::string& panel_id = "home") {
+        return get_printer_data()["panel_widgets"][panel_id];
+    }
+
+    /// Get the saved widgets array for page 0 after save()
+    json get_saved_page0_widgets(const std::string& panel_id = "home") {
+        auto root = get_saved_root(panel_id);
+        if (root.is_object() && root.contains("pages") && root["pages"].is_array() &&
+            !root["pages"].empty()) {
+            return root["pages"][0].value("widgets", json::array());
+        }
+        return json::array();
     }
 };
 } // namespace helix
@@ -179,8 +215,14 @@ TEST_CASE_METHOD(PanelWidgetConfigFixture,
     wc.set_enabled(2, false);
     wc.save();
 
-    // Check the JSON was written to config under per-panel path
-    auto& saved = get_printer_data()["panel_widgets"]["home"];
+    // Check the JSON was written to config under per-panel path in pages format
+    auto root = get_saved_root();
+    REQUIRE(root.is_object());
+    REQUIRE(root.contains("pages"));
+    REQUIRE(root["pages"].is_array());
+    REQUIRE(root["pages"].size() == 1);
+
+    auto& saved = root["pages"][0]["widgets"];
     REQUIRE(saved.is_array());
     REQUIRE(saved.size() == single_instance_def_count());
 
@@ -766,11 +808,13 @@ TEST_CASE_METHOD(PanelWidgetConfigFixture,
     REQUIRE(wc.entries()[1].id == "network");
     REQUIRE(wc.entries()[1].enabled == false);
 
-    // Save and verify it writes to /printers/default/panel_widgets/home
+    // Save and verify it writes to /printers/default/panel_widgets/home in pages format
     wc.save();
     REQUIRE(get_printer_data().contains("panel_widgets"));
     REQUIRE(get_printer_data()["panel_widgets"].contains("home"));
-    REQUIRE(get_printer_data()["panel_widgets"]["home"].is_array());
+    auto root = get_saved_root();
+    REQUIRE(root.is_object());
+    REQUIRE(root.contains("pages"));
 }
 
 TEST_CASE_METHOD(PanelWidgetConfigFixture,
@@ -847,10 +891,13 @@ TEST_CASE_METHOD(PanelWidgetConfigFixture,
 
     // Migration moves data to /printers/default/panel_widgets/home and removes old key.
     // Legacy configs without grid coords are detected as pre-grid and reset to defaults.
+    // After migration, data is saved in the new pages format.
     auto& printer_data = get_data()["printers"]["default"];
     REQUIRE(printer_data.contains("panel_widgets"));
     REQUIRE(printer_data["panel_widgets"].contains("home"));
-    REQUIRE(printer_data["panel_widgets"]["home"].is_array());
+    auto root = printer_data["panel_widgets"]["home"];
+    REQUIRE(root.is_object());
+    REQUIRE(root.contains("pages"));
     REQUIRE_FALSE(get_data().contains("home_widgets"));
 
     // After pre-grid reset, entries match default grid (all registry widgets present)
@@ -1053,7 +1100,7 @@ TEST_CASE_METHOD(PanelWidgetConfigFixture,
     wc.load();
     wc.save();
 
-    auto& saved = get_printer_data()["panel_widgets"]["home"];
+    auto saved = get_saved_page0_widgets();
     // Find the power entry in saved JSON
     json* power_saved = nullptr;
     for (auto& item : saved) {
@@ -1210,4 +1257,432 @@ TEST_CASE_METHOD(PanelWidgetConfigFixture, "PanelWidgetConfig: is_grid_format de
     PanelWidgetConfig wc2("home", config);
     wc2.load();
     REQUIRE(wc2.is_grid_format()); // Pre-grid configs auto-migrate
+}
+
+// ============================================================================
+// Multi-page tests — page_count and default page
+// ============================================================================
+
+TEST_CASE_METHOD(PanelWidgetConfigFixture,
+                 "PanelWidgetConfig: default config creates single page",
+                 "[panel_widget][widget_config][multipage]") {
+    setup_empty_config();
+    PanelWidgetConfig wc("home", config);
+    wc.load();
+
+    REQUIRE(wc.page_count() == 1);
+    REQUIRE(wc.main_page_index() == 0);
+    REQUIRE(wc.page_id(0) == "main");
+    // entries() delegates to page 0
+    REQUIRE(wc.entries().size() == single_instance_def_count());
+    REQUIRE(&wc.entries() == &wc.page_entries(0));
+}
+
+// ============================================================================
+// Multi-page tests — legacy migration wraps in single page
+// ============================================================================
+
+TEST_CASE_METHOD(PanelWidgetConfigFixture,
+                 "PanelWidgetConfig: legacy array format migrates to single-page format",
+                 "[panel_widget][widget_config][multipage][migration]") {
+    json widgets = json::array({
+        {{"id", "temperature"}, {"enabled", true}, {"col", 0}, {"row", 0}},
+        {{"id", "power"}, {"enabled", false}, {"col", 1}, {"row", 0}},
+    });
+    setup_with_widgets(widgets);
+
+    PanelWidgetConfig wc("home", config);
+    wc.load();
+
+    // Should have migrated to single page with id "main"
+    REQUIRE(wc.page_count() == 1);
+    REQUIRE(wc.page_id(0) == "main");
+    REQUIRE(wc.entries()[0].id == "temperature");
+    REQUIRE(wc.entries()[1].id == "power");
+
+    // Verify saved format is the new pages format
+    auto root = get_saved_root();
+    REQUIRE(root.is_object());
+    REQUIRE(root.contains("pages"));
+    REQUIRE(root["pages"].is_array());
+    REQUIRE(root["pages"].size() == 1);
+    REQUIRE(root["pages"][0]["id"] == "main");
+    REQUIRE(root.contains("main_page_index"));
+    REQUIRE(root["main_page_index"] == 0);
+    REQUIRE(root.contains("next_page_id"));
+}
+
+// ============================================================================
+// Multi-page tests — add and remove pages
+// ============================================================================
+
+TEST_CASE_METHOD(PanelWidgetConfigFixture,
+                 "PanelWidgetConfig: add_page creates new empty page",
+                 "[panel_widget][widget_config][multipage]") {
+    setup_empty_config();
+    PanelWidgetConfig wc("home", config);
+    wc.load();
+
+    REQUIRE(wc.page_count() == 1);
+
+    int idx = wc.add_page("my_page");
+    REQUIRE(idx == 1);
+    REQUIRE(wc.page_count() == 2);
+    REQUIRE(wc.page_id(1) == "my_page");
+    REQUIRE(wc.page_entries(1).empty());
+
+    // Page 0 still has its widgets
+    REQUIRE(wc.entries().size() == single_instance_def_count());
+}
+
+TEST_CASE_METHOD(PanelWidgetConfigFixture,
+                 "PanelWidgetConfig: add_page with auto-generated ID",
+                 "[panel_widget][widget_config][multipage]") {
+    setup_empty_config();
+    PanelWidgetConfig wc("home", config);
+    wc.load();
+
+    int idx = wc.add_page();
+    REQUIRE(idx >= 0);
+    REQUIRE(wc.page_count() == 2);
+    // Auto-generated ID should be "page_N"
+    auto id = wc.page_id(static_cast<size_t>(idx));
+    REQUIRE(id.substr(0, 5) == "page_");
+}
+
+TEST_CASE_METHOD(PanelWidgetConfigFixture,
+                 "PanelWidgetConfig: add_page refuses beyond cap",
+                 "[panel_widget][widget_config][multipage]") {
+    setup_empty_config();
+    PanelWidgetConfig wc("home", config);
+    wc.load();
+
+    // Add pages up to the cap
+    for (size_t i = 1; i < kMaxPages; ++i) {
+        int idx = wc.add_page();
+        REQUIRE(idx >= 0);
+    }
+    REQUIRE(wc.page_count() == kMaxPages);
+
+    // Adding one more should fail
+    int idx = wc.add_page();
+    REQUIRE(idx == -1);
+    REQUIRE(wc.page_count() == kMaxPages);
+}
+
+TEST_CASE_METHOD(PanelWidgetConfigFixture,
+                 "PanelWidgetConfig: remove_page removes non-main page",
+                 "[panel_widget][widget_config][multipage]") {
+    setup_empty_config();
+    PanelWidgetConfig wc("home", config);
+    wc.load();
+
+    wc.add_page("second");
+    wc.add_page("third");
+    REQUIRE(wc.page_count() == 3);
+
+    bool removed = wc.remove_page(1);
+    REQUIRE(removed);
+    REQUIRE(wc.page_count() == 2);
+    REQUIRE(wc.page_id(0) == "main");
+    REQUIRE(wc.page_id(1) == "third");
+}
+
+TEST_CASE_METHOD(PanelWidgetConfigFixture,
+                 "PanelWidgetConfig: cannot remove last page",
+                 "[panel_widget][widget_config][multipage]") {
+    setup_empty_config();
+    PanelWidgetConfig wc("home", config);
+    wc.load();
+
+    REQUIRE(wc.page_count() == 1);
+    bool removed = wc.remove_page(0);
+    REQUIRE_FALSE(removed);
+    REQUIRE(wc.page_count() == 1);
+}
+
+TEST_CASE_METHOD(PanelWidgetConfigFixture,
+                 "PanelWidgetConfig: remove_page adjusts main_page_index",
+                 "[panel_widget][widget_config][multipage]") {
+    setup_empty_config();
+    PanelWidgetConfig wc("home", config);
+    wc.load();
+
+    wc.add_page("second");
+    wc.add_page("third");
+
+    // Set main page to index 2 (third)
+    // Need to use pages format to set this up properly
+    // Instead, just verify the adjustment logic:
+
+    SECTION("removing page before main shifts main index down") {
+        // Main is at index 2
+        // We can set up with pages format
+        json w0 = json::array({{{"id", "power"}, {"enabled", true}, {"col", 0}, {"row", 0}}});
+        json w1 = json::array({{{"id", "network"}, {"enabled", true}, {"col", 0}, {"row", 0}}});
+        json w2 = json::array(
+            {{{"id", "temperature"}, {"enabled", true}, {"col", 0}, {"row", 0}}});
+        setup_with_pages({{"p0", w0}, {"p1", w1}, {"p2", w2}}, 2, 3);
+
+        PanelWidgetConfig wc2("home", config);
+        wc2.load();
+        REQUIRE(wc2.main_page_index() == 2);
+
+        wc2.remove_page(0);
+        REQUIRE(wc2.main_page_index() == 1);
+        REQUIRE(wc2.page_id(1) == "p2");
+    }
+
+    SECTION("removing the main page resets main_page_index to 0") {
+        json w0 = json::array({{{"id", "power"}, {"enabled", true}, {"col", 0}, {"row", 0}}});
+        json w1 = json::array({{{"id", "network"}, {"enabled", true}, {"col", 0}, {"row", 0}}});
+        setup_with_pages({{"p0", w0}, {"p1", w1}}, 1, 2);
+
+        PanelWidgetConfig wc2("home", config);
+        wc2.load();
+        REQUIRE(wc2.main_page_index() == 1);
+
+        wc2.remove_page(1);
+        REQUIRE(wc2.main_page_index() == 0);
+    }
+}
+
+// ============================================================================
+// Multi-page tests — cross-page operations
+// ============================================================================
+
+TEST_CASE_METHOD(PanelWidgetConfigFixture,
+                 "PanelWidgetConfig: delete_entry searches all pages",
+                 "[panel_widget][widget_config][multipage]") {
+    // Use multi-instance widget IDs on page 1 to avoid registry-default overlap with page 0
+    json w0 = json::array({{{"id", "power"}, {"enabled", true}, {"col", 0}, {"row", 0}}});
+    json w1 = json::array({
+        {{"id", "thermistor:1"}, {"enabled", true}, {"col", 0}, {"row", 0}},
+        {{"id", "thermistor:2"}, {"enabled", true}, {"col", 1}, {"row", 0}},
+    });
+    setup_with_pages({{"p0", w0}, {"p1", w1}}, 0, 2);
+
+    PanelWidgetConfig wc("home", config);
+    wc.load();
+
+    REQUIRE(wc.page_entries(1).size() == 2);
+
+    // Delete entry from page 1 (multi-instance ID only exists on page 1)
+    wc.delete_entry("thermistor:1");
+
+    // Should have been removed from page 1
+    REQUIRE(wc.page_entries(1).size() == 1);
+    REQUIRE(wc.page_entries(1)[0].id == "thermistor:2");
+
+    // Page 0 unchanged
+    REQUIRE(wc.page_entries(0)[0].id == "power");
+}
+
+TEST_CASE_METHOD(PanelWidgetConfigFixture,
+                 "PanelWidgetConfig: mint_instance_id scans all pages",
+                 "[panel_widget][widget_config][multipage]") {
+    json w0 = json::array({
+        {{"id", "thermistor:1"}, {"enabled", true}, {"col", 0}, {"row", 0}},
+        {{"id", "thermistor:2"}, {"enabled", true}, {"col", 1}, {"row", 0}},
+    });
+    json w1 = json::array({
+        {{"id", "thermistor:5"}, {"enabled", true}, {"col", 0}, {"row", 0}},
+    });
+    setup_with_pages({{"p0", w0}, {"p1", w1}}, 0, 2);
+
+    PanelWidgetConfig wc("home", config);
+    wc.load();
+
+    // Should find max across all pages (5) and return 6
+    auto new_id = wc.mint_instance_id("thermistor");
+    REQUIRE(new_id == "thermistor:6");
+}
+
+TEST_CASE_METHOD(PanelWidgetConfigFixture,
+                 "PanelWidgetConfig: is_enabled searches all pages",
+                 "[panel_widget][widget_config][multipage]") {
+    // Use multi-instance IDs on page 1 to avoid registry-default overlap with page 0
+    json w0 = json::array({{{"id", "power"}, {"enabled", false}, {"col", 0}, {"row", 0}}});
+    json w1 = json::array({
+        {{"id", "thermistor:1"}, {"enabled", true}, {"col", 0}, {"row", 0}},
+        {{"id", "thermistor:2"}, {"enabled", false}, {"col", 1}, {"row", 0}},
+    });
+    setup_with_pages({{"p0", w0}, {"p1", w1}}, 0, 2);
+
+    PanelWidgetConfig wc("home", config);
+    wc.load();
+
+    // power is on page 0 but disabled
+    REQUIRE_FALSE(wc.is_enabled("power"));
+    // thermistor:1 is only on page 1, enabled
+    REQUIRE(wc.is_enabled("thermistor:1"));
+    // thermistor:2 is only on page 1, disabled
+    REQUIRE_FALSE(wc.is_enabled("thermistor:2"));
+    REQUIRE_FALSE(wc.is_enabled("nonexistent"));
+}
+
+TEST_CASE_METHOD(PanelWidgetConfigFixture,
+                 "PanelWidgetConfig: get/set_widget_config searches all pages",
+                 "[panel_widget][widget_config][multipage]") {
+    // Use multi-instance widget ID on page 1 to avoid registry-default overlap with page 0
+    json w0 = json::array({{{"id", "power"}, {"enabled", true}, {"col", 0}, {"row", 0}}});
+    json w1 = json::array({{{"id", "thermistor:1"},
+                             {"enabled", true},
+                             {"config", {{"sensor", "bed"}}},
+                             {"col", 0},
+                             {"row", 0}}});
+    setup_with_pages({{"p0", w0}, {"p1", w1}}, 0, 2);
+
+    PanelWidgetConfig wc("home", config);
+    wc.load();
+
+    // Get config from page 1 (multi-instance ID only on page 1)
+    auto cfg = wc.get_widget_config("thermistor:1");
+    REQUIRE(cfg.contains("sensor"));
+    REQUIRE(cfg["sensor"] == "bed");
+
+    // Set config for widget on page 1
+    wc.set_widget_config("thermistor:1", {{"sensor", "extruder"}});
+    auto cfg2 = wc.get_widget_config("thermistor:1");
+    REQUIRE(cfg2["sensor"] == "extruder");
+}
+
+// ============================================================================
+// Multi-page tests — backward compatibility
+// ============================================================================
+
+TEST_CASE_METHOD(PanelWidgetConfigFixture,
+                 "PanelWidgetConfig: reorder and set_enabled operate on page 0",
+                 "[panel_widget][widget_config][multipage]") {
+    json w0 = json::array({
+        {{"id", "power"}, {"enabled", true}, {"col", 0}, {"row", 0}},
+        {{"id", "network"}, {"enabled", true}, {"col", 1}, {"row", 0}},
+        {{"id", "temperature"}, {"enabled", true}, {"col", 2}, {"row", 0}},
+    });
+    json w1 = json::array({{{"id", "thermistor:1"}, {"enabled", true}, {"col", 0}, {"row", 0}}});
+    setup_with_pages({{"p0", w0}, {"p1", w1}}, 0, 2);
+
+    PanelWidgetConfig wc("home", config);
+    wc.load();
+
+    // Reorder on page 0
+    wc.reorder(0, 2);
+    REQUIRE(wc.entries()[2].id == "power");
+
+    // set_enabled on page 0
+    wc.set_enabled(0, false);
+    REQUIRE(wc.entries()[0].enabled == false);
+
+    // Page 1 unchanged (multi-instance ID only on page 1)
+    REQUIRE(wc.page_entries(1)[0].id == "thermistor:1");
+    REQUIRE(wc.page_entries(1)[0].enabled == true);
+}
+
+// ============================================================================
+// Multi-page tests — reset_to_defaults
+// ============================================================================
+
+TEST_CASE_METHOD(PanelWidgetConfigFixture,
+                 "PanelWidgetConfig: reset_to_defaults removes extra pages",
+                 "[panel_widget][widget_config][multipage]") {
+    json w0 = json::array({{{"id", "power"}, {"enabled", true}, {"col", 0}, {"row", 0}}});
+    json w1 = json::array({{{"id", "network"}, {"enabled", true}, {"col", 0}, {"row", 0}}});
+    setup_with_pages({{"p0", w0}, {"p1", w1}}, 1, 2);
+
+    PanelWidgetConfig wc("home", config);
+    wc.load();
+    REQUIRE(wc.page_count() == 2);
+    REQUIRE(wc.main_page_index() == 1);
+
+    wc.reset_to_defaults();
+
+    REQUIRE(wc.page_count() == 1);
+    REQUIRE(wc.main_page_index() == 0);
+    REQUIRE(wc.page_id(0) == "main");
+    REQUIRE(wc.entries().size() == single_instance_def_count());
+}
+
+// ============================================================================
+// Multi-page tests — save/reload round-trip
+// ============================================================================
+
+TEST_CASE_METHOD(PanelWidgetConfigFixture,
+                 "PanelWidgetConfig: multi-page save-reload round-trip",
+                 "[panel_widget][widget_config][multipage]") {
+    setup_empty_config();
+    PanelWidgetConfig wc1("home", config);
+    wc1.load();
+
+    // Add a second page with some widgets
+    int page_idx = wc1.add_page("second");
+    REQUIRE(page_idx == 1);
+    wc1.page_entries_mut(1).push_back(
+        {"power", true, {}, 0, 0, 1, 1});
+    wc1.page_entries_mut(1).push_back(
+        {"network", false, {}, 1, 0, 1, 1});
+    wc1.save();
+
+    // Reload from same config
+    PanelWidgetConfig wc2("home", config);
+    wc2.load();
+
+    REQUIRE(wc2.page_count() == 2);
+    REQUIRE(wc2.page_id(0) == "main");
+    REQUIRE(wc2.page_id(1) == "second");
+    REQUIRE(wc2.main_page_index() == 0);
+
+    // Page 0 should have all default widgets
+    REQUIRE(wc2.page_entries(0).size() == single_instance_def_count());
+
+    // Page 1 should have our two widgets
+    REQUIRE(wc2.page_entries(1).size() == 2);
+    REQUIRE(wc2.page_entries(1)[0].id == "power");
+    REQUIRE(wc2.page_entries(1)[0].enabled == true);
+    REQUIRE(wc2.page_entries(1)[1].id == "network");
+    REQUIRE(wc2.page_entries(1)[1].enabled == false);
+}
+
+TEST_CASE_METHOD(PanelWidgetConfigFixture,
+                 "PanelWidgetConfig: generate_page_id produces unique IDs",
+                 "[panel_widget][widget_config][multipage]") {
+    setup_empty_config();
+    PanelWidgetConfig wc("home", config);
+    wc.load();
+
+    auto id1 = wc.generate_page_id();
+    auto id2 = wc.generate_page_id();
+    REQUIRE(id1 != id2);
+    REQUIRE(id1.substr(0, 5) == "page_");
+    REQUIRE(id2.substr(0, 5) == "page_");
+}
+
+TEST_CASE_METHOD(PanelWidgetConfigFixture,
+                 "PanelWidgetConfig: load multi-page format with main_page_index",
+                 "[panel_widget][widget_config][multipage]") {
+    json w0 = json::array({{{"id", "power"}, {"enabled", true}, {"col", 0}, {"row", 0}}});
+    json w1 = json::array({{{"id", "network"}, {"enabled", true}, {"col", 0}, {"row", 0}}});
+    json w2 = json::array(
+        {{{"id", "temperature"}, {"enabled", true}, {"col", 0}, {"row", 0}}});
+    setup_with_pages({{"main", w0}, {"page_1", w1}, {"page_2", w2}}, 1, 3);
+
+    PanelWidgetConfig wc("home", config);
+    wc.load();
+
+    REQUIRE(wc.page_count() == 3);
+    REQUIRE(wc.main_page_index() == 1);
+    REQUIRE(wc.page_id(0) == "main");
+    REQUIRE(wc.page_id(1) == "page_1");
+    REQUIRE(wc.page_id(2) == "page_2");
+}
+
+TEST_CASE_METHOD(PanelWidgetConfigFixture,
+                 "PanelWidgetConfig: remove_page out of bounds returns false",
+                 "[panel_widget][widget_config][multipage]") {
+    setup_empty_config();
+    PanelWidgetConfig wc("home", config);
+    wc.load();
+
+    wc.add_page("second");
+    REQUIRE_FALSE(wc.remove_page(99));
+    REQUIRE(wc.page_count() == 2);
 }
