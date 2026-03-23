@@ -68,6 +68,7 @@ class ExcludeObjectMapView {
     void build_object_rects();
     void update_visual_states();
     void build_key_bar();
+    void draw_first_layer_outlines();
     lv_obj_t* create_object_rect(lv_obj_t* parent, int index,
                                  const std::string& name,
                                  const PixelRect& rect);
@@ -80,6 +81,8 @@ class ExcludeObjectMapView {
     lv_obj_t* plate_area_{nullptr};
     lv_obj_t* key_bar_{nullptr};
     lv_obj_t* object_container_{nullptr};
+    lv_obj_t* canvas_{nullptr};
+    lv_draw_buf_t* canvas_buf_{nullptr};
 
     helix::PrinterExcludedObjectsState* state_{nullptr};
     PrintExcludeObjectManager* exclude_manager_{nullptr};

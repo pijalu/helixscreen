@@ -11,6 +11,7 @@
 
 #include <algorithm>
 #include <cstdio>
+#include <unordered_map>
 
 namespace helix::ui {
 
@@ -177,6 +178,19 @@ void ExcludeObjectMapView::create(lv_obj_t* parent,
         int vw = lv_obj_get_width(plate_area_);
         int vh = lv_obj_get_height(plate_area_);
         mapper_ = std::make_unique<CoordMapper>(bed_w_mm_, bed_h_mm_, vw, vh);
+
+        // Create canvas for first-layer outline rendering
+        if (vw > 0 && vh > 0) {
+            canvas_buf_ = lv_draw_buf_create(vw, vh, LV_COLOR_FORMAT_ARGB8888, 0);
+            if (canvas_buf_) {
+                canvas_ = lv_canvas_create(plate_area_);
+                lv_canvas_set_draw_buf(canvas_, canvas_buf_);
+                lv_canvas_fill_bg(canvas_, lv_color_black(), LV_OPA_TRANSP);
+                lv_obj_remove_flag(canvas_, LV_OBJ_FLAG_CLICKABLE);
+                lv_obj_add_flag(canvas_, LV_OBJ_FLAG_EVENT_BUBBLE);
+                lv_obj_set_pos(canvas_, 0, 0);
+            }
+        }
     }
 
     // Build object rects and key bar
@@ -231,6 +245,13 @@ void ExcludeObjectMapView::destroy() {
 
         object_rects_.clear();
         mapper_.reset();
+
+        // Free canvas draw buffer before deleting widget tree
+        if (canvas_buf_) {
+            lv_draw_buf_destroy(canvas_buf_);
+            canvas_buf_ = nullptr;
+            canvas_ = nullptr;
+        }
 
         lv_obj_delete(root_);
         root_ = nullptr;
@@ -318,7 +339,82 @@ void ExcludeObjectMapView::build_object_rects() {
         }
     }
 
+    // Draw first-layer outlines on canvas if available
+    if (parsed_file_ && canvas_) {
+        draw_first_layer_outlines();
+
+        // Make bounding box rects invisible — outlines replace them visually
+        // but keep them as tap hit areas
+        for (auto& orect : object_rects_) {
+            if (!orect.rect) continue;
+            lv_obj_set_style_border_opa(orect.rect, LV_OPA_TRANSP, 0);
+            lv_obj_set_style_bg_opa(orect.rect, LV_OPA_TRANSP, 0);
+        }
+    }
+
     update_visual_states();
+}
+
+// ============================================================================
+// draw_first_layer_outlines
+// ============================================================================
+
+void ExcludeObjectMapView::draw_first_layer_outlines() {
+    if (!canvas_ || !parsed_file_ || !mapper_) return;
+
+    // Clear canvas to transparent
+    lv_canvas_fill_bg(canvas_, lv_color_black(), LV_OPA_TRANSP);
+
+    // Get first layer
+    const auto* first_layer = parsed_file_->get_layer(0);
+    if (!first_layer || first_layer->segments.empty()) return;
+
+    // Build object name -> index mapping for color lookup
+    std::unordered_map<std::string, int> name_to_index;
+    const auto& defined = state_ ? state_->get_defined_objects() : std::vector<std::string>{};
+    for (int i = 0; i < static_cast<int>(defined.size()); ++i) {
+        name_to_index[defined[i]] = i;
+    }
+
+    // Draw all extrusion segments on the canvas
+    lv_layer_t layer;
+    lv_canvas_init_layer(canvas_, &layer);
+
+    for (const auto& seg : first_layer->segments) {
+        if (!seg.is_extrusion) continue;
+
+        // Resolve object name from interned index
+        const auto& obj_name = parsed_file_->get_object_name(seg.object_name_index);
+        if (obj_name.empty()) continue;
+
+        // Find color index from defined objects ordering
+        auto it = name_to_index.find(obj_name);
+        if (it == name_to_index.end()) continue;
+
+        // Transform coordinates to canvas pixels
+        auto [px1, py1] = mapper_->mm_to_px(seg.start.x, seg.start.y);
+        auto [px2, py2] = mapper_->mm_to_px(seg.end.x, seg.end.y);
+
+        // Draw line segment
+        lv_draw_line_dsc_t dsc;
+        lv_draw_line_dsc_init(&dsc);
+        dsc.color = get_object_color(it->second);
+        dsc.width = 2;
+        dsc.p1.x = static_cast<lv_value_precise_t>(px1);
+        dsc.p1.y = static_cast<lv_value_precise_t>(py1);
+        dsc.p2.x = static_cast<lv_value_precise_t>(px2);
+        dsc.p2.y = static_cast<lv_value_precise_t>(py2);
+        dsc.opa = LV_OPA_COVER;
+        dsc.round_start = 1;
+        dsc.round_end = 1;
+
+        lv_draw_line(&layer, &dsc);
+    }
+
+    lv_canvas_finish_layer(canvas_, &layer);
+
+    spdlog::debug("[ExcludeObjectMapView] Drew first-layer outlines ({} segments)",
+                  first_layer->segments.size());
 }
 
 // ============================================================================
