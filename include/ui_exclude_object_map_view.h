@@ -10,6 +10,7 @@
 #include <utility>
 #include <vector>
 
+#include "gcode_parser.h"
 #include "ui_observer_guard.h"
 
 // Forward declarations
@@ -54,7 +55,8 @@ class ExcludeObjectMapView {
     void create(lv_obj_t* parent,
                 helix::PrinterExcludedObjectsState* state,
                 float bed_w_mm, float bed_h_mm,
-                PrintExcludeObjectManager* exclude_manager);
+                PrintExcludeObjectManager* exclude_manager,
+                std::shared_ptr<helix::gcode::ParsedGCodeFile> parsed_file = nullptr);
     void destroy();
 
     [[nodiscard]] lv_obj_t* root() const { return root_; }
@@ -81,6 +83,7 @@ class ExcludeObjectMapView {
 
     helix::PrinterExcludedObjectsState* state_{nullptr};
     PrintExcludeObjectManager* exclude_manager_{nullptr};
+    std::shared_ptr<helix::gcode::ParsedGCodeFile> parsed_file_;
 
     float bed_w_mm_{235.0f};
     float bed_h_mm_{235.0f};

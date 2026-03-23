@@ -84,7 +84,8 @@ ExcludeObjectMapView::~ExcludeObjectMapView() {
 void ExcludeObjectMapView::create(lv_obj_t* parent,
                                   helix::PrinterExcludedObjectsState* state,
                                   float bed_w_mm, float bed_h_mm,
-                                  PrintExcludeObjectManager* exclude_manager) {
+                                  PrintExcludeObjectManager* exclude_manager,
+                                  std::shared_ptr<helix::gcode::ParsedGCodeFile> parsed_file) {
     if (root_) {
         spdlog::warn("[ExcludeObjectMapView] create() called but already active");
         return;
@@ -94,6 +95,7 @@ void ExcludeObjectMapView::create(lv_obj_t* parent,
 
     state_ = state;
     exclude_manager_ = exclude_manager;
+    parsed_file_ = std::move(parsed_file);
     bed_w_mm_ = (bed_w_mm > 0.0f) ? bed_w_mm : 235.0f;
     bed_h_mm_ = (bed_h_mm > 0.0f) ? bed_h_mm : 235.0f;
 
@@ -242,6 +244,7 @@ void ExcludeObjectMapView::destroy() {
 
     state_ = nullptr;
     exclude_manager_ = nullptr;
+    parsed_file_.reset();
 
     spdlog::debug("[ExcludeObjectMapView] Destroyed");
 }
@@ -262,14 +265,39 @@ void ExcludeObjectMapView::build_object_rects() {
     int rects_created = 0;
 
     for (const auto& name : defined) {
-        auto info = state_->get_object_geometry(name);
-        if (!info || !info->has_bbox) {
+        glm::vec2 bbox_min{0.0f, 0.0f};
+        glm::vec2 bbox_max{0.0f, 0.0f};
+        bool have_bbox = false;
+
+        // Priority 1: GCode parser bounding box (more accurate than Moonraker geometry)
+        if (parsed_file_) {
+            auto it = parsed_file_->objects.find(name);
+            if (it != parsed_file_->objects.end() && !it->second.bounding_box.is_empty()) {
+                bbox_min = {it->second.bounding_box.min.x, it->second.bounding_box.min.y};
+                bbox_max = {it->second.bounding_box.max.x, it->second.bounding_box.max.y};
+                have_bbox = true;
+                spdlog::trace("[ExcludeObjectMapView] Using parsed GCode bbox for '{}'", name);
+            }
+        }
+
+        // Priority 2: Moonraker geometry from PrinterExcludedObjectsState
+        if (!have_bbox) {
+            auto info = state_->get_object_geometry(name);
+            if (info && info->has_bbox) {
+                bbox_min = info->bbox_min;
+                bbox_max = info->bbox_max;
+                have_bbox = true;
+                spdlog::trace("[ExcludeObjectMapView] Using Moonraker bbox for '{}'", name);
+            }
+        }
+
+        if (!have_bbox) {
             spdlog::trace("[ExcludeObjectMapView] No bbox for '{}', skipping", name);
             ++index;
             continue;
         }
 
-        PixelRect pr = mapper_->bbox_to_rect(info->bbox_min, info->bbox_max);
+        PixelRect pr = mapper_->bbox_to_rect(bbox_min, bbox_max);
         lv_obj_t* rect = create_object_rect(object_container_, index, name, pr);
         if (rect) {
             object_rects_.push_back({name, rect});
