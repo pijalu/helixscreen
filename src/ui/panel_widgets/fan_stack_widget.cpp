@@ -5,31 +5,30 @@
 
 #include "ui_carousel.h"
 #include "ui_error_reporting.h"
-#include "ui_fan_arc_resize.h"
 #include "ui_event_safety.h"
+#include "ui_fan_arc_resize.h"
 #include "ui_fan_control_overlay.h"
-#include "format_utils.h"
-#include "helix-xml/src/xml/lv_xml.h"
 #include "ui_fonts.h"
 #include "ui_nav_manager.h"
 #include "ui_update_queue.h"
 
 #include "app_globals.h"
 #include "display_settings_manager.h"
+#include "format_utils.h"
+#include "helix-xml/src/xml/lv_xml.h"
 #include "moonraker_api.h"
 #include "observer_factory.h"
-#include "theme_manager.h"
 #include "panel_widget_registry.h"
 #include "printer_fan_state.h"
 #include "printer_state.h"
+#include "theme_manager.h"
 #include "ui/fan_spin_animation.h"
 
 #include <spdlog/spdlog.h>
 
-
 namespace helix {
 void register_fan_stack_widget() {
-    register_widget_factory("fan_stack", []() {
+    register_widget_factory("fan_stack", [](const std::string&) {
         auto& ps = get_printer_state();
         return std::make_unique<FanStackWidget>(ps);
     });
@@ -116,9 +115,7 @@ void FanStackWidget::attach_stack(lv_obj_t* /*widget_obj*/) {
     for (auto* icon : {part_icon_, hotend_icon_, aux_icon_})
         set_icon_pivot(icon);
 
-    setup_common_observers(
-        [this]() { refresh_all_animations(); },
-        [this]() { bind_fans(); });
+    setup_common_observers([this]() { refresh_all_animations(); }, [this]() { bind_fans(); });
     bind_fans();
 
     spdlog::debug("[FanStackWidget] Attached stack (animations={})", animations_enabled_);
@@ -411,7 +408,8 @@ void FanStackWidget::bind_carousel_fans() {
             auto pos = short_name.find(" Fan");
             if (pos != std::string::npos && short_name.size() > 4)
                 short_name.erase(pos, 4);
-            entries.push_back({short_name, fan.object_name, fan.speed_percent, fan.is_controllable});
+            entries.push_back(
+                {short_name, fan.object_name, fan.speed_percent, fan.is_controllable});
         }
     }
 

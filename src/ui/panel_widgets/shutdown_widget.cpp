@@ -15,7 +15,7 @@
 namespace helix {
 
 void register_shutdown_widget() {
-    register_widget_factory("shutdown", []() {
+    register_widget_factory("shutdown", [](const std::string&) {
         auto* api = PanelWidgetManager::instance().shared_resource<MoonrakerAPI>();
         return std::make_unique<ShutdownWidget>(api);
     });

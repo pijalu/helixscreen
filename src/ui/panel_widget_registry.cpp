@@ -90,7 +90,20 @@ const std::vector<PanelWidgetDef>& get_all_widget_defs() {
 const PanelWidgetDef* find_widget_def(std::string_view id) {
     auto it = std::find_if(s_widget_defs.begin(), s_widget_defs.end(),
                            [&id](const PanelWidgetDef& def) { return id == def.id; });
-    return it != s_widget_defs.end() ? &*it : nullptr;
+    if (it != s_widget_defs.end())
+        return &*it;
+
+    // Multi-instance: strip ":N" suffix and retry
+    auto colon = id.rfind(':');
+    if (colon != std::string_view::npos) {
+        auto base = id.substr(0, colon);
+        it = std::find_if(
+            s_widget_defs.begin(), s_widget_defs.end(),
+            [&base](const PanelWidgetDef& def) { return base == def.id && def.multi_instance; });
+        if (it != s_widget_defs.end())
+            return &*it;
+    }
+    return nullptr;
 }
 
 size_t widget_def_count() {
@@ -133,8 +146,9 @@ void init_widget_registrations() {
 
     // Generate favorite_macro_1..5 defs and insert at the placeholder position
     {
-        auto it = std::find_if(s_widget_defs.begin(), s_widget_defs.end(),
-                               [](const PanelWidgetDef& d) { return d.id == std::string_view("clock"); });
+        auto it =
+            std::find_if(s_widget_defs.begin(), s_widget_defs.end(),
+                         [](const PanelWidgetDef& d) { return d.id == std::string_view("clock"); });
         for (int i = kMaxFavoriteMacroSlots - 1; i >= 0; --i) {
             PanelWidgetDef def{};
             def.id = kFavMacroIds[i];

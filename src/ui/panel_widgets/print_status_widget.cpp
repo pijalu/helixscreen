@@ -3,17 +3,17 @@
 
 #include "print_status_widget.h"
 
-#include "app_constants.h"
-#include "panel_widget_manager.h"
 #include "ui_event_safety.h"
 #include "ui_nav_manager.h"
 #include "ui_panel_print_select.h"
 #include "ui_panel_print_status.h"
 #include "ui_update_queue.h"
 
+#include "app_constants.h"
 #include "app_globals.h"
 #include "filament_sensor_manager.h"
 #include "observer_factory.h"
+#include "panel_widget_manager.h"
 #include "panel_widget_registry.h"
 #include "print_history_manager.h"
 #include "printer_state.h"
@@ -29,7 +29,8 @@
 
 namespace helix {
 void register_print_status_widget() {
-    register_widget_factory("print_status", []() { return std::make_unique<PrintStatusWidget>(); });
+    register_widget_factory(
+        "print_status", [](const std::string&) { return std::make_unique<PrintStatusWidget>(); });
 
     // Register XML event callbacks at startup (before any XML is parsed)
     lv_xml_register_event_cb(nullptr, "print_card_clicked_cb",
@@ -137,20 +138,21 @@ void PrintStatusWidget::attach(lv_obj_t* widget_obj, lv_obj_t* parent_screen) {
     // Observe job queue count to show/hide queue row
     auto* jq_count_subj = lv_xml_get_subject(nullptr, "job_queue_count");
     if (jq_count_subj) {
-        job_queue_count_observer_ =
-            helix::ui::observe_int_sync<PrintStatusWidget>(
-                jq_count_subj, this, [](PrintStatusWidget* self, int /*count*/) {
-                    if (!self->widget_obj_)
-                        return;
-                    self->update_job_queue_row_visibility();
-                });
+        job_queue_count_observer_ = helix::ui::observe_int_sync<PrintStatusWidget>(
+            jq_count_subj, this, [](PrintStatusWidget* self, int /*count*/) {
+                if (!self->widget_obj_)
+                    return;
+                self->update_job_queue_row_visibility();
+            });
     }
 
     // Register history observer to update idle thumbnail when history loads [L072]
     std::weak_ptr<std::atomic<bool>> weak = alive_;
     history_changed_cb_ = [this, weak]() {
-        if (weak.expired()) return;
-        if (!widget_obj_ || !print_card_thumb_) return;
+        if (weak.expired())
+            return;
+        if (!widget_obj_ || !print_card_thumb_)
+            return;
         auto state = static_cast<PrintJobState>(
             lv_subject_get_int(printer_state_.get_print_state_enum_subject()));
         bool is_idle = (state != PrintJobState::PRINTING && state != PrintJobState::PAUSED);
@@ -405,7 +407,8 @@ void PrintStatusWidget::handle_library_queue() {
 }
 
 void PrintStatusWidget::update_job_queue_row_visibility() {
-    if (!library_row_queue_) return;
+    if (!library_row_queue_)
+        return;
 
     // Show only if config allows AND there are jobs in queue
     bool has_jobs = false;
@@ -518,8 +521,8 @@ std::string PrintStatusWidget::get_last_print_thumbnail_path() const {
         }
 
         const auto* best = best_adequate ? best_adequate : largest;
-        spdlog::debug("[PrintStatusWidget] Widget {}x{}, selected thumbnail {}x{} ({})",
-                      target_w, target_h, best->width, best->height, best->relative_path);
+        spdlog::debug("[PrintStatusWidget] Widget {}x{}, selected thumbnail {}x{} ({})", target_w,
+                      target_h, best->width, best->height, best->relative_path);
         return best->relative_path;
     }
 
@@ -585,7 +588,8 @@ void PrintStatusWidget::reset_print_card_to_idle() {
     get_thumbnail_cache().fetch_optimized(
         api, thumb_rel_path, target,
         [thumb_widget, thumb_compact, weak_alive](const std::string& lvgl_path) {
-            if (weak_alive.expired()) return;
+            if (weak_alive.expired())
+                return;
             helix::ui::queue_update<std::string>(
                 std::make_unique<std::string>(lvgl_path),
                 [thumb_widget, thumb_compact](std::string* path) {
@@ -620,7 +624,8 @@ void PrintStatusWidget::update_last_print_availability() {
     // Apply to both full and compact "Print Last" rows
     lv_obj_t* rows[] = {library_row_last_, compact_row_last_};
     for (auto* row : rows) {
-        if (!row || !lv_obj_is_valid(row)) continue;
+        if (!row || !lv_obj_is_valid(row))
+            continue;
         if (last_print_available_) {
             lv_obj_add_flag(row, LV_OBJ_FLAG_CLICKABLE);
             lv_obj_set_style_opa(row, LV_OPA_100, 0);
@@ -815,8 +820,7 @@ void PrintStatusWidget::show_configure_picker() {
         lv_obj_set_style_pad_all(row, space_sm, 0);
         lv_obj_set_style_pad_gap(row, space_xs, 0);
         lv_obj_set_flex_flow(row, LV_FLEX_FLOW_ROW);
-        lv_obj_set_flex_align(row, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER,
-                              LV_FLEX_ALIGN_CENTER);
+        lv_obj_set_flex_align(row, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
         lv_obj_remove_flag(row, LV_OBJ_FLAG_SCROLLABLE);
         lv_obj_add_flag(row, LV_OBJ_FLAG_CLICKABLE);
 
@@ -910,10 +914,12 @@ void PrintStatusWidget::show_configure_picker() {
 }
 
 void PrintStatusWidget::apply_picker_state() {
-    if (!picker_backdrop_) return;
+    if (!picker_backdrop_)
+        return;
 
     lv_obj_t* option_list = lv_obj_find_by_name(picker_backdrop_, "option_list");
-    if (!option_list) return;
+    if (!option_list)
+        return;
 
     // Read checkbox states in order: Title, Reprint Last, Recent Prints, Job Queue
     bool values[4] = {true, true, true, true};
@@ -947,7 +953,8 @@ void PrintStatusWidget::apply_picker_state() {
     // Apply visibility immediately
     apply_visibility_config();
 
-    spdlog::info("[PrintStatusWidget] Config updated: title={}, reprint_last={}, recent_prints={}, job_queue={}",
+    spdlog::info("[PrintStatusWidget] Config updated: title={}, reprint_last={}, recent_prints={}, "
+                 "job_queue={}",
                  show_title_, show_reprint_last_, show_recent_prints_, show_job_queue_);
 }
 
@@ -985,7 +992,8 @@ static PrintStatusWidget* recover_widget_from_event(lv_event_t* e) {
     auto* obj = target;
     while (obj) {
         auto* self = static_cast<PrintStatusWidget*>(lv_obj_get_user_data(obj));
-        if (self) return self;
+        if (self)
+            return self;
         obj = lv_obj_get_parent(obj);
     }
     return nullptr;

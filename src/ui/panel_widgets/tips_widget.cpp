@@ -53,7 +53,8 @@ static void tips_widget_init_subjects() {
 
 namespace helix {
 void register_tips_widget() {
-    register_widget_factory("tips", []() { return std::make_unique<TipsWidget>(); });
+    register_widget_factory("tips",
+                            [](const std::string&) { return std::make_unique<TipsWidget>(); });
     register_widget_subjects("tips", tips_widget_init_subjects);
 
     // Register XML event callbacks at startup (before any XML is parsed)

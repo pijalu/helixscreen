@@ -137,7 +137,7 @@ PanelWidgetManager::populate_widgets(const std::string& panel_id, lv_obj_t* cont
             reuse.erase(reuse_it);
             spdlog::debug("[PanelWidgetManager] Reusing widget instance '{}'", entry.id);
         } else if (def && def->factory) {
-            slot.instance = def->factory();
+            slot.instance = def->factory(entry.id);
         }
 
         if (slot.instance) {
@@ -190,9 +190,8 @@ PanelWidgetManager::populate_widgets(const std::string& panel_id, lv_obj_t* cont
         bool container_has_children = lv_obj_get_child_count(container) > 0;
         if (it != active_configs_.end() && it->second.widget_ids == new_ids &&
             container_has_children) {
-            spdlog::debug(
-                "[PanelWidgetManager] Widget list unchanged for '{}', skipping rebuild",
-                panel_id);
+            spdlog::debug("[PanelWidgetManager] Widget list unchanged for '{}', skipping rebuild",
+                          panel_id);
             populating_ = false;
             return {};
         }
@@ -492,7 +491,8 @@ PanelWidgetManager::populate_widgets(const std::string& panel_id, lv_obj_t* cont
                 min_row = std::min(min_row, r);
                 max_row_card = std::max(max_row_card, r);
 
-                const std::pair<int, int> neighbors[] = {{c - 1, r}, {c + 1, r}, {c, r - 1}, {c, r + 1}};
+                const std::pair<int, int> neighbors[] = {
+                    {c - 1, r}, {c + 1, r}, {c, r - 1}, {c, r + 1}};
                 for (const auto& n : neighbors) {
                     if (single_cells.count(n) && !visited.count(n)) {
                         visited.insert(n);
@@ -507,7 +507,8 @@ PanelWidgetManager::populate_widgets(const std::string& panel_id, lv_obj_t* cont
             // Create a plain lv_obj with Card styling as the background
             lv_obj_t* card_bg = lv_obj_create(container);
             lv_obj_remove_style(card_bg, nullptr, LV_PART_MAIN);
-            lv_obj_add_style(card_bg, ThemeManager::instance().get_style(StyleRole::Card), LV_PART_MAIN);
+            lv_obj_add_style(card_bg, ThemeManager::instance().get_style(StyleRole::Card),
+                             LV_PART_MAIN);
             lv_obj_set_style_pad_all(card_bg, 0, 0);
             lv_obj_remove_flag(card_bg, LV_OBJ_FLAG_CLICKABLE);
             lv_obj_remove_flag(card_bg, LV_OBJ_FLAG_SCROLLABLE);
@@ -520,8 +521,8 @@ PanelWidgetManager::populate_widgets(const std::string& panel_id, lv_obj_t* cont
             lv_obj_set_grid_cell(card_bg, LV_GRID_ALIGN_STRETCH, min_col, card_colspan,
                                  LV_GRID_ALIGN_STRETCH, min_row, card_rowspan);
 
-            spdlog::debug("[PanelWidgetManager] Card background at ({},{} {}x{})",
-                          min_col, min_row, card_colspan, card_rowspan);
+            spdlog::debug("[PanelWidgetManager] Card background at ({},{} {}x{})", min_col, min_row,
+                          card_colspan, card_rowspan);
         }
     }
 
@@ -548,8 +549,8 @@ PanelWidgetManager::populate_widgets(const std::string& panel_id, lv_obj_t* cont
             // Tag widget with its config ID so GridEditMode can identify it
             lv_obj_set_name(widget, slot.widget_id.c_str());
 
-            spdlog::debug("[PanelWidgetManager] Placed widget '{}' at ({},{} {}x{})", slot.widget_id,
-                          p.col, p.row, p.colspan, p.rowspan);
+            spdlog::debug("[PanelWidgetManager] Placed widget '{}' at ({},{} {}x{})",
+                          slot.widget_id, p.col, p.row, p.colspan, p.rowspan);
 
             // Attach the pre-created PanelWidget instance if present
             if (slot.instance) {

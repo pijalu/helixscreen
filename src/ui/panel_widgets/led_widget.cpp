@@ -25,7 +25,7 @@
 namespace helix {
 
 void register_led_widget() {
-    register_widget_factory("led", []() {
+    register_widget_factory("led", [](const std::string&) {
         auto& ps = get_printer_state();
         auto* api = PanelWidgetManager::instance().shared_resource<MoonrakerAPI>();
         return std::make_unique<LedWidget>(ps, api);

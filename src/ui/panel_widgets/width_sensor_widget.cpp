@@ -25,8 +25,7 @@ static void width_sensor_widget_init_subjects() {
 
     // Observe raw diameter (int, µm * 1000) and format to text subject
     s_diameter_observer = helix::ui::observe_int_sync<helix::sensors::WidthSensorManager>(
-        wsm.get_diameter_subject(), &wsm,
-        [](helix::sensors::WidthSensorManager* m, int diameter) {
+        wsm.get_diameter_subject(), &wsm, [](helix::sensors::WidthSensorManager* m, int diameter) {
             auto* text_subj = m->get_diameter_text_subject();
             if (diameter >= 0) {
                 float diameter_mm = diameter / 1000.0f;
@@ -53,7 +52,8 @@ static void width_sensor_widget_init_subjects() {
 
 namespace helix {
 void register_width_sensor_widget() {
-    register_widget_factory("width_sensor", []() { return std::make_unique<WidthSensorWidget>(); });
+    register_widget_factory(
+        "width_sensor", [](const std::string&) { return std::make_unique<WidthSensorWidget>(); });
     register_widget_subjects("width_sensor", width_sensor_widget_init_subjects);
 }
 } // namespace helix

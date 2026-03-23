@@ -68,7 +68,8 @@ static void humidity_widget_init_subjects() {
 
 namespace helix {
 void register_humidity_widget() {
-    register_widget_factory("humidity", []() { return std::make_unique<HumidityWidget>(); });
+    register_widget_factory("humidity",
+                            [](const std::string&) { return std::make_unique<HumidityWidget>(); });
     register_widget_subjects("humidity", humidity_widget_init_subjects);
 }
 } // namespace helix
