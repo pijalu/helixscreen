@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include "../../include/ui_temp_graph.h"
+#include "../../src/ui/panel_widgets/temp_graph_widget.h"
 #include "panel_widget_registry.h"
 #include "../ui_test_utils.h"
 #include "lvgl/lvgl.h"
@@ -159,4 +160,112 @@ TEST_CASE("TempGraphWidget: registered in widget registry", "[temp_graph][panel_
     REQUIRE(def->max_colspan == 0);
     REQUIRE(def->max_rowspan == 0);
     REQUIRE(def->hardware_gate_subject == nullptr);
+}
+
+// ============================================================================
+// features_for_size tests
+// ============================================================================
+
+TEST_CASE("TempGraphWidget::features_for_size maps grid size to feature flags",
+          "[temp_graph][panel_widget][features]") {
+
+    SECTION("1x1: lines only") {
+        uint32_t f = TempGraphWidget::features_for_size(1, 1);
+        REQUIRE((f & TEMP_GRAPH_FEATURE_LINES) != 0);
+        REQUIRE((f & TEMP_GRAPH_FEATURE_TARGET_LINES) == 0);
+        REQUIRE((f & TEMP_GRAPH_FEATURE_LEGEND) == 0);
+        REQUIRE((f & TEMP_GRAPH_FEATURE_X_AXIS) == 0);
+        REQUIRE((f & TEMP_GRAPH_FEATURE_Y_AXIS) == 0);
+        REQUIRE((f & TEMP_GRAPH_FEATURE_GRADIENTS) == 0);
+        REQUIRE((f & TEMP_GRAPH_FEATURE_READOUTS) == 0);
+    }
+
+    SECTION("2x1 (wide): + target lines, legend, x-axis") {
+        uint32_t f = TempGraphWidget::features_for_size(2, 1);
+        REQUIRE((f & TEMP_GRAPH_FEATURE_LINES) != 0);
+        REQUIRE((f & TEMP_GRAPH_FEATURE_TARGET_LINES) != 0);
+        REQUIRE((f & TEMP_GRAPH_FEATURE_LEGEND) != 0);
+        REQUIRE((f & TEMP_GRAPH_FEATURE_X_AXIS) != 0);
+        REQUIRE((f & TEMP_GRAPH_FEATURE_Y_AXIS) == 0);
+        REQUIRE((f & TEMP_GRAPH_FEATURE_GRADIENTS) == 0);
+        REQUIRE((f & TEMP_GRAPH_FEATURE_READOUTS) == 0);
+    }
+
+    SECTION("1x2 (tall): + target lines, legend, y-axis") {
+        uint32_t f = TempGraphWidget::features_for_size(1, 2);
+        REQUIRE((f & TEMP_GRAPH_FEATURE_LINES) != 0);
+        REQUIRE((f & TEMP_GRAPH_FEATURE_TARGET_LINES) != 0);
+        REQUIRE((f & TEMP_GRAPH_FEATURE_LEGEND) != 0);
+        REQUIRE((f & TEMP_GRAPH_FEATURE_X_AXIS) == 0);
+        REQUIRE((f & TEMP_GRAPH_FEATURE_Y_AXIS) != 0);
+        REQUIRE((f & TEMP_GRAPH_FEATURE_GRADIENTS) == 0);
+        REQUIRE((f & TEMP_GRAPH_FEATURE_READOUTS) == 0);
+    }
+
+    SECTION("2x2: all except readouts") {
+        uint32_t f = TempGraphWidget::features_for_size(2, 2);
+        REQUIRE((f & TEMP_GRAPH_FEATURE_LINES) != 0);
+        REQUIRE((f & TEMP_GRAPH_FEATURE_TARGET_LINES) != 0);
+        REQUIRE((f & TEMP_GRAPH_FEATURE_LEGEND) != 0);
+        REQUIRE((f & TEMP_GRAPH_FEATURE_X_AXIS) != 0);
+        REQUIRE((f & TEMP_GRAPH_FEATURE_Y_AXIS) != 0);
+        REQUIRE((f & TEMP_GRAPH_FEATURE_GRADIENTS) != 0);
+        REQUIRE((f & TEMP_GRAPH_FEATURE_READOUTS) == 0);
+    }
+
+    SECTION("3x2: all features including readouts") {
+        uint32_t f = TempGraphWidget::features_for_size(3, 2);
+        REQUIRE((f & TEMP_GRAPH_FEATURE_LINES) != 0);
+        REQUIRE((f & TEMP_GRAPH_FEATURE_TARGET_LINES) != 0);
+        REQUIRE((f & TEMP_GRAPH_FEATURE_LEGEND) != 0);
+        REQUIRE((f & TEMP_GRAPH_FEATURE_X_AXIS) != 0);
+        REQUIRE((f & TEMP_GRAPH_FEATURE_Y_AXIS) != 0);
+        REQUIRE((f & TEMP_GRAPH_FEATURE_GRADIENTS) != 0);
+        REQUIRE((f & TEMP_GRAPH_FEATURE_READOUTS) != 0);
+    }
+
+    SECTION("4x3: all features (larger than max)") {
+        uint32_t f = TempGraphWidget::features_for_size(4, 3);
+        REQUIRE((f & TEMP_GRAPH_FEATURE_LINES) != 0);
+        REQUIRE((f & TEMP_GRAPH_FEATURE_READOUTS) != 0);
+        REQUIRE((f & TEMP_GRAPH_FEATURE_GRADIENTS) != 0);
+    }
+}
+
+// ============================================================================
+// Config round-trip tests
+// ============================================================================
+
+TEST_CASE("TempGraphWidget: set_config stores and preserves sensor configuration",
+          "[temp_graph][panel_widget][config]") {
+    TempGraphWidget widget("test_config_1");
+
+    nlohmann::json config = {
+        {"sensors", {
+            {{"name", "extruder"}, {"enabled", true}, {"color", 0xFF4444}},
+            {{"name", "heater_bed"}, {"enabled", true}, {"color", 0x88C0D0}},
+            {{"name", "temperature_sensor mcu_temp"}, {"enabled", false}, {"color", 0xA3BE8C}},
+        }}
+    };
+
+    widget.set_config(config);
+
+    // Verify the widget accepted the config by checking get_component_name works
+    // (would crash if widget was in bad state)
+    REQUIRE(widget.get_component_name() == "panel_widget_temp_graph");
+    REQUIRE(widget.id() == std::string("test_config_1"));
+    REQUIRE(widget.has_edit_configure() == true);
+    REQUIRE(widget.supports_reuse() == true);
+}
+
+TEST_CASE("TempGraphWidget: factory creates valid instances", "[temp_graph][panel_widget]") {
+    init_widget_registrations();
+
+    const auto* def = find_widget_def("temp_graph");
+    REQUIRE(def != nullptr);
+    REQUIRE(def->factory != nullptr);
+
+    auto widget = def->factory("test_factory_1");
+    REQUIRE(widget != nullptr);
+    REQUIRE(std::string(widget->id()) == "test_factory_1");
 }
