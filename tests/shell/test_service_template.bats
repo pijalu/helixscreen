@@ -129,6 +129,30 @@ setup() {
     ! grep -v '@@""HELIX_USER""@@' "$BATS_TEST_TMPDIR/test.service" | grep -q '@@'
 }
 
+# --- Update watcher pause/resume (#470) ---
+
+@test "service template stops update watcher in ExecStartPre" {
+    grep -q 'ExecStartPre=.*systemctl stop helixscreen-update.path' "$SERVICE_TEMPLATE"
+}
+
+@test "service template re-arms update watcher in ExecStartPost" {
+    grep -q 'ExecStartPost=.*systemctl start helixscreen-update.path' "$SERVICE_TEMPLATE"
+}
+
+@test "service template re-arms update watcher in ExecStopPost" {
+    grep -q 'ExecStopPost=.*systemctl start helixscreen-update.path' "$SERVICE_TEMPLATE"
+}
+
+@test "update watcher stop comes before chown ExecStartPre" {
+    # The stop must precede the chown to prevent ctime changes from
+    # triggering PathChanged on release_info.json.
+    local stop_line chown_line
+    stop_line=$(grep -n 'systemctl stop helixscreen-update.path' "$SERVICE_TEMPLATE" | head -1 | cut -d: -f1)
+    chown_line=$(grep -n 'chown -Rh' "$SERVICE_TEMPLATE" | head -1 | cut -d: -f1)
+    [ -n "$stop_line" ] && [ -n "$chown_line" ]
+    [ "$stop_line" -lt "$chown_line" ]
+}
+
 @test "substitution replaces @@INSTALL_PARENT@@ with parent of install dir" {
     cp "$SERVICE_TEMPLATE" "$BATS_TEST_TMPDIR/test.service"
     sed -i '' "s|@@INSTALL_DIR@@|/opt/helixscreen|g;s|@@INSTALL_PARENT@@|/opt|g" "$BATS_TEST_TMPDIR/test.service" 2>/dev/null || \
