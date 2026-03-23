@@ -33,8 +33,8 @@
         <bind_flag_if_eq subject="material_editing" flag="hidden" ref_value="0"/>
         <!-- Material name + defaults hint row -->
         <lv_obj width="100%" flex_flow="row" style_pad_all="0" style_pad_bottom="#space_lg" scrollable="false"
-                style_flex_cross_place="center" style_flex_main_place="space-between">
-          <text_heading name="edit_material_name" bind_text="material_edit_name"/>
+                style_flex_cross_place="center">
+          <text_heading name="edit_material_name" bind_text="material_edit_name" flex_grow="1"/>
           <text_small name="edit_defaults_hint" bind_text="material_edit_defaults" style_text_color="#text_muted"/>
         </lv_obj>
         <!-- Nozzle Min / Nozzle Max / Bed Temp (three-column row) -->
