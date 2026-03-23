@@ -31,10 +31,12 @@
       <!-- ================================================================== -->
       <lv_obj name="material_edit_view" width="100%" flex_grow="1" scrollable="false" flex_flow="column" style_pad_all="0">
         <bind_flag_if_eq subject="material_editing" flag="hidden" ref_value="0"/>
-        <!-- Material name heading -->
-        <text_heading name="edit_material_name" bind_text="material_edit_name" style_pad_bottom="#space_sm"/>
-        <!-- Default values hint -->
-        <text_small name="edit_defaults_hint" bind_text="material_edit_defaults" style_text_color="#text_muted" style_pad_bottom="#space_lg"/>
+        <!-- Material name + defaults hint row -->
+        <lv_obj width="100%" flex_flow="row" style_pad_all="0" style_pad_bottom="#space_lg" scrollable="false"
+                style_flex_cross_place="center" style_flex_main_place="space-between">
+          <text_heading name="edit_material_name" bind_text="material_edit_name"/>
+          <text_small name="edit_defaults_hint" bind_text="material_edit_defaults" style_text_color="#text_muted"/>
+        </lv_obj>
         <!-- Nozzle Min / Nozzle Max / Bed Temp (three-column row) -->
         <lv_obj width="100%" flex_flow="row" style_pad_all="0" style_pad_gap="#space_lg" scrollable="false">
           <!-- Nozzle Min column -->
@@ -59,6 +61,8 @@
           <lv_dropdown name="macro_dropdown" width="100%" options="None">
             <event_cb trigger="value_changed" callback="on_macro_dropdown_changed"/>
           </lv_dropdown>
+          <text_small style_text_color="#text_muted" style_pad_top="#space_xs"
+                      text="Run a Klipper macro when preheating this material" text_tag="Run a Klipper macro when preheating this material"/>
         </lv_obj>
         <!-- Macro handles heating toggle (hidden when no macro assigned) -->
         <lv_obj name="macro_heating_row" width="100%" flex_flow="row" style_pad_all="0" style_pad_top="#space_md" scrollable="false"
@@ -66,6 +70,9 @@
           <bind_flag_if_eq subject="material_has_macro" flag="hidden" ref_value="0"/>
           <lv_switch name="macro_heating_switch" style_pad_right="#space_md"/>
           <text_body text="Macro handles heating" text_tag="Macro handles heating" flex_grow="1"/>
+          <text_small style_text_color="#text_muted" style_pad_top="#space_xs" width="100%"
+                      text="When enabled, only the macro runs. When disabled, temperatures are set first, then the macro runs."
+                      text_tag="When enabled, only the macro runs. When disabled, temperatures are set first, then the macro runs."/>
         </lv_obj>
         <!-- Flex spacer pushes buttons to bottom -->
         <lv_obj width="1" flex_grow="1" scrollable="false" style_pad_all="0"/>

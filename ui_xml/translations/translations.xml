@@ -1105,6 +1105,8 @@
   <translation tag="Resume" de="Fortsetzen" en="Resume" es="Reanudar" fr="Reprendre" it="Riprendi" ja="再開" pt="Retomar" ru="Продолжить" zh="恢复"/>
   <translation tag="Resume Print" de="Druck fortsetzen" en="Resume Print" es="Reanudar Impresión" fr="Reprendre l&apos;impression" it="Riprendi stampa" ja="印刷を再開" pt="Retomar Impressão" ru="Продолжить печать" zh="恢复打印"/>
   <translation tag="Retract" de="Einziehen" en="Retract" es="Retraer" fr="Rétracter" it="Retrazione" ja="引き戻し" pt="Retrair" ru="Ретракция" zh="回抽"/>
+  <string name="Run a Klipper macro when preheating this material" />
+  <string name="When enabled, only the macro runs. When disabled, temperatures are set first, then the macro runs." />
   <translation tag="Retract Distance" de="Rückzugsabstand" en="Retract Distance" es="Distancia de Retracción" fr="Distance de rétraction" it="Distanza retrazione" ja="リトラクト距離" pt="Distância de Retração" ru="Расстояние ретракта" zh="回抽距离"/>
   <translation tag="Retract Length" de="Rückzugslänge" en="Retract Length" es="Longitud de Retracción" fr="Longueur de rétraction" it="Lunghezza retrazione" ja="リトラクト長" pt="Comprimento de Retração" ru="Длина ретракта" zh="回抽长度"/>
   <translation tag="Retract Speed" de="Rückzugsgeschwindigkeit" en="Retract Speed" es="Velocidad de Retracción" fr="Vitesse de rétraction" it="Velocità retrazione" ja="リトラクト速度" pt="Velocidade de Retração" ru="Скорость ретракта" zh="回抽速度"/>
