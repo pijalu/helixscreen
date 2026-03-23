@@ -175,6 +175,8 @@ TEST_CASE("sync_active_spool_after_edit syncs when edited slot is loaded",
     MoonrakerAPIMock api(client, state);
 
     auto& ams = AmsState::instance();
+    ams.deinit_subjects();
+    ams.init_subjects(false);
     ams.set_moonraker_api(&api);
 
     // Clear active spool to a known starting value
