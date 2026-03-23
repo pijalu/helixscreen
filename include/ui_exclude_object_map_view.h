@@ -1,11 +1,25 @@
 #pragma once
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+#include <lvgl.h>
 #include <glm/vec2.hpp>
 #include <cmath>
+#include <functional>
+#include <memory>
+#include <string>
 #include <utility>
+#include <vector>
+
+#include "ui_observer_guard.h"
+
+// Forward declarations
+namespace helix {
+class PrinterExcludedObjectsState;
+}
 
 namespace helix::ui {
+
+class PrintExcludeObjectManager;
 
 class ExcludeObjectMapView {
   public:
@@ -26,6 +40,64 @@ class ExcludeObjectMapView {
         float offset_y_{0.0f};
         int viewport_h_{0};
     };
+
+    enum class KeyBarMode { FullNames, Abbreviated, Summary };
+    static KeyBarMode key_bar_mode(int object_count);
+
+    ExcludeObjectMapView();
+    ~ExcludeObjectMapView();
+
+    // Non-copyable
+    ExcludeObjectMapView(const ExcludeObjectMapView&) = delete;
+    ExcludeObjectMapView& operator=(const ExcludeObjectMapView&) = delete;
+
+    void create(lv_obj_t* parent,
+                helix::PrinterExcludedObjectsState* state,
+                float bed_w_mm, float bed_h_mm,
+                PrintExcludeObjectManager* exclude_manager);
+    void destroy();
+
+    [[nodiscard]] lv_obj_t* root() const { return root_; }
+    [[nodiscard]] bool is_active() const { return root_ != nullptr; }
+
+    void set_close_callback(std::function<void()> cb) { close_cb_ = std::move(cb); }
+
+  private:
+    void build_object_rects();
+    void update_visual_states();
+    void build_key_bar();
+    lv_obj_t* create_object_rect(lv_obj_t* parent, int index,
+                                 const std::string& name,
+                                 const PixelRect& rect);
+    lv_color_t get_object_color(int index) const;
+
+    static void on_close_clicked(lv_event_t* e);
+    static void on_object_clicked(lv_event_t* e);
+
+    lv_obj_t* root_{nullptr};
+    lv_obj_t* plate_area_{nullptr};
+    lv_obj_t* key_bar_{nullptr};
+    lv_obj_t* object_container_{nullptr};
+
+    helix::PrinterExcludedObjectsState* state_{nullptr};
+    PrintExcludeObjectManager* exclude_manager_{nullptr};
+
+    float bed_w_mm_{235.0f};
+    float bed_h_mm_{235.0f};
+
+    lv_subject_t map_has_objects_subject_{};
+
+    std::unique_ptr<CoordMapper> mapper_;
+    ObserverGuard excluded_version_obs_;
+    ObserverGuard defined_version_obs_;
+
+    std::function<void()> close_cb_;
+
+    struct ObjectRect {
+        std::string name;
+        lv_obj_t* rect{nullptr};
+    };
+    std::vector<ObjectRect> object_rects_;
 };
 
 }  // namespace helix::ui

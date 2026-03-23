@@ -102,6 +102,35 @@ TEST_CASE_METHOD(XMLTestFixture, "all 8 object color tokens are registered",
 
 using helix::ui::ExcludeObjectMapView;
 
+// ============================================================================
+// KeyBarMode tests (pure logic, no LVGL widget creation needed)
+// ============================================================================
+
+TEST_CASE("key_bar_mode returns FullNames for <= 4 objects", "[exclude_map][key_bar_mode]") {
+    using helix::ui::ExcludeObjectMapView;
+    REQUIRE(ExcludeObjectMapView::key_bar_mode(0) == ExcludeObjectMapView::KeyBarMode::FullNames);
+    REQUIRE(ExcludeObjectMapView::key_bar_mode(1) == ExcludeObjectMapView::KeyBarMode::FullNames);
+    REQUIRE(ExcludeObjectMapView::key_bar_mode(4) == ExcludeObjectMapView::KeyBarMode::FullNames);
+}
+
+TEST_CASE("key_bar_mode returns Abbreviated for 5-7 objects", "[exclude_map][key_bar_mode]") {
+    using helix::ui::ExcludeObjectMapView;
+    REQUIRE(ExcludeObjectMapView::key_bar_mode(5) == ExcludeObjectMapView::KeyBarMode::Abbreviated);
+    REQUIRE(ExcludeObjectMapView::key_bar_mode(6) == ExcludeObjectMapView::KeyBarMode::Abbreviated);
+    REQUIRE(ExcludeObjectMapView::key_bar_mode(7) == ExcludeObjectMapView::KeyBarMode::Abbreviated);
+}
+
+TEST_CASE("key_bar_mode returns Summary for >= 8 objects", "[exclude_map][key_bar_mode]") {
+    using helix::ui::ExcludeObjectMapView;
+    REQUIRE(ExcludeObjectMapView::key_bar_mode(8) == ExcludeObjectMapView::KeyBarMode::Summary);
+    REQUIRE(ExcludeObjectMapView::key_bar_mode(12) == ExcludeObjectMapView::KeyBarMode::Summary);
+    REQUIRE(ExcludeObjectMapView::key_bar_mode(100) == ExcludeObjectMapView::KeyBarMode::Summary);
+}
+
+// ============================================================================
+// Coordinate mapping tests
+// ============================================================================
+
 TEST_CASE("Coordinate mapping: mm to pixels", "[exclude_map][coords]") {
     SECTION("square bed in square viewport") {
         auto mapper = ExcludeObjectMapView::CoordMapper(235.0f, 235.0f, 400, 400);
