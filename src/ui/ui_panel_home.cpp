@@ -205,7 +205,8 @@ void HomePanel::populate_widgets(bool force) {
 
     // Delegate generic widget creation to the manager, passing reusable instances
     active_widgets_ =
-        helix::PanelWidgetManager::instance().populate_widgets("home", container, std::move(reuse));
+        helix::PanelWidgetManager::instance().populate_widgets("home", container, 0,
+                                                                     std::move(reuse));
 
     // Enable event bubbling on the entire widget subtree so touch events
     // (long_press, click, etc.) propagate from deeply-nested clickable

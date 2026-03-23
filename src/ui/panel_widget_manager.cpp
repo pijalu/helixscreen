@@ -83,7 +83,7 @@ static PanelWidgetConfig& get_widget_config_impl(const std::string& panel_id) {
 
 std::vector<std::unique_ptr<PanelWidget>>
 PanelWidgetManager::populate_widgets(const std::string& panel_id, lv_obj_t* container,
-                                     WidgetReuseMap reuse) {
+                                     int page_index, WidgetReuseMap reuse) {
     if (!container) {
         spdlog::debug("[PanelWidgetManager] populate_widgets: null container for '{}'", panel_id);
         return {};
@@ -110,7 +110,7 @@ PanelWidgetManager::populate_widgets(const std::string& panel_id, lv_obj_t* cont
 
     // Collect enabled + hardware-available widgets
     std::vector<WidgetSlot> enabled_widgets;
-    for (const auto& entry : widget_config.entries()) {
+    for (const auto& entry : widget_config.page_entries(page_index)) {
         if (!entry.enabled) {
             continue;
         }
@@ -186,18 +186,19 @@ PanelWidgetManager::populate_widgets(const std::string& panel_id, lv_obj_t* cont
             new_ids.push_back(slot.widget_id);
         }
 
-        auto it = active_configs_.find(panel_id);
+        auto cache_key = make_cache_key(panel_id, page_index);
+        auto it = active_configs_.find(cache_key);
         bool container_has_children = lv_obj_get_child_count(container) > 0;
         if (it != active_configs_.end() && it->second.widget_ids == new_ids &&
             container_has_children) {
             spdlog::debug("[PanelWidgetManager] Widget list unchanged for '{}', skipping rebuild",
-                          panel_id);
+                          cache_key);
             populating_ = false;
             return {};
         }
 
         // Store new config for future comparison
-        active_configs_[panel_id] = ActiveWidgetConfig{std::move(new_ids)};
+        active_configs_[cache_key] = ActiveWidgetConfig{std::move(new_ids)};
     }
 
     // Clear existing children (for repopulation)
@@ -218,7 +219,7 @@ PanelWidgetManager::populate_widgets(const std::string& panel_id, lv_obj_t* cont
     GridLayout grid(breakpoint);
 
     // Correlate widget entries with config entries to get grid positions
-    const auto& entries = widget_config.entries();
+    const auto& entries = widget_config.page_entries(page_index);
 
     // First pass: place widgets with explicit grid positions (anchors + user-positioned)
     struct PlacedSlot {
@@ -297,7 +298,7 @@ PanelWidgetManager::populate_widgets(const std::string& panel_id, lv_obj_t* cont
         } else {
             // Grid is full — disable the widget so it goes back to the catalog
             // as an available widget. User can re-add it after freeing space.
-            auto& mut_entries = widget_config.mutable_entries();
+            auto& mut_entries = widget_config.page_entries_mut(page_index);
             auto cfg_it =
                 std::find_if(mut_entries.begin(), mut_entries.end(),
                              [&](const PanelWidgetEntry& e) { return e.id == slot.widget_id; });
@@ -349,7 +350,7 @@ PanelWidgetManager::populate_widgets(const std::string& panel_id, lv_obj_t* cont
             if (pos && grid.place({slot.widget_id, pos->first, pos->second, 1, 1})) {
                 placed.push_back({slot_idx, pos->first, pos->second, 1, 1});
             } else {
-                auto& mut_entries = widget_config.mutable_entries();
+                auto& mut_entries = widget_config.page_entries_mut(page_index);
                 auto cfg_it =
                     std::find_if(mut_entries.begin(), mut_entries.end(),
                                  [&](const PanelWidgetEntry& e) { return e.id == slot.widget_id; });
@@ -371,7 +372,7 @@ PanelWidgetManager::populate_widgets(const std::string& panel_id, lv_obj_t* cont
     // This ensures auto-placed positions survive the next load() call
     // (get_widget_config_impl always reloads from the JSON store).
     {
-        auto& mut_entries = widget_config.mutable_entries();
+        auto& mut_entries = widget_config.page_entries_mut(page_index);
         bool any_written = false;
         for (const auto& p : placed) {
             auto& slot = enabled_widgets[p.slot_index];
@@ -421,7 +422,7 @@ PanelWidgetManager::populate_widgets(const std::string& panel_id, lv_obj_t* cont
     // Generate grid descriptors sized to actual content
     // Columns: use breakpoint column count (fills available width)
     // Rows: use max of current and cached row count for stable sizing
-    auto& dsc = grid_descriptors_[panel_id];
+    auto& dsc = grid_descriptors_[make_cache_key(panel_id, page_index)];
     dsc.col_dsc = GridLayout::make_col_dsc(breakpoint);
     dsc.row_dsc.clear();
     for (int r = 0; r < grid_rows; ++r) {
@@ -459,7 +460,7 @@ PanelWidgetManager::populate_widgets(const std::string& panel_id, lv_obj_t* cont
             }
         };
         std::unordered_set<std::pair<int, int>, CellHash> single_cells;
-        for (const auto& entry : widget_config.entries()) {
+        for (const auto& entry : widget_config.page_entries(page_index)) {
             if (!entry.enabled || !entry.has_grid_position()) {
                 continue;
             }
@@ -584,11 +585,11 @@ PanelWidgetManager::populate_widgets(const std::string& panel_id, lv_obj_t* cont
 }
 
 std::vector<std::string>
-PanelWidgetManager::compute_visible_widget_ids(const std::string& panel_id) {
+PanelWidgetManager::compute_visible_widget_ids(const std::string& panel_id, int page_index) {
     auto& widget_config = get_widget_config_impl(panel_id);
     std::vector<std::string> ids;
 
-    for (const auto& entry : widget_config.entries()) {
+    for (const auto& entry : widget_config.page_entries(page_index)) {
         if (!entry.enabled) {
             continue;
         }
@@ -688,7 +689,23 @@ void PanelWidgetManager::clear_gate_observers(const std::string& panel_id) {
 }
 
 void PanelWidgetManager::clear_panel_config(const std::string& panel_id) {
-    active_configs_.erase(panel_id);
+    // Erase all page-keyed entries matching this panel (e.g. "home:0", "home:1", ...)
+    std::string prefix = panel_id + ":";
+    for (auto it = active_configs_.begin(); it != active_configs_.end();) {
+        if (it->first.compare(0, prefix.size(), prefix) == 0) {
+            it = active_configs_.erase(it);
+        } else {
+            ++it;
+        }
+    }
+    // Also erase grid descriptors for all pages of this panel
+    for (auto it = grid_descriptors_.begin(); it != grid_descriptors_.end();) {
+        if (it->first.compare(0, prefix.size(), prefix) == 0) {
+            it = grid_descriptors_.erase(it);
+        } else {
+            ++it;
+        }
+    }
 }
 
 PanelWidgetConfig& PanelWidgetManager::get_widget_config(const std::string& panel_id) {

@@ -76,11 +76,13 @@ class PanelWidgetManager {
     /// Returns the vector of active (attached) PanelWidget instances.
     std::vector<std::unique_ptr<PanelWidget>> populate_widgets(const std::string& panel_id,
                                                                lv_obj_t* container,
+                                                               int page_index = 0,
                                                                WidgetReuseMap reuse = {});
 
     /// Compute which widget IDs would be visible for a panel without creating
     /// any LVGL objects. Used to short-circuit rebuilds when the list is unchanged.
-    std::vector<std::string> compute_visible_widget_ids(const std::string& panel_id);
+    std::vector<std::string> compute_visible_widget_ids(const std::string& panel_id,
+                                                        int page_index = 0);
 
     // -- Gate observers --
 
@@ -101,6 +103,11 @@ class PanelWidgetManager {
 
   private:
     PanelWidgetManager() = default;
+
+    /// Build a cache key from panel_id and page_index for grid_descriptors_ and active_configs_.
+    static std::string make_cache_key(const std::string& panel_id, int page_index) {
+        return panel_id + ":" + std::to_string(page_index);
+    }
 
     bool widget_subjects_initialized_ = false;
     bool populating_ = false;
