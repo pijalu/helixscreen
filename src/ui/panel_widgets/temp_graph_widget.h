@@ -79,6 +79,7 @@ class TempGraphWidget : public PanelWidget {
 
     int current_colspan_ = 2;
     int current_rowspan_ = 2;
+    float y_axis_max_ = 100.0f;  // Dynamic Y-axis ceiling (auto-scaled)
 
     // Color palette (matches TempGraphOverlay)
     static constexpr int PALETTE_SIZE = 8;

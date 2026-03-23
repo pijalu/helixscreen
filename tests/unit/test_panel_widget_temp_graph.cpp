@@ -151,14 +151,14 @@ TEST_CASE("TempGraphWidget: registered in widget registry", "[temp_graph][panel_
     const auto* def = find_widget_def("temp_graph");
     REQUIRE(def != nullptr);
     REQUIRE(std::string(def->display_name) == "Temperature Graph");
-    REQUIRE(std::string(def->icon) == "chart-line");
+    REQUIRE(std::string(def->icon) == "chart_line");
     REQUIRE(def->multi_instance == true);
     REQUIRE(def->colspan == 2);
     REQUIRE(def->rowspan == 2);
     REQUIRE(def->min_colspan == 1);
     REQUIRE(def->min_rowspan == 1);
-    REQUIRE(def->max_colspan == 0);
-    REQUIRE(def->max_rowspan == 0);
+    REQUIRE(def->max_colspan == 6);
+    REQUIRE(def->max_rowspan == 4);
     REQUIRE(def->hardware_gate_subject == nullptr);
 }
 
@@ -180,12 +180,12 @@ TEST_CASE("TempGraphWidget::features_for_size maps grid size to feature flags",
         REQUIRE((f & TEMP_GRAPH_FEATURE_READOUTS) == 0);
     }
 
-    SECTION("2x1 (wide): + target lines, legend, x-axis") {
+    SECTION("2x1 (wide): + target lines, legend, no X-axis (too narrow)") {
         uint32_t f = TempGraphWidget::features_for_size(2, 1);
         REQUIRE((f & TEMP_GRAPH_FEATURE_LINES) != 0);
         REQUIRE((f & TEMP_GRAPH_FEATURE_TARGET_LINES) != 0);
         REQUIRE((f & TEMP_GRAPH_FEATURE_LEGEND) != 0);
-        REQUIRE((f & TEMP_GRAPH_FEATURE_X_AXIS) != 0);
+        REQUIRE((f & TEMP_GRAPH_FEATURE_X_AXIS) == 0);  // X-axis needs 3+ cols
         REQUIRE((f & TEMP_GRAPH_FEATURE_Y_AXIS) == 0);
         REQUIRE((f & TEMP_GRAPH_FEATURE_GRADIENTS) == 0);
         REQUIRE((f & TEMP_GRAPH_FEATURE_READOUTS) == 0);
@@ -202,12 +202,12 @@ TEST_CASE("TempGraphWidget::features_for_size maps grid size to feature flags",
         REQUIRE((f & TEMP_GRAPH_FEATURE_READOUTS) == 0);
     }
 
-    SECTION("2x2: all except readouts") {
+    SECTION("2x2: Y-axis + gradients, no X-axis") {
         uint32_t f = TempGraphWidget::features_for_size(2, 2);
         REQUIRE((f & TEMP_GRAPH_FEATURE_LINES) != 0);
         REQUIRE((f & TEMP_GRAPH_FEATURE_TARGET_LINES) != 0);
         REQUIRE((f & TEMP_GRAPH_FEATURE_LEGEND) != 0);
-        REQUIRE((f & TEMP_GRAPH_FEATURE_X_AXIS) != 0);
+        REQUIRE((f & TEMP_GRAPH_FEATURE_X_AXIS) == 0);  // X-axis needs 3+ cols
         REQUIRE((f & TEMP_GRAPH_FEATURE_Y_AXIS) != 0);
         REQUIRE((f & TEMP_GRAPH_FEATURE_GRADIENTS) != 0);
         REQUIRE((f & TEMP_GRAPH_FEATURE_READOUTS) == 0);

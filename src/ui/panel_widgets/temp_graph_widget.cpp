@@ -11,6 +11,7 @@
 #include "temperature_sensor_manager.h"
 #include "ui_overlay_temp_graph.h"
 #include "ui_temperature_utils.h"
+#include "theme_manager.h"
 #include "ui_update_queue.h"
 
 #include "helix-xml/src/xml/lv_xml.h"
@@ -95,7 +96,20 @@ void TempGraphWidget::attach(lv_obj_t* widget_obj, lv_obj_t* parent_screen) {
     lv_obj_t* chart = ui_temp_graph_get_chart(graph_);
     if (chart) {
         lv_obj_set_size(chart, LV_PCT(100), LV_PCT(100));
+        // Use card_bg instead of the default graph_bg for widget context
+        lv_obj_set_style_bg_color(chart, theme_manager_get_color("card_bg"), 0);
+        lv_obj_set_style_bg_opa(chart, LV_OPA_COVER, 0);
+        // Let clicks pass through chart to parent container (edit mode needs this)
+        lv_obj_remove_flag(chart, LV_OBJ_FLAG_CLICKABLE);
+        lv_obj_add_flag(chart, LV_OBJ_FLAG_EVENT_BUBBLE);
     }
+
+    // Match container bg to card
+    lv_obj_set_style_bg_color(widget_obj_, theme_manager_get_color("card_bg"), 0);
+    lv_obj_set_style_bg_opa(widget_obj_, LV_OPA_COVER, 0);
+
+    // Use smaller axis font for widget context (vs full-screen overlay)
+    ui_temp_graph_set_axis_size(graph_, "xs");
 
     // Set features based on current grid size
     uint32_t features = features_for_size(current_colspan_, current_rowspan_);
@@ -192,18 +206,20 @@ bool TempGraphWidget::on_edit_configure() {
 uint32_t TempGraphWidget::features_for_size(int colspan, int rowspan) {
     uint32_t features = TEMP_GRAPH_FEATURE_LINES;
 
-    if (colspan >= 2 && rowspan >= 1) {
-        // Wide: add target lines, legend, x-axis
+    if (colspan >= 2 || rowspan >= 2) {
+        // Medium: add target lines and legend
         features |= TEMP_GRAPH_FEATURE_TARGET_LINES
-                  | TEMP_GRAPH_FEATURE_LEGEND
-                  | TEMP_GRAPH_FEATURE_X_AXIS;
+                  | TEMP_GRAPH_FEATURE_LEGEND;
     }
 
-    if (colspan >= 1 && rowspan >= 2) {
-        // Tall: add target lines, legend, y-axis
-        features |= TEMP_GRAPH_FEATURE_TARGET_LINES
-                  | TEMP_GRAPH_FEATURE_LEGEND
-                  | TEMP_GRAPH_FEATURE_Y_AXIS;
+    if (rowspan >= 2) {
+        // Tall: add Y-axis labels
+        features |= TEMP_GRAPH_FEATURE_Y_AXIS;
+    }
+
+    if (colspan >= 3) {
+        // Wide (3+): add X-axis time labels (too crowded at 2x)
+        features |= TEMP_GRAPH_FEATURE_X_AXIS;
     }
 
     if (colspan >= 2 && rowspan >= 2) {
@@ -328,6 +344,7 @@ void TempGraphWidget::setup_observers() {
                                       .count();
                     ui_temp_graph_update_series_with_time(self->graph_, si.series_id,
                                                           temp_deg, now_ms);
+                    self->apply_auto_range();
                 },
                 s.lifetime);
         }
@@ -346,6 +363,7 @@ void TempGraphWidget::setup_observers() {
                     float target_deg = centi_to_degrees_f(target_centi);
                     bool show = target_deg > 0.0f;
                     ui_temp_graph_set_series_target(self->graph_, si.series_id, target_deg, show);
+                    self->apply_auto_range();
                 },
                 s.lifetime);
         }
@@ -416,17 +434,50 @@ void TempGraphWidget::backfill_history() {
 void TempGraphWidget::apply_auto_range() {
     if (!graph_) return;
 
-    // Check if any series is a heater (needs higher range)
-    bool has_heater = false;
+    // Dynamic Y-axis range with hysteresis (same logic as TempGraphOverlay)
+    static constexpr float Y_STEP = 50.0f;
+    static constexpr float Y_FLOOR = 100.0f;
+    static constexpr float Y_CEILING = 400.0f;
+    static constexpr float Y_EXPAND = 0.90f;
+    static constexpr float Y_SHRINK = 0.50f;
+
+    // Find max visible temp (from data and targets)
+    float max_temp = graph_->max_visible_temp;
     for (const auto& s : series_) {
-        if (s.has_target) {
-            has_heater = true;
-            break;
+        if (s.has_target && s.series_id >= 0) {
+            for (int j = 0; j < graph_->series_count; j++) {
+                auto& meta = graph_->series_meta[j];
+                if (meta.id == s.series_id && meta.show_target && meta.target_temp > max_temp) {
+                    max_temp = meta.target_temp;
+                }
+            }
         }
     }
 
-    float max_temp = has_heater ? 300.0f : 100.0f;
-    ui_temp_graph_set_temp_range(graph_, 0.0f, max_temp);
+    // Auto-scale with hysteresis
+    float new_max = y_axis_max_;
+    if (max_temp > y_axis_max_ * Y_EXPAND) {
+        new_max = (std::floor(max_temp / Y_STEP) + 1.0f) * Y_STEP;
+    } else if (max_temp < y_axis_max_ * Y_SHRINK && y_axis_max_ > Y_FLOOR) {
+        new_max = std::max(Y_FLOOR, (std::floor(max_temp / Y_STEP) + 1.0f) * Y_STEP);
+    }
+    new_max = std::clamp(new_max, Y_FLOOR, Y_CEILING);
+
+    bool changed = (new_max != y_axis_max_);
+    y_axis_max_ = new_max;
+
+    // Always apply range + Y-axis config (ensures initial setup works)
+    ui_temp_graph_set_temp_range(graph_, 0.0f, y_axis_max_);
+    float y_increment = (y_axis_max_ <= 150.0f) ? 25.0f : 50.0f;
+    bool show_y = (features_for_size(current_colspan_, current_rowspan_) & TEMP_GRAPH_FEATURE_Y_AXIS) != 0;
+    ui_temp_graph_set_y_axis(graph_, y_increment, show_y);
+    spdlog::debug("[TempGraphWidget:{}] apply_auto_range: max={}, increment={}, show_y={}, "
+                  "graph->show_y_axis={}, graph->y_axis_increment={}",
+                  instance_id_, y_axis_max_, y_increment, show_y,
+                  graph_->show_y_axis, graph_->y_axis_increment);
+    if (changed) {
+        spdlog::debug("[TempGraphWidget:{}] Y-axis range changed: 0-{}°C", instance_id_, y_axis_max_);
+    }
 }
 
 // ============================================================================

@@ -567,6 +567,10 @@ static void draw_y_axis_labels_cb(lv_event_t* e) {
         // Center label vertically on the temperature line
         label_y -= label_height / 2;
 
+        // Clamp so labels don't extend above or below the chart area
+        if (label_y < coords.y1) label_y = coords.y1;
+        if (label_y + label_height > coords.y2) continue;  // Skip if below chart
+
         // Format temperature string into persistent buffer
         char* temp_str = temp_str_buf[temp_str_idx++ % 8];
         snprintf(temp_str, 8, "%d°", static_cast<int>(temp));
