@@ -42,7 +42,7 @@ class ThermistorConfigFixture {
 TEST_CASE("ThermistorWidget: registered in widget registry", "[thermistor][panel_widget]") {
     const auto* def = find_widget_def("thermistor");
     REQUIRE(def != nullptr);
-    REQUIRE(std::string(def->display_name) == "Temp Sensor");
+    REQUIRE(std::string(def->display_name) == "Thermistors");
     REQUIRE(std::string(def->icon) == "thermometer");
     REQUIRE(def->hardware_gate_subject != nullptr);
     REQUIRE(std::string(def->hardware_gate_subject) == "temp_sensor_count");
@@ -114,7 +114,7 @@ TEST_CASE_METHOD(helix::ThermistorConfigFixture,
 TEST_CASE_METHOD(helix::ThermistorConfigFixture,
                  "ThermistorWidget: set_widget_config saves and persists",
                  "[thermistor][panel_widget]") {
-    // Seed config with a thermistor instance (multi-instance widgets have no default entry)
+    // Multi-instance widgets need a pre-existing entry (not auto-created by defaults)
     json widgets = json::array({
         {{"id", "thermistor:1"}, {"enabled", true}, {"col", 0}, {"row", 0}},
     });

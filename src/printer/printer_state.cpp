@@ -382,7 +382,8 @@ void PrinterState::update_from_status(const json& state) {
                 info.name = obj["name"].get<std::string>();
 
                 if (obj.contains("center") && obj["center"].is_array() &&
-                    obj["center"].size() >= 2) {
+                    obj["center"].size() >= 2 &&
+                    obj["center"][0].is_number() && obj["center"][1].is_number()) {
                     info.center.x = obj["center"][0].get<float>();
                     info.center.y = obj["center"][1].get<float>();
                     info.has_center = true;
@@ -397,7 +398,8 @@ void PrinterState::update_from_status(const json& state) {
                     float max_x = std::numeric_limits<float>::lowest();
                     float max_y = max_x;
                     for (const auto& pt : obj["polygon"]) {
-                        if (pt.is_array() && pt.size() >= 2) {
+                        if (pt.is_array() && pt.size() >= 2 &&
+                            pt[0].is_number() && pt[1].is_number()) {
                             float x = pt[0].get<float>(), y = pt[1].get<float>();
                             min_x = std::min(min_x, x);
                             min_y = std::min(min_y, y);

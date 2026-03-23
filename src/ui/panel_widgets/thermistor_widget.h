@@ -28,7 +28,9 @@ class ThermistorWidget : public PanelWidget {
     const char* id() const override {
         return instance_id_.c_str();
     }
-    bool has_edit_configure() const override { return true; }
+    bool has_edit_configure() const override {
+        return true;
+    }
     bool on_edit_configure() override;
 
     /// Called from static event callback
@@ -37,6 +39,9 @@ class ThermistorWidget : public PanelWidget {
     /// Select a sensor by klipper_name, update display, save config
     void select_sensor(const std::string& klipper_name);
 
+    /// Select icon for this widget instance
+    void select_icon(const std::string& name);
+
     // Static event callbacks (XML-registered)
     static void thermistor_clicked_cb(lv_event_t* e);
     static void thermistor_picker_backdrop_cb(lv_event_t* e);
@@ -44,6 +49,8 @@ class ThermistorWidget : public PanelWidget {
 
   private:
     std::string instance_id_;
+    std::string icon_name_; // Custom icon, empty = "thermometer" default
+
     lv_obj_t* widget_obj_ = nullptr;
     lv_obj_t* parent_screen_ = nullptr;
     lv_obj_t* temp_label_ = nullptr;
