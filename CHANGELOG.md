@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.98.11] - 2026-03-23
+
+### Added
+- Camera rotation and flip configuration with edit mode modal (#483)
+- Multi-instance thermistor and fan dashboard widgets with icon picker (#342)
+- Thermometer variant icons added to icon font (#342)
+- `HELIX_SCREEN_SIZE` environment variable as alternative to `-s` flag
+
+### Fixed
+- Crash from overlay close callback using synchronous deletion (#491)
+- Crash from null style pointer dereferences (#490, #439, #480)
+- Crash from blur walk callback and bed mesh layout update (#417, #419, #420)
+- Print status auto-navigation blocking the UI thread (#450)
+- EGL rotation fallback now continues unrotated with user guidance instead of crashing (#457)
+- EGL rotation working on GL renderer path (#457)
+- AFC tool-slot reconciliation using registry and merging stepper lanes in mixed setups (#421)
+- Update watcher paused during startup to prevent spurious restart (#470)
+- Self-restart via fork+exec when no watchdog supervises the process
+- Sensor list and power picker card scrollable so content is not cut off (#342, #467)
+- AmsState subjects initialized before testing sync_active_spool_after_edit
+
 ## [0.98.10] - 2026-03-22
 
 A stability-focused release addressing over 30 crash reports, plus a new power device dashboard widget, multi-instance widget system, and fixes for power device detection, config symlinks, and memory management.
@@ -2036,6 +2057,7 @@ Initial tagged release. Foundation for all subsequent development.
 - Automated GitHub Actions release pipeline
 - One-liner installation script with platform auto-detection
 
+[0.98.11]: https://github.com/prestonbrown/helixscreen/compare/v0.98.10...v0.98.11
 [0.98.10]: https://github.com/prestonbrown/helixscreen/compare/v0.98.9...v0.98.10
 [0.98.9]: https://github.com/prestonbrown/helixscreen/compare/v0.98.8...v0.98.9
 [0.98.8]: https://github.com/prestonbrown/helixscreen/compare/v0.98.7...v0.98.8
