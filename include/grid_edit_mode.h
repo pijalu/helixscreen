@@ -21,6 +21,7 @@ class GridEditMode {
   public:
     using SaveCallback = std::function<void()>;
     using RebuildCallback = std::function<void()>;
+    using DeletePageCallback = std::function<void()>;
 
     GridEditMode() = default;
     ~GridEditMode();
@@ -30,7 +31,7 @@ class GridEditMode {
     GridEditMode(GridEditMode&&) = delete;
     GridEditMode& operator=(GridEditMode&&) = delete;
 
-    void enter(lv_obj_t* container, PanelWidgetConfig* config);
+    void enter(lv_obj_t* container, PanelWidgetConfig* config, int page_index = 0);
     void exit();
 
     bool is_active() const {
@@ -48,6 +49,15 @@ class GridEditMode {
 
     void set_rebuild_callback(RebuildCallback cb) {
         rebuild_cb_ = std::move(cb);
+    }
+
+    void set_delete_page_callback(DeletePageCallback cb) {
+        delete_page_cb_ = std::move(cb);
+    }
+
+    /// Page index that edit mode is currently scoped to
+    int page_index() const {
+        return page_index_;
     }
 
     /// Currently selected widget (nullptr if none)
@@ -152,8 +162,11 @@ class GridEditMode {
     lv_obj_t* remove_btn_ = nullptr;    // Trash button (container child, not overlay child)
     lv_obj_t* configure_btn_ = nullptr; // Configure button (upper-left, shown if widget supports it)
     PanelWidgetConfig* config_ = nullptr;
+    int page_index_ = 0;
     SaveCallback save_cb_;
     RebuildCallback rebuild_cb_;
+    DeletePageCallback delete_page_cb_;
+    lv_obj_t* delete_page_btn_ = nullptr;
 
     // Drag threshold: track press origin, only start real drag after movement
     static constexpr int DRAG_THRESHOLD_PX = 12;

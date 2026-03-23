@@ -5,6 +5,7 @@
 
 #include "ui_callback_helpers.h"
 #include "ui_carousel.h"
+#include "ui_modal.h"
 #include "ui_event_safety.h"
 #include "ui_fonts.h"
 #include "ui_icon_codepoints.h"
@@ -642,6 +643,24 @@ void HomePanel::setup(lv_obj_t* panel, lv_obj_t* parent_screen) {
     // Set grid edit mode rebuild callback once (used when edit mode rearranges widgets)
     grid_edit_mode_.set_rebuild_callback([this]() { populate_widgets(); });
 
+    // Set delete page callback for edit mode
+    grid_edit_mode_.set_delete_page_callback([this]() {
+        helix::ui::modal_show_confirmation(
+            "Delete Page", "Remove this page and all its widgets?", ModalSeverity::Warning, "Delete",
+            [](lv_event_t* ev) {
+                LV_UNUSED(ev);
+                auto& panel = get_global_home_panel();
+                int page_to_delete = panel.grid_edit_mode_.page_index();
+                auto& config =
+                    helix::PanelWidgetManager::instance().get_widget_config("home");
+                config.remove_page(static_cast<size_t>(page_to_delete));
+                config.save();
+                panel.grid_edit_mode_.exit();
+                panel.rebuild_carousel();
+            },
+            nullptr, nullptr);
+    });
+
     spdlog::debug("[{}] Setup complete!", get_name());
 }
 
@@ -804,7 +823,7 @@ void HomePanel::on_home_grid_long_press(lv_event_t* e) {
             // Enter edit mode on the active page container
             auto& config = helix::PanelWidgetManager::instance().get_widget_config("home");
             if (container) {
-                panel.grid_edit_mode_.enter(container, &config);
+                panel.grid_edit_mode_.enter(container, &config, panel.active_page_index_);
                 // Disable carousel swiping during edit mode
                 if (panel.carousel_) {
                     ui_carousel_set_scroll_enabled(panel.carousel_, false);

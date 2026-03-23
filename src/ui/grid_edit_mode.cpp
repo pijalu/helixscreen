@@ -59,7 +59,7 @@ GridEditMode::~GridEditMode() {
     }
 }
 
-void GridEditMode::enter(lv_obj_t* container, PanelWidgetConfig* config) {
+void GridEditMode::enter(lv_obj_t* container, PanelWidgetConfig* config, int page_index) {
     if (active_) {
         spdlog::debug("[GridEditMode] Already active, ignoring enter()");
         return;
@@ -67,6 +67,7 @@ void GridEditMode::enter(lv_obj_t* container, PanelWidgetConfig* config) {
     active_ = true;
     container_ = container;
     config_ = config;
+    page_index_ = page_index;
     lv_subject_set_int(&get_home_edit_mode_subject(), 1);
 
     // Disable clickability on all widget descendants so their individual
@@ -82,7 +83,7 @@ void GridEditMode::enter(lv_obj_t* container, PanelWidgetConfig* config) {
     // final visual layout. This ensures config reflects reality.
     sync_config_from_screen();
 
-    spdlog::info("[GridEditMode] Entered edit mode");
+    spdlog::info("[GridEditMode] Entered edit mode (page {})", page_index_);
 }
 
 void GridEditMode::exit() {
@@ -120,6 +121,7 @@ void GridEditMode::exit() {
     remove_btn_ = nullptr;
     selection_overlay_ = nullptr;
     dots_overlay_ = nullptr;
+    delete_page_btn_ = nullptr;
 
     lv_subject_set_int(&get_home_edit_mode_subject(), 0);
 
@@ -542,7 +544,7 @@ int GridEditMode::find_config_index_for_widget(lv_obj_t* widget) const {
     }
 
     // Find the config entry with this widget ID
-    const auto& entries = config_->entries();
+    const auto& entries = config_->page_entries(static_cast<size_t>(page_index_));
     for (size_t i = 0; i < entries.size(); ++i) {
         if (entries[i].id == name) {
             return static_cast<int>(i);
@@ -574,7 +576,7 @@ void GridEditMode::sync_config_from_screen() {
         return;
     }
 
-    auto& mut_entries = config_->mutable_entries();
+    auto& mut_entries = config_->page_entries_mut(static_cast<size_t>(page_index_));
     bool any_changed = false;
 
     // Walk container children and match by name (widget_id) set during populate_widgets.
@@ -641,7 +643,7 @@ void GridEditMode::remove_selected_widget() {
         return;
     }
 
-    const auto& entries = config_->entries();
+    const auto& entries = config_->page_entries(static_cast<size_t>(page_index_));
     spdlog::info("[GridEditMode] Removing widget '{}' (config index {})",
                  entries[static_cast<size_t>(config_index)].id, config_index);
 
@@ -650,12 +652,15 @@ void GridEditMode::remove_selected_widget() {
     if (widget_id.find(':') != std::string::npos) {
         config_->delete_entry(widget_id);
     } else {
-        config_->set_enabled(static_cast<size_t>(config_index), false);
+        // Use page-scoped entry access instead of set_enabled() which only operates on page 0
+        config_->page_entries_mut(static_cast<size_t>(page_index_))[static_cast<size_t>(config_index)]
+            .enabled = false;
     }
 
     // Deselect before rebuild. Null out overlay pointers since
     // lv_obj_clean in the rebuild will delete them.
     select_widget(nullptr);
+    delete_page_btn_ = nullptr;
     dots_overlay_ = nullptr;
 
     // Save config and trigger rebuild
@@ -700,6 +705,7 @@ void GridEditMode::configure_selected_widget() {
 
     // Deselect and rebuild
     select_widget(nullptr);
+    delete_page_btn_ = nullptr;
     dots_overlay_ = nullptr;
     configure_btn_ = nullptr;
     remove_btn_ = nullptr;
@@ -898,7 +904,7 @@ bool GridEditMode::is_selected_widget_resizable() const {
     if (cfg_idx < 0) {
         return false;
     }
-    const auto& entry = config_->entries()[static_cast<size_t>(cfg_idx)];
+    const auto& entry = config_->page_entries(static_cast<size_t>(page_index_))[static_cast<size_t>(cfg_idx)];
     const auto* def = find_widget_def(entry.id);
     return def && def->is_scalable();
 }
@@ -1069,7 +1075,7 @@ void GridEditMode::handle_drag_start(lv_event_t* /*e*/) {
         return;
     }
 
-    const auto& entry = config_->entries()[static_cast<size_t>(cfg_idx)];
+    const auto& entry = config_->page_entries(static_cast<size_t>(page_index_))[static_cast<size_t>(cfg_idx)];
     spdlog::debug("[GridEditMode] handle_drag_start: cfg_idx={} id='{}' col={} row={} "
                   "colspan={} rowspan={} has_grid={}",
                   cfg_idx, entry.id, entry.col, entry.row, entry.colspan, entry.rowspan,
@@ -1220,7 +1226,7 @@ void GridEditMode::handle_drag_move(lv_event_t* /*e*/) {
     // Check placement validity: build a temporary grid with only VISIBLE widgets
     // (hardware-gated widgets may be enabled in config but not placed on screen)
     GridLayout temp_grid(breakpoint);
-    const auto& entries = config_->entries();
+    const auto& entries = config_->page_entries(static_cast<size_t>(page_index_));
     std::string dragged_id;
     if (drag_cfg_idx_ >= 0 && static_cast<size_t>(drag_cfg_idx_) < entries.size()) {
         dragged_id = entries[static_cast<size_t>(drag_cfg_idx_)].id;
@@ -1308,7 +1314,7 @@ void GridEditMode::handle_drag_end(lv_event_t* /*e*/) {
         spdlog::debug("[GridEditMode] Drag end: cfg_idx={} selected_={}", cfg_idx,
                       (void*)selected_);
         if (cfg_idx >= 0) {
-            auto& entries = config_->mutable_entries();
+            auto& entries = config_->page_entries_mut(static_cast<size_t>(page_index_));
             auto& dragged_entry = entries[static_cast<size_t>(cfg_idx)];
 
             // Collect IDs of widgets actually visible on screen (not hardware-gated)
@@ -1394,7 +1400,7 @@ void GridEditMode::handle_drag_end(lv_event_t* /*e*/) {
     lv_obj_t* was_selected = selected_;
     std::string moved_id;
     if (drag_cfg_idx_ >= 0) {
-        moved_id = config_->entries()[static_cast<size_t>(drag_cfg_idx_)].id;
+        moved_id = config_->page_entries(static_cast<size_t>(page_index_))[static_cast<size_t>(drag_cfg_idx_)].id;
     }
     cleanup_drag_state();
 
@@ -1406,6 +1412,7 @@ void GridEditMode::handle_drag_end(lv_event_t* /*e*/) {
         selection_overlay_ = nullptr;
         remove_btn_ = nullptr;
         configure_btn_ = nullptr;
+        delete_page_btn_ = nullptr;
         dots_overlay_ = nullptr;
         config_->save();
         spdlog::debug("[GridEditMode] Config saved, rebuilding widgets...");
@@ -1555,7 +1562,7 @@ void GridEditMode::handle_resize_move(lv_event_t* /*e*/) {
     if (cfg_idx < 0) {
         return;
     }
-    const auto& entry = config_->entries()[static_cast<size_t>(cfg_idx)];
+    const auto& entry = config_->page_entries(static_cast<size_t>(page_index_))[static_cast<size_t>(cfg_idx)];
     int pre_clamp_c = result.colspan;
     int pre_clamp_r = result.rowspan;
     auto [clamped_c, clamped_r] = clamp_span(entry.id, result.colspan, result.rowspan);
@@ -1579,7 +1586,7 @@ void GridEditMode::handle_resize_move(lv_event_t* /*e*/) {
 
     // Check collision with other widgets
     GridLayout temp_grid(breakpoint);
-    const auto& entries = config_->entries();
+    const auto& entries = config_->page_entries(static_cast<size_t>(page_index_));
     for (const auto& e : entries) {
         if (!e.enabled || !e.has_grid_position()) {
             continue;
@@ -1665,7 +1672,7 @@ void GridEditMode::handle_resize_end(lv_event_t* /*e*/) {
     bool did_resize = false;
 
     if (cfg_idx >= 0) {
-        const auto& entry = config_->entries()[static_cast<size_t>(cfg_idx)];
+        const auto& entry = config_->page_entries(static_cast<size_t>(page_index_))[static_cast<size_t>(cfg_idx)];
         auto [clamped_c, clamped_r] = clamp_span(entry.id, result.colspan, result.rowspan);
         result.colspan = clamped_c;
         result.rowspan = clamped_r;
@@ -1688,7 +1695,7 @@ void GridEditMode::handle_resize_end(lv_event_t* /*e*/) {
         if (changed && span_changed) {
             // Validate against other widgets
             GridLayout temp_grid(breakpoint);
-            const auto& entries = config_->entries();
+            const auto& entries = config_->page_entries(static_cast<size_t>(page_index_));
             for (const auto& e : entries) {
                 if (!e.enabled || !e.has_grid_position()) {
                     continue;
@@ -1800,7 +1807,7 @@ void GridEditMode::commit_resize_with_snap(const ResizeResult& result) {
     int target_h = static_cast<int>(result.rowspan * cell_h);
 
     // Update config
-    auto& entries = config_->mutable_entries();
+    auto& entries = config_->page_entries_mut(static_cast<size_t>(page_index_));
     auto& entry = entries[static_cast<size_t>(cfg_idx)];
     std::string resized_id = entry.id;
 
@@ -1827,6 +1834,7 @@ void GridEditMode::commit_resize_with_snap(const ResizeResult& result) {
         selection_overlay_ = nullptr;
         remove_btn_ = nullptr;
         configure_btn_ = nullptr;
+        delete_page_btn_ = nullptr;
         dots_overlay_ = nullptr;
         snap_preview_ = nullptr;
         config_->save();
@@ -1914,6 +1922,7 @@ void GridEditMode::commit_resize_with_snap(const ResizeResult& result) {
             self->selection_overlay_ = nullptr;
             self->remove_btn_ = nullptr;
             self->configure_btn_ = nullptr;
+            self->delete_page_btn_ = nullptr;
             self->dots_overlay_ = nullptr;
             self->snap_preview_ = nullptr;
             self->config_->save();
@@ -2161,14 +2170,54 @@ void GridEditMode::create_dots_overlay() {
         }
     }
 
-    spdlog::debug("[GridEditMode] Created dots overlay: {}x{} grid, {}x{} area", ncols, nrows, w,
-                  h);
+    // Create "Delete Page" button — hidden for the main page, shown for secondary pages
+    delete_page_btn_ = nullptr;
+    if (config_ && static_cast<size_t>(page_index_) != config_->main_page_index() &&
+        config_->page_count() > 1) {
+        constexpr int DEL_BTN_SIZE = 40;
+        constexpr int DEL_BTN_MARGIN = 8;
+
+        delete_page_btn_ = lv_obj_create(dots_overlay_);
+        lv_obj_set_size(delete_page_btn_, DEL_BTN_SIZE, DEL_BTN_SIZE);
+        lv_obj_set_style_radius(delete_page_btn_, LV_RADIUS_CIRCLE, 0);
+        lv_obj_set_style_bg_color(delete_page_btn_,
+                                  ThemeManager::instance().current_palette().danger, 0);
+        lv_obj_set_style_bg_opa(delete_page_btn_, LV_OPA_80, 0);
+        lv_obj_set_style_border_width(delete_page_btn_, 0, 0);
+        lv_obj_set_style_pad_all(delete_page_btn_, 0, 0);
+        lv_obj_add_flag(delete_page_btn_, LV_OBJ_FLAG_CLICKABLE);
+        lv_obj_remove_flag(delete_page_btn_, LV_OBJ_FLAG_SCROLLABLE);
+        lv_obj_set_pos(delete_page_btn_, w - DEL_BTN_SIZE - DEL_BTN_MARGIN, DEL_BTN_MARGIN);
+
+        // Trash icon label
+        lv_obj_t* icon = lv_label_create(delete_page_btn_);
+        lv_label_set_text(icon, ICON_TRASH);
+        lv_obj_set_style_text_font(icon, &mdi_icons_16, 0);
+        lv_obj_set_style_text_color(icon, lv_color_white(), 0);
+        lv_obj_center(icon);
+
+        // Click handler
+        lv_obj_add_event_cb(
+            delete_page_btn_,
+            [](lv_event_t* ev) {
+                auto* self = static_cast<GridEditMode*>(lv_event_get_user_data(ev));
+                if (self && self->delete_page_cb_) {
+                    self->delete_page_cb_();
+                }
+            },
+            LV_EVENT_CLICKED, this);
+    }
+
+    spdlog::debug("[GridEditMode] Created dots overlay: {}x{} grid, {}x{} area (page {})", ncols,
+                  nrows, w, h, page_index_);
 }
 
 void GridEditMode::destroy_dots_overlay() {
     if (dots_overlay_) {
         auto freeze = helix::ui::UpdateQueue::instance().scoped_freeze();
         helix::ui::UpdateQueue::instance().drain();
+        // delete_page_btn_ is a child of dots_overlay_ — will be deleted with it
+        delete_page_btn_ = nullptr;
         safe_deferred_delete(dots_overlay_);
         dots_overlay_ = nullptr;
     }
@@ -2260,7 +2309,7 @@ void GridEditMode::place_widget_from_catalog(const std::string& widget_id) {
     int breakpoint = bp_subj ? lv_subject_get_int(bp_subj) : 2;
 
     GridLayout temp_grid(breakpoint);
-    const auto& entries = config_->entries();
+    const auto& entries = config_->page_entries(static_cast<size_t>(page_index_));
 
     // Only include widgets actually visible on screen (not hardware-gated invisible ones)
     std::unordered_set<std::string> visible_ids;
@@ -2352,7 +2401,7 @@ void GridEditMode::place_widget_from_catalog(const std::string& widget_id) {
 
     // Enable the widget in config with the computed grid position.
     // Find the entry by ID — it should exist as disabled.
-    auto& mutable_entries = config_->mutable_entries();
+    auto& mutable_entries = config_->page_entries_mut(static_cast<size_t>(page_index_));
     bool found = false;
     for (auto& entry : mutable_entries) {
         if (entry.id == widget_id) {
@@ -2387,6 +2436,7 @@ void GridEditMode::place_widget_from_catalog(const std::string& widget_id) {
 
     // Deselect, save, and rebuild
     select_widget(nullptr);
+    delete_page_btn_ = nullptr;
     dots_overlay_ = nullptr;
     config_->save();
     if (rebuild_cb_) {
