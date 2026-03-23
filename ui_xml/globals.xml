@@ -382,6 +382,25 @@
     <color name="section_bg_color" value="#434c5e"/>
     <!-- nord2 -->
 
+    <!-- Object color palette for exclude-object map view -->
+    <!-- 8 distinct colors distinguishable on dark thumbnail backgrounds -->
+    <color name="object_color_1" value="#7c8aff"/>
+    <!-- periwinkle blue -->
+    <color name="object_color_2" value="#4ecdc4"/>
+    <!-- teal -->
+    <color name="object_color_3" value="#f9c74f"/>
+    <!-- golden yellow -->
+    <color name="object_color_4" value="#a78bfa"/>
+    <!-- soft purple -->
+    <color name="object_color_5" value="#f472b6"/>
+    <!-- pink -->
+    <color name="object_color_6" value="#fb923c"/>
+    <!-- orange -->
+    <color name="object_color_7" value="#34d399"/>
+    <!-- emerald -->
+    <color name="object_color_8" value="#60a5fa"/>
+    <!-- sky blue -->
+
     <!-- ===================================================================== -->
     <!-- Material Design Icon constants - MDI codepoints (U+F0000 range)       -->
     <!-- Source: https://pictogrammers.com/library/mdi/                        -->

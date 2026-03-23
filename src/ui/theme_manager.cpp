@@ -1196,6 +1196,42 @@ static void theme_manager_register_theme_properties(lv_xml_component_scope_t* sc
 }
 
 /**
+ * @brief Register fixed object color palette tokens for the exclude-object map view.
+ *
+ * These 8 colors are theme-invariant — they are chosen to be distinguishable on
+ * dark thumbnail backgrounds. They are registered as hard-coded constants so they
+ * are available regardless of whether globals.xml is loaded from the filesystem.
+ *
+ * Registered tokens: object_color_1 through object_color_8.
+ * LVGL ignores duplicate lv_xml_register_const calls (first registration wins).
+ *
+ * @param scope LVGL XML scope to register constants in
+ */
+static void theme_manager_register_object_colors(lv_xml_component_scope_t* scope) {
+    static const struct {
+        const char* name;
+        uint32_t hex;
+    } kObjectColors[] = {
+        {"object_color_1", 0x7c8aff}, // periwinkle blue
+        {"object_color_2", 0x4ecdc4}, // teal
+        {"object_color_3", 0xf9c74f}, // golden yellow
+        {"object_color_4", 0xa78bfa}, // soft purple
+        {"object_color_5", 0xf472b6}, // pink
+        {"object_color_6", 0xfb923c}, // orange
+        {"object_color_7", 0x34d399}, // emerald
+        {"object_color_8", 0x60a5fa}, // sky blue
+    };
+
+    for (const auto& entry : kObjectColors) {
+        char buf[8];
+        snprintf(buf, sizeof(buf), "#%06x", entry.hex);
+        lv_xml_register_const(scope, entry.name, buf);
+    }
+
+    spdlog::debug("[Theme] Registered {} object color palette tokens", std::size(kObjectColors));
+}
+
+/**
  * @brief Load active theme from config
  *
  * Reads /display/theme from config, loads corresponding JSON file.
@@ -1266,6 +1302,9 @@ void theme_manager_init(lv_display_t* display, bool use_dark_mode_param) {
 
     // Register static constants (colors, px, strings without dynamic suffixes)
     theme_manager_register_static_constants(scope);
+
+    // Register fixed object color palette tokens (theme-invariant, hard-coded)
+    theme_manager_register_object_colors(scope);
 
     // Auto-register all color pairs from globals.xml (xxx_light/xxx_dark -> xxx)
     // This handles screen_bg, text, header_text, elevated_bg, card_bg, etc.
