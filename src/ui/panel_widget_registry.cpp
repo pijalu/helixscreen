@@ -38,6 +38,7 @@ void register_bed_temperature_widget();
 void register_preheat_widget();
 void register_power_device_widget();
 void register_fan_widget();
+void register_temp_graph_widget();
 #if HELIX_HAS_CAMERA
 void register_camera_widget();
 #endif
@@ -69,6 +70,7 @@ static std::vector<PanelWidgetDef> s_widget_defs = {
     {"humidity",         "Humidity",          "water",            "Enclosure humidity sensor readings",           "Humidity",         "humidity_sensor_count", "No humidity sensor detected",       false, 1, 1, 1, 1, 2, 2},
     {"width_sensor",     "Width Sensor",      "ruler",            "Filament width sensor readings",               "Width Sensor",     "width_sensor_count", "No width sensor detected",            false, 1, 1, 1, 1, 2, 2},
     {"thermistor",       "Thermistors",       "thermometer",      "Monitor temperature sensors (single or carousel)", "Thermistors",  "temp_sensor_count",  "No temperature sensors detected",     false, 1, 1, 1, 1, 2, 1, true},
+    {"temp_graph",       "Temperature Graph", "chart-line",       "Live temperature graph with configurable sensors", "Temperature Graph", nullptr,         nullptr,                               false, 2, 2, 1, 1, 0, 0, true},
     {"favorite_macro", "Macro Button",    "play",             "Run a configured macro with one tap",          "Macro Button",     nullptr,              nullptr,                               false, 1, 1, 1, 1, 2, 1, true},
     {"clock",            "Digital Clock",     "clock",            "Current time and date",                       "Digital Clock",    nullptr,              nullptr,                               false, 2, 1, 1, 1, 3, 3},
     {"job_queue",        "Job Queue",         "progress_clock",   "Queued print jobs",                           "Job Queue",        nullptr,              nullptr,                               false, 2, 2, 2, 1, 4, 3},
@@ -152,6 +154,7 @@ void init_widget_registrations() {
     register_fan_stack_widget();
     register_fan_widget();
     register_thermistor_widget();
+    register_temp_graph_widget();
     register_favorite_macro_widgets();
     register_clock_widget();
     register_job_queue_widget();

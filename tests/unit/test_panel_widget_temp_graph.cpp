@@ -2,10 +2,13 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include "../../include/ui_temp_graph.h"
+#include "panel_widget_registry.h"
 #include "../ui_test_utils.h"
 #include "lvgl/lvgl.h"
 
 #include "../catch_amalgamated.hpp"
+
+using namespace helix;
 
 // Reuse the same lightweight fixture as test_temp_graph.cpp
 class TempGraphFeatureFixture {
@@ -137,4 +140,23 @@ TEST_CASE_METHOD(TempGraphFeatureFixture, "Gradient opacity zeroed when GRADIENT
     REQUIRE(graph->series_meta[0].gradient_bottom_opa == UI_TEMP_GRAPH_GRADIENT_BOTTOM_OPA);
 
     ui_temp_graph_destroy(graph);
+}
+
+// ============================================================================
+// Registry tests
+// ============================================================================
+
+TEST_CASE("TempGraphWidget: registered in widget registry", "[temp_graph][panel_widget]") {
+    const auto* def = find_widget_def("temp_graph");
+    REQUIRE(def != nullptr);
+    REQUIRE(std::string(def->display_name) == "Temperature Graph");
+    REQUIRE(std::string(def->icon) == "chart-line");
+    REQUIRE(def->multi_instance == true);
+    REQUIRE(def->colspan == 2);
+    REQUIRE(def->rowspan == 2);
+    REQUIRE(def->min_colspan == 1);
+    REQUIRE(def->min_rowspan == 1);
+    REQUIRE(def->max_colspan == 0);
+    REQUIRE(def->max_rowspan == 0);
+    REQUIRE(def->hardware_gate_subject == nullptr);
 }
