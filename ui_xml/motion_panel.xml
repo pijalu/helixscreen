@@ -10,6 +10,9 @@
     <!-- Homing indicator styles for position display -->
     <style name="indicator_homed" bg_color="#success"/>
     <style name="indicator_unhomed" bg_color="#text_muted"/>
+    <!-- Jog mode toggle button styles -->
+    <style name="filter_btn_selected" bg_color="#primary" bg_opa="255"/>
+    <style name="filter_btn_unselected" bg_color="#primary" bg_opa="40"/>
   </styles>
   <view name="motion_panel"
         extends="lv_obj" width="#overlay_panel_width" height="100%" align="right_mid" style_pad_all="0"
@@ -26,45 +29,63 @@
             style_pad_gap="#space_md">
       <!-- Disable content when printer not connected or klippy not ready -->
       <bind_state_if_not_eq subject="nav_buttons_enabled" state="disabled" ref_value="1"/>
-      <!-- Left Column: Position card on top, jog pad below -->
+      <!-- Left Column: Position readout beside jog pad, toggle below -->
       <lv_obj name="left_column" width="0" height="100%" flex_grow="3" style_pad_all="0" scrollable="false" style_border_opa="0"
               flex_flow="column" style_pad_gap="#space_sm">
-        <!-- Position Display - horizontal row above jog pad only -->
-        <lv_obj name="position_card"
-                width="100%" height="content" style_pad_all="#space_sm" flex_flow="row"
-                style_flex_main_place="space_evenly" style_pad_gap="#space_xs"
-                style_bg_color="#elevated_bg" style_bg_opa="255" style_radius="#border_radius">
-          <lv_obj style_pad_all="0" flex_flow="row" style_pad_gap="#space_xs" style_flex_cross_place="center">
-            <text_small text="X:"/>
-            <text_small name="pos_x" bind_text="motion_pos_x"/>
-            <lv_obj width="8" height="8" style_radius="9999">
-              <bind_style name="indicator_homed" subject="motion_x_homed" ref_value="1"/>
-              <bind_style name="indicator_unhomed" subject="motion_x_homed" ref_value="0"/>
+        <!-- Top row: Position display (vertical) + Jog pad side by side -->
+        <lv_obj name="jog_row" width="100%" flex_grow="1" style_pad_all="0" style_border_opa="0" scrollable="false"
+                flex_flow="row" style_pad_gap="#space_sm" style_flex_cross_place="center">
+          <!-- Position Display - vertical stack left of jog pad -->
+          <lv_obj name="position_card"
+                  width="content" height="content" style_pad_all="#space_sm" flex_flow="column"
+                  style_pad_gap="#space_xs" style_flex_main_place="center"
+                  style_bg_color="#elevated_bg" style_bg_opa="255" style_radius="#border_radius">
+            <lv_obj style_pad_all="0" flex_flow="row" style_pad_gap="#space_xs" style_flex_cross_place="center">
+              <text_small text="X:"/>
+              <text_small name="pos_x" bind_text="motion_pos_x"/>
+              <lv_obj width="8" height="8" style_radius="9999">
+                <bind_style name="indicator_homed" subject="motion_x_homed" ref_value="1"/>
+                <bind_style name="indicator_unhomed" subject="motion_x_homed" ref_value="0"/>
+              </lv_obj>
+            </lv_obj>
+            <lv_obj style_pad_all="0" flex_flow="row" style_pad_gap="#space_xs" style_flex_cross_place="center">
+              <text_small text="Y:"/>
+              <text_small name="pos_y" bind_text="motion_pos_y"/>
+              <lv_obj width="8" height="8" style_radius="9999">
+                <bind_style name="indicator_homed" subject="motion_y_homed" ref_value="1"/>
+                <bind_style name="indicator_unhomed" subject="motion_y_homed" ref_value="0"/>
+              </lv_obj>
+            </lv_obj>
+            <lv_obj style_pad_all="0" flex_flow="row" style_pad_gap="#space_xs" style_flex_cross_place="center">
+              <text_small text="Z:"/>
+              <text_small name="pos_z" bind_text="motion_pos_z"/>
+              <lv_obj width="8" height="8" style_radius="9999">
+                <bind_style name="indicator_homed" subject="motion_z_homed" ref_value="1"/>
+                <bind_style name="indicator_unhomed" subject="motion_z_homed" ref_value="0"/>
+              </lv_obj>
             </lv_obj>
           </lv_obj>
-          <lv_obj style_pad_all="0" flex_flow="row" style_pad_gap="#space_xs" style_flex_cross_place="center">
-            <text_small text="Y:"/>
-            <text_small name="pos_y" bind_text="motion_pos_y"/>
-            <lv_obj width="8" height="8" style_radius="9999">
-              <bind_style name="indicator_homed" subject="motion_y_homed" ref_value="1"/>
-              <bind_style name="indicator_unhomed" subject="motion_y_homed" ref_value="0"/>
-            </lv_obj>
-          </lv_obj>
-          <lv_obj style_pad_all="0" flex_flow="row" style_pad_gap="#space_xs" style_flex_cross_place="center">
-            <text_small text="Z:"/>
-            <text_small name="pos_z" bind_text="motion_pos_z"/>
-            <lv_obj width="8" height="8" style_radius="9999">
-              <bind_style name="indicator_homed" subject="motion_z_homed" ref_value="1"/>
-              <bind_style name="indicator_unhomed" subject="motion_z_homed" ref_value="0"/>
+          <!-- Circular Jog Pad: Custom-Drawn Two-Zone Design (Bambu Lab Style) -->
+          <lv_obj name="jog_pad_wrapper" width="0" height="100%" flex_grow="1" style_pad_all="0" style_border_opa="0" scrollable="false">
+            <lv_obj name="jog_pad_container"
+                    width="content" height="content" style_pad_all="0" style_border_opa="0" scrollable="false"
+                    clickable="true" align="center">
             </lv_obj>
           </lv_obj>
         </lv_obj>
-        <!-- Circular Jog Pad: Custom-Drawn Two-Zone Design (Bambu Lab Style) -->
-        <lv_obj name="jog_pad_wrapper" width="100%" flex_grow="1" style_pad_all="0" style_border_opa="0" scrollable="false">
-          <lv_obj name="jog_pad_container"
-                  width="content" height="content" style_pad_all="0" style_border_opa="0" scrollable="false"
-                  clickable="true" align="center">
-          </lv_obj>
+        <!-- Fine/Coarse jog mode toggle -->
+        <lv_obj width="100%" height="content" style_pad_all="0" flex_flow="row" style_pad_gap="#space_xs"
+                scrollable="false" style_flex_main_place="center">
+          <ui_button name="jog_mode_fine" text="Fine" translation_tag="Fine" icon="tortoise" flex_grow="1">
+            <bind_style name="filter_btn_selected" subject="motion_jog_mode_fine_active" ref_value="1"/>
+            <bind_style name="filter_btn_unselected" subject="motion_jog_mode_fine_active" ref_value="0"/>
+            <event_cb trigger="clicked" callback="on_jog_mode_fine"/>
+          </ui_button>
+          <ui_button name="jog_mode_coarse" text="Coarse" translation_tag="Coarse" icon="rabbit" flex_grow="1">
+            <bind_style name="filter_btn_selected" subject="motion_jog_mode_coarse_active" ref_value="1"/>
+            <bind_style name="filter_btn_unselected" subject="motion_jog_mode_coarse_active" ref_value="0"/>
+            <event_cb trigger="clicked" callback="on_jog_mode_coarse"/>
+          </ui_button>
         </lv_obj>
       </lv_obj>
       <!-- Right Column: Z-Axis Controls + Leveling (extends full height) -->
@@ -76,27 +97,27 @@
         <lv_obj name="z_controls"
                 width="100%" flex_grow="1" style_pad_all="0" style_border_opa="0" scrollable="false" flex_flow="column"
                 style_flex_main_place="space_evenly" style_flex_cross_place="center" style_pad_gap="#space_sm">
-          <ui_button name="z_up_10"
+          <ui_button name="z_up_large"
                      width="100%" flex_grow="1" style_max_height="#button_height_lg" icon="arrow_up"
-                     bind_icon="motion_z_up_icon" text="10mm" translation_tag="10mm">
-            <event_cb trigger="clicked" callback="on_motion_z_button" user_data="z_up_10"/>
+                     bind_icon="motion_z_up_icon" bind_text="motion_z_large_label">
+            <event_cb trigger="clicked" callback="on_motion_z_button" user_data="z_up_large"/>
           </ui_button>
-          <ui_button name="z_up_1"
+          <ui_button name="z_up_small"
                      width="100%" flex_grow="1" style_max_height="#button_height_lg" icon="arrow_up"
-                     bind_icon="motion_z_up_icon" text="1mm" translation_tag="1mm">
-            <event_cb trigger="clicked" callback="on_motion_z_button" user_data="z_up_1"/>
+                     bind_icon="motion_z_up_icon" bind_text="motion_z_small_label">
+            <event_cb trigger="clicked" callback="on_motion_z_button" user_data="z_up_small"/>
           </ui_button>
           <!-- Z-Axis label - shows "Bed" or "Print Head" based on kinematics -->
           <text_body name="z_axis_label" width="100%" bind_text="motion_z_axis_label" style_text_align="center"/>
-          <ui_button name="z_down_1"
+          <ui_button name="z_down_small"
                      width="100%" flex_grow="1" style_max_height="#button_height_lg" icon="arrow_down"
-                     bind_icon="motion_z_down_icon" text="1mm" translation_tag="1mm">
-            <event_cb trigger="clicked" callback="on_motion_z_button" user_data="z_down_1"/>
+                     bind_icon="motion_z_down_icon" bind_text="motion_z_small_label">
+            <event_cb trigger="clicked" callback="on_motion_z_button" user_data="z_down_small"/>
           </ui_button>
-          <ui_button name="z_down_10"
+          <ui_button name="z_down_large"
                      width="100%" flex_grow="1" style_max_height="#button_height_lg" icon="arrow_down"
-                     bind_icon="motion_z_down_icon" text="10mm" translation_tag="10mm">
-            <event_cb trigger="clicked" callback="on_motion_z_button" user_data="z_down_10"/>
+                     bind_icon="motion_z_down_icon" bind_text="motion_z_large_label">
+            <event_cb trigger="clicked" callback="on_motion_z_button" user_data="z_down_large"/>
           </ui_button>
         </lv_obj>
         <!-- Leveling Buttons: QGL and/or Z-Tilt (conditionally visible) -->

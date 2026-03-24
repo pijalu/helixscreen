@@ -62,6 +62,7 @@ class MotionPanel : public OverlayBase {
     void jog(helix::JogDirection direction, float distance_mm);
     void home(char axis);
     void handle_z_button(const char* name);
+    void set_jog_mode_fine(bool fine); // Switch between Fine/Coarse jog mode
 
   private:
     // RAII subject manager - auto-deinits all registered subjects on destruction
@@ -73,12 +74,18 @@ class MotionPanel : public OverlayBase {
     lv_subject_t z_axis_label_subject_; // "Bed" or "Print Head"
     lv_subject_t z_up_icon_subject_;    // "arrow_expand_up" or "arrow_up"
     lv_subject_t z_down_icon_subject_;  // "arrow_expand_down" or "arrow_down"
+    lv_subject_t z_large_label_subject_;  // "10mm" or "1mm" (large Z button label)
+    lv_subject_t z_small_label_subject_;  // "1mm" or "0.1mm" (small Z button label)
+    lv_subject_t jog_mode_fine_active_;   // 1 when Fine mode active
+    lv_subject_t jog_mode_coarse_active_; // 1 when Coarse mode active
     char pos_x_buf_[32];
     char pos_y_buf_[32];
     char pos_z_buf_[32];
     char z_axis_label_buf_[16];
     char z_up_icon_buf_[24];
     char z_down_icon_buf_[24];
+    char z_large_label_buf_[8];
+    char z_small_label_buf_[8];
     bool bed_moves_ = false; // If true, invert Z direction (arrows match bed movement)
 
     helix::JogDistance current_distance_ = helix::JogDistance::Dist1mm;
@@ -115,6 +122,7 @@ class MotionPanel : public OverlayBase {
 
     void update_z_axis_label(bool bed_moves);
     void update_z_display(); // Updates Z label with actual in brackets when different
+    void update_z_button_labels(); // Update Z button text for current mode
 };
 
 MotionPanel& get_global_motion_panel();

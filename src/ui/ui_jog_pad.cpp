@@ -343,8 +343,24 @@ static void jog_pad_draw_cb(lv_event_t* e) {
     lv_coord_t dist_label_h = (lv_coord_t)(radius * 0.12f);
     lv_coord_t dist_offset_y = (lv_coord_t)(radius * 0.05f);
 
-    // "1mm" label in inner ring (offset down and right from diagonal)
-    label_dsc.text = "1mm";
+    // Inner ring distance label (dynamic based on current distance mode)
+    // Fine: inner=0.1mm, outer=1mm. Coarse: inner=1mm, outer=10mm.
+    const char* inner_label;
+    const char* outer_label;
+    if (static_cast<int>(state->current_distance) <= static_cast<int>(JogDistance::Dist1mm)) {
+        // Fine-ish: use current distance for inner
+        inner_label = (state->current_distance == JogDistance::Dist0_1mm) ? "0.1" : "1";
+    } else {
+        inner_label = "1";
+    }
+    if (static_cast<int>(state->current_distance) >= static_cast<int>(JogDistance::Dist10mm)) {
+        outer_label = (state->current_distance == JogDistance::Dist100mm) ? "100" : "10";
+    } else {
+        // Fine mode: outer ring is one step up
+        outer_label = (state->current_distance == JogDistance::Dist0_1mm) ? "1" : "10";
+    }
+
+    label_dsc.text = inner_label;
     lv_coord_t inner_label_radius = (lv_coord_t)((home_radius + inner_boundary) * 0.5f);
     label_area.x1 = center_x + (lv_coord_t)(inner_label_radius * 0.707f);
     label_area.y1 = center_y - (lv_coord_t)(inner_label_radius * 0.707f) + dist_offset_y;
@@ -352,12 +368,12 @@ static void jog_pad_draw_cb(lv_event_t* e) {
     label_area.y2 = label_area.y1 + dist_label_h;
     lv_draw_label(layer, &label_dsc, &label_area);
 
-    // "10mm" label in outer ring (offset down and right from diagonal)
-    label_dsc.text = "10mm";
+    // Outer ring distance label
+    label_dsc.text = outer_label;
     lv_coord_t outer_label_radius = (lv_coord_t)((radius + inner_boundary) * 0.5f);
     label_area.x1 = center_x + (lv_coord_t)(outer_label_radius * 0.707f);
     label_area.y1 = center_y - (lv_coord_t)(outer_label_radius * 0.707f) + dist_offset_y;
-    label_area.x2 = label_area.x1 + dist_label_w + 10; // Slightly wider for "10mm"
+    label_area.x2 = label_area.x1 + dist_label_w + 10; // Slightly wider for longer labels
     label_area.y2 = label_area.y1 + dist_label_h;
     lv_draw_label(layer, &label_dsc, &label_area);
 

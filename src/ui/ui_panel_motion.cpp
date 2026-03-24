@@ -13,6 +13,7 @@
 #include "ui_utils.h"
 
 #include "app_globals.h"
+#include "config.h"
 #include "format_utils.h"
 #include "moonraker_api.h"
 #include "observer_factory.h"
@@ -34,6 +35,8 @@ using namespace helix;
 static void on_motion_z_button(lv_event_t* e);
 static void on_motion_qgl(lv_event_t* e);
 static void on_motion_z_tilt(lv_event_t* e);
+static void on_jog_mode_fine(lv_event_t* e);
+static void on_jog_mode_coarse(lv_event_t* e);
 
 // ============================================================================
 // Global Instance (via DEFINE_GLOBAL_PANEL macro)
@@ -53,6 +56,15 @@ MotionPanel::MotionPanel() {
     std::strcpy(z_axis_label_buf_, "Z Axis"); // Default before kinematics detected
     std::strcpy(z_up_icon_buf_, "arrow_up");
     std::strcpy(z_down_icon_buf_, "arrow_down");
+    std::strcpy(z_large_label_buf_, "10mm");
+    std::strcpy(z_small_label_buf_, "1mm");
+
+    // Load persisted jog mode (default: coarse)
+    auto* cfg = Config::get_instance();
+    if (cfg) {
+        bool fine = cfg->get<bool>("/motion/jog_mode_fine", false);
+        current_distance_ = fine ? JogDistance::Dist0_1mm : JogDistance::Dist1mm;
+    }
 
     spdlog::trace("[MotionPanel] Instance created");
 }
@@ -89,6 +101,21 @@ void MotionPanel::init_subjects() {
                               subjects_);
     UI_MANAGED_SUBJECT_STRING(z_down_icon_subject_, z_down_icon_buf_, "arrow_down",
                               "motion_z_down_icon", subjects_);
+
+    // Z button labels — dynamic based on Fine/Coarse mode
+    bool is_fine = (current_distance_ == JogDistance::Dist0_1mm);
+    std::strcpy(z_large_label_buf_, is_fine ? "1mm" : "10mm");
+    std::strcpy(z_small_label_buf_, is_fine ? "0.1mm" : "1mm");
+    UI_MANAGED_SUBJECT_STRING(z_large_label_subject_, z_large_label_buf_, z_large_label_buf_,
+                              "motion_z_large_label", subjects_);
+    UI_MANAGED_SUBJECT_STRING(z_small_label_subject_, z_small_label_buf_, z_small_label_buf_,
+                              "motion_z_small_label", subjects_);
+
+    // Jog mode toggle subjects for button styling
+    UI_MANAGED_SUBJECT_INT(jog_mode_fine_active_, is_fine ? 1 : 0, "motion_jog_mode_fine_active",
+                           subjects_);
+    UI_MANAGED_SUBJECT_INT(jog_mode_coarse_active_, is_fine ? 0 : 1, "motion_jog_mode_coarse_active",
+                           subjects_);
 
     // Homing status subjects for declarative bind_style indicators (0=unhomed, 1=homed)
     // Prefixed with motion_ to avoid collision with ControlsPanel's x_homed/y_homed/z_homed
@@ -169,6 +196,10 @@ void MotionPanel::register_callbacks() {
     lv_xml_register_event_cb(nullptr, "on_motion_qgl", on_motion_qgl);
     lv_xml_register_event_cb(nullptr, "on_motion_z_tilt", on_motion_z_tilt);
 
+    // Register jog mode toggle callbacks
+    lv_xml_register_event_cb(nullptr, "on_jog_mode_fine", on_jog_mode_fine);
+    lv_xml_register_event_cb(nullptr, "on_jog_mode_coarse", on_jog_mode_coarse);
+
     callbacks_registered_ = true;
     spdlog::debug("[{}] Event callbacks registered", get_name());
 }
@@ -198,7 +229,18 @@ void MotionPanel::on_activate() {
 
     spdlog::debug("[{}] on_activate()", get_name());
 
-    // Nothing special needed for motion panel on activation
+    // Recalculate jog pad size — the wrapper dimensions may differ after re-layout
+    if (jog_pad_ && overlay_root_) {
+        lv_obj_t* jog_wrapper = lv_obj_get_parent(jog_pad_);
+        if (jog_wrapper) {
+            lv_obj_update_layout(overlay_root_);
+            lv_coord_t w = lv_obj_get_width(jog_wrapper);
+            lv_coord_t h = lv_obj_get_height(jog_wrapper);
+            lv_coord_t size = LV_MIN(w, h);
+            lv_obj_set_width(jog_pad_, size);
+            lv_obj_set_height(jog_pad_, size);
+        }
+    }
 }
 
 void MotionPanel::on_deactivate() {
@@ -233,7 +275,9 @@ void MotionPanel::setup_jog_pad() {
     // Force flex layout resolution so dimensions are available
     lv_obj_update_layout(overlay_root_);
 
-    // Jog pad is square: fit within the wrapper's resolved dimensions
+    // Jog pad is square: fit within the wrapper's resolved dimensions.
+    // The jog pad draws axis labels (Y+/Y-) that extend beyond the circle edge,
+    // so we size the widget to fill the wrapper and let the draw code handle overflow.
     lv_coord_t wrapper_w = lv_obj_get_width(jog_wrapper);
     lv_coord_t wrapper_h = lv_obj_get_height(jog_wrapper);
     lv_coord_t jog_size = LV_MIN(wrapper_w, wrapper_h);
@@ -400,17 +444,22 @@ void MotionPanel::handle_z_button(const char* name) {
         return;
     }
 
-    // Determine Z distance from button name
-    // Up arrow = positive visual direction, Down arrow = negative visual direction
+    // Determine Z distance from current jog mode and button size (large/small)
+    // Fine:   large=1mm,  small=0.1mm
+    // Coarse: large=10mm, small=1mm
+    bool is_fine = (current_distance_ == JogDistance::Dist0_1mm);
+    double large_dist = is_fine ? 1.0 : 10.0;
+    double small_dist = is_fine ? 0.1 : 1.0;
+
     double distance = 0.0;
-    if (strcmp(name, "z_up_10") == 0) {
-        distance = 10.0;
-    } else if (strcmp(name, "z_up_1") == 0) {
-        distance = 1.0;
-    } else if (strcmp(name, "z_down_1") == 0) {
-        distance = -1.0;
-    } else if (strcmp(name, "z_down_10") == 0) {
-        distance = -10.0;
+    if (strcmp(name, "z_up_large") == 0) {
+        distance = large_dist;
+    } else if (strcmp(name, "z_up_small") == 0) {
+        distance = small_dist;
+    } else if (strcmp(name, "z_down_small") == 0) {
+        distance = -small_dist;
+    } else if (strcmp(name, "z_down_large") == 0) {
+        distance = -large_dist;
     } else {
         spdlog::error("[{}] Unknown button name: '{}'", get_name(), name);
         return;
@@ -602,4 +651,71 @@ static void on_motion_z_tilt(lv_event_t* e) {
     (void)e;
     get_global_controls_panel().handle_z_tilt();
     LVGL_SAFE_EVENT_CB_END();
+}
+
+static void on_jog_mode_fine(lv_event_t* e) {
+    LVGL_SAFE_EVENT_CB_BEGIN("[MotionPanel] on_jog_mode_fine");
+    (void)e;
+    get_global_motion_panel().set_jog_mode_fine(true);
+    LVGL_SAFE_EVENT_CB_END();
+}
+
+static void on_jog_mode_coarse(lv_event_t* e) {
+    LVGL_SAFE_EVENT_CB_BEGIN("[MotionPanel] on_jog_mode_coarse");
+    (void)e;
+    get_global_motion_panel().set_jog_mode_fine(false);
+    LVGL_SAFE_EVENT_CB_END();
+}
+
+// ============================================================================
+// Jog Mode (Fine/Coarse)
+// ============================================================================
+
+void MotionPanel::set_jog_mode_fine(bool fine) {
+    JogDistance new_dist = fine ? JogDistance::Dist0_1mm : JogDistance::Dist1mm;
+    if (current_distance_ == new_dist)
+        return;
+
+    current_distance_ = new_dist;
+
+    // Update jog pad
+    if (jog_pad_) {
+        ui_jog_pad_set_distance(jog_pad_, current_distance_);
+        lv_obj_invalidate(jog_pad_); // Redraw ring labels
+    }
+
+    // Update toggle button styles
+    if (subjects_initialized_) {
+        lv_subject_set_int(&jog_mode_fine_active_, fine ? 1 : 0);
+        lv_subject_set_int(&jog_mode_coarse_active_, fine ? 0 : 1);
+    }
+
+    // Update Z button labels
+    update_z_button_labels();
+
+    // Persist setting
+    auto* cfg = Config::get_instance();
+    if (cfg) {
+        cfg->set("/motion/jog_mode_fine", fine);
+        cfg->save();
+    }
+
+    spdlog::info("[MotionPanel] Jog mode: {}", fine ? "Fine" : "Coarse");
+}
+
+void MotionPanel::update_z_button_labels() {
+    if (!subjects_initialized_)
+        return;
+
+    bool is_fine = (current_distance_ == JogDistance::Dist0_1mm);
+    const char* large = is_fine ? "1mm" : "10mm";
+    const char* small = is_fine ? "0.1mm" : "1mm";
+
+    std::strncpy(z_large_label_buf_, large, sizeof(z_large_label_buf_) - 1);
+    z_large_label_buf_[sizeof(z_large_label_buf_) - 1] = '\0';
+    lv_subject_copy_string(&z_large_label_subject_, z_large_label_buf_);
+
+    std::strncpy(z_small_label_buf_, small, sizeof(z_small_label_buf_) - 1);
+    z_small_label_buf_[sizeof(z_small_label_buf_) - 1] = '\0';
+    lv_subject_copy_string(&z_small_label_subject_, z_small_label_buf_);
 }
