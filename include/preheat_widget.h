@@ -34,6 +34,8 @@ class PreheatWidget : public PanelWidget {
     lv_obj_t* widget_obj_ = nullptr;
     lv_obj_t* parent_screen_ = nullptr;
     lv_obj_t* split_btn_ = nullptr;
+    lv_obj_t* tool_target_btn_ = nullptr;
+    lv_obj_t* tool_target_label_ = nullptr;
 
     int selected_material_ = 0; // 0=PLA, 1=PETG, 2=ABS, 3=TPU
     bool heaters_active_ = false;
@@ -51,6 +53,7 @@ class PreheatWidget : public PanelWidget {
     void handle_selection_changed();
     void update_button_label();
     void update_heater_state();
+    void update_tool_target_label();
     void set_temperatures(MoonrakerAPI* api, int nozzle, int bed);
     void set_temperatures_multi(MoonrakerAPI* api, int nozzle, int bed);
     void cycle_tool_target();

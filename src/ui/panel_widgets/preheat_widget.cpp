@@ -90,6 +90,18 @@ void PreheatWidget::attach(lv_obj_t* widget_obj, lv_obj_t* parent_screen) {
         },
         LV_EVENT_SIZE_CHANGED, nullptr);
 
+    // Tool target button — only visible on multi-tool printers
+    tool_target_btn_ = lv_obj_find_by_name(widget_obj_, "preheat_tool_target");
+    tool_target_label_ = lv_obj_find_by_name(widget_obj_, "tool_target_label");
+    if (tool_target_btn_) {
+        if (!ToolState::instance().is_multi_tool()) {
+            lv_obj_add_flag(tool_target_btn_, LV_OBJ_FLAG_HIDDEN);
+        } else {
+            lv_obj_remove_flag(tool_target_btn_, LV_OBJ_FLAG_HIDDEN);
+            update_tool_target_label();
+        }
+    }
+
     // Set user_data on temp tap rows for callback recovery
     lv_obj_t* nozzle_row = lv_obj_find_by_name(widget_obj_, "preheat_nozzle_row");
     if (nozzle_row)
@@ -113,7 +125,8 @@ void PreheatWidget::attach(lv_obj_t* widget_obj, lv_obj_t* parent_screen) {
             self->update_heater_state();
         });
 
-    spdlog::debug("[PreheatWidget] Attached (material={})", PRESET_NAMES[selected_material_]);
+    spdlog::debug("[PreheatWidget] Attached (material={}, tool_target={})",
+                  PRESET_NAMES[selected_material_], tool_target_);
 }
 
 void PreheatWidget::detach() {
@@ -129,6 +142,9 @@ void PreheatWidget::detach() {
         lv_obj_set_user_data(split_btn_, nullptr);
         split_btn_ = nullptr;
     }
+
+    tool_target_btn_ = nullptr;
+    tool_target_label_ = nullptr;
 
     lv_obj_t* nozzle_row =
         widget_obj_ ? lv_obj_find_by_name(widget_obj_, "preheat_nozzle_row") : nullptr;
@@ -180,6 +196,20 @@ void PreheatWidget::update_heater_state() {
         spdlog::debug("[PreheatWidget] Heaters {} (extruder_target={}, bed_target={})",
                       active ? "active" : "inactive", cached_extruder_target_, cached_bed_target_);
     }
+}
+
+void PreheatWidget::update_tool_target_label() {
+    if (!tool_target_label_)
+        return;
+
+    char label[16];
+    if (tool_target_ == -1) {
+        int tool_count = ToolState::instance().tool_count();
+        std::snprintf(label, sizeof(label), "All (%d)", tool_count);
+    } else {
+        std::snprintf(label, sizeof(label), "T%d", tool_target_);
+    }
+    lv_label_set_text(tool_target_label_, label);
 }
 
 void PreheatWidget::handle_selection_changed() {
@@ -382,6 +412,7 @@ void PreheatWidget::tool_target_cb(lv_event_t* e) {
     (void)e;
     if (s_active_instance) {
         s_active_instance->cycle_tool_target();
+        s_active_instance->update_tool_target_label();
     }
     LVGL_SAFE_EVENT_CB_END();
 }
