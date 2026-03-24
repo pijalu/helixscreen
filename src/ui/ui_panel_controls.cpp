@@ -387,8 +387,24 @@ void ControlsPanel::on_activate() {
     // 3. Observer callback was missed due to timing
     populate_secondary_fans();
 
-    // Refresh macro buttons — no observer exists for StandardMacros changes,
-    // so this must run on each activation to pick up auto-detected macros
+    // Re-read quick button slot config — user may have changed settings
+    if (Config* config = Config::get_instance()) {
+        std::string slot1_name =
+            config->get<std::string>("/standard_macros/quick_button_1", "clean_nozzle");
+        std::string slot2_name =
+            config->get<std::string>("/standard_macros/quick_button_2", "bed_level");
+        std::string slot3_name = config->get<std::string>("/standard_macros/quick_button_3", "");
+        std::string slot4_name = config->get<std::string>("/standard_macros/quick_button_4", "");
+
+        macro_1_slot_ = StandardMacros::slot_from_name(slot1_name);
+        macro_2_slot_ = StandardMacros::slot_from_name(slot2_name);
+        macro_3_slot_ =
+            slot3_name.empty() ? std::nullopt : StandardMacros::slot_from_name(slot3_name);
+        macro_4_slot_ =
+            slot4_name.empty() ? std::nullopt : StandardMacros::slot_from_name(slot4_name);
+    }
+
+    // Refresh macro buttons — picks up config changes and auto-detected macros
     refresh_macro_buttons();
 
     spdlog::trace("[{}] Panel activated, refreshed macro buttons", get_name());

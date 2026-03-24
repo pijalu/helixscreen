@@ -304,6 +304,29 @@
             </lv_obj>
           </lv_obj>
           <!-- row 2 -->
+          <!-- Row 3: QGL / Z-Tilt (conditional) -->
+          <lv_obj width="100%"
+                  flex_grow="1" style_pad_all="0" flex_flow="row" style_flex_main_place="center"
+                  style_flex_cross_place="center" style_pad_gap="#space_xs" scrollable="false">
+            <!-- QGL button - visible only if printer has quad_gantry_level -->
+            <ui_button name="btn_qgl"
+                       height="100%" flex_grow="1" icon="spirit_level" text="QGL" translation_tag="QGL"
+                       icon_position="top" style_bg_opa="0" style_border_width="0" hidden="true">
+              <bind_flag_if_eq subject="printer_has_qgl" flag="hidden" ref_value="0"/>
+              <bind_state_if_eq subject="print_active" state="disabled" ref_value="1"/>
+              <bind_state_if_eq subject="controls_operation_in_progress" state="disabled" ref_value="1"/>
+              <event_cb trigger="clicked" callback="on_controls_qgl"/>
+            </ui_button>
+            <!-- Z-Tilt button - visible only if printer has z_tilt_adjust -->
+            <ui_button name="btn_z_tilt"
+                       height="100%" flex_grow="1" icon="spirit_level" text="Z-Tilt" translation_tag="Z-Tilt"
+                       icon_position="top" style_bg_opa="0" style_border_width="0" hidden="true">
+              <bind_flag_if_eq subject="printer_has_z_tilt" flag="hidden" ref_value="0"/>
+              <bind_state_if_eq subject="print_active" state="disabled" ref_value="1"/>
+              <bind_state_if_eq subject="controls_operation_in_progress" state="disabled" ref_value="1"/>
+              <event_cb trigger="clicked" callback="on_controls_z_tilt"/>
+            </ui_button>
+          </lv_obj>
         </lv_obj>
       </ui_card>
       <!-- Card 5: Quick Actions (60% width) -->
@@ -365,33 +388,13 @@
             <event_cb trigger="clicked" callback="on_controls_home_z"/>
           </ui_button>
         </lv_obj>
-        <!-- Macro buttons grid with QGL/Z-Tilt -->
+        <!-- Macro buttons grid -->
         <lv_obj width="100%"
                 flex_grow="1" style_pad_all="0" scrollable="false" flex_flow="column" style_pad_gap="#space_xs"
                 style_flex_main_place="end">
-          <!-- Macro row 1: QGL/Z-Tilt + macro_1 + macro_2 -->
+          <!-- Macro row 1: macro_1 + macro_2 -->
           <lv_obj width="100%"
                   height="content" style_pad_all="0" scrollable="false" flex_flow="row" style_pad_gap="#space_xs">
-            <!-- QGL button - visible only if printer has quad_gantry_level -->
-            <ui_button name="btn_qgl"
-                       width="0" height="#button_height" flex_grow="1" text="Quad Gantry Level"
-                       translation_tag="Quad Gantry Level" variant="secondary" hidden="true" style_text_font="#font_small"
-                       long_mode="wrap">
-              <bind_flag_if_eq subject="printer_has_qgl" flag="hidden" ref_value="0"/>
-              <bind_state_if_eq subject="print_active" state="disabled" ref_value="1"/>
-              <bind_state_if_eq subject="controls_operation_in_progress" state="disabled" ref_value="1"/>
-              <event_cb trigger="clicked" callback="on_controls_qgl"/>
-            </ui_button>
-            <!-- Z-Tilt button - visible only if printer has z_tilt_adjust -->
-            <ui_button name="btn_z_tilt"
-                       width="0" height="#button_height" flex_grow="1" text="Z-Tilt Adjust"
-                       translation_tag="Z-Tilt Adjust" variant="secondary" hidden="true" style_text_font="#font_small"
-                       long_mode="wrap">
-              <bind_flag_if_eq subject="printer_has_z_tilt" flag="hidden" ref_value="0"/>
-              <bind_state_if_eq subject="print_active" state="disabled" ref_value="1"/>
-              <bind_state_if_eq subject="controls_operation_in_progress" state="disabled" ref_value="1"/>
-              <event_cb trigger="clicked" callback="on_controls_z_tilt"/>
-            </ui_button>
             <ui_button name="btn_macro_1"
                        width="0" height="#button_height" flex_grow="1" bind_text="macro_1_name" variant="secondary"
                        style_text_font="#font_small" long_mode="wrap">
@@ -407,7 +410,7 @@
               <event_cb trigger="clicked" callback="on_controls_macro" user_data="1"/>
             </ui_button>
           </lv_obj>
-          <!-- Macro row 2 -->
+          <!-- Macro row 2: macro_3 + macro_4 -->
           <lv_obj width="100%"
                   height="content" style_pad_all="0" scrollable="false" flex_flow="row" style_pad_gap="#space_xs">
             <ui_button name="btn_macro_3"

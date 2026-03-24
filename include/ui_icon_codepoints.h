@@ -252,6 +252,7 @@ static const IconMapping ICON_MAP[] = {
     {"speed_down",         "\xF3\xB0\xBE\x86"},  // F0F86 speedometer-slow
     {"speed_up",           "\xF3\xB0\xBE\x85"},  // F0F85 speedometer-medium
     {"spoolman",           "\xF3\xB0\x88\xAF"},  // F022F film (same as filament)
+    {"spirit_level",       "\xF3\xB1\x93\xB1"},  // F14F1 spirit-level (QGL/Z-Tilt)
     {"star",               "\xF3\xB0\x93\x8E"},  // F04CE star (favorites/recent)
     {"stop",               "\xF3\xB0\x93\x9B"},  // F04DB stop
     {"swap_vertical",      "\xF3\xB0\x93\xA2"},  // F04E2 swap-vertical
