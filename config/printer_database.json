@@ -795,6 +795,22 @@
       "name": "Creality K2 Plus",
       "manufacturer": "Creality",
       "image": "creality-k2-plus.png",
+      "probe_type": "prtouch_v3",
+      "preset": "k2",
+      "print_start_profile": "creality_k2",
+      "print_start_capabilities": {
+        "macro_name": "START_PRINT",
+        "pre_start_gcode": "PRINT_PREPARED",
+        "params": {
+          "bed_mesh": {
+            "param": "PREPARE",
+            "skip_value": "1",
+            "enable_value": "0",
+            "default_value": "0",
+            "description": "Full calibration (home, nozzle clean, bed mesh)"
+          }
+        }
+      },
       "heuristics": [
         {
           "type": "kinematics_match",
@@ -813,16 +829,23 @@
         {
           "type": "object_exists",
           "field": "printer_objects",
-          "pattern": "multi_material",
-          "confidence": 80,
-          "reason": "Multi-material system (K2 Plus feature)"
+          "pattern": "^box$",
+          "confidence": 95,
+          "reason": "CFS filament system detected"
         },
         {
           "type": "object_exists",
           "field": "printer_objects",
-          "pattern": "^box$",
-          "confidence": 95,
-          "reason": "CFS filament system detected"
+          "pattern": "motor_control",
+          "confidence": 75,
+          "reason": "K2-specific motor control module"
+        },
+        {
+          "type": "object_exists",
+          "field": "printer_objects",
+          "pattern": "fan_feedback",
+          "confidence": 65,
+          "reason": "K2-specific fan RPM feedback"
         },
         {
           "type": "hostname_match",
@@ -837,6 +860,99 @@
           "pattern": "k2",
           "confidence": 85,
           "reason": "Hostname contains 'k2'"
+        },
+        {
+          "type": "build_volume_range",
+          "field": "bed_mesh",
+          "min_x": 340,
+          "max_x": 360,
+          "min_y": 340,
+          "max_y": 360,
+          "confidence": 55,
+          "reason": "Build volume ~350mm (K2 Plus/Max size)"
+        }
+      ]
+    },
+    {
+      "id": "creality_k2_max",
+      "name": "Creality K2 Max",
+      "manufacturer": "Creality",
+      "image": "creality-k2-plus.png",
+      "probe_type": "prtouch_v3",
+      "preset": "k2",
+      "print_start_profile": "creality_k2",
+      "print_start_capabilities": {
+        "macro_name": "START_PRINT",
+        "pre_start_gcode": "PRINT_PREPARED",
+        "params": {
+          "bed_mesh": {
+            "param": "PREPARE",
+            "skip_value": "1",
+            "enable_value": "0",
+            "default_value": "0",
+            "description": "Full calibration (home, nozzle clean, bed mesh)"
+          }
+        }
+      },
+      "heuristics": [
+        {
+          "type": "kinematics_match",
+          "field": "kinematics",
+          "pattern": "corexy",
+          "confidence": 40,
+          "reason": "CoreXY kinematics"
+        },
+        {
+          "type": "sensor_match",
+          "field": "sensors",
+          "pattern": "chamber_temp",
+          "confidence": 70,
+          "reason": "Chamber temperature sensor"
+        },
+        {
+          "type": "object_exists",
+          "field": "printer_objects",
+          "pattern": "^box$",
+          "confidence": 95,
+          "reason": "CFS filament system detected"
+        },
+        {
+          "type": "object_exists",
+          "field": "printer_objects",
+          "pattern": "motor_control",
+          "confidence": 75,
+          "reason": "K2-specific motor control module"
+        },
+        {
+          "type": "object_exists",
+          "field": "printer_objects",
+          "pattern": "load_ai",
+          "confidence": 60,
+          "reason": "K2 AI print monitoring"
+        },
+        {
+          "type": "hostname_match",
+          "field": "hostname",
+          "pattern": "k2plus",
+          "confidence": 90,
+          "reason": "Hostname K2Plus (K2 Max uses K2Plus hostname)"
+        },
+        {
+          "type": "object_exists",
+          "field": "printer_objects",
+          "pattern": "heater_generic chamber_heater",
+          "confidence": 80,
+          "reason": "Active chamber heater (K2 Max feature)"
+        },
+        {
+          "type": "build_volume_range",
+          "field": "bed_mesh",
+          "min_x": 340,
+          "max_x": 360,
+          "min_y": 340,
+          "max_y": 360,
+          "confidence": 55,
+          "reason": "Build volume ~350mm (K2 Max size)"
         }
       ]
     },
