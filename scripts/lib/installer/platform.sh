@@ -503,12 +503,30 @@ setup_config_symlink() {
         # If the install dir has a real file (not a symlink), move it to printer_data
         if [ -f "$install_file" ] && [ ! -L "$install_file" ]; then
             if [ ! -f "$pd_file" ]; then
-                # Move the file to printer_data
-                $(file_sudo "$pd_helix") cp "$install_file" "$pd_file" 2>/dev/null
-                log_info "Migrated $file to printer_data"
+                # Move the file to printer_data — check for success before removing original.
+                # A silent cp failure followed by rm would permanently destroy the user's config.
+                if $(file_sudo "$pd_helix") cp "$install_file" "$pd_file"; then
+                    log_info "Migrated $file to printer_data"
+                else
+                    log_warn "Could not migrate $file to printer_data — keeping in install dir"
+                    continue  # Skip symlink creation; leave the real file in place
+                fi
             fi
             # Remove the original so we can create the symlink
             $(file_sudo "$install_config") rm -f "$install_file" 2>/dev/null
+        fi
+
+        # If pd_file still doesn't exist (e.g. runtime-created file like tool_spools.json
+        # or .disabled_services that isn't packaged and hasn't been written yet), skip
+        # symlink creation.  A dangling symlink is worse than no symlink: reads return
+        # ENOENT and writes may fail depending on the OS/filesystem.  The app will
+        # create the file at pd_file naturally; setup_config_symlink will wire it up
+        # correctly on the next update or reinstall.
+        if [ ! -f "$pd_file" ] && [ ! -L "$pd_file" ]; then
+            # Only skip if install_file also doesn't exist or isn't already a symlink
+            if [ ! -L "$install_file" ]; then
+                continue
+            fi
         fi
 
         # Create symlink: install_dir/config/file → printer_data/config/helixscreen/file

@@ -76,12 +76,13 @@ setup() {
     done
 }
 
-@test "does not move files that do not exist in install dir" {
+@test "does not create dangling symlinks for files absent from both install dir and printer_data" {
     KLIPPER_HOME="$BATS_TEST_TMPDIR/home/pi"
     INSTALL_DIR="$BATS_TEST_TMPDIR/helixscreen"
     mkdir -p "$KLIPPER_HOME/printer_data/config"
     mkdir -p "$INSTALL_DIR/config"
-    # Only helixconfig.json exists
+    # Only helixconfig.json exists — simulates runtime-created files (tool_spools.json,
+    # .disabled_services) that are in HELIX_USER_CONFIG_FILES but not yet written
     echo '{}' > "$INSTALL_DIR/config/helixconfig.json"
 
     run setup_config_symlink
@@ -91,9 +92,55 @@ setup() {
     [ -f "$KLIPPER_HOME/printer_data/config/helixscreen/helixconfig.json" ]
     [ -L "$INSTALL_DIR/config/helixconfig.json" ]
 
-    # Other files: symlink created but no file in printer_data (broken symlink is ok)
-    [ -L "$INSTALL_DIR/config/helixscreen.env" ]
-    [ ! -f "$KLIPPER_HOME/printer_data/config/helixscreen/helixscreen.env" ]
+    # Files absent from both install dir and printer_data must NOT get dangling symlinks.
+    # A dangling symlink is worse than no symlink: it causes confusing ENOENT errors and
+    # prevents the app from writing the file to the install dir as a fallback.
+    [ ! -e "$INSTALL_DIR/config/helixscreen.env" ]
+    [ ! -e "$INSTALL_DIR/config/tool_spools.json" ]
+    [ ! -e "$INSTALL_DIR/config/.disabled_services" ]
+}
+
+@test "creates symlink when file already exists in printer_data but not install dir" {
+    # Simulates idempotent re-run after runtime-created file was written to printer_data
+    KLIPPER_HOME="$BATS_TEST_TMPDIR/home/pi"
+    INSTALL_DIR="$BATS_TEST_TMPDIR/helixscreen"
+    mkdir -p "$KLIPPER_HOME/printer_data/config/helixscreen"
+    mkdir -p "$INSTALL_DIR/config"
+    # Simulate tool_spools.json that was written by the app on first run
+    echo '[]' > "$KLIPPER_HOME/printer_data/config/helixscreen/tool_spools.json"
+
+    run setup_config_symlink
+    [ "$status" -eq 0 ]
+
+    # Symlink should now be wired up (pd_file exists)
+    [ -L "$INSTALL_DIR/config/tool_spools.json" ]
+    [ "$(readlink "$INSTALL_DIR/config/tool_spools.json")" = "$KLIPPER_HOME/printer_data/config/helixscreen/tool_spools.json" ]
+}
+
+@test "does not delete config from install dir when cp to printer_data fails" {
+    # Bug: silent cp failure followed by unconditional rm destroyed user config.
+    # Fix: check cp return code; skip rm and symlink on failure.
+    KLIPPER_HOME="$BATS_TEST_TMPDIR/home/pi"
+    INSTALL_DIR="$BATS_TEST_TMPDIR/helixscreen"
+    mkdir -p "$KLIPPER_HOME/printer_data/config"
+    mkdir -p "$INSTALL_DIR/config"
+    echo '{"important":true}' > "$INSTALL_DIR/config/helixconfig.json"
+
+    # Make pd_helix directory read-only so cp into it fails
+    mkdir -p "$KLIPPER_HOME/printer_data/config/helixscreen"
+    chmod 555 "$KLIPPER_HOME/printer_data/config/helixscreen"
+
+    run setup_config_symlink
+    [ "$status" -eq 0 ]
+
+    # Original must still be intact — must not have been deleted
+    [ -f "$INSTALL_DIR/config/helixconfig.json" ]
+    [ "$(cat "$INSTALL_DIR/config/helixconfig.json")" = '{"important":true}' ]
+
+    # Dangling symlink must not have been created
+    [ ! -L "$INSTALL_DIR/config/helixconfig.json" ]
+
+    chmod 755 "$KLIPPER_HOME/printer_data/config/helixscreen"
 }
 
 # --- Graceful skip conditions ---
