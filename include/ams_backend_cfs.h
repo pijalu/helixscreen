@@ -7,6 +7,7 @@
 #include <optional>
 #include <string>
 #include <unordered_map>
+#include <vector>
 
 namespace helix::printer {
 
@@ -47,6 +48,78 @@ class CfsMaterialDb {
     CfsMaterialDb();
     void load_database();
     std::unordered_map<std::string, CfsMaterialInfo> materials_;
+};
+
+/// Decode CFS key8xx error codes into human-readable AmsAlerts
+class CfsErrorDecoder {
+  public:
+    /// Decode a CFS error code. Returns nullopt for unknown codes.
+    static std::optional<AmsAlert> decode(const std::string& key_code,
+                                          int unit_index, int slot_index);
+};
+
+/// CFS (Creality Filament System) backend — K2 series printers with RS-485 CFS units
+class AmsBackendCfs : public AmsSubscriptionBackend {
+  public:
+    AmsBackendCfs(MoonrakerAPI* api, helix::MoonrakerClient* client);
+
+    [[nodiscard]] AmsType get_type() const override { return AmsType::CFS; }
+
+    // State queries
+    [[nodiscard]] AmsSystemInfo get_system_info() const override;
+    [[nodiscard]] SlotInfo get_slot_info(int slot_index) const override;
+
+    // Path visualization
+    [[nodiscard]] PathTopology get_topology() const override { return PathTopology::HUB; }
+    [[nodiscard]] PathSegment get_filament_segment() const override;
+    [[nodiscard]] PathSegment get_slot_filament_segment(int slot_index) const override;
+    [[nodiscard]] PathSegment infer_error_segment() const override;
+
+    // Operations
+    AmsError load_filament(int slot_index) override;
+    AmsError unload_filament(int slot_index = -1) override;
+    AmsError select_slot(int slot_index) override;
+    AmsError change_tool(int tool_number) override;
+    AmsError reset() override;
+    AmsError recover() override;
+    AmsError cancel() override;
+
+    // Slot management (not supported — RFID manages slot info)
+    AmsError set_slot_info(int slot_index, const SlotInfo& info, bool persist = true) override;
+    AmsError set_tool_mapping(int tool_number, int slot_index) override;
+
+    // Bypass (not supported)
+    AmsError enable_bypass() override;
+    AmsError disable_bypass() override;
+    [[nodiscard]] bool is_bypass_active() const override { return false; }
+
+    // Capabilities
+    [[nodiscard]] helix::printer::EndlessSpoolCapabilities
+    get_endless_spool_capabilities() const override;
+    [[nodiscard]] helix::printer::ToolMappingCapabilities
+    get_tool_mapping_capabilities() const override;
+    [[nodiscard]] bool supports_auto_heat_on_load() const override { return true; }
+    [[nodiscard]] bool tracks_weight_locally() const override { return false; }
+    [[nodiscard]] bool manages_active_spool() const override { return false; }
+    [[nodiscard]] std::vector<helix::printer::DeviceAction> get_device_actions() const override;
+
+    // Static parser (public for testing)
+    static AmsSystemInfo parse_box_status(const nlohmann::json& box_json);
+
+    // GCode helpers (public for testing)
+    static std::string load_gcode(int global_slot_index);
+    static std::string unload_gcode();
+    static std::string reset_gcode();
+    static std::string recover_gcode();
+
+  protected:
+    void handle_status_update(const nlohmann::json& notification) override;
+    const char* backend_log_tag() const override { return "[AMS CFS]"; }
+    void on_started() override;
+
+  private:
+    std::string current_tnn_;
+    bool motor_ready_ = true;
 };
 
 } // namespace helix::printer

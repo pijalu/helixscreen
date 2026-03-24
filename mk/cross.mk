@@ -1908,8 +1908,8 @@ K2_HOST ?=
 K2_USER ?= root
 K2_DEPLOY_DIR ?= /opt/helixscreen
 
-# Build SSH target for K2
-K2_SSH_TARGET = $(if $(K2_HOST),$(K2_USER)@$(K2_HOST),$(error K2_HOST is required. Use: make deploy-k2 K2_HOST=192.168.x.x))
+# Build SSH target for K2 (lazy evaluation — only errors when deploy targets actually use it)
+K2_SSH_TARGET = $(if $(K2_HOST),$(K2_USER)@$(K2_HOST),$(error K2_HOST is required. K2 does not resolve via mDNS. Use: make deploy-k2 K2_HOST=192.168.x.x))
 
 # =============================================================================
 # K2 Deployment Targets

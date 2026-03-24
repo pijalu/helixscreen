@@ -125,6 +125,36 @@ TEST_CASE("CFS color parsing", "[ams][cfs]") {
     }
 }
 
+TEST_CASE("CFS error decoding", "[ams][cfs]") {
+    SECTION("known error code decodes to message and hint") {
+        auto alert = CfsErrorDecoder::decode("key845", 0, -1);
+        REQUIRE(alert.has_value());
+        REQUIRE(alert->message == "Nozzle clog detected");
+        REQUIRE_FALSE(alert->hint.empty());
+        REQUIRE(alert->level == AmsAlertLevel::SYSTEM);
+        REQUIRE(alert->error_code == "CFS-845");
+    }
+
+    SECTION("slot-level error includes slot index") {
+        auto alert = CfsErrorDecoder::decode("key843", 0, 2);
+        REQUIRE(alert.has_value());
+        REQUIRE(alert->level == AmsAlertLevel::SLOT);
+        REQUIRE(alert->slot_index == 2);
+    }
+
+    SECTION("unit-level error includes unit index") {
+        auto alert = CfsErrorDecoder::decode("key853", 1, -1);
+        REQUIRE(alert.has_value());
+        REQUIRE(alert->level == AmsAlertLevel::UNIT);
+        REQUIRE(alert->unit_index == 1);
+    }
+
+    SECTION("unknown error code returns nullopt") {
+        auto alert = CfsErrorDecoder::decode("key999", 0, -1);
+        REQUIRE_FALSE(alert.has_value());
+    }
+}
+
 TEST_CASE("CFS slot addressing", "[ams][cfs]") {
     SECTION("global index to TNN name") {
         REQUIRE(CfsMaterialDb::slot_to_tnn(0) == "T1A");
@@ -145,5 +175,147 @@ TEST_CASE("CFS slot addressing", "[ams][cfs]") {
     SECTION("invalid TNN returns -1") {
         REQUIRE(CfsMaterialDb::tnn_to_slot("invalid") == -1);
         REQUIRE(CfsMaterialDb::tnn_to_slot("T5A") == -1);
+    }
+}
+
+// =============================================================================
+// CFS backend status parsing tests
+// =============================================================================
+
+#include <hv/json.hpp>
+
+static nlohmann::json make_cfs_status_json() {
+    return nlohmann::json::parse(R"({
+        "box": {
+            "state": "connect",
+            "filament": 1,
+            "auto_refill": 1,
+            "enable": 1,
+            "filament_useup": 1,
+            "same_material": [
+                ["101001", "0000000", ["T1A"], "PLA"],
+                ["101001", "0FFFFFF", ["T1B"], "PLA"]
+            ],
+            "map": {"T1A": "T1A", "T1B": "T1B", "T1C": "T1C", "T1D": "T1D"},
+            "T1": {
+                "state": "connect",
+                "filament": "None",
+                "temperature": "27",
+                "dry_and_humidity": "48",
+                "filament_detected": "None",
+                "measuring_wheel": "None",
+                "version": "1.1.3",
+                "sn": "10000882925L125DBZC",
+                "mode": "0",
+                "vender": ["-1", "-1", "-1", "-1"],
+                "remain_len": ["35", "57", "52", "52"],
+                "color_value": ["0000000", "0FFFFFF", "00A2989", "0C12E1F"],
+                "material_type": ["101001", "101001", "101001", "101001"],
+                "uuid": [19, 103],
+                "change_color_num": ["-1", "-1", "-1", "-1"]
+            },
+            "T2": {
+                "state": "None",
+                "filament": "None",
+                "temperature": "None",
+                "dry_and_humidity": "None",
+                "filament_detected": "None",
+                "measuring_wheel": "None",
+                "version": "-1",
+                "sn": "-1",
+                "mode": "-1",
+                "vender": ["-1", "-1", "-1", "-1"],
+                "remain_len": ["-1", "-1", "-1", "-1"],
+                "color_value": ["-1", "-1", "-1", "-1"],
+                "material_type": ["-1", "-1", "-1", "-1"],
+                "uuid": "None",
+                "change_color_num": ["-1", "-1", "-1", "-1"]
+            }
+        }
+    })");
+}
+
+using helix::printer::AmsBackendCfs;
+
+TEST_CASE("CFS backend status parsing", "[ams][cfs]") {
+    auto status = make_cfs_status_json();
+    auto info = AmsBackendCfs::parse_box_status(status["box"]);
+
+    SECTION("system-level fields") {
+        REQUIRE(info.type == AmsType::CFS);
+        REQUIRE(info.supports_endless_spool == true);
+    }
+
+    SECTION("connected unit created, disconnected skipped") {
+        REQUIRE(info.units.size() == 1);
+        REQUIRE(info.units[0].name == "T1");
+        REQUIRE(info.units[0].slot_count == 4);
+        REQUIRE(info.total_slots == 4);
+    }
+
+    SECTION("unit environment data") {
+        REQUIRE(info.units[0].environment.has_value());
+        REQUIRE(info.units[0].environment->temperature_c == 27.0f);
+        REQUIRE(info.units[0].environment->humidity_pct == 48.0f);
+    }
+
+    SECTION("unit hardware info") {
+        REQUIRE(info.units[0].firmware_version == "1.1.3");
+        REQUIRE(info.units[0].serial_number == "10000882925L125DBZC");
+    }
+
+    SECTION("slot colors parsed") {
+        REQUIRE(info.units[0].slots[0].color_rgb == 0x000000);
+        REQUIRE(info.units[0].slots[1].color_rgb == 0xFFFFFF);
+        REQUIRE(info.units[0].slots[2].color_rgb == 0x0A2989);
+        REQUIRE(info.units[0].slots[3].color_rgb == 0xC12E1F);
+    }
+
+    SECTION("slot materials resolved from database") {
+        REQUIRE(info.units[0].slots[0].material == "PLA");
+        REQUIRE(info.units[0].slots[0].brand == "Creality");
+    }
+
+    SECTION("slot remaining length") {
+        REQUIRE(info.units[0].slots[0].remaining_length_m == 35.0f);
+        REQUIRE(info.units[0].slots[1].remaining_length_m == 57.0f);
+    }
+
+    SECTION("slot status derived correctly") {
+        REQUIRE(info.units[0].slots[0].status == SlotStatus::AVAILABLE);
+    }
+
+    SECTION("topology is HUB") {
+        REQUIRE(info.units[0].topology == PathTopology::HUB);
+    }
+}
+
+TEST_CASE("CFS disconnected unit handling", "[ams][cfs]") {
+    auto status = make_cfs_status_json();
+    auto info = AmsBackendCfs::parse_box_status(status["box"]);
+
+    SECTION("T2 is disconnected — not in units list") {
+        for (const auto& unit : info.units) {
+            REQUIRE(unit.name != "T2");
+        }
+    }
+}
+
+TEST_CASE("CFS GCode helpers", "[ams][cfs]") {
+    SECTION("load gcode uses TNN addressing") {
+        REQUIRE(AmsBackendCfs::load_gcode(0) == "BOX_LOAD_MATERIAL TNN=T1A");
+        REQUIRE(AmsBackendCfs::load_gcode(4) == "BOX_LOAD_MATERIAL TNN=T2A");
+    }
+
+    SECTION("unload gcode") {
+        REQUIRE(AmsBackendCfs::unload_gcode() == "BOX_QUIT_MATERIAL");
+    }
+
+    SECTION("reset gcode") {
+        REQUIRE(AmsBackendCfs::reset_gcode() == "BOX_ERROR_CLEAR");
+    }
+
+    SECTION("recover gcode") {
+        REQUIRE(AmsBackendCfs::recover_gcode() == "BOX_ERROR_RESUME_PROCESS");
     }
 }
