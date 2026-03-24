@@ -14,7 +14,7 @@
   </consts>
   <!-- Dialog card - wider for horizontal layout, capped at 80% screen height -->
   <view name="ams_edit_modal"
-        extends="ui_dialog" width="70%" height="content" style_max_height="90%" style_min_width="380" align="center" flex_flow="column"
+        extends="ui_dialog" width="90%" height="content" style_max_height="90%" style_max_width="600" align="center" flex_flow="column"
         style_flex_main_place="start" style_pad_gap="0">
     <!-- Header with title and close button -->
     <lv_obj width="100%"
@@ -165,7 +165,7 @@
       <lv_obj name="spoolman_actions"
               width="100%" height="content" style_pad_left="#space_md" style_pad_right="#space_md"
               style_pad_top="0" style_pad_bottom="#space_sm"
-              flex_flow="row" style_flex_main_place="center" style_pad_gap="#space_sm"
+              flex_flow="row_wrap" style_flex_main_place="center" style_pad_gap="#space_sm"
               scrollable="false" hidden="true">
         <bind_flag_if_eq subject="printer_has_spoolman" flag="hidden" ref_value="0"/>
         <ui_button name="btn_change_spool"
