@@ -224,6 +224,11 @@ void ui_probe_overlay_register_callbacks() {
             "Maximum allowed deviation between samples (mm)");
     });
 
+    // Probe accuracy results modal
+    lv_xml_register_event_cb(nullptr, "on_probe_accuracy_close", [](lv_event_t* /*e*/) {
+        get_global_probe_overlay().handle_accuracy_close();
+    });
+
     // Config edit modal buttons
     lv_xml_register_event_cb(nullptr, "on_probe_config_save", [](lv_event_t* /*e*/) {
         get_global_probe_overlay().handle_config_save();
@@ -292,6 +297,20 @@ void ProbeOverlay::init_subjects() {
                               "probe_config_edit_current", subjects_);
     UI_MANAGED_SUBJECT_STRING(probe_config_edit_value_, probe_config_edit_value_buf_, "",
                               "probe_config_edit_value", subjects_);
+
+    // Probe accuracy results modal subjects
+    UI_MANAGED_SUBJECT_STRING(probe_acc_maximum_, probe_acc_maximum_buf_, "--", "probe_acc_maximum",
+                              subjects_);
+    UI_MANAGED_SUBJECT_STRING(probe_acc_minimum_, probe_acc_minimum_buf_, "--", "probe_acc_minimum",
+                              subjects_);
+    UI_MANAGED_SUBJECT_STRING(probe_acc_range_, probe_acc_range_buf_, "--", "probe_acc_range",
+                              subjects_);
+    UI_MANAGED_SUBJECT_STRING(probe_acc_average_, probe_acc_average_buf_, "--", "probe_acc_average",
+                              subjects_);
+    UI_MANAGED_SUBJECT_STRING(probe_acc_median_, probe_acc_median_buf_, "--", "probe_acc_median",
+                              subjects_);
+    UI_MANAGED_SUBJECT_STRING(probe_acc_stddev_, probe_acc_stddev_buf_, "--", "probe_acc_stddev",
+                              subjects_);
 
     subjects_initialized_ = true;
     spdlog::trace("[Probe] Subjects initialized");
@@ -526,17 +545,100 @@ void ProbeOverlay::handle_probe_accuracy() {
                                   all_homed ? "Probe accuracy test started"
                                             : "Homing first, then running probe accuracy test");
 
+    // Subscribe to gcode responses to capture the results summary line
+    static int s_handler_id = 0;
+    std::string handler_name = "probe_accuracy_" + std::to_string(++s_handler_id);
+
+    api_->register_method_callback(
+        "notify_gcode_response", handler_name,
+        [handler_name, api = api_](const json& msg) {
+            if (!msg.contains("params") || !msg["params"].is_array() || msg["params"].empty() ||
+                !msg["params"][0].is_string()) {
+                return;
+            }
+            const std::string& line = msg["params"][0].get_ref<const std::string&>();
+
+            // Klipper outputs: "probe accuracy results: maximum ..., minimum ..., range ...,
+            // average ..., median ..., standard deviation ..."
+            if (line.find("probe accuracy results:") == std::string::npos) {
+                return;
+            }
+
+            spdlog::info("[Probe] {}", line);
+
+            // Unsubscribe now that we have the result
+            api->unregister_method_callback("notify_gcode_response", handler_name);
+
+            // Show results modal on UI thread
+            std::string results = line;
+            helix::ui::queue_update([results]() {
+                get_global_probe_overlay().show_accuracy_results(results);
+            });
+        });
+
     api_->execute_gcode(
         gcode,
-        []() { spdlog::info("[Probe] PROBE_ACCURACY completed"); },
-        [](const MoonrakerError& err) {
+        [api = api_, handler_name]() {
+            spdlog::info("[Probe] PROBE_ACCURACY command completed");
+        },
+        [api = api_, handler_name](const MoonrakerError& err) {
             spdlog::error("[Probe] PROBE_ACCURACY failed: {}", err.user_message());
+            api->unregister_method_callback("notify_gcode_response", handler_name);
             helix::ui::queue_update([]() {
                 ToastManager::instance().show(ToastSeverity::ERROR,
                                               "Probe accuracy test failed");
             });
         },
         MoonrakerAdvancedAPI::PROBING_TIMEOUT_MS);
+}
+
+void ProbeOverlay::show_accuracy_results(const std::string& results_line) {
+    // Parse: "probe accuracy results: maximum 1.234, minimum 1.230, range 0.004,
+    //         average 1.232, median 1.232, standard deviation 0.001"
+    auto extract_value = [&](const std::string& key) -> std::string {
+        auto pos = results_line.find(key);
+        if (pos == std::string::npos)
+            return "--";
+        pos += key.length();
+        // Skip whitespace
+        while (pos < results_line.size() && results_line[pos] == ' ')
+            pos++;
+        auto end = results_line.find(',', pos);
+        if (end == std::string::npos)
+            end = results_line.size();
+        return results_line.substr(pos, end - pos);
+    };
+
+    auto set_subject = [](lv_subject_t* subj, char* buf, size_t buf_size,
+                          const std::string& val) {
+        snprintf(buf, buf_size, "%s mm", val.c_str());
+        lv_subject_copy_string(subj, buf);
+    };
+
+    set_subject(&probe_acc_maximum_, probe_acc_maximum_buf_, sizeof(probe_acc_maximum_buf_),
+                extract_value("maximum "));
+    set_subject(&probe_acc_minimum_, probe_acc_minimum_buf_, sizeof(probe_acc_minimum_buf_),
+                extract_value("minimum "));
+    set_subject(&probe_acc_range_, probe_acc_range_buf_, sizeof(probe_acc_range_buf_),
+                extract_value("range "));
+    set_subject(&probe_acc_average_, probe_acc_average_buf_, sizeof(probe_acc_average_buf_),
+                extract_value("average "));
+    set_subject(&probe_acc_median_, probe_acc_median_buf_, sizeof(probe_acc_median_buf_),
+                extract_value("median "));
+    set_subject(&probe_acc_stddev_, probe_acc_stddev_buf_, sizeof(probe_acc_stddev_buf_),
+                extract_value("standard deviation "));
+
+    accuracy_modal_ = Modal::show("probe_accuracy_modal");
+    if (!accuracy_modal_) {
+        spdlog::error("[Probe] Failed to show accuracy results modal");
+    }
+}
+
+void ProbeOverlay::handle_accuracy_close() {
+    if (accuracy_modal_) {
+        Modal::hide(accuracy_modal_);
+        accuracy_modal_ = nullptr;
+    }
 }
 
 void ProbeOverlay::handle_zoffset_cal() {

@@ -73,6 +73,12 @@ class ProbeOverlay : public OverlayBase {
     void handle_zoffset_cal();
     void handle_bed_mesh();
 
+    /// Show probe accuracy results in a modal
+    void show_accuracy_results(const std::string& results_line);
+
+    /// Close the accuracy results modal
+    void handle_accuracy_close();
+
     /// Open edit modal for a specific config field
     void handle_config_edit(const std::string& field_key, const std::string& title,
                             const std::string& description);
@@ -135,6 +141,21 @@ class ProbeOverlay : public OverlayBase {
     lv_subject_t probe_config_edit_current_{};
     char probe_config_edit_value_buf_[32] = {};
     lv_subject_t probe_config_edit_value_{};
+
+    // Probe accuracy results subjects
+    char probe_acc_maximum_buf_[32] = {};
+    lv_subject_t probe_acc_maximum_{};
+    char probe_acc_minimum_buf_[32] = {};
+    lv_subject_t probe_acc_minimum_{};
+    char probe_acc_range_buf_[32] = {};
+    lv_subject_t probe_acc_range_{};
+    char probe_acc_average_buf_[32] = {};
+    lv_subject_t probe_acc_average_{};
+    char probe_acc_median_buf_[32] = {};
+    lv_subject_t probe_acc_median_{};
+    char probe_acc_stddev_buf_[32] = {};
+    lv_subject_t probe_acc_stddev_{};
+    lv_obj_t* accuracy_modal_ = nullptr;
 
     // Config editor
     helix::system::KlipperConfigEditor config_editor_;

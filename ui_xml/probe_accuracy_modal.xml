@@ -1,0 +1,70 @@
+<?xml version="1.0"?>
+<!-- SPDX-License-Identifier: GPL-3.0-or-later -->
+<!-- Modal displaying PROBE_ACCURACY test results -->
+<component>
+  <view name="probe_accuracy_modal"
+        extends="ui_dialog" width="70%" height="content" style_min_width="320" style_max_width="420" align="center"
+        flex_flow="column" style_flex_main_place="start" style_pad_gap="0">
+
+    <!-- Header -->
+    <lv_obj width="100%" height="content"
+            style_pad_left="#space_lg" style_pad_right="#space_sm" style_pad_top="#space_lg"
+            style_pad_bottom="#space_sm" flex_flow="row" style_flex_cross_place="center" style_pad_gap="#space_sm">
+      <icon src="target" size="md" variant="info"/>
+      <text_heading text="Probe Accuracy Results" translation_tag="Probe Accuracy Results" style_text_align="left" flex_grow="1"/>
+      <ui_button name="btn_close" width="40" height="40" variant="ghost" icon="close" focusable="false">
+        <event_cb trigger="clicked" callback="on_probe_accuracy_close"/>
+      </ui_button>
+    </lv_obj>
+
+    <divider_horizontal/>
+
+    <!-- Results -->
+    <lv_obj width="100%" height="content"
+            style_pad_left="#space_lg" style_pad_right="#space_lg"
+            style_pad_top="#space_md" style_pad_bottom="#space_lg"
+            flex_flow="column" style_pad_gap="#space_sm">
+
+      <!-- Maximum -->
+      <lv_obj width="100%" height="content" flex_flow="row" style_pad_gap="#space_sm">
+        <text_small text="Maximum" translation_tag="Maximum" width="130" style_text_color="#text_muted"/>
+        <text_small name="val_maximum" bind_text="probe_acc_maximum" flex_grow="1"/>
+      </lv_obj>
+
+      <!-- Minimum -->
+      <lv_obj width="100%" height="content" flex_flow="row" style_pad_gap="#space_sm">
+        <text_small text="Minimum" translation_tag="Minimum" width="130" style_text_color="#text_muted"/>
+        <text_small name="val_minimum" bind_text="probe_acc_minimum" flex_grow="1"/>
+      </lv_obj>
+
+      <!-- Range -->
+      <lv_obj width="100%" height="content" flex_flow="row" style_pad_gap="#space_sm">
+        <text_small text="Range" translation_tag="Range" width="130" style_text_color="#text_muted"/>
+        <text_small name="val_range" bind_text="probe_acc_range" flex_grow="1"/>
+      </lv_obj>
+
+      <!-- Average -->
+      <lv_obj width="100%" height="content" flex_flow="row" style_pad_gap="#space_sm">
+        <text_small text="Average" translation_tag="Average" width="130" style_text_color="#text_muted"/>
+        <text_small name="val_average" bind_text="probe_acc_average" flex_grow="1"/>
+      </lv_obj>
+
+      <!-- Median -->
+      <lv_obj width="100%" height="content" flex_flow="row" style_pad_gap="#space_sm">
+        <text_small text="Median" translation_tag="Median" width="130" style_text_color="#text_muted"/>
+        <text_small name="val_median" bind_text="probe_acc_median" flex_grow="1"/>
+      </lv_obj>
+
+      <!-- Std Dev -->
+      <lv_obj width="100%" height="content" flex_flow="row" style_pad_gap="#space_sm">
+        <text_small text="Std Deviation" translation_tag="Std Deviation" width="130" style_text_color="#text_muted"/>
+        <text_small name="val_stddev" bind_text="probe_acc_stddev" flex_grow="1"/>
+      </lv_obj>
+
+    </lv_obj>
+
+    <divider_horizontal/>
+
+    <modal_button_row primary_text="OK" primary_callback="on_probe_accuracy_close"/>
+  </view>
+</component>
