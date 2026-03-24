@@ -2,6 +2,8 @@
   "preset": "k2",
   "wizard_completed": false,
   "display": {
+    "rotate": 270,
+    "rotation_probed": true,
     "animations_enabled": false
   },
   "printer": {
