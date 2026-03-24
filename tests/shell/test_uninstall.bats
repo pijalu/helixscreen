@@ -377,7 +377,7 @@ CONF
 
 @test "remove_installation handles partially removed install (bin gone, config remains)" {
     mkdir -p "$INSTALL_DIR/config"
-    echo '{}' > "$INSTALL_DIR/config/helixconfig.json"
+    echo '{}' > "$INSTALL_DIR/config/settings.json"
     # bin/ directory is missing (partially removed)
 
     run remove_installation

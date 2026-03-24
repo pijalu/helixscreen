@@ -61,10 +61,14 @@ struct RuntimeConfig {
     static constexpr const char* DEFAULT_TEST_FILE = "3DBenchy.gcode";
 
     /// Production config file path
-    static constexpr const char* PROD_CONFIG_PATH = "config/helixconfig.json";
+    static constexpr const char* PROD_CONFIG_PATH = "config/settings.json";
 
     /// Test mode config file path (separate from production to avoid conflicts)
-    static constexpr const char* TEST_CONFIG_PATH = "config/helixconfig-test.json";
+    static constexpr const char* TEST_CONFIG_PATH = "config/settings-test.json";
+
+    /// Legacy config file names (for migration from older versions)
+    static constexpr const char* LEGACY_PROD_CONFIG_PATH = "config/helixconfig.json";
+    static constexpr const char* LEGACY_TEST_CONFIG_PATH = "config/helixconfig-test.json";
 
     /**
      * @brief Get full path to default test G-code file

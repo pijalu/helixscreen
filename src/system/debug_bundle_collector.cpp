@@ -416,11 +416,13 @@ json DebugBundleCollector::sanitize_json(const json& input, int depth) {
 json DebugBundleCollector::collect_sanitized_settings() {
     // Try common config locations for settings.json
     std::vector<std::string> settings_paths = {
+        "config/settings.json",
         "config/helixconfig.json",
     };
 
     const char* home = std::getenv("HOME");
     if (home && home[0] != '\0') {
+        settings_paths.push_back(std::string(home) + "/helixscreen/config/settings.json");
         settings_paths.push_back(std::string(home) + "/helixscreen/config/helixconfig.json");
     }
 

@@ -600,15 +600,19 @@ extract_release() {
     if [ -d "${INSTALL_DIR}" ]; then
         ORIGINAL_INSTALL_EXISTS=true
 
-        # Backup config (check new location first, then legacy)
-        if [ -f "${INSTALL_DIR}/config/helixconfig.json" ]; then
-            BACKUP_CONFIG="${TMP_DIR}/helixconfig.json.backup"
+        # Backup config (check new name first, then legacy names)
+        if [ -f "${INSTALL_DIR}/config/settings.json" ]; then
+            BACKUP_CONFIG="${TMP_DIR}/settings.json.backup"
+            cp "${INSTALL_DIR}/config/settings.json" "$BACKUP_CONFIG"
+            log_info "Backed up existing configuration (from config/settings.json)"
+        elif [ -f "${INSTALL_DIR}/config/helixconfig.json" ]; then
+            BACKUP_CONFIG="${TMP_DIR}/settings.json.backup"
             cp "${INSTALL_DIR}/config/helixconfig.json" "$BACKUP_CONFIG"
-            log_info "Backed up existing configuration (from config/)"
+            log_info "Backed up existing configuration (from config/helixconfig.json)"
         elif [ -f "${INSTALL_DIR}/helixconfig.json" ]; then
-            BACKUP_CONFIG="${TMP_DIR}/helixconfig.json.backup"
+            BACKUP_CONFIG="${TMP_DIR}/settings.json.backup"
             cp "${INSTALL_DIR}/helixconfig.json" "$BACKUP_CONFIG"
-            log_info "Backed up existing configuration (legacy location)"
+            log_info "Backed up existing configuration (legacy root location)"
         fi
 
         # Backup helixscreen.env (preserves HELIX_LOG_LEVEL and other env customizations)
@@ -785,19 +789,21 @@ extract_release() {
         fi
     }
 
-    # Restore helixconfig.json — try candidates in priority order
-    _config_dest="${INSTALL_DIR}/config/helixconfig.json"
+    # Restore settings.json — try candidates in priority order (new name, then legacy)
+    _config_dest="${INSTALL_DIR}/config/settings.json"
     if [ -n "${BACKUP_CONFIG:-}" ] && [ -s "$BACKUP_CONFIG" ]; then
-        _restore_config_file "$BACKUP_CONFIG" "$_config_dest" "helixconfig.json from TMP_DIR backup"
+        _restore_config_file "$BACKUP_CONFIG" "$_config_dest" "settings.json from TMP_DIR backup"
     elif [ -n "${INSTALL_BACKUP:-}" ]; then
-        if [ -f "${INSTALL_BACKUP}/config/helixconfig.json" ]; then
-            _restore_config_file "${INSTALL_BACKUP}/config/helixconfig.json" "$_config_dest" "helixconfig.json from .old backup"
+        if [ -f "${INSTALL_BACKUP}/config/settings.json" ]; then
+            _restore_config_file "${INSTALL_BACKUP}/config/settings.json" "$_config_dest" "settings.json from .old backup"
+        elif [ -f "${INSTALL_BACKUP}/config/helixconfig.json" ]; then
+            _restore_config_file "${INSTALL_BACKUP}/config/helixconfig.json" "$_config_dest" "settings.json from .old backup (migrated from helixconfig.json)"
         elif [ -f "${INSTALL_BACKUP}/helixconfig.json" ]; then
-            _restore_config_file "${INSTALL_BACKUP}/helixconfig.json" "$_config_dest" "helixconfig.json from .old backup (legacy location)"
+            _restore_config_file "${INSTALL_BACKUP}/helixconfig.json" "$_config_dest" "settings.json from .old backup (legacy root location)"
         fi
     fi
     if [ ! -f "$_config_dest" ] && [ "$ORIGINAL_INSTALL_EXISTS" = true ]; then
-        log_warn "Could not restore helixconfig.json from any backup source!"
+        log_warn "Could not restore settings.json from any backup source!"
         log_warn "User configuration may have been lost."
     fi
 

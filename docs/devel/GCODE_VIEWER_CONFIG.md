@@ -2,7 +2,7 @@
 
 ## Shading Model
 
-The G-code 3D viewer supports three shading models for rendering extrusion paths. Configure via `helixconfig.json`:
+The G-code 3D viewer supports three shading models for rendering extrusion paths. Configure via `settings.json`:
 
 ```json
 {
@@ -38,15 +38,15 @@ The current diamond cross-section implementation uses separate vertices for each
 
 ### Configuration Location
 
-- **Template**: `config/helixconfig.json.template`
-- **Runtime**: Config loaded from path specified at startup (typically `/tmp/helixconfig.json` in development)
+- **Template**: `config/settings.json.template`
+- **Runtime**: Config loaded from path specified at startup (typically `/tmp/settings.json` in development)
 - **Code**: Setting is read during G-code viewer initialization
 
 ### Example
 
 To switch to flat shading for debugging:
 
-1. Edit your helixconfig.json:
+1. Edit your settings.json:
    ```json
    {
      "gcode_viewer": {

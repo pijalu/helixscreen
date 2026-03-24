@@ -2138,3 +2138,27 @@ TEST_CASE_METHOD(ConfigTestFixture, "save works normally with regular file (no s
 
     fs::remove_all(tmp);
 }
+
+TEST_CASE("Config::init migrates helixconfig.json to settings.json", "[config]") {
+    auto tmp = std::filesystem::temp_directory_path() / "test_config_migration";
+    std::filesystem::remove_all(tmp);
+    std::filesystem::create_directories(tmp / "config");
+
+    std::string old_path = (tmp / "config" / "helixconfig.json").string();
+    std::string new_path = (tmp / "config" / "settings.json").string();
+    {
+        std::ofstream f(old_path);
+        f << R"({"config_version": 8, "printers": [{"name": "test", "moonraker_address": "127.0.0.1"}]})";
+    }
+
+    REQUIRE(std::filesystem::exists(old_path));
+    REQUIRE_FALSE(std::filesystem::exists(new_path));
+
+    auto config = Config::get_instance();
+    config->init(new_path);
+
+    REQUIRE_FALSE(std::filesystem::exists(old_path));
+    REQUIRE(std::filesystem::exists(new_path));
+
+    std::filesystem::remove_all(tmp);
+}

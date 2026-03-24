@@ -37,7 +37,7 @@ setup() {
     mkdir -p "$KLIPPER_HOME/printer_data/config"
     mkdir -p "$INSTALL_DIR/config"
     # Create a user config file in install dir (as if just installed)
-    echo '{"dark_mode":true}' > "$INSTALL_DIR/config/helixconfig.json"
+    echo '{"dark_mode":true}' > "$INSTALL_DIR/config/settings.json"
 
     run setup_config_symlink
     [ "$status" -eq 0 ]
@@ -47,12 +47,12 @@ setup() {
     [ ! -L "$KLIPPER_HOME/printer_data/config/helixscreen" ]
 
     # File should have been moved to printer_data
-    [ -f "$KLIPPER_HOME/printer_data/config/helixscreen/helixconfig.json" ]
-    [ "$(cat "$KLIPPER_HOME/printer_data/config/helixscreen/helixconfig.json")" = '{"dark_mode":true}' ]
+    [ -f "$KLIPPER_HOME/printer_data/config/helixscreen/settings.json" ]
+    [ "$(cat "$KLIPPER_HOME/printer_data/config/helixscreen/settings.json")" = '{"dark_mode":true}' ]
 
     # Install dir should have a symlink pointing to printer_data
-    [ -L "$INSTALL_DIR/config/helixconfig.json" ]
-    [ "$(readlink "$INSTALL_DIR/config/helixconfig.json")" = "$KLIPPER_HOME/printer_data/config/helixscreen/helixconfig.json" ]
+    [ -L "$INSTALL_DIR/config/settings.json" ]
+    [ "$(readlink "$INSTALL_DIR/config/settings.json")" = "$KLIPPER_HOME/printer_data/config/helixscreen/settings.json" ]
 }
 
 @test "creates symlinks for all user config files" {
@@ -61,7 +61,7 @@ setup() {
     mkdir -p "$KLIPPER_HOME/printer_data/config"
     mkdir -p "$INSTALL_DIR/config"
     # Create all user-editable files
-    echo '{}' > "$INSTALL_DIR/config/helixconfig.json"
+    echo '{}' > "$INSTALL_DIR/config/settings.json"
     echo 'ENV=test' > "$INSTALL_DIR/config/helixscreen.env"
     echo 'svc:foo' > "$INSTALL_DIR/config/.disabled_services"
     echo '[]' > "$INSTALL_DIR/config/tool_spools.json"
@@ -70,7 +70,7 @@ setup() {
     [ "$status" -eq 0 ]
 
     # All files should be in printer_data
-    for f in helixconfig.json helixscreen.env .disabled_services tool_spools.json; do
+    for f in settings.json helixscreen.env .disabled_services tool_spools.json; do
         [ -f "$KLIPPER_HOME/printer_data/config/helixscreen/$f" ]
         [ -L "$INSTALL_DIR/config/$f" ]
     done
@@ -81,16 +81,16 @@ setup() {
     INSTALL_DIR="$BATS_TEST_TMPDIR/helixscreen"
     mkdir -p "$KLIPPER_HOME/printer_data/config"
     mkdir -p "$INSTALL_DIR/config"
-    # Only helixconfig.json exists — simulates runtime-created files (tool_spools.json,
+    # Only settings.json exists — simulates runtime-created files (tool_spools.json,
     # .disabled_services) that are in HELIX_USER_CONFIG_FILES but not yet written
-    echo '{}' > "$INSTALL_DIR/config/helixconfig.json"
+    echo '{}' > "$INSTALL_DIR/config/settings.json"
 
     run setup_config_symlink
     [ "$status" -eq 0 ]
 
-    # helixconfig.json moved and symlinked
-    [ -f "$KLIPPER_HOME/printer_data/config/helixscreen/helixconfig.json" ]
-    [ -L "$INSTALL_DIR/config/helixconfig.json" ]
+    # settings.json moved and symlinked
+    [ -f "$KLIPPER_HOME/printer_data/config/helixscreen/settings.json" ]
+    [ -L "$INSTALL_DIR/config/settings.json" ]
 
     # Files absent from both install dir and printer_data must NOT get dangling symlinks.
     # A dangling symlink is worse than no symlink: it causes confusing ENOENT errors and
@@ -124,7 +124,7 @@ setup() {
     INSTALL_DIR="$BATS_TEST_TMPDIR/helixscreen"
     mkdir -p "$KLIPPER_HOME/printer_data/config"
     mkdir -p "$INSTALL_DIR/config"
-    echo '{"important":true}' > "$INSTALL_DIR/config/helixconfig.json"
+    echo '{"important":true}' > "$INSTALL_DIR/config/settings.json"
 
     # Make pd_helix directory read-only so cp into it fails
     mkdir -p "$KLIPPER_HOME/printer_data/config/helixscreen"
@@ -134,11 +134,11 @@ setup() {
     [ "$status" -eq 0 ]
 
     # Original must still be intact — must not have been deleted
-    [ -f "$INSTALL_DIR/config/helixconfig.json" ]
-    [ "$(cat "$INSTALL_DIR/config/helixconfig.json")" = '{"important":true}' ]
+    [ -f "$INSTALL_DIR/config/settings.json" ]
+    [ "$(cat "$INSTALL_DIR/config/settings.json")" = '{"important":true}' ]
 
     # Dangling symlink must not have been created
-    [ ! -L "$INSTALL_DIR/config/helixconfig.json" ]
+    [ ! -L "$INSTALL_DIR/config/settings.json" ]
 
     chmod 755 "$KLIPPER_HOME/printer_data/config/helixscreen"
 }
@@ -192,7 +192,7 @@ setup() {
     INSTALL_DIR="$BATS_TEST_TMPDIR/helixscreen"
     mkdir -p "$KLIPPER_HOME/printer_data/config"
     mkdir -p "$INSTALL_DIR/config"
-    echo '{"upgraded":true}' > "$INSTALL_DIR/config/helixconfig.json"
+    echo '{"upgraded":true}' > "$INSTALL_DIR/config/settings.json"
     echo 'LOG_LEVEL=debug' > "$INSTALL_DIR/config/helixscreen.env"
 
     # Create old-style directory symlink
@@ -207,11 +207,11 @@ setup() {
     [ -d "$KLIPPER_HOME/printer_data/config/helixscreen" ]
 
     # Files should be migrated to printer_data
-    [ -f "$KLIPPER_HOME/printer_data/config/helixscreen/helixconfig.json" ]
-    [ "$(cat "$KLIPPER_HOME/printer_data/config/helixscreen/helixconfig.json")" = '{"upgraded":true}' ]
+    [ -f "$KLIPPER_HOME/printer_data/config/helixscreen/settings.json" ]
+    [ "$(cat "$KLIPPER_HOME/printer_data/config/helixscreen/settings.json")" = '{"upgraded":true}' ]
 
     # Install dir should have symlinks pointing back
-    [ -L "$INSTALL_DIR/config/helixconfig.json" ]
+    [ -L "$INSTALL_DIR/config/settings.json" ]
 }
 
 # --- Idempotency ---
@@ -223,15 +223,15 @@ setup() {
     mkdir -p "$INSTALL_DIR/config"
 
     # Set up the correct layout manually
-    echo '{}' > "$KLIPPER_HOME/printer_data/config/helixscreen/helixconfig.json"
-    ln -s "$KLIPPER_HOME/printer_data/config/helixscreen/helixconfig.json" "$INSTALL_DIR/config/helixconfig.json"
+    echo '{}' > "$KLIPPER_HOME/printer_data/config/helixscreen/settings.json"
+    ln -s "$KLIPPER_HOME/printer_data/config/helixscreen/settings.json" "$INSTALL_DIR/config/settings.json"
 
     run setup_config_symlink
     [ "$status" -eq 0 ]
 
     # Should still be correct
-    [ -L "$INSTALL_DIR/config/helixconfig.json" ]
-    [ "$(readlink "$INSTALL_DIR/config/helixconfig.json")" = "$KLIPPER_HOME/printer_data/config/helixscreen/helixconfig.json" ]
+    [ -L "$INSTALL_DIR/config/settings.json" ]
+    [ "$(readlink "$INSTALL_DIR/config/settings.json")" = "$KLIPPER_HOME/printer_data/config/helixscreen/settings.json" ]
 }
 
 @test "does not overwrite existing file in printer_data during migration" {
@@ -241,18 +241,18 @@ setup() {
     mkdir -p "$INSTALL_DIR/config"
 
     # File already in printer_data (user edited it via Fluidd)
-    echo '{"from_fluidd":true}' > "$KLIPPER_HOME/printer_data/config/helixscreen/helixconfig.json"
+    echo '{"from_fluidd":true}' > "$KLIPPER_HOME/printer_data/config/helixscreen/settings.json"
     # Old file still in install dir
-    echo '{"from_install":true}' > "$INSTALL_DIR/config/helixconfig.json"
+    echo '{"from_install":true}' > "$INSTALL_DIR/config/settings.json"
 
     run setup_config_symlink
     [ "$status" -eq 0 ]
 
     # printer_data file should NOT be overwritten
-    [ "$(cat "$KLIPPER_HOME/printer_data/config/helixscreen/helixconfig.json")" = '{"from_fluidd":true}' ]
+    [ "$(cat "$KLIPPER_HOME/printer_data/config/helixscreen/settings.json")" = '{"from_fluidd":true}' ]
 
     # Install dir file should be replaced with symlink
-    [ -L "$INSTALL_DIR/config/helixconfig.json" ]
+    [ -L "$INSTALL_DIR/config/settings.json" ]
 }
 
 # --- remove_config_symlink ---
@@ -264,17 +264,17 @@ setup() {
     mkdir -p "$INSTALL_DIR/config"
 
     # Set up per-file symlinks
-    echo '{}' > "$KLIPPER_HOME/printer_data/config/helixscreen/helixconfig.json"
-    ln -s "$KLIPPER_HOME/printer_data/config/helixscreen/helixconfig.json" "$INSTALL_DIR/config/helixconfig.json"
+    echo '{}' > "$KLIPPER_HOME/printer_data/config/helixscreen/settings.json"
+    ln -s "$KLIPPER_HOME/printer_data/config/helixscreen/settings.json" "$INSTALL_DIR/config/settings.json"
 
     run remove_config_symlink
     [ "$status" -eq 0 ]
 
     # Symlink removed
-    [ ! -L "$INSTALL_DIR/config/helixconfig.json" ]
+    [ ! -L "$INSTALL_DIR/config/settings.json" ]
 
     # User files preserved in printer_data
-    [ -f "$KLIPPER_HOME/printer_data/config/helixscreen/helixconfig.json" ]
+    [ -f "$KLIPPER_HOME/printer_data/config/helixscreen/settings.json" ]
 }
 
 @test "remove_config_symlink handles old directory symlink" {

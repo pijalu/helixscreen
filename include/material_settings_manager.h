@@ -13,7 +13,7 @@ namespace helix {
 /**
  * @brief Manages user overrides for material temperature settings
  *
- * Loads/saves sparse overrides from helixconfig.json under "material_overrides".
+ * Loads/saves sparse overrides from settings.json under "material_overrides".
  * The filament::get_material_override() bridge function delegates to this manager,
  * so all callers of filament::find_material() transparently get customized values.
  *

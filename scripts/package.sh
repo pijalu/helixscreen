@@ -171,16 +171,16 @@ package_platform() {
     fi
 
     # Platform-specific default config: convention-based preset lookup
-    # If config/presets/<platform>.json exists, use it as the default helixconfig.json.
+    # If config/presets/<platform>.json exists, use it as the default settings.json.
     # Presets contain pre-configured hardware mappings, touch calibration, and wizard_completed=false
     # so the abbreviated wizard runs on first boot. Printer type is auto-detected at runtime.
     # The installer preserves existing configs on upgrade (backup/restore in release.sh).
     local preset_file="${PROJECT_DIR}/config/presets/${platform}.json"
     if [ -f "$preset_file" ]; then
-        cp "$preset_file" "$pkg_dir/config/helixconfig.json"
+        cp "$preset_file" "$pkg_dir/config/settings.json"
         log_info "  Using ${platform} preset as default config"
     else
-        cp "${PROJECT_DIR}/config/helixconfig.json.template" "$pkg_dir/config/helixconfig.json.template" 2>/dev/null || true
+        cp "${PROJECT_DIR}/config/settings.json.template" "$pkg_dir/config/settings.json.template" 2>/dev/null || true
     fi
 
     # Copy CA certificates for platforms without system cert bundles (AD5M, CC1)

@@ -31,6 +31,8 @@ using AppConstants::Update::config_backup_fallback;
 using AppConstants::Update::CONFIG_BACKUP_PRIMARY;
 using AppConstants::Update::env_backup_fallback;
 using AppConstants::Update::ENV_BACKUP_PRIMARY;
+using AppConstants::Update::legacy_config_backup_fallback;
+using AppConstants::Update::LEGACY_CONFIG_BACKUP_PRIMARY;
 
 Config* Config::instance{NULL};
 
@@ -499,10 +501,61 @@ void Config::init(const std::string& config_path) {
     path = config_path;
     struct stat buffer;
 
+    // Migration: rename helixconfig.json -> settings.json if old name exists
+    fs::path old_config = fs::path(config_path).parent_path() / "helixconfig.json";
+    if (stat(config_path.c_str(), &buffer) != 0 && fs::exists(old_config) &&
+        !fs::is_symlink(old_config)) {
+        spdlog::info("[Config] Migrating {} -> {}", old_config.string(), config_path);
+        std::error_code ec;
+        fs::rename(old_config, config_path, ec);
+        if (ec) {
+            spdlog::warn("[Config] Migration rename failed: {} — trying copy",
+                         ec.message());
+            try {
+                fs::copy_file(old_config, config_path);
+                fs::remove(old_config);
+                spdlog::info("[Config] Migration complete (copy+remove)");
+            } catch (const fs::filesystem_error& e) {
+                spdlog::error("[Config] Migration failed: {}", e.what());
+            }
+        } else {
+            spdlog::info("[Config] Migration complete");
+        }
+    } else if (stat(config_path.c_str(), &buffer) != 0 && fs::is_symlink(old_config)) {
+        // Old config is a symlink (Pi/SonicPad: points to printer_data).
+        // Don't rename symlinks — the installer handles that. Just use the
+        // symlink path directly so we read/write the user's real config.
+        if (stat(old_config.c_str(), &buffer) == 0) {
+            path = old_config.string();
+            spdlog::info("[Config] {} is a symlink — using it directly, "
+                         "installer will migrate on next update", old_config.string());
+        } else {
+            spdlog::warn("[Config] {} is a dangling symlink", old_config.string());
+        }
+    } else if (stat(config_path.c_str(), &buffer) == 0 && fs::exists(old_config)) {
+        spdlog::warn("[Config] Both settings.json and helixconfig.json exist; "
+                     "using settings.json (old file left in place)");
+    }
+
+    // Migrate test config unconditionally (has its own existence guard)
+    fs::path old_test = fs::path(config_path).parent_path() / "helixconfig-test.json";
+    fs::path new_test = fs::path(config_path).parent_path() / "settings-test.json";
+    if (fs::exists(old_test) && !fs::exists(new_test)) {
+        std::error_code ec;
+        fs::rename(old_test, new_test, ec);
+        if (!ec) {
+            spdlog::info("[Config] Migrated test config: {} -> {}", old_test.string(),
+                         new_test.string());
+        } else {
+            spdlog::warn("[Config] Test config migration failed: {}", ec.message());
+        }
+    }
+
     // Migration: Check for legacy config at old location (helixconfig.json in app root)
     // If new location doesn't exist but old location does, migrate it
-    if (stat(config_path.c_str(), &buffer) != 0) {
-        // New config doesn't exist - check for legacy locations
+    // Note: use `path` (not `config_path`) — may have been redirected to symlink above
+    if (stat(path.c_str(), &buffer) != 0) {
+        // Config doesn't exist - check for legacy locations
         const std::vector<std::string> legacy_paths = {
             "helixconfig.json",                  // Old location (app root)
             "/opt/helixscreen/helixconfig.json", // Legacy embedded install
@@ -511,21 +564,21 @@ void Config::init(const std::string& config_path) {
         for (const auto& legacy_path : legacy_paths) {
             if (stat(legacy_path.c_str(), &buffer) == 0) {
                 spdlog::info("[Config] Found legacy config at {}, migrating to {}", legacy_path,
-                             config_path);
+                             path);
 
                 // Ensure config/ directory exists
-                fs::path config_dir = fs::path(config_path).parent_path();
+                fs::path config_dir = fs::path(path).parent_path();
                 if (!config_dir.empty() && !fs::exists(config_dir)) {
                     fs::create_directories(config_dir);
                 }
 
                 // Copy legacy config to new location, then remove old file
                 try {
-                    fs::copy_file(legacy_path, config_path);
+                    fs::copy_file(legacy_path, path);
                     // Remove legacy file to avoid confusion
                     fs::remove(legacy_path);
                     spdlog::info("[Config] Migration complete: {} -> {} (old file removed)",
-                                 legacy_path, config_path);
+                                 legacy_path, path);
                 } catch (const fs::filesystem_error& e) {
                     spdlog::warn("[Config] Migration failed: {}", e.what());
                     // Fall through to create default config
@@ -538,30 +591,32 @@ void Config::init(const std::string& config_path) {
         // Backups are maintained by Config::save() and survive Moonraker's
         // shutil.rmtree() wipe of the install directory.
         restored_from_backup_ = restore_from_backup(
-            config_path, "Config", {CONFIG_BACKUP_PRIMARY, config_backup_fallback()});
+            path, "Config",
+            {CONFIG_BACKUP_PRIMARY, config_backup_fallback(),
+             LEGACY_CONFIG_BACKUP_PRIMARY, legacy_config_backup_fallback()});
     }
 
     // Restore helixscreen.env independently — it can be lost even if config survived
     {
-        std::string env_path = (fs::path(config_path).parent_path() / "helixscreen.env").string();
+        std::string env_path = (fs::path(path).parent_path() / "helixscreen.env").string();
         restore_from_backup(env_path, "helixscreen.env",
                             {ENV_BACKUP_PRIMARY, env_backup_fallback()});
     }
 
     bool config_modified = false;
 
-    if (stat(config_path.c_str(), &buffer) == 0) {
+    if (stat(path.c_str(), &buffer) == 0) {
         // Load existing config
-        spdlog::info("[Config] Loading config from {}", config_path);
+        spdlog::info("[Config] Loading config from {}", path);
         try {
-            data = json::parse(std::fstream(config_path));
+            data = json::parse(std::fstream(path));
         } catch (const json::exception& e) {
-            spdlog::error("[Config] Failed to parse {}: {}", config_path, e.what());
+            spdlog::error("[Config] Failed to parse {}: {}", path, e.what());
             spdlog::warn("[Config] Config file is corrupt — resetting to defaults");
 
             // Backup the corrupt file for diagnosis
-            std::string backup_path = config_path + ".corrupt";
-            std::rename(config_path.c_str(), backup_path.c_str());
+            std::string backup_path = path + ".corrupt";
+            std::rename(path.c_str(), backup_path.c_str());
             spdlog::info("[Config] Corrupt config backed up to {}", backup_path);
 
             data = get_default_config("127.0.0.1", false);
@@ -587,7 +642,7 @@ void Config::init(const std::string& config_path) {
         }
     } else {
         // Create default config
-        spdlog::info("[Config] Creating default config at {}", config_path);
+        spdlog::info("[Config] Creating default config at {}", path);
         data = get_default_config("127.0.0.1", false);
         config_modified = true;
     }
@@ -803,14 +858,14 @@ void Config::init(const std::string& config_path) {
 
     // Save updated config with any new defaults or migrations
     if (config_modified) {
-        std::ofstream o(config_path);
+        std::ofstream o(path);
         o << std::setw(2) << data << std::endl;
-        spdlog::debug("[Config] Saved updated config to {}", config_path);
+        spdlog::debug("[Config] Saved updated config to {}", path);
     }
 
     // Back up helixscreen.env outside install dir (env only changes at startup via launcher)
     {
-        std::string env_path = (fs::path(config_path).parent_path() / "helixscreen.env").string();
+        std::string env_path = (fs::path(path).parent_path() / "helixscreen.env").string();
         write_rolling_backup(env_path, ENV_BACKUP_PRIMARY, env_backup_fallback());
     }
 

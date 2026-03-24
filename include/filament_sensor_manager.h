@@ -28,7 +28,7 @@ namespace helix {
  * - User configuration (role assignment, enable/disable)
  * - Real-time state tracking from Moonraker updates
  * - LVGL subjects for reactive UI binding
- * - Config persistence to helixconfig.json
+ * - Config persistence to settings.json
  *
  * Thread-safe for state updates from Moonraker callbacks.
  *
@@ -83,7 +83,7 @@ class FilamentSensorManager : public helix::sensors::ISensorManager {
      *
      * Note: This manager uses legacy Config-based persistence. This method
      * accepts JSON for ISensorManager compatibility but delegates to the
-     * internal load_config_from_file() which reads from helixconfig.json.
+     * internal load_config_from_file() which reads from settings.json.
      *
      * @param config JSON config (currently ignored - uses internal config)
      * @note MUST be called from main LVGL thread (updates subjects directly)
@@ -143,7 +143,7 @@ class FilamentSensorManager : public helix::sensors::ISensorManager {
     // ========================================================================
 
     /**
-     * @brief Load configuration from helixconfig.json
+     * @brief Load configuration from settings.json
      *
      * Merges saved config with discovered sensors. New sensors get default config,
      * removed sensors are preserved in config (in case they come back).
@@ -154,7 +154,7 @@ class FilamentSensorManager : public helix::sensors::ISensorManager {
     void load_config_from_file();
 
     /**
-     * @brief Save current configuration to helixconfig.json
+     * @brief Save current configuration to settings.json
      *
      * @note This is the legacy config API. ISensorManager::save_config() returns
      *       JSON but also saves to file for this manager.

@@ -40,21 +40,21 @@ Complete reference for HelixScreen configuration options.
 
 | Platform | Location |
 |----------|----------|
-| MainsailOS (Pi) | `~/helixscreen/config/helixconfig.json` (or `/opt/helixscreen/config/` if no Klipper ecosystem) |
-| AD5M Forge-X | `/opt/helixscreen/config/helixconfig.json` |
-| AD5M Klipper Mod | `/root/printer_software/helixscreen/config/helixconfig.json` |
-| K1 Simple AF | `/usr/data/helixscreen/config/helixconfig.json` |
-| Development | `./config/helixconfig.json` (in config/ directory) |
+| MainsailOS (Pi) | `~/helixscreen/config/settings.json` (or `/opt/helixscreen/config/` if no Klipper ecosystem) |
+| AD5M Forge-X | `/opt/helixscreen/config/settings.json` |
+| AD5M Klipper Mod | `/root/printer_software/helixscreen/config/settings.json` |
+| K1 Simple AF | `/usr/data/helixscreen/config/settings.json` |
+| Development | `./config/settings.json` (in config/ directory) |
 
 > **Note:** On Pi, the installer auto-detects your Klipper ecosystem. If `~/klipper`, `~/moonraker`, or `~/printer_data` exists, HelixScreen installs to `~/helixscreen`. Otherwise it falls back to `/opt/helixscreen`. You can override with `INSTALL_DIR=/path ./install.sh`.
 
 The configuration file is created automatically by the first-run wizard. You can also copy from the template:
 
 ```bash
-cp config/helixconfig.json.template config/helixconfig.json
+cp config/settings.json.template config/settings.json
 ```
 
-**Note:** Legacy config locations (`helixconfig.json` in app root or `/opt/helixscreen/helixconfig.json`) are automatically migrated to the new location on startup.
+**Note:** Legacy config locations (`settings.json` in app root or `/opt/helixscreen/settings.json`) are automatically migrated to the new location on startup.
 
 ---
 
@@ -696,7 +696,7 @@ If your printer has a chamber heater, bed fans, or recirculation fans that shoul
 
 Multi-line G-code is separated by `\n`. You can also reference a Klipper macro by name (e.g., `"cooldown": "MY_COOLDOWN_MACRO"`).
 
-Configured via **Settings > Printer > Macro Buttons**, or by editing `helixconfig.json` directly.
+Configured via **Settings > Printer > Macro Buttons**, or by editing `settings.json` directly.
 
 ---
 
@@ -1191,9 +1191,9 @@ Located in `printer.capability_overrides`:
 Delete the config file and restart (use your actual install path):
 ```bash
 # Pi with Klipper ecosystem:
-rm ~/helixscreen/config/helixconfig.json
+rm ~/helixscreen/config/settings.json
 # Pi without ecosystem (or if installed to /opt):
-sudo rm /opt/helixscreen/config/helixconfig.json
+sudo rm /opt/helixscreen/config/settings.json
 
 sudo systemctl restart helixscreen
 ```
@@ -1203,13 +1203,51 @@ This triggers the first-run wizard.
 ### Partial Reset
 Edit the config file directly:
 ```bash
-nano ~/helixscreen/config/helixconfig.json
+nano ~/helixscreen/config/settings.json
 ```
 
 Or copy fresh from template:
 ```bash
-cp ~/helixscreen/config/helixconfig.json.template ~/helixscreen/config/helixconfig.json
+cp ~/helixscreen/config/settings.json.template ~/helixscreen/config/settings.json
 ```
+
+---
+
+## Config Safety & Recovery
+
+HelixScreen protects your configuration against corruption and data loss:
+
+### Atomic Saves
+Configuration writes use atomic file operations — data is written to a temporary
+file first, then renamed into place. This prevents partial writes from corrupting
+your config if power is lost during a save.
+
+### Corruption Detection
+If `settings.json` contains invalid JSON (e.g., from manual editing errors),
+HelixScreen detects the parse failure and:
+1. Renames the corrupt file to `settings.json.corrupt` (preserved for diagnosis)
+2. Loads safe defaults
+3. Logs the error with details about what went wrong
+
+### Rolling Backups
+Every successful config save maintains rolling backups in two locations:
+- `/var/lib/helixscreen/settings.json.backup` (primary — survives app reinstalls)
+- `~/.helixscreen/settings.json.backup` (fallback)
+
+If `settings.json` is missing at startup (e.g., after a Moonraker update wipe),
+HelixScreen automatically restores from the most recent backup.
+
+### Recovery Steps
+If your config is lost or corrupted:
+1. **Automatic:** HelixScreen restores from rolling backup on next launch
+2. **Manual:** Check for `settings.json.corrupt` in your config directory — this
+   contains your previous (invalid) config that you can manually fix
+3. **Fresh start:** Copy `settings.json.template` to `settings.json` and re-run
+   the setup wizard
+
+### Migration from helixconfig.json
+Older versions used `helixconfig.json`. HelixScreen automatically renames this to
+`settings.json` on startup — no manual action needed.
 
 ---
 

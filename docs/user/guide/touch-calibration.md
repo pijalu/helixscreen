@@ -93,10 +93,10 @@ Use this for automation, remote management, or when you can't run the app intera
 
    | Platform | Config Path |
    |----------|-------------|
-   | MainsailOS | `~/helixscreen/config/helixconfig.json` |
-   | AD5M Forge-X | `/opt/helixscreen/config/helixconfig.json` |
-   | AD5M Klipper Mod | `/root/printer_software/helixscreen/config/helixconfig.json` |
-   | K1 Simple AF | `/usr/data/helixscreen/config/helixconfig.json` |
+   | MainsailOS | `~/helixscreen/config/settings.json` |
+   | AD5M Forge-X | `/opt/helixscreen/config/settings.json` |
+   | AD5M Klipper Mod | `/root/printer_software/helixscreen/config/settings.json` |
+   | K1 Simple AF | `/usr/data/helixscreen/config/settings.json` |
 
 3. Add `"force_calibration": true` to the `"input"` section:
    ```json
@@ -144,10 +144,10 @@ This resets **all** settings and re-runs the Setup Wizard from scratch, includin
 
 | Platform | Config Path |
 |----------|-------------|
-| MainsailOS | `~/helixscreen/config/helixconfig.json` |
-| AD5M Forge-X | `/opt/helixscreen/config/helixconfig.json` |
-| AD5M Klipper Mod | `/root/printer_software/helixscreen/config/helixconfig.json` |
-| K1 Simple AF | `/usr/data/helixscreen/config/helixconfig.json` |
+| MainsailOS | `~/helixscreen/config/settings.json` |
+| AD5M Forge-X | `/opt/helixscreen/config/settings.json` |
+| AD5M Klipper Mod | `/root/printer_software/helixscreen/config/settings.json` |
+| K1 Simple AF | `/usr/data/helixscreen/config/settings.json` |
 
 ### Calibration Data (`display.calibration`)
 

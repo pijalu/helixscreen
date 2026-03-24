@@ -588,7 +588,7 @@ class GCodeLayerRenderer {
     static constexpr int WARMUP_FRAMES = 2;
     int warmup_frames_remaining_{WARMUP_FRAMES}; ///< Countdown before heavy render starts
 
-    /// Load config values from helixconfig.json
+    /// Load config values from settings.json
     void load_config();
 
     /// Adjust layers_per_frame based on last render time (when config_layers_per_frame_ == 0)

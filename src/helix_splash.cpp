@@ -62,8 +62,8 @@ static constexpr int FRAME_DELAY_US = 16000;  // ~60 FPS
 // Returns configured brightness (10-100) or default_value on failure
 static int read_config_brightness(int default_value = 100) {
     // Try config paths (new location first, then legacy)
-    const char* paths[] = {"config/helixconfig.json", "helixconfig.json",
-                           "/opt/helixscreen/helixconfig.json"};
+    const char* paths[] = {"config/settings.json", "config/helixconfig.json",
+                           "helixconfig.json", "/opt/helixscreen/helixconfig.json"};
 
     for (const char* path : paths) {
         std::ifstream file(path);
@@ -100,8 +100,8 @@ static constexpr uint32_t BG_COLOR_3D_LIGHT =
 // Read dark_mode setting from config file (same parsing approach as brightness)
 // Returns configured value or default_value on failure
 static bool read_config_dark_mode(bool default_value = true) {
-    const char* paths[] = {"config/helixconfig.json", "helixconfig.json",
-                           "/opt/helixscreen/helixconfig.json"};
+    const char* paths[] = {"config/settings.json", "config/helixconfig.json",
+                           "helixconfig.json", "/opt/helixscreen/helixconfig.json"};
 
     for (const char* path : paths) {
         std::ifstream file(path);

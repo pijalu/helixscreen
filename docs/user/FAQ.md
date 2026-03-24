@@ -368,7 +368,7 @@ The wizard runs when no valid configuration exists. Causes:
 2. Config file has invalid JSON
 3. Permissions prevent reading config
 
-**Fix:** Check `/opt/helixscreen/config/helixconfig.json` exists and is valid JSON.
+**Fix:** Check `/opt/helixscreen/config/settings.json` exists and is valid JSON.
 
 ### How do I change the Moonraker address?
 
@@ -376,7 +376,7 @@ There's currently no UI to change this after initial setup. Your options:
 
 **Edit the config file directly:**
 ```bash
-sudo nano /opt/helixscreen/config/helixconfig.json
+sudo nano /opt/helixscreen/config/settings.json
 # Edit moonraker_host and moonraker_port in the "printer" section
 sudo systemctl restart helixscreen
 ```
@@ -384,7 +384,7 @@ sudo systemctl restart helixscreen
 **Or re-run the setup wizard:**
 ```bash
 # Either delete the config to trigger wizard on next start:
-sudo rm /opt/helixscreen/config/helixconfig.json
+sudo rm /opt/helixscreen/config/settings.json
 sudo systemctl restart helixscreen
 
 # Or force wizard with command-line flag:

@@ -1114,7 +1114,7 @@ void UpdateChecker::do_install(const std::string& tarball_path) {
     // by Config::save(). Config::init() auto-restores from either location.
     {
         if (!install_root.empty()) {
-            std::string config_src = install_root + "/config/helixconfig.json";
+            std::string config_src = install_root + "/config/settings.json";
             std::string env_src = install_root + "/config/helixscreen.env";
             const std::string cp_bin = resolve_tool("cp");
             const std::string mkdir_bin = resolve_tool("mkdir");

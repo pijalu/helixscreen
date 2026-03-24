@@ -107,7 +107,7 @@ PrinterState::PrinterState() {
     // - printer_connection_message_buf_ is now in network_state_ component
     // - klipper_version_buf_, moonraker_version_buf_ are now in versions_state_ component
 
-    // Load user-configured capability overrides from helixconfig.json
+    // Load user-configured capability overrides from settings.json
     capability_overrides_.load_from_config();
 }
 

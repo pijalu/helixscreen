@@ -61,7 +61,7 @@ $(BUILD_DIR)/watchdog/%.o: src/%.cpp $(LIBHV_LIB) $(LIBHV_JSON_HEADER) | $(BUILD
 	@echo "[CXX] $< (watchdog)"
 	$(Q)$(CXX) $(WATCHDOG_CXXFLAGS) $(DEPFLAGS) -c $< -o $@
 
-# Watchdog needs config.o (for reading helixconfig.json), backlight_backend.o,
+# Watchdog needs config.o (for reading settings.json), backlight_backend.o,
 # logging_init.o (for spdlog journal/syslog detection), and notification stub.
 # Note: config.o must be compiled separately with HELIX_WATCHDOG to skip runtime_config dependency.
 WATCHDOG_EXTRA_OBJS := $(BUILD_DIR)/watchdog/config.o \

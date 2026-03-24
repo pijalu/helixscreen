@@ -222,8 +222,8 @@ See [docs/user/FAQ.md](docs/user/FAQ.md) for the full FAQ.
 |-------|----------|
 | SDL2 or build tools missing | `make install-deps` |
 | Submodule empty | `git submodule update --init --recursive` |
-| Can't connect to Moonraker | Check IP/port in helixconfig.json |
-| Wizard not showing | Delete helixconfig.json to trigger it |
+| Can't connect to Moonraker | Check IP/port in settings.json |
+| Wizard not showing | Delete settings.json to trigger it |
 | Display upside down | Set rotation in settings or check `panel_orientation` in `/proc/cmdline` |
 
 See [docs/user/TROUBLESHOOTING.md](docs/user/TROUBLESHOOTING.md) for more solutions, or open a [GitHub issue](https://github.com/prestonbrown/helixscreen/issues).

@@ -57,7 +57,7 @@ setup_existing_install() {
     mkdir -p "$INSTALL_DIR/config"
     mkdir -p "$INSTALL_DIR/ui_xml"
     echo "old binary" > "$INSTALL_DIR/bin/helix-screen"
-    echo '{"old": true}' > "$INSTALL_DIR/config/helixconfig.json"
+    echo '{"old": true}' > "$INSTALL_DIR/config/settings.json"
     echo "old xml" > "$INSTALL_DIR/ui_xml/old.xml"
 }
 
@@ -98,8 +98,8 @@ mock_has_privs() {
 
     extract_release "pi"
 
-    [ -f "$INSTALL_DIR/config/helixconfig.json" ]
-    grep -q '"old"' "$INSTALL_DIR/config/helixconfig.json"
+    [ -f "$INSTALL_DIR/config/settings.json" ]
+    grep -q '"old"' "$INSTALL_DIR/config/settings.json"
 }
 
 @test "self-update: atomic swap replaces non-config contents" {
@@ -151,8 +151,8 @@ mock_has_privs() {
     extract_release "pi"
     chmod u+w "$BATS_TEST_TMPDIR/opt"
 
-    [ -f "$INSTALL_DIR/config/helixconfig.json" ]
-    grep -q '"old"' "$INSTALL_DIR/config/helixconfig.json"
+    [ -f "$INSTALL_DIR/config/settings.json" ]
+    grep -q '"old"' "$INSTALL_DIR/config/settings.json"
 }
 
 @test "self-update: in-place replaces non-config contents" {
@@ -195,8 +195,8 @@ mock_has_privs() {
     [ -f "$INSTALL_DIR/config/new_feature.json" ]
     grep -q '"new_default"' "$INSTALL_DIR/config/new_feature.json"
     # Existing config should be untouched
-    [ -f "$INSTALL_DIR/config/helixconfig.json" ]
-    grep -q '"old"' "$INSTALL_DIR/config/helixconfig.json"
+    [ -f "$INSTALL_DIR/config/settings.json" ]
+    grep -q '"old"' "$INSTALL_DIR/config/settings.json"
 }
 
 # =============================================================================

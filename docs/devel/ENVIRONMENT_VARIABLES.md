@@ -211,7 +211,7 @@ HELIX_DISPLAY_ROTATION=180 ./build/bin/helix-screen
 **Priority order:**
 1. `HELIX_DISPLAY_ROTATION` environment variable (highest)
 2. `--rotate <degrees>` CLI flag
-3. `/display/rotate` in `helixconfig.json`
+3. `/display/rotate` in `settings.json`
 4. Default: `0` (no rotation)
 
 **Note:** Software rotation is only supported on embedded backends (fbdev/DRM). On SDL (desktop dev), rotation is logged as a warning and skipped due to LVGL's DIRECT render mode limitation.
@@ -242,7 +242,7 @@ HELIX_FORCE_ROTATION_PROBE=1 ./build/bin/helix-screen
 - On first boot with no configured rotation (fbdev only), HelixScreen cycles through 0°, 90°, 180°, 270° showing "Tap anywhere if this text is right-side up" for 5 seconds each
 - Two-tap confirmation: after initial tap, shows "Tap again to confirm" (10s timeout) to prevent accidental selection
 - Loops continuously until user confirms — does not exit after one cycle
-- Saves the confirmed rotation to `/display/rotate` in `helixconfig.json`
+- Saves the confirmed rotation to `/display/rotate` in `settings.json`
 - Sets `/display/rotation_probed` flag so it doesn't re-run on subsequent boots
 - Skips entirely if: rotation is already configured (config, env var, or CLI), or the probe has already run
 - Runs after translations are loaded (Phase 8c) so probe strings are translatable via `lv_tr()`
@@ -484,7 +484,7 @@ Control G-code streaming mode for memory-efficient loading of large files. Strea
 |----------|-------|
 | **Values** | `on` (always stream), `off` (always full load), `auto` (calculate based on RAM) |
 | **Default** | `auto` |
-| **Config** | `gcode_viewer.streaming_mode` in `helixconfig.json` |
+| **Config** | `gcode_viewer.streaming_mode` in `settings.json` |
 | **File** | `src/gcode_streaming_config.cpp` |
 
 **Priority order:**
@@ -1004,7 +1004,7 @@ The launcher translates this to `--log-level=<value>` on the CLI. Equivalent CLI
 1. CLI `--log-level` / `-v` flags (highest)
 2. `HELIX_LOG_LEVEL` env var
 3. `HELIX_DEBUG=1` (legacy, maps to debug level)
-4. Config `log_level` in `helixconfig.json`
+4. Config `log_level` in `settings.json`
 5. Default: `warn`
 
 ### `HELIX_SKIP_SPLASH`

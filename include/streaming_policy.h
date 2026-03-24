@@ -19,7 +19,7 @@
  *       // Small file - in-memory operations are acceptable
  *   }
  *
- * Configuration (helixconfig.json):
+ * Configuration (settings.json):
  *   {
  *     "streaming": {
  *       "threshold_bytes": 0,      // 0 = auto-detect from RAM
@@ -117,7 +117,7 @@ class StreamingPolicy {
      * Environment variables:
      *   - HELIX_FORCE_STREAMING=1 - Force streaming for all file operations
      *
-     * Config file (helixconfig.json):
+     * Config file (settings.json):
      *   - /streaming/force_streaming: bool - Force streaming mode
      *   - /streaming/threshold_mb: int - Threshold in MB (0 = auto-detect)
      */

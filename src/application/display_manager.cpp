@@ -338,7 +338,7 @@ bool DisplayManager::init(const Config& config) {
                 "Ensure user is in 'input' group: sudo usermod -aG input $USER",
                 "Check touchscreen driver is loaded: dmesg | grep -i touch",
                 "Set HELIX_TOUCH_DEVICE=/dev/input/eventX to override",
-                "Add \"touch_device\": \"/dev/input/event1\" to helixconfig.json",
+                "Add \"touch_device\": \"/dev/input/event1\" to settings.json",
                 nullptr};
 
             ui_show_fatal_error("No Input Device",
@@ -1063,7 +1063,7 @@ bool DisplayManager::try_drm_to_fbdev_fallback(lv_display_rotation_t rot, bool s
                       "For DSI/EGL displays, use the kernel panel_orientation parameter "
                       "instead: add panel_orientation=right_side_up (or left_side_up, "
                       "upside_down) to /boot/firmware/cmdline.txt and remove the "
-                      "\"rotate\" key from helixconfig.json.");
+                      "\"rotate\" key from settings.json.");
         return false;
     }
     spdlog::info("[DisplayManager] Fbdev fallback succeeded at {}x{}", m_width, m_height);

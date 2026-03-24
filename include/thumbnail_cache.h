@@ -390,7 +390,7 @@ class ThumbnailCache {
     static std::string determine_cache_dir();
 
     /**
-     * @brief Load cache settings from helixconfig.json
+     * @brief Load cache settings from settings.json
      *
      * Reads cache/thumbnail_max_mb, cache/disk_critical_mb, cache/disk_low_mb.
      * Falls back to defaults if config not available.

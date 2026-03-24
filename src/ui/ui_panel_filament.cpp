@@ -1423,7 +1423,7 @@ void FilamentPanel::handle_cooldown() {
     spdlog::info("[{}] Cooldown requested - turning off heaters", get_name());
 
     if (api_) {
-        // Use configured cooldown macro (user-overridable in helixconfig.json)
+        // Use configured cooldown macro (user-overridable in settings.json)
         auto* cfg = helix::Config::get_instance();
         helix::MacroConfig default_cooldown{
             "Cool Down",

@@ -116,12 +116,12 @@ static void setup_signal_handlers() {
 // =============================================================================
 
 /**
- * @brief Read auto_restart_sec from helixconfig.json
+ * @brief Read auto_restart_sec from settings.json
  * @return Timeout in seconds (0 = disabled), or default on failure
  */
 static int read_auto_restart_timeout() {
-    const char* paths[] = {"config/helixconfig.json", "helixconfig.json",
-                           "/opt/helixscreen/helixconfig.json"};
+    const char* paths[] = {"config/settings.json", "config/helixconfig.json",
+                           "helixconfig.json", "/opt/helixscreen/helixconfig.json"};
 
     for (const char* path : paths) {
         std::ifstream file(path);
@@ -147,11 +147,11 @@ static int read_auto_restart_timeout() {
 }
 
 /**
- * @brief Read brightness from helixconfig.json (same as splash)
+ * @brief Read brightness from settings.json (same as splash)
  */
 static int read_config_brightness(int default_value = 100) {
-    const char* paths[] = {"config/helixconfig.json", "helixconfig.json",
-                           "/opt/helixscreen/helixconfig.json"};
+    const char* paths[] = {"config/settings.json", "config/helixconfig.json",
+                           "helixconfig.json", "/opt/helixscreen/helixconfig.json"};
 
     for (const char* path : paths) {
         std::ifstream file(path);
@@ -721,7 +721,7 @@ static DialogChoice show_crash_dialog(int width, int height, int rotation, const
     spdlog::info("[Watchdog] Showing crash dialog (auto_restart={}s)", auto_restart_sec);
 
     // Initialize config so touch calibration data is available
-    helix::Config::get_instance()->init("config/helixconfig.json");
+    helix::Config::get_instance()->init("config/settings.json");
 
     // Initialize LVGL
     lv_init();

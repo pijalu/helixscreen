@@ -4,10 +4,10 @@ Platform-specific default configurations for known-hardware builds.
 
 ## How Presets Work
 
-For supported platforms (like AD5M), the preset is baked into the release package as `helixconfig.json` by `scripts/package.sh` using convention-based lookup: if `config/presets/<PLATFORM_TARGET>.json` exists, it's used automatically.
+For supported platforms (like AD5M), the preset is baked into the release package as `settings.json` by `scripts/package.sh` using convention-based lookup: if `config/presets/<PLATFORM_TARGET>.json` exists, it's used automatically.
 
 - **Fresh installs**: Preset is used, abbreviated wizard runs (language + telemetry only)
-- **Upgrades**: Existing `helixconfig.json` is preserved (backup/restore in installer)
+- **Upgrades**: Existing `settings.json` is preserved (backup/restore in installer)
 
 The preset sets `wizard_completed: false` so the abbreviated wizard runs on first boot. The `preset` field triggers **preset mode**, which skips all hardware configuration steps since the answers are already known.
 
@@ -43,7 +43,7 @@ What's NOT in presets:
 ## Creating New Presets
 
 1. Run through the setup wizard on the target hardware
-2. Copy the generated `helixconfig.json`
+2. Copy the generated `settings.json`
 3. Add `"preset": "<platform>"` field
 4. Set `"wizard_completed": false`
 5. Remove: `printer.type`, `hardware.last_snapshot`, `hardware.optional`

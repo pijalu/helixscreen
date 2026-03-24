@@ -134,8 +134,11 @@ constexpr uint32_t FAST_DURATION_MS = 150;
  */
 namespace Update {
 /// Primary backup — systemd StateDirectory (/var/lib/helixscreen/)
-constexpr const char* CONFIG_BACKUP_PRIMARY = "/var/lib/helixscreen/helixconfig.json.backup";
+constexpr const char* CONFIG_BACKUP_PRIMARY = "/var/lib/helixscreen/settings.json.backup";
 constexpr const char* ENV_BACKUP_PRIMARY = "/var/lib/helixscreen/helixscreen.env.backup";
+
+/// Legacy backup paths (for migration)
+constexpr const char* LEGACY_CONFIG_BACKUP_PRIMARY = "/var/lib/helixscreen/helixconfig.json.backup";
 
 /// Fallback backup — $HOME/.helixscreen/ (writable without StateDirectory)
 inline std::string backup_fallback_dir() {
@@ -143,6 +146,9 @@ inline std::string backup_fallback_dir() {
     return std::string(home ? home : "/tmp") + "/.helixscreen";
 }
 inline std::string config_backup_fallback() {
+    return backup_fallback_dir() + "/settings.json.backup";
+}
+inline std::string legacy_config_backup_fallback() {
     return backup_fallback_dir() + "/helixconfig.json.backup";
 }
 inline std::string env_backup_fallback() {

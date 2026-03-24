@@ -297,3 +297,19 @@ TEST_CASE("full backup-restore cycle survives simulated Moonraker wipe", "[confi
     REQUIRE(read_file(config_path) == R"({"printer":"voron"})");
     REQUIRE(read_file(env_path) == "MOONRAKER_HOST=192.168.1.100");
 }
+
+TEST_CASE("restore_from_backup falls back to legacy backup names", "[config_backup]") {
+    TmpDir dir("legacy_backup");
+
+    std::string legacy_backup = dir.file("helixconfig.json.backup");
+    std::string target = dir.file("settings.json");
+    write_file(legacy_backup,
+               R"({"config_version": 8, "printers": [{"name": "test", "moonraker_address": "127.0.0.1"}]})");
+
+    std::string new_backup = dir.file("settings.json.backup");
+    bool restored = restore_from_backup(target, "Config",
+                                         {new_backup, legacy_backup});
+
+    REQUIRE(restored);
+    REQUIRE(fs::exists(target));
+}

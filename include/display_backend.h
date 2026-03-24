@@ -122,7 +122,7 @@ inline int detect_panel_orientation_from_cmdline() {
 }
 
 /**
- * @brief Read display rotation from helixconfig.json
+ * @brief Read display rotation from settings.json
  *
  * Searches standard config paths for the /display/rotate field.
  * Used by watchdog and splash binaries which don't use the full Config system.
@@ -131,8 +131,8 @@ inline int detect_panel_orientation_from_cmdline() {
  * @return Rotation in degrees (0, 90, 180, 270)
  */
 inline int read_config_rotation(int default_value = 0) {
-    const char* paths[] = {"config/helixconfig.json", "helixconfig.json",
-                           "/opt/helixscreen/helixconfig.json"};
+    const char* paths[] = {"config/settings.json", "config/helixconfig.json",
+                           "helixconfig.json", "/opt/helixscreen/helixconfig.json"};
 
     for (const char* path : paths) {
         std::ifstream file(path);

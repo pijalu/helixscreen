@@ -534,7 +534,7 @@ HelixScreen supports layout-specific XML overrides so you can rearrange panels f
 | `tiny` | Max dimension <= 480, landscape | 480x320, 320x240 |
 | `tiny-portrait` | Max dimension <= 480, portrait | 320x480, 240x320 |
 
-Force a layout with `--layout ultrawide` on the command line, or set `display.layout` in `helixconfig.json`.
+Force a layout with `--layout ultrawide` on the command line, or set `display.layout` in `settings.json`.
 
 ### Directory structure
 

@@ -70,7 +70,7 @@ create_wrong_arch_tarball() {
 create_tarball_no_binary() {
     local staging="$BATS_TEST_TMPDIR/staging"
     mkdir -p "$staging/helixscreen/config"
-    echo '{}' > "$staging/helixscreen/config/helixconfig.json"
+    echo '{}' > "$staging/helixscreen/config/settings.json"
 
     tar -czf "$TMP_DIR/helixscreen.tar.gz" -C "$staging" helixscreen
     rm -rf "$staging"
@@ -81,7 +81,7 @@ setup_existing_install() {
     mkdir -p "$INSTALL_DIR/bin"
     mkdir -p "$INSTALL_DIR/config"
     echo "old binary" > "$INSTALL_DIR/bin/helix-screen"
-    echo '{"old": true}' > "$INSTALL_DIR/config/helixconfig.json"
+    echo '{"old": true}' > "$INSTALL_DIR/config/settings.json"
 }
 
 # --- Fresh install tests ---
@@ -115,9 +115,9 @@ setup_existing_install() {
     setup_existing_install
     create_test_tarball "ad5m"
     extract_release "ad5m"
-    [ -f "$INSTALL_DIR/config/helixconfig.json" ]
+    [ -f "$INSTALL_DIR/config/settings.json" ]
     # Config should contain old content
-    grep -q '"old"' "$INSTALL_DIR/config/helixconfig.json"
+    grep -q '"old"' "$INSTALL_DIR/config/settings.json"
 }
 
 # --- Architecture mismatch with rollback ---
@@ -129,7 +129,7 @@ setup_existing_install() {
     [ "$status" -ne 0 ]
     # Old installation should still be in place (validation happens before swap)
     [ -f "$INSTALL_DIR/bin/helix-screen" ]
-    [ -f "$INSTALL_DIR/config/helixconfig.json" ]
+    [ -f "$INSTALL_DIR/config/settings.json" ]
 }
 
 @test "extract_release: wrong arch cleans up extract dir" {
@@ -366,11 +366,11 @@ echo "tmpfs       51200     48640  2560       95% /tmp"
 @test "extract_release: preserves legacy config location" {
     mkdir -p "$INSTALL_DIR/bin"
     echo "old" > "$INSTALL_DIR/bin/helix-screen"
-    echo '{"legacy": true}' > "$INSTALL_DIR/helixconfig.json"
+    echo '{"legacy": true}' > "$INSTALL_DIR/settings.json"
 
     create_test_tarball "ad5m"
     extract_release "ad5m"
     # Config should be migrated to new location
-    [ -f "$INSTALL_DIR/config/helixconfig.json" ]
-    grep -q '"legacy"' "$INSTALL_DIR/config/helixconfig.json"
+    [ -f "$INSTALL_DIR/config/settings.json" ]
+    grep -q '"legacy"' "$INSTALL_DIR/config/settings.json"
 }

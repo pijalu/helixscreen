@@ -197,7 +197,7 @@ clean_old_installation() {
     log_warn ""
     log_warn "This will PERMANENTLY DELETE:"
     log_warn "  - All HelixScreen files in ${INSTALL_DIR}"
-    log_warn "  - Your configuration (helixconfig.json)"
+    log_warn "  - Your configuration (settings.json)"
     log_warn "  - Thumbnail cache files"
     log_warn ""
 

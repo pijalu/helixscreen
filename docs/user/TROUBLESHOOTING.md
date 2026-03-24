@@ -102,7 +102,7 @@ sudo journalctl -u helixscreen -f
 
 **Specify the DRM device explicitly:**
 ```json
-// ~/helixscreen/config/helixconfig.json (or /opt/helixscreen/config/)
+// ~/helixscreen/config/settings.json (or /opt/helixscreen/config/)
 {
   "display": {
     "drm_device": "/dev/dri/card1"
@@ -228,7 +228,7 @@ iw wlan0 set power_save off
 
 **Increase Moonraker timeouts:**
 ```json
-// /opt/helixscreen/config/helixconfig.json
+// /opt/helixscreen/config/settings.json
 {
   "printer": {
     "moonraker_connection_timeout_ms": 15000,
@@ -385,7 +385,7 @@ sudo usermod -aG video $USER
 
 **For DRM displays, specify device:**
 ```json
-// /opt/helixscreen/config/helixconfig.json
+// /opt/helixscreen/config/settings.json
 {
   "display": {
     "drm_device": "/dev/dri/card1"
@@ -445,7 +445,7 @@ Valid orientations: `normal`, `upside_down`, `left_side_up`, `right_side_up`. He
 
 **Manual rotation:**
 
-Edit your config file (typically `~/helixscreen/config/helixconfig.json` or `/opt/helixscreen/config/helixconfig.json`):
+Edit your config file (typically `~/helixscreen/config/settings.json` or `/opt/helixscreen/config/settings.json`):
 
 ```json
 {
@@ -614,7 +614,7 @@ sudo evtest /dev/input/event0
 
 **Specify touch device in config:**
 ```json
-// /opt/helixscreen/config/helixconfig.json
+// /opt/helixscreen/config/settings.json
 {
   "input": {
     "touch_device": "/dev/input/event1"
@@ -644,7 +644,7 @@ sudo usermod -aG input $USER
 **Solution:** HelixScreen includes a jitter filter (enabled by default, 15px dead zone) that suppresses this noise. If taps still register as swipes, increase the threshold:
 
 ```json
-// /opt/helixscreen/config/helixconfig.json
+// /opt/helixscreen/config/settings.json
 {
   "input": {
     "jitter_threshold": 25
@@ -1106,12 +1106,12 @@ max_job_count: 100
 
 **Check config exists and is valid JSON** (use your actual install path):
 ```bash
-cat ~/helixscreen/config/helixconfig.json | jq .
+cat ~/helixscreen/config/settings.json | jq .
 ```
 
 If the file is missing or invalid, the wizard will run. After completing the wizard, verify:
 ```bash
-grep wizard_completed ~/helixscreen/config/helixconfig.json
+grep wizard_completed ~/helixscreen/config/settings.json
 # Should show: "wizard_completed": true
 ```
 
@@ -1123,8 +1123,8 @@ ls -la ~/helixscreen/config/
 
 **Create fresh config from template:**
 ```bash
-cp ~/helixscreen/config/helixconfig.json.template \
-   ~/helixscreen/config/helixconfig.json
+cp ~/helixscreen/config/settings.json.template \
+   ~/helixscreen/config/settings.json
 ```
 
 > **Note:** Copying the template creates a valid config but with `wizard_completed: false`, so the wizard will still run once to configure your printer.
@@ -1158,7 +1158,7 @@ dmesg | grep -i "read.only\|error\|fault"
 
 **Try manual edit to verify:**
 ```bash
-sudo nano /opt/helixscreen/config/helixconfig.json
+sudo nano /opt/helixscreen/config/settings.json
 # Make change, save, restart
 sudo systemctl restart helixscreen
 # Check if change persisted
@@ -1175,12 +1175,12 @@ sudo systemctl restart helixscreen
 **Solutions:**
 
 **Re-run wizard:**
-1. Delete config: `rm ~/helixscreen/config/helixconfig.json`
+1. Delete config: `rm ~/helixscreen/config/settings.json`
 2. Restart: `sudo systemctl restart helixscreen`
 3. Manually select correct printer in wizard
 
 **Manual configuration:**
-Edit `~/helixscreen/config/helixconfig.json` to set correct printer type and features.
+Edit `~/helixscreen/config/settings.json` to set correct printer type and features.
 
 ---
 
@@ -1445,7 +1445,7 @@ tail -f /tmp/helixscreen.log
 ```bash
 # Current config (sanitize API keys before sharing!)
 # Pi: ~/helixscreen/config/ or /opt/helixscreen/config/
-cat ~/helixscreen/config/helixconfig.json
+cat ~/helixscreen/config/settings.json
 ```
 
 ### Display Information

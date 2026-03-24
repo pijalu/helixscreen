@@ -59,13 +59,13 @@
 #   --platform PLATFORM   Target platform to build and serve (default: pi).
 #                         See platform list above.
 #   --configure-remote    SSH into the device, write dev channel + dev_url into
-#                         helixconfig.json, enable HELIX_LOG_LEVEL=debug in
+#                         settings.json, enable HELIX_LOG_LEVEL=debug in
 #                         helixscreen.env for debug logging, copy install.sh to
 #                         /tmp/ for local install testing, and restart the
 #                         helixscreen service. Run once per device (or after a
 #                         factory reset). Requires SSH key access.
 #                         Note: uses Pi paths (~/helixscreen/). For other
-#                         platforms configure helixconfig.json manually.
+#                         platforms configure settings.json manually.
 #   --no-bump             Serve the exact version from VERSION.txt instead of
 #                         99.0.0. Useful if you manually set a higher version.
 #   --no-build            Skip compile + package. Patches install.sh from the
@@ -77,7 +77,7 @@
 # DEPENDENCIES
 # ------------
 #   - Docker (for *-docker cross-compilation targets)
-#   - python3 (for the HTTP server and device helixconfig.json patch)
+#   - python3 (for the HTTP server and device settings.json patch)
 #   - ssh + scp with key for $HELIX_TEST_USERNAME@$HELIX_TEST_PRINTER
 #   - rsync (used by package.sh)
 #
@@ -89,7 +89,7 @@
 #     (< 99.0.0), so the next run will again offer an update — intentional
 #     for iteration.
 #   - To reset the device back to the stable channel, re-run --configure-remote
-#     after removing the dev_url key, or delete helixconfig.json on the device.
+#     after removing the dev_url key, or delete settings.json on the device.
 
 set -euo pipefail
 
@@ -275,12 +275,15 @@ if [[ $CONFIGURE_REMOTE -eq 1 ]]; then
     ssh "${USERNAME}@${PRINTER}" "python3 -c \"
 import json, os, re
 
-# Write dev channel + dev_url into helixconfig.json (read by Config::get_instance())
-path = os.path.expanduser('~/helixscreen/config/helixconfig.json')
+# Write dev channel + dev_url into settings.json (read by Config::get_instance())
+path = os.path.expanduser('~/helixscreen/config/settings.json')
 if not os.path.exists(path):
-    print('  ERROR: helixconfig.json not found at', path)
-    print('  Run the HelixScreen setup wizard first, then re-run --configure-remote.')
-    raise SystemExit(1)
+    # Try legacy name
+    path = os.path.expanduser('~/helixscreen/config/helixconfig.json')
+    if not os.path.exists(path):
+        print('  ERROR: settings.json not found at ~/helixscreen/config/')
+        print('  Run the HelixScreen setup wizard first, then re-run --configure-remote.')
+        raise SystemExit(1)
 with open(path) as f:
     data = json.load(f)
 data.setdefault('update', {})
@@ -332,7 +335,7 @@ print('  HELIX_LOG_LEVEL=debug  (debug logging enabled in', env_path + ')')
     echo "[serve-local-update] Restarting helix-screen on ${USERNAME}@${PRINTER} ..."
     ssh "${USERNAME}@${PRINTER}" "sudo systemctl restart helixscreen"
     echo "[serve-local-update] helix-screen restarted."
-    echo "  To revert: remove update/dev_url from ~/helixscreen/config/helixconfig.json on the device."
+    echo "  To revert: remove update/dev_url from ~/helixscreen/config/settings.json on the device."
     echo ""
 fi
 

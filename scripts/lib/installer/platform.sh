@@ -437,7 +437,7 @@ set_install_paths() {
 # These are the files users may want to edit from Fluidd/Mainsail, and that
 # the app writes to at runtime. All other files in INSTALL_DIR/config/ are
 # static assets reinstalled on each update.
-HELIX_USER_CONFIG_FILES="helixconfig.json helixscreen.env .disabled_services tool_spools.json"
+HELIX_USER_CONFIG_FILES="settings.json helixscreen.env .disabled_services tool_spools.json"
 
 # Set up editable config directory in printer_data/config/helixscreen/.
 #
@@ -448,8 +448,8 @@ HELIX_USER_CONFIG_FILES="helixconfig.json helixscreen.env .disabled_services too
 #
 # Layout after setup:
 #   ~/printer_data/config/helixscreen/           (real directory)
-#   ~/printer_data/config/helixscreen/helixconfig.json  (real file)
-#   ~/helixscreen/config/helixconfig.json → above       (symlink)
+#   ~/printer_data/config/helixscreen/settings.json     (real file)
+#   ~/helixscreen/config/settings.json → above          (symlink)
 #
 # On upgrade from old layout, migrates files from install dir to printer_data.
 # Reads: KLIPPER_HOME, INSTALL_DIR
@@ -492,6 +492,17 @@ setup_config_symlink() {
             log_warn "Could not create $pd_helix (permission denied?)"
             return 0
         fi
+    fi
+
+    # --- Migrate helixconfig.json → settings.json in printer_data if needed ---
+    if [ -f "${pd_helix}/helixconfig.json" ] && [ ! -f "${pd_helix}/settings.json" ]; then
+        $(file_sudo "$pd_helix") mv "${pd_helix}/helixconfig.json" "${pd_helix}/settings.json"
+        log_info "Migrated printer_data config: helixconfig.json → settings.json"
+    fi
+    # Remove old symlink if it exists (new one will be created by HELIX_USER_CONFIG_FILES loop)
+    if [ -L "${install_config}/helixconfig.json" ]; then
+        $(file_sudo "$install_config") rm "${install_config}/helixconfig.json"
+        log_info "Removed old helixconfig.json symlink"
     fi
 
     # --- Set up per-file symlinks ---

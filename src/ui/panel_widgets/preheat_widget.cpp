@@ -305,7 +305,7 @@ void PreheatWidget::handle_cooldown() {
         return;
     }
 
-    // Use configured cooldown macro (user-overridable in helixconfig.json)
+    // Use configured cooldown macro (user-overridable in settings.json)
     auto* cfg = Config::get_instance();
     MacroConfig default_cooldown{"Cool Down",
                                  "SET_HEATER_TEMPERATURE HEATER=extruder TARGET=0\n"

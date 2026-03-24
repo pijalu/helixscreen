@@ -78,7 +78,7 @@ channel: stable
 repo: prestonbrown/helixscreen
 path: /opt/helixscreen
 persistent_files:
-    config/helixconfig.json
+    config/settings.json
     config/.disabled_services
 CONF
 }
@@ -549,7 +549,7 @@ CONF
 
     # persistent_files should now be present
     awk '/^\[update_manager helixscreen\]/{found=1} found && /^\[update_manager klipper\]/{exit} found' "$conf" | grep -q 'persistent_files:'
-    awk '/^\[update_manager helixscreen\]/{found=1} found && /^\[update_manager klipper\]/{exit} found' "$conf" | grep -q 'config/helixconfig.json'
+    awk '/^\[update_manager helixscreen\]/{found=1} found && /^\[update_manager klipper\]/{exit} found' "$conf" | grep -q 'config/settings.json'
     awk '/^\[update_manager helixscreen\]/{found=1} found && /^\[update_manager klipper\]/{exit} found' "$conf" | grep -q 'config/helixscreen.env'
 }
 
@@ -637,5 +637,5 @@ CONF
 
     # persistent_files should have been added
     awk '/^\[update_manager helixscreen\]/{found=1} found' "$conf" | grep -q 'persistent_files:'
-    awk '/^\[update_manager helixscreen\]/{found=1} found' "$conf" | grep -q 'config/helixconfig.json'
+    awk '/^\[update_manager helixscreen\]/{found=1} found' "$conf" | grep -q 'config/settings.json'
 }

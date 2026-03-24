@@ -38,7 +38,7 @@ enum class FilamentSensorType {
 /**
  * @brief User configuration for a single filament sensor.
  *
- * Stored in helixconfig.json and loaded at startup.
+ * Stored in settings.json and loaded at startup.
  */
 struct FilamentSensorConfig {
     std::string klipper_name; ///< Full Klipper object name, e.g. "filament_switch_sensor fsensor"
@@ -95,7 +95,7 @@ inline const char* role_to_display_string(FilamentSensorRole role) {
 /**
  * @brief Convert FilamentSensorRole to config string.
  * @param role The role to convert
- * @return Config-safe string for helixconfig.json storage
+ * @return Config-safe string for settings.json storage
  */
 inline const char* role_to_config_string(FilamentSensorRole role) {
     switch (role) {

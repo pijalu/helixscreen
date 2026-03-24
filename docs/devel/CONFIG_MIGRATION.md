@@ -8,7 +8,7 @@ How the versioned config migration system works, how to add new migrations, and 
 
 ## Overview
 
-HelixScreen stores user configuration in a JSON file (`config/helixconfig.json`). As the application evolves, the config schema changes: keys get renamed, defaults change, new sections appear. The migration system handles upgrading existing configs automatically so users never need to hand-edit JSON.
+HelixScreen stores user configuration in a JSON file (`config/settings.json`). As the application evolves, the config schema changes: keys get renamed, defaults change, new sections appear. The migration system handles upgrading existing configs automatically so users never need to hand-edit JSON.
 
 There are two migration layers:
 
@@ -277,9 +277,20 @@ These still run on every `init()` call for backward compatibility with very old 
 Run HelixScreen with `-vv` (DEBUG) to see migration log output:
 
 ```
-[Config] Loading config from config/helixconfig.json
+[Config] Loading config from config/settings.json
 [Config] Migration v1: disabled sounds_enabled for existing config
 [Config] Migration v2: converted LED 'neopixel chamber_light' from /printer/leds/strip to /printer/leds/selected array
 ```
 
-If a config file is corrupt (unparseable JSON), `init()` backs it up as `helixconfig.json.corrupt` and creates a fresh default config.
+If a config file is corrupt (unparseable JSON), `init()` backs it up as `settings.json.corrupt` and creates a fresh default config.
+
+---
+
+## Config File Rename (v0.X.X)
+
+The config file was renamed from `helixconfig.json` to `settings.json`. Migration
+is automatic:
+- C++ `Config::init()` renames the file on disk if the old name is found
+- The installer checks for old names during backup/restore
+- Rolling backups fall back to old names if new-named backups don't exist
+- Template renamed from `helixconfig.json.template` to `settings.json.template`

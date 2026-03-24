@@ -43,7 +43,7 @@ Tap **Display Settings** to open an overlay with detailed display options:
 
 On first boot, HelixScreen automatically detects your display orientation. It cycles through rotation options — tap the screen when the text appears right-side up, then tap again to confirm. The setting is saved and touch coordinates adjust automatically.
 
-To change rotation manually, edit `display.rotate` in `helixconfig.json` (values: `0`, `90`, `180`, `270`) and restart HelixScreen. To re-run automatic detection, remove both `rotate` and `rotation_probed` from the `display` section and restart.
+To change rotation manually, edit `display.rotate` in `settings.json` (values: `0`, `90`, `180`, `270`) and restart HelixScreen. To re-run automatic detection, remove both `rotate` and `rotation_probed` from the `display` section and restart.
 
 > **Note:** Rotation is not exposed in the Settings UI because it requires restarting all three binaries (main app, splash screen, watchdog).
 

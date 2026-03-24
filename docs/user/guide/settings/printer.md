@@ -86,7 +86,7 @@ SET_HEATER_TEMPERATURE HEATER=heater_bed TARGET=0
 SET_FAN_SPEED FAN=bed_fan SPEED=0
 ```
 
-For advanced configuration via `helixconfig.json`, see the [default_macros reference](../../CONFIGURATION.md#default_macros).
+For advanced configuration via `settings.json`, see the [default_macros reference](../../CONFIGURATION.md#default_macros).
 
 ### Standard Macros
 

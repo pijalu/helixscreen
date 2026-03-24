@@ -210,8 +210,8 @@ HelixScreen is an **add-on** to existing Klipper installations. We don't ship cu
 
 2. **Verify config preserved:**
    ```bash
-   # helixconfig.json should still exist with your settings
-   cat /opt/helixscreen/config/helixconfig.json | head -5
+   # settings.json should still exist with your settings
+   cat /opt/helixscreen/config/settings.json | head -5
    ```
 
 3. **Service should restart automatically and UI should appear.**
@@ -356,7 +356,7 @@ ps --no-headers -o comm 1
 
 3. **Verify config preserved:**
    ```bash
-   cat /opt/helixscreen/config/helixconfig.json | head -5
+   cat /opt/helixscreen/config/settings.json | head -5
    ```
 
 #### Uninstall Test
@@ -538,7 +538,7 @@ ps --no-headers -o comm 1
 
 2. **Verify config preserved:**
    ```bash
-   cat /usr/data/helixscreen/config/helixconfig.json | head -5
+   cat /usr/data/helixscreen/config/settings.json | head -5
    ```
 
 #### Uninstall Test
@@ -583,7 +583,7 @@ Run through this checklist after installation on each platform:
 
 ### Wizard & Configuration
 
-- [ ] **Wizard appears on first run:** (Delete helixconfig.json to test)
+- [ ] **Wizard appears on first run:** (Delete settings.json to test)
 - [ ] **Wizard completes:** All steps finish without error
 - [ ] **Settings persist:** Reboot and verify settings retained
 
@@ -628,7 +628,7 @@ Run through this checklist after installation on each platform:
 
 | Issue | Workaround |
 |-------|------------|
-| Wizard keeps appearing | Check helixconfig.json exists and has valid JSON |
+| Wizard keeps appearing | Check settings.json exists and has valid JSON |
 | Touch offset | Use Settings → Touch Calibration |
 
 ### Pi-Specific

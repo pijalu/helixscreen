@@ -313,7 +313,7 @@ The installer configures Moonraker to enable one-click updates from Mainsail/Flu
    repo: prestonbrown/helixscreen
    path: /home/biqu/helixscreen
    persistent_files:
-       config/helixconfig.json
+       config/settings.json
        config/helixscreen.env
        config/.disabled_services
    ```

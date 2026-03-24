@@ -123,7 +123,7 @@ void ui_theme_init(lv_display_t* display, bool dark_mode) {
 - **Mode:** Dark/light mode controlled via config file or command-line flags
 
 **Config Persistence:**
-Theme preference saved to `helixconfig.json` and restored on next launch:
+Theme preference saved to `settings.json` and restored on next launch:
 ```json
 {
   "dark_mode": true,
@@ -1464,7 +1464,7 @@ Spoolman is now decoupled from AMS backends — spool assignments are tracked pe
 
 ### Config Migration System
 
-Versioned schema migration for `helixconfig.json` that automatically upgrades configuration between releases. The `Config` class tracks a `config_version` integer (currently `CURRENT_CONFIG_VERSION = 2`) and applies migrations sequentially on load:
+Versioned schema migration for `settings.json` that automatically upgrades configuration between releases. The `Config` class tracks a `config_version` integer (currently `CURRENT_CONFIG_VERSION = 2`) and applies migrations sequentially on load:
 
 - **Version tracking** - Each config file stores its schema version; missing version implies v0
 - **Sequential migrations** - Migrations run in order (v0->v1->v2) on startup, each transforming the JSON structure

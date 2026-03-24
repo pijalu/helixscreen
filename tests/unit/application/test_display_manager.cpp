@@ -407,7 +407,7 @@ TEST_CASE("sleep_backlight_off config controls backlight behavior during sleep",
     namespace fs = std::filesystem;
     auto tmp_dir = fs::temp_directory_path() / ("helix_test_cfg_" + std::to_string(getpid()));
     fs::create_directories(tmp_dir);
-    auto tmp_cfg = tmp_dir / "helixconfig.json";
+    auto tmp_cfg = tmp_dir / "settings.json";
 
     {
         nlohmann::json cfg;

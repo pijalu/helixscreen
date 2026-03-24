@@ -276,7 +276,7 @@ channel: stable
 repo: prestonbrown/helixscreen
 path: /opt/helixscreen
 persistent_files:
-    config/helixconfig.json
+    config/settings.json
     config/helixscreen.env
     config/.disabled_services
 ```
@@ -351,7 +351,7 @@ Multi-state modal driven by `download_status` subject:
 
 ## Configuration Reference
 
-All update settings live under the `/update/` key in `helixconfig.json`:
+All update settings live under the `/update/` key in `settings.json`:
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|

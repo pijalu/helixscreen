@@ -29,12 +29,13 @@ struct TempConfigFixture {
         temp_dir = std::filesystem::temp_directory_path().string() + "/helix_ext_spool_test_" +
                    std::to_string(rand());
         std::filesystem::create_directories(temp_dir);
-        config_path = temp_dir + "/helixconfig.json";
+        config_path = temp_dir + "/settings.json";
 
         // Remove backup files to prevent cross-test contamination.
         // Config::init() restores from backups when the config file is missing,
         // so stale backup data from a previous test run can leak into this test.
         std::filesystem::remove(AppConstants::Update::config_backup_fallback());
+        std::filesystem::remove(AppConstants::Update::legacy_config_backup_fallback());
         std::filesystem::remove(AppConstants::Update::env_backup_fallback());
 
         // Initialize Config singleton with temp path

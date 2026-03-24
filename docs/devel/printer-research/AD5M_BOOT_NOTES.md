@@ -120,7 +120,7 @@ sleep 1
 
 ## Display Timeouts
 
-Two independent settings in `helixconfig.json`:
+Two independent settings in `settings.json`:
 
 | Setting | Purpose | Default |
 |---------|---------|---------|
@@ -152,6 +152,6 @@ Two independent settings in `helixconfig.json`:
 
 **On AD5M:**
 - `/opt/config/mod/.shell/screen.sh` - patched for HelixScreen
-- `/opt/helixscreen/config/helixconfig.json` - display settings
+- `/opt/helixscreen/config/settings.json` - display settings
 - `/tmp/helixscreen_active` - flag file (created on start, removed on stop)
 - `/etc/init.d/S90helixscreen` - init script (the one that runs at boot)

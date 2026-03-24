@@ -84,7 +84,7 @@ bool init_lvgl(int width, int height, LvglContext& ctx) {
             "Ensure user is in 'input' group: sudo usermod -aG input $USER",
             "Check touchscreen driver is loaded: dmesg | grep -i touch",
             "Set HELIX_TOUCH_DEVICE=/dev/input/eventX to override",
-            "Add \"touch_device\": \"/dev/input/event1\" to helixconfig.json",
+            "Add \"touch_device\": \"/dev/input/event1\" to settings.json",
             nullptr};
 
         ui_show_fatal_error("No Input Device",

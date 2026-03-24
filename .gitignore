@@ -24,7 +24,10 @@ __pycache__/
 # ============================================================================
 # Configuration
 # ============================================================================
-# Local config (user-specific, use config/helixconfig.json.template)
+# Local config (user-specific, use config/settings.json.template)
+config/settings.json
+config/settings-test.json
+# Legacy names (in case old files appear during migration)
 config/helixconfig.json
 config/helixconfig-test.json
 helixconfig.json

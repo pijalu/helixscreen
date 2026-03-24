@@ -19,7 +19,7 @@ Repeat the same process to disable beta features.
 
 **Method 2: Config file**
 
-Set `"beta_features": true` in your `helixconfig.json`.
+Set `"beta_features": true` in your `settings.json`.
 
 **Method 3: Test mode**
 
