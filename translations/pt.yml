@@ -23,6 +23,7 @@ translations:
   0 = computed: '0 = calculado'
   0 slots: '{0} Slots'
   0.4-2mm direct drive, 4-6mm bowden: 0.4-2mm direct drive, 4-6mm bowden
+  0°: 0°
   1 day ago: há 1 dia
   1 event queued: 1 evento na fila
   1 hour ago: há 1 hora
@@ -36,10 +37,12 @@ translations:
   12 Hour: 12 horas
   120 seconds: 120 segundos
   15 seconds: 15 segundos
+  180°: 180°
   2 minutes: 2 minutos
   2. Place paper between nozzle and bed: 2. Coloque papel entre o bico e a mesa
   2. Results show how much to turn each screw: 2. Os resultados mostram quanto girar cada parafuso
   24 Hour: 24 horas
+  270°: 270°
   2D Heatmap: Mapa de calor 2D
   2D Layers: Camadas 2D
   3. Adjust screws, then re-probe to verify: 3. Ajuste os parafusos, depois sonde novamente para verificar
@@ -54,6 +57,7 @@ translations:
   50W: 50W
   5V: 5V
   60 seconds: 60 segundos
+  90°: 90°
   = Loosen: = Afrouxar
   = Tighten: = Apertar
   A4T: A4T
@@ -102,6 +106,7 @@ translations:
   Advanced Setting: Configuração Avançada
   After running the commands, tap Check Again below.: Após executar os comandos, toque em Verificar Novamente abaixo.
   Alert: Alerta
+  Alerts: Alertas
   All: Todos
   Allow display to sleep during active prints: Permitir suspensão da tela durante impressões
   Allwinner: Allwinner
@@ -133,6 +138,7 @@ translations:
   Auto-Detect: Auto-Detectar
   Auto-Heat on Load: Aquecer Automaticamente ao Carregar
   Auto-lock: Bloqueio automático
+  Auto-poll for weight updates: Consultar peso automaticamente
   Auto-probe or manually check screw heights: Sondagem automática ou verificação manual da altura dos parafusos
   Auto-render video: Renderizar vídeo automaticamente
   Automatic: Automático
@@ -141,6 +147,7 @@ translations:
   Automatically poll Spoolman for weight updates: Consultar automaticamente o Spoolman para atualizações de peso
   Available Networks: Redes Disponíveis
   Available networks: Redes disponíveis
+  Average: Média
   BEACON: BEACON
   BETA: BETA
   BLTouch Controls: Controles BLTouch
@@ -219,6 +226,7 @@ translations:
   Calibration failed - touch targets more precisely.: Calibração falhou – toque nos alvos com mais precisão.
   Calibration saved but cannot apply on SDL display: Calibração salva mas não pode ser aplicada no display SDL
   Calibration timed out. Please try again.: Tempo esgotado. Tente novamente.
+  Camera: Câmera
   Cancel: Cancelar
   Cancel Escalation: Cancelar Escalação
   Cancel Print: Cancelar Impressão
@@ -229,6 +237,7 @@ translations:
   Chamber Temperature: Temperatura da câmara
   Chamber and dryer humidity monitoring: Monitoramento de umidade da câmara e secador
   'Chamber:': 'Câmara:'
+  Change: Alterar
   Change LED color based on printer state: Alterar cor do LED baseado no estado da impressora
   Change PIN: Alterar PIN
   Change Printer Host: Alterar Host da Impressora
@@ -240,6 +249,7 @@ translations:
   Check for Updates: Verificar Atualizações
   Check the filament path and try again.: Verifique o caminho do filamento e tente novamente.
   Check your heater's rating (typically 40-60W for hotends): Verifique a potência do aquecedor (normalmente 40-60W para hotends)
+  Checking Spoolman server...: Verificando servidor Spoolman...
   Checking accelerometer...: Verificando acelerômetro...
   Checking for plugin...: Verificando plugin...
   Checking slots...: Verificando slots...
@@ -265,6 +275,7 @@ translations:
   Close: Fechar
   Closer: Mais Perto
   Closer = more squish | Farther = less squish: Mais perto = mais compressão | Mais longe = menos compressão
+  Coarse: Grosso
   Coil Temperature: Temperatura da Bobina
   Collect logs and system info for support: Coletar logs e informações do sistema para suporte
   Collecting data...: Coletando dados...
@@ -281,7 +292,9 @@ translations:
   Configuration added successfully.: Configuração adicionada com sucesso.
   Configuration already present.: Configuração já presente.
   Configure: Configurar
+  Configure Fan Widget: Configurar Widget de Ventoinha
   Configure G10/G11 firmware retraction: Configurar retração de firmware G10/G11
+  Configure Graph: Configurar Gráfico
   Configure PRINT_START: Configurar PRINT_START
   Configure Spoolman integration and weight sync settings.: Configurar integração com Spoolman e configurações de sincronização de peso.
   Configure devices in Moonraker: Configurar dispositivos no Moonraker
@@ -297,6 +310,7 @@ translations:
   Connected: Conectado
   Connected (%s): Conectado (%s)
   Connected (no discovery): Conectado (sem descoberta)
+  Connected to: Conectado a
   'Connected to ': 'Conectado a '
   Connected! Discovering printer...: Conectado! Descobrindo impressora...
   Connected, discovering...: Conectado, descobrindo...
@@ -323,6 +337,8 @@ translations:
   Corner roundness (0 = sharp, 40 = very round): Arredondamento dos cantos (0 = reto, 40 = muito arredondado)
   Correction (Ki): Correção (Ki)
   Could not check webcam status.\nCheck printer connection.: Não foi possível verificar status da webcam.\nVerifique a conexão da impressora.
+  Could not reach Spoolman at: 'Não foi possível alcançar o Spoolman em'
+  Could not verify Spoolman status. Moonraker may still be restarting.: Não foi possível verificar o status do Spoolman. O Moonraker pode ainda estar reiniciando.
   Crash report sent — thank you!: Relatório de erro enviado — obrigado!
   Create New Filament: Criar Novo Filamento
   Create New Vendor: Criar Novo Fornecedor
@@ -390,6 +406,7 @@ translations:
   Discord Community: Comunidade Discord
   Discovered Printers: Impressoras Descobertas
   Dismiss: Dispensar
+  Display Mode: Modo de Exibição
   Display Settings: Configurações de Exibição
   Display Sleep: Suspensão da Tela
   Do not power off your printer.: Não desligue sua impressora.
@@ -452,6 +469,7 @@ translations:
   Enter a name to save this profile: Digite um nome para salvar este perfil
   Enter password: Digite a senha
   Enter printer IP address first: 'Insira o endereço IP da impressora primeiro'
+  Enter the IP address and port of your Spoolman server.: Insira o endereço IP e a porta do seu servidor Spoolman.
   Error: Erro
   Error state: Estado de erro
   Escalate to emergency stop if cancel doesn't respond: Escalar para parada de emergência se cancelar não responder
@@ -484,6 +502,7 @@ translations:
   Failed to apply settings: Falha ao aplicar configurações
   'Failed to connect: %s': 'Falha ao conectar: %s'
   Failed to delete spool: Falha ao excluir carretel
+  Failed to download helixscreen.conf.\nCheck printer connection.: Falha ao baixar helixscreen.conf.\nVerifique a conexão da impressora.
   Failed to download moonraker.conf.\nCheck printer connection.: Falha ao baixar moonraker.conf.\nVerifique a conexão da impressora.
   Failed to duplicate spool: Falha ao duplicar carretel
   Failed to enable tuning tower: Falha ao habilitar torre de ajuste
@@ -494,15 +513,21 @@ translations:
   Failed to open history: Falha ao abrir histórico
   Failed to open history list: Falha ao abrir lista de histórico
   Failed to open wizard: Falha ao abrir assistente
+  Failed to read config.: Falha ao ler configuração.
+  Failed to read config. Check connection.: Falha ao ler configuração. Verifique a conexão.
+  Failed to read moonraker.conf.: Falha ao ler moonraker.conf.
   Failed to render label: 'Falha ao renderizar etiqueta'
   Failed to reset theme: Falha ao redefinir o tema
   Failed to restart Moonraker.: Falha ao reiniciar Moonraker.
   Failed to save changes to Spoolman: 'Falha ao salvar alterações no Spoolman'
+  Failed to save config.: Falha ao salvar configuração.
   Failed to save configuration: Falha ao salvar configuração
   Failed to save spool: Falha ao salvar carretel
   Failed to save theme file: Falha ao salvar arquivo do tema
   Failed to set active spool: Falha ao definir carretel ativo
   Failed to update configuration.\nCheck printer connection.: Falha ao atualizar configuração.\nVerifique a conexão da impressora.
+  Failed to update moonraker.conf.: Falha ao atualizar moonraker.conf.
+  Failed to update moonraker.conf.\nCheck printer connection.: Falha ao atualizar moonraker.conf.\nVerifique a conexão da impressora.
   Failed to update phase tracking: Falha ao atualizar rastreamento de fase
   Fan Calibration: Calibração da Ventoinha
   Fan Transfer: Transferência da Ventoinha
@@ -528,10 +553,13 @@ translations:
   File Info: Informações do Arquivo
   Filename: Nome do Arquivo
   'Fill: 100% / 75% / 40% / 10%': 'Preenchimento: 100% / 75% / 40% / 10%'
+  Fine: Fino
+  Fine-Tune: Ajuste Fino
   Finish: Finalizar
   Firmware Restart: Reiniciar Firmware
   Firmware restarting...: Reiniciando firmware...
   Flat Concentric Rings (existing ams_slot): Anéis Concêntricos Planos (ams_slot existente)
+  Flip: Inverter
   Flow: Fluxo
   Flow Rate: Taxa de Fluxo
   Flowguard: 'Proteção de Fluxo'
@@ -540,6 +568,7 @@ translations:
   Found %zu printers: '%zu impressoras encontradas'
   Found 1 printer: 1 impressora encontrada
   Framerate: Taxa de Quadros
+  Freq Graph: Gráfico de Freq
   Frequency Delta: 'Delta de frequência'
   'Frequency Delta: Difference between Path A and B. ': 'Delta de frequência: Diferença entre Caminho A e B. '
   Front: Frente
@@ -595,6 +624,7 @@ translations:
   Home failed: Homing falhou
   Homing AFC system...: Homing do sistema AFC...
   Homing...: Posicionando...
+  Horizontal: Horizontal
   Horizontal Progress (Leveling Wizard): Progresso Horizontal (Assistente de Nivelamento)
   Host: Host
   Hotend: Hotend
@@ -607,6 +637,7 @@ translations:
   Humidity: Umidade
   Hyperlapse: Hyperlapse
   IMPORT FROM USB: IMPORTAR DO USB
+  IP Address / Hostname: Endereço IP / Hostname
   'IP:': 'IP:'
   Icon: 'Ícone'
   Idle: Ocioso
@@ -664,6 +695,7 @@ translations:
   LEDs: LEDs
   LEDs controlled by the light button: LEDs controlados pelo botão de luz
   LOADED: CARREGADO
+  LOCKED: BLOQUEADO
   LOT-2024-001: LOT-2024-001
   Label Preset: 'Predefinição de Etiqueta'
   Label Printer: 'Impressora de Etiquetas'
@@ -700,6 +732,7 @@ translations:
   Loading vendors...: Carregando fornecedores...
   Loading...: Carregando...
   Location: Localização
+  Lock: Bloquear
   Lock A: 'Travar A'
   Lock B: 'Travar B'
   Lock screen after idle timeout: Bloquear tela após tempo ocioso
@@ -726,6 +759,7 @@ translations:
   Macro for bed mesh calibration: Macro para calibração da malha da mesa
   Macro for chamber/bed heat soak: Macro para aquecimento prolongado da câmara/mesa
   Macro for physical bed leveling (QGL/Z-Tilt): Macro para nivelamento físico da mesa (QGL/Z-Tilt)
+  Macro handles heating: Macro controla aquecimento
   Macro to cancel an active print: Macro para cancelar uma impressão ativa
   Macro to clean/wipe the nozzle: Macro para limpar o bico
   Macro to load filament into extruder: Macro para carregar filamento no extrusor
@@ -738,6 +772,7 @@ translations:
   Make %s Optional?: Tornar %s Opcional?
   Make Optional: Tornar Opcional
   Make bed mesh and QGL skippable: Tornar malha da mesa e QGL opcionais
+  MakeID (Bluetooth): MakeID (Bluetooth)
   Manage: Gerenciar
   Manage Printers: Gerenciar Impressoras
   Manage configured printers: Gerenciar impressoras configuradas
@@ -756,6 +791,7 @@ translations:
   Max Z Accel: Aceleração Z Máxima
   Max Z Velocity: Velocidade Z Máxima
   Max speed through corners (mm/s): Velocidade máxima em curvas (mm/s)
+  Maximum: Máximo
   Maximum acceleration (mm/s²): Aceleração máxima (mm/s²)
   Maximum toolhead speed (mm/s): Velocidade máxima do cabeçote (mm/s)
   Measure and compare belt path frequencies: 'Medir e comparar frequências dos caminhos de correia'
@@ -763,14 +799,17 @@ translations:
   Measured: Medido
   Measurement Failed: 'Medição falhou'
   Measuring thermal response...: Medindo resposta térmica...
+  Median: Mediana
   Memory (MB): Memória (MB)
   Mesh Complete: Malha Concluída
   Method: Método
   Min: Mín
+  Minimum: Mínimo
   Mode: Modo
   Modified: Modificado
   Month: Mês
   Moonraker: Moonraker
+  Moonraker restarted but Spoolman not connected. Check server.: Moonraker reiniciou, mas Spoolman não conectou. Verifique o servidor.
   Moonraker restarting...\nWaiting for reconnection...: Moonraker reiniciando...\nAguardando reconexão...
   More points = more accurate, but takes longer.: Mais pontos = mais preciso, mas demora mais.
   Motion: Movimento
@@ -852,10 +891,12 @@ translations:
   No timelapse videos found: Nenhum vídeo timelapse encontrado
   No vendors found: Nenhum fornecedor encontrado
   No webcam detected.\nA webcam is required for timelapse.: Nenhuma webcam detectada.\nUma webcam é necessária para timelapse.
+  'None': Nenhum
   Not Now: Agora Não
   Not calibrated: Não calibrado
   Not connected: Não conectado
   Not connected to printer: Não conectado à impressora
+  Not connected to printer.: Não conectado à impressora.
   Not yet calibrated: Ainda não calibrado
   Notes: Notas
   Notes (optional): Notas (opcional)
@@ -875,8 +916,11 @@ translations:
   Nozzle °C: Bico °C
   'Nozzle:': 'Bico:'
   OD: OD
+  'OFF': 'OFF'
   OK: OK
+  'ON': 'ON'
   OS: OS
+  Object positions unavailable: Posições dos objetos indisponíveis
   'Off': Desligado
   'On': Ligado
   On and Off macros must be different: Macros de Ligar e Desligar devem ser diferentes
@@ -934,6 +978,8 @@ translations:
   Placed: Colocado
   Play a test beep: Reproduzir um bipe de teste
   Please enter a theme name: Por favor, digite um nome para o tema
+  Please enter a valid port (1-65535).: Insira uma porta válida (1-65535).
+  Please enter an IP address or hostname.: Insira um endereço IP ou hostname.
   Please wait while the printer homes and probes.: Por favor, aguarde enquanto a impressora faz home e sonda.
   Please wait while the printer probes each screw position.: Por favor, aguarde enquanto a impressora sonda cada posição de parafuso.
   Plugin already installed: Plugin já instalado
@@ -949,6 +995,7 @@ translations:
   Power: Energia
   Power Control: Controle de Energia
   Power Devices: Dispositivos de energia
+  Preheat Macro: Macro de Pré-aquecimento
   Preheat PLA: Pré-aquecer PLA
   Preparing: Preparando
   Preparing Print: Preparando Impressão
@@ -999,6 +1046,7 @@ translations:
   Prints Trend: Tendência de Impressões
   'Private:': 'Privado:'
   Probe: Sonda
+  Probe Accuracy Results: Resultados de Precisão da Sonda
   Probe Accuracy Test: Teste de Precisão da Sonda
   Probe Management: Gerenciamento de Sonda
   Probe Speed: Velocidade da Sonda
@@ -1026,8 +1074,11 @@ translations:
   Quick Actions: Ações Rápidas
   Quick Button 1: Botão Rápido 1
   Quick Button 2: Botão Rápido 2
+  Quick Button 3: Botão Rápido 3
+  Quick Button 4: Botão Rápido 4
   Quick actions, calibration, speed: Ações rápidas, calibração, velocidade
   'RSS:': 'RSS:'
+  Range: Faixa
   Re-probe: Sondar Novamente
   Ready: Pronto
   Ready to Apply: Pronto para Aplicar
@@ -1053,7 +1104,9 @@ translations:
   Remaining: Restante
   Remaining (g): Restante (g)
   Remaining Weight (g): Peso Restante (g)
+  Remove: Remover
   Remove PIN: Remover PIN
+  Remove Spoolman?: Remover Spoolman?
   Remove plugin from printer: Remover plugin da impressora
   Rename: Renomear
   Rename Mesh Profile: Renomear Perfil de Malha
@@ -1096,10 +1149,12 @@ translations:
   Review your changes: Revisar suas alterações
   Rewinding: Rebobinando
   'Role:': 'Função:'
+  Rotation: Rotação
   'Rotation: %d\xc2\xb0 - %ds remaining (or wait to retry)': 'Rotação: %d\xc2\xb0 - %ds restantes (ou aguarde para repetir)'
   Run: Executar
   Run Dangerous Macro?: 'Executar Macro Perigosa?'
   Run Macro: Executar macro
+  Run a Klipper macro when preheating this material: Executar uma macro Klipper ao pré-aquecer este material
   Runout Sensor: Sensor de Fim de Filamento
   SHIPPED IMAGES: IMAGENS INCLUÍDAS
   SOFTWARE: SOFTWARE
@@ -1154,13 +1209,18 @@ translations:
   See exactly what data will be sent: Veja exatamente quais dados serão enviados
   Select: Selecionar
   Select 'None' if you don't have a filament sensor, or if you don't want to pause on runout.: Selecione 'Nenhum' se você não tiver um sensor de filamento, ou se não quiser pausar quando acabar.
+  Select Fan: Selecionar Ventoinha
   Select Filament: Selecionar Filamento
   Select G-Code File: Selecionar Arquivo G-Code
+  Select Power Device: Selecionar Dispositivo de Energia
   Select Sensor: Selecionar sensor
   Select Sensors: 'Selecionar Sensores'
   Select Spool: Selecionar bobina
+  Select fan: Selecionar ventoinha
   Select macro for first button: Selecionar macro para o primeiro botão
+  Select macro for fourth button: Selecionar macro para o quarto botão
   Select macro for second button: Selecionar macro para o segundo botão
+  Select macro for third button: Selecionar macro para o terceiro botão
   Select sensor: Selecionar sensor
   Select which devices the home screen power button controls: Selecione quais dispositivos o botão de energia controla
   Select your label media: 'Selecione sua mídia de etiquetas'
@@ -1175,6 +1235,7 @@ translations:
   Sensor Temperature: Temperatura do Sensor
   Sensors: Sensores
   Separate on/off macros. HelixScreen tracks the state.: Macros ligado/desligado separadas. HelixScreen rastreia o estado.
+  Server Setup: Configuração do Servidor
   'Set ': 'Definir '
   Set Active: Definir Ativo
   Set PIN: Definir PIN
@@ -1190,9 +1251,11 @@ translations:
   'Shininess:': 'Brilho:'
   Show Frequency Graph: 'Mostrar gráfico de frequência'
   Show Printer Switcher: Mostrar Seletor de Impressora
+  Show Sections: Mostrar Seções
   Show detailed print preparation status: Mostrar status detalhado de preparação de impressão
   Show instead of dimming: 'Exibir em vez de escurecer'
   Show printer icon in navigation bar: Mostrar ícone da impressora na barra de navegação
+  Show text labels on icon-only home screen widgets: Mostrar rótulos de texto em widgets da tela inicial com apenas ícones
   Shutdown: Desligar
   Shutdown / Reboot: Desligar / Reiniciar
   Shutting down...: Desligando...
@@ -1224,7 +1287,11 @@ translations:
   Spool saved: Carretel salvo
   Spool wt (g): Peso carretel (g)
   Spoolman: Spoolman
+  Spoolman Server: Servidor Spoolman
+  Spoolman connected!: Spoolman conectado!
+  Spoolman found! Configuring...: Spoolman encontrado! Configurando...
   Spoolman has no spools configured: Spoolman não tem carretéis configurados
+  Spoolman removed.: Spoolman removido.
   Spoolman unavailable — filament weights may be stale: Spoolman indisponível — os pesos do filamento podem estar desatualizados
   Square Corner Velocity: Velocidade em Cantos Retos
   Stable: Estável
@@ -1245,6 +1312,7 @@ translations:
   State: 'Estado'
   Status: Status
   Status icons: Ícones de status
+  Std Deviation: Desvio Padrão
   Stealthburner: Stealthburner
   Step: Etapa
   Step 1 of 3: Etapa 1 de 3
@@ -1287,6 +1355,7 @@ translations:
   Telemetry queue cleared: Fila de telemetria limpa
   Temp Compensation: Compensação de Temp
   Temperature: Temperatura
+  Temperature Graph Config: Config do Gráfico de Temperatura
   Temperatures: Temperaturas
   Temporary adjustment for this print, unless saved on Controls panel: Ajuste temporário para esta impressão, a menos que salvo no painel de Controles
   Tertiary: Terciário
@@ -1329,6 +1398,7 @@ translations:
   : Isso coletará informações do sistema, logs, configurações e dados da impressora para ajudar a diagnosticar problemas. Nenhuma senha ou dado sensível será incluído.
   This will immediately halt all printer operations. The printer will require a restart to resume.: Isso interromperá imediatamente todas as operações da impressora. A impressora precisará de um reinício para retomar.
   This will remove all entries from the display.: 'Isso removerá todas as entradas do display.'
+  This will remove the Spoolman configuration from Moonraker and restart the service.: Isso removerá a configuração do Spoolman do Moonraker e reiniciará o serviço.
   This will reset all settings to defaults. This action cannot be undone.: Isso resetará todas as configurações para os padrões. Esta ação não pode ser desfeita.
   This will restart Klipper firmware. Any active operations will be interrupted.: O firmware Klipper será reiniciado. Operações ativas serão interrompidas.
   This will restart Klipper.: Isso reiniciará o Klipper.
@@ -1416,6 +1486,7 @@ translations:
   Verifying...: Verificando...
   Version: Versão
   Version, updates, and printer info: Versão, atualizações e informações da impressora
+  Vertical: Vertical
   Vertical Progress (Retract Wizard): Progresso Vertical (Assistente de Retração)
   Vibration: Vibração
   Vibration compensation active: Compensação de vibração ativa
@@ -1433,6 +1504,7 @@ translations:
   Volume, themes, and UI sounds: Volume, temas e sons da interface
   WIDTH SENSORS: 'SENSORES DE LARGURA'
   WLED: WLED
+  Waiting for Moonraker...: Aguardando Moonraker...
   Waiting for bed to reach temperature for accurate calibration.: Aguardando a mesa atingir a temperatura para calibração precisa.
   Warm Bed: Aquecer Mesa
   Warming Bed...: Aquecendo Mesa...
@@ -1444,6 +1516,7 @@ translations:
   ? Weight data is synced from Spoolman to display remaining filament. Changes are also synced when prints start, pause, or complete.
   : Dados de peso são sincronizados do Spoolman para exibir filamento restante. Alterações também são sincronizadas quando impressões iniciam, pausam ou terminam.
   What We Collect: O Que Coletamos
+  When enabled, only the macro runs. When disabled, temperatures are set first, then the macro runs.: Quando habilitado, apenas a macro é executada. Quando desabilitado, as temperaturas são definidas primeiro, depois a macro é executada.
   "When starting a print, you'll be able to choose whether to run %s. ": "Ao iniciar uma impressão, você poderá escolher se deseja executar %s. "
   White: Branco
   WiFi: WiFi
@@ -1452,6 +1525,7 @@ translations:
   WiFi and Ethernet configuration: Configuração de WiFi e Ethernet
   WiFi control unavailable: Controle WiFi indisponível
   WiFi hardware unavailable: Hardware WiFi indisponível
+  Widget Labels: Rótulos de Widgets
   Width: Largura
   Wrong PIN: PIN incorreto
   X: X

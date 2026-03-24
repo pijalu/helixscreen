@@ -23,6 +23,7 @@ translations:
   0 = computed: '0 = 自动计算'
   0 slots: '{0} 个料仓'
   0.4-2mm direct drive, 4-6mm bowden: 直驱 0.4-2mm，远程挤出 4-6mm
+  0°: 0°
   1 day ago: 1天前
   1 event queued: 1 个事件排队中
   1 hour ago: 1小时前
@@ -36,10 +37,12 @@ translations:
   12 Hour: 12 小时
   120 seconds: 120 秒
   15 seconds: 15 秒
+  180°: 180°
   2 minutes: 2 分钟
   2. Place paper between nozzle and bed: 2. 将纸张放在喷嘴和热床之间
   2. Results show how much to turn each screw: 2. 结果显示每个螺丝需要旋转多少
   24 Hour: 24 小时
+  270°: 270°
   2D Heatmap: 2D 热图
   2D Layers: 2D 图层
   3. Adjust screws, then re-probe to verify: 3. 调整螺丝，然后重新探测以验证
@@ -54,6 +57,7 @@ translations:
   50W: 50W
   5V: 5V
   60 seconds: 60 秒
+  90°: 90°
   = Loosen: = 松开
   = Tighten: = 拧紧
   A4T: A4T
@@ -102,6 +106,7 @@ translations:
   Advanced Setting: 高级设置
   After running the commands, tap Check Again below.: 执行命令后，点击下方的重新检查。
   Alert: 警报
+  Alerts: 警报
   All: 全部
   Allow display to sleep during active prints: 打印时允许屏幕休眠
   Allwinner: Allwinner
@@ -133,6 +138,7 @@ translations:
   Auto-Detect: 自动检测
   Auto-Heat on Load: 加载时自动加热
   Auto-lock: 自动锁定
+  Auto-poll for weight updates: 自动轮询重量更新
   Auto-probe or manually check screw heights: 自动探测或手动检查螺丝高度
   Auto-render video: 自动渲染视频
   Automatic: 自动
@@ -141,6 +147,7 @@ translations:
   Automatically poll Spoolman for weight updates: 自动从 Spoolman 获取重量更新
   Available Networks: 可用网络
   Available networks: 可用网络
+  Average: 平均值
   BEACON: BEACON
   BETA: BETA
   BLTouch Controls: BLTouch 控制
@@ -219,6 +226,7 @@ translations:
   Calibration failed - touch targets more precisely.: 校准失败 – 请更精确地触摸目标。
   Calibration saved but cannot apply on SDL display: 校准已保存，但无法在 SDL 显示上应用
   Calibration timed out. Please try again.: 校准超时。请重试。
+  Camera: 摄像头
   Cancel: 取消
   Cancel Escalation: 取消升级
   Cancel Print: 取消打印
@@ -229,6 +237,7 @@ translations:
   Chamber Temperature: 腔体温度
   Chamber and dryer humidity monitoring: 腔体和干燥器湿度监控
   'Chamber:': 腔体：
+  Change: 更改
   Change LED color based on printer state: 根据打印机状态更改 LED 颜色
   Change PIN: 更改 PIN
   Change Printer Host: 更改打印机主机
@@ -240,6 +249,7 @@ translations:
   Check for Updates: 检查更新
   Check the filament path and try again.: 检查耗材路径并重试。
   Check your heater's rating (typically 40-60W for hotends): 检查加热器功率（热端通常为 40-60W）
+  Checking Spoolman server...: 正在检查 Spoolman 服务器...
   Checking accelerometer...: 正在检查加速度计...
   Checking for plugin...: 正在检查插件...
   Checking slots...: 正在检查料仓...
@@ -265,6 +275,7 @@ translations:
   Close: 关闭
   Closer: 更近
   Closer = more squish | Farther = less squish: 更近 = 更多挤压 | 更远 = 更少挤压
+  Coarse: 粗调
   Coil Temperature: 线圈温度
   Collect logs and system info for support: 收集日志和系统信息以供支持
   Collecting data...: 正在收集数据...
@@ -281,7 +292,9 @@ translations:
   Configuration added successfully.: 配置添加成功。
   Configuration already present.: 配置已存在。
   Configure: 配置
+  Configure Fan Widget: 配置风扇小组件
   Configure G10/G11 firmware retraction: 配置 G10/G11 固件回抽
+  Configure Graph: 配置图表
   Configure PRINT_START: 配置 PRINT_START
   Configure Spoolman integration and weight sync settings.: 配置 Spoolman 集成和重量同步设置。
   Configure devices in Moonraker: 在 Moonraker 中配置设备
@@ -297,6 +310,7 @@ translations:
   Connected: 已连接
   Connected (%s): 已连接 (%s)
   Connected (no discovery): 已连接（无发现）
+  Connected to: 已连接到
   'Connected to ': '已连接到 '
   Connected! Discovering printer...: 已连接！正在发现打印机...
   Connected, discovering...: 已连接，正在发现...
@@ -323,6 +337,8 @@ translations:
   Corner roundness (0 = sharp, 40 = very round): 圆角程度（0 = 尖锐，40 = 非常圆润）
   Correction (Ki): 校正 (Ki)
   Could not check webcam status.\nCheck printer connection.: 无法检查摄像头状态。\n请检查打印机连接。
+  Could not reach Spoolman at: 无法连接 Spoolman：
+  Could not verify Spoolman status. Moonraker may still be restarting.: 无法验证 Spoolman 状态。Moonraker 可能仍在重启中。
   Crash report sent — thank you!: 崩溃报告已发送 — 谢谢！
   Create New Filament: 创建新耗材
   Create New Vendor: 创建新供应商
@@ -390,6 +406,7 @@ translations:
   Discord Community: Discord 社区
   Discovered Printers: 已发现的打印机
   Dismiss: 忽略
+  Display Mode: 显示模式
   Display Settings: 显示设置
   Display Sleep: 显示休眠
   Do not power off your printer.: 请勿关闭打印机电源。
@@ -452,6 +469,7 @@ translations:
   Enter a name to save this profile: 输入名称以保存此配置
   Enter password: 输入密码
   Enter printer IP address first: '请先输入打印机 IP 地址'
+  Enter the IP address and port of your Spoolman server.: 输入 Spoolman 服务器的 IP 地址和端口。
   Error: 错误
   Error state: 错误状态
   Escalate to emergency stop if cancel doesn't respond: 如果取消无响应则升级为紧急停止
@@ -484,6 +502,7 @@ translations:
   Failed to apply settings: 应用设置失败
   'Failed to connect: %s': '连接失败：%s'
   Failed to delete spool: 删除料盘失败
+  Failed to download helixscreen.conf.\nCheck printer connection.: 下载 helixscreen.conf 失败。\n请检查打印机连接。
   Failed to download moonraker.conf.\nCheck printer connection.: 下载 moonraker.conf 失败。\n请检查打印机连接。
   Failed to duplicate spool: 复制线轴失败
   Failed to enable tuning tower: 启用调优塔失败
@@ -494,15 +513,21 @@ translations:
   Failed to open history: 打开历史记录失败
   Failed to open history list: 打开历史列表失败
   Failed to open wizard: 打开向导失败
+  Failed to read config.: 读取配置失败。
+  Failed to read config. Check connection.: 读取配置失败。请检查连接。
+  Failed to read moonraker.conf.: 读取 moonraker.conf 失败。
   Failed to render label: '渲染标签失败'
   Failed to reset theme: 重置主题失败
   Failed to restart Moonraker.: 重启 Moonraker 失败。
   Failed to save changes to Spoolman: '保存更改到 Spoolman 失败'
+  Failed to save config.: 保存配置失败。
   Failed to save configuration: 保存配置失败
   Failed to save spool: 保存料盘失败
   Failed to save theme file: 保存主题文件失败
   Failed to set active spool: 设置活动料盘失败
   Failed to update configuration.\nCheck printer connection.: 更新配置失败。\n请检查打印机连接。
+  Failed to update moonraker.conf.: 更新 moonraker.conf 失败。
+  Failed to update moonraker.conf.\nCheck printer connection.: 更新 moonraker.conf 失败。\n请检查打印机连接。
   Failed to update phase tracking: 更新相位跟踪失败
   Fan Calibration: 风扇校准
   Fan Transfer: 风扇传热
@@ -528,10 +553,13 @@ translations:
   File Info: 文件信息
   Filename: 文件名
   'Fill: 100% / 75% / 40% / 10%': 填充：100% / 75% / 40% / 10%
+  Fine: 细调
+  Fine-Tune: 微调
   Finish: 完成
   Firmware Restart: 固件重启
   Firmware restarting...: 固件重启中...
   Flat Concentric Rings (existing ams_slot): 扁平同心环（现有 ams_slot）
+  Flip: 翻转
   Flow: 流量
   Flow Rate: 流量
   Flowguard: '流量保护'
@@ -540,6 +568,7 @@ translations:
   Found %zu printers: '找到 %zu 台打印机'
   Found 1 printer: 找到 1 台打印机
   Framerate: 帧率
+  Freq Graph: 频率图
   Frequency Delta: '频率差'
   'Frequency Delta: Difference between Path A and B. ': '频率差：路径A和B的差异。'
   Front: 前
@@ -595,6 +624,7 @@ translations:
   Home failed: 归位失败
   Homing AFC system...: AFC系统归位中...
   Homing...: 正在归零...
+  Horizontal: 水平
   Horizontal Progress (Leveling Wizard): 水平进度（调平向导）
   Host: 主机
   Hotend: 热端
@@ -607,6 +637,7 @@ translations:
   Humidity: 湿度
   Hyperlapse: 延时摄影
   IMPORT FROM USB: 从 USB 导入
+  IP Address / Hostname: IP 地址 / 主机名
   'IP:': IP：
   Icon: '图标'
   Idle: 空闲
@@ -664,6 +695,7 @@ translations:
   LEDs: LED
   LEDs controlled by the light button: 由灯光按钮控制的 LED
   LOADED: 已加载
+  LOCKED: 已锁定
   LOT-2024-001: LOT-2024-001
   Label Preset: '标签预设'
   Label Printer: '标签打印机'
@@ -700,6 +732,7 @@ translations:
   Loading vendors...: 正在加载供应商…
   Loading...: 正在加载...
   Location: 位置
+  Lock: 锁定
   Lock A: '锁定 A'
   Lock B: '锁定 B'
   Lock screen after idle timeout: 空闲超时后锁定屏幕
@@ -726,6 +759,7 @@ translations:
   Macro for bed mesh calibration: 热床网格校准宏
   Macro for chamber/bed heat soak: 腔体/热床预热浸泡宏
   Macro for physical bed leveling (QGL/Z-Tilt): 物理热床调平宏（QGL/Z-Tilt）
+  Macro handles heating: 宏控制加热
   Macro to cancel an active print: 取消当前打印的宏
   Macro to clean/wipe the nozzle: 清洁/擦拭喷嘴的宏
   Macro to load filament into extruder: 将耗材加载到挤出机的宏
@@ -738,6 +772,7 @@ translations:
   Make %s Optional?: '将 %s 设为可选？'
   Make Optional: 设为可选
   Make bed mesh and QGL skippable: 使热床网格和 QGL 可跳过
+  MakeID (Bluetooth): MakeID（蓝牙）
   Manage: 管理
   Manage Printers: 管理打印机
   Manage configured printers: 管理已配置的打印机
@@ -756,6 +791,7 @@ translations:
   Max Z Accel: 最大 Z 轴加速度
   Max Z Velocity: 最大 Z 轴速度
   Max speed through corners (mm/s): 转角最大速度 (mm/s)
+  Maximum: 最大值
   Maximum acceleration (mm/s²): 最大加速度 (mm/s²)
   Maximum toolhead speed (mm/s): 打印头最大速度 (mm/s)
   Measure and compare belt path frequencies: '测量和比较皮带路径频率'
@@ -763,14 +799,17 @@ translations:
   Measured: 已测量
   Measurement Failed: '测量失败'
   Measuring thermal response...: 正在测量热响应...
+  Median: 中位数
   Memory (MB): 内存 (MB)
   Mesh Complete: 网格完成
   Method: 方法
   Min: 最小
+  Minimum: 最小值
   Mode: 模式
   Modified: 已修改
   Month: 月
   Moonraker: Moonraker
+  Moonraker restarted but Spoolman not connected. Check server.: Moonraker 已重启但 Spoolman 未连接。请检查服务器。
   Moonraker restarting...\nWaiting for reconnection...: Moonraker 重启中...\n等待重新连接...
   More points = more accurate, but takes longer.: 点数越多越精确，但耗时更长。
   Motion: 运动
@@ -852,10 +891,12 @@ translations:
   No timelapse videos found: 未找到延时视频
   No vendors found: 未找到供应商
   No webcam detected.\nA webcam is required for timelapse.: 未检测到摄像头。\n延时摄影需要摄像头。
+  'None': 无
   Not Now: 暂不
   Not calibrated: 未校准
   Not connected: 未连接
   Not connected to printer: 未连接到打印机
+  Not connected to printer.: 未连接到打印机。
   Not yet calibrated: 尚未校准
   Notes: 备注
   Notes (optional): 备注（可选）
@@ -875,8 +916,11 @@ translations:
   Nozzle °C: 喷嘴 °C
   'Nozzle:': 喷嘴：
   OD: OD
+  'OFF': 关
   OK: 确定
+  'ON': 开
   OS: OS
+  Object positions unavailable: 对象位置不可用
   'Off': 关
   'On': 开
   On and Off macros must be different: 开和关的宏必须不同
@@ -934,6 +978,8 @@ translations:
   Placed: 已放置
   Play a test beep: 播放测试提示音
   Please enter a theme name: 请输入主题名称
+  Please enter a valid port (1-65535).: 请输入有效的端口号 (1-65535)。
+  Please enter an IP address or hostname.: 请输入 IP 地址或主机名。
   Please wait while the printer homes and probes.: 请等待打印机归位和探测。
   Please wait while the printer probes each screw position.: 请等待打印机探测每个螺丝位置。
   Plugin already installed: 插件已安装
@@ -949,6 +995,7 @@ translations:
   Power: 电源
   Power Control: 电源控制
   Power Devices: 电源设备
+  Preheat Macro: 预热宏
   Preheat PLA: 预热 PLA
   Preparing: 准备中
   Preparing Print: 准备打印
@@ -999,6 +1046,7 @@ translations:
   Prints Trend: 打印趋势
   'Private:': 私有：
   Probe: 探针
+  Probe Accuracy Results: 探针精度结果
   Probe Accuracy Test: 探针精度测试
   Probe Management: 探针管理
   Probe Speed: 探针速度
@@ -1026,8 +1074,11 @@ translations:
   Quick Actions: 快捷操作
   Quick Button 1: 快捷按钮 1
   Quick Button 2: 快捷按钮 2
+  Quick Button 3: 快捷按钮 3
+  Quick Button 4: 快捷按钮 4
   Quick actions, calibration, speed: 快捷操作、校准、速度
   'RSS:': RSS：
+  Range: 范围
   Re-probe: 重新探测
   Ready: 就绪
   Ready to Apply: 准备应用
@@ -1053,7 +1104,9 @@ translations:
   Remaining: 剩余
   Remaining (g): 剩余 (g)
   Remaining Weight (g): 剩余重量（克）
+  Remove: 移除
   Remove PIN: 移除 PIN
+  Remove Spoolman?: 移除 Spoolman？
   Remove plugin from printer: 从打印机移除插件
   Rename: 重命名
   Rename Mesh Profile: 重命名网格配置
@@ -1096,10 +1149,12 @@ translations:
   Review your changes: 查看您的更改
   Rewinding: 回卷中
   'Role:': 角色：
+  Rotation: 旋转
   'Rotation: %d\xc2\xb0 - %ds remaining (or wait to retry)': '旋转: %d\xc2\xb0 - 剩余%ds (或等待重试)'
   Run: 运行
   Run Dangerous Macro?: '运行危险宏？'
   Run Macro: 运行宏
+  Run a Klipper macro when preheating this material: 预热此材料时运行 Klipper 宏
   Runout Sensor: 断料传感器
   SHIPPED IMAGES: 内置图片
   SOFTWARE: 软件
@@ -1154,13 +1209,18 @@ translations:
   See exactly what data will be sent: 查看将发送的确切数据
   Select: 选择
   Select 'None' if you don't have a filament sensor, or if you don't want to pause on runout.: 如果您没有耗材传感器，或不想在断料时暂停，请选择「无」。
+  Select Fan: 选择风扇
   Select Filament: 选择耗材
   Select G-Code File: 选择 G-Code 文件
+  Select Power Device: 选择电源设备
   Select Sensor: 选择传感器
   Select Sensors: '选择传感器'
   Select Spool: 选择料盘
+  Select fan: 选择风扇
   Select macro for first button: 为第一个按钮选择宏
+  Select macro for fourth button: 为第四个按钮选择宏
   Select macro for second button: 为第二个按钮选择宏
+  Select macro for third button: 为第三个按钮选择宏
   Select sensor: 选择传感器
   Select which devices the home screen power button controls: 选择主页电源按钮控制的设备
   Select your label media: '选择标签介质'
@@ -1175,6 +1235,7 @@ translations:
   Sensor Temperature: 传感器温度
   Sensors: 传感器
   Separate on/off macros. HelixScreen tracks the state.: 独立的开/关宏。HelixScreen 跟踪状态。
+  Server Setup: 服务器设置
   'Set ': '设置 '
   Set Active: 设为活动
   Set PIN: 设置 PIN
@@ -1190,9 +1251,11 @@ translations:
   'Shininess:': 光泽度：
   Show Frequency Graph: '显示频率图'
   Show Printer Switcher: '显示打印机切换器'
+  Show Sections: 显示区段
   Show detailed print preparation status: 显示详细的打印准备状态
   Show instead of dimming: '显示而非变暗'
   Show printer icon in navigation bar: '在导航栏中显示打印机图标'
+  Show text labels on icon-only home screen widgets: 在仅图标的主屏小组件上显示文字标签
   Shutdown: 关机
   Shutdown / Reboot: 关机 / 重启
   Shutting down...: 正在关机...
@@ -1224,7 +1287,11 @@ translations:
   Spool saved: 料盘已保存
   Spool wt (g): 料盘重量 (g)
   Spoolman: Spoolman
+  Spoolman Server: Spoolman 服务器
+  Spoolman connected!: Spoolman 已连接！
+  Spoolman found! Configuring...: 已找到 Spoolman！正在配置...
   Spoolman has no spools configured: Spoolman 未配置料盘
+  Spoolman removed.: Spoolman 已移除。
   Spoolman unavailable — filament weights may be stale: Spoolman不可用 — 耗材重量可能已过期
   Square Corner Velocity: 直角转弯速度
   Stable: 稳定版
@@ -1245,6 +1312,7 @@ translations:
   State: '状态'
   Status: 状态
   Status icons: 状态图标
+  Std Deviation: 标准差
   Stealthburner: Stealthburner
   Step: 步骤
   Step 1 of 3: 第 1 步，共 3 步
@@ -1287,6 +1355,7 @@ translations:
   Telemetry queue cleared: 遥测队列已清除
   Temp Compensation: 温度补偿
   Temperature: 温度
+  Temperature Graph Config: 温度图表配置
   Temperatures: 温度
   Temporary adjustment for this print, unless saved on Controls panel: 此打印的临时调整，除非在控制面板上保存
   Tertiary: 第三
@@ -1329,6 +1398,7 @@ translations:
   : 将收集系统信息、日志、设置和打印机数据以帮助诊断问题。不会包含密码或敏感数据。
   This will immediately halt all printer operations. The printer will require a restart to resume.: 这将立即停止所有打印机操作。打印机需要重启才能恢复。
   This will remove all entries from the display.: '这将从显示中移除所有条目。'
+  This will remove the Spoolman configuration from Moonraker and restart the service.: 这将从 Moonraker 中移除 Spoolman 配置并重启服务。
   This will reset all settings to defaults. This action cannot be undone.: 这将把所有设置重置为默认值。此操作无法撤销。
   This will restart Klipper firmware. Any active operations will be interrupted.: 将重启Klipper固件。所有正在进行的操作将被中断。
   This will restart Klipper.: 这将重启 Klipper。
@@ -1416,6 +1486,7 @@ translations:
   Verifying...: 验证中...
   Version: 版本
   Version, updates, and printer info: 版本、更新和打印机信息
+  Vertical: 垂直
   Vertical Progress (Retract Wizard): 垂直进度（回抽向导）
   Vibration: 振动
   Vibration compensation active: 振动补偿已启用
@@ -1433,6 +1504,7 @@ translations:
   Volume, themes, and UI sounds: 音量、主题和界面声音
   WIDTH SENSORS: '宽度传感器'
   WLED: WLED
+  Waiting for Moonraker...: 正在等待 Moonraker...
   Waiting for bed to reach temperature for accurate calibration.: 等待热床达到温度以进行精确校准。
   Warm Bed: 预热热床
   Warming Bed...: 正在预热热床...
@@ -1444,6 +1516,7 @@ translations:
   ? Weight data is synced from Spoolman to display remaining filament. Changes are also synced when prints start, pause, or complete.
   : 重量数据从 Spoolman 同步以显示剩余耗材。打印开始、暂停或完成时也会同步更改。
   What We Collect: 我们收集的内容
+  When enabled, only the macro runs. When disabled, temperatures are set first, then the macro runs.: 启用时仅运行宏。禁用时先设置温度，然后运行宏。
   "When starting a print, you'll be able to choose whether to run %s. ": '开始打印时，您可以选择是否运行 %s。 '
   White: 白色
   WiFi: WiFi
@@ -1452,6 +1525,7 @@ translations:
   WiFi and Ethernet configuration: WiFi 和以太网配置
   WiFi control unavailable: WiFi 控制不可用
   WiFi hardware unavailable: WiFi 硬件不可用
+  Widget Labels: 小组件标签
   Width: 宽度
   Wrong PIN: PIN 错误
   X: X
