@@ -358,6 +358,7 @@ void register_xml_components() {
     register_xml("components/panel_widget_shutdown.xml");
     register_xml("components/panel_widget_lock.xml");
     register_xml("components/panel_widget_tool_switcher.xml");
+    register_xml("components/panel_widget_nozzle_temps.xml");
     register_xml("components/panel_widget_job_queue.xml");
     register_xml("components/clog_meter_page.xml");
     register_xml("components/panel_widget_clog_detection.xml");
