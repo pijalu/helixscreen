@@ -384,9 +384,15 @@ void WizardWifiStep::clear_network_list() {
         if (name && strncmp(name, "network_item_", 13) == 0) {
             spdlog::debug("[{}] Deleting network item: {}", get_name(), name);
 
-            // Delete the widget - the DELETE handler will automatically clean up
-            // WifiWizardNetworkItemData
-            helix::ui::safe_delete(child);
+            // Remove clickable flag to prevent stale indev click events —
+            // LVGL's indev may have cached this item as the pressed target,
+            // and would fire CLICKED on a freed object if we delete synchronously.
+            lv_obj_remove_flag(child, LV_OBJ_FLAG_CLICKABLE);
+
+            // Defer deletion to next tick — safe_delete_deferred hides immediately
+            // and deletes via lv_obj_delete_async. The DELETE handler will
+            // automatically clean up WifiWizardNetworkItemData.
+            helix::ui::safe_delete_deferred(child);
         }
     }
 
