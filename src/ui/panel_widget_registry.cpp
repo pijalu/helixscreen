@@ -39,6 +39,7 @@ void register_preheat_widget();
 void register_power_device_widget();
 void register_fan_widget();
 void register_temp_graph_widget();
+void register_tool_switcher_widget();
 #if HELIX_HAS_CAMERA
 void register_camera_widget();
 #endif
@@ -66,6 +67,7 @@ static std::vector<PanelWidgetDef> s_widget_defs = {
     {"bed_temperature",  "Bed Temperature",   "radiator",         "Monitor and set bed temperature",              "Bed Temperature",    nullptr,            nullptr,                               false, 1, 1, 1, 1, 2, 2},
     {"preheat",          "Preheat",           "heat_wave",        "Quick preheat with material selection",        "Preheat",            nullptr,            nullptr,                               false, 3, 1, 2, 1, 4, 1},
     {"temp_stack",       "Temperatures",      "thermometer",      "Nozzle, bed, and chamber temps stacked",       "Temperatures",     nullptr,              nullptr,                               false, 1, 1, 1, 1, 3, 2},
+    {"tool_switcher",    "Tool Switcher",     "swap_horizontal",  "Quick tool switching for multi-tool printers",  "Tool Switcher",    "show_tool_badge",    "Requires multi-tool printer",         false, 1, 1, 1, 1, 2, 2},
     {"filament",         "Filament Sensor",   "filament_alert",   "Filament runout detection status",             "Filament Sensor",  "filament_sensor_count", "No filament sensor detected",      true, 1, 1, 1, 1, 2, 1},
     {"humidity",         "Humidity",          "water",            "Enclosure humidity sensor readings",           "Humidity",         "humidity_sensor_count", "No humidity sensor detected",       false, 1, 1, 1, 1, 2, 2},
     {"width_sensor",     "Width Sensor",      "ruler",            "Filament width sensor readings",               "Width Sensor",     "width_sensor_count", "No width sensor detected",            false, 1, 1, 1, 1, 2, 2},
@@ -168,6 +170,7 @@ void init_widget_registrations() {
     register_gcode_console_widget();
     register_macros_widget();
     register_preheat_widget();
+    register_tool_switcher_widget();
 #if HELIX_HAS_CAMERA
     register_camera_widget();
 #endif
