@@ -818,6 +818,13 @@
           "reason": "Multi-material system (K2 Plus feature)"
         },
         {
+          "type": "object_exists",
+          "field": "printer_objects",
+          "pattern": "^box$",
+          "confidence": 95,
+          "reason": "CFS filament system detected"
+        },
+        {
           "type": "hostname_match",
           "field": "hostname",
           "pattern": "creality",

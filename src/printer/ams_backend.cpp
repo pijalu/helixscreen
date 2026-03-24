@@ -9,6 +9,7 @@
 #include "ams_backend_mock.h"
 #endif
 #include "ams_backend_ad5x_ifs.h"
+#include "ams_backend_cfs.h"
 #include "ams_backend_toolchanger.h"
 #include "ams_backend_valgace.h"
 #include "moonraker_api.h"
@@ -180,6 +181,15 @@ std::unique_ptr<AmsBackend> AmsBackend::create(AmsType detected_type) {
         return nullptr;
 #endif
 
+    case AmsType::CFS:
+#ifdef HELIX_ENABLE_MOCKS
+        spdlog::warn("[AMS Backend] CFS detected but no API/client provided - using mock");
+        return std::make_unique<AmsBackendMock>(config->mock_ams_gate_count);
+#else
+        spdlog::warn("[AMS Backend] CFS detected but no API/client provided");
+        return nullptr;
+#endif
+
     case AmsType::NONE:
     default:
         spdlog::debug("[AMS Backend] No AMS detected");
@@ -236,6 +246,14 @@ std::unique_ptr<AmsBackend> AmsBackend::create(AmsType detected_type, MoonrakerA
         }
         spdlog::debug("[AMS Backend] Creating AD5X IFS backend");
         return std::make_unique<AmsBackendAd5xIfs>(api, client);
+
+    case AmsType::CFS:
+        if (!api || !client) {
+            spdlog::error("[AMS Backend] CFS requires MoonrakerAPI and MoonrakerClient");
+            return nullptr;
+        }
+        spdlog::debug("[AMS Backend] Creating CFS backend");
+        return std::make_unique<printer::AmsBackendCfs>(api, client);
 
     case AmsType::NONE:
     default:

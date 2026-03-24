@@ -210,6 +210,11 @@ class PrinterDiscovery {
                 has_mmu_ = true;
                 mmu_type_ = AmsType::AFC;
             }
+            // CFS detection (Creality Filament System — K2 series)
+            else if (name == "box") {
+                has_mmu_ = true;
+                mmu_type_ = AmsType::CFS;
+            }
             // MMU encoder discovery (Happy Hare)
             else if (name.rfind("mmu_encoder ", 0) == 0) {
                 std::string encoder_name = name.substr(12); // Remove "mmu_encoder " prefix
@@ -422,6 +427,8 @@ class PrinterDiscovery {
                 detected_ams_systems_.push_back({AmsType::AFC, "AFC"});
             } else if (mmu_type_ == AmsType::AD5X_IFS) {
                 detected_ams_systems_.push_back({AmsType::AD5X_IFS, "AD5X IFS"});
+            } else if (mmu_type_ == AmsType::CFS) {
+                detected_ams_systems_.push_back({AmsType::CFS, "CFS"});
             }
         } else if (has_tool_changer_ && !tool_names_.empty()) {
             // Standalone tool changer with no MMU — show parallel topology
