@@ -19,6 +19,10 @@ class ToolSwitcherWidget : public PanelWidget {
     void detach() override;
     const char* id() const override { return "tool_switcher"; }
     void on_size_changed(int colspan, int rowspan, int width_px, int height_px) override;
+    bool has_overlay_open() const override { return picker_backdrop_ != nullptr; }
+
+    // Static instance tracker for callbacks from static event handlers
+    static ToolSwitcherWidget* s_active_instance;
 
   private:
     PrinterState& printer_state_;
