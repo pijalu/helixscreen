@@ -313,34 +313,30 @@ void MacrosPanel::fetch_params_and_execute(const std::string& macro_name) {
 void MacrosPanel::fetch_params_and_run(const std::string& macro_name) {
     auto cached = helix::MacroParamCache::instance().get(macro_name);
 
-    switch (cached.knowledge) {
-    case helix::MacroParamKnowledge::KNOWN_NO_PARAMS:
+    if (cached.knowledge == helix::MacroParamKnowledge::KNOWN_NO_PARAMS) {
         execute_macro(macro_name);
-        break;
-    case helix::MacroParamKnowledge::KNOWN_PARAMS: {
-        std::weak_ptr<bool> weak = alive_;
-        std::string name = macro_name;
-        param_modal_.show_for_macro(
-            lv_screen_active(), macro_name, cached.params,
-            [this, weak, name](const helix::MacroParamResult& result) {
-                if (weak.expired())
-                    return;
-                execute_with_params(name, result);
-            });
-        break;
+        return;
     }
-    case helix::MacroParamKnowledge::UNKNOWN: {
-        std::weak_ptr<bool> weak = alive_;
-        std::string name = macro_name;
-        param_modal_.show_for_unknown_params(
-            lv_screen_active(), macro_name,
-            [this, weak, name](const helix::MacroParamResult& result) {
-                if (weak.expired())
-                    return;
-                execute_with_params(name, result);
-            });
-        break;
+
+    lv_obj_t* screen = lv_screen_active();
+    if (!screen) {
+        spdlog::warn("[{}] No active screen - cannot show param modal for '{}'", get_name(),
+                     macro_name);
+        return;
     }
+
+    std::weak_ptr<bool> weak = alive_;
+    std::string name = macro_name;
+    auto on_result = [this, weak, name](const helix::MacroParamResult& result) {
+        if (weak.expired())
+            return;
+        execute_with_params(name, result);
+    };
+
+    if (cached.knowledge == helix::MacroParamKnowledge::KNOWN_PARAMS) {
+        param_modal_.show_for_macro(screen, macro_name, cached.params, on_result);
+    } else {
+        param_modal_.show_for_unknown_params(screen, macro_name, on_result);
     }
 }
 
