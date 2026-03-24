@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+#include "ams_backend_cfs.h"
 #include "ams_types.h"
 
 #include "../catch_amalgamated.hpp"
@@ -72,5 +73,77 @@ TEST_CASE("CFS data model extensions", "[ams][cfs]") {
             .level = AmsAlertLevel::SYSTEM
         });
         REQUIRE(info.alerts.size() == 1);
+    }
+}
+
+using helix::printer::CfsMaterialDb;
+
+TEST_CASE("CFS material database", "[ams][cfs]") {
+    const auto& db = CfsMaterialDb::instance();
+
+    SECTION("known material lookup") {
+        auto info = db.lookup("01001");
+        REQUIRE(info != nullptr);
+        REQUIRE(info->brand == "Creality");
+        REQUIRE(info->name == "Hyper PLA");
+        REQUIRE(info->material_type == "PLA");
+        REQUIRE(info->min_temp == 190);
+        REQUIRE(info->max_temp == 240);
+    }
+
+    SECTION("unknown material returns nullptr") {
+        auto info = db.lookup("99999");
+        REQUIRE(info == nullptr);
+    }
+
+    SECTION("code stripping: 101001 to 01001") {
+        auto id = CfsMaterialDb::strip_code("101001");
+        REQUIRE(id == "01001");
+    }
+
+    SECTION("short code returned as-is") {
+        auto id = CfsMaterialDb::strip_code("01001");
+        REQUIRE(id == "01001");
+    }
+
+    SECTION("sentinel -1 returns empty") {
+        auto id = CfsMaterialDb::strip_code("-1");
+        REQUIRE(id.empty());
+    }
+}
+
+TEST_CASE("CFS color parsing", "[ams][cfs]") {
+    SECTION("parse 0RRGGBB format") {
+        REQUIRE(CfsMaterialDb::parse_color("0C12E1F") == 0xC12E1F);
+        REQUIRE(CfsMaterialDb::parse_color("0FFFFFF") == 0xFFFFFF);
+        REQUIRE(CfsMaterialDb::parse_color("0000000") == 0x000000);
+    }
+
+    SECTION("sentinel values return default") {
+        REQUIRE(CfsMaterialDb::parse_color("-1") == 0x808080);
+        REQUIRE(CfsMaterialDb::parse_color("None") == 0x808080);
+    }
+}
+
+TEST_CASE("CFS slot addressing", "[ams][cfs]") {
+    SECTION("global index to TNN name") {
+        REQUIRE(CfsMaterialDb::slot_to_tnn(0) == "T1A");
+        REQUIRE(CfsMaterialDb::slot_to_tnn(1) == "T1B");
+        REQUIRE(CfsMaterialDb::slot_to_tnn(3) == "T1D");
+        REQUIRE(CfsMaterialDb::slot_to_tnn(4) == "T2A");
+        REQUIRE(CfsMaterialDb::slot_to_tnn(7) == "T2D");
+        REQUIRE(CfsMaterialDb::slot_to_tnn(15) == "T4D");
+    }
+
+    SECTION("TNN name to global index") {
+        REQUIRE(CfsMaterialDb::tnn_to_slot("T1A") == 0);
+        REQUIRE(CfsMaterialDb::tnn_to_slot("T1D") == 3);
+        REQUIRE(CfsMaterialDb::tnn_to_slot("T2A") == 4);
+        REQUIRE(CfsMaterialDb::tnn_to_slot("T4D") == 15);
+    }
+
+    SECTION("invalid TNN returns -1") {
+        REQUIRE(CfsMaterialDb::tnn_to_slot("invalid") == -1);
+        REQUIRE(CfsMaterialDb::tnn_to_slot("T5A") == -1);
     }
 }
