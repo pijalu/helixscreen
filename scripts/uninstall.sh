@@ -147,6 +147,11 @@ error_handler() {
                     log_success "Configuration restored from previous install (migrated from helixconfig.json)"
                     _restored=true
                 fi
+            elif [ -f "${INSTALL_BACKUP}/helixconfig.json" ]; then
+                if $(file_sudo "${INSTALL_DIR}/config") cp "${INSTALL_BACKUP}/helixconfig.json" "${INSTALL_DIR}/config/settings.json" 2>/dev/null; then
+                    log_success "Configuration restored from previous install (legacy root location)"
+                    _restored=true
+                fi
             fi
         fi
         if [ "$_restored" = false ]; then
