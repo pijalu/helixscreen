@@ -233,7 +233,7 @@ Plugins exist in one of four states:
 
 Plugins must be **explicitly enabled** in the configuration file. Simply placing a plugin in the `plugins/` directory does not activate it.
 
-**Config file location:** `~/.config/helix-screen/helixconfig.json` (or platform equivalent)
+**Config file location:** `~/.config/helix-screen/settings.json` (or platform equivalent)
 
 **Enable a plugin:**
 ```json

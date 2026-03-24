@@ -176,7 +176,7 @@ On any change, `compute_state_key()` determines the current state, and if it dif
 
 ## Config Persistence
 
-LED configuration is stored in `helixconfig.json` under `/printer/leds/`:
+LED configuration is stored in `settings.json` under `/printer/leds/`:
 
 ```json
 {

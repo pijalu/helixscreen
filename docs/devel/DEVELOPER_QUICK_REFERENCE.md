@@ -545,7 +545,7 @@ std::string path = lm.resolve_xml_path("home_panel.xml");
 | `tiny` | max dim <= 480, landscape | 480x320 |
 | `tiny_portrait` | max dim <= 480, portrait | 320x480 |
 
-CLI: `--layout ultrawide` | Config: `display.layout` in helixconfig.json
+CLI: `--layout ultrawide` | Config: `display.layout` in settings.json
 
 **Full docs:** [LAYOUT_SYSTEM.md](LAYOUT_SYSTEM.md) | **Header:** `include/layout_manager.h`
 

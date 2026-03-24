@@ -27,7 +27,7 @@ PrintStartCollector (owns lifecycle, phase detection, timing)
   +-> PreprintPredictor (pure logic: weighted averages, remaining time)
   |     No LVGL, no Config, no threads. Fully unit-testable.
   |
-  +-> Config persistence (/print_start_history/entries in helixconfig.json)
+  +-> Config persistence (/print_start_history/entries in settings.json)
   |
   +-> PrinterState subjects (print_start_time_left, preprint_remaining, preprint_elapsed)
         |
@@ -195,7 +195,7 @@ When remaining reaches 0, the display shows "Almost ready".
 
 ### Storage Location
 
-Entries are stored in the main config file (`config/helixconfig.json`) at the JSON path `/print_start_history/entries`.
+Entries are stored in the main config file (`config/settings.json`) at the JSON path `/print_start_history/entries`.
 
 ### JSON Schema
 
@@ -315,7 +315,7 @@ This gives users a more realistic wall-clock time estimate that includes heating
 
 ### Clearing Prediction History
 
-Delete the `print_start_history` key from `config/helixconfig.json` and restart:
+Delete the `print_start_history` key from `config/settings.json` and restart:
 
 ```json
 {

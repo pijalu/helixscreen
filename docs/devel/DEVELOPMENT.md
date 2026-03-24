@@ -128,11 +128,11 @@ spdlog::debug("[Theme] Registered {} items", count);
 ### Config File Pattern
 
 ```bash
-cp config/helixconfig.json.template config/helixconfig.json  # First-time setup
+cp config/settings.json.template config/settings.json  # First-time setup
 ```
 
-- `config/helixconfig.json` - User settings (git-ignored)
-- `config/helixconfig.json.template` - Defaults (versioned)
+- `config/settings.json` - User settings (git-ignored)
+- `config/settings.json.template` - Defaults (versioned)
 
 **Never commit user config.** Legacy root location auto-migrates.
 

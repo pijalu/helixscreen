@@ -51,7 +51,7 @@ When HelixScreen starts up, it detects your screen's aspect ratio and picks a la
 
 You can also force a layout manually:
 - **CLI flag:** `--layout ultrawide`
-- **Config file:** Set `display.layout` to `"ultrawide"` in `helixconfig.json`
+- **Config file:** Set `display.layout` to `"ultrawide"` in `settings.json`
 
 When a layout is active, HelixScreen checks for an override file in the layout's subdirectory.
 If it finds one, it uses it. If not, it falls back to the standard file. This means you can
@@ -347,7 +347,7 @@ register_xml("home_panel.xml");
 ### Config
 
 ```json
-// helixconfig.json
+// settings.json
 {
   "display": {
     "layout": "auto"
