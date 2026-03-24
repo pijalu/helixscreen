@@ -103,21 +103,26 @@ error_handler() {
     # Try TMP_DIR backup first, then fall back to .old directory (survives PrivateTmp).
     $(file_sudo "${INSTALL_DIR}") mkdir -p "${INSTALL_DIR}/config" 2>/dev/null || true
 
-    if [ ! -f "${INSTALL_DIR}/config/helixconfig.json" ]; then
+    if [ ! -f "${INSTALL_DIR}/config/settings.json" ]; then
         local _restored=false
         # Try TMP_DIR backup
         if [ -n "$BACKUP_CONFIG" ] && [ -f "$BACKUP_CONFIG" ]; then
             log_info "Restoring backed up configuration..."
-            if $(file_sudo "${INSTALL_DIR}/config") cp "$BACKUP_CONFIG" "${INSTALL_DIR}/config/helixconfig.json" 2>/dev/null; then
+            if $(file_sudo "${INSTALL_DIR}/config") cp "$BACKUP_CONFIG" "${INSTALL_DIR}/config/settings.json" 2>/dev/null; then
                 log_success "Configuration restored from backup"
                 _restored=true
             fi
         fi
-        # Fallback: .old directory
+        # Fallback: .old directory (try new name first, then legacy)
         if [ "$_restored" = false ] && [ -n "${INSTALL_BACKUP:-}" ]; then
-            if [ -f "${INSTALL_BACKUP}/config/helixconfig.json" ]; then
-                if $(file_sudo "${INSTALL_DIR}/config") cp "${INSTALL_BACKUP}/config/helixconfig.json" "${INSTALL_DIR}/config/helixconfig.json" 2>/dev/null; then
+            if [ -f "${INSTALL_BACKUP}/config/settings.json" ]; then
+                if $(file_sudo "${INSTALL_DIR}/config") cp "${INSTALL_BACKUP}/config/settings.json" "${INSTALL_DIR}/config/settings.json" 2>/dev/null; then
                     log_success "Configuration restored from previous install"
+                    _restored=true
+                fi
+            elif [ -f "${INSTALL_BACKUP}/config/helixconfig.json" ]; then
+                if $(file_sudo "${INSTALL_DIR}/config") cp "${INSTALL_BACKUP}/config/helixconfig.json" "${INSTALL_DIR}/config/settings.json" 2>/dev/null; then
+                    log_success "Configuration restored from previous install (migrated from helixconfig.json)"
                     _restored=true
                 fi
             fi

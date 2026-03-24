@@ -125,21 +125,26 @@ error_handler() {
     # Try TMP_DIR backup first, then fall back to .old directory (survives PrivateTmp).
     $(file_sudo "${INSTALL_DIR}") mkdir -p "${INSTALL_DIR}/config" 2>/dev/null || true
 
-    if [ ! -f "${INSTALL_DIR}/config/helixconfig.json" ]; then
+    if [ ! -f "${INSTALL_DIR}/config/settings.json" ]; then
         local _restored=false
         # Try TMP_DIR backup
         if [ -n "$BACKUP_CONFIG" ] && [ -f "$BACKUP_CONFIG" ]; then
             log_info "Restoring backed up configuration..."
-            if $(file_sudo "${INSTALL_DIR}/config") cp "$BACKUP_CONFIG" "${INSTALL_DIR}/config/helixconfig.json" 2>/dev/null; then
+            if $(file_sudo "${INSTALL_DIR}/config") cp "$BACKUP_CONFIG" "${INSTALL_DIR}/config/settings.json" 2>/dev/null; then
                 log_success "Configuration restored from backup"
                 _restored=true
             fi
         fi
-        # Fallback: .old directory
+        # Fallback: .old directory (try new name first, then legacy)
         if [ "$_restored" = false ] && [ -n "${INSTALL_BACKUP:-}" ]; then
-            if [ -f "${INSTALL_BACKUP}/config/helixconfig.json" ]; then
-                if $(file_sudo "${INSTALL_DIR}/config") cp "${INSTALL_BACKUP}/config/helixconfig.json" "${INSTALL_DIR}/config/helixconfig.json" 2>/dev/null; then
+            if [ -f "${INSTALL_BACKUP}/config/settings.json" ]; then
+                if $(file_sudo "${INSTALL_DIR}/config") cp "${INSTALL_BACKUP}/config/settings.json" "${INSTALL_DIR}/config/settings.json" 2>/dev/null; then
                     log_success "Configuration restored from previous install"
+                    _restored=true
+                fi
+            elif [ -f "${INSTALL_BACKUP}/config/helixconfig.json" ]; then
+                if $(file_sudo "${INSTALL_DIR}/config") cp "${INSTALL_BACKUP}/config/helixconfig.json" "${INSTALL_DIR}/config/settings.json" 2>/dev/null; then
+                    log_success "Configuration restored from previous install (migrated from helixconfig.json)"
                     _restored=true
                 fi
             fi
@@ -661,7 +666,7 @@ set_install_paths() {
 # These are the files users may want to edit from Fluidd/Mainsail, and that
 # the app writes to at runtime. All other files in INSTALL_DIR/config/ are
 # static assets reinstalled on each update.
-HELIX_USER_CONFIG_FILES="helixconfig.json helixscreen.env .disabled_services tool_spools.json"
+HELIX_USER_CONFIG_FILES="settings.json helixscreen.env .disabled_services tool_spools.json"
 
 # Set up editable config directory in printer_data/config/helixscreen/.
 #
@@ -672,8 +677,8 @@ HELIX_USER_CONFIG_FILES="helixconfig.json helixscreen.env .disabled_services too
 #
 # Layout after setup:
 #   ~/printer_data/config/helixscreen/           (real directory)
-#   ~/printer_data/config/helixscreen/helixconfig.json  (real file)
-#   ~/helixscreen/config/helixconfig.json → above       (symlink)
+#   ~/printer_data/config/helixscreen/settings.json     (real file)
+#   ~/helixscreen/config/settings.json → above          (symlink)
 #
 # On upgrade from old layout, migrates files from install dir to printer_data.
 # Reads: KLIPPER_HOME, INSTALL_DIR
@@ -718,6 +723,17 @@ setup_config_symlink() {
         fi
     fi
 
+    # --- Migrate helixconfig.json → settings.json in printer_data if needed ---
+    if [ -f "${pd_helix}/helixconfig.json" ] && [ ! -f "${pd_helix}/settings.json" ]; then
+        $(file_sudo "$pd_helix") mv "${pd_helix}/helixconfig.json" "${pd_helix}/settings.json"
+        log_info "Migrated printer_data config: helixconfig.json → settings.json"
+    fi
+    # Remove old symlink if it exists (new one will be created by HELIX_USER_CONFIG_FILES loop)
+    if [ -L "${install_config}/helixconfig.json" ]; then
+        $(file_sudo "$install_config") rm "${install_config}/helixconfig.json"
+        log_info "Removed old helixconfig.json symlink"
+    fi
+
     # --- Set up per-file symlinks ---
     local file
     for file in $HELIX_USER_CONFIG_FILES; do
@@ -727,12 +743,30 @@ setup_config_symlink() {
         # If the install dir has a real file (not a symlink), move it to printer_data
         if [ -f "$install_file" ] && [ ! -L "$install_file" ]; then
             if [ ! -f "$pd_file" ]; then
-                # Move the file to printer_data
-                $(file_sudo "$pd_helix") cp "$install_file" "$pd_file" 2>/dev/null
-                log_info "Migrated $file to printer_data"
+                # Move the file to printer_data — check for success before removing original.
+                # A silent cp failure followed by rm would permanently destroy the user's config.
+                if $(file_sudo "$pd_helix") cp "$install_file" "$pd_file" 2>/dev/null; then
+                    log_info "Migrated $file to printer_data"
+                else
+                    log_warn "Could not migrate $file to printer_data — keeping in install dir"
+                    continue  # Skip symlink creation; leave the real file in place
+                fi
             fi
             # Remove the original so we can create the symlink
             $(file_sudo "$install_config") rm -f "$install_file" 2>/dev/null
+        fi
+
+        # If pd_file still doesn't exist (e.g. runtime-created file like tool_spools.json
+        # or .disabled_services that isn't packaged and hasn't been written yet), skip
+        # symlink creation.  A dangling symlink is worse than no symlink: reads return
+        # ENOENT and writes may fail depending on the OS/filesystem.  The app will
+        # create the file at pd_file naturally; setup_config_symlink will wire it up
+        # correctly on the next update or reinstall.
+        if [ ! -f "$pd_file" ] && [ ! -L "$pd_file" ]; then
+            # Only skip if install_file also doesn't exist or isn't already a symlink
+            if [ ! -L "$install_file" ]; then
+                continue
+            fi
         fi
 
         # Create symlink: install_dir/config/file → printer_data/config/helixscreen/file
@@ -2271,7 +2305,7 @@ clean_old_installation() {
     log_warn ""
     log_warn "This will PERMANENTLY DELETE:"
     log_warn "  - All HelixScreen files in ${INSTALL_DIR}"
-    log_warn "  - Your configuration (helixconfig.json)"
+    log_warn "  - Your configuration (settings.json)"
     log_warn "  - Thumbnail cache files"
     log_warn ""
 
