@@ -35,6 +35,7 @@ struct TempConfigFixture {
         // Config::init() restores from backups when the config file is missing,
         // so stale backup data from a previous test run can leak into this test.
         std::filesystem::remove(AppConstants::Update::config_backup_fallback());
+        std::filesystem::remove(AppConstants::Update::legacy_config_backup_fallback());
         std::filesystem::remove(AppConstants::Update::env_backup_fallback());
 
         // Initialize Config singleton with temp path
