@@ -2,6 +2,7 @@
 
 #include "z_offset_utils.h"
 
+#include "ui_emergency_stop.h"
 #include "ui_toast_manager.h"
 
 #include "moonraker_api.h"
@@ -69,6 +70,10 @@ void apply_and_save(MoonrakerAPI* api, ZOffsetCalibrationStrategy strategy,
         apply_cmd,
         [api, apply_cmd, on_success, on_error]() {
             spdlog::info("[ZOffsetUtils] {} success, executing SAVE_CONFIG", apply_cmd);
+
+            // Suppress disconnect modal — SAVE_CONFIG triggers a Klipper restart
+            EmergencyStopOverlay::instance().suppress_recovery_dialog(
+                RecoverySuppression::LONG);
 
             api->execute_gcode(
                 "SAVE_CONFIG",

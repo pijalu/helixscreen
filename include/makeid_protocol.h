@@ -60,9 +60,9 @@ struct MakeIdResponse {
 
 // Print frame parameters
 struct MakeIdPrintParams {
-    uint8_t darkness = 10;         // 0-31 (bits 0-4)
-    MakeIdLabelType label_type = MakeIdLabelType::None;
-    uint8_t cut_type = 0;          // bits 0-2
+    uint8_t darkness = 20;         // 0-31 (bits 0-4), snoop: 0x14=20
+    MakeIdLabelType label_type = MakeIdLabelType::BlackMark;
+    uint8_t cut_type = 3;          // bits 0-2, snoop: 0x03
     uint8_t save_type = 0;         // bits 3-4
     uint16_t total_copies = 1;
     uint16_t current_copy = 1;
@@ -79,10 +79,11 @@ struct MakeIdBitmapChunk {
 
 // Print job config
 struct MakeIdPrintJobConfig {
-    uint8_t darkness = 10;
-    MakeIdLabelType label_type = MakeIdLabelType::None;
-    int printer_width_bytes = 12;   // default 96px / 8
-    int max_rows_per_chunk = 56;
+    uint8_t darkness = 20;
+    MakeIdLabelType label_type = MakeIdLabelType::BlackMark;
+    uint8_t cut_type = 3;
+    int printer_width_bytes = 12;
+    int max_rows_per_chunk = 170;
 };
 
 // Print job result

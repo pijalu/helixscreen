@@ -32,12 +32,12 @@
 - **Uses**: 1 | **Velocity**: 0 | **Learned**: 2025-12-14 | **Last**: 2025-12-31 | **Category**: pattern | **Type**: informational
 > Use centidegrees (int) for temperature subjects to preserve 0.1C resolution. Float subjects lose precision in LVGL binding
 
-### [L025] [***--|***--] Button content centering
-- **Uses**: 10 | **Velocity**: 1.5 | **Learned**: 2025-12-21 | **Last**: 2026-03-23 | **Category**: pattern | **Type**: constraint
+### [L025] [**---|**---] Button content centering
+- **Uses**: 9 | **Velocity**: 0.5 | **Learned**: 2025-12-21 | **Last**: 2026-03-13 | **Category**: pattern | **Type**: constraint
 > Text-only buttons: use `align="center"` on child. Icon+text buttons with flex_flow="row": need ALL THREE flex properties - style_flex_main_place="center" (horizontal), style_flex_cross_place="center" (vertical align items), style_flex_track_place="center" (vertical position of row). Missing track_place causes content to sit at top.
 
 ### [L031] [*****|*****] XML no recompile
-- **Uses**: 100 | **Velocity**: 53.50375 | **Learned**: 2025-12-27 | **Last**: 2026-03-23 | **Category**: gotcha | **Type**: constraint
+- **Uses**: 100 | **Velocity**: 52.50375 | **Learned**: 2025-12-27 | **Last**: 2026-03-23 | **Category**: gotcha | **Type**: constraint
 > XML files are loaded at RUNTIME - never rebuild after XML-only changes. Just relaunch the app. This includes layout changes, styling, bindings, event callbacks - anything in ui_xml/*.xml. Only rebuild when C++ code changes.
 
 ### [L039] [*----|***--] Unique XML callback names
@@ -52,8 +52,8 @@
 - **Uses**: 5 | **Velocity**: 2 | **Learned**: 2025-12-31 | **Last**: 2026-03-07 | **Category**: pattern | **Type**: informational
 > Multiple bind_flag_if_eq on same object creates independent observers where last one wins (race condition). For 'show only when X=value' logic, use single bind_flag_if_not_eq instead. Example: bind_flag_if_not_eq ref_value="0" shows only when value IS 0.
 
-### [L045] [*----|**---] XML dropdown options use &#10; entities
-- **Uses**: 2 | **Velocity**: 0.5 | **Learned**: 2026-01-06 | **Last**: 2026-03-12 | **Category**: gotcha | **Type**: constraint
+### [L045] [*----|***--] XML dropdown options use &#10; entities
+- **Uses**: 3 | **Velocity**: 1.5 | **Learned**: 2026-01-06 | **Last**: 2026-03-23 | **Category**: gotcha | **Type**: constraint
 > LVGL dropdown options in XML use &#10; (newline entity) as separator: options="Auto&#10;3D View&#10;2D Heatmap". NEVER expand &#10; to literal newlines — XML parsers normalize literal newlines in attributes to SPACES (per XML spec), silently breaking all dropdown options into one entry. The format-xml.py correctly round-trips &#10; through lxml, but any tool that writes literal newlines into XML attributes will destroy them.
 
 ### [L046] [*----|-----] XML subject shadows C++ subject

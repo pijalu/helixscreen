@@ -12,8 +12,10 @@
 #include "ui_update_queue.h"
 
 #include "app_globals.h"
+#include "moonraker_advanced_api.h"
 #include "moonraker_api.h"
 #include "moonraker_client.h"
+#include "printer_state.h"
 #include "probe_sensor_manager.h"
 #include "probe_sensor_types.h"
 #include "static_panel_registry.h"
@@ -502,21 +504,39 @@ void ProbeOverlay::load_type_panel() {
 void ProbeOverlay::handle_probe_accuracy() {
     spdlog::debug("[Probe] Probe accuracy test requested");
 
-    MoonrakerClient* client = get_moonraker_client();
-    if (!client) {
+    if (!api_) {
         ToastManager::instance().show(ToastSeverity::ERROR, "No printer connection");
         return;
     }
 
-    // Send PROBE_ACCURACY command (async via gcode_script)
-    int result = client->gcode_script("PROBE_ACCURACY");
-    if (result != 0) {
-        spdlog::error("[Probe] PROBE_ACCURACY command failed: {}", result);
-        ToastManager::instance().show(ToastSeverity::ERROR, "Probe accuracy test failed");
-    } else {
-        ToastManager::instance().show(ToastSeverity::INFO,
-                                      "Probe accuracy test started — results in console");
+    // Check homing state — PROBE_ACCURACY requires all axes homed
+    PrinterState& ps = get_printer_state();
+    const char* homed = lv_subject_get_string(ps.get_homed_axes_subject());
+    bool all_homed = homed && std::string(homed).find("xyz") != std::string::npos;
+
+    std::string gcode;
+    if (!all_homed) {
+        spdlog::info("[Probe] Axes not homed (homed_axes='{}'), homing first",
+                     homed ? homed : "");
+        gcode = "G28\n";
     }
+    gcode += "PROBE_ACCURACY";
+
+    ToastManager::instance().show(ToastSeverity::INFO,
+                                  all_homed ? "Probe accuracy test started"
+                                            : "Homing first, then running probe accuracy test");
+
+    api_->execute_gcode(
+        gcode,
+        []() { spdlog::info("[Probe] PROBE_ACCURACY completed"); },
+        [](const MoonrakerError& err) {
+            spdlog::error("[Probe] PROBE_ACCURACY failed: {}", err.user_message());
+            helix::ui::queue_update([]() {
+                ToastManager::instance().show(ToastSeverity::ERROR,
+                                              "Probe accuracy test failed");
+            });
+        },
+        MoonrakerAdvancedAPI::PROBING_TIMEOUT_MS);
 }
 
 void ProbeOverlay::handle_zoffset_cal() {

@@ -142,24 +142,29 @@ std::vector<uint8_t> makeid_build_print_frame(const std::vector<uint8_t>& compre
     return frame;
 }
 
+/// Encode bitmap to column-major format for MakeID printers.
+/// Our LabelBitmap is row-major: width=print_head_px, height=label_length_px.
+/// MakeID column-major: each "column" = one position along label length.
+/// Each bitmap row maps directly to one column (same byte layout).
+/// After copy, 16-bit byte-swap within each column.
 std::vector<uint8_t> makeid_encode_bitmap_raw(const LabelBitmap& bitmap, int printer_width_bytes) {
-    int height = bitmap.height();
-    int bmp_row_bytes = bitmap.row_byte_width();
+    int total_cols = bitmap.height();  // columns = label length
+    int bpc = printer_width_bytes;
 
-    std::vector<uint8_t> result(static_cast<size_t>(printer_width_bytes) * height, 0x00);
+    std::vector<uint8_t> result(static_cast<size_t>(total_cols) * bpc, 0x00);
 
-    for (int y = 0; y < height; y++) {
-        uint8_t* dst = result.data() + static_cast<size_t>(y) * printer_width_bytes;
-        const uint8_t* src = bitmap.row_data(y);
-
-        // Copy bitmap row data, leaving padding as zeros
-        int copy_bytes = std::min(bmp_row_bytes, printer_width_bytes);
+    for (int col = 0; col < total_cols; col++) {
+        uint8_t* dst = result.data() + static_cast<size_t>(col) * bpc;
+        const uint8_t* src = bitmap.row_data(col);
+        int copy_bytes = std::min(bitmap.row_byte_width(), bpc);
         std::memcpy(dst, src, copy_bytes);
 
-        // 16-bit byte-swap: swap every pair of adjacent bytes
-        for (int i = 0; i + 1 < printer_width_bytes; i += 2) {
-            std::swap(dst[i], dst[i + 1]);
-        }
+        // NOTE: 16-bit byte-swap disabled for testing — the L1 reference does
+        // a more complex transform16BitSwap (full column reversal), but the E1
+        // may not need it or may need a different transformation.
+        // for (int i = 0; i + 1 < bpc; i += 2) {
+        //     std::swap(dst[i], dst[i + 1]);
+        // }
     }
 
     return result;
@@ -167,31 +172,27 @@ std::vector<uint8_t> makeid_encode_bitmap_raw(const LabelBitmap& bitmap, int pri
 
 std::vector<MakeIdBitmapChunk> makeid_encode_bitmap(const LabelBitmap& bitmap,
                                                       int printer_width_bytes,
-                                                      int max_rows_per_chunk) {
-    int height = bitmap.height();
-    std::vector<MakeIdBitmapChunk> chunks;
+                                                      int max_cols_per_chunk) {
+    // Encode full bitmap to column-major
+    auto full_data = makeid_encode_bitmap_raw(bitmap, printer_width_bytes);
+    int bpc = printer_width_bytes;
+    int total_cols = bitmap.height();
 
-    // Check if LZO is available
+    std::vector<MakeIdBitmapChunk> chunks;
     auto& bt = helix::bluetooth::BluetoothLoader::instance();
     bool has_lzo = (bt.lzo_compress != nullptr);
 
-    for (int start_row = 0; start_row < height; start_row += max_rows_per_chunk) {
-        int chunk_rows = std::min(max_rows_per_chunk, height - start_row);
+    for (int start_col = 0; start_col < total_cols; start_col += max_cols_per_chunk) {
+        int chunk_cols = std::min(max_cols_per_chunk, total_cols - start_col);
+        size_t chunk_bytes = static_cast<size_t>(chunk_cols) * bpc;
 
-        // Create a sub-bitmap for this chunk
-        LabelBitmap sub(bitmap.width(), chunk_rows);
-        for (int y = 0; y < chunk_rows; y++) {
-            std::memcpy(sub.row_data(y), bitmap.row_data(start_row + y), bitmap.row_byte_width());
-        }
-
-        // Encode raw (1bpp + byte-swap)
-        auto raw = makeid_encode_bitmap_raw(sub, printer_width_bytes);
+        std::vector<uint8_t> raw(chunk_bytes);
+        std::memcpy(raw.data(), full_data.data() + static_cast<size_t>(start_col) * bpc, chunk_bytes);
 
         MakeIdBitmapChunk chunk;
-        chunk.height = chunk_rows;
+        chunk.height = chunk_cols;
 
         if (has_lzo) {
-            // LZO compress — worst case output is input + input/16 + 64 + 3
             size_t worst_case = raw.size() + raw.size() / 16 + 67;
             std::vector<uint8_t> compressed(worst_case);
             int compressed_len = bt.lzo_compress(raw.data(), static_cast<int>(raw.size()),
@@ -200,13 +201,10 @@ std::vector<MakeIdBitmapChunk> makeid_encode_bitmap(const LabelBitmap& bitmap,
                 compressed.resize(compressed_len);
                 chunk.data = std::move(compressed);
             } else {
-                // Compression failed, fall back to raw
-                spdlog::warn("MakeID LZO compression failed for chunk at row {}, using raw data",
-                             start_row);
+                spdlog::warn("MakeID LZO failed at col {}, using raw", start_col);
                 chunk.data = std::move(raw);
             }
         } else {
-            // No LZO available — store raw data
             chunk.data = std::move(raw);
         }
 
@@ -234,9 +232,11 @@ MakeIdPrintJob makeid_build_print_job(const LabelBitmap& bitmap, const LabelSize
         MakeIdPrintParams params;
         params.darkness = config.darkness;
         params.label_type = config.label_type;
+        params.cut_type = config.cut_type;
         params.total_copies = 1;
         params.current_copy = 1;
-        params.width_px = static_cast<uint16_t>(size.width_px);
+        // width = total columns (bitmap height in row-major = label length in px)
+        params.width_px = static_cast<uint16_t>(bitmap.height());
         params.chunk_height = static_cast<uint16_t>(chunks[i].height);
         params.remaining_chunks = static_cast<uint8_t>(total_chunks - 1 - i);
 
