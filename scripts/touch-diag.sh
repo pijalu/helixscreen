@@ -105,9 +105,9 @@ done
 echo
 
 echo "=== HelixScreen Config ==="
-CONFIG="$HOME/helixscreen/config/helixconfig.json"
+CONFIG="$HOME/helixscreen/config/settings.json"
 if [ ! -f "$CONFIG" ]; then
-    CONFIG="$HOME/helixscreen/config/settings.json"
+    CONFIG="$HOME/helixscreen/config/helixconfig.json"
 fi
 if [ -f "$CONFIG" ]; then
     echo "Config: $CONFIG"
