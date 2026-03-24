@@ -60,7 +60,7 @@ TEST_CASE("PreheatWidget: collect_preheat_heaters returns single tool heater for
     SECTION("tool 1") {
         auto heaters = PreheatWidget::collect_preheat_heaters(tools, 1);
         REQUIRE(heaters.size() == 1);
-        REQUIRE(heaters[1 - 1] == "extruder1");
+        REQUIRE(heaters[0] == "extruder1");
     }
 
     SECTION("tool 2") {

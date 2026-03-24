@@ -42,6 +42,7 @@ void register_preheat_widget() {
                              PreheatWidget::preheat_changed_cb);
     lv_xml_register_event_cb(nullptr, "preheat_nozzle_tap_cb", PreheatWidget::nozzle_tap_cb);
     lv_xml_register_event_cb(nullptr, "preheat_bed_tap_cb", PreheatWidget::bed_tap_cb);
+    lv_xml_register_event_cb(nullptr, "preheat_tool_target_cb", PreheatWidget::tool_target_cb);
 }
 
 PreheatWidget::PreheatWidget(PrinterState& printer_state) : printer_state_(printer_state) {}
@@ -70,6 +71,12 @@ void PreheatWidget::attach(lv_obj_t* widget_obj, lv_obj_t* parent_screen) {
         lv_obj_set_user_data(split_btn_, this);
         ui_split_button_set_selected(split_btn_, static_cast<uint32_t>(selected_material_));
         update_button_label();
+    }
+
+    // Clamp tool_target_ to prevent stale index when tool count changes between sessions
+    auto tool_count = static_cast<int>(ToolState::instance().tools().size());
+    if (tool_target_ >= tool_count) {
+        tool_target_ = -1; // Reset to "all" if stale
     }
 
     // Update label when widget resizes (e.g. breakpoint change, initial layout)
