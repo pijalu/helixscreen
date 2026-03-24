@@ -2,8 +2,6 @@
 
 #include "makeid_protocol.h"
 
-#include "bluetooth_loader.h"
-
 #include <spdlog/spdlog.h>
 
 #include <algorithm>
@@ -142,11 +140,43 @@ std::vector<uint8_t> makeid_build_print_frame(const std::vector<uint8_t>& compre
     return frame;
 }
 
+std::vector<uint8_t> makeid_lzo_literals_only(const uint8_t* data, size_t len) {
+    // Encode as LZO1X literal runs only — no match/copy instructions.
+    // Standard miniLZO lzo1x_1_compress produces match encodings that crash the
+    // MakeID E1 firmware. This literals-only encoding is universally safe.
+    std::vector<uint8_t> out;
+    out.reserve(len + len / 238 + 10);
+
+    size_t pos = 0;
+    bool first = true;
+    while (pos < len) {
+        size_t chunk = std::min(len - pos, static_cast<size_t>(238));
+
+        if (first) {
+            // First literal run: length + 17 encoding
+            out.push_back(static_cast<uint8_t>(chunk + 17));
+            first = false;
+        } else {
+            // Subsequent literal runs: length - 3 encoded
+            // For chunks up to 238 bytes, a single byte suffices
+            out.push_back(static_cast<uint8_t>(chunk - 3));
+        }
+
+        out.insert(out.end(), data + pos, data + pos + chunk);
+        pos += chunk;
+    }
+
+    // LZO end-of-stream marker
+    out.push_back(0x11);
+    out.push_back(0x00);
+    out.push_back(0x00);
+    return out;
+}
+
 /// Encode bitmap to column-major format for MakeID printers.
 /// Our LabelBitmap is row-major: width=print_head_px, height=label_length_px.
 /// MakeID column-major: each "column" = one position along label length.
 /// Each bitmap row maps directly to one column (same byte layout).
-/// After copy, 16-bit byte-swap within each column.
 std::vector<uint8_t> makeid_encode_bitmap_raw(const LabelBitmap& bitmap, int printer_width_bytes) {
     int total_cols = bitmap.height();  // columns = label length
     int bpc = printer_width_bytes;
@@ -158,13 +188,6 @@ std::vector<uint8_t> makeid_encode_bitmap_raw(const LabelBitmap& bitmap, int pri
         const uint8_t* src = bitmap.row_data(col);
         int copy_bytes = std::min(bitmap.row_byte_width(), bpc);
         std::memcpy(dst, src, copy_bytes);
-
-        // NOTE: 16-bit byte-swap disabled for testing — the L1 reference does
-        // a more complex transform16BitSwap (full column reversal), but the E1
-        // may not need it or may need a different transformation.
-        // for (int i = 0; i + 1 < bpc; i += 2) {
-        //     std::swap(dst[i], dst[i + 1]);
-        // }
     }
 
     return result;
@@ -179,35 +202,16 @@ std::vector<MakeIdBitmapChunk> makeid_encode_bitmap(const LabelBitmap& bitmap,
     int total_cols = bitmap.height();
 
     std::vector<MakeIdBitmapChunk> chunks;
-    auto& bt = helix::bluetooth::BluetoothLoader::instance();
-    bool has_lzo = (bt.lzo_compress != nullptr);
 
     for (int start_col = 0; start_col < total_cols; start_col += max_cols_per_chunk) {
         int chunk_cols = std::min(max_cols_per_chunk, total_cols - start_col);
         size_t chunk_bytes = static_cast<size_t>(chunk_cols) * bpc;
 
-        std::vector<uint8_t> raw(chunk_bytes);
-        std::memcpy(raw.data(), full_data.data() + static_cast<size_t>(start_col) * bpc, chunk_bytes);
+        const uint8_t* chunk_ptr = full_data.data() + static_cast<size_t>(start_col) * bpc;
 
         MakeIdBitmapChunk chunk;
         chunk.height = chunk_cols;
-
-        if (has_lzo) {
-            size_t worst_case = raw.size() + raw.size() / 16 + 67;
-            std::vector<uint8_t> compressed(worst_case);
-            int compressed_len = bt.lzo_compress(raw.data(), static_cast<int>(raw.size()),
-                                                  compressed.data(), static_cast<int>(worst_case));
-            if (compressed_len > 0) {
-                compressed.resize(compressed_len);
-                chunk.data = std::move(compressed);
-            } else {
-                spdlog::warn("MakeID LZO failed at col {}, using raw", start_col);
-                chunk.data = std::move(raw);
-            }
-        } else {
-            chunk.data = std::move(raw);
-        }
-
+        chunk.data = makeid_lzo_literals_only(chunk_ptr, chunk_bytes);
         chunks.push_back(std::move(chunk));
     }
 

@@ -201,8 +201,11 @@ void CameraStream::stop() {
             free_buffers();
             recv_buf_.clear();
             boundary_.clear();
-            on_frame_ = nullptr;
-            on_error_ = nullptr;
+            {
+                std::lock_guard<std::mutex> lock(cb_mutex_);
+                on_frame_ = nullptr;
+                on_error_ = nullptr;
+            }
         } else {
             // Thread still running with alive_=false — don't touch state it
             // may reference. Leak buffers and callbacks to avoid UAF.
@@ -395,10 +398,10 @@ void CameraStream::stream_thread_func() {
         spdlog::warn("[CameraStream] Stream failed {} times, falling back to snapshot mode",
                      stream_fail_count_);
         if (!snapshot_url_.empty()) {
-            if (thread_alive->load() && on_error_) on_error_("Stream failed, trying snapshots...");
+            report_error(thread_alive, "Stream failed, trying snapshots...");
             snapshot_poll_loop();
         } else {
-            if (thread_alive->load() && on_error_) on_error_("Stream unavailable");
+            report_error(thread_alive, "Stream unavailable");
         }
     }
 
@@ -408,11 +411,11 @@ void CameraStream::stream_thread_func() {
         if (thread_alive->load()) {
             recv_buf_.clear();
             recv_buf_.shrink_to_fit();
-            if (on_error_) on_error_("Out of memory");
+            report_error(thread_alive, "Out of memory");
         }
     } catch (const std::exception& e) {
         spdlog::error("[CameraStream] Uncaught exception in stream thread: {}", e.what());
-        if (thread_alive->load() && on_error_) on_error_(e.what());
+        report_error(thread_alive, e.what());
     }
 }
 
@@ -791,13 +794,35 @@ bool CameraStream::decode_jpeg_stb(const uint8_t* data, size_t len) {
 }
 
 // ============================================================================
+// Error Reporting
+// ============================================================================
+
+void CameraStream::report_error(const std::shared_ptr<std::atomic<bool>>& alive, const char* message) {
+    ErrorCallback err_cb;
+    if (alive->load()) {
+        std::lock_guard<std::mutex> lock(cb_mutex_);
+        err_cb = on_error_;
+    }
+    if (err_cb) err_cb(message);
+}
+
+// ============================================================================
 // Frame Delivery
 // ============================================================================
 
 void CameraStream::deliver_frame() {
-    if (!alive_ || !alive_->load() || !on_frame_ || !back_buf_) {
+    if (!alive_ || !alive_->load()) {
         return;
     }
+
+    FrameCallback frame_cb;
+    {
+        std::lock_guard<std::mutex> lock(cb_mutex_);
+        if (!on_frame_) return;
+        frame_cb = on_frame_;
+    }
+
+    if (!back_buf_) return;
 
     {
         std::lock_guard<std::mutex> lock(buf_mutex_);
@@ -805,7 +830,7 @@ void CameraStream::deliver_frame() {
     }
 
     frame_pending_.store(true);
-    on_frame_(front_buf_);
+    frame_cb(front_buf_);
 }
 
 // ============================================================================

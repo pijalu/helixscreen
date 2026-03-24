@@ -278,10 +278,9 @@ void GCodeLayerCache::touch(size_t layer_index) {
 
     auto lru_it = lru_map_.find(layer_index);
     if (lru_it != lru_map_.end()) {
-        // Move to front of LRU list
-        lru_order_.erase(lru_it->second);
-        lru_order_.push_front(layer_index);
-        lru_map_[layer_index] = lru_order_.begin();
+        // Move to front of LRU list — splice is noexcept and preserves
+        // the iterator in lru_map_ (no erase+reinsert needed)
+        lru_order_.splice(lru_order_.begin(), lru_order_, lru_it->second);
     }
 }
 

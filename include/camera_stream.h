@@ -137,6 +137,10 @@ class CameraStream {
     void ensure_buffers(int width, int height);
     void free_buffers();
 
+    // Thread-safe error reporting: copies on_error_ under cb_mutex_, invokes outside lock.
+    // Only invokes if the alive flag is still set.
+    void report_error(const std::shared_ptr<std::atomic<bool>>& alive, const char* message);
+
     // Resolve rotation + flip atomics into output dimensions and effective transform
     struct TransformParams {
         CameraRotation rotation;
@@ -172,6 +176,7 @@ class CameraStream {
     int frame_width_ = 0;
     int frame_height_ = 0;
     std::mutex buf_mutex_;
+    std::mutex cb_mutex_;  // Protects on_frame_ / on_error_ against TOCTOU races
 
     // Old front buffers awaiting safe cleanup — LVGL may still reference
     // them via lv_image_set_src until the widget clears the source
