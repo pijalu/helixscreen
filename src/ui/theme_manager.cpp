@@ -481,6 +481,16 @@ static void helix_theme_apply(lv_theme_t* theme, lv_obj_t* obj) {
     if (lv_obj_check_type(obj, &lv_dropdownlist_class)) {
         lv_obj_add_style(obj, tm.get_style(StyleRole::InputBg), LV_PART_MAIN);
 
+        // Clip highlight rectangles to rounded corners
+        lv_obj_set_style_clip_corner(obj, true, LV_PART_MAIN);
+
+        // Add responsive line spacing (1x font height) for comfortable touch targets
+        const lv_font_t* list_font = lv_obj_get_style_text_font(obj, LV_PART_MAIN);
+        if (list_font) {
+            int32_t line_space = lv_font_get_line_height(list_font);
+            lv_obj_set_style_text_line_space(obj, line_space, LV_PART_MAIN);
+        }
+
         // Compute contrast text for dropdown accent
         uint8_t lum = lv_color_luminance(dropdown_accent_color);
         lv_color_t selected_text = (lum > 140) ? lv_color_black() : lv_color_white();
