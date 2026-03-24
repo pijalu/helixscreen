@@ -40,12 +40,11 @@ TEST_CASE("NozzleTempsWidget: widget def exists in registry", "[nozzle_temps][pa
     }
 }
 
-TEST_CASE("NozzleTempsWidget: hardware gate uses show_tool_badge subject",
+TEST_CASE("NozzleTempsWidget: no hardware gate (visible to all printers)",
           "[nozzle_temps][panel_widget]") {
     const auto* def = find_widget_def("nozzle_temps");
     REQUIRE(def != nullptr);
-    REQUIRE(def->hardware_gate_subject != nullptr);
-    REQUIRE(std::strcmp(def->hardware_gate_subject, "show_tool_badge") == 0);
+    REQUIRE(def->hardware_gate_subject == nullptr);
 }
 
 TEST_CASE("NozzleTempsWidget: default rowspan is 2 (1x2 preferred)", "[nozzle_temps][panel_widget]") {
@@ -55,9 +54,9 @@ TEST_CASE("NozzleTempsWidget: default rowspan is 2 (1x2 preferred)", "[nozzle_te
     REQUIRE(def->colspan == 1);
     REQUIRE(def->rowspan == 2);
 
-    // Can scale from 1x1 to 2x3
+    // Can scale from 1x2 to 2x3 (min_rowspan=2 to prevent unusable 1x1)
     REQUIRE(def->effective_min_colspan() == 1);
-    REQUIRE(def->effective_min_rowspan() == 1);
+    REQUIRE(def->effective_min_rowspan() == 2);
     REQUIRE(def->effective_max_colspan() == 2);
     REQUIRE(def->effective_max_rowspan() == 3);
 }

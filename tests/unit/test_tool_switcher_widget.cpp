@@ -41,12 +41,11 @@ TEST_CASE("ToolSwitcherWidget: widget def exists in registry", "[tool_switcher][
     }
 }
 
-TEST_CASE("ToolSwitcherWidget: hardware gate uses show_tool_badge subject",
+TEST_CASE("ToolSwitcherWidget: no hardware gate (visible to all printers)",
           "[tool_switcher][panel_widget]") {
     const auto* def = find_widget_def("tool_switcher");
     REQUIRE(def != nullptr);
-    REQUIRE(def->hardware_gate_subject != nullptr);
-    REQUIRE(std::strcmp(def->hardware_gate_subject, "show_tool_badge") == 0);
+    REQUIRE(def->hardware_gate_subject == nullptr);
 }
 
 TEST_CASE("ToolSwitcherWidget: supports scaling from 1x1 to 2x2",
