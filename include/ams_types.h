@@ -539,6 +539,36 @@ struct SlotError {
 };
 
 /**
+ * @brief Environmental sensor data (temperature + humidity)
+ *
+ * Used on AmsUnit and SlotInfo as std::optional<EnvironmentData>.
+ * CFS provides per-unit environment; future backends may provide per-slot.
+ */
+struct EnvironmentData {
+    float temperature_c = 0.0f; ///< Temperature in Celsius
+    float humidity_pct = 0.0f;  ///< Relative humidity percentage (0-100)
+};
+
+/// Error targeting level for multi-level error reporting
+enum class AmsAlertLevel { SLOT, UNIT, SYSTEM };
+
+/**
+ * @brief Active error/warning with human-readable message and troubleshooting hint
+ *
+ * Different from AmsError (in ams_error.h, operation result type) — this represents
+ * a persistent alert condition reported by the backend hardware.
+ */
+struct AmsAlert {
+    std::string message;      ///< Human-readable error message
+    std::string hint;         ///< Actionable troubleshooting text
+    std::string error_code;   ///< Backend-specific code: "CFS-843", "AFC-LANE_ERROR"
+    AmsAlertLevel level = AmsAlertLevel::SYSTEM;
+    SlotError::Severity severity = SlotError::Severity::ERROR;
+    int unit_index = -1;      ///< For UNIT/SLOT level (-1 = N/A)
+    int slot_index = -1;      ///< For SLOT level (-1 = N/A)
+};
+
+/**
  * @brief Buffer health data for AFC buffer fault detection
  *
  * Populated from AFC_buffer status objects. Only applicable to AFC
@@ -617,6 +647,12 @@ struct SlotInfo {
     // Error state
     std::optional<SlotError> error; ///< Per-slot error state (nullopt = no error)
 
+    // Length-based remaining filament (CFS measuring wheel, etc.)
+    float remaining_length_m = 0.0f; ///< Remaining filament in meters (0 = unknown)
+
+    // Per-slot environment sensors (optional — most backends don't have these)
+    std::optional<EnvironmentData> environment; ///< nullopt = no per-slot sensors
+
     /**
      * @brief Get remaining percentage
      * @return 0-100 or -1 if unknown
@@ -670,6 +706,8 @@ struct AmsUnit {
     // Unit-level status
     bool connected = false;       ///< Unit communication status
     std::string firmware_version; ///< Firmware version if available
+    std::string serial_number;                  ///< Hardware serial number
+    std::optional<EnvironmentData> environment;  ///< Per-unit temp/humidity (nullopt = no sensors)
 
     // Sensors (Happy Hare)
     bool has_encoder = false;         ///< Has filament encoder
@@ -843,6 +881,9 @@ struct AmsSystemInfo {
     bool has_hardware_bypass_sensor = false; ///< true=auto-detect sensor, false=virtual/manual
     TipMethod tip_method = TipMethod::CUT;   ///< How filament tip is handled during unload
     bool supports_purge = false;             ///< Has purge capability after load
+
+    // Active alerts (persistent error conditions from hardware)
+    std::vector<AmsAlert> alerts; ///< Current system/unit/slot alerts
 
     // Happy Hare v4 extended status fields
     SpoolmanMode spoolman_mode = SpoolmanMode::OFF; ///< Spoolman integration mode
