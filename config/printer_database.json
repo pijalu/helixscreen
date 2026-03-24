@@ -626,7 +626,6 @@
       "name": "Creality K1",
       "manufacturer": "Creality",
       "image": "creality-k1.png",
-      "z_offset_calibration_strategy": "gcode_offset",
       "probe_type": "prtouch_v2",
       "print_start_capabilities": {
         "macro_name": "START_PRINT",
@@ -708,7 +707,6 @@
       "name": "Creality K1 Max",
       "manufacturer": "Creality",
       "image": "creality-k1-max.png",
-      "z_offset_calibration_strategy": "gcode_offset",
       "probe_type": "prtouch_v2",
       "print_start_capabilities": {
         "macro_name": "START_PRINT",
@@ -840,7 +838,6 @@
       "name": "Creality K1C",
       "manufacturer": "Creality",
       "image": "creality-k1c.png",
-      "z_offset_calibration_strategy": "gcode_offset",
       "probe_type": "prtouch_v2",
       "print_start_capabilities": {
         "macro_name": "START_PRINT",
@@ -905,7 +902,6 @@
       "name": "Creality K1 SE",
       "manufacturer": "Creality",
       "image": "creality-k1-se.png",
-      "z_offset_calibration_strategy": "gcode_offset",
       "probe_type": "prtouch_v2",
       "print_start_capabilities": {
         "macro_name": "START_PRINT",
