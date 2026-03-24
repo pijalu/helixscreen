@@ -34,6 +34,10 @@ class BluetoothLoader {
     helix_bt_last_error_fn last_error = nullptr;
     helix_bt_lzo_compress_fn lzo_compress = nullptr;
 
+    /// Get a shared BT context, creating it on first call.
+    /// Avoids multiple init() calls which cause D-Bus agent conflicts.
+    helix_bt_context* get_or_create_context();
+
     // Non-copyable
     BluetoothLoader(const BluetoothLoader&) = delete;
     BluetoothLoader& operator=(const BluetoothLoader&) = delete;
@@ -47,6 +51,7 @@ class BluetoothLoader {
 
     void* dl_handle_ = nullptr;
     bool available_ = false;
+    helix_bt_context* shared_ctx_ = nullptr;
 };
 
 }  // namespace helix::bluetooth

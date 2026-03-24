@@ -224,6 +224,7 @@ This enables SIMD-accelerated (hardware-optimized) JPEG decoding, which is 3-5x 
 - **Brother QL** — via Network or Bluetooth
 - **Phomemo** — via USB or Bluetooth
 - **Niimbot** — via Bluetooth (B21, D11, D110)
+- **MakeID** — via Bluetooth (E1, L1, M1 — 9/12/16mm continuous tape)
 
 Labels include spool name, material, color swatch, temperatures, and a QR code. See the [Label Printing Guide](guide/label-printing.md) for setup.
 

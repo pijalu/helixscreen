@@ -34,11 +34,24 @@ BluetoothLoader::BluetoothLoader() {
 }
 
 BluetoothLoader::~BluetoothLoader() {
+    if (shared_ctx_ && deinit) {
+        deinit(shared_ctx_);
+        shared_ctx_ = nullptr;
+    }
     if (dl_handle_) {
         dlclose(dl_handle_);
         dl_handle_ = nullptr;
         spdlog::trace("[BluetoothLoader] Plugin unloaded");
     }
+}
+
+// Not thread-safe, but callers are serialized by s_print_mutex in makeid_bt_printer.cpp
+// and UI pairing is single-threaded.
+helix_bt_context* BluetoothLoader::get_or_create_context() {
+    if (shared_ctx_) return shared_ctx_;
+    if (!available_ || !init) return nullptr;
+    shared_ctx_ = init();
+    return shared_ctx_;
 }
 
 bool BluetoothLoader::is_available() const {

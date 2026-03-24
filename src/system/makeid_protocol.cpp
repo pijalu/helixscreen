@@ -141,30 +141,30 @@ std::vector<uint8_t> makeid_build_print_frame(const std::vector<uint8_t>& compre
 }
 
 std::vector<uint8_t> makeid_lzo_literals_only(const uint8_t* data, size_t len) {
-    // Encode as LZO1X literal runs only — no match/copy instructions.
+    // Encode as a single LZO1X first-literal run — no match/copy instructions.
     // Standard miniLZO lzo1x_1_compress produces match encodings that crash the
     // MakeID E1 firmware. This literals-only encoding is universally safe.
+    //
+    // LZO1X first literal encoding:
+    //   len <= 238: prefix byte = len + 17, then len literal bytes
+    //   len > 238:  prefix byte = 0x00, then (len-18)/255 zero bytes,
+    //               then (len-18)%255 as one byte, then len literal bytes
     std::vector<uint8_t> out;
-    out.reserve(len + len / 238 + 10);
+    out.reserve(len + 10);
 
-    size_t pos = 0;
-    bool first = true;
-    while (pos < len) {
-        size_t chunk = std::min(len - pos, static_cast<size_t>(238));
-
-        if (first) {
-            // First literal run: length + 17 encoding
-            out.push_back(static_cast<uint8_t>(chunk + 17));
-            first = false;
-        } else {
-            // Subsequent literal runs: length - 3 encoded
-            // For chunks up to 238 bytes, a single byte suffices
-            out.push_back(static_cast<uint8_t>(chunk - 3));
+    if (len <= 238) {
+        out.push_back(static_cast<uint8_t>(len + 17));
+    } else {
+        out.push_back(0x00);
+        size_t remaining = len - 18;
+        while (remaining > 255) {
+            out.push_back(0x00);
+            remaining -= 255;
         }
-
-        out.insert(out.end(), data + pos, data + pos + chunk);
-        pos += chunk;
+        out.push_back(static_cast<uint8_t>(remaining));
     }
+
+    out.insert(out.end(), data, data + len);
 
     // LZO end-of-stream marker
     out.push_back(0x11);
@@ -255,15 +255,16 @@ std::vector<LabelSize> makeid_e1_sizes() {
     // MakeID E1: 203 DPI tape printer
     // 9mm  -> ~72px  (9 * 203 / 25.4 ≈ 71.9)
     // 12mm -> ~96px  (12 * 203 / 25.4 ≈ 95.9)
-    // 16mm -> ~128px (16 * 203 / 25.4 ≈ 127.9)
+    // 16mm tape: head is still 96px on E1 (wider tape, same head)
     return {
         {"12x40mm", 96, 307, 203, 0x01, 12, 40},
         {"12x30mm", 96, 231, 203, 0x01, 12, 30},
         {"12x50mm", 96, 384, 203, 0x01, 12, 50},
         {"9x40mm", 72, 307, 203, 0x01, 9, 40},
         {"9x30mm", 72, 231, 203, 0x01, 9, 30},
-        {"16x40mm", 128, 307, 203, 0x01, 16, 40},
-        {"16x50mm", 128, 384, 203, 0x01, 16, 50},
+        {"16x30mm", 96, 231, 203, 0x01, 16, 30},
+        {"16x40mm", 96, 307, 203, 0x01, 16, 40},
+        {"16x50mm", 96, 384, 203, 0x01, 16, 50},
     };
 }
 

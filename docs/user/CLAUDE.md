@@ -24,7 +24,7 @@ These docs are **end-user facing**. They must be written for people who are NOT 
 | `guide/motion.md` | Jog pad, homing, distance increments, E-stop |
 | `guide/filament.md` | Extrusion, AMS, Spoolman, dryer control |
 | `guide/bluetooth-setup.md` | Enabling Bluetooth on Raspberry Pi and BTT Pi, UART conflicts, USB dongle setup |
-| `guide/label-printing.md` | Label printer setup, supported printers (Brother/Phomemo/Niimbot), Bluetooth pairing, troubleshooting |
+| `guide/label-printing.md` | Label printer setup, supported printers (Brother/Phomemo/Niimbot/MakeID), Bluetooth pairing, troubleshooting |
 | `guide/calibration.md` | Bed mesh, screws tilt, input shaper, PID |
 | `guide/touch-calibration.md` | Touch screen calibration, forcing recalibration, config reference |
 | `guide/settings.md` | Settings hub page with links to sub-pages |

@@ -105,16 +105,16 @@ MakeIdResponse makeid_parse_response(const uint8_t* data, size_t len);
 std::vector<uint8_t> makeid_build_print_frame(const std::vector<uint8_t>& compressed_data,
                                                 const MakeIdPrintParams& params);
 
-/// Encode bitmap to raw 1bpp with 16-bit byte-swap (no LZO, no chunking)
+/// Encode bitmap to raw 1bpp column-major format (no LZO, no chunking)
 std::vector<uint8_t> makeid_encode_bitmap_raw(const LabelBitmap& bitmap, int printer_width_bytes);
 
-/// Encode bitmap: 1bpp + byte-swap + LZO compress + chunk splitting
+/// Encode bitmap: column-major 1bpp + literals-only LZO + chunk splitting
 /// If LZO is unavailable (BluetoothLoader not loaded), stores raw uncompressed data
 std::vector<MakeIdBitmapChunk> makeid_encode_bitmap(const LabelBitmap& bitmap,
                                                       int printer_width_bytes,
                                                       int max_rows_per_chunk);
 
-/// Build complete print job (all 0x1B frames ready to send over BLE)
+/// Build complete print job (all 0x1B frames ready to send over BLE/RFCOMM)
 MakeIdPrintJob makeid_build_print_job(const LabelBitmap& bitmap, const LabelSize& size,
                                         const MakeIdPrintJobConfig& config = {});
 

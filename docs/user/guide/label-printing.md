@@ -13,7 +13,7 @@ HelixScreen supports four families of label printers:
 | **Brother QL** | Network (TCP) or Bluetooth | QL-820NWB, QL-810W, QL-800, PT-*, TD-*, RJ-* |
 | **Phomemo** | USB or Bluetooth | M110, M120, M02, Q199, and other M*/Q* series |
 | **Niimbot** | Bluetooth only | B21, D11, D110 |
-| **MakeID** | Bluetooth only | E1, L1, M1 *(beta — ready for testing)* |
+| **MakeID** | Bluetooth only | E1 (advertises as "YichipFPGA-XXXX"), L1, M1 — 9/12/16mm continuous tape |
 
 > **Note:** Bluetooth label printing requires a Bluetooth adapter on your HelixScreen device (Raspberry Pi 4/5 have built-in Bluetooth). Devices without Bluetooth hardware will only see Network and USB options. If Bluetooth is disabled for UART, see the [Bluetooth Setup Guide](bluetooth-setup.md).
 
@@ -130,11 +130,11 @@ A toast notification confirms success or shows an error message.
 - The first print after connecting takes a few extra seconds — HelixScreen needs to initialize the BLE connection and warm up the printer's thermal subsystem
 - Subsequent prints are faster because the connection stays alive between jobs
 
-### MakeID printer not working (beta)
+### MakeID printer not working
 
-- MakeID support is in beta — if you have issues, please report them so we can improve it
+- MakeID E1 advertises as "YichipFPGA-XXXX" over Bluetooth — look for this name during scanning
 - Make sure no other app (like the MakeID phone app) is connected to the printer
-- MakeID printers use BLE, so the same Bluetooth requirements as Niimbot apply
+- MakeID printers use Bluetooth Classic (RFCOMM), so any Bluetooth adapter that supports standard Bluetooth will work (BLE-only dongles are not required)
 - Power cycle the printer and try again if the first attempt fails
 
 ---

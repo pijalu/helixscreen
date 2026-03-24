@@ -1,6 +1,6 @@
 # Bluetooth Setup
 
-HelixScreen uses Bluetooth for label printing (Brother QL, Phomemo, Niimbot). Most Raspberry Pi and BTT Pi boards have built-in Bluetooth, but it may be disabled if the UART serial port is in use — for example, to communicate with your printer's MCU.
+HelixScreen uses Bluetooth for label printing (Brother QL, Phomemo, Niimbot, MakeID). Most Raspberry Pi and BTT Pi boards have built-in Bluetooth, but it may be disabled if the UART serial port is in use — for example, to communicate with your printer's MCU.
 
 This guide covers how to check your Bluetooth status, enable it if it's disabled, and add Bluetooth via a USB dongle when the built-in adapter can't be freed up.
 

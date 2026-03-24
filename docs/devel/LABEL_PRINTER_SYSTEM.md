@@ -1,6 +1,6 @@
 # Label Printer System
 
-HelixScreen supports printing spool labels to thermal label printers via three transports (USB, Network, Bluetooth) and four printer protocol families (Brother QL, Phomemo, Niimbot, MakeID/Wewin).
+HelixScreen supports printing spool labels to thermal label printers via three transports (USB, Network, Bluetooth) and five printer protocol families (Brother QL, Phomemo, Niimbot, MakeID/Wewin).
 
 ## Architecture Overview
 
@@ -14,8 +14,8 @@ HelixScreen supports printing spool labels to thermal label printers via three t
     │             │              │                  │                 │
 ┌───┴────┐  ┌────┴─────┐  ┌────┴──────┐    ┌──────┴──────┐  ┌──────┴──────┐
 │ Brother│  │ Phomemo  │  │ Phomemo   │    │  Niimbot    │  │  MakeID     │
-│ QL Net │  │ USB      │  │ BT (SPP/  │    │  BT (BLE)   │  │  BT (BLE)  │
-│ (TCP)  │  │ (libusb) │  │  BLE)     │    │             │  │  (beta)     │
+│ QL Net │  │ USB      │  │ BT (SPP/  │    │  BT (BLE)   │  │  MakeID     │
+│ (TCP)  │  │ (libusb) │  │  BLE)     │    │             │  │  BT (RFCOMM)│
 └───┬────┘  └────┬─────┘  └────┬──────┘    └──────┬──────┘  └──────┬──────┘
     │            │              │                   │                │
     │  brother_ql_build_raster  │  phomemo_build_   │ niimbot_build_ │ makeid_build_
@@ -55,7 +55,7 @@ HelixScreen supports printing spool labels to thermal label printers via three t
 | `src/system/brother_ql_bt_printer.cpp` | Brother QL over BT Classic (RFCOMM) |
 | `src/system/phomemo_bt_printer.cpp` | Phomemo over BT Classic (RFCOMM) or BLE GATT |
 | `src/system/niimbot_bt_printer.cpp` | Niimbot over BLE GATT |
-| `src/system/makeid_bt_printer.cpp` | MakeID over BLE GATT (beta) |
+| `src/system/makeid_bt_printer.cpp` | MakeID over BT Classic (RFCOMM) |
 | `include/bt_print_utils.h` | Shared RFCOMM send helper (Brother + Phomemo BT) |
 | `include/bt_discovery_utils.h` | Brand detection table, BLE UUID matching |
 
@@ -118,28 +118,29 @@ HelixScreen supports printing spool labels to thermal label printers via three t
 - **Persistent connections:** BLE connection is kept alive across prints. Disconnect/reconnect causes blank output on the D110 unless the full initialization sequence (settle + Connect) is repeated.
 - **Models:** B21 (384px/48mm wide), D11/D110 (96px/12mm wide)
 
-### MakeID/Wewin (Custom BLE — Beta)
+### MakeID/Wewin (Custom RFCOMM)
 
-- **Transport:** BLE GATT only (service `0000abf0-...`, write `0000abf1-...`, notify `0000abf2-...`)
+- **Transport:** BT Classic RFCOMM (channel 1). Despite being a dual-mode BLE device, the E1 uses RFCOMM for print data transfer. Advertises as "YichipFPGA-XXXX" over Bluetooth.
 - **Protocol:** Custom binary frames with LZO1X-compressed bitmap data
 - **Frame format:** `[0x66 LEN_LO LEN_HI CMD PAYLOAD... CHECKSUM]` — checksum is negated sum
 - **DPI:** 203 (native for E1, varies by model)
 - **Connection initialization:**
-  1. BLE GATT connect with 1-second settle delay
-  2. Handshake poll (0x10, state=search) until success response
+  1. RFCOMM connect to channel 1 (reuses existing connection if keepalive succeeds)
+  2. Drain stale buffer data
+  3. Handshake poll (0x10, state=search) until success response
 - **Print job sequence:**
   1. Build bitmap: 1bpp MSB-first, 16-bit byte-swap, LZO1X compress
   2. Split into chunks of 56 rows max
   3. For each chunk: send 0x1B print data frame with 17-byte header
-  4. Wait for 36-byte ACK on notify characteristic between frames
+  4. Wait for 36-byte ACK response between frames
   5. Handle wait/resend states by retrying
   6. Send cancel handshake (0x10, state=cancel) to finalize
 - **0x1B frame header:** magic, length(LE), cmd, darkness|label_type, cut|save, total_copies(LE), current_copy(LE), 0x01, width_px(LE), chunk_height(LE), remaining_chunks, 0x00
 - **Response parsing:** 36-byte responses. byte[4] bits 0-5=error code (0 or 23=success), bit 6=resend, bit 7=wait. byte[35] bit 7=isPrinting, bits 5-6: 1=pause, 3=cancel
 - **LZO compression:** miniLZO compiled into BT plugin (`bt_lzo.cpp`), accessed via `BluetoothLoader::lzo_compress`. Falls back to raw data when plugin unavailable.
-- **Persistent connections:** Same pattern as Niimbot — static globals + mutex, heartbeat liveness check
-- **Models:** E1, L1, M1 (9/12/16mm tapes)
-- **Status:** Beta — protocol reverse-engineered from APK decompilation, awaiting hardware testing
+- **Persistent connections:** Static globals + mutex, heartbeat liveness check via handshake poll
+- **Models:** E1 (also branded MakeID 2AUMQ-E1), L1, M1 — support 9mm, 12mm, and 16mm continuous tape (no die-cut labels)
+- **Printhead:** 203 DPI, 96px width
 
 ## Brand Detection
 
@@ -161,7 +162,7 @@ Key helpers:
 - `is_niimbot_printer(name)` — Niimbot family (B21, D11, D110)
 - `is_makeid_printer(name)` — MakeID/Wewin family (E1, L1, M1)
 - `name_suggests_ble(name)` — device needs BLE transport
-- `is_label_printer_uuid(uuid)` — matches SPP, Phomemo BLE, Niimbot BLE, or MakeID BLE service UUIDs
+- `is_label_printer_uuid(uuid)` — matches SPP, Phomemo BLE, Niimbot BLE, or MakeID service UUIDs
 
 ## Bluetooth Transport
 
@@ -173,14 +174,16 @@ Bluetooth support is a runtime-loadable shared library (`libhelix-bluetooth.so`)
 BluetoothLoader (dlopen) → libhelix-bluetooth.so (sd-bus, BlueZ D-Bus)
 ```
 
-### RFCOMM (Brother, Phomemo SPP)
+### RFCOMM (Brother, Phomemo SPP, MakeID)
 
-Shared `rfcomm_send()` helper in `bt_print_utils.cpp`:
+Shared `rfcomm_send()` helper in `bt_print_utils.cpp` (Brother, Phomemo):
 1. Init BT context → connect RFCOMM → write data in chunks → 5s drain sleep → disconnect → deinit
 2. Single shared mutex prevents concurrent RFCOMM connections
 3. Detached thread, callback via `queue_update()`
 
-### BLE GATT (Niimbot, Phomemo BLE, MakeID)
+**MakeID:** Uses its own RFCOMM transport (`makeid_bt_printer.cpp`) with persistent connections, handshake-based keepalive, and bidirectional frame exchange (write + read response per chunk).
+
+### BLE GATT (Niimbot, Phomemo BLE)
 
 Each backend manages its own BLE connection:
 1. Init BT context → `connect_ble()` with service UUID → bidirectional `ble_write()`/`ble_read()` per packet

@@ -7,11 +7,9 @@
 
 #include <spdlog/spdlog.h>
 
-#include <fcntl.h>
 #include <poll.h>
 #include <unistd.h>
 
-#include <cstdlib>
 #include <cstring>
 #include <mutex>
 #include <thread>
@@ -19,7 +17,6 @@
 namespace helix::label {
 
 static std::mutex s_print_mutex;
-static helix_bt_context* s_ctx = nullptr;
 static int s_rfcomm_fd = -1;
 static std::string s_connected_mac;
 
@@ -89,12 +86,6 @@ static void cleanup_connection() {
         ::close(s_rfcomm_fd);
         s_rfcomm_fd = -1;
     }
-    std::system("rfcomm release 0 2>/dev/null");
-    if (s_ctx) {
-        auto& loader = helix::bluetooth::BluetoothLoader::instance();
-        if (loader.deinit) loader.deinit(s_ctx);
-        s_ctx = nullptr;
-    }
     s_connected_mac.clear();
 }
 
@@ -115,52 +106,28 @@ static int ensure_connected(helix::bluetooth::BluetoothLoader& loader, const std
 
     cleanup_connection();
 
-    s_ctx = loader.init();
-    if (!s_ctx) {
-        spdlog::error("MakeID BT: failed to init BT context");
+    // Use the shared BT context to avoid D-Bus agent conflicts.
+    // The UI's pairing already established the BlueZ managed link via the
+    // same shared context. Creating a second context via loader.init()
+    // causes ECONNABORTED.
+    if (!loader.connect_rfcomm) {
+        spdlog::error("MakeID BT: BT plugin has no connect_rfcomm");
         return -1;
     }
 
-    // Establish BlueZ managed link
-    if (loader.pair) {
-        int ret = loader.pair(s_ctx, mac.c_str());
-        if (ret < 0) {
-            if (loader.is_connected && loader.is_connected(s_ctx, mac.c_str()) != 1) {
-                spdlog::info("MakeID BT: pair failed, scanning to rediscover...");
-                if (loader.discover) {
-                    struct ScanCtx {
-                        std::string target;
-                        bool found = false;
-                    };
-                    ScanCtx sc{mac};
-                    loader.discover(
-                        s_ctx, 8000,
-                        [](const helix_bt_device* dev, void* ud) {
-                            auto* s = static_cast<ScanCtx*>(ud);
-                            if (dev->mac && s->target == dev->mac) s->found = true;
-                        },
-                        &sc);
-                    if (sc.found) {
-                        spdlog::info("MakeID BT: rediscovered, retrying pair");
-                        loader.pair(s_ctx, mac.c_str());
-                    }
-                }
-            }
-        }
-    }
-
-    // Bind RFCOMM
-    std::system("rfcomm release 0 2>/dev/null");
-    auto cmd = fmt::format("rfcomm bind 0 {} 1 2>/dev/null", mac);
-    std::system(cmd.c_str());
-
-    std::this_thread::sleep_for(std::chrono::milliseconds(500));
-    s_rfcomm_fd = ::open("/dev/rfcomm0", O_RDWR | O_NOCTTY);
-    if (s_rfcomm_fd < 0) {
-        spdlog::error("MakeID BT: failed to open /dev/rfcomm0: {}", strerror(errno));
-        cleanup_connection();
+    auto* ctx = loader.get_or_create_context();
+    if (!ctx) {
+        spdlog::error("MakeID BT: failed to get BT context");
         return -1;
     }
+
+    spdlog::info("MakeID BT: RFCOMM socket connect to {} channel 1", mac);
+    int fd = loader.connect_rfcomm(ctx, mac.c_str(), 1);
+    if (fd < 0) {
+        spdlog::error("MakeID BT: RFCOMM connect failed ({})", fd);
+        return -1;
+    }
+    s_rfcomm_fd = fd;
 
     s_connected_mac = mac;
     spdlog::info("MakeID BT: RFCOMM connected (fd={})", s_rfcomm_fd);
@@ -176,8 +143,8 @@ static int ensure_connected(helix::bluetooth::BluetoothLoader& loader, const std
 }
 
 static bool wait_for_ready(int fd, int max_polls = 10) {
+    auto pkt = makeid_build_handshake(MakeIdHandshakeState::Search);
     for (int i = 0; i < max_polls; i++) {
-        auto pkt = makeid_build_handshake(MakeIdHandshakeState::Search);
         if (!rfcomm_write(fd, pkt.data(), pkt.size())) return false;
         auto resp = read_response(fd, "ready-poll", 2000);
         if (resp.status == MakeIdResponseStatus::Success) return true;
@@ -220,7 +187,9 @@ void MakeIdBluetoothPrinter::print(const LabelBitmap& bitmap, const LabelSize& s
         return;
     }
 
-    int printer_width_bytes = (size.width_px + 7) / 8;
+    // E1 head is 96px (12 bytes) regardless of tape width
+    static constexpr int MAKEID_E1_HEAD_BYTES = 12;
+    int printer_width_bytes = MAKEID_E1_HEAD_BYTES;
 
     MakeIdPrintJobConfig config;
     config.printer_width_bytes = printer_width_bytes;
@@ -243,6 +212,9 @@ void MakeIdBluetoothPrinter::print(const LabelBitmap& bitmap, const LabelSize& s
             error = "Printer not ready";
         } else {
             bool ok = true;
+            // Send ALL chunks rapidly — no delay. The printer buffers all
+            // data before physically printing (confirmed via snoop of the
+            // MakeID-Life app). Inter-chunk delays cause gaps.
             for (size_t i = 0; i < job.chunks.size(); i++) {
                 const auto& frame = job.chunks[i];
                 spdlog::debug("MakeID BT: chunk[{}] ({} bytes)", i, frame.size());
@@ -254,28 +226,47 @@ void MakeIdBluetoothPrinter::print(const LabelBitmap& bitmap, const LabelSize& s
                     break;
                 }
 
-                // Wait for ACK
-                int retries = 0;
-                while (retries < 10) {
-                    auto resp = read_response(fd, fmt::format("chunk[{}]", i).c_str(), 5000);
-                    if (resp.status == MakeIdResponseStatus::Success) break;
-                    if (resp.status == MakeIdResponseStatus::Wait) {
-                        std::this_thread::sleep_for(std::chrono::milliseconds(500));
-                        retries++;
-                    } else if (resp.status == MakeIdResponseStatus::Resend) {
-                        rfcomm_write(fd, frame.data(), frame.size());
-                        retries++;
-                    } else if (resp.status == MakeIdResponseStatus::Error) {
-                        error = fmt::format("Error at chunk {} (code={})", i, resp.error_code);
+                // Read ACK for this chunk
+                auto resp = read_response(fd, fmt::format("chunk[{}]", i).c_str(), 5000);
+                if (resp.status == MakeIdResponseStatus::Resend) {
+                    // Resend once
+                    if (!rfcomm_write(fd, frame.data(), frame.size())) {
+                        error = fmt::format("Resend write failed at chunk {}", i);
                         ok = false;
-                        break;
-                    } else {
+                        cleanup_connection();
                         break;
                     }
+                    resp = read_response(fd, fmt::format("chunk[{}] resend", i).c_str(), 5000);
                 }
-                if (!ok) break;
+                if (resp.status == MakeIdResponseStatus::Error) {
+                    error = fmt::format("Error at chunk {} (code={})", i, resp.error_code);
+                    ok = false;
+                    break;
+                }
             }
 
+            // After last chunk: poll with handshake until printer finishes
+            // (snoop shows app polls ~20-30 times during physical printing)
+            if (ok) {
+                constexpr int max_print_polls = 60;
+                bool print_finished = false;
+                auto poll_pkt = makeid_build_handshake(MakeIdHandshakeState::Search);
+                for (int poll = 0; poll < max_print_polls; poll++) {
+                    rfcomm_write(fd, poll_pkt.data(), poll_pkt.size());
+                    auto resp = read_response(fd, "print-wait", 2000);
+                    if (resp.status == MakeIdResponseStatus::Success && !resp.is_printing) {
+                        spdlog::info("MakeID BT: print finished after {} polls", poll);
+                        print_finished = true;
+                        break;
+                    }
+                    std::this_thread::sleep_for(std::chrono::milliseconds(500));
+                }
+                if (!print_finished) {
+                    spdlog::error("MakeID BT: print-wait timed out after {} polls", max_print_polls);
+                    ok = false;
+                    error = "Print timed out waiting for completion";
+                }
+            }
             if (ok) {
                 auto cancel = makeid_build_handshake(MakeIdHandshakeState::Cancel);
                 rfcomm_write(fd, cancel.data(), cancel.size());

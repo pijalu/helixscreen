@@ -229,7 +229,7 @@ TEST_CASE("makeid_build_print_frame - large frame length uses both bytes", "[mak
 }
 
 // ============================================================================
-// Bitmap encoding (1bpp + 16-bit byte-swap)
+// Bitmap encoding (1bpp column-major)
 // ============================================================================
 
 TEST_CASE("makeid_encode_bitmap - basic MSB-first packing", "[makeid][protocol]") {
@@ -245,8 +245,7 @@ TEST_CASE("makeid_encode_bitmap - basic MSB-first packing", "[makeid][protocol]"
 
     REQUIRE(chunks.size() == 1);
 
-    // Before byte-swap: [0xFF, 0x00]
-    // After 16-bit byte-swap: [0x00, 0xFF]
+    // Column-major memcpy: [0xFF, 0x00]
     auto& chunk = chunks[0];
     REQUIRE(chunk.height == 1);
     REQUIRE(chunk.data.size() >= 2);  // may be LZO-compressed, but at minimum 2 bytes input
@@ -254,7 +253,7 @@ TEST_CASE("makeid_encode_bitmap - basic MSB-first packing", "[makeid][protocol]"
     // We test the raw (pre-LZO) encoding via a separate helper
 }
 
-TEST_CASE("makeid_encode_bitmap_raw - byte swap", "[makeid][protocol]") {
+TEST_CASE("makeid_encode_bitmap_raw - column-major memcpy", "[makeid][protocol]") {
     // 16px wide, 1 row
     LabelBitmap bmp(16, 1);
     // First 8 pixels black: byte[0]=0xFF, byte[1]=0x00
@@ -265,11 +264,10 @@ TEST_CASE("makeid_encode_bitmap_raw - byte swap", "[makeid][protocol]") {
     int printer_width_bytes = 2;
     auto raw = makeid_encode_bitmap_raw(bmp, printer_width_bytes);
 
-    // After 16-bit byte-swap: pairs swapped
-    // [0xFF, 0x00] -> [0x00, 0xFF]
+    // Plain memcpy, no byte-swap: [0xFF, 0x00]
     REQUIRE(raw.size() == 2);
-    REQUIRE(raw[0] == 0x00);
-    REQUIRE(raw[1] == 0xFF);
+    REQUIRE(raw[0] == 0xFF);
+    REQUIRE(raw[1] == 0x00);
 }
 
 TEST_CASE("makeid_encode_bitmap_raw - odd width padding", "[makeid][protocol]") {
@@ -283,10 +281,9 @@ TEST_CASE("makeid_encode_bitmap_raw - odd width padding", "[makeid][protocol]") 
     auto raw = makeid_encode_bitmap_raw(bmp, printer_width_bytes);
 
     REQUIRE(raw.size() == 2);
-    // Before swap: byte[0]=0xFF, byte[1]=0xF0 (12 bits set, 4 padding zeros)
-    // After swap: [0xF0, 0xFF]
-    REQUIRE(raw[0] == 0xF0);
-    REQUIRE(raw[1] == 0xFF);
+    // Plain memcpy: byte[0]=0xFF, byte[1]=0xF0 (12 bits set, 4 padding zeros)
+    REQUIRE(raw[0] == 0xFF);
+    REQUIRE(raw[1] == 0xF0);
 }
 
 TEST_CASE("makeid_encode_bitmap_raw - multi-row", "[makeid][protocol]") {
@@ -300,10 +297,10 @@ TEST_CASE("makeid_encode_bitmap_raw - multi-row", "[makeid][protocol]") {
 
     // 2 rows * 2 bytes = 4 bytes
     REQUIRE(raw.size() == 4);
-    // Row 0 before swap: [0xFF, 0xFF] -> after swap: [0xFF, 0xFF] (symmetric)
+    // Row 0: [0xFF, 0xFF]
     REQUIRE(raw[0] == 0xFF);
     REQUIRE(raw[1] == 0xFF);
-    // Row 1 before swap: [0x00, 0x00] -> after swap: [0x00, 0x00]
+    // Row 1: [0x00, 0x00]
     REQUIRE(raw[2] == 0x00);
     REQUIRE(raw[3] == 0x00);
 }
