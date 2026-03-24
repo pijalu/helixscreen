@@ -5,7 +5,7 @@
  * @file hardware_validator.h
  * @brief Hardware validation layer for detecting config/discovery mismatches
  *
- * Compares helixconfig expectations against Moonraker discovery results and
+ * Compares settings.json expectations against Moonraker discovery results and
  * previous session state to detect missing, new, or changed hardware.
  *
  * @pattern Validation layer with persistence
@@ -111,7 +111,7 @@ struct HardwareValidationResult {
     /// Critical: Missing core hardware (extruder, heater_bed)
     std::vector<HardwareIssue> critical_missing;
 
-    /// Expected: Configured in helixconfig but not discovered
+    /// Expected: Configured in settings.json but not discovered
     std::vector<HardwareIssue> expected_missing;
 
     /// New: Discovered but not in config (suggest adding)
@@ -160,7 +160,7 @@ struct HardwareValidationResult {
 /**
  * @brief Snapshot of hardware state for session comparison
  *
- * Stored in helixconfig.json under "hardware_session/last_snapshot" to enable
+ * Stored in settings.json under "hardware_session/last_snapshot" to enable
  * detection of hardware changes between sessions.
  */
 struct HardwareSnapshot {
@@ -209,7 +209,7 @@ struct HardwareSnapshot {
 /**
  * @brief Hardware validation layer for HelixScreen
  *
- * Compares helixconfig expectations vs Moonraker discovery results.
+ * Compares settings.json expectations vs Moonraker discovery results.
  * Runs after on_discovery_complete_ callback.
  *
  * ## Usage:
@@ -217,7 +217,7 @@ struct HardwareSnapshot {
  * // In Application::connect_to_printer() after discovery
  * HardwareValidator validator;
  * auto result = validator.validate(
- *     config,           // helixconfig expectations
+ *     config,           // settings.json expectations
  *     hardware          // PrinterDiscovery with discovered hardware
  * );
  *
@@ -260,7 +260,7 @@ class HardwareValidator {
      * @brief Save current hardware state as session snapshot
      *
      * Call after successful validation to update last-known-good state.
-     * Persists to helixconfig.json under "hardware_session/last_snapshot".
+     * Persists to settings.json under "hardware_session/last_snapshot".
      *
      * @param config Config instance to save to
      * @param hardware PrinterDiscovery with discovered hardware
@@ -295,7 +295,7 @@ class HardwareValidator {
     /**
      * @brief Mark hardware as optional (suppress future warnings)
      *
-     * Updates helixconfig.json and saves immediately.
+     * Updates settings.json and saves immediately.
      *
      * @param config Config instance to modify
      * @param hardware_name Full hardware name
@@ -308,7 +308,7 @@ class HardwareValidator {
      * @brief Add hardware to expected list (save to config)
      *
      * Adds newly discovered hardware to the expected hardware list in
-     * helixconfig.json so future sessions will warn if it's missing.
+     * settings.json so future sessions will warn if it's missing.
      *
      * @param config Config instance to modify
      * @param hardware_name Full hardware name to add
@@ -323,7 +323,7 @@ class HardwareValidator {
                                     HardwareValidationResult& result);
 
     /**
-     * @brief Validate configured hardware in helixconfig exists
+     * @brief Validate configured hardware in settings.json exists
      */
     void validate_configured_hardware(helix::Config* config,
                                       const helix::PrinterDiscovery& hardware,

@@ -1085,7 +1085,7 @@ class PrinterState {
      * @brief Update printer capability subjects from PrinterDiscovery
      *
      * Updates subjects that control visibility of pre-print option checkboxes.
-     * Applies user-configured overrides from helixconfig.json before updating subjects.
+     * Applies user-configured overrides from settings.json before updating subjects.
      * Called by main.cpp after MoonrakerClient::discover_printer() completes.
      *
      * @param hardware PrinterDiscovery populated from printer.objects.list

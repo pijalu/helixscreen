@@ -21,7 +21,7 @@ namespace gcode {
  * This constant is retained for backward compatibility with tests.
  * The actual streaming decision is now controlled by StreamingPolicy,
  * which auto-detects based on available RAM or can be configured in
- * helixconfig.json.
+ * settings.json.
  *
  * Default: 5MB (safe for most embedded targets)
  */

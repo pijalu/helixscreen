@@ -1072,7 +1072,7 @@ struct PrintColorInfo {
  * @brief Preset drying profile
  *
  * Standard drying profiles for common filament materials.
- * Can be overridden via helixconfig.json "dryer_presets" array.
+ * Can be overridden via settings.json "dryer_presets" array.
  */
 struct DryingPreset {
     std::string name;       ///< Preset name (e.g., "PLA", "PETG", "ABS")
@@ -1150,7 +1150,7 @@ struct DryerInfo {
  *
  * Returns presets derived from the filament database, one per compatibility group.
  * Uses filament::get_drying_presets_by_group() as the single source of truth.
- * These can be overridden via helixconfig.json "dryer_presets" array.
+ * These can be overridden via settings.json "dryer_presets" array.
  *
  * @return Vector of default DryingPreset structs
  */

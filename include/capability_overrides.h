@@ -11,7 +11,7 @@
 /**
  * @brief Override state for a printer capability
  *
- * Three-state logic for capability overrides in helixconfig.json:
+ * Three-state logic for capability overrides in settings.json:
  * - AUTO: Use auto-detected capability from PrinterCapabilities
  * - ENABLE: Force capability to be available (regardless of detection)
  * - DISABLE: Force capability to be unavailable (regardless of detection)
@@ -25,7 +25,7 @@ enum class OverrideState {
 /**
  * @brief Capability names used in config and override system
  *
- * These string constants map to helixconfig.json keys under capability_overrides.
+ * These string constants map to settings.json keys under capability_overrides.
  */
 namespace capability {
 constexpr const char* BED_MESH = "bed_mesh";
@@ -43,7 +43,7 @@ constexpr const char* CHAMBER = "chamber";
  * force-enable features that weren't auto-detected (e.g., heat soak without
  * chamber heater) or force-disable features they don't want to see.
  *
- * ## Config Format (helixconfig.json)
+ * ## Config Format (settings.json)
  *
  * ```json
  * {
@@ -85,7 +85,7 @@ class CapabilityOverrides {
     ~CapabilityOverrides() = default;
 
     /**
-     * @brief Load overrides from helixconfig.json
+     * @brief Load overrides from settings.json
      *
      * Reads the capability_overrides section and populates the override map.
      * Missing keys default to AUTO (use auto-detection).
@@ -182,7 +182,7 @@ class CapabilityOverrides {
     }
 
     /**
-     * @brief Save current overrides to helixconfig.json
+     * @brief Save current overrides to settings.json
      *
      * Persists in-memory override changes to disk.
      *
