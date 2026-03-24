@@ -457,6 +457,10 @@ lv_obj_t* Modal::show(const char* component_name, const char** attrs) {
     spdlog::info("[Modal] Showing modal: {}", component_name);
 
     lv_obj_t* parent = lv_screen_active();
+    if (!parent) {
+        spdlog::warn("[Modal] No active screen - cannot show modal '{}'", component_name);
+        return nullptr;
+    }
 
     // Create backdrop using shared utility
     lv_obj_t* backdrop =
@@ -570,6 +574,10 @@ bool Modal::show(lv_obj_t* parent, const char** attrs) {
     }
 
     parent_ = parent ? parent : lv_screen_active();
+    if (!parent_) {
+        spdlog::warn("[{}] No active screen - cannot show modal", get_name());
+        return false;
+    }
 
     spdlog::info("[{}] Showing modal", get_name());
 
