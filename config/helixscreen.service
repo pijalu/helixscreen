@@ -44,8 +44,10 @@ WorkingDirectory=@@INSTALL_DIR@@
 # immediately — giving two restarts.  Stopping both units here cancels the pending
 # oneshot if it's still sleeping, eliminating the second restart.
 #
-# For Moonraker web-type updates the oneshot has already completed its ExecStart
-# by the time helixscreen restarts, so stopping it here is a harmless no-op.
+# For Moonraker web-type updates the oneshot's ExecStart (systemctl restart
+# helixscreen) is still running when this fires — stopping it kills the client
+# process, but systemd's job manager already has the restart queued so it
+# proceeds.  The ExecStartPost below re-arms the path unit afterward.
 ExecStartPre=+/bin/sh -c '/bin/systemctl stop helixscreen-update.path helixscreen-update.service 2>/dev/null || true'
 
 # Stop firmware display-management services that conflict with HelixScreen.
