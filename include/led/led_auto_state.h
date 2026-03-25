@@ -62,7 +62,14 @@ class LedAutoState {
 
   private:
     LedAutoState() = default;
-    ~LedAutoState() = default;
+    ~LedAutoState() {
+        // Release observers without touching LVGL — during process exit,
+        // static destruction order is undefined and observed subjects may
+        // already be destroyed. unsubscribe_observers() handles proper cleanup.
+        print_state_observer_.release();
+        klippy_state_observer_.release();
+        extruder_target_observer_.release();
+    }
     LedAutoState(const LedAutoState&) = delete;
     LedAutoState& operator=(const LedAutoState&) = delete;
 

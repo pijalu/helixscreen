@@ -5,6 +5,7 @@
 
 #include <cstdio>
 #include <sys/stat.h>
+#include <unistd.h>
 
 #include "../catch_amalgamated.hpp"
 
@@ -128,7 +129,7 @@ TEST_CASE("save_theme_to_file and load_theme_from_file roundtrip", "[theme]") {
     original.name = "Roundtrip Test";
     original.properties.border_radius = 20;
 
-    std::string path = "/tmp/test_theme_roundtrip.json";
+    std::string path = "/tmp/test_theme_roundtrip_" + std::to_string(getpid()) + ".json";
     REQUIRE(helix::save_theme_to_file(original, path));
 
     auto loaded = helix::load_theme_from_file(path);

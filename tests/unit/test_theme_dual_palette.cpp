@@ -3,6 +3,7 @@
 #include "theme_loader.h"
 
 #include <cstdio>
+#include <unistd.h>
 
 #include "../catch_amalgamated.hpp"
 
@@ -312,7 +313,7 @@ TEST_CASE("save and reload theme - round trip new format", "[theme][dual-palette
     original.light.danger = "#B23A48";
     original.light.focus = "#5E81AC";
 
-    std::string path = "/tmp/test_theme_dual_roundtrip.json";
+    std::string path = "/tmp/test_theme_dual_roundtrip_" + std::to_string(getpid()) + ".json";
     REQUIRE(save_theme_to_file(original, path));
 
     auto loaded = load_theme_from_file(path);

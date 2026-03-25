@@ -5,6 +5,7 @@
 #include "gcode_ops_detector.h"
 
 #include <fstream>
+#include <unistd.h>
 
 #include "../catch_amalgamated.hpp"
 
@@ -264,7 +265,7 @@ TEST_CASE("GCodeFileModifier - File operations", "[gcode][modifier][file]") {
 
     SECTION("Apply to real temp file") {
         // Create temp input file
-        std::string input_path = "/tmp/test_modifier_input.gcode";
+        std::string input_path = "/tmp/test_modifier_input_" + std::to_string(getpid()) + ".gcode";
         {
             std::ofstream out(input_path);
             out << "G28\nBED_MESH_CALIBRATE\nG1 X0 Y0\n";
@@ -411,7 +412,7 @@ TEST_CASE("GCodeFileModifier - Streaming comment out", "[gcode][modifier][stream
     GCodeFileModifier modifier;
 
     // Create a test file
-    std::string test_path = "/tmp/helix_stream_test_comment.gcode";
+    std::string test_path = "/tmp/helix_stream_test_comment_" + std::to_string(getpid()) + ".gcode";
     {
         std::ofstream out(test_path);
         out << "G28\nBED_MESH_CALIBRATE\nG1 X0 Y0\n";
@@ -441,7 +442,7 @@ TEST_CASE("GCodeFileModifier - Streaming comment out", "[gcode][modifier][stream
 TEST_CASE("GCodeFileModifier - Streaming delete line", "[gcode][modifier][streaming]") {
     GCodeFileModifier modifier;
 
-    std::string test_path = "/tmp/helix_stream_test_delete.gcode";
+    std::string test_path = "/tmp/helix_stream_test_delete_" + std::to_string(getpid()) + ".gcode";
     {
         std::ofstream out(test_path);
         out << "LINE1\nLINE2\nLINE3\nLINE4\n";
@@ -472,7 +473,7 @@ TEST_CASE("GCodeFileModifier - Streaming delete line", "[gcode][modifier][stream
 TEST_CASE("GCodeFileModifier - Streaming inject before", "[gcode][modifier][streaming]") {
     GCodeFileModifier modifier;
 
-    std::string test_path = "/tmp/helix_stream_test_inject.gcode";
+    std::string test_path = "/tmp/helix_stream_test_inject_" + std::to_string(getpid()) + ".gcode";
     {
         std::ofstream out(test_path);
         out << "LINE1\nLINE2\nLINE3\n";
@@ -504,7 +505,7 @@ TEST_CASE("GCodeFileModifier - Streaming inject before", "[gcode][modifier][stre
 TEST_CASE("GCodeFileModifier - Streaming replace line", "[gcode][modifier][streaming]") {
     GCodeFileModifier modifier;
 
-    std::string test_path = "/tmp/helix_stream_test_replace.gcode";
+    std::string test_path = "/tmp/helix_stream_test_replace_" + std::to_string(getpid()) + ".gcode";
     {
         std::ofstream out(test_path);
         out << "OLD_LINE1\nOLD_LINE2\nOLD_LINE3\n";
@@ -538,7 +539,7 @@ TEST_CASE("GCodeFileModifier - Auto-select streaming for large files",
     GCodeFileModifier modifier;
 
     // Create a small file (should use buffered mode)
-    std::string small_path = "/tmp/helix_small_test.gcode";
+    std::string small_path = "/tmp/helix_small_test_" + std::to_string(getpid()) + ".gcode";
     {
         std::ofstream out(small_path);
         out << "G28\nG1 X0\n";

@@ -59,6 +59,13 @@ class PowerDeviceState {
 
   private:
     PowerDeviceState() = default;
+    ~PowerDeviceState() {
+        // Release observer without touching LVGL — during process exit,
+        // static destruction order is undefined and the observed subject
+        // (from PrinterState) may already be destroyed. deinit_subjects()
+        // handles proper cleanup during normal lifecycle.
+        print_state_observer_.release();
+    }
 
     void on_power_changed(const nlohmann::json& msg);
     void reevaluate_lock_states();
