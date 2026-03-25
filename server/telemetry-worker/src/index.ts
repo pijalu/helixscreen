@@ -59,6 +59,7 @@ function json(body: unknown, status = 200): Response {
   });
 }
 
+
 function randomHex(bytes: number): string {
   const buf = new Uint8Array(bytes);
   crypto.getRandomValues(buf);
@@ -487,17 +488,17 @@ export default {
           return json({
             rss_over_time: (rssTimeData.data ?? []).map((r) => ({
               date: r.date,
-              avg_rss_kb: r.avg_rss_kb,
-              p95_rss_kb: r.p95_rss_kb,
-              max_rss_kb: r.max_rss_kb,
+              avg_rss_kb: Number(r.avg_rss_kb),
+              p95_rss_kb: Number(r.p95_rss_kb),
+              max_rss_kb: Number(r.max_rss_kb),
             })),
             rss_by_platform: (rssPlatformData.data ?? []).map((r) => ({
               platform: r.platform,
-              avg_rss_kb: r.avg_rss_kb,
+              avg_rss_kb: Number(r.avg_rss_kb),
             })),
             vm_peak_trend: (vmPeakData.data ?? []).map((r) => ({
               date: r.date,
-              avg_vm_peak_kb: r.avg_vm_peak_kb,
+              avg_vm_peak_kb: Number(r.avg_vm_peak_kb),
             })),
           });
         }
@@ -530,30 +531,30 @@ export default {
             }>;
           };
 
-          // Total warning count
-          const totalWarnings = (byLevelData.data ?? []).reduce((sum, r) => sum + r.count, 0);
+          // Total warning count — Analytics Engine returns strings, must Number()
+          const totalWarnings = (byLevelData.data ?? []).reduce((sum, r) => sum + Number(r.count), 0);
 
           return json({
             total_warnings: totalWarnings,
-            affected_devices: affectedData.data?.[0]?.affected_devices ?? 0,
+            affected_devices: Number(affectedData.data?.[0]?.affected_devices ?? 0),
             by_level: (byLevelData.data ?? []).map((r) => ({
               level: r.level,
-              count: r.count,
+              count: Number(r.count),
             })),
             over_time: (overTimeData.data ?? []).map((r) => ({
               date: r.date,
               level: r.level,
-              count: r.count,
+              count: Number(r.count),
             })),
             rss_at_warning: (rssAtWarningData.data ?? []).map((r) => ({
               date: r.date,
-              avg_rss_kb: r.avg_rss_kb,
-              max_rss_kb: r.max_rss_kb,
+              avg_rss_kb: Number(r.avg_rss_kb),
+              max_rss_kb: Number(r.max_rss_kb),
             })),
             by_platform: (byPlatformData.data ?? []).map((r) => ({
               platform: r.platform,
-              count: r.count,
-              avg_rss_kb: r.avg_rss_kb,
+              count: Number(r.count),
+              avg_rss_kb: Number(r.avg_rss_kb),
             })),
             recent_warnings: (recentData.data ?? []).map((r) => ({
               timestamp: r.timestamp,
@@ -562,12 +563,12 @@ export default {
               platform: r.platform,
               level: r.level,
               reason: r.reason,
-              uptime_sec: r.uptime_sec,
-              rss_kb: r.rss_kb,
-              system_available_mb: r.system_available_mb,
-              growth_5min_kb: r.growth_5min_kb,
-              private_dirty_kb: r.private_dirty_kb,
-              pss_kb: r.pss_kb,
+              uptime_sec: Number(r.uptime_sec),
+              rss_kb: Number(r.rss_kb),
+              system_available_mb: Number(r.system_available_mb),
+              growth_5min_kb: Number(r.growth_5min_kb),
+              private_dirty_kb: Number(r.private_dirty_kb),
+              pss_kb: Number(r.pss_kb),
             })),
           });
         }

@@ -83,7 +83,24 @@ export async function executeQuery(
     throw new Error(`Analytics Engine SQL API error (${res.status}): ${text}`);
   }
 
-  return res.json();
+  const result = (await res.json()) as { data?: Array<Record<string, unknown>> };
+
+  // Analytics Engine returns ALL values as strings. Coerce numeric-looking values
+  // to numbers so downstream code can safely do arithmetic without concatenation.
+  if (result.data) {
+    for (const row of result.data) {
+      for (const [key, val] of Object.entries(row)) {
+        if (typeof val === "string" && val !== "") {
+          // Skip date-like (2026-03-24) and version-like (v0.99.0) strings
+          if (/^\d{4}-\d{2}-\d{2}/.test(val) || /^v?\d+\.\d+/.test(val)) continue;
+          const num = Number(val);
+          if (!isNaN(num)) row[key] = num;
+        }
+      }
+    }
+  }
+
+  return result;
 }
 
 // SQL query builders for each dashboard endpoint
@@ -327,19 +344,19 @@ export function hardwareQueries(days: number, filters?: FilterParams): string[] 
     `SELECT blob6 as name, count() as count FROM ${dataset} WHERE timestamp >= NOW() - INTERVAL '${days}' DAY AND index1 = 'hardware_profile' AND blob6 != ''${f} GROUP BY name ORDER BY count DESC LIMIT 20`,
     // Capabilities bitmask (bitwise check on double8 for 13 bits)
     `SELECT
-      sumIf(1, bitAnd(toUInt16(double8), 1) > 0) as cap_0,
-      sumIf(1, bitAnd(toUInt16(double8), 2) > 0) as cap_1,
-      sumIf(1, bitAnd(toUInt16(double8), 4) > 0) as cap_2,
-      sumIf(1, bitAnd(toUInt16(double8), 8) > 0) as cap_3,
-      sumIf(1, bitAnd(toUInt16(double8), 16) > 0) as cap_4,
-      sumIf(1, bitAnd(toUInt16(double8), 32) > 0) as cap_5,
-      sumIf(1, bitAnd(toUInt16(double8), 64) > 0) as cap_6,
-      sumIf(1, bitAnd(toUInt16(double8), 128) > 0) as cap_7,
-      sumIf(1, bitAnd(toUInt16(double8), 256) > 0) as cap_8,
-      sumIf(1, bitAnd(toUInt16(double8), 512) > 0) as cap_9,
-      sumIf(1, bitAnd(toUInt16(double8), 1024) > 0) as cap_10,
-      sumIf(1, bitAnd(toUInt16(double8), 2048) > 0) as cap_11,
-      sumIf(1, bitAnd(toUInt16(double8), 4096) > 0) as cap_12,
+      sumIf(1, bitAnd(toUInt32(double8), 1) > 0) as cap_0,
+      sumIf(1, bitAnd(toUInt32(double8), 2) > 0) as cap_1,
+      sumIf(1, bitAnd(toUInt32(double8), 4) > 0) as cap_2,
+      sumIf(1, bitAnd(toUInt32(double8), 8) > 0) as cap_3,
+      sumIf(1, bitAnd(toUInt32(double8), 16) > 0) as cap_4,
+      sumIf(1, bitAnd(toUInt32(double8), 32) > 0) as cap_5,
+      sumIf(1, bitAnd(toUInt32(double8), 64) > 0) as cap_6,
+      sumIf(1, bitAnd(toUInt32(double8), 128) > 0) as cap_7,
+      sumIf(1, bitAnd(toUInt32(double8), 256) > 0) as cap_8,
+      sumIf(1, bitAnd(toUInt32(double8), 512) > 0) as cap_9,
+      sumIf(1, bitAnd(toUInt32(double8), 1024) > 0) as cap_10,
+      sumIf(1, bitAnd(toUInt32(double8), 2048) > 0) as cap_11,
+      sumIf(1, bitAnd(toUInt32(double8), 4096) > 0) as cap_12,
       count() as total
     FROM ${dataset}
     WHERE timestamp >= NOW() - INTERVAL '${days}' DAY AND index1 = 'hardware_profile'${f}`,
