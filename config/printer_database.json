@@ -1986,6 +1986,7 @@
       "manufacturer": "Qidi",
       "image": "qidi-x-max-3.png",
       "print_start_profile": "qidi",
+      "notes": "Stock display is a TJC HMI on serial bus. Not supported without screen replacement (HDMI/DSI touchscreen required).",
       "heuristics": [
         {
           "type": "kinematics_match",
@@ -2075,6 +2076,7 @@
       "manufacturer": "Qidi",
       "image": "qidi-plus-4.png",
       "print_start_profile": "qidi",
+      "notes": "Stock display is a TJC HMI on serial bus. Not supported without screen replacement (HDMI/DSI touchscreen required).",
       "heuristics": [
         {
           "type": "kinematics_match",
@@ -2168,6 +2170,7 @@
       "manufacturer": "Qidi",
       "image": "qidi-x-plus-3.png",
       "print_start_profile": "qidi",
+      "notes": "Stock display is a TJC HMI on serial bus. Not supported without screen replacement (HDMI/DSI touchscreen required).",
       "heuristics": [
         {
           "type": "kinematics_match",
@@ -2257,6 +2260,7 @@
       "manufacturer": "Qidi",
       "image": "qidi-q1-pro.png",
       "print_start_profile": "qidi",
+      "notes": "Stock display is a TJC HMI (TJC4827X243_011) on serial bus at 480x272. Not supported without screen replacement.",
       "heuristics": [
         {
           "type": "kinematics_match",

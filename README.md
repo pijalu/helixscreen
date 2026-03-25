@@ -26,11 +26,11 @@ Fast, beautiful, and built for every Klipper printer — from a Creality K1 to a
 >
 > On the doorstep of 1.0 (targeting early April 2026). Multi-page home screen, exclude object map, temperature graph, Creality K2/CFS support, tool changer widgets, and preheat macros — plus dozens of crash fixes.
 >
-> **Tested on:** Voron 2.4 (Raspberry Pi 5), Voron 0.2, Doron Velta, RatRig V-Core, Flashforge AD5M Pro ([Forge-X](https://github.com/DrA1ex/ff5m) firmware), QIDI Q1 Pro, Sovol SV06, Sovol SV08, Creality K1C, Creality K2 Max
+> **Tested on:** Voron 2.4 (Raspberry Pi 5), Voron 0.2, Doron Velta, RatRig V-Core, Flashforge AD5M Pro ([Forge-X](https://github.com/DrA1ex/ff5m) firmware), Sovol SV06, Sovol SV08, Creality K1C, Creality K2 Max
 >
 > **Raspberry Pi:** Both 64-bit and 32-bit Raspberry Pi OS are supported (Pi 4, Pi 5, CM4, Zero 2 W).
 >
-> **QIDI:** Supported with auto-detection heuristics and print start profile.
+> **QIDI:** Q2 and Max 4 supported with auto-detection. Requires [FreeDi](https://github.com/Phil1988/FreeDi) firmware. Older models (X-Max 3, X-Plus 3, Plus 4, Q1 Pro, X-Smart 3) have TJC serial displays and are not compatible without a screen replacement.
 >
 > **Flashforge:** AD5M/Pro (Forge-X firmware), AD5X (ZMOD firmware).
 >
@@ -140,7 +140,7 @@ See [docs/devel/GALLERY.md](docs/devel/GALLERY.md) for the full gallery.
 | BTT Pad / CB1 / Manta | aarch64 | Supported |
 | Flashforge AD5M/Pro | armv7-a | Tested |
 | Flashforge AD5X | MIPS32 | Supported |
-| QIDI (Q1 Pro, Plus 4, etc.) | aarch64 | Supported |
+| QIDI (Q2, Max 4) | aarch64 | Untested¹ |
 | Creality Sonic Pad | armhf | Tested |
 | Creality K1/K1C/K1 Max | MIPS32 | Tested |
 | Creality K2 Max/Plus | ARM (musl) | Tested |
@@ -149,6 +149,8 @@ See [docs/devel/GALLERY.md](docs/devel/GALLERY.md) for the full gallery.
 | Snapmaker U1 | armv7-a | Cross-compile target |
 | macOS | x86_64/ARM64 | Development |
 | Linux | x86_64 | Development / CI |
+
+¹ Only QIDI models with Linux framebuffer displays (Q2, Max 4) are compatible. Older models (X-Max 3, X-Plus 3, Plus 4, Q1 Pro, X-Smart 3) use TJC/Nextion HMI serial displays and are **not supported** without a screen replacement.
 
 ## Installation
 

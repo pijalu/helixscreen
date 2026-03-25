@@ -2,28 +2,38 @@
 
 # QIDI Printer Support
 
-HelixScreen supports QIDI's enclosed CoreXY printers as an open-source alternative to QIDI's proprietary touchscreen UI and FreeDi's closed-source LCD firmware. If your QIDI is running standard Moonraker -- whether through stock firmware, FreeDi, OpenQ1, or another community project -- HelixScreen can replace the built-in display interface.
+HelixScreen can run on QIDI printers that have a Linux framebuffer display. However, most older QIDI models use TJC HMI displays (a Chinese Nextion clone) connected over serial UART -- these are standalone MCU-driven screens that cannot be replaced by HelixScreen without a physical screen swap.
 
-## Supported Models
+If your QIDI is running standard Moonraker -- whether through stock firmware, FreeDi, OpenQ1, or another community project -- and has a Linux framebuffer display, HelixScreen can replace the built-in display interface.
 
-All supported QIDI models use MKSPI boards with ARM Cortex-A53 (aarch64) processors and 1GB RAM.
+## Display Compatibility
 
-| Model | Display | Resolution | Status |
-|-------|---------|------------|--------|
-| X-Max 3 | 7" touch | 800x480 | Untested |
-| X-Plus 3 | 5" touch | ~800x480 | Untested |
-| Q1 Pro | 5" touch | ~800x480 | Untested |
-| Plus 4 | 7" touch | 800x480 | Untested |
-| Q2 | ? | ? | Untested |
-| Q2 Pro | ? | ? | Untested |
+QIDI uses two fundamentally different display architectures:
+
+- **TJC HMI (serial)** -- A standalone microcontroller-driven display connected to the mainboard via serial UART. These are flashed with `.tft` firmware files via microSD card. HelixScreen **cannot** drive these displays. FreeDi targets this display type.
+- **Linux framebuffer** -- A display driven directly by the Linux SoC (RK3328) via fbdev or DRM. HelixScreen **can** run on these.
+
+## Models
+
+All QIDI models listed below use MKSPI boards with ARM Cortex-A53 (aarch64) processors and 1GB RAM.
+
+| Model | Display Type | Resolution | HelixScreen Compatible? | Notes |
+|-------|-------------|------------|------------------------|-------|
+| Q2 | Linux framebuffer (IPS capacitive) | 480x272 | **Yes** (untested) | Goodix touch controller. KlipperScreen and GuppyScreen also work on this model. |
+| Max 4 | Linux framebuffer | TBD | **Yes** (untested) | Newer architecture with SoC-driven display. |
+| X-Max 3 | TJC HMI (serial) | 800x480 | **No** | Requires screen replacement (HDMI/DSI touchscreen). |
+| X-Plus 3 | TJC HMI (serial) | 800x480 | **No** | Requires screen replacement. Same display firmware as X-Max 3 and Plus 4. |
+| Plus 4 | TJC HMI (serial) | 800x480 | **No** | Requires screen replacement. Same display firmware as X-Max 3 and X-Plus 3. |
+| Q1 Pro | TJC HMI (serial) | 480x272 | **No** | Requires screen replacement. TJC model TJC4827X243_011. |
+| X-Smart 3 | TJC HMI (serial) | 480x272 | **No** | Requires screen replacement. |
 
 ## Installation
 
 ### Prerequisites
 
-- A QIDI printer running Klipper with Moonraker accessible over the network
+- A QIDI printer with a compatible display (see table above)
+- **[FreeDi](https://github.com/Phil1988/FreeDi) installed first** -- FreeDi replaces QIDI's stock OS with Armbian and mainline Klipper/Moonraker, which HelixScreen requires. Stock QIDI firmware has a modified Klipper/Moonraker that may not expose all standard endpoints.
 - SSH access to the printer
-- FreeDi (recommended) or stock firmware with Moonraker enabled
 
 ### Using the Pi/aarch64 Binary
 
@@ -90,10 +100,11 @@ The progress bar updates as each phase completes, so you can see exactly where y
 
 ## Known Limitations
 
+- **Most older QIDI models have TJC HMI serial displays** -- The X-Max 3, X-Plus 3, Plus 4, Q1 Pro, and X-Smart 3 all use TJC (Nextion-compatible) displays connected via serial UART. HelixScreen cannot drive these. A physical screen replacement (HDMI or DSI touchscreen connected to the RK3328 SoC) is required.
+- **Q2 resolution is very small** -- The Q2's 480x272 display is at the lower end of what HelixScreen supports. Some UI elements may overlap or be cramped.
 - **Untested on real hardware** -- Detection heuristics and display rendering are based on documentation and community reports. Community testers are very welcome.
 - **No chamber heater control UI** -- QIDI printers have heated chambers, but HelixScreen doesn't yet have a dedicated chamber temperature control panel.
-- **FreeDi integration not automated** -- Manual binary deployment is required. There is no KIAUH or package manager integration for QIDI yet.
-- **Stock QIDI firmware may have limited Moonraker** -- QIDI's modified Klipper and Moonraker builds may not expose all standard endpoints. FreeDi or mainline Klipper is recommended for the best experience.
+- **Manual deployment required** -- There is no KIAUH or package manager integration for QIDI yet. Binary must be deployed manually after installing FreeDi.
 
 ## Community Testing
 

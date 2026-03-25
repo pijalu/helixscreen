@@ -30,7 +30,7 @@ HelixScreen is a touchscreen interface for Klipper 3D printers. It connects to y
 - FlashForge Adventurer 5M / 5M Pro (with [Forge-X](https://github.com/DrA1ex/ff5m)) — most thoroughly tested on ForgeX 1.4.0 with FlashForge firmware 3.1.5; other versions may work fine
 
 **Supported with auto-detection:**
-- QIDI printers — detection heuristics and print start profile included
+- QIDI Q2 and Max 4 — detection heuristics and print start profile included. Requires [FreeDi](https://github.com/Phil1988/FreeDi) firmware first. **Note:** Most older QIDI models (X-Max 3, X-Plus 3, Plus 4, Q1 Pro, X-Smart 3) use TJC/Nextion HMI serial displays and are NOT supported without a physical screen replacement.
 
 **Binaries available but untested:**
 - Creality K1 series (K1, K1C, K1 Max) — requires [Simple AF](https://github.com/pellcorp/creality) community firmware
