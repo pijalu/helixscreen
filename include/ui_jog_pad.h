@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include "ui_panel_motion.h" // For JogDirection and JogDistance enums
+#include "ui_panel_motion.h" // For JogDirection and JogMode enums
 
 #include <lvgl.h>
 
@@ -45,28 +45,24 @@ void ui_jog_pad_set_jog_callback(lv_obj_t* obj, jog_pad_jog_cb_t cb, void* user_
 void ui_jog_pad_set_home_callback(lv_obj_t* obj, jog_pad_home_cb_t cb, void* user_data);
 
 /**
- * Set current jog distance mode (affects which distance is used for zones)
+ * Set jog mode (Fine/Coarse/Turbo - affects inner/outer ring distances)
  *
- * Inner zone distance:
- * - JogDistance::Dist0_1mm or JogDistance::Dist1mm → uses that distance
- * - JogDistance::Dist10mm or JogDistance::Dist100mm → defaults to 1mm
- *
- * Outer zone distance:
- * - JogDistance::Dist10mm or JogDistance::Dist100mm → uses that distance
- * - JogDistance::Dist0_1mm or JogDistance::Dist1mm → defaults to 10mm
+ * Fine:   inner=0.1mm, outer=1mm
+ * Coarse: inner=1mm,   outer=10mm
+ * Turbo:  inner=10mm,  outer=50mm
  *
  * @param obj Jog pad object
- * @param distance Distance mode
+ * @param mode Jog mode
  */
-void ui_jog_pad_set_distance(lv_obj_t* obj, helix::JogDistance distance);
+void ui_jog_pad_set_mode(lv_obj_t* obj, helix::JogMode mode);
 
 /**
- * Get current jog distance mode
+ * Get current jog mode
  *
  * @param obj Jog pad object
- * @return Current distance mode
+ * @return Current jog mode
  */
-helix::JogDistance ui_jog_pad_get_distance(lv_obj_t* obj);
+helix::JogMode ui_jog_pad_get_mode(lv_obj_t* obj);
 
 /**
  * Refresh colors from theme (call when theme changes)

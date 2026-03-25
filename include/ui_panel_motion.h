@@ -16,9 +16,39 @@
  * Uses OverlayBase pattern with lifecycle hooks.
  */
 
-// Jog distance options
+// Jog mode: determines inner/outer ring distances for XY pad and Z buttons
 namespace helix {
-enum class JogDistance { Dist0_1mm = 0, Dist1mm = 1, Dist10mm = 2, Dist100mm = 3 };
+enum class JogMode { Fine = 0, Coarse = 1, Turbo = 2 };
+constexpr int kJogModeCount = 3;
+
+// Inner/outer distance pair for each mode
+struct JogModeDistances {
+    float inner;
+    float outer;
+    const char* inner_label;
+    const char* outer_label;
+};
+
+// Mode → distance mapping (Fine: 0.1/1, Coarse: 1/10, Turbo: 10/50)
+inline const JogModeDistances& get_jog_mode_distances(JogMode mode) {
+    static const JogModeDistances modes[] = {
+        {0.1f, 1.0f, "0.1", "1"},
+        {1.0f, 10.0f, "1", "10"},
+        {10.0f, 50.0f, "10", "50"},
+    };
+    static_assert(sizeof(modes) / sizeof(modes[0]) == kJogModeCount,
+                  "modes[] size must match kJogModeCount");
+    int idx = static_cast<int>(mode);
+    if (idx < 0 || idx >= kJogModeCount) idx = 1; // default Coarse
+    return modes[idx];
+}
+
+inline const char* jog_mode_name(JogMode mode) {
+    static const char* names[] = {"Fine", "Coarse", "Turbo"};
+    int idx = static_cast<int>(mode);
+    if (idx < 0 || idx >= kJogModeCount) return "Unknown";
+    return names[idx];
+}
 
 // Jog direction
 enum class JogDirection {
@@ -56,13 +86,13 @@ class MotionPanel : public OverlayBase {
         return overlay_root_;
     }
     void set_position(float x, float y, float z);
-    helix::JogDistance get_distance() const {
-        return current_distance_;
+    helix::JogMode get_jog_mode() const {
+        return current_mode_;
     }
     void jog(helix::JogDirection direction, float distance_mm);
     void home(char axis);
     void handle_z_button(const char* name);
-    void set_jog_mode_fine(bool fine); // Switch between Fine/Coarse jog mode
+    void set_jog_mode(helix::JogMode mode); // Switch between Fine/Coarse/Turbo jog mode
 
   private:
     // RAII subject manager - auto-deinits all registered subjects on destruction
@@ -78,6 +108,7 @@ class MotionPanel : public OverlayBase {
     lv_subject_t z_small_label_subject_;  // "1mm" or "0.1mm" (small Z button label)
     lv_subject_t jog_mode_fine_active_;   // 1 when Fine mode active
     lv_subject_t jog_mode_coarse_active_; // 1 when Coarse mode active
+    lv_subject_t jog_mode_turbo_active_;  // 1 when Turbo mode active
     char pos_x_buf_[32];
     char pos_y_buf_[32];
     char pos_z_buf_[32];
@@ -88,7 +119,7 @@ class MotionPanel : public OverlayBase {
     char z_small_label_buf_[8];
     bool bed_moves_ = false; // If true, invert Z direction (arrows match bed movement)
 
-    helix::JogDistance current_distance_ = helix::JogDistance::Dist1mm;
+    helix::JogMode current_mode_ = helix::JogMode::Coarse;
     float current_x_ = 0.0f;
     float current_y_ = 0.0f;
     float current_z_ = 0.0f; // Gcode (commanded) Z position

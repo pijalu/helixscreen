@@ -37,6 +37,7 @@ static void on_motion_qgl(lv_event_t* e);
 static void on_motion_z_tilt(lv_event_t* e);
 static void on_jog_mode_fine(lv_event_t* e);
 static void on_jog_mode_coarse(lv_event_t* e);
+static void on_jog_mode_turbo(lv_event_t* e);
 
 // ============================================================================
 // Global Instance (via DEFINE_GLOBAL_PANEL macro)
@@ -60,10 +61,19 @@ MotionPanel::MotionPanel() {
     std::strcpy(z_small_label_buf_, "1mm");
 
     // Load persisted jog mode (default: coarse)
+    // Migrate from old bool /motion/jog_mode_fine to new int /motion/jog_mode
     auto* cfg = Config::get_instance();
     if (cfg) {
-        bool fine = cfg->get<bool>("/motion/jog_mode_fine", false);
-        current_distance_ = fine ? JogDistance::Dist0_1mm : JogDistance::Dist1mm;
+        int mode = cfg->get<int>("/motion/jog_mode", -1);
+        if (mode >= 0 && mode < kJogModeCount) {
+            current_mode_ = static_cast<JogMode>(mode);
+        } else {
+            // Migrate legacy bool setting and persist new key
+            bool fine = cfg->get<bool>("/motion/jog_mode_fine", false);
+            current_mode_ = fine ? JogMode::Fine : JogMode::Coarse;
+            cfg->set("/motion/jog_mode", static_cast<int>(current_mode_));
+            cfg->save();
+        }
     }
 
     spdlog::trace("[MotionPanel] Instance created");
@@ -102,20 +112,22 @@ void MotionPanel::init_subjects() {
     UI_MANAGED_SUBJECT_STRING(z_down_icon_subject_, z_down_icon_buf_, "arrow_down",
                               "motion_z_down_icon", subjects_);
 
-    // Z button labels — dynamic based on Fine/Coarse mode
-    bool is_fine = (current_distance_ == JogDistance::Dist0_1mm);
-    std::strcpy(z_large_label_buf_, is_fine ? "1mm" : "10mm");
-    std::strcpy(z_small_label_buf_, is_fine ? "0.1mm" : "1mm");
+    // Z button labels — dynamic based on jog mode
+    const auto& mode_dist = get_jog_mode_distances(current_mode_);
+    snprintf(z_large_label_buf_, sizeof(z_large_label_buf_), "%smm", mode_dist.outer_label);
+    snprintf(z_small_label_buf_, sizeof(z_small_label_buf_), "%smm", mode_dist.inner_label);
     UI_MANAGED_SUBJECT_STRING(z_large_label_subject_, z_large_label_buf_, z_large_label_buf_,
                               "motion_z_large_label", subjects_);
     UI_MANAGED_SUBJECT_STRING(z_small_label_subject_, z_small_label_buf_, z_small_label_buf_,
                               "motion_z_small_label", subjects_);
 
     // Jog mode toggle subjects for button styling
-    UI_MANAGED_SUBJECT_INT(jog_mode_fine_active_, is_fine ? 1 : 0, "motion_jog_mode_fine_active",
-                           subjects_);
-    UI_MANAGED_SUBJECT_INT(jog_mode_coarse_active_, is_fine ? 0 : 1, "motion_jog_mode_coarse_active",
-                           subjects_);
+    UI_MANAGED_SUBJECT_INT(jog_mode_fine_active_, (current_mode_ == JogMode::Fine) ? 1 : 0,
+                           "motion_jog_mode_fine_active", subjects_);
+    UI_MANAGED_SUBJECT_INT(jog_mode_coarse_active_, (current_mode_ == JogMode::Coarse) ? 1 : 0,
+                           "motion_jog_mode_coarse_active", subjects_);
+    UI_MANAGED_SUBJECT_INT(jog_mode_turbo_active_, (current_mode_ == JogMode::Turbo) ? 1 : 0,
+                           "motion_jog_mode_turbo_active", subjects_);
 
     // Homing status subjects for declarative bind_style indicators (0=unhomed, 1=homed)
     // Prefixed with motion_ to avoid collision with ControlsPanel's x_homed/y_homed/z_homed
@@ -199,6 +211,7 @@ void MotionPanel::register_callbacks() {
     // Register jog mode toggle callbacks
     lv_xml_register_event_cb(nullptr, "on_jog_mode_fine", on_jog_mode_fine);
     lv_xml_register_event_cb(nullptr, "on_jog_mode_coarse", on_jog_mode_coarse);
+    lv_xml_register_event_cb(nullptr, "on_jog_mode_turbo", on_jog_mode_turbo);
 
     callbacks_registered_ = true;
     spdlog::debug("[{}] Event callbacks registered", get_name());
@@ -297,8 +310,8 @@ void MotionPanel::setup_jog_pad() {
         ui_jog_pad_set_jog_callback(jog_pad_, jog_pad_jog_cb, this);
         ui_jog_pad_set_home_callback(jog_pad_, jog_pad_home_cb, this);
 
-        // Set initial distance
-        ui_jog_pad_set_distance(jog_pad_, current_distance_);
+        // Set initial jog mode
+        ui_jog_pad_set_mode(jog_pad_, current_mode_);
 
         spdlog::debug("[{}] Jog pad widget created (size: {}px)", get_name(), jog_size);
     } else {
@@ -444,12 +457,10 @@ void MotionPanel::handle_z_button(const char* name) {
         return;
     }
 
-    // Determine Z distance from current jog mode and button size (large/small)
-    // Fine:   large=1mm,  small=0.1mm
-    // Coarse: large=10mm, small=1mm
-    bool is_fine = (current_distance_ == JogDistance::Dist0_1mm);
-    double large_dist = is_fine ? 1.0 : 10.0;
-    double small_dist = is_fine ? 0.1 : 1.0;
+    // Z distance from current jog mode (Fine: 0.1/1, Coarse: 1/10, Turbo: 10/50)
+    const auto& mode_dist = get_jog_mode_distances(current_mode_);
+    double large_dist = static_cast<double>(mode_dist.outer);
+    double small_dist = static_cast<double>(mode_dist.inner);
 
     double distance = 0.0;
     if (strcmp(name, "z_up_large") == 0) {
@@ -656,38 +667,45 @@ static void on_motion_z_tilt(lv_event_t* e) {
 static void on_jog_mode_fine(lv_event_t* e) {
     LVGL_SAFE_EVENT_CB_BEGIN("[MotionPanel] on_jog_mode_fine");
     (void)e;
-    get_global_motion_panel().set_jog_mode_fine(true);
+    get_global_motion_panel().set_jog_mode(JogMode::Fine);
     LVGL_SAFE_EVENT_CB_END();
 }
 
 static void on_jog_mode_coarse(lv_event_t* e) {
     LVGL_SAFE_EVENT_CB_BEGIN("[MotionPanel] on_jog_mode_coarse");
     (void)e;
-    get_global_motion_panel().set_jog_mode_fine(false);
+    get_global_motion_panel().set_jog_mode(JogMode::Coarse);
+    LVGL_SAFE_EVENT_CB_END();
+}
+
+static void on_jog_mode_turbo(lv_event_t* e) {
+    LVGL_SAFE_EVENT_CB_BEGIN("[MotionPanel] on_jog_mode_turbo");
+    (void)e;
+    get_global_motion_panel().set_jog_mode(JogMode::Turbo);
     LVGL_SAFE_EVENT_CB_END();
 }
 
 // ============================================================================
-// Jog Mode (Fine/Coarse)
+// Jog Mode (Fine/Coarse/Turbo)
 // ============================================================================
 
-void MotionPanel::set_jog_mode_fine(bool fine) {
-    JogDistance new_dist = fine ? JogDistance::Dist0_1mm : JogDistance::Dist1mm;
-    if (current_distance_ == new_dist)
+void MotionPanel::set_jog_mode(JogMode mode) {
+    if (current_mode_ == mode)
         return;
 
-    current_distance_ = new_dist;
+    current_mode_ = mode;
 
     // Update jog pad
     if (jog_pad_) {
-        ui_jog_pad_set_distance(jog_pad_, current_distance_);
+        ui_jog_pad_set_mode(jog_pad_, current_mode_);
         lv_obj_invalidate(jog_pad_); // Redraw ring labels
     }
 
     // Update toggle button styles
     if (subjects_initialized_) {
-        lv_subject_set_int(&jog_mode_fine_active_, fine ? 1 : 0);
-        lv_subject_set_int(&jog_mode_coarse_active_, fine ? 0 : 1);
+        lv_subject_set_int(&jog_mode_fine_active_, (mode == JogMode::Fine) ? 1 : 0);
+        lv_subject_set_int(&jog_mode_coarse_active_, (mode == JogMode::Coarse) ? 1 : 0);
+        lv_subject_set_int(&jog_mode_turbo_active_, (mode == JogMode::Turbo) ? 1 : 0);
     }
 
     // Update Z button labels
@@ -696,26 +714,21 @@ void MotionPanel::set_jog_mode_fine(bool fine) {
     // Persist setting
     auto* cfg = Config::get_instance();
     if (cfg) {
-        cfg->set("/motion/jog_mode_fine", fine);
+        cfg->set("/motion/jog_mode", static_cast<int>(mode));
         cfg->save();
     }
 
-    spdlog::info("[MotionPanel] Jog mode: {}", fine ? "Fine" : "Coarse");
+    spdlog::info("[MotionPanel] Jog mode: {}", jog_mode_name(mode));
 }
 
 void MotionPanel::update_z_button_labels() {
     if (!subjects_initialized_)
         return;
 
-    bool is_fine = (current_distance_ == JogDistance::Dist0_1mm);
-    const char* large = is_fine ? "1mm" : "10mm";
-    const char* small = is_fine ? "0.1mm" : "1mm";
-
-    std::strncpy(z_large_label_buf_, large, sizeof(z_large_label_buf_) - 1);
-    z_large_label_buf_[sizeof(z_large_label_buf_) - 1] = '\0';
+    const auto& mode_dist = get_jog_mode_distances(current_mode_);
+    snprintf(z_large_label_buf_, sizeof(z_large_label_buf_), "%smm", mode_dist.outer_label);
     lv_subject_copy_string(&z_large_label_subject_, z_large_label_buf_);
 
-    std::strncpy(z_small_label_buf_, small, sizeof(z_small_label_buf_) - 1);
-    z_small_label_buf_[sizeof(z_small_label_buf_) - 1] = '\0';
+    snprintf(z_small_label_buf_, sizeof(z_small_label_buf_), "%smm", mode_dist.inner_label);
     lv_subject_copy_string(&z_small_label_subject_, z_small_label_buf_);
 }

@@ -16,8 +16,7 @@
 
 using namespace helix;
 
-// Distance values in mm (indexed by JogDistance enum)
-static const float distance_values[] = {0.1f, 1.0f, 10.0f, 100.0f};
+// Mode distances are defined in ui_panel_motion.h via get_jog_mode_distances()
 
 // Zone boundary ratios (as fraction of total radius)
 // Home button: 0% - 25%
@@ -56,8 +55,8 @@ typedef struct {
     void* jog_user_data;
     void* home_user_data;
 
-    // Current distance mode
-    JogDistance current_distance;
+    // Current jog mode
+    JogMode current_mode;
 
     // Press state tracking for visual feedback
     bool is_pressed;
@@ -343,22 +342,10 @@ static void jog_pad_draw_cb(lv_event_t* e) {
     lv_coord_t dist_label_h = (lv_coord_t)(radius * 0.12f);
     lv_coord_t dist_offset_y = (lv_coord_t)(radius * 0.05f);
 
-    // Inner ring distance label (dynamic based on current distance mode)
-    // Fine: inner=0.1mm, outer=1mm. Coarse: inner=1mm, outer=10mm.
-    const char* inner_label;
-    const char* outer_label;
-    if (static_cast<int>(state->current_distance) <= static_cast<int>(JogDistance::Dist1mm)) {
-        // Fine-ish: use current distance for inner
-        inner_label = (state->current_distance == JogDistance::Dist0_1mm) ? "0.1" : "1";
-    } else {
-        inner_label = "1";
-    }
-    if (static_cast<int>(state->current_distance) >= static_cast<int>(JogDistance::Dist10mm)) {
-        outer_label = (state->current_distance == JogDistance::Dist100mm) ? "100" : "10";
-    } else {
-        // Fine mode: outer ring is one step up
-        outer_label = (state->current_distance == JogDistance::Dist0_1mm) ? "1" : "10";
-    }
+    // Distance labels from current mode (Fine: 0.1/1, Coarse: 1/10, Turbo: 10/50)
+    const auto& mode_dist = get_jog_mode_distances(state->current_mode);
+    const char* inner_label = mode_dist.inner_label;
+    const char* outer_label = mode_dist.outer_label;
 
     label_dsc.text = inner_label;
     lv_coord_t inner_label_radius = (lv_coord_t)((home_radius + inner_boundary) * 0.5f);
@@ -595,23 +582,10 @@ static void jog_pad_click_cb(lv_event_t* e) {
     float angle = calculate_angle(dx, dy);
     JogDirection direction = angle_to_direction(angle);
 
-    // Zone boundary: inner ring (25-60%) = 1mm, outer ring (60-100%) = 10mm
+    // Zone boundary: inner ring (25-60%), outer ring (60-100%)
     float inner_boundary = radius * INNER_ZONE_BOUNDARY_RATIO;
-    float jog_dist;
-
-    if (distance < inner_boundary) {
-        // Inner zone - small movements (0.1mm or 1mm based on selector)
-        jog_dist =
-            (static_cast<int>(state->current_distance) <= static_cast<int>(JogDistance::Dist1mm))
-                ? distance_values[static_cast<int>(state->current_distance)]
-                : distance_values[static_cast<int>(JogDistance::Dist1mm)];
-    } else {
-        // Outer zone - large movements (10mm or 100mm based on selector)
-        jog_dist =
-            (static_cast<int>(state->current_distance) >= static_cast<int>(JogDistance::Dist10mm))
-                ? distance_values[static_cast<int>(state->current_distance)]
-                : distance_values[static_cast<int>(JogDistance::Dist10mm)];
-    }
+    const auto& mode_dist = get_jog_mode_distances(state->current_mode);
+    float jog_dist = (distance < inner_boundary) ? mode_dist.inner : mode_dist.outer;
 
     if (state->jog_callback) {
         state->jog_callback(direction, jog_dist, state->jog_user_data);
@@ -649,7 +623,7 @@ lv_obj_t* ui_jog_pad_create(lv_obj_t* parent) {
     jog_pad_state_t* state = state_ptr.get();
 
     // Initialize state
-    state->current_distance = JogDistance::Dist1mm;
+    state->current_mode = JogMode::Coarse;
 
     // Load colors from component scope (tries "motion_panel" first, falls back to defaults)
     load_colors(state, "motion_panel");
@@ -692,16 +666,16 @@ void ui_jog_pad_set_home_callback(lv_obj_t* obj, jog_pad_home_cb_t cb, void* use
     }
 }
 
-void ui_jog_pad_set_distance(lv_obj_t* obj, JogDistance distance) {
+void ui_jog_pad_set_mode(lv_obj_t* obj, JogMode mode) {
     jog_pad_state_t* state = get_state(obj);
-    if (state && static_cast<int>(distance) >= 0 && static_cast<int>(distance) <= 3) {
-        state->current_distance = distance;
+    if (state && static_cast<int>(mode) >= 0 && static_cast<int>(mode) < kJogModeCount) {
+        state->current_mode = mode;
     }
 }
 
-JogDistance ui_jog_pad_get_distance(lv_obj_t* obj) {
+JogMode ui_jog_pad_get_mode(lv_obj_t* obj) {
     jog_pad_state_t* state = get_state(obj);
-    return state ? state->current_distance : JogDistance::Dist1mm;
+    return state ? state->current_mode : JogMode::Coarse;
 }
 
 void ui_jog_pad_refresh_colors(lv_obj_t* obj) {
