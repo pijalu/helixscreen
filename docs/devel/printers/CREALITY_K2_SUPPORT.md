@@ -397,12 +397,33 @@ External filament rack (non-CFS) state:
 | `BOX_CUT_MATERIAL` (M1502) | Activate filament cutter |
 | `BOX_MOVE_TO_CUT` | Move to cut position |
 
-#### Macro Sequences (from box.cfg)
-| Macro | Sequence |
-|-------|----------|
-| `BOX_LOAD_MATERIAL` | Heat → Cut → Retract → Extrude → Flush → Park |
-| `BOX_QUIT_MATERIAL` | Heat → Cut → Retract → Park |
-| `BOX_INFO_REFRESH` | Pre-load → Get RFID → Get Remain Len |
+#### M8200 — Slicer-Facing CFS Interface
+
+**Use M8200 for manual load/unload operations.** Creality's `BOX_LOAD_MATERIAL` macro is buggy — it omits `CR_BOX_PRE_OPT` which is required before `CR_BOX_EXTRUDE`, causing `key60: Internal error` shutdowns.
+
+| Command | Effect | Underlying |
+|---------|--------|-----------|
+| `M8200 P` | Prepare CFS for material change | `CR_BOX_PRE_OPT` |
+| `M8200 L I={slot}` | Load filament from slot (0-indexed) | `CR_BOX_EXTRUDE TNN=...` |
+| `M8200 C` | Cut filament | `CR_BOX_CUT` |
+| `M8200 R` | Retract filament (optional `E={length}`) | `CR_BOX_RETRUDE` |
+| `M8200 W` | Waste purge | `CR_BOX_WASTE` |
+| `M8200 F` | Flush (uses last TNN from L command) | `CR_BOX_FLUSH` |
+| `M8200 O` | End material change operation | `CR_BOX_END_OPT` |
+
+**Load sequence:** `M8200 P` → `M8200 L I=2` → `M8200 F` → `M8200 O`
+**Unload sequence:** `M8200 P` → `M8200 C` → `M8200 R` → `M8200 O`
+
+**Prerequisites:** Printer must be homed (`G28`). CFS does not require nozzle heating for feed/retract — heating is only needed for purging at the nozzle.
+
+**Stock UI note:** Creality's display-server communicates with the CFS **directly over RS-485** (`/dev/ttyS5` at 230400 baud), bypassing Klipper entirely for load/unload. The GCode macros are primarily for automated print-time use.
+
+#### Macro Sequences (from box.cfg — DO NOT use for manual load/unload)
+| Macro | Sequence | Notes |
+|-------|----------|-------|
+| `BOX_LOAD_MATERIAL TNN=T1A` | Heat → Cut → Retract → Extrude → Flush → Park | **BUG: Missing CR_BOX_PRE_OPT → key60 crash** |
+| `BOX_QUIT_MATERIAL` | Heat → Cut → Retract → Park | Same issue |
+| `BOX_INFO_REFRESH` | Pre-load → Get RFID → Get Remain Len | Safe to use |
 
 ### Error Codes
 
@@ -455,7 +476,7 @@ The CFS exposes state through the standard Moonraker object query interface, sim
    - `remain_len` → remaining filament display
    - `temperature` / `dry_and_humidity` → per-unit environmental monitoring
    - `state` → connection status
-3. **Commands**: Use `BOX_LOAD_MATERIAL TNN=TxY` / `BOX_QUIT_MATERIAL` for load/unload
+3. **Commands**: Use `M8200` for load/unload (NOT `BOX_LOAD_MATERIAL` — see M8200 section above)
 4. **Auto-detection**: Add `box` to Moonraker object heuristics in `printer_database.json`
 
 ### Community Resources

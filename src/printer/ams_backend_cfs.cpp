@@ -2,6 +2,8 @@
 
 #include "ams_backend_cfs.h"
 
+#include "moonraker_error.h"
+
 #include "hv/json.hpp"
 
 #include <spdlog/spdlog.h>
@@ -186,7 +188,34 @@ AmsBackendCfs::AmsBackendCfs(MoonrakerAPI* api, helix::MoonrakerClient* client)
 }
 
 void AmsBackendCfs::on_started() {
-    spdlog::info("[AMS CFS] Backend started — waiting for box status updates");
+    spdlog::info("[AMS CFS] Backend started — querying initial box state");
+
+    // Query initial state explicitly since the subscription response may have
+    // arrived before this backend registered its callback
+    nlohmann::json objects_to_query = nlohmann::json::object();
+    objects_to_query["box"] = nullptr;
+    objects_to_query["motor_control"] = nullptr;
+    objects_to_query["filament_switch_sensor filament_sensor"] = nullptr;
+
+    nlohmann::json params = {{"objects", objects_to_query}};
+
+    client_->send_jsonrpc(
+        "printer.objects.query", params,
+        [this](const nlohmann::json& response) {
+            if (response.contains("result") && response["result"].contains("status") &&
+                response["result"]["status"].is_object()) {
+                // Wrap in notify_status_update format for handle_status_update
+                nlohmann::json notification = {
+                    {"params", nlohmann::json::array({response["result"]["status"]})}};
+                handle_status_update(notification);
+                spdlog::info("[AMS CFS] Initial state loaded");
+            } else {
+                spdlog::warn("[AMS CFS] Initial state query returned unexpected format");
+            }
+        },
+        [](const MoonrakerError& err) {
+            spdlog::warn("[AMS CFS] Failed to query initial state: {}", err.message);
+        });
 }
 
 // --- Static parser ---
@@ -247,14 +276,18 @@ AmsSystemInfo AmsBackendCfs::parse_box_status(const nlohmann::json& box_json) {
     for (int n = 1; n <= 4; ++n) {
         std::string key = "T" + std::to_string(n);
         if (!box_json.contains(key) || !box_json[key].is_object()) {
+            spdlog::debug("[AMS CFS] {} not present or not an object", key);
             continue;
         }
 
         const auto& unit_json = box_json[key];
         std::string state = unit_json.value("state", "None");
         if (state == "None" || state == "-1") {
+            spdlog::debug("[AMS CFS] {} disconnected (state={})", key, state);
             continue; // Disconnected unit
         }
+
+        spdlog::debug("[AMS CFS] {} connected (state={})", key, state);
 
         AmsUnit unit;
         unit.unit_index = n - 1;
@@ -368,10 +401,22 @@ AmsSystemInfo AmsBackendCfs::parse_box_status(const nlohmann::json& box_json) {
 // --- handle_status_update ---
 
 void AmsBackendCfs::handle_status_update(const nlohmann::json& notification) {
+    // notify_status_update format: {"method": "notify_status_update", "params": [{...}, timestamp]}
+    if (!notification.contains("params") || !notification["params"].is_array() ||
+        notification["params"].empty()) {
+        return;
+    }
+
+    const auto& params = notification["params"][0];
+    if (!params.is_object()) {
+        return;
+    }
+
     bool changed = false;
 
-    if (notification.contains("box") && notification["box"].is_object()) {
-        auto new_info = parse_box_status(notification["box"]);
+    if (params.contains("box") && params["box"].is_object()) {
+        spdlog::debug("[AMS CFS] Received box data with {} keys", params["box"].size());
+        auto new_info = parse_box_status(params["box"]);
         {
             std::lock_guard<std::mutex> lock(mutex_);
             system_info_.units = std::move(new_info.units);
@@ -383,8 +428,8 @@ void AmsBackendCfs::handle_status_update(const nlohmann::json& notification) {
         changed = true;
     }
 
-    if (notification.contains("filament_switch_sensor filament_sensor")) {
-        const auto& sensor = notification["filament_switch_sensor filament_sensor"];
+    if (params.contains("filament_switch_sensor filament_sensor")) {
+        const auto& sensor = params["filament_switch_sensor filament_sensor"];
         if (sensor.contains("filament_detected")) {
             std::lock_guard<std::mutex> lock(mutex_);
             system_info_.filament_loaded = sensor["filament_detected"].get<bool>();
@@ -392,17 +437,17 @@ void AmsBackendCfs::handle_status_update(const nlohmann::json& notification) {
         changed = true;
     }
 
-    if (notification.contains("motor_control")) {
-        const auto& motor = notification["motor_control"];
-        if (motor.contains("ready")) {
+    if (params.contains("motor_control")) {
+        const auto& motor = params["motor_control"];
+        if (motor.contains("motor_ready")) {
             std::lock_guard<std::mutex> lock(mutex_);
-            motor_ready_ = motor["ready"].get<bool>();
+            motor_ready_ = motor["motor_ready"].get<bool>();
         }
         changed = true;
     }
 
     if (changed) {
-        emit_event("system_changed");
+        emit_event(EVENT_STATE_CHANGED);
     }
 }
 
@@ -464,7 +509,11 @@ PathSegment AmsBackendCfs::infer_error_segment() const {
 AmsError AmsBackendCfs::load_filament(int slot_index) {
     auto err = check_preconditions();
     if (err.result != AmsResult::SUCCESS) return err;
-    return execute_gcode(load_gcode(slot_index));
+    auto gcode = load_gcode(slot_index);
+    if (gcode.empty()) {
+        return AmsErrorHelper::invalid_slot(slot_index, 15);
+    }
+    return execute_gcode(gcode);
 }
 
 AmsError AmsBackendCfs::unload_filament(int) {
@@ -522,11 +571,20 @@ AmsError AmsBackendCfs::disable_bypass() {
 // --- GCode helpers ---
 
 std::string AmsBackendCfs::load_gcode(int idx) {
-    return "BOX_LOAD_MATERIAL TNN=" + CfsMaterialDb::slot_to_tnn(idx);
+    std::string tnn = CfsMaterialDb::slot_to_tnn(idx);
+    if (tnn.empty()) {
+        spdlog::error("[AMS CFS] Invalid slot index for load: {}", idx);
+        return "";
+    }
+    // M8200 P (CR_BOX_PRE_OPT) is required before extrude — sets CFS to material-change mode.
+    // Creality's BOX_LOAD_MATERIAL macro omits this and fails with key60 "Internal error".
+    // M8200: P=prepare, L I=N=load slot N (CR_BOX_EXTRUDE), F=flush, O=end (CR_BOX_END_OPT)
+    return "M8200 P\nM8200 L I=" + std::to_string(idx) + "\nM8200 F\nM8200 O";
 }
 
 std::string AmsBackendCfs::unload_gcode() {
-    return "BOX_QUIT_MATERIAL";
+    // M8200: P=prepare, C=cut (CR_BOX_CUT), R=retract (CR_BOX_RETRUDE), O=end
+    return "M8200 P\nM8200 C\nM8200 R\nM8200 O";
 }
 
 std::string AmsBackendCfs::reset_gcode() {

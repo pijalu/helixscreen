@@ -704,6 +704,13 @@ void MoonrakerDiscoverySequence::complete_discovery_subscription() {
         spdlog::info("[Moonraker Client] Subscribing to save_variables (AD5X IFS)");
     }
 
+    // CFS (Creality Filament System) — K2 series with RS-485 CFS units
+    if (hardware_.mmu_type() == AmsType::CFS) {
+        subscription_objects["box"] = nullptr;
+        subscription_objects["motor_control"] = nullptr;
+        spdlog::info("[Moonraker Client] Subscribing to box + motor_control (CFS)");
+    }
+
     // All discovered filament sensors (filament_switch_sensor, filament_motion_sensor)
     // These provide runout detection and encoder motion data
     for (const auto& sensor : filament_sensors_) {
