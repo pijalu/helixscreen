@@ -361,11 +361,42 @@ export default {
               rate: r.rate,
               total: r.total,
             })),
-            by_filament: (filamentData.data ?? []).map((r) => ({
-              type: r.type,
-              success_rate: r.success_rate,
-              count: r.count,
-            })),
+            by_filament: (() => {
+              // Multi-filament prints store types as JSON arrays like '["PLA","ABS","PLA"]'.
+              // Parse these, extract unique types, and aggregate counts + weighted success rates.
+              const typeMap = new Map<string, { successes: number; total: number }>();
+              for (const r of filamentData.data ?? []) {
+                const rawType = String(r.type).trim();
+                const count = Number(r.count);
+                const successRate = Number(r.success_rate);
+                const successes = Math.round(successRate * count);
+                // Parse JSON array strings into individual types
+                let types: string[];
+                if (rawType.startsWith("[")) {
+                  try {
+                    const parsed = JSON.parse(rawType) as string[];
+                    types = [...new Set(parsed.filter(Boolean))];
+                  } catch {
+                    types = [rawType];
+                  }
+                } else {
+                  types = [rawType];
+                }
+                for (const t of types) {
+                  const existing = typeMap.get(t) ?? { successes: 0, total: 0 };
+                  existing.successes += successes;
+                  existing.total += count;
+                  typeMap.set(t, existing);
+                }
+              }
+              return [...typeMap.entries()]
+                .map(([type, { successes, total }]) => ({
+                  type,
+                  success_rate: total > 0 ? successes / total : 0,
+                  count: total,
+                }))
+                .sort((a, b) => b.count - a.count);
+            })(),
             avg_duration_sec: avgDurData.data?.[0]?.avg_duration_sec ?? 0,
             start_context: {
               slicers: (slicerData.data ?? []).map((r) => ({ name: r.name, count: r.count })),
