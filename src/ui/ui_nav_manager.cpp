@@ -1107,6 +1107,48 @@ void NavigationManager::activate_initial_panel() {
     }
 }
 
+void NavigationManager::suspend_active() {
+    if (suspended_) {
+        return;
+    }
+    suspended_ = true;
+
+    // Deactivate whatever is currently visible — topmost overlay or main panel
+    if (panel_stack_.size() > 1) {
+        lv_obj_t* top_overlay = panel_stack_.back();
+        auto it = overlay_instances_.find(top_overlay);
+        if (it != overlay_instances_.end() && it->second) {
+            spdlog::debug("[NavigationManager] Suspending overlay {}", it->second->get_name());
+            it->second->on_deactivate();
+        }
+    } else if (panel_instances_[static_cast<int>(active_panel_)]) {
+        spdlog::debug("[NavigationManager] Suspending panel {}",
+                      static_cast<int>(active_panel_));
+        panel_instances_[static_cast<int>(active_panel_)]->on_deactivate();
+    }
+}
+
+void NavigationManager::resume_active() {
+    if (!suspended_) {
+        return;
+    }
+    suspended_ = false;
+
+    // Re-activate whatever is currently visible
+    if (panel_stack_.size() > 1) {
+        lv_obj_t* top_overlay = panel_stack_.back();
+        auto it = overlay_instances_.find(top_overlay);
+        if (it != overlay_instances_.end() && it->second) {
+            spdlog::debug("[NavigationManager] Resuming overlay {}", it->second->get_name());
+            it->second->on_activate();
+        }
+    } else if (panel_instances_[static_cast<int>(active_panel_)]) {
+        spdlog::debug("[NavigationManager] Resuming panel {}",
+                      static_cast<int>(active_panel_));
+        panel_instances_[static_cast<int>(active_panel_)]->on_activate();
+    }
+}
+
 void NavigationManager::register_overlay_instance(lv_obj_t* widget, IPanelLifecycle* overlay) {
     if (!widget) {
         spdlog::error("[NavigationManager] Cannot register overlay with NULL widget");

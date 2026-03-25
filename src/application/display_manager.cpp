@@ -35,6 +35,7 @@
 #include "runtime_config.h"
 #ifdef HELIX_ENABLE_SCREENSAVER
 #include "screensaver.h"
+#include "ui_nav_manager.h"
 #endif
 
 #include "lock_manager.h"
@@ -761,6 +762,9 @@ void DisplayManager::check_display_sleep() {
             m_display_dimmed = true;
 #ifdef HELIX_ENABLE_SCREENSAVER
             if (!m_screensaver_active && has_screensaver) {
+                // Suspend active panel lifecycle to stop widget timers (clock, etc.)
+                // that would otherwise invalidate underlying UI and bleed through
+                NavigationManager::instance().suspend_active();
                 ScreensaverManager::instance().start(ScreensaverManager::configured_type());
                 m_screensaver_active = true;
                 if (m_backlight) {
@@ -802,6 +806,8 @@ void DisplayManager::wake_display() {
     if (m_screensaver_active) {
         ScreensaverManager::instance().stop();
         m_screensaver_active = false;
+        // Resume active panel lifecycle to restart widget timers
+        NavigationManager::instance().resume_active();
     }
 #endif
 

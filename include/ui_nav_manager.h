@@ -193,6 +193,27 @@ class NavigationManager {
     void unregister_overlay_instance(lv_obj_t* widget);
 
     /**
+     * @brief Suspend the currently active panel/overlay lifecycle
+     *
+     * Calls on_deactivate() on whatever is currently visible (topmost overlay
+     * or active main panel). Used by DisplayManager when the screensaver starts
+     * to stop widget timers and prevent background redraws from bleeding through.
+     *
+     * Safe to call multiple times — tracks suspended state internally.
+     */
+    void suspend_active();
+
+    /**
+     * @brief Resume the previously suspended panel/overlay lifecycle
+     *
+     * Calls on_activate() on whatever is currently visible. Used by DisplayManager
+     * when the screensaver stops to restart widget timers.
+     *
+     * No-op if not currently suspended.
+     */
+    void resume_active();
+
+    /**
      * @brief Get current active panel
      * @return Currently active panel identifier
      */
@@ -386,6 +407,7 @@ class NavigationManager {
     // Active panel tracking
     lv_subject_t active_panel_subject_{};
     helix::PanelId active_panel_ = helix::PanelId::Home;
+    bool suspended_ = false; // True when screensaver has suspended lifecycle
 
     // Panel widget tracking for show/hide
     lv_obj_t* panel_widgets_[UI_PANEL_COUNT] = {nullptr};
