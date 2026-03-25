@@ -84,10 +84,14 @@ class AmsBackendMock : public AmsBackend {
     AmsError disable_bypass() override;
     [[nodiscard]] bool is_bypass_active() const override;
 
+    // Environment sensors
+    [[nodiscard]] bool has_environment_sensors() const override;
+
     // Dryer
     [[nodiscard]] DryerInfo get_dryer_info() const override;
-    AmsError start_drying(float temp_c, int duration_min, int fan_pct = -1) override;
-    AmsError stop_drying() override;
+    AmsError start_drying(float temp_c, int duration_min, int fan_pct = -1,
+                           int unit = 0) override;
+    AmsError stop_drying(int unit = 0) override;
 
     // Endless spool
     [[nodiscard]] helix::printer::EndlessSpoolCapabilities
@@ -177,6 +181,20 @@ class AmsBackendMock : public AmsBackend {
      * - Bypass is controlled by the sensor, not user clicks
      */
     void set_has_hardware_bypass_sensor(bool has_sensor);
+
+    /**
+     * @brief Set environment sensor simulation mode
+     * @param mode One of: "passive", "dryer", "slot", "" (auto-detect)
+     *
+     * Controls mock environment data on units/slots:
+     * - "passive": Per-unit temp/humidity, no dryer capability
+     * - "dryer": Per-unit temp/humidity + dryer supported (default when dryer enabled)
+     * - "slot": Per-slot temp/humidity (different values per slot)
+     * - "" or unset: auto-detect from dryer state (dryer enabled → "dryer", else "passive")
+     *
+     * Can also be set via HELIX_MOCK_AMS_ENV environment variable.
+     */
+    void set_environment_mode(const std::string& mode);
 
     /**
      * @brief Enable dryer simulation for this mock
@@ -490,6 +508,22 @@ class AmsBackendMock : public AmsBackend {
      */
     void schedule_recovery_sequence();
 
+    /**
+     * @brief Populate environment data on units/slots based on environment_mode_
+     *
+     * Called from get_system_info() to overlay environment sensor readings.
+     * Must be called with mutex_ held.
+     */
+    void populate_environment_data(AmsSystemInfo& info) const;
+
+    /**
+     * @brief Resolve the effective environment mode
+     * @return Resolved mode: "passive", "dryer", "slot", or "none"
+     *
+     * When environment_mode_ is empty, auto-detects from dryer state.
+     */
+    [[nodiscard]] std::string resolve_environment_mode() const;
+
     mutable std::mutex mutex_;         ///< Protects state access
     std::atomic<bool> running_{false}; ///< Backend running state
     EventCallback event_callback_;     ///< Registered event handler
@@ -511,6 +545,9 @@ class AmsBackendMock : public AmsBackend {
     std::atomic<bool> cancel_requested_{false};         ///< Signal operation cancellation
     std::condition_variable shutdown_cv_;               ///< For interruptible sleep
     mutable std::mutex shutdown_mutex_;                 ///< Protects shutdown_cv_ wait
+
+    // Environment sensor simulation
+    std::string environment_mode_;                  ///< "passive", "dryer", "slot", or "" (auto)
 
     // Dryer simulation state
     bool dryer_enabled_ = false;                    ///< Whether dryer is simulated

@@ -1986,7 +1986,17 @@ static void filament_path_draw_cb(lv_event_t* e) {
     int32_t output_y = hub_y + hub_h / 2;
     int32_t toolhead_y = y_off + (int32_t)(height * TOOLHEAD_Y_RATIO);
     int32_t nozzle_y = y_off + (int32_t)(height * NOZZLE_Y_RATIO);
+    // Center X: prefer midpoint of actual slot positions over canvas center,
+    // so hub/selector/nozzle align with the spool grid even when the grid
+    // is narrower than the canvas (e.g. environment indicator present).
     int32_t center_x = x_off + width / 2;
+    if (data->slot_count >= 2) {
+        int32_t first_x = x_off + get_slot_x(data, 0, x_off);
+        int32_t last_x = x_off + get_slot_x(data, data->slot_count - 1, x_off);
+        center_x = (first_x + last_x) / 2;
+    } else if (data->slot_count == 1) {
+        center_x = x_off + get_slot_x(data, 0, x_off);
+    }
 
     // Buffer geometry — shared by drawing and flow dot paths
     int32_t buffer_y = y_off + (int32_t)(height * BUFFER_Y_RATIO);
@@ -2771,12 +2781,19 @@ static void filament_path_click_cb(lv_event_t* e) {
         int32_t hub_h = (int32_t)(height * HUB_HEIGHT_RATIO);
         int32_t box_w = data->hub_width * 4 / 5;
         int32_t box_h = hub_h;
-        if (box_w < 36)
-            box_w = 36;
-        if (box_h < 16)
-            box_h = 16;
+        if (box_w < 36) box_w = 36;
+        if (box_h < 16) box_h = 16;
+        // Match center_x derivation used in draw callback (slot midpoint)
         int32_t center_x = x_off + width / 2;
-        if (abs(point.x - center_x) < box_w / 2 + 4 && abs(point.y - buffer_y) < box_h / 2 + 4) {
+        if (data->slot_count >= 2) {
+            int32_t first_x = x_off + get_slot_x(data, 0, x_off);
+            int32_t last_x = x_off + get_slot_x(data, data->slot_count - 1, x_off);
+            center_x = (first_x + last_x) / 2;
+        } else if (data->slot_count == 1) {
+            center_x = x_off + get_slot_x(data, 0, x_off);
+        }
+        if (abs(point.x - center_x) < box_w / 2 + 4 &&
+            abs(point.y - buffer_y) < box_h / 2 + 4) {
             spdlog::debug("[FilamentPath] Buffer coil clicked");
             data->buffer_callback(data->buffer_user_data);
             return;

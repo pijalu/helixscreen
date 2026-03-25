@@ -215,12 +215,6 @@ void AmsOverviewPanel::setup(lv_obj_t* panel, lv_obj_t* parent_screen) {
     sidebar_->setup(panel_);
     sidebar_->init_observers();
 
-    // Setup dryer card (info bar)
-    if (!dryer_card_) {
-        dryer_card_ = std::make_unique<helix::ui::AmsDryerCard>();
-    }
-    dryer_card_->setup(panel_);
-
     // Initial population from backend state
     refresh_units();
 
@@ -850,6 +844,9 @@ void AmsOverviewPanel::create_detail_slots(const AmsUnit& unit) {
         }
     }
 
+    // Pre-show environment indicator so flex layout accounts for its width
+    ams_detail_pre_show_env_indicator(detail_widgets_);
+
     auto result = ams_detail_create_slots(detail_widgets_, detail_slot_widgets_, MAX_DETAIL_SLOTS,
                                           unit_index, on_detail_slot_clicked, this);
 
@@ -911,9 +908,8 @@ void AmsOverviewPanel::clear_panel_reference() {
     current_slot_observer_.reset();
     external_spool_observer_.reset();
 
-    // Clean up sidebar and dryer card before clearing panel references
+    // Clean up sidebar before clearing panel references
     sidebar_.reset();
-    dryer_card_.reset();
 
     // Clear global instance pointer
     g_overview_panel_instance.store(nullptr);
@@ -955,9 +951,8 @@ static void ensure_overview_registered() {
 
     spdlog::info("[AMS Overview] Lazy-registering XML component");
 
-    // Register sidebar and dryer card callbacks before component registration
+    // Register sidebar callbacks before component registration
     helix::ui::AmsOperationSidebar::register_callbacks_static();
-    helix::ui::AmsDryerCard::register_callbacks_static();
     helix::ui::init_ams_tool_text_observers();
 
     // Register context-aware back button callback for header
@@ -986,9 +981,6 @@ static void ensure_overview_registered() {
     lv_xml_register_component_from_file("A:ui_xml/components/ams_loaded_card.xml");
     lv_xml_register_component_from_file("A:ui_xml/ams_context_menu.xml");
     lv_xml_register_component_from_file("A:ui_xml/ams_unit_card.xml");
-    lv_xml_register_component_from_file("A:ui_xml/ams_dryer_card.xml");
-    lv_xml_register_component_from_file("A:ui_xml/dryer_presets_modal.xml");
-    lv_xml_register_component_from_file("A:ui_xml/components/ams_dryer_info_bar.xml");
     lv_xml_register_component_from_file("A:ui_xml/components/ams_sidebar.xml");
     lv_xml_register_component_from_file("A:ui_xml/ams_overview_panel.xml");
 

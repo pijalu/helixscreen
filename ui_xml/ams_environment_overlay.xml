@@ -1,0 +1,240 @@
+<?xml version="1.0"?>
+<!-- Copyright (C) 2025-2026 356C LLC -->
+<!-- SPDX-License-Identifier: GPL-3.0-or-later -->
+<!--
+  AMS Environment Overlay - Full environment detail and dryer controls.
+
+  Opened from the compact environment indicator on the AMS panel.
+  Layout: readout card at top, then two-column row with comfort ranges
+  on the left and dryer controls (or storage advice) on the right.
+-->
+<component>
+  <view name="ams_environment_overlay"
+        extends="overlay_panel" width="#overlay_panel_width" title="Filament Environment" title_tag="Filament Environment"
+        bg_color="#screen_bg">
+
+    <!-- Content area — no scroll, everything must fit -->
+    <lv_obj name="overlay_content"
+            width="100%" flex_grow="1" style_pad_all="#space_md" style_pad_top="0"
+            scrollable="false" flex_flow="column" style_pad_gap="#space_sm">
+
+      <!-- Subtitle (e.g., "CFS Unit 1") -->
+      <text_muted name="subtitle_label" width="100%" bind_text="ams_env_overlay_title_text"/>
+
+      <!-- ================================================================ -->
+      <!-- Readout Card: Temperature + Humidity                             -->
+      <!-- ================================================================ -->
+      <ui_card name="readout_card"
+               width="100%" height="content" style_radius="#border_radius" style_pad_all="#space_md"
+               flex_flow="row" style_flex_main_place="space_evenly" style_flex_cross_place="center"
+               style_pad_gap="#space_md">
+
+        <!-- Temperature readout — equal third via flex_grow, content centered via align -->
+        <lv_obj width="1" flex_grow="1" height="content" style_pad_all="0" scrollable="false">
+          <lv_obj width="content" height="content" align="center" style_pad_all="0"
+                  flex_flow="column" style_flex_cross_place="center"
+                  style_pad_gap="#space_xxs" scrollable="false">
+            <lv_obj width="content" height="content" style_pad_all="0"
+                    flex_flow="row" style_flex_cross_place="center" style_pad_gap="#space_xs" scrollable="false">
+              <icon src="thermometer" size="lg" variant="primary"/>
+              <text_heading bind_text="ams_env_overlay_temp_text"/>
+              <!-- Arrow + target temp, visible only when drying -->
+              <icon src="arrow_right" size="sm" variant="warning" hidden="true">
+                <bind_flag_if_eq subject="ams_env_overlay_drying_active" flag="hidden" ref_value="0"/>
+              </icon>
+              <text_heading bind_text="ams_env_overlay_target_temp_text" hidden="true">
+                <bind_flag_if_eq subject="ams_env_overlay_drying_active" flag="hidden" ref_value="0"/>
+              </text_heading>
+            </lv_obj>
+            <text_small text="Temperature" translation_tag="Temperature" style_text_color="#text_muted"/>
+          </lv_obj>
+        </lv_obj>
+
+        <!-- Humidity readout — equal third via flex_grow, content centered via align -->
+        <lv_obj width="1" flex_grow="1" height="content" style_pad_all="0" scrollable="false">
+          <lv_obj width="content" height="content" align="center" style_pad_all="0"
+                  flex_flow="column" style_flex_cross_place="center"
+                  style_pad_gap="#space_xxs" scrollable="false">
+            <lv_obj width="content" height="content" style_pad_all="0"
+                    flex_flow="row" style_flex_cross_place="center" style_pad_gap="#space_sm" scrollable="false">
+              <icon src="water" size="lg" variant="primary"/>
+              <text_heading bind_text="ams_env_overlay_humidity_text"/>
+            </lv_obj>
+            <text_small text="Humidity" translation_tag="Humidity" style_text_color="#text_muted"/>
+          </lv_obj>
+        </lv_obj>
+
+        <!-- Drying status — equal third via flex_grow, visible when drying -->
+        <lv_obj width="1" flex_grow="1" height="content" style_pad_all="0"
+                flex_flow="column" style_flex_main_place="center" style_flex_cross_place="center"
+                style_pad_gap="#space_xs" scrollable="false" hidden="true">
+          <bind_flag_if_eq subject="ams_env_overlay_drying_active" flag="hidden" ref_value="0"/>
+
+          <lv_obj width="content" height="content" style_pad_all="0"
+                  flex_flow="row" style_flex_cross_place="center"
+                  style_pad_gap="#space_xs" scrollable="false">
+            <icon src="heat_wave" size="sm" variant="warning"/>
+            <text_body bind_text="ams_env_overlay_drying_text"/>
+          </lv_obj>
+
+          <lv_bar name="drying_progress_bar" width="100%" height="6"
+                  bind_value="ams_env_overlay_drying_progress"
+                  min="0" max="100" style_radius="3"
+                  style_bg_color="#screen_bg" style_bg_opa="255"/>
+        </lv_obj>
+      </ui_card>
+
+      <!-- ================================================================ -->
+      <!-- Single card: Comfort (left) | divider | Dryer/Storage (right)    -->
+      <!-- ================================================================ -->
+      <ui_card name="details_card"
+               width="100%" flex_grow="1" style_radius="#border_radius" style_pad_all="#space_md"
+               flex_flow="row" style_pad_gap="#space_md">
+
+        <!-- Left: Material Comfort Ranges -->
+        <lv_obj width="1" flex_grow="1" height="100%" style_pad_all="0"
+                scrollable="false">
+
+          <!-- Wrapper centered via align, content left-justified inside -->
+          <lv_obj width="content" height="content" align="center" style_pad_all="0"
+                  flex_flow="column" style_pad_gap="#space_xs" scrollable="false">
+
+          <text_heading text="Material Comfort" translation_tag="Material Comfort"/>
+
+          <!-- Per-material rows: 3 icon variants per row, visibility via status subject
+               status: 0=OK (check_circle/success), 1=Marginal (alert_circle/warning), 2=Too humid (close_circle/error) -->
+          <lv_obj name="comfort_row_0" width="content" height="content" style_pad_all="0"
+                  flex_flow="row" style_flex_main_place="start" style_flex_cross_place="center" style_pad_gap="#space_xs"
+                  scrollable="false" hidden="true">
+            <bind_flag_if_eq subject="ams_env_comfort_0_visible" flag="hidden" ref_value="0"/>
+            <icon src="check_circle" size="xs" variant="success" hidden="true">
+              <bind_flag_if_not_eq subject="ams_env_comfort_0_status" flag="hidden" ref_value="0"/>
+            </icon>
+            <icon src="alert_circle" size="xs" variant="warning" hidden="true">
+              <bind_flag_if_not_eq subject="ams_env_comfort_0_status" flag="hidden" ref_value="1"/>
+            </icon>
+            <icon src="close_circle" size="xs" variant="error" hidden="true">
+              <bind_flag_if_not_eq subject="ams_env_comfort_0_status" flag="hidden" ref_value="2"/>
+            </icon>
+            <text_small bind_text="ams_env_comfort_0_text"/>
+          </lv_obj>
+
+          <lv_obj name="comfort_row_1" width="content" height="content" style_pad_all="0"
+                  flex_flow="row" style_flex_main_place="start" style_flex_cross_place="center" style_pad_gap="#space_xs"
+                  scrollable="false" hidden="true">
+            <bind_flag_if_eq subject="ams_env_comfort_1_visible" flag="hidden" ref_value="0"/>
+            <icon src="check_circle" size="xs" variant="success" hidden="true">
+              <bind_flag_if_not_eq subject="ams_env_comfort_1_status" flag="hidden" ref_value="0"/>
+            </icon>
+            <icon src="alert_circle" size="xs" variant="warning" hidden="true">
+              <bind_flag_if_not_eq subject="ams_env_comfort_1_status" flag="hidden" ref_value="1"/>
+            </icon>
+            <icon src="close_circle" size="xs" variant="error" hidden="true">
+              <bind_flag_if_not_eq subject="ams_env_comfort_1_status" flag="hidden" ref_value="2"/>
+            </icon>
+            <text_small bind_text="ams_env_comfort_1_text"/>
+          </lv_obj>
+
+          <lv_obj name="comfort_row_2" width="content" height="content" style_pad_all="0"
+                  flex_flow="row" style_flex_main_place="start" style_flex_cross_place="center" style_pad_gap="#space_xs"
+                  scrollable="false" hidden="true">
+            <bind_flag_if_eq subject="ams_env_comfort_2_visible" flag="hidden" ref_value="0"/>
+            <icon src="check_circle" size="xs" variant="success" hidden="true">
+              <bind_flag_if_not_eq subject="ams_env_comfort_2_status" flag="hidden" ref_value="0"/>
+            </icon>
+            <icon src="alert_circle" size="xs" variant="warning" hidden="true">
+              <bind_flag_if_not_eq subject="ams_env_comfort_2_status" flag="hidden" ref_value="1"/>
+            </icon>
+            <icon src="close_circle" size="xs" variant="error" hidden="true">
+              <bind_flag_if_not_eq subject="ams_env_comfort_2_status" flag="hidden" ref_value="2"/>
+            </icon>
+            <text_small bind_text="ams_env_comfort_2_text"/>
+          </lv_obj>
+
+          <lv_obj name="comfort_row_3" width="content" height="content" style_pad_all="0"
+                  flex_flow="row" style_flex_main_place="start" style_flex_cross_place="center" style_pad_gap="#space_xs"
+                  scrollable="false" hidden="true">
+            <bind_flag_if_eq subject="ams_env_comfort_3_visible" flag="hidden" ref_value="0"/>
+            <icon src="check_circle" size="xs" variant="success" hidden="true">
+              <bind_flag_if_not_eq subject="ams_env_comfort_3_status" flag="hidden" ref_value="0"/>
+            </icon>
+            <icon src="alert_circle" size="xs" variant="warning" hidden="true">
+              <bind_flag_if_not_eq subject="ams_env_comfort_3_status" flag="hidden" ref_value="1"/>
+            </icon>
+            <icon src="close_circle" size="xs" variant="error" hidden="true">
+              <bind_flag_if_not_eq subject="ams_env_comfort_3_status" flag="hidden" ref_value="2"/>
+            </icon>
+            <text_small bind_text="ams_env_comfort_3_text"/>
+          </lv_obj>
+
+          </lv_obj><!-- end centered wrapper -->
+        </lv_obj>
+
+        <!-- Vertical divider -->
+        <divider_vertical/>
+
+        <!-- Right: Dryer Controls OR Storage Advice -->
+        <lv_obj width="1" flex_grow="1" height="100%" style_pad_all="0" style_pad_left="#space_sm"
+                scrollable="false" flex_flow="column" style_pad_gap="#space_sm">
+
+          <!-- Dryer Controls (visible when dryer supported) -->
+          <lv_obj name="dryer_controls_section"
+                  width="100%" height="100%" style_pad_all="0"
+                  flex_flow="column" style_pad_gap="#space_md"
+                  style_flex_main_place="center" scrollable="false" hidden="true">
+            <bind_flag_if_eq subject="ams_env_overlay_dryer_visible" flag="hidden" ref_value="0"/>
+
+            <text_heading text="Dryer Controls" translation_tag="Dryer Controls"/>
+
+            <!-- Preset dropdown -->
+            <lv_dropdown name="preset_dropdown" width="100%" height="40"/>
+
+            <!-- Temp + Duration side by side -->
+            <lv_obj width="100%" height="content" style_pad_all="0"
+                    flex_flow="row" style_pad_gap="#space_sm"
+                    style_flex_main_place="start" style_flex_cross_place="end"
+                    scrollable="false">
+              <lv_obj width="1" flex_grow="1" height="content" style_pad_all="0"
+                      flex_flow="column" style_pad_gap="#space_xxs" scrollable="false">
+                <text_small text="Temp °C" translation_tag="Temp °C" style_text_color="#text_muted"/>
+                <lv_textarea name="temp_input" width="100%" height="36"
+                             text="55" one_line="true" max_length="3"
+                             accepted_chars="0123456789"/>
+              </lv_obj>
+              <lv_obj width="1" flex_grow="1" height="content" style_pad_all="0"
+                      flex_flow="column" style_pad_gap="#space_xxs" scrollable="false">
+                <text_small text="Hours" translation_tag="Hours" style_text_color="#text_muted"/>
+                <lv_textarea name="duration_input" width="100%" height="36"
+                             text="4" one_line="true" max_length="2"
+                             accepted_chars="0123456789"/>
+              </lv_obj>
+            </lv_obj>
+
+            <!-- Start/Stop button -->
+            <ui_button name="btn_start_stop" width="100%" height="44"
+                       bind_text="ams_env_overlay_start_stop_text">
+              <event_cb trigger="clicked" callback="on_ams_env_start_stop_clicked"/>
+            </ui_button>
+          </lv_obj>
+
+          <!-- No Dryer / Storage Advice (visible when no dryer) -->
+          <lv_obj name="no_dryer_section"
+                  width="100%" height="100%" style_pad_all="0"
+                  flex_flow="column" style_pad_gap="#space_sm"
+                  style_flex_main_place="center" style_flex_cross_place="center"
+                  scrollable="false" hidden="true">
+            <bind_flag_if_eq subject="ams_env_overlay_no_dryer_visible" flag="hidden" ref_value="0"/>
+
+            <icon src="information" size="md" variant="secondary"/>
+            <text_small width="100%"
+                        text="No dryer available. Store filament in a sealed dry box with desiccant for best results."
+                        translation_tag="No dryer available. Store filament in a sealed dry box with desiccant for best results."
+                        style_text_align="center"/>
+          </lv_obj>
+
+        </lv_obj>
+      </ui_card>
+
+    </lv_obj>
+  </view>
+</component>

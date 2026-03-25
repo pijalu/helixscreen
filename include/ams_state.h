@@ -759,6 +759,28 @@ class AmsState {
     [[nodiscard]] lv_subject_t* get_unit_humidity_subject(int unit_index);
 
     // ========================================================================
+    // Per-Unit Environment Indicator Display Subjects
+    // ========================================================================
+
+    /// Formatted temperature text for indicator (e.g., "24°C")
+    [[nodiscard]] lv_subject_t* get_env_ind_temp_text_subject(int unit_index);
+
+    /// Formatted humidity text for indicator (e.g., "46%")
+    [[nodiscard]] lv_subject_t* get_env_ind_humidity_text_subject(int unit_index);
+
+    /// Visibility flag for indicator (1=show, 0=hide)
+    [[nodiscard]] lv_subject_t* get_env_ind_visible_subject(int unit_index);
+
+    /// Drying active flag (1=drying, 0=passive)
+    [[nodiscard]] lv_subject_t* get_env_ind_drying_active_subject(int unit_index);
+
+    /// Humidity status for indicator (0=ok/green, 1=warn/yellow, 2=danger/red)
+    [[nodiscard]] lv_subject_t* get_env_ind_humidity_status_subject(int unit_index);
+
+    /// Formatted drying text (e.g., "47°C -> 55°C  2:30 left")
+    [[nodiscard]] lv_subject_t* get_env_ind_drying_text_subject(int unit_index);
+
+    // ========================================================================
     // Direct State Update (called by backend event handler)
     // ========================================================================
 
@@ -1122,6 +1144,20 @@ class AmsState {
     // Per-unit environment subjects (CFS temp/humidity)
     lv_subject_t unit_temp_[MAX_UNITS];           // int: tenths of C (270 = 27.0C), 0 = no data
     lv_subject_t unit_humidity_[MAX_UNITS];       // int: percentage, 0 = no data
+
+    // Per-unit environment indicator display subjects (formatted text for XML binding)
+    static constexpr int ENV_IND_TEXT_BUF_SIZE = 16;
+    static constexpr int ENV_IND_DRYING_BUF_SIZE = 32;
+
+    lv_subject_t env_ind_temp_text_[MAX_UNITS];
+    char env_ind_temp_text_buf_[MAX_UNITS][ENV_IND_TEXT_BUF_SIZE]{};
+    lv_subject_t env_ind_humidity_text_[MAX_UNITS];
+    char env_ind_humidity_text_buf_[MAX_UNITS][ENV_IND_TEXT_BUF_SIZE]{};
+    lv_subject_t env_ind_visible_[MAX_UNITS];
+    lv_subject_t env_ind_humidity_status_[MAX_UNITS]; // 0=ok, 1=warn, 2=danger
+    lv_subject_t env_ind_drying_active_[MAX_UNITS];
+    lv_subject_t env_ind_drying_text_[MAX_UNITS];
+    char env_ind_drying_text_buf_[MAX_UNITS][ENV_IND_DRYING_BUF_SIZE]{};
 
     // Observer for print state changes to auto-refresh Spoolman weights
     ObserverGuard print_state_observer_;

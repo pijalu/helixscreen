@@ -132,8 +132,9 @@ class AmsBackendValgACE : public AmsBackend {
     // ========================================================================
 
     [[nodiscard]] DryerInfo get_dryer_info() const override;
-    AmsError start_drying(float temp_c, int duration_min, int fan_pct = -1) override;
-    AmsError stop_drying() override;
+    AmsError start_drying(float temp_c, int duration_min, int fan_pct = -1,
+                           int unit = 0) override;
+    AmsError stop_drying(int unit = 0) override;
     AmsError update_drying(float temp_c = -1, int duration_min = -1, int fan_pct = -1) override;
     [[nodiscard]] std::vector<DryingPreset> get_drying_presets() const override;
 

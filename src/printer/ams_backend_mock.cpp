@@ -372,6 +372,9 @@ AmsSystemInfo AmsBackendMock::get_system_info() const {
     info.espooler_state = system_info_.espooler_state;
     info.sync_drive = system_info_.sync_drive;
 
+    // Populate environment sensor data based on configured mode
+    populate_environment_data(info);
+
     return info;
 }
 
@@ -959,6 +962,73 @@ void AmsBackendMock::set_toolchange_progress(int current, int total) {
     spdlog::debug("[AmsBackendMock] Toolchange progress set to {}/{}", current, total);
 }
 
+// ============================================================================
+// Environment sensor simulation
+// ============================================================================
+
+void AmsBackendMock::set_environment_mode(const std::string& mode) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    environment_mode_ = mode;
+    spdlog::info("[AmsBackendMock] Environment mode set to '{}'",
+                 mode.empty() ? "(auto)" : mode);
+}
+
+bool AmsBackendMock::has_environment_sensors() const {
+    std::lock_guard<std::mutex> lock(mutex_);
+    auto mode = resolve_environment_mode();
+    return mode == "passive" || mode == "dryer" || mode == "slot";
+}
+
+std::string AmsBackendMock::resolve_environment_mode() const {
+    // Caller must hold mutex_
+    if (!environment_mode_.empty()) {
+        return environment_mode_;
+    }
+    // Auto-detect: dryer enabled → "dryer", otherwise "passive"
+    // Environment data is always populated by default for UI testing
+    return dryer_enabled_ ? "dryer" : "passive";
+}
+
+void AmsBackendMock::populate_environment_data(AmsSystemInfo& info) const {
+    // Caller must hold mutex_
+    auto mode = resolve_environment_mode();
+    if (mode != "passive" && mode != "dryer" && mode != "slot") {
+        return;
+    }
+
+    if (mode == "slot") {
+        // Per-slot environment data with varying values
+        constexpr float slot_temps[] = {23.0f, 24.0f, 25.0f, 26.0f};
+        constexpr float slot_humidity[] = {38.0f, 45.0f, 52.0f, 61.0f};
+
+        for (auto& unit : info.units) {
+            for (auto& slot : unit.slots) {
+                int idx = slot.slot_index % 4;
+                slot.environment = EnvironmentData{
+                    .temperature_c = slot_temps[idx],
+                    .humidity_pct = slot_humidity[idx],
+                };
+            }
+        }
+    } else {
+        // Per-unit environment data ("passive" or "dryer")
+        for (size_t u = 0; u < info.units.size(); ++u) {
+            if (u == 0) {
+                info.units[u].environment = EnvironmentData{
+                    .temperature_c = 24.5f,
+                    .humidity_pct = 42.0f,
+                };
+            } else {
+                // Higher humidity on subsequent units to test yellow/red thresholds
+                info.units[u].environment = EnvironmentData{
+                    .temperature_c = 26.1f,
+                    .humidity_pct = 58.0f,
+                };
+            }
+        }
+    }
+}
+
 void AmsBackendMock::set_dryer_enabled(bool enabled) {
     std::lock_guard<std::mutex> lock(mutex_);
     dryer_enabled_ = enabled;
@@ -998,7 +1068,8 @@ DryerInfo AmsBackendMock::get_dryer_info() const {
     return dryer_state_;
 }
 
-AmsError AmsBackendMock::start_drying(float temp_c, int duration_min, int fan_pct) {
+AmsError AmsBackendMock::start_drying(float temp_c, int duration_min, int fan_pct, int unit) {
+    (void)unit;
     spdlog::info("[AmsBackendMock] start_drying: {}°C for {}min, fan {}%", temp_c, duration_min,
                  fan_pct);
 
@@ -1127,7 +1198,8 @@ AmsError AmsBackendMock::start_drying(float temp_c, int duration_min, int fan_pc
     return AmsError{AmsResult::SUCCESS};
 }
 
-AmsError AmsBackendMock::stop_drying() {
+AmsError AmsBackendMock::stop_drying(int unit) {
+    (void)unit;
     spdlog::info("[AmsBackendMock] stop_drying");
 
     {

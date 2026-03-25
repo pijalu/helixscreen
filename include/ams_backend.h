@@ -548,10 +548,12 @@ class AmsBackend {
      * @param fan_pct Fan speed percentage (0-100, -1 = use backend default)
      * @return AmsError with SUCCESS result on success, or error with reason
      */
-    virtual AmsError start_drying(float temp_c, int duration_min, int fan_pct = -1) {
+    virtual AmsError start_drying(float temp_c, int duration_min, int fan_pct = -1,
+                                   int unit = 0) {
         (void)temp_c;
         (void)duration_min;
         (void)fan_pct;
+        (void)unit;
         return AmsErrorHelper::not_supported("Dryer");
     }
 
@@ -562,7 +564,8 @@ class AmsBackend {
      *
      * @return AmsError with SUCCESS result on success, or error with reason
      */
-    virtual AmsError stop_drying() {
+    virtual AmsError stop_drying(int unit = 0) {
+        (void)unit;
         return AmsErrorHelper::not_supported("Dryer");
     }
 
@@ -776,6 +779,16 @@ class AmsBackend {
     [[nodiscard]] virtual bool has_firmware_spool_persistence() const {
         return false;
     }
+
+    /**
+     * @brief Check if backend provides per-unit environment sensors (temp/humidity)
+     *
+     * CFS units have built-in temperature and humidity sensors. Other backends
+     * (Happy Hare, ValgACE, AFC, Tool Changers) do not.
+     *
+     * @return true if backend provides environment sensor data per unit
+     */
+    [[nodiscard]] virtual bool has_environment_sensors() const { return false; }
 
     // ========================================================================
     // Discovery Configuration (Optional - default implementations are no-ops)

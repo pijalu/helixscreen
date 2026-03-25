@@ -28,5 +28,7 @@
             style_pad_column="#space_xxs" style_bg_opa="0" style_border_width="0"/>
     <!-- Slot count label -->
     <text_small name="slot_count" text="0 slots" translation_tag="0 slots" event_bubble="true"/>
+    <!-- Environment indicator (temp/humidity) — hidden when no sensors -->
+    <ams_environment_indicator name="env_indicator" event_bubble="true"/>
   </view>
 </component>

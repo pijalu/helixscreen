@@ -27,6 +27,7 @@
 #include "settings_manager.h"
 #include "state/subject_macros.h"
 #include "static_subject_registry.h"
+#include "filament_database.h"
 #include "tool_state.h"
 
 #include <spdlog/spdlog.h>
@@ -346,6 +347,56 @@ void AmsState::init_subjects(bool register_xml) {
         }
     }
 
+    // Per-unit environment indicator display subjects (formatted text for XML binding)
+    for (int i = 0; i < MAX_UNITS; ++i) {
+        char name_buf[48];
+
+        lv_subject_init_string(&env_ind_temp_text_[i], env_ind_temp_text_buf_[i], nullptr,
+                               ENV_IND_TEXT_BUF_SIZE, "---");
+        subjects_.register_subject(&env_ind_temp_text_[i]);
+        if (register_xml) {
+            snprintf(name_buf, sizeof(name_buf), "ams_env_ind_%d_temp_text", i);
+            lv_xml_register_subject(nullptr, name_buf, &env_ind_temp_text_[i]);
+        }
+
+        lv_subject_init_string(&env_ind_humidity_text_[i], env_ind_humidity_text_buf_[i], nullptr,
+                               ENV_IND_TEXT_BUF_SIZE, "---");
+        subjects_.register_subject(&env_ind_humidity_text_[i]);
+        if (register_xml) {
+            snprintf(name_buf, sizeof(name_buf), "ams_env_ind_%d_humidity_text", i);
+            lv_xml_register_subject(nullptr, name_buf, &env_ind_humidity_text_[i]);
+        }
+
+        lv_subject_init_int(&env_ind_humidity_status_[i], 0);
+        subjects_.register_subject(&env_ind_humidity_status_[i]);
+        if (register_xml) {
+            snprintf(name_buf, sizeof(name_buf), "ams_env_ind_%d_humidity_status", i);
+            lv_xml_register_subject(nullptr, name_buf, &env_ind_humidity_status_[i]);
+        }
+
+        lv_subject_init_int(&env_ind_visible_[i], 0);
+        subjects_.register_subject(&env_ind_visible_[i]);
+        if (register_xml) {
+            snprintf(name_buf, sizeof(name_buf), "ams_env_ind_%d_visible", i);
+            lv_xml_register_subject(nullptr, name_buf, &env_ind_visible_[i]);
+        }
+
+        lv_subject_init_int(&env_ind_drying_active_[i], 0);
+        subjects_.register_subject(&env_ind_drying_active_[i]);
+        if (register_xml) {
+            snprintf(name_buf, sizeof(name_buf), "ams_env_ind_%d_drying_active", i);
+            lv_xml_register_subject(nullptr, name_buf, &env_ind_drying_active_[i]);
+        }
+
+        lv_subject_init_string(&env_ind_drying_text_[i], env_ind_drying_text_buf_[i], nullptr,
+                               ENV_IND_DRYING_BUF_SIZE, "");
+        subjects_.register_subject(&env_ind_drying_text_[i]);
+        if (register_xml) {
+            snprintf(name_buf, sizeof(name_buf), "ams_env_ind_%d_drying_text", i);
+            lv_xml_register_subject(nullptr, name_buf, &env_ind_drying_text_[i]);
+        }
+    }
+
     // Ask the factory for a backend. In mock mode, it returns a mock backend.
     // In real mode with no printer connected, it returns nullptr.
     // This keeps mock/real decision entirely in the factory.
@@ -636,6 +687,48 @@ lv_subject_t* AmsState::get_unit_humidity_subject(int unit_index) {
         return nullptr;
     }
     return &unit_humidity_[unit_index];
+}
+
+lv_subject_t* AmsState::get_env_ind_temp_text_subject(int unit_index) {
+    if (unit_index < 0 || unit_index >= MAX_UNITS) {
+        return nullptr;
+    }
+    return &env_ind_temp_text_[unit_index];
+}
+
+lv_subject_t* AmsState::get_env_ind_humidity_text_subject(int unit_index) {
+    if (unit_index < 0 || unit_index >= MAX_UNITS) {
+        return nullptr;
+    }
+    return &env_ind_humidity_text_[unit_index];
+}
+
+lv_subject_t* AmsState::get_env_ind_visible_subject(int unit_index) {
+    if (unit_index < 0 || unit_index >= MAX_UNITS) {
+        return nullptr;
+    }
+    return &env_ind_visible_[unit_index];
+}
+
+lv_subject_t* AmsState::get_env_ind_humidity_status_subject(int unit_index) {
+    if (unit_index < 0 || unit_index >= MAX_UNITS) {
+        return nullptr;
+    }
+    return &env_ind_humidity_status_[unit_index];
+}
+
+lv_subject_t* AmsState::get_env_ind_drying_active_subject(int unit_index) {
+    if (unit_index < 0 || unit_index >= MAX_UNITS) {
+        return nullptr;
+    }
+    return &env_ind_drying_active_[unit_index];
+}
+
+lv_subject_t* AmsState::get_env_ind_drying_text_subject(int unit_index) {
+    if (unit_index < 0 || unit_index >= MAX_UNITS) {
+        return nullptr;
+    }
+    return &env_ind_drying_text_[unit_index];
 }
 
 lv_subject_t* AmsState::get_slot_color_subject(int backend_index, int slot_index) {
@@ -961,6 +1054,115 @@ void AmsState::sync_from_backend() {
         }
         if (lv_subject_get_int(&unit_humidity_[i]) != 0) {
             lv_subject_set_int(&unit_humidity_[i], 0);
+        }
+    }
+
+    // Update per-unit environment indicator display subjects (formatted text for XML)
+    for (const auto& unit : info.units) {
+        int idx = unit.unit_index;
+        if (idx < 0 || idx >= MAX_UNITS) continue;
+        if (unit.environment.has_value()) {
+            // Format temperature text (e.g., "24°C")
+            char buf[ENV_IND_TEXT_BUF_SIZE];
+            snprintf(buf, sizeof(buf), "%d\xC2\xB0"
+                                       "C",
+                     static_cast<int>(unit.environment->temperature_c));
+            if (strcmp(lv_subject_get_string(&env_ind_temp_text_[idx]), buf) != 0) {
+                lv_subject_copy_string(&env_ind_temp_text_[idx], buf);
+            }
+
+            // Format humidity text (e.g., "46%")
+            snprintf(buf, sizeof(buf), "%d%%", static_cast<int>(unit.environment->humidity_pct));
+            if (strcmp(lv_subject_get_string(&env_ind_humidity_text_[idx]), buf) != 0) {
+                lv_subject_copy_string(&env_ind_humidity_text_[idx], buf);
+            }
+
+            // Determine humidity status color based on most restrictive loaded material
+            // 0=ok (green), 1=warn (yellow), 2=danger (red)
+            int humidity_status = 0;
+            float humidity_pct = unit.environment->humidity_pct;
+            float most_restrictive_good = 999.0f;
+            float most_restrictive_warn = 999.0f;
+            bool found_any_range = false;
+
+            for (int si = 0; si < unit.slot_count; ++si) {
+                int gi = unit.first_slot_global_index + si;
+                SlotInfo slot = backend->get_slot_info(gi);
+                if (!slot.material.empty()) {
+                    const auto* range = filament::get_comfort_range(slot.material);
+                    if (range) {
+                        found_any_range = true;
+                        if (range->max_humidity_good < most_restrictive_good) {
+                            most_restrictive_good = range->max_humidity_good;
+                        }
+                        if (range->max_humidity_warn < most_restrictive_warn) {
+                            most_restrictive_warn = range->max_humidity_warn;
+                        }
+                    }
+                }
+            }
+
+            if (found_any_range) {
+                if (humidity_pct > most_restrictive_warn) {
+                    humidity_status = 2;
+                } else if (humidity_pct > most_restrictive_good) {
+                    humidity_status = 1;
+                }
+            }
+
+            if (lv_subject_get_int(&env_ind_humidity_status_[idx]) != humidity_status) {
+                lv_subject_set_int(&env_ind_humidity_status_[idx], humidity_status);
+            }
+
+            // Show indicator
+            if (lv_subject_get_int(&env_ind_visible_[idx]) != 1) {
+                lv_subject_set_int(&env_ind_visible_[idx], 1);
+            }
+        } else {
+            // Hide indicator when no environment data
+            if (lv_subject_get_int(&env_ind_visible_[idx]) != 0) {
+                lv_subject_set_int(&env_ind_visible_[idx], 0);
+            }
+        }
+    }
+
+    // Update drying state for indicator (system-level dryer applies to all units)
+    const auto& dryer = backend->get_dryer_info();
+    for (int i = 0; i < MAX_UNITS; ++i) {
+        // Only update drying for units that have environment data visible
+        if (lv_subject_get_int(&env_ind_visible_[i]) != 1) {
+            if (lv_subject_get_int(&env_ind_drying_active_[i]) != 0) {
+                lv_subject_set_int(&env_ind_drying_active_[i], 0);
+            }
+            continue;
+        }
+        if (dryer.supported && dryer.active) {
+            if (lv_subject_get_int(&env_ind_drying_active_[i]) != 1) {
+                lv_subject_set_int(&env_ind_drying_active_[i], 1);
+            }
+            // Format compact drying text — just countdown for the small indicator
+            char drying_buf[ENV_IND_DRYING_BUF_SIZE];
+            int hrs = dryer.remaining_min / 60;
+            int mins = dryer.remaining_min % 60;
+            if (hrs > 0) {
+                snprintf(drying_buf, sizeof(drying_buf), "%d:%02d", hrs, mins);
+            } else {
+                snprintf(drying_buf, sizeof(drying_buf), "%d min", mins);
+            }
+            if (strcmp(lv_subject_get_string(&env_ind_drying_text_[i]), drying_buf) != 0) {
+                lv_subject_copy_string(&env_ind_drying_text_[i], drying_buf);
+            }
+        } else {
+            if (lv_subject_get_int(&env_ind_drying_active_[i]) != 0) {
+                lv_subject_set_int(&env_ind_drying_active_[i], 0);
+            }
+        }
+    }
+
+    // Clear indicator for units beyond what backend reports
+    for (int i = static_cast<int>(info.units.size()); i < MAX_UNITS; ++i) {
+        if (lv_subject_get_int(&env_ind_visible_[i]) != 0) {
+            lv_subject_set_int(&env_ind_visible_[i], 0);
         }
     }
 

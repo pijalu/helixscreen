@@ -7,6 +7,7 @@
 #if HELIX_HAS_CAMERA
 
 #include "camera_config_modal.h"
+#include "system/telemetry_manager.h"
 #include "ui_nav_manager.h"
 #include "ui_update_queue.h"
 

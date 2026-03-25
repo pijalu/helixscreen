@@ -200,6 +200,7 @@ AmsDetailWidgets ams_detail_find_widgets(lv_obj_t* root) {
     w.slot_tray = lv_obj_find_by_name(root, "slot_tray");
     w.labels_layer = lv_obj_find_by_name(root, "labels_layer");
     w.badge_layer = lv_obj_find_by_name(root, "badge_layer");
+    w.env_indicator = lv_obj_find_by_name(root, "env_indicator");
 
     if (!w.slot_grid) {
         spdlog::warn("[AmsDetail] slot_grid not found in ams_unit_detail");
@@ -600,4 +601,24 @@ void ams_detail_setup_path_canvas(lv_obj_t* canvas, lv_obj_t* slot_grid, int uni
 
     spdlog::debug("[AmsDetail] Path canvas configured: slots={}, unit={}, hub_only={}", slot_count,
                   unit_index, hub_only);
+}
+
+void ams_detail_pre_show_env_indicator(AmsDetailWidgets& w) {
+    if (!w.env_indicator)
+        return;
+
+    auto* backend = AmsState::instance().get_backend();
+    if (backend && backend->has_environment_sensors()) {
+        lv_obj_remove_flag(w.env_indicator, LV_OBJ_FLAG_HIDDEN);
+        // Force layout on the root (flex row container) so the indicator's
+        // content width is resolved before slot creation reads available_width.
+        if (w.root) {
+            lv_obj_update_layout(w.root);
+            int32_t indicator_w = lv_obj_get_width(w.env_indicator);
+            spdlog::debug("[AmsDetail] Pre-showed env indicator (width={}px) for flex layout",
+                          indicator_w);
+        }
+    } else {
+        lv_obj_add_flag(w.env_indicator, LV_OBJ_FLAG_HIDDEN);
+    }
 }

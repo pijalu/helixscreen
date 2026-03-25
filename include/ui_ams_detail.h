@@ -22,11 +22,12 @@ static constexpr int AMS_DETAIL_MAX_SLOTS = 16;
 
 /// Widget pointers resolved from an ams_unit_detail component
 struct AmsDetailWidgets {
-    lv_obj_t* root = nullptr;         ///< The ams_unit_detail root object
-    lv_obj_t* slot_grid = nullptr;    ///< Flex row container for ams_slot widgets
-    lv_obj_t* slot_tray = nullptr;    ///< Visual "holder" in front of spool bottoms
-    lv_obj_t* labels_layer = nullptr; ///< Overlay for material labels (5+ slots)
-    lv_obj_t* badge_layer = nullptr;  ///< Overlay for slot badges (in front of tray)
+    lv_obj_t* root = nullptr;          ///< The ams_unit_detail root object
+    lv_obj_t* slot_grid = nullptr;     ///< Flex row container for ams_slot widgets
+    lv_obj_t* slot_tray = nullptr;     ///< Visual "holder" in front of spool bottoms
+    lv_obj_t* labels_layer = nullptr;  ///< Overlay for material labels (5+ slots)
+    lv_obj_t* badge_layer = nullptr;   ///< Overlay for slot badges (in front of tray)
+    lv_obj_t* env_indicator = nullptr; ///< Environment indicator (temp/humidity, right side)
 };
 
 /**
@@ -106,3 +107,15 @@ void ams_detail_update_badges(AmsDetailWidgets& w, lv_obj_t* slot_widgets[], int
  */
 void ams_detail_setup_path_canvas(lv_obj_t* canvas, lv_obj_t* slot_grid, int unit_index,
                                   bool hub_only);
+
+/**
+ * @brief Pre-show environment indicator if backend has environment sensors
+ *
+ * Must be called BEFORE ams_detail_create_slots() so the flex layout
+ * accounts for the indicator's width when calculating slot sizes.
+ * Without this, slots are sized for full width, then the indicator
+ * appears on top of the last spool.
+ *
+ * @param w Widget pointers from ams_detail_find_widgets()
+ */
+void ams_detail_pre_show_env_indicator(AmsDetailWidgets& w);

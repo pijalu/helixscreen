@@ -8,6 +8,7 @@
 #include "ui_ams_detail.h"
 #include "buffer_status_modal.h"
 #include "ui_ams_device_operations_overlay.h"
+#include "ui_ams_environment_overlay.h"
 #include "ui_ams_sidebar.h"
 #include "ui_ams_tool_text.h"
 #include "ui_ams_slot.h"
@@ -87,33 +88,41 @@ static void ensure_ams_widgets_registered() {
     // Register sidebar callbacks BEFORE XML parsing (callbacks must exist when parser sees them)
     helix::ui::AmsOperationSidebar::register_callbacks_static();
 
-    // Register dryer card callbacks BEFORE XML parsing (callbacks must exist when parser sees them)
-    helix::ui::AmsDryerCard::register_callbacks_static();
+    // Register environment indicator callback
+    static bool env_cb_registered = false;
+    if (!env_cb_registered) {
+        lv_xml_register_event_cb(nullptr, "on_env_indicator_clicked", [](lv_event_t* e) {
+            (void)e;
+            spdlog::info("[AMS Environment] Indicator clicked — opening environment overlay");
+            auto& overlay = helix::ui::get_ams_environment_overlay();
+            overlay.show(lv_screen_active(), 0);
+        });
+        env_cb_registered = true;
+    }
 
     // Initialize tool text observers (format raw int subjects → display text)
     helix::ui::init_ams_tool_text_observers();
 
-    // Register AMS device operations overlay callbacks BEFORE XML parsing
+    // Register AMS overlay callbacks BEFORE XML parsing
     helix::ui::get_ams_device_operations_overlay().register_callbacks();
+    helix::ui::get_ams_environment_overlay().register_callbacks();
 
     // Context menu callbacks registered by helix::ui::AmsContextMenu class
     // Edit modal and color picker callbacks registered by helix::ui::AmsEditModal class
 
-    // Register XML components (dryer card must be registered before ams_panel since it's used
-    // there)
-    lv_xml_register_component_from_file("A:ui_xml/ams_dryer_card.xml");
-    lv_xml_register_component_from_file("A:ui_xml/dryer_presets_modal.xml");
+    // Register XML components
     // NOTE: Old AMS settings panels removed - Device Operations overlay is registered in
     // xml_registration.cpp
     lv_xml_register_component_from_file("A:ui_xml/components/ams_unit_detail.xml");
     lv_xml_register_component_from_file("A:ui_xml/components/ams_loaded_card.xml");
-    lv_xml_register_component_from_file("A:ui_xml/components/ams_dryer_info_bar.xml");
+    lv_xml_register_component_from_file("A:ui_xml/components/ams_environment_indicator.xml");
     lv_xml_register_component_from_file("A:ui_xml/components/ams_sidebar.xml");
     lv_xml_register_component_from_file("A:ui_xml/ams_panel.xml");
     lv_xml_register_component_from_file("A:ui_xml/ams_context_menu.xml");
     // NOTE: spoolman_spool_item.xml and ams_edit_modal.xml are registered
     // globally in xml_registration.cpp (needed by FilamentPanel without AMS lazy init)
     lv_xml_register_component_from_file("A:ui_xml/ams_loading_error_modal.xml");
+    lv_xml_register_component_from_file("A:ui_xml/ams_environment_overlay.xml");
     // NOTE: color_picker.xml is registered at startup in xml_registration.cpp
 
     s_ams_widgets_registered = true;
@@ -121,7 +130,6 @@ static void ensure_ams_widgets_registered() {
 }
 
 // XML event callbacks now handled by helix::ui::AmsOperationSidebar class
-// Dryer card callbacks now handled by helix::ui::AmsDryerCard class
 // Context menu callbacks handled by helix::ui::AmsContextMenu class
 // Edit modal callbacks handled by helix::ui::AmsEditModal class
 
@@ -316,12 +324,6 @@ void AmsPanel::setup(lv_obj_t* panel, lv_obj_t* parent_screen) {
     sidebar_->setup(panel_);
     sidebar_->init_observers();
 
-    // Setup dryer card (info bar)
-    if (!dryer_card_) {
-        dryer_card_ = std::make_unique<helix::ui::AmsDryerCard>();
-    }
-    dryer_card_->setup(panel_);
-
     spdlog::debug("[{}] Setup complete!", get_name());
 }
 
@@ -347,17 +349,13 @@ void AmsPanel::on_activate() {
         }
 
         // Hide elements that don't apply to a single-unit scoped view:
-        // path canvas (hub/bypass/toolhead routing), bypass toggle, dryer card
+        // path canvas (hub/bypass/toolhead routing), bypass toggle
         lv_obj_t* path_container = lv_obj_find_by_name(panel_, "path_container");
         if (path_container)
             lv_obj_add_flag(path_container, LV_OBJ_FLAG_HIDDEN);
         lv_obj_t* bypass_row = lv_obj_find_by_name(panel_, "bypass_row");
         if (bypass_row)
             lv_obj_add_flag(bypass_row, LV_OBJ_FLAG_HIDDEN);
-        // In scoped view, force-hide dryer (system-level feature, not per-unit)
-        lv_obj_t* dryer_card = lv_obj_find_by_name(panel_, "dryer_card");
-        if (dryer_card)
-            lv_obj_add_flag(dryer_card, LV_OBJ_FLAG_HIDDEN);
         // Hide bypass spool holder in scoped view (bypass is system-level)
         if (bypass_spool_box_) {
             lv_obj_delete(bypass_spool_box_);
@@ -377,7 +375,6 @@ void AmsPanel::on_activate() {
         if (path_container)
             lv_obj_remove_flag(path_container, LV_OBJ_FLAG_HIDDEN);
         // bypass_row visibility managed by bind_flag_if_eq on ams_supports_bypass subject
-        // dryer_card visibility managed by bind_flag_if_eq on dryer_supported subject
     }
 
     update_endless_arrows_from_backend();
@@ -445,7 +442,6 @@ void AmsPanel::clear_panel_reference() {
 
     // Reset extracted UI modules (they handle their own RAII cleanup)
     sidebar_.reset();
-    dryer_card_.reset();
     context_menu_.reset();
     edit_modal_.reset();
     error_modal_.reset();
@@ -651,6 +647,10 @@ void AmsPanel::create_slots(int count) {
 
     // Destroy existing
     ams_detail_destroy_slots(detail_widgets_, slot_widgets_, current_slot_count_);
+
+    // Pre-show environment indicator so flex layout accounts for its width
+    // when calculating slot sizes. Must happen BEFORE slot creation.
+    ams_detail_pre_show_env_indicator(detail_widgets_);
 
     // Determine unit index for scoped views
     int unit_index = scoped_unit_index_;

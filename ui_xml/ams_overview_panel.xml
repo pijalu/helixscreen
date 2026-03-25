@@ -64,8 +64,6 @@
         <lv_obj name="unit_detail_container" hidden="true"
                 width="100%" flex_grow="1" style_pad_all="0" style_pad_gap="#space_xs" flex_flow="column"
                 style_flex_main_place="start" style_flex_cross_place="center" scrollable="false">
-          <!-- Dryer Info Bar - temp/humidity display above AMS visualization -->
-          <ams_dryer_info_bar name="dryer_info_bar"/>
           <!-- Slot grid card (populated dynamically with ams_slot widgets) -->
           <ui_card name="detail_unit_card"
                    width="100%" height="content" style_radius="4" style_pad_all="#space_sm"

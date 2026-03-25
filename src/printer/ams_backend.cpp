@@ -101,6 +101,14 @@ static std::unique_ptr<AmsBackendMock> create_mock_with_features(int gate_count)
         spdlog::info("[AMS Backend] Mock dryer enabled");
     }
 
+    // Environment sensor mode (auto-detects from dryer state if not specified)
+    const char* env_mode_env = std::getenv("HELIX_MOCK_AMS_ENV");
+    if (env_mode_env) {
+        std::string env_mode = to_lower(env_mode_env);
+        mock->set_environment_mode(env_mode);
+        spdlog::info("[AMS Backend] Mock environment mode: {}", env_mode);
+    }
+
     // Simulate mid-print tool change progress (3rd of 5 swaps) for visual testing
     mock->set_toolchange_progress(2, 5);
 

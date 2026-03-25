@@ -435,6 +435,12 @@ void FanStackWidget::bind_carousel_fans() {
         hotend_observer_.reset();
         aux_observer_.reset();
         carousel_observers_.clear();
+
+        // Drain pending callbacks BEFORE clearing pages/widgets — pending
+        // callbacks may reference carousel_pages_ entries or their LVGL objects.
+        // The freeze prevents new callbacks from being enqueued during cleanup.
+        helix::ui::UpdateQueue::instance().drain();
+
         for (auto& page : carousel_pages_) {
             if (page.fan_icon)
                 helix::ui::fan_spin_stop(page.fan_icon);

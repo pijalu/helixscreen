@@ -1976,7 +1976,9 @@ DryerInfo AmsBackendHappyHare::get_dryer_info() const {
     return dryer_info_;
 }
 
-AmsError AmsBackendHappyHare::start_drying(float temp_c, int duration_min, int fan_pct) {
+AmsError AmsBackendHappyHare::start_drying(float temp_c, int duration_min, int fan_pct,
+                                           int unit) {
+    (void)unit;
     {
         std::lock_guard<std::mutex> lock(mutex_);
         if (!dryer_info_.supported) {
@@ -1993,7 +1995,8 @@ AmsError AmsBackendHappyHare::start_drying(float temp_c, int duration_min, int f
     return execute_gcode(cmd);
 }
 
-AmsError AmsBackendHappyHare::stop_drying() {
+AmsError AmsBackendHappyHare::stop_drying(int unit) {
+    (void)unit;
     {
         std::lock_guard<std::mutex> lock(mutex_);
         if (!dryer_info_.supported) {

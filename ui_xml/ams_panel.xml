@@ -58,8 +58,6 @@
           <!-- Segments created dynamically in C++ -->
         </lv_obj>
         <!-- System logo + name now displayed in header bar (setup_system_header) -->
-        <!-- Dryer Info Bar - temp/humidity display above AMS visualization -->
-        <ams_dryer_info_bar name="dryer_info_bar"/>
         <!-- AMS Unit Card - contains the slot grid with tray effect -->
         <ui_card name="ams_unit_card"
                  width="100%" height="content" style_radius="4" style_pad_all="#space_sm"

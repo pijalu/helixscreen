@@ -355,7 +355,8 @@ DryerInfo AmsBackendValgACE::get_dryer_info() const {
     return dryer_info_;
 }
 
-AmsError AmsBackendValgACE::start_drying(float temp_c, int duration_min, int fan_pct) {
+AmsError AmsBackendValgACE::start_drying(float temp_c, int duration_min, int fan_pct, int unit) {
+    (void)unit;
     auto err = check_preconditions();
     if (!err.success()) {
         return err;
@@ -398,7 +399,8 @@ AmsError AmsBackendValgACE::start_drying(float temp_c, int duration_min, int fan
     return execute_gcode(gcode);
 }
 
-AmsError AmsBackendValgACE::stop_drying() {
+AmsError AmsBackendValgACE::stop_drying(int unit) {
+    (void)unit;
     spdlog::info("[ValgACE] Stopping drying");
     return execute_gcode("ACE_STOP_DRYING");
 }

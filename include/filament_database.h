@@ -391,4 +391,49 @@ inline float weight_to_length_m(float weight_g, float density, float diameter_mm
     return length_cm / 100.0f;
 }
 
+// ============================================================================
+// Material Comfort Ranges (humidity thresholds for storage quality indicators)
+// ============================================================================
+
+/**
+ * @brief Humidity thresholds for a given material type
+ *
+ * Used by AMS environment display to color-code humidity readings:
+ *   - Below max_humidity_good: green (safe)
+ *   - Between good and warn: yellow (caution)
+ *   - Above max_humidity_warn: red (material degradation risk)
+ */
+struct MaterialComfortRange {
+    const char* material;
+    float max_humidity_good; ///< Below this = green (safe)
+    float max_humidity_warn; ///< Below this = yellow, above = red
+    int dry_temp_c;          ///< Recommended drying temperature (0 = no drying needed)
+    int dry_time_hours;      ///< Recommended drying time in hours
+};
+
+/**
+ * @brief Look up humidity comfort range and drying info for a material type
+ * @param material Material name (e.g., "PLA", "PETG", "PA")
+ * @return Pointer to static range data, or nullptr if material unknown
+ */
+inline const MaterialComfortRange* get_comfort_range(const std::string& material) {
+    //                                material  good   warn  dry°C  hours
+    static const MaterialComfortRange ranges[] = {
+        {"PLA",   50.0f, 65.0f, 55,  4},
+        {"PETG",  40.0f, 55.0f, 65,  6},
+        {"ABS",   35.0f, 50.0f, 80,  4},
+        {"ASA",   35.0f, 50.0f, 80,  4},
+        {"PA",    20.0f, 35.0f, 70,  8},
+        {"Nylon", 20.0f, 35.0f, 70,  8},
+        {"TPU",   40.0f, 55.0f, 55,  4},
+        {"PC",    30.0f, 45.0f, 80,  8},
+        {"PVA",   15.0f, 30.0f, 45,  4},
+        {"HIPS",  40.0f, 55.0f, 70,  4},
+    };
+    for (const auto& r : ranges) {
+        if (material == r.material) return &r;
+    }
+    return nullptr;
+}
+
 } // namespace filament
