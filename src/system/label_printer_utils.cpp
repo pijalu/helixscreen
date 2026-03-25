@@ -59,6 +59,11 @@ void print_spool_label(const SpoolInfo& spool, PrintCallback callback) {
     auto preset = static_cast<LabelPreset>(
         std::clamp(settings.get_label_preset(), 0, static_cast<int>(LabelPreset::MINIMAL)));
 
+    // Force QR-only for small square/narrow labels where text won't fit
+    if (label_size.width_px <= 250 && label_size.height_px > 0 && label_size.height_px <= 250) {
+        preset = LabelPreset::MINIMAL;
+    }
+
     auto bitmap = LabelRenderer::render(spool, preset, label_size);
     if (bitmap.empty()) {
         if (callback) callback(false, "Failed to render label");

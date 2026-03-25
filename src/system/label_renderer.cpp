@@ -283,19 +283,23 @@ LabelBitmap LabelRenderer::render(const SpoolInfo& spool, LabelPreset preset,
 
     // --- MINIMAL (QR Only): moderate-sized QR, centered, white space around ---
     if (preset == LabelPreset::MINIMAL) {
-        // Cap QR size to a reasonable dimension — not full label width
+        // No extra margin for die-cut labels (QR spec includes its own quiet zone).
+        // Use small margin for continuous tape to avoid printing to the edge.
+        int qr_margin = (size.height_px > 0) ? 0 : std::min(margin, label_width / 20);
+
+        // Cap QR size to fill most of the label
         int qr_max = std::min(label_width, 250);
         if (size.height_px > 0)
-            qr_max = std::min(qr_max, size.height_px - 2 * margin);
+            qr_max = std::min(qr_max, size.height_px - 2 * qr_margin);
         int qr_target = qr_max;
         auto qr = generate_qr_bitmap(qr_data, qr_target);
         if (qr.empty()) {
             spdlog::warn("label_renderer: QR generation failed for spool {}",
                          spool.id);
-            return LabelBitmap::create(label_width, margin * 2);
+            return LabelBitmap::create(label_width, qr_margin * 2);
         }
         int height =
-            size.height_px > 0 ? size.height_px : qr.height() + 2 * margin;
+            size.height_px > 0 ? size.height_px : qr.height() + 2 * qr_margin;
         auto label = LabelBitmap::create(label_width, height);
         label.blit(qr, (label_width - qr.width()) / 2,
                    (height - qr.height()) / 2);
@@ -395,18 +399,28 @@ LabelBitmap LabelRenderer::render(const SpoolInfo& spool, LabelPreset preset,
     int text_x = margin + qr.width() + gap;
     int text_area_width = label_width - text_x - margin;
 
-    // Scale selection based on label width and preset
+    // Scale selection based on label width AND height to fill available space
+    int avail_h = size.height_px > 0 ? size.height_px : 300;
     int scale_lg, scale_md, scale_sm;
     if (preset == LabelPreset::COMPACT) {
-        // Compact uses larger fonts since fewer lines
-        scale_lg = label_width >= 500 ? 5 : 4;
-        scale_md = label_width >= 500 ? 4 : 3;
-        scale_sm = label_width >= 500 ? 3 : 2;
+        // Compact: 3 lines. Scale to fill ~80% of height.
+        // 3 lines at (FONT_H * scale + 4) each → scale = (avail_h * 0.8 / 3 - 4) / FONT_H
+        int target_scale = (avail_h * 8 / 10 / 3 - 4) / FONT_H;
+        scale_lg = std::clamp(target_scale, 3, 8);
+        scale_md = std::clamp(target_scale - 1, 2, 7);
+        scale_sm = std::clamp(target_scale - 2, 2, 6);
     } else {
-        scale_lg = label_width >= 500 ? 4 : 3;
-        scale_md = label_width >= 500 ? 3 : 2;
-        scale_sm = 2;
+        // Standard: 3-6 lines. Scale to fill ~70% of height with 4 lines.
+        int target_scale = (avail_h * 7 / 10 / 4 - 4) / FONT_H;
+        scale_lg = std::clamp(target_scale, 3, 7);
+        scale_md = std::clamp(target_scale - 1, 2, 6);
+        scale_sm = std::clamp(target_scale - 2, 2, 5);
     }
+    // Also cap by text area width (don't let chars overflow horizontally)
+    int max_scale_by_width = text_area_width / ((FONT_W + 1) * 4); // fit ≥4 chars
+    scale_lg = std::min(scale_lg, max_scale_by_width);
+    scale_md = std::min(scale_md, max_scale_by_width);
+    scale_sm = std::min(scale_sm, max_scale_by_width);
 
     int line_h_lg = FONT_H * scale_lg + 4;
     int line_h_md = FONT_H * scale_md + 4;

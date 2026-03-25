@@ -70,12 +70,14 @@ LabelBitmap generate_qr_bitmap(const std::string& data, int target_size_px) {
         return {};
     }
 
-    // Calculate module size (pixels per QR module)
-    int module_px = target_size_px / qr_size;
+    // Calculate module size — round up to fill the target size, clip to bounds
+    int module_px = (target_size_px + qr_size - 1) / qr_size;
     if (module_px < 1)
         module_px = 1;
 
     int bitmap_size = qr_size * module_px;
+    if (bitmap_size > target_size_px)
+        bitmap_size = target_size_px;
     auto bitmap = LabelBitmap::create(bitmap_size, bitmap_size);
 
     // Render QR modules into bitmap

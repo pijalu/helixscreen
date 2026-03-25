@@ -77,25 +77,52 @@ std::vector<uint8_t> brother_ql_build_raster(const LabelBitmap& bitmap,
     cmd.push_back(0x00);
 
     // 9. Raster data rows
-    // Bitmap data is right-justified in the 90-byte row (left-padded with zeros)
-    // matching the Brother QL printhead layout where narrow labels are on the right edge.
-    // No horizontal flip — the bitmap is already in the correct pixel order (MSB first,
-    // left-to-right), matching the Brother QL raster format.
+    // Brother QL printhead requires horizontally flipped pixel data.
+    // Data is left-justified in the 90-byte row. For die-cut labels that are
+    // narrower than their backing tape, add an offset to center the data on
+    // the physical label (e.g., 23mm label centered on 29mm backing).
     int label_byte_width = (size.width_px + 7) / 8;
-    int left_pad = BROTHER_QL_RASTER_ROW_BYTES - label_byte_width;
-    if (left_pad < 0) left_pad = 0;
 
-    // Number of bytes to copy from the bitmap per row (may differ if bitmap is
-    // narrower or wider than label_byte_width)
-    int copy_bytes = std::min(label_byte_width, bitmap.row_byte_width());
+    // Calculate offset for die-cut labels narrower than their backing tape.
+    // The label's printable area is centered on the backing, offset ~3/4 of
+    // the total margin from the guide rail edge (empirically tuned).
+    int left_offset = 0;
+    if (size.media_type == 0x0B) {
+        // Die-cut backing widths: ≤29mm → 29mm (306 dots), ≤62mm → 62mm (696 dots)
+        int backing_px = (size.width_mm <= 29) ? 306 : 696;
+        if (backing_px > size.width_px) {
+            int margin_dots = backing_px - size.width_px;
+            left_offset = (margin_dots * 2 / 3 + 4) / 8;
+        }
+    }
+
+    int right_pad = BROTHER_QL_RASTER_ROW_BYTES - label_byte_width - left_offset;
+    if (right_pad < 0) right_pad = 0;
+
+    // Build a horizontally-flipped copy of each row
+    std::vector<uint8_t> flipped_row(label_byte_width, 0x00);
 
     for (int y = 0; y < bitmap.height(); y++) {
         const uint8_t* row = bitmap.row_data(y);
+        int row_bytes = bitmap.row_byte_width();
 
-        // Check if row is all white
+        // Horizontal flip: reverse pixel order within the row
+        std::fill(flipped_row.begin(), flipped_row.end(), 0x00);
+        for (int x = 0; x < size.width_px && x < bitmap.width(); x++) {
+            int src_byte = x / 8;
+            int src_bit = 7 - (x % 8);
+            if (src_byte < row_bytes && (row[src_byte] & (1 << src_bit))) {
+                int dst_x = size.width_px - 1 - x;
+                int dst_byte = dst_x / 8;
+                int dst_bit = 7 - (dst_x % 8);
+                flipped_row[dst_byte] |= (1 << dst_bit);
+            }
+        }
+
+        // Check if flipped row is all white
         bool all_white = true;
-        for (int b = 0; b < copy_bytes; b++) {
-            if (row[b] != 0x00) {
+        for (int b = 0; b < label_byte_width; b++) {
+            if (flipped_row[b] != 0x00) {
                 all_white = false;
                 break;
             }
@@ -110,17 +137,16 @@ std::vector<uint8_t> brother_ql_build_raster(const LabelBitmap& bitmap,
             cmd.push_back(0x00);
             cmd.push_back(static_cast<uint8_t>(BROTHER_QL_RASTER_ROW_BYTES));
 
-            // Left padding (for narrow labels right-justified in 90-byte row)
-            cmd.insert(cmd.end(), left_pad, 0x00);
-
-            // Copy bitmap pixel data directly
-            cmd.insert(cmd.end(), row, row + copy_bytes);
-
-            // Right padding if bitmap is narrower than label
-            int right_pad = label_byte_width - copy_bytes;
-            if (right_pad > 0) {
-                cmd.insert(cmd.end(), right_pad, 0x00);
+            // Left offset (centering for die-cut labels on wider backing)
+            if (left_offset > 0) {
+                cmd.insert(cmd.end(), left_offset, 0x00);
             }
+
+            // Copy flipped pixel data
+            cmd.insert(cmd.end(), flipped_row.begin(), flipped_row.end());
+
+            // Right padding (unused printhead area beyond the label)
+            cmd.insert(cmd.end(), right_pad, 0x00);
         }
     }
 

@@ -48,11 +48,17 @@ static std::string friendly_bt_name(const std::string& name) {
 }
 
 /// Build dropdown label for a BT device showing connection status.
-static std::string bt_device_label(const std::string& name, bool paired, bool connected) {
+/// @param paired  BlueZ confirms device is paired
+/// @param saved   Device address is saved in our settings (may not be BlueZ-paired)
+/// @param connected  Active BLE/RFCOMM connection
+static std::string bt_device_label(const std::string& name, bool paired, bool saved,
+                                    bool connected) {
     std::string label = friendly_bt_name(name);
     if (connected) {
         label += " (Connected)";
     } else if (paired) {
+        label += " (Paired)";
+    } else if (saved) {
         label += " (Saved)";
     }
     return label;
@@ -370,6 +376,20 @@ void LabelPrinterSettingsOverlay::init_preset_dropdown() {
             fmt::format("{}\n{}\n{}", lv_tr("Standard"), lv_tr("Compact"), lv_tr("QR Only"));
         lv_dropdown_set_options(dropdown, options.c_str());
         lv_dropdown_set_selected(dropdown, static_cast<uint32_t>(settings.get_label_preset()));
+
+        // For small square labels, only QR-only is available
+        auto sizes = get_sizes_for_current_printer();
+        int size_idx = std::clamp(settings.get_label_size_index(), 0,
+                                  static_cast<int>(sizes.size()) - 1);
+        const auto& sz = sizes[size_idx];
+        if (sz.width_px <= 250 && sz.height_px > 0 && sz.height_px <= 250) {
+            lv_dropdown_set_options(dropdown, lv_tr("QR Only"));
+            lv_dropdown_set_selected(dropdown, 0);
+            lv_obj_add_state(dropdown, LV_STATE_DISABLED);
+        } else {
+            lv_obj_remove_state(dropdown, LV_STATE_DISABLED);
+        }
+
         spdlog::trace("[{}] Preset dropdown initialized", get_name());
     }
 }
@@ -873,6 +893,32 @@ void LabelPrinterSettingsOverlay::handle_label_size_changed(int index) {
         spdlog::info("[{}] Label size changed: {} (index {})", get_name(), sizes[index].name,
                      index);
         settings.set_label_size_index(index);
+
+        // Force QR-only for small square labels where text won't fit
+        const auto& sz = sizes[index];
+        bool force_qr = (sz.width_px <= 250 && sz.height_px > 0 && sz.height_px <= 250);
+        if (overlay_root_) {
+            lv_obj_t* preset_row = lv_obj_find_by_name(overlay_root_, "row_preset");
+            if (preset_row) {
+                lv_obj_t* dd = lv_obj_find_by_name(preset_row, "dropdown");
+                if (dd) {
+                    if (force_qr) {
+                        lv_dropdown_set_options(dd, lv_tr("QR Only"));
+                        lv_dropdown_set_selected(dd, 0);
+                        lv_obj_add_state(dd, LV_STATE_DISABLED);
+                        settings.set_label_preset(static_cast<int>(LabelPreset::MINIMAL));
+                    } else {
+                        // Restore full options
+                        auto opts = fmt::format("{}\n{}\n{}",
+                            lv_tr("Standard"), lv_tr("Compact"), lv_tr("QR Only"));
+                        lv_dropdown_set_options(dd, opts.c_str());
+                        lv_dropdown_set_selected(dd,
+                            static_cast<uint32_t>(settings.get_label_preset()));
+                        lv_obj_remove_state(dd, LV_STATE_DISABLED);
+                    }
+                }
+            }
+        }
     } else {
         spdlog::warn("[{}] Label size index {} out of range ({})", get_name(), index, sizes.size());
     }
@@ -976,42 +1022,81 @@ void LabelPrinterSettingsOverlay::init_bt_printer_dropdown() {
             settings.set_bt_transport("ble");
         }
 
-        // Check actual paired/connected state from BlueZ (don't assume paired)
+        // Show saved device immediately (assume saved = usable)
+        saved_dev.paired = false;
+        saved_dev.connected = false;
+
+        bt_devices_.clear();
+        bt_devices_.push_back(saved_dev);
+
+        // Show "(Saved)" immediately — BLE devices don't persist pairing so
+        // our settings ARE the "saved" state
+        lv_dropdown_set_options(
+            dropdown,
+            bt_device_label(saved_dev.name, false, true, false).c_str());
+        lv_dropdown_set_selected(dropdown, 0);
+
+        // Enable connect button (will update after async check)
+        lv_obj_t* btn = lv_obj_find_by_name(overlay_root_, "btn_bt_connect");
+        if (btn) {
+            lv_obj_remove_state(btn, LV_STATE_DISABLED);
+        }
+
+        // Check actual paired/connected state asynchronously to avoid
+        // blocking the UI thread on D-Bus calls (25-second default timeout)
         auto& loader = helix::bluetooth::BluetoothLoader::instance();
         if (!bt_ctx_ && loader.is_available() && loader.init) {
             bt_ctx_ = loader.init();
         }
         if (bt_ctx_ && loader.is_paired) {
-            int paired_result = loader.is_paired(bt_ctx_, saved_addr.c_str());
-            saved_dev.paired = (paired_result == 1);
-            spdlog::debug("[{}] BlueZ is_paired({}) = {}", get_name(), saved_addr, paired_result);
-        } else {
-            saved_dev.paired = false;
-            spdlog::debug("[{}] No BT context or is_paired unavailable, assuming unpaired", get_name());
-        }
-        saved_dev.connected = check_bt_connected(bt_ctx_, saved_addr);
-        spdlog::debug("[{}] Saved device {} paired={} connected={}", get_name(),
-                      saved_dev.name, saved_dev.paired, saved_dev.connected);
+            auto alive = alive_;
+            auto* ctx = bt_ctx_;
+            std::string addr = saved_addr;
+            std::thread([alive, ctx, addr]() {
+                auto& ldr = helix::bluetooth::BluetoothLoader::instance();
+                int paired_r = ldr.is_paired ? ldr.is_paired(ctx, addr.c_str()) : -1;
+                bool connected = check_bt_connected(ctx, addr);
+                spdlog::debug("[Label Printer] Async BT state: is_paired={} connected={}",
+                              paired_r, connected);
 
-        bt_devices_.clear();
-        bt_devices_.push_back(saved_dev);
-
-        // For saved devices, show "(Saved)" even if BlueZ doesn't report paired
-        // (BLE devices don't persist pairing — our settings ARE the "saved" state)
-        lv_dropdown_set_options(
-            dropdown,
-            bt_device_label(saved_dev.name, true, saved_dev.connected).c_str());
-        lv_dropdown_set_selected(dropdown, 0);
-
-        // Enable connect button for saved devices that aren't connected
-        // (BLE devices may not show as "paired" between sessions)
-        lv_obj_t* btn = lv_obj_find_by_name(overlay_root_, "btn_bt_connect");
-        if (btn) {
-            if (!saved_dev.connected) {
-                lv_obj_remove_state(btn, LV_STATE_DISABLED);
-            } else {
-                lv_obj_add_state(btn, LV_STATE_DISABLED);
-            }
+                helix::ui::queue_update([alive, paired_r, connected, addr]() {
+                    if (!alive->load())
+                        return;
+                    auto& ov = get_label_printer_settings_overlay();
+                    for (auto& dev : ov.bt_devices_) {
+                        if (dev.mac == addr) {
+                            dev.paired = (paired_r == 1);
+                            dev.connected = connected;
+                            break;
+                        }
+                    }
+                    // Refresh dropdown with actual state
+                    if (ov.overlay_root_) {
+                        lv_obj_t* row = lv_obj_find_by_name(ov.overlay_root_, "row_bt_printers");
+                        if (row) {
+                            lv_obj_t* dd = lv_obj_find_by_name(row, "dropdown");
+                            if (dd) {
+                                std::string options;
+                                for (const auto& d : ov.bt_devices_) {
+                                    if (!options.empty())
+                                        options += "\n";
+                                    options += bt_device_label(d.name, d.paired, !d.mac.empty(),
+                                                               d.connected);
+                                }
+                                lv_dropdown_set_options(dd, options.c_str());
+                            }
+                        }
+                        // Update connect button
+                        lv_obj_t* b = lv_obj_find_by_name(ov.overlay_root_, "btn_bt_connect");
+                        if (b) {
+                            if (connected)
+                                lv_obj_add_state(b, LV_STATE_DISABLED);
+                            else
+                                lv_obj_remove_state(b, LV_STATE_DISABLED);
+                        }
+                    }
+                });
+            }).detach();
         }
     } else {
         lv_dropdown_set_options(dropdown, lv_tr("Press Scan to search"));
@@ -1116,7 +1201,7 @@ void LabelPrinterSettingsOverlay::start_bt_discovery() {
                                     for (const auto& d : overlay->bt_devices_) {
                                         if (!options.empty())
                                             options += "\n";
-                                        options += bt_device_label(d.name, d.paired, d.connected);
+                                        options += bt_device_label(d.name, d.paired, !d.mac.empty(), d.connected);
                                     }
                                     lv_dropdown_set_options(dropdown, options.c_str());
                                 }
@@ -1153,7 +1238,7 @@ void LabelPrinterSettingsOverlay::start_bt_discovery() {
                             for (const auto& d : overlay->bt_devices_) {
                                 if (!options.empty())
                                     options += "\n";
-                                options += bt_device_label(d.name, d.paired, d.connected);
+                                options += bt_device_label(d.name, d.paired, !d.mac.empty(), d.connected);
                             }
                             lv_dropdown_set_options(dropdown, options.c_str());
                         }
@@ -1388,12 +1473,16 @@ void LabelPrinterSettingsOverlay::handle_bt_connect() {
             }
         }
 
-        bool connected = (ret == 0);
-        if (connected && ldr.is_connected) {
-            connected = (ldr.is_connected(init_ctx, mac.c_str()) == 1);
+        // For SPP printers (Brother QL, etc.), BlueZ "Connected" only reflects
+        // an active RFCOMM/BLE session — pair success is sufficient. Only check
+        // is_connected for BLE devices that maintain persistent connections.
+        bool paired_ok = (ret == 0);
+        bool connected = false;
+        if (paired_ok && ldr.is_paired) {
+            paired_ok = (ldr.is_paired(init_ctx, mac.c_str()) == 1);
         }
 
-        helix::ui::queue_update([mac, connected, alive]() {
+        helix::ui::queue_update([mac, paired_ok, connected, alive]() {
             if (!alive->load())
                 return;
 
@@ -1402,6 +1491,7 @@ void LabelPrinterSettingsOverlay::handle_bt_connect() {
             // Update device state
             for (auto& dev : ov.bt_devices_) {
                 if (dev.mac == mac) {
+                    dev.paired = paired_ok;
                     dev.connected = connected;
                     break;
                 }
@@ -1417,7 +1507,7 @@ void LabelPrinterSettingsOverlay::handle_bt_connect() {
                         for (const auto& d : ov.bt_devices_) {
                             if (!options.empty())
                                 options += "\n";
-                            options += bt_device_label(d.name, d.paired, d.connected);
+                            options += bt_device_label(d.name, d.paired, !d.mac.empty(), d.connected);
                         }
                         lv_dropdown_set_options(dropdown, options.c_str());
                     }
@@ -1426,7 +1516,7 @@ void LabelPrinterSettingsOverlay::handle_bt_connect() {
                 // Update connect button state
                 lv_obj_t* btn = lv_obj_find_by_name(ov.overlay_root_, "btn_bt_connect");
                 if (btn) {
-                    if (connected) {
+                    if (paired_ok) {
                         lv_obj_add_state(btn, LV_STATE_DISABLED);
                     } else {
                         lv_obj_remove_state(btn, LV_STATE_DISABLED);
@@ -1434,10 +1524,10 @@ void LabelPrinterSettingsOverlay::handle_bt_connect() {
                 }
             }
 
-            if (connected) {
-                ToastManager::instance().show(ToastSeverity::SUCCESS, lv_tr("Connected"), 2000);
+            if (paired_ok) {
+                ToastManager::instance().show(ToastSeverity::SUCCESS, lv_tr("Paired"), 2000);
             } else {
-                ToastManager::instance().show(ToastSeverity::ERROR, lv_tr("Connection failed"),
+                ToastManager::instance().show(ToastSeverity::ERROR, lv_tr("Pairing failed"),
                                               2000);
             }
         });
@@ -1485,7 +1575,18 @@ void LabelPrinterSettingsOverlay::on_pair_confirm(lv_event_t* e) {
         auto& ldr = helix::bluetooth::BluetoothLoader::instance();
         int ret = ldr.pair(bt_ctx, mac.c_str());
 
-        helix::ui::queue_update([ret, mac, alive, bt_ctx]() {
+        // Check paired/connected state on this worker thread (D-Bus calls can
+        // take seconds — must not block the UI thread)
+        int paired_r = -1;
+        bool connected = false;
+        if (ret == 0) {
+            paired_r = ldr.is_paired ? ldr.is_paired(bt_ctx, mac.c_str()) : -1;
+            connected = check_bt_connected(bt_ctx, mac);
+            spdlog::info("[LabelPrinterSettings] Post-pair: is_paired={} connected={}",
+                         paired_r, connected);
+        }
+
+        helix::ui::queue_update([ret, mac, alive, bt_ctx, paired_r, connected]() {
             if (!alive->load())
                 return;
 
@@ -1493,17 +1594,12 @@ void LabelPrinterSettingsOverlay::on_pair_confirm(lv_event_t* e) {
                 ToastManager::instance().show(ToastSeverity::SUCCESS, lv_tr("Paired successfully"),
                                               2000);
 
-                // Find the device info, verify paired state, and save settings
+                // Update device info and save settings
                 auto& ov = get_label_printer_settings_overlay();
-                auto& ldr2 = helix::bluetooth::BluetoothLoader::instance();
                 for (auto& dev : ov.bt_devices_) {
                     if (dev.mac == mac) {
-                        int paired_r = (ov.bt_ctx_ && ldr2.is_paired)
-                            ? ldr2.is_paired(ov.bt_ctx_, mac.c_str()) : -1;
                         dev.paired = (paired_r == 1);
-                        dev.connected = check_bt_connected(ov.bt_ctx_, mac);
-                        spdlog::info("[LabelPrinterSettings] Post-pair: is_paired={} connected={}",
-                                     paired_r, dev.connected);
+                        dev.connected = connected;
                         auto& settings = LabelPrinterSettingsManager::instance();
                         settings.set_bt_address(mac);
                         settings.set_bt_name(dev.name);
@@ -1523,7 +1619,7 @@ void LabelPrinterSettingsOverlay::on_pair_confirm(lv_event_t* e) {
                             for (const auto& d : ov.bt_devices_) {
                                 if (!options.empty())
                                     options += "\n";
-                                options += bt_device_label(d.name, d.paired, d.connected);
+                                options += bt_device_label(d.name, d.paired, !d.mac.empty(), d.connected);
                             }
                             lv_dropdown_set_options(dropdown, options.c_str());
                         }

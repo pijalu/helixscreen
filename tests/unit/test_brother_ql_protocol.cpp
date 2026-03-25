@@ -83,7 +83,7 @@ TEST_CASE("Brother QL protocol - print command at end", "[label][brother]") {
     REQUIRE(data.back() == 0x1A);
 }
 
-TEST_CASE("Brother QL protocol - pixel data preserved (no flip)", "[label][brother]") {
+TEST_CASE("Brother QL protocol - horizontal flip verification", "[label][brother]") {
     LabelBitmap bitmap(696, 1);
     LabelSize size{"62mm", 696, 0, 300, 0x0A, 62, 0};
 
@@ -108,20 +108,20 @@ TEST_CASE("Brother QL protocol - pixel data preserved (no flip)", "[label][broth
     int label_byte_width = (696 + 7) / 8; // 87
     int left_pad = BROTHER_QL_RASTER_ROW_BYTES - label_byte_width; // 3
 
-    // Pixel at x=0 should be preserved at x=0 in the output (no flip)
-    // x=0 is in byte 0 of label data, bit 7 (MSB)
-    size_t pixel_byte_offset = raster_start + left_pad + 0;
+    // After horizontal flip, pixel at x=0 should appear at x=695 (width-1)
+    // x=695 is in byte 695/8 = 86, bit 7-(695%8) = 7-7 = 0
+    size_t pixel_byte_offset = raster_start + left_pad + 86;
     REQUIRE(pixel_byte_offset < data.size());
-    // Bit 7 should be set (pixel at x=0)
-    REQUIRE((data[pixel_byte_offset] & 0x80) != 0);
+    // Bit 0 should be set (flipped pixel)
+    REQUIRE((data[pixel_byte_offset] & 0x01) != 0);
 
-    // x=695 should NOT be set (no pixel there, and no flip moved it)
-    size_t far_byte_offset = raster_start + left_pad + 86;
-    REQUIRE(far_byte_offset < data.size());
-    REQUIRE((data[far_byte_offset] & 0x01) == 0);
+    // Original position x=0 should NOT be set (pixel was flipped away)
+    size_t orig_byte_offset = raster_start + left_pad + 0;
+    // bit 7 should NOT be set
+    REQUIRE((data[orig_byte_offset] & 0x80) == 0);
 }
 
-TEST_CASE("Brother QL protocol - 38mm narrow label right-justified", "[label][brother]") {
+TEST_CASE("Brother QL protocol - 38mm narrow label right-justified with flip", "[label][brother]") {
     LabelBitmap bitmap(413, 1);
     LabelSize size{"38mm", 413, 0, 300, 0x0A, 38, 0};
 
@@ -151,8 +151,12 @@ TEST_CASE("Brother QL protocol - 38mm narrow label right-justified", "[label][br
         REQUIRE(data[raster_start + i] == 0x00);
     }
 
-    // Pixel at x=0 of label should be at raster_start + left_pad, bit 7
-    REQUIRE((data[raster_start + left_pad] & 0x80) != 0);
+    // After flip, pixel at x=0 should appear at x=412 (width-1)
+    // x=412 is in byte 412/8=51, bit 7-(412%8) = 7-4 = 3
+    REQUIRE((data[raster_start + left_pad + 51] & (1 << 3)) != 0);
+
+    // Original position x=0 (byte 0, bit 7) should NOT be set
+    REQUIRE((data[raster_start + left_pad] & 0x80) == 0);
 }
 
 TEST_CASE("Brother QL protocol - empty bitmap", "[label][brother]") {

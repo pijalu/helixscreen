@@ -68,6 +68,10 @@ extern "C" helix_bt_context* helix_bt_init(void)
         return nullptr;
     }
 
+    // Set a 5-second D-Bus method call timeout (default is 25 seconds which
+    // freezes the UI when is_paired/is_connected checks are called synchronously)
+    sd_bus_set_method_call_timeout(ctx->bus, 5 * 1000000ULL);  // microseconds
+
     fprintf(stderr, "[bt] plugin initialized (api_version=%d)\n", HELIX_BT_API_VERSION);
     return ctx;
 }
