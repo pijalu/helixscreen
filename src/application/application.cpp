@@ -1968,8 +1968,8 @@ void Application::setup_discovery_callbacks() {
             PrinterDetector::auto_detect_and_save(c->hardware, Config::get_instance());
 
             // Record telemetry session event now that hardware data is available
+            // (hardware_profile is deferred until after build volume is fetched below)
             TelemetryManager::instance().record_session();
-            TelemetryManager::instance().record_hardware_profile();
             TelemetryManager::instance().record_settings_snapshot();
             TelemetryManager::instance().record_memory_snapshot("session_start");
 
@@ -1989,10 +1989,15 @@ void Application::setup_discovery_callbacks() {
                             get_global_filament_panel().set_limits(min_temp, max_temp, min_extrude);
                             spdlog::debug("[Application] Safety limits propagated to panels");
                         });
+
+                        // Record hardware profile after build volume is populated
+                        TelemetryManager::instance().record_hardware_profile();
                     },
                     [](const MoonrakerError& err) {
                         spdlog::warn("[Application] Failed to fetch safety limits: {}",
                                      err.message);
+                        // Record hardware profile anyway, just without build volume
+                        TelemetryManager::instance().record_hardware_profile();
                     });
             }
 
