@@ -1,6 +1,7 @@
 // Copyright (C) 2025-2026 356C LLC
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+#include "config.h"
 #include "printer_detector.h"
 
 #include "../catch_amalgamated.hpp"
@@ -3029,4 +3030,43 @@ TEST_CASE_METHOD(PrinterDetectorFixture,
     auto result = PrinterDetector::detect(hw);
     // Should detect some delta printer with high confidence
     REQUIRE(result.confidence >= 90);
+}
+
+TEST_CASE("Creality K1 printer detection", "[printer_detector]") {
+    auto* config = Config::get_instance();
+    REQUIRE(config != nullptr);
+    // printer_type_contains() uses config->df() + wizard::PRINTER_TYPE which
+    // resolves to e.g. "/printers/default/type" — use the same suffix here.
+    std::string type_path = config->df() + "type";
+
+    SECTION("K1 detected from Creality K1 type") {
+        config->set<std::string>(type_path, "Creality K1");
+        REQUIRE(PrinterDetector::is_creality_k1() == true);
+        REQUIRE(PrinterDetector::is_creality_k2() == false);
+    }
+
+    SECTION("K1C detected as K1 variant") {
+        config->set<std::string>(type_path, "Creality K1C");
+        REQUIRE(PrinterDetector::is_creality_k1() == true);
+    }
+
+    SECTION("K2 Plus detected as K2") {
+        config->set<std::string>(type_path, "Creality K2 Plus");
+        REQUIRE(PrinterDetector::is_creality_k2() == true);
+        REQUIRE(PrinterDetector::is_creality_k1() == false);
+    }
+
+    SECTION("Non-Creality K1 not detected") {
+        config->set<std::string>(type_path, "SomeOther K1 Printer");
+        REQUIRE(PrinterDetector::is_creality_k1() == false);
+    }
+
+    SECTION("Voron not detected as Creality") {
+        config->set<std::string>(type_path, "Voron 2.4");
+        REQUIRE(PrinterDetector::is_creality_k1() == false);
+        REQUIRE(PrinterDetector::is_creality_k2() == false);
+    }
+
+    // Clean up
+    config->set<std::string>(type_path, "");
 }

@@ -383,4 +383,16 @@ class PrinterDetector {
      * @return true if printer type contains "PFA" (case-insensitive)
      */
     static bool is_pfa_printer();
+
+    /**
+     * @brief Check if connected printer is a Creality K1 series
+     * @return true if printer type contains both "creality" and "k1"
+     */
+    static bool is_creality_k1();
+
+    /**
+     * @brief Check if connected printer is a Creality K2 series
+     * @return true if printer type contains both "creality" and "k2"
+     */
+    static bool is_creality_k2();
 };

@@ -194,6 +194,12 @@ ToolheadStyle SettingsManager::get_effective_toolhead_style() const {
     if (PrinterDetector::is_voron_printer()) {
         return ToolheadStyle::STEALTHBURNER;
     }
+    if (PrinterDetector::is_creality_k1()) {
+        return ToolheadStyle::CREALITY_K1;
+    }
+    if (PrinterDetector::is_creality_k2()) {
+        return ToolheadStyle::CREALITY_K2;
+    }
     return ToolheadStyle::DEFAULT;
 }
 
