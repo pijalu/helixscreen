@@ -116,38 +116,59 @@ When drying is active: fields become read-only, button changes to `[Stop Drying]
 
 ```cpp
 virtual bool has_environment_sensors() const { return false; }
-virtual bool has_dryer() const { return false; }
-virtual EnvironmentGranularity environment_granularity() const {
-    return EnvironmentGranularity::NONE;
-}
+```
 
-// Dryer operations (no-op defaults)
-virtual AmsError start_drying(int unit, int target_temp_c, int duration_min) {
-    return AmsErrorHelper::not_supported("No dryer");
-}
-virtual AmsError stop_drying(int unit) {
-    return AmsErrorHelper::not_supported("No dryer");
-}
+**Note:** `has_dryer()` is NOT added — the existing `DryerInfo::supported` field (via `get_dryer_info()`) already serves this purpose. The overlay checks `get_dryer_info().supported` to decide whether to show dryer controls.
+
+**Dryer API:** The existing `start_drying(float temp_c, int duration_min, int fan_pct)` and `stop_drying()` signatures are preserved for backward compatibility. Add `int unit = 0` default parameter to both:
+
+```cpp
+virtual AmsError start_drying(float temp_c, int duration_min, int fan_pct = -1, int unit = 0);
+virtual AmsError stop_drying(int unit = 0);
 ```
 
 ### New types
 
 ```cpp
-enum class EnvironmentGranularity { NONE, UNIT, SLOT };
-
+// In filament_database.h (alongside existing material data)
 struct MaterialComfortRange {
     std::string material;
-    float max_humidity_good;   // Green threshold
+    float max_humidity_good;   // Green threshold (below = green)
     float max_humidity_warn;   // Yellow threshold (above = red)
 };
 ```
 
-`MaterialComfortRange` stored as a small static lookup table (~10 common materials).
+`MaterialComfortRange` stored as a small static lookup table (~10 common materials) in `filament_database.h` alongside existing `DryingPreset` data.
+
+**Note:** `EnvironmentGranularity` enum deferred — no current backend uses per-slot granularity. `has_environment_sensors()` returning `true` implies unit-level. Per-slot can be added when a backend needs it.
 
 ### CFS backend overrides
 - `has_environment_sensors()` → `true`
-- `has_dryer()` → `false`
-- `environment_granularity()` → `EnvironmentGranularity::UNIT`
+- (No dryer — `get_dryer_info().supported` remains `false`)
+
+### Overlay unit context
+
+The overlay receives the unit index when opened:
+```cpp
+void AmsEnvironmentOverlay::show(int unit_index);
+```
+The compact indicator's click callback passes the unit index from the card it's attached to. The overlay stores this and uses it for dryer commands and data display.
+
+### Error handling
+
+Dryer operation errors (`start_drying` / `stop_drying` failures) displayed via existing `ui_error_reporting.h` pattern — toast notification with error message.
+
+### Mixed material smart presets
+
+When slots contain different materials, the overlay shows a warning: "Mixed materials loaded — drying at lowest safe temperature may be insufficient for some materials." Lists each material's ideal temperature. User chooses which preset to use (not auto-selected).
+
+### Stale data
+
+When a CFS unit disconnects, `AmsUnit.environment` is set to `nullopt` during sync, which zeros the subjects. The compact indicator hides when values are zero. No separate "stale" state needed — disconnect → zero → hidden.
+
+### Translation
+
+All user-visible strings in the overlay use `lv_tr()`. Material comfort range labels ("OK", "Marginal", "Too humid") and the "No dryer available" note all get translation tags.
 
 ## File Changes
 
@@ -160,16 +181,20 @@ struct MaterialComfortRange {
 - `ui_xml/components/ams_unit_detail.xml` — add environment indicator
 - `ui_xml/components/ams_unit_card.xml` — add indicator on overview cards
 - `ui_xml/ams_panel.xml` — remove `<ams_dryer_info_bar>`
-- `include/ams_backend.h` — add environment capability virtuals + dryer ops
-- `include/ams_backend_cfs.h` / `.cpp` — override environment capabilities
+- `ui_xml/ams_overview_panel.xml` — remove dryer card registration
+- `include/ams_backend.h` — add `has_environment_sensors()`, extend dryer signatures
+- `include/ams_backend_cfs.h` / `.cpp` — override `has_environment_sensors()`
+- `src/ui/ui_panel_ams_overview.cpp` / `.h` — remove `AmsDryerCard` usage
 - `src/printer/ams_state.cpp` — remove dryer-specific subject wiring
-- `include/ams_types.h` — add `EnvironmentGranularity`, `MaterialComfortRange`
+- `include/filament_database.h` — add `MaterialComfortRange`
 
 ### Deleted files
 - `ui_xml/components/ams_dryer_info_bar.xml`
-- `src/ui/ui_ams_dryer_card.cpp` / `.h`
-- Dryer presets modal
+- `src/ui/ui_ams_dryer_card.cpp` / `include/ui_ams_dryer_card.h`
+- `ui_xml/dryer_presets_modal.xml`
 
 ### Not touched
 - Per-unit subject infrastructure (`unit_temp_`, `unit_humidity_`) — already built
+- `EnvironmentData` struct — already exists on `AmsUnit` and `SlotInfo`
+- `HumiditySensorManager` — standalone room humidity sensors remain independent; AMS-attached sensors use `EnvironmentData`
 - `EnvironmentData` struct — already exists on `AmsUnit` and `SlotInfo`
