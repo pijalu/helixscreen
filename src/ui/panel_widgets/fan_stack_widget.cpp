@@ -412,9 +412,20 @@ void FanStackWidget::bind_carousel_fans() {
     if (!widget_obj_)
         return;
 
-    lv_obj_t* carousel = lv_obj_find_by_name(widget_obj_, "fan_carousel");
-    if (!carousel)
+    // Guard against re-entrancy: drain() below can process a pending
+    // version_observer_ callback which calls bind_carousel_fans() again.
+    // The inner call would create widgets that the outer call then destroys
+    // via lv_obj_clean(), leaving stale pointers in carousel_pages_.
+    if (rebuilding_carousel_)
         return;
+    rebuilding_carousel_ = true;
+    ++carousel_gen_;
+
+    lv_obj_t* carousel = lv_obj_find_by_name(widget_obj_, "fan_carousel");
+    if (!carousel) {
+        rebuilding_carousel_ = false;
+        return;
+    }
 
     // Freeze the update queue while tearing down observers and widgets to
     // prevent the WebSocket thread from enqueuing callbacks for destroyed objects.
@@ -558,8 +569,9 @@ void FanStackWidget::bind_carousel_fans() {
         if (entry.object_name.empty())
             continue;
 
-        auto obs = bind_fan_observer(entry.object_name, [this, page_idx](int speed) {
-            if (page_idx >= carousel_pages_.size())
+        auto gen = carousel_gen_;
+        auto obs = bind_fan_observer(entry.object_name, [this, page_idx, gen](int speed) {
+            if (gen != carousel_gen_ || page_idx >= carousel_pages_.size())
                 return;
             auto& cp = carousel_pages_[page_idx];
             if (cp.arc)
@@ -593,6 +605,8 @@ void FanStackWidget::bind_carousel_fans() {
 
     int page_count = ui_carousel_get_page_count(carousel);
     spdlog::debug("[FanStackWidget] Carousel bound {} fan pages", page_count);
+
+    rebuilding_carousel_ = false;
 }
 
 void FanStackWidget::set_icon_pivot(lv_obj_t* icon) {

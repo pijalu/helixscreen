@@ -85,6 +85,8 @@ class FanStackWidget : public PanelWidget {
     int aux_speed_ = 0;
 
     bool animations_enabled_ = false;
+    bool rebuilding_carousel_ = false;
+    uint32_t carousel_gen_ = 0;
 
     // Carousel mode: per-page tracking for arc + label + icon updates
     struct CarouselPage {
