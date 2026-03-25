@@ -6,7 +6,6 @@
 #include "nozzle_renderer_creality_k2.h"
 
 #include "nozzle_renderer_common.h"
-#include "theme_manager.h"
 
 void draw_nozzle_creality_k2(lv_layer_t* layer, int32_t cx, int32_t cy, lv_color_t filament_color,
                              int32_t scale_unit, lv_opa_t opa) {
