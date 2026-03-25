@@ -83,7 +83,12 @@ const data = ref<HardwareData | null>(null)
 const loading = ref(true)
 const error = ref('')
 
-const horizontalOpts: ChartOptions<'bar'> = { indexAxis: 'y' }
+const horizontalOpts: ChartOptions<'bar'> = {
+  indexAxis: 'y',
+  scales: {
+    y: { ticks: { autoSkip: false } }
+  }
+}
 
 const percentHorizontalOpts: ChartOptions<'bar'> = {
   indexAxis: 'y',
@@ -98,7 +103,7 @@ const percentHorizontalOpts: ChartOptions<'bar'> = {
       grid: { color: 'rgba(45, 51, 72, 0.5)' }
     },
     y: {
-      ticks: { color: '#94a3b8' },
+      ticks: { autoSkip: false, color: '#94a3b8' },
       grid: { color: 'rgba(45, 51, 72, 0.5)' }
     }
   }

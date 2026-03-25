@@ -50,7 +50,7 @@ const data = ref<AdoptionData | null>(null)
 const loading = ref(true)
 const error = ref('')
 
-const horizontalOpts: ChartOptions<'bar'> = { indexAxis: 'y' }
+const horizontalOpts: ChartOptions<'bar'> = { indexAxis: 'y', scales: { y: { ticks: { autoSkip: false } } } }
 
 const platformChartData = computed(() => ({
   labels: data.value?.platforms.map(p => p.name) ?? [],

@@ -70,7 +70,7 @@ const data = ref<EngagementData | null>(null)
 const loading = ref(true)
 const error = ref('')
 
-const horizontalOpts: ChartOptions<'bar'> = { indexAxis: 'y' }
+const horizontalOpts: ChartOptions<'bar'> = { indexAxis: 'y', scales: { y: { ticks: { autoSkip: false } } } }
 
 function formatTime(seconds: number): string {
   if (seconds < 60) return `${Math.round(seconds)}s`

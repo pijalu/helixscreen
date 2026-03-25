@@ -1641,6 +1641,12 @@ nlohmann::json TelemetryManager::build_hw_ams_section(const helix::PrinterDiscov
     case AmsType::TOOL_CHANGER:
         ams["type"] = "tool_changer";
         break;
+    case AmsType::AD5X_IFS:
+        ams["type"] = "ifs";
+        break;
+    case AmsType::CFS:
+        ams["type"] = "cfs";
+        break;
     default:
         ams["type"] = "unknown";
         break;

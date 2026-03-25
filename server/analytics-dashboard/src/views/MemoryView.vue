@@ -232,7 +232,7 @@ function filterByDevice(deviceId: string) {
   alert(`Device ID copied to clipboard:\n${deviceId}\n\nUse this to search telemetry logs for this device.`)
 }
 
-const horizontalOpts: ChartOptions<'bar'> = { indexAxis: 'y' }
+const horizontalOpts: ChartOptions<'bar'> = { indexAxis: 'y', scales: { y: { ticks: { autoSkip: false } } } }
 
 const stackedBarOpts: ChartOptions<'bar'> = {
   scales: {

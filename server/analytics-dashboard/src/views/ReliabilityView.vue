@@ -75,7 +75,7 @@ const data = ref<ReliabilityData | null>(null)
 const loading = ref(true)
 const error = ref('')
 
-const horizontalOpts: ChartOptions<'bar'> = { indexAxis: 'y' }
+const horizontalOpts: ChartOptions<'bar'> = { indexAxis: 'y', scales: { y: { ticks: { autoSkip: false } } } }
 
 const uptimeOpts: ChartOptions<'line'> = {
   scales: {

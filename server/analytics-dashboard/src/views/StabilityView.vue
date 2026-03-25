@@ -232,7 +232,7 @@ const barPercentOpts: ChartOptions<'bar'> = {
   },
 }
 
-const horizontalOpts: ChartOptions<'bar'> = { indexAxis: 'y' }
+const horizontalOpts: ChartOptions<'bar'> = { indexAxis: 'y', scales: { y: { ticks: { autoSkip: false } } } }
 
 const crashRateChartData = computed(() => ({
   labels: data.value?.crash_rate_trend.map(d => d.date) ?? [],
