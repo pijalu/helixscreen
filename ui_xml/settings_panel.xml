@@ -27,13 +27,12 @@
                         label="Animations" label_tag="Animations" icon="animation"
                         description="Enable UI motion effects" description_tag="Enable UI motion effects"
                         callback="on_animations_changed"/>
-    <!-- Toolhead Style Dropdown (Auto / Default / A4T / AntHead / JabberWocky / Stealthburner) -->
+    <!-- Toolhead Style Dropdown (options set in C++ based on test mode) -->
     <setting_dropdown_row name="row_toolhead_style"
                           label="Toolhead Style" label_tag="Toolhead Style" icon="palette"
                           description="How the toolhead icon appears"
                           description_tag="How the toolhead icon appears"
-                          options="Auto&#10;Default&#10;A4T&#10;AntHead&#10;JabberWocky&#10;Stealthburner"
-                          options_tag="Auto&#10;Default&#10;A4T&#10;AntHead&#10;JabberWocky&#10;Stealthburner"
+                          options="Auto"
                           callback="on_toolhead_style_changed"/>
     <!-- G-code Preview Dropdown (options set in C++ - 3D View only on capable hardware) -->
     <setting_dropdown_row name="row_gcode_mode"

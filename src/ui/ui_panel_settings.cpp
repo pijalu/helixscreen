@@ -505,10 +505,13 @@ void SettingsPanel::setup_toggle_handlers() {
     }
 
     // === Toolhead Style Dropdown ===
+    // Options set from C++ (varies between production and test mode)
     lv_obj_t* toolhead_style_row = lv_obj_find_by_name(panel_, "row_toolhead_style");
     if (toolhead_style_row) {
         lv_obj_t* toolhead_dropdown = lv_obj_find_by_name(toolhead_style_row, "dropdown");
         if (toolhead_dropdown) {
+            lv_dropdown_set_options(toolhead_dropdown,
+                                    SettingsManager::get_toolhead_style_options());
             auto style = SettingsManager::instance().get_toolhead_style();
             lv_dropdown_set_selected(
                 toolhead_dropdown,
