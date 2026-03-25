@@ -752,16 +752,17 @@ export default {
           };
 
           // Merge crash counts and session counts by date for crash rate trend
+          // Note: Analytics Engine returns all values as strings — must Number() everything
           const sessionByDate = new Map<string, number>();
           for (const row of sessionTimeRes.data ?? []) {
-            sessionByDate.set(row.date, row.session_count);
+            sessionByDate.set(row.date, Number(row.session_count));
           }
           const allDates = new Set<string>();
           for (const row of crashTimeRes.data ?? []) allDates.add(row.date);
           for (const row of sessionTimeRes.data ?? []) allDates.add(row.date);
           const crashByDate = new Map<string, number>();
           for (const row of crashTimeRes.data ?? []) {
-            crashByDate.set(row.date, row.crash_count);
+            crashByDate.set(row.date, Number(row.crash_count));
           }
           const crash_rate_trend = [...allDates].sort().map((date) => {
             const crashes = crashByDate.get(date) ?? 0;
@@ -772,40 +773,41 @@ export default {
           // Merge crash and session counts by version
           const sessionVerMap = new Map<string, number>();
           for (const row of sessionByVerRes.data ?? []) {
-            sessionVerMap.set(row.ver, row.session_count);
+            sessionVerMap.set(row.ver, Number(row.session_count));
           }
           const by_version = (crashByVerRes.data ?? []).map((r) => {
+            const crashes = Number(r.crash_count);
             const sessionCount = sessionVerMap.get(r.ver) ?? 0;
             return {
               version: r.ver,
-              crash_count: r.crash_count,
+              crash_count: crashes,
               session_count: sessionCount,
-              rate: sessionCount > 0 ? r.crash_count / sessionCount : 0,
+              rate: sessionCount > 0 ? crashes / sessionCount : 0,
             };
           });
 
           return json({
             crash_rate_trend,
             by_version,
-            by_signal: (signalRes.data ?? []).map((r) => ({ signal: r.signal, count: r.count })),
-            avg_uptime_sec: uptimeRes.data?.[0]?.avg_uptime_sec ?? 0,
+            by_signal: (signalRes.data ?? []).map((r) => ({ signal: r.signal, count: Number(r.count) })),
+            avg_uptime_sec: Number(uptimeRes.data?.[0]?.avg_uptime_sec ?? 0),
             klippy_trend: (klippyRes.data ?? []).map((r) => ({
               date: r.date,
-              errors: r.errors,
-              shutdowns: r.shutdowns,
+              errors: Number(r.errors),
+              shutdowns: Number(r.shutdowns),
             })),
             memory_warnings_trend: (memWarnRes.data ?? []).map((r) => ({
               date: r.date,
-              count: r.count,
+              count: Number(r.count),
             })),
             error_categories: (errorCatsRes.data ?? []).map((r) => ({
               category: r.category,
-              count: r.count,
+              count: Number(r.count),
             })),
             error_codes: (errorCodesRes.data ?? []).map((r) => ({
               category: r.category,
               code: r.code,
-              count: r.count,
+              count: Number(r.count),
             })),
             recent_crashes: (crashListRes.data ?? []).map((r) => ({
               timestamp: r.timestamp,
@@ -813,7 +815,7 @@ export default {
               version: r.ver,
               signal: r.sig,
               platform: r.platform,
-              uptime_sec: r.uptime_sec,
+              uptime_sec: Number(r.uptime_sec),
             })),
           });
         }
