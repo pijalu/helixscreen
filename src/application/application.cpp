@@ -2156,8 +2156,9 @@ void Application::init_action_prompt() {
         spdlog::info("[ActionPrompt] Showing prompt: {}", data.title);
         // WebSocket callbacks run on background thread - must use ui_queue_update
         helix::ui::queue_update([this, data]() {
-            if (m_action_prompt_modal && m_screen) {
-                m_action_prompt_modal->show_prompt(m_screen, data);
+            lv_obj_t* screen = lv_screen_active();
+            if (m_action_prompt_modal && screen) {
+                m_action_prompt_modal->show_prompt(screen, data);
             }
         });
     });

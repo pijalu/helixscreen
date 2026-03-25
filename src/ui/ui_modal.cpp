@@ -189,6 +189,12 @@ void ModalStack::animate_entrance(lv_obj_t* dialog) {
         return;
     }
 
+    // Safety: verify dialog's screen is still valid before style operations
+    lv_obj_t* screen = lv_obj_get_screen(dialog);
+    if (!screen) {
+        return;
+    }
+
     // Set transform pivot to center so scaling happens from center, not corner
     lv_obj_set_style_transform_pivot_x(dialog, LV_PCT(50), LV_PART_MAIN);
     lv_obj_set_style_transform_pivot_y(dialog, LV_PCT(50), LV_PART_MAIN);
