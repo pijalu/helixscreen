@@ -256,7 +256,7 @@ void WidgetCatalogOverlay::populate_rows(lv_obj_t* scroll, const PanelWidgetConf
             lv_obj_t* row = create_row(scroll, name_str.c_str(), def.icon, desc, def.colspan,
                                        def.rowspan, already_placed, hardware_gated);
 
-            if (!already_placed && !hardware_gated) {
+            if (!already_placed) {
                 // Store widget ID in user data for the click handler.
                 // The ID string comes from the static widget def table, so the pointer is
                 // stable.

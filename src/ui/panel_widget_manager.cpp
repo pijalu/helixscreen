@@ -107,6 +107,8 @@ PanelWidgetManager::populate_widgets(const std::string& panel_id, lv_obj_t* cont
         std::string component_name;
         nlohmann::json config;
         std::unique_ptr<PanelWidget> instance; // nullptr for pure-XML widgets
+        bool hardware_gated = false;           // Gate subject is 0
+        const char* gate_hint = nullptr;       // Human-readable hint
     };
 
     // Collect enabled + hardware-available widgets
@@ -116,14 +118,17 @@ PanelWidgetManager::populate_widgets(const std::string& panel_id, lv_obj_t* cont
             continue;
         }
 
-        // Check hardware gate — skip widgets whose hardware isn't present.
+        // Check hardware gate — flag widgets whose hardware isn't present.
         // Gates are defined in PanelWidgetDef::hardware_gate_subject and checked
         // here instead of XML bind_flag_if_eq to avoid orphaned dividers.
         const auto* def = find_widget_def(entry.id);
+        bool gated = false;
+        const char* hint = nullptr;
         if (def && def->hardware_gate_subject) {
             lv_subject_t* gate = lv_xml_get_subject(nullptr, def->hardware_gate_subject);
             if (gate && lv_subject_get_int(gate) == 0) {
-                continue;
+                gated = true;
+                hint = def->hardware_gate_hint;
             }
         }
 
@@ -148,6 +153,9 @@ PanelWidgetManager::populate_widgets(const std::string& panel_id, lv_obj_t* cont
         } else {
             slot.component_name = "panel_widget_" + entry.id;
         }
+
+        slot.hardware_gated = gated;
+        slot.gate_hint = hint;
 
         enabled_widgets.push_back(std::move(slot));
     }
@@ -554,8 +562,35 @@ PanelWidgetManager::populate_widgets(const std::string& panel_id, lv_obj_t* cont
             spdlog::debug("[PanelWidgetManager] Placed widget '{}' at ({},{} {}x{})",
                           slot.widget_id, p.col, p.row, p.colspan, p.rowspan);
 
-            // Attach the pre-created PanelWidget instance if present
-            if (slot.instance) {
+            // Apply gated visual treatment — widget is placed but hardware not detected
+            if (slot.hardware_gated) {
+                lv_obj_set_style_opa(widget, LV_OPA_40, 0);
+                lv_obj_add_state(widget, LV_STATE_DISABLED);
+
+                // Overlay a "not available" cancel icon centered on the widget.
+                // FLOATING removes it from flex layout so it sits on top.
+                const char* icon_attrs[] = {
+                    "src", "cancel",
+                    "size", "xl",
+                    "variant", "muted",
+                    "align", "center",
+                    "clickable", "false",
+                    "event_bubble", "true",
+                    nullptr
+                };
+                auto* overlay_icon = static_cast<lv_obj_t*>(
+                    lv_xml_create(widget, "icon", icon_attrs));
+                if (overlay_icon) {
+                    lv_obj_add_flag(overlay_icon, LV_OBJ_FLAG_FLOATING);
+                    lv_obj_set_style_opa(overlay_icon, LV_OPA_COVER, 0);
+                }
+
+                spdlog::debug("[PanelWidgetManager] Widget '{}' gated: {}",
+                              slot.widget_id, slot.gate_hint ? slot.gate_hint : "hardware not detected");
+            }
+
+            // Attach the pre-created PanelWidget instance if present and NOT gated
+            if (slot.instance && !slot.hardware_gated) {
                 slot.instance->attach(widget, lv_scr_act());
 
                 // Notify widget of its grid allocation and approximate pixel size
@@ -594,14 +629,16 @@ PanelWidgetManager::compute_visible_widget_ids(const std::string& panel_id, int 
         if (!entry.enabled) {
             continue;
         }
+        // Include gate status in the ID so rebuild detects gated→ungated transitions
         const auto* def = find_widget_def(entry.id);
+        bool gated = false;
         if (def && def->hardware_gate_subject) {
             lv_subject_t* gate = lv_xml_get_subject(nullptr, def->hardware_gate_subject);
             if (gate && lv_subject_get_int(gate) == 0) {
-                continue;
+                gated = true;
             }
         }
-        ids.push_back(entry.id);
+        ids.push_back(gated ? entry.id + "~gated" : entry.id);
     }
 
     // Conditional firmware_restart injection (same logic as populate_widgets)
