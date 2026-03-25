@@ -141,7 +141,14 @@ class SettingsManager {
     /** @brief Get dropdown options string */
     static const char* get_toolhead_style_options();
 
-    /** @brief Toolhead style subject (integer: 0=Auto, 1=Default, 2=Stealthburner, 3=A4T) */
+    /** @brief Convert toolhead style to dropdown index (native styles map to 0/Auto) */
+    static int toolhead_style_to_dropdown_index(ToolheadStyle style);
+
+    /** @brief Convert dropdown index to toolhead style enum value */
+    static ToolheadStyle dropdown_index_to_toolhead_style(int index);
+
+    /** @brief Toolhead style subject (integer: 0=Auto, 1=Stealthburner, 2=A4T, 3=AntHead,
+     * 4=JabberWocky) */
     lv_subject_t* subject_toolhead_style() {
         return &toolhead_style_subject_;
     }

@@ -1323,6 +1323,44 @@ std::string PrinterDetector::get_print_start_profile(const std::string& printer_
 }
 
 // ============================================================================
+// Toolhead Style Lookup
+// ============================================================================
+
+std::string PrinterDetector::get_toolhead_style(const std::string& printer_name) {
+    if (!g_database.load()) {
+        spdlog::warn("[PrinterDetector] Cannot lookup toolhead_style without database");
+        return "";
+    }
+
+    if (!g_database.data.contains("printers") || !g_database.data["printers"].is_array()) {
+        return "";
+    }
+
+    std::string name_lower = printer_name;
+    std::transform(name_lower.begin(), name_lower.end(), name_lower.begin(),
+                   [](unsigned char c) { return std::tolower(c); });
+
+    for (const auto& printer : g_database.data["printers"]) {
+        std::string db_name = printer.value("name", "");
+        std::string db_name_lower = db_name;
+        std::transform(db_name_lower.begin(), db_name_lower.end(), db_name_lower.begin(),
+                       [](unsigned char c) { return std::tolower(c); });
+
+        if (db_name_lower == name_lower) {
+            std::string style = printer.value("toolhead_style", "");
+            if (!style.empty()) {
+                spdlog::debug("[PrinterDetector] Found toolhead_style '{}' for printer '{}'", style,
+                              printer_name);
+            }
+            return style;
+        }
+    }
+
+    spdlog::debug("[PrinterDetector] No toolhead_style found for printer '{}'", printer_name);
+    return "";
+}
+
+// ============================================================================
 // Memory Management
 // ============================================================================
 

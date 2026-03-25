@@ -385,6 +385,13 @@ class PrinterDetector {
     static bool is_pfa_printer();
 
     /**
+     * @brief Get the native toolhead style for a printer from the database
+     * @param printer_name Printer name (case-insensitive match)
+     * @return Toolhead style string (e.g., "creality_k1") or empty if none
+     */
+    static std::string get_toolhead_style(const std::string& printer_name);
+
+    /**
      * @brief Check if connected printer is a Creality K1 series
      * @return true if printer type contains both "creality" and "k1"
      */

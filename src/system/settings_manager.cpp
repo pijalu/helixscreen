@@ -18,6 +18,7 @@
 #include "spdlog/spdlog.h"
 #include "static_subject_registry.h"
 #include "system_settings_manager.h"
+#include "wizard_config_paths.h"
 
 #include <algorithm>
 #include <cmath>
@@ -26,8 +27,30 @@ using namespace helix;
 
 // Z movement style options (Auto=0, Bed Moves=1, Nozzle Moves=2)
 static const char* Z_MOVEMENT_STYLE_OPTIONS_TEXT = "Auto\nBed Moves\nNozzle Moves";
-static const char* TOOLHEAD_STYLE_OPTIONS_TEXT =
-    "Auto\nDefault\nA4T\nAntHead\nJabberWocky\nStealthburner\nCreality K1\nCreality K2";
+
+// Aftermarket toolhead styles shown in dropdown (Auto + user overrides only)
+// Native styles (DEFAULT, CREALITY_K1, CREALITY_K2) are auto-detected and not shown.
+static const char* TOOLHEAD_STYLE_OPTIONS_TEXT = "Auto\nStealthburner\nA4T\nAntHead\nJabberWocky";
+
+// Map dropdown index → ToolheadStyle enum value
+static constexpr helix::ToolheadStyle DROPDOWN_TO_STYLE[] = {
+    helix::ToolheadStyle::AUTO,          // 0: Auto
+    helix::ToolheadStyle::STEALTHBURNER, // 1: Stealthburner
+    helix::ToolheadStyle::A4T,           // 2: A4T
+    helix::ToolheadStyle::ANTHEAD,       // 3: AntHead
+    helix::ToolheadStyle::JABBERWOCKY,   // 4: JabberWocky
+};
+static constexpr int DROPDOWN_COUNT =
+    static_cast<int>(sizeof(DROPDOWN_TO_STYLE) / sizeof(DROPDOWN_TO_STYLE[0]));
+
+// Convert ToolheadStyle enum to dropdown index (native styles map to 0/Auto)
+static int style_to_dropdown_index(helix::ToolheadStyle style) {
+    for (int i = 0; i < DROPDOWN_COUNT; i++) {
+        if (DROPDOWN_TO_STYLE[i] == style)
+            return i;
+    }
+    return 0; // Native styles (DEFAULT, CREALITY_K1, CREALITY_K2) map to Auto
+}
 
 SettingsManager& SettingsManager::instance() {
     static SettingsManager instance;
@@ -188,6 +211,22 @@ ToolheadStyle SettingsManager::get_effective_toolhead_style() const {
     if (style != ToolheadStyle::AUTO) {
         return style;
     }
+
+    // Check printer database for native toolhead style first
+    Config* config = Config::get_instance();
+    if (config) {
+        std::string printer_type =
+            config->get<std::string>(config->df() + helix::wizard::PRINTER_TYPE, "");
+        if (!printer_type.empty()) {
+            std::string db_style = PrinterDetector::get_toolhead_style(printer_type);
+            if (db_style == "creality_k1")
+                return ToolheadStyle::CREALITY_K1;
+            if (db_style == "creality_k2")
+                return ToolheadStyle::CREALITY_K2;
+        }
+    }
+
+    // Fall back to heuristic detection
     if (PrinterDetector::is_pfa_printer()) {
         return ToolheadStyle::ANTHEAD;
     }
@@ -215,6 +254,16 @@ void SettingsManager::set_toolhead_style(ToolheadStyle style) {
 
 const char* SettingsManager::get_toolhead_style_options() {
     return TOOLHEAD_STYLE_OPTIONS_TEXT;
+}
+
+int SettingsManager::toolhead_style_to_dropdown_index(ToolheadStyle style) {
+    return style_to_dropdown_index(style);
+}
+
+ToolheadStyle SettingsManager::dropdown_index_to_toolhead_style(int index) {
+    if (index < 0 || index >= DROPDOWN_COUNT)
+        return ToolheadStyle::AUTO;
+    return DROPDOWN_TO_STYLE[index];
 }
 
 // ============================================================================
