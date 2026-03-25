@@ -441,10 +441,12 @@ void FanStackWidget::bind_carousel_fans() {
         }
         carousel_pages_.clear();
 
-        // Clear existing carousel pages (the carousel may have pages from a previous bind)
+        // Clear existing carousel pages (the carousel may have pages from a previous bind).
+        // Drain BEFORE clean to process any pending callbacks that reference these widgets.
+        // The freeze prevents new callbacks from being enqueued during the clean.
+        helix::ui::UpdateQueue::instance().drain();
         auto* state_ptr = ui_carousel_get_state(carousel);
         if (state_ptr && state_ptr->scroll_container) {
-            helix::ui::UpdateQueue::instance().drain();
             lv_obj_clean(state_ptr->scroll_container);
             state_ptr->real_tiles.clear();
             ui_carousel_rebuild_indicators(carousel);
@@ -1006,7 +1008,7 @@ void FanStackWidget::dismiss_fan_picker() {
     s_active_picker_ = nullptr;
 
     if (lv_obj_is_valid(backdrop)) {
-        helix::ui::safe_delete(backdrop);
+        helix::ui::safe_delete_deferred(backdrop);
     }
 
     spdlog::debug("[FanStackWidget] Picker dismissed");
