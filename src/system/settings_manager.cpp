@@ -26,7 +26,8 @@ using namespace helix;
 
 // Z movement style options (Auto=0, Bed Moves=1, Nozzle Moves=2)
 static const char* Z_MOVEMENT_STYLE_OPTIONS_TEXT = "Auto\nBed Moves\nNozzle Moves";
-static const char* TOOLHEAD_STYLE_OPTIONS_TEXT = "Auto\nDefault\nA4T\nAntHead\nJabberWocky\nStealthburner";
+static const char* TOOLHEAD_STYLE_OPTIONS_TEXT =
+    "Auto\nDefault\nA4T\nAntHead\nJabberWocky\nStealthburner\nCreality K1\nCreality K2";
 
 SettingsManager& SettingsManager::instance() {
     static SettingsManager instance;
@@ -78,7 +79,7 @@ void SettingsManager::init_subjects() {
 
     // Toolhead style (default: 0 = Auto)
     int toolhead_style = config->get<int>("/appearance/toolhead_style", 0);
-    toolhead_style = std::clamp(toolhead_style, 0, 5);
+    toolhead_style = std::clamp(toolhead_style, 0, 7);
     UI_MANAGED_SUBJECT_INT(toolhead_style_subject_, toolhead_style, "settings_toolhead_style",
                            subjects_);
 
@@ -179,7 +180,7 @@ const char* SettingsManager::get_z_movement_style_options() {
 
 ToolheadStyle SettingsManager::get_toolhead_style() const {
     int val = lv_subject_get_int(const_cast<lv_subject_t*>(&toolhead_style_subject_));
-    return static_cast<ToolheadStyle>(std::clamp(val, 0, 5));
+    return static_cast<ToolheadStyle>(std::clamp(val, 0, 7));
 }
 
 ToolheadStyle SettingsManager::get_effective_toolhead_style() const {
@@ -198,7 +199,7 @@ ToolheadStyle SettingsManager::get_effective_toolhead_style() const {
 
 void SettingsManager::set_toolhead_style(ToolheadStyle style) {
     int val = static_cast<int>(style);
-    val = std::clamp(val, 0, 5);
+    val = std::clamp(val, 0, 7);
     spdlog::info("[SettingsManager] set_toolhead_style({})", val);
     lv_subject_set_int(&toolhead_style_subject_, val);
     Config* config = Config::get_instance();
