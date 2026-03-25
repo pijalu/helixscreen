@@ -6,13 +6,14 @@
       </div>
 
       <div class="version-selector">
-        <h3>Select versions to compare</h3>
+        <h3>Select up to 5 versions to compare</h3>
         <div class="version-pills">
           <button
             v-for="v in availableVersions"
             :key="v"
             class="version-pill"
-            :class="{ active: selectedVersions.includes(v) }"
+            :class="{ active: selectedVersions.includes(v), disabled: !selectedVersions.includes(v) && selectedVersions.length >= 5 }"
+            :disabled="!selectedVersions.includes(v) && selectedVersions.length >= 5"
             @click="toggleVersion(v)"
           >
             {{ v }}
@@ -22,38 +23,65 @@
 
       <div v-if="loading" class="loading">Loading...</div>
       <div v-else-if="error" class="error">{{ error }}</div>
-      <div v-else-if="data" class="releases-grid">
-        <div v-for="ver in sortedVersions" :key="ver.version" class="release-card">
-          <h3 class="release-version">{{ ver.version }}</h3>
-          <div class="release-stats">
-            <div class="stat">
-              <span class="stat-label">Active Devices</span>
-              <span class="stat-value">{{ ver.active_devices }}</span>
-            </div>
-            <div class="stat">
-              <span class="stat-label">Sessions</span>
-              <span class="stat-value">{{ ver.total_sessions.toLocaleString() }}</span>
-            </div>
-            <div class="stat">
-              <span class="stat-label">Crash Rate</span>
-              <span class="stat-value" :style="{ color: ver.crash_rate * 100 > 5 ? 'var(--accent-red)' : 'var(--accent-green)' }">
+      <div v-else-if="sortedVersions.length > 0" class="comparison-wrapper">
+        <table class="comparison-table">
+          <thead>
+            <tr>
+              <th class="metric-col"></th>
+              <th v-for="ver in sortedVersions" :key="ver.version" class="version-col">
+                <span class="version-header">{{ ver.version }}</span>
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="metric-label">Active Devices</td>
+              <td v-for="ver in sortedVersions" :key="ver.version" class="metric-value">
+                {{ ver.active_devices.toLocaleString() }}
+              </td>
+            </tr>
+            <tr>
+              <td class="metric-label">Sessions</td>
+              <td v-for="ver in sortedVersions" :key="ver.version" class="metric-value">
+                {{ ver.total_sessions.toLocaleString() }}
+              </td>
+            </tr>
+            <tr>
+              <td class="metric-label">Crash Rate</td>
+              <td
+                v-for="ver in sortedVersions"
+                :key="ver.version"
+                class="metric-value"
+                :class="crashRateClass(ver.crash_rate)"
+              >
                 {{ (ver.crash_rate * 100).toFixed(1) }}%
-              </span>
-            </div>
-            <div class="stat">
-              <span class="stat-label">Print Success</span>
-              <span class="stat-value" style="color: var(--accent-green)">
+                <span v-if="crashDelta(ver) !== null" class="delta" :class="crashDelta(ver)! > 0 ? 'delta-bad' : 'delta-good'">
+                  {{ crashDelta(ver)! > 0 ? '+' : '' }}{{ crashDelta(ver)!.toFixed(1) }}pp
+                </span>
+              </td>
+            </tr>
+            <tr>
+              <td class="metric-label">Print Success</td>
+              <td
+                v-for="ver in sortedVersions"
+                :key="ver.version"
+                class="metric-value"
+                :class="successRateClass(ver.print_success_rate)"
+              >
                 {{ (ver.print_success_rate * 100).toFixed(1) }}%
-              </span>
-            </div>
-            <div class="stat">
-              <span class="stat-label">Crashes</span>
-              <span class="stat-value" style="color: var(--accent-red)">
-                {{ ver.total_crashes }}
-              </span>
-            </div>
-          </div>
-        </div>
+                <span v-if="successDelta(ver) !== null" class="delta" :class="successDelta(ver)! > 0 ? 'delta-good' : 'delta-bad'">
+                  {{ successDelta(ver)! > 0 ? '+' : '' }}{{ successDelta(ver)!.toFixed(1) }}pp
+                </span>
+              </td>
+            </tr>
+            <tr>
+              <td class="metric-label">Total Crashes</td>
+              <td v-for="ver in sortedVersions" :key="ver.version" class="metric-value crashes">
+                {{ ver.total_crashes.toLocaleString() }}
+              </td>
+            </tr>
+          </tbody>
+        </table>
       </div>
       <div v-else class="empty">Select versions above to compare</div>
     </div>
@@ -77,6 +105,8 @@ function compareVersions(a: string, b: string): number {
   return 0
 }
 
+const MAX_SELECTIONS = 5
+
 const filters = useFiltersStore()
 const availableVersions = ref<string[]>([])
 const selectedVersions = ref<string[]>([])
@@ -88,7 +118,7 @@ function toggleVersion(v: string) {
   const idx = selectedVersions.value.indexOf(v)
   if (idx >= 0) {
     selectedVersions.value.splice(idx, 1)
-  } else {
+  } else if (selectedVersions.value.length < MAX_SELECTIONS) {
     selectedVersions.value.push(v)
   }
 }
@@ -99,16 +129,44 @@ async function fetchVersionList() {
     availableVersions.value = adoption.versions
       .map(v => v.name)
       .sort(compareVersions)
-    // Deselect versions no longer in the list
     selectedVersions.value = selectedVersions.value.filter(v => availableVersions.value.includes(v))
   } catch {
-    // Silently fail - versions will just be empty
+    // Silently fail
   }
 }
 
 const sortedVersions = computed(() =>
   [...(data.value?.versions ?? [])].sort((a, b) => compareVersions(a.version, b.version))
 )
+
+// Delta helpers: compare each version to its predecessor in the sorted list
+function crashDelta(ver: { version: string; crash_rate: number }): number | null {
+  const idx = sortedVersions.value.findIndex(v => v.version === ver.version)
+  if (idx <= 0) return null
+  const prev = sortedVersions.value[idx - 1]
+  return (ver.crash_rate - prev.crash_rate) * 100
+}
+
+function successDelta(ver: { version: string; print_success_rate: number }): number | null {
+  const idx = sortedVersions.value.findIndex(v => v.version === ver.version)
+  if (idx <= 0) return null
+  const prev = sortedVersions.value[idx - 1]
+  return (ver.print_success_rate - prev.print_success_rate) * 100
+}
+
+function crashRateClass(rate: number): string {
+  const pct = rate * 100
+  if (pct > 10) return 'rate-bad'
+  if (pct > 5) return 'rate-warn'
+  return 'rate-good'
+}
+
+function successRateClass(rate: number): string {
+  const pct = rate * 100
+  if (pct >= 80) return 'rate-good'
+  if (pct >= 60) return 'rate-warn'
+  return 'rate-bad'
+}
 
 async function fetchReleases() {
   if (selectedVersions.value.length === 0) {
@@ -167,10 +225,11 @@ watch(() => filters.queryString, fetchVersionList, { immediate: true })
   border-radius: 20px;
   color: var(--text-secondary);
   font-size: 13px;
+  cursor: pointer;
   transition: all 0.15s;
 }
 
-.version-pill:hover {
+.version-pill:hover:not(.disabled) {
   border-color: var(--accent-blue);
   color: var(--text-primary);
 }
@@ -181,47 +240,98 @@ watch(() => filters.queryString, fetchVersionList, { immediate: true })
   color: var(--accent-blue);
 }
 
-.releases-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 16px;
+.version-pill.disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
 }
 
-.release-card {
+.comparison-wrapper {
   background: var(--bg-card);
   border: 1px solid var(--border);
   border-radius: 8px;
-  padding: 20px;
+  overflow-x: auto;
 }
 
-.release-version {
+.comparison-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.comparison-table th,
+.comparison-table td {
+  padding: 14px 20px;
+  text-align: center;
+  border-bottom: 1px solid var(--border);
+}
+
+.comparison-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.comparison-table tbody tr:hover {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.metric-col {
+  width: 160px;
+  min-width: 160px;
+}
+
+.version-col {
+  min-width: 140px;
+}
+
+.version-header {
   font-size: 16px;
-  font-weight: 600;
-  margin-bottom: 16px;
+  font-weight: 700;
   color: var(--accent-blue);
 }
 
-.release-stats {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.stat {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.stat-label {
+.metric-label {
+  text-align: left;
   font-size: 13px;
+  font-weight: 500;
   color: var(--text-secondary);
+  white-space: nowrap;
 }
 
-.stat-value {
+.metric-value {
   font-size: 15px;
   font-weight: 600;
   color: var(--text-primary);
+  font-family: 'SF Mono', 'Fira Code', monospace;
+  position: relative;
+}
+
+.metric-value.crashes {
+  color: var(--accent-red);
+}
+
+.metric-value.rate-good {
+  color: var(--accent-green);
+}
+
+.metric-value.rate-warn {
+  color: var(--accent-yellow);
+}
+
+.metric-value.rate-bad {
+  color: var(--accent-red);
+}
+
+.delta {
+  display: block;
+  font-size: 11px;
+  font-weight: 500;
+  margin-top: 2px;
+}
+
+.delta-good {
+  color: var(--accent-green);
+}
+
+.delta-bad {
+  color: var(--accent-red);
 }
 
 .loading, .error, .empty {
