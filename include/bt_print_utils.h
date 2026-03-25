@@ -10,6 +10,7 @@ namespace helix::bluetooth {
 struct RfcommSendResult {
     bool success = false;
     std::string error;
+    std::vector<uint8_t> response;  ///< Response data (for send_receive)
 };
 
 /// Send raw data over RFCOMM to a Bluetooth device.
@@ -22,5 +23,12 @@ struct RfcommSendResult {
 RfcommSendResult rfcomm_send(const std::string& mac, int channel,
                               const std::vector<uint8_t>& data,
                               const std::string& log_tag);
+
+/// Send data over RFCOMM and read a response.
+/// Same lifecycle as rfcomm_send but reads up to `response_len` bytes after sending.
+RfcommSendResult rfcomm_send_receive(const std::string& mac, int channel,
+                                      const std::vector<uint8_t>& data,
+                                      size_t response_len,
+                                      const std::string& log_tag);
 
 }  // namespace helix::bluetooth

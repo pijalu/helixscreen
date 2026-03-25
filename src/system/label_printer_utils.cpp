@@ -3,9 +3,12 @@
 
 #include "label_printer_utils.h"
 
+#include "bluetooth_loader.h"
 #include "brother_ql_bt_printer.h"
 #include "brother_ql_printer.h"
+#include "brother_ql_protocol.h"
 #include "bt_discovery_utils.h"
+#include "bt_print_utils.h"
 #include "ipp_printer.h"
 #include "label_printer_settings.h"
 #include "label_renderer.h"
@@ -20,10 +23,63 @@
 #include "usb_printer_detector.h"
 
 #include <algorithm>
+#include <thread>
+
+#include <arpa/inet.h>
+#include <netdb.h>
+#include <sys/socket.h>
+#include <unistd.h>
 
 #include <spdlog/spdlog.h>
 
 namespace helix {
+
+/// Query Brother QL printer media over TCP. Returns detected media info.
+/// Connects, sends status request, reads 32-byte response, disconnects.
+static helix::label::BrotherQLMedia query_brother_media_tcp(const std::string& host, int port) {
+    helix::label::BrotherQLMedia media{};
+
+    int sockfd = socket(AF_INET, SOCK_STREAM, 0);
+    if (sockfd < 0)
+        return media;
+
+    struct timeval tv{};
+    tv.tv_sec = 5;
+    setsockopt(sockfd, SOL_SOCKET, SO_SNDTIMEO, &tv, sizeof(tv));
+    setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
+
+    struct addrinfo hints{}, *result = nullptr;
+    hints.ai_family = AF_INET;
+    hints.ai_socktype = SOCK_STREAM;
+    if (getaddrinfo(host.c_str(), std::to_string(port).c_str(), &hints, &result) != 0) {
+        close(sockfd);
+        return media;
+    }
+
+    if (connect(sockfd, result->ai_addr, result->ai_addrlen) < 0) {
+        freeaddrinfo(result);
+        close(sockfd);
+        return media;
+    }
+    freeaddrinfo(result);
+
+    auto req = helix::label::brother_ql_build_status_request();
+    send(sockfd, req.data(), req.size(), MSG_NOSIGNAL);
+
+    uint8_t status[32] = {};
+    ssize_t n = recv(sockfd, status, sizeof(status), MSG_WAITALL);
+    close(sockfd);
+
+    if (n == 32) {
+        media = helix::label::brother_ql_parse_status(status, 32);
+        if (media.valid) {
+            spdlog::info("[LabelPrinter] Detected Brother QL media: {}mm{}",
+                         media.width_mm,
+                         media.length_mm > 0 ? fmt::format("x{}mm", media.length_mm) : " continuous");
+        }
+    }
+    return media;
+}
 
 void print_spool_label(const SpoolInfo& spool, PrintCallback callback) {
     auto& settings = LabelPrinterSettingsManager::instance();
@@ -59,15 +115,25 @@ void print_spool_label(const SpoolInfo& spool, PrintCallback callback) {
     auto preset = static_cast<LabelPreset>(
         std::clamp(settings.get_label_preset(), 0, static_cast<int>(LabelPreset::MINIMAL)));
 
-    // Force QR-only for small square/narrow labels where text won't fit
-    if (label_size.width_px <= 250 && label_size.height_px > 0 && label_size.height_px <= 250) {
-        preset = LabelPreset::MINIMAL;
+    // Brother QL network: detect media + render on worker thread
+    const bool is_brother_net = !is_ipp && !is_usb && !is_bt;
+    if (is_brother_net) {
+        // Handled below — rendering deferred to worker thread after media detection
+    } else {
+        // Force QR-only for small square/narrow labels where text won't fit
+        if (label_size.width_px <= 250 && label_size.height_px > 0 && label_size.height_px <= 250) {
+            preset = LabelPreset::MINIMAL;
+        }
     }
 
-    auto bitmap = LabelRenderer::render(spool, preset, label_size);
-    if (bitmap.empty()) {
-        if (callback) callback(false, "Failed to render label");
-        return;
+    // Render bitmap for non-Brother-network paths
+    LabelBitmap bitmap;
+    if (!is_brother_net) {
+        bitmap = LabelRenderer::render(spool, preset, label_size);
+        if (bitmap.empty()) {
+            if (callback) callback(false, "Failed to render label");
+            return;
+        }
     }
 
     if (is_ipp) {
@@ -111,6 +177,9 @@ void print_spool_label(const SpoolInfo& spool, PrintCallback callback) {
         const auto bt_name = settings.get_bt_name();
 
         if (helix::bluetooth::is_brother_printer(bt_name.c_str())) {
+            // Brother QL BT: RFCOMM only supports one connection at a time,
+            // so media detection requires a single-connection flow. For now,
+            // use the selected label size from settings.
             helix::label::BrotherQLBluetoothPrinter printer;
             printer.set_device(bt_address);
             printer.print(bitmap, label_size, callback);
@@ -128,9 +197,54 @@ void print_spool_label(const SpoolInfo& spool, PrintCallback callback) {
             printer.print(bitmap, label_size, callback);
         }
     } else {
-        static BrotherQLPrinter net_printer;
-        net_printer.print_label(settings.get_printer_address(), settings.get_printer_port(),
-                                bitmap, label_size, callback);
+        // Brother QL network: detect loaded media on worker thread, then render + print
+        auto host = settings.get_printer_address();
+        auto port = settings.get_printer_port();
+        std::thread([spool, preset, sizes, host, port, callback]() {
+            // Query printer for loaded media
+            auto media = query_brother_media_tcp(host, port);
+            LabelSize actual_size;
+            if (media.valid) {
+                auto* matched = helix::label::brother_ql_match_media(media, sizes);
+                if (matched) {
+                    actual_size = *matched;
+                    spdlog::info("[LabelPrinter] Auto-detected label: {}", actual_size.name);
+                } else {
+                    spdlog::warn("[LabelPrinter] Unknown media {}mm{}, using selected size",
+                                 media.width_mm,
+                                 media.length_mm > 0 ? fmt::format("x{}mm", media.length_mm) : "");
+                    // Fall back to user-selected size
+                    int idx = std::clamp(
+                        LabelPrinterSettingsManager::instance().get_label_size_index(),
+                        0, static_cast<int>(sizes.size()) - 1);
+                    actual_size = sizes[idx];
+                }
+            } else {
+                spdlog::warn("[LabelPrinter] Could not detect media, using selected size");
+                int idx = std::clamp(
+                    LabelPrinterSettingsManager::instance().get_label_size_index(),
+                    0, static_cast<int>(sizes.size()) - 1);
+                actual_size = sizes[idx];
+            }
+
+            // Apply preset override for small labels
+            auto actual_preset = preset;
+            if (actual_size.width_px <= 250 && actual_size.height_px > 0 &&
+                actual_size.height_px <= 250) {
+                actual_preset = LabelPreset::MINIMAL;
+            }
+
+            auto bitmap = LabelRenderer::render(spool, actual_preset, actual_size);
+            if (bitmap.empty()) {
+                helix::ui::queue_update([callback]() {
+                    if (callback) callback(false, "Failed to render label");
+                });
+                return;
+            }
+
+            static BrotherQLPrinter net_printer;
+            net_printer.print_label(host, port, bitmap, actual_size, callback);
+        }).detach();
     }
 }
 

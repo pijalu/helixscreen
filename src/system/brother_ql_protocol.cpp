@@ -156,4 +156,57 @@ std::vector<uint8_t> brother_ql_build_raster(const LabelBitmap& bitmap,
     return cmd;
 }
 
+std::vector<uint8_t> brother_ql_build_status_request() {
+    std::vector<uint8_t> cmd;
+    // 1. Invalidate — 200 bytes of 0x00
+    cmd.insert(cmd.end(), 200, 0x00);
+    // 2. Initialize — ESC @
+    cmd.push_back(0x1B);
+    cmd.push_back(0x40);
+    // 3. Request status — ESC i S
+    cmd.push_back(0x1B);
+    cmd.push_back(0x69);
+    cmd.push_back(0x53);
+    return cmd;
+}
+
+BrotherQLMedia brother_ql_parse_status(const uint8_t* data, size_t len) {
+    BrotherQLMedia media{};
+    // Brother QL status response is 32 bytes
+    if (!data || len < 32)
+        return media;
+    // Byte 0: print head mark (0x80)
+    if (data[0] != 0x80)
+        return media;
+    // Byte 11: media type (0x0A continuous, 0x0B die-cut)
+    media.media_type = data[11];
+    // Byte 10: media width in mm
+    media.width_mm = data[10];
+    // Byte 17: media length in mm (0 for continuous)
+    media.length_mm = data[17];
+    media.valid = (media.width_mm > 0);
+    return media;
+}
+
+const LabelSize* brother_ql_match_media(const BrotherQLMedia& media,
+                                         const std::vector<LabelSize>& sizes) {
+    if (!media.valid)
+        return nullptr;
+    for (const auto& s : sizes) {
+        if (s.media_type == media.media_type &&
+            s.width_mm == media.width_mm &&
+            s.length_mm == media.length_mm) {
+            return &s;
+        }
+    }
+    // No exact match — try matching just width for continuous tape
+    if (media.media_type == 0x0A) {
+        for (const auto& s : sizes) {
+            if (s.media_type == 0x0A && s.width_mm == media.width_mm)
+                return &s;
+        }
+    }
+    return nullptr;
+}
+
 }  // namespace helix::label
