@@ -36,7 +36,7 @@ void draw_nozzle_creality_k1(lv_layer_t* layer, int32_t cx, int32_t cy, lv_color
 
     // Dimensions scaled by scale_unit — K1 is compact (~1:1.2 W:H ratio)
     int32_t body_half_width = (scale_unit * 16) / 10;
-    int32_t body_height = (scale_unit * 32) / 10;
+    int32_t body_height = (scale_unit * 48) / 10;
     int32_t body_depth = (scale_unit * 6) / 10;
 
     // Shift extruder left so filament line bisects the top edge of top surface

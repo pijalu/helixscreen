@@ -6,6 +6,7 @@
 #include "nozzle_renderer_creality_k2.h"
 
 #include "nozzle_renderer_common.h"
+#include "theme_manager.h"
 
 void draw_nozzle_creality_k2(lv_layer_t* layer, int32_t cx, int32_t cy, lv_color_t filament_color,
                              int32_t scale_unit, lv_opa_t opa) {
@@ -21,8 +22,8 @@ void draw_nozzle_creality_k2(lv_layer_t* layer, int32_t cx, int32_t cy, lv_color
         return lv_color_make((uint8_t)(c.red * f), (uint8_t)(c.green * f), (uint8_t)(c.blue * f));
     };
 
-    // Base color — dark charcoal gray representing the physical K2 hardware
-    lv_color_t body_base = dim(lv_color_hex(0x2A2A2A));
+    // Base color — metallic gray (same as K1 / Bambu default)
+    lv_color_t body_base = dim(theme_manager_get_color("filament_metal"));
     filament_color = dim(filament_color);
 
     // Lighting: light from top-left
