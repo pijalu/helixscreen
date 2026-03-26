@@ -27,13 +27,28 @@ KLIPPER_USER=""
 KLIPPER_HOME=""
 
 # Detect platform
-# Returns: "ad5m", "ad5x", "k1", "pi", "pi32", "x86", or "unsupported"
+# Returns: "ad5m", "ad5x", "k1", "k2", "pi", "pi32", "x86", or "unsupported"
 detect_platform() {
     local arch kernel
     arch=$(uname -m)
     kernel=$(uname -r)
 
-    # Check for AD5M (armv7l with specific kernel)
+    # Check for Creality K2 series (armv7l, OpenWrt/Tina Linux, /mnt/UDISK)
+    # MUST come before AD5M check — both are armv7l with kernel 5.4.61
+    if [ "$arch" = "armv7l" ] && [ -d "/mnt/UDISK" ]; then
+        # K2 runs Tina Linux (OpenWrt-based) with storage on /mnt/UDISK
+        if [ -f /etc/os-release ] && grep -qi "openwrt\|tina" /etc/os-release 2>/dev/null; then
+            echo "k2"
+            return
+        fi
+        # Fallback: /mnt/UDISK/printer_data is a strong K2 indicator even without os-release
+        if [ -d "/mnt/UDISK/printer_data" ] || [ -d "/mnt/UDISK/creality" ]; then
+            echo "k2"
+            return
+        fi
+    fi
+
+    # Check for AD5M (armv7l with specific kernel, NOT K2)
     if [ "$arch" = "armv7l" ]; then
         # AD5M has a specific kernel identifier
         if echo "$kernel" | grep -q "ad5m\|5.4.61"; then
@@ -426,6 +441,15 @@ set_install_paths() {
                 log_info "K1 firmware: Stock Klipper"
                 ;;
         esac
+        log_info "Install directory: ${INSTALL_DIR}"
+    elif [ "$platform" = "k2" ]; then
+        # Creality K2 series - OpenWrt/Tina Linux, storage on /mnt/UDISK
+        INSTALL_DIR="/opt/helixscreen"
+        INIT_SCRIPT_DEST="/etc/init.d/S99helixscreen"
+        PREVIOUS_UI_SCRIPT=""
+        KLIPPER_USER="root"
+        KLIPPER_HOME="/root"
+        log_info "Platform: Creality K2 series"
         log_info "Install directory: ${INSTALL_DIR}"
     else
         # Pi and other platforms — detect klipper user, then auto-detect install dir

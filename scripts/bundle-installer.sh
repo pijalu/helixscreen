@@ -169,12 +169,12 @@ install_platform_hooks() {
         klipper_mod) platform_hook="ad5m-kmod" ;;
     esac
 
-    # Pi and K1 platform hooks (pi32 shares Pi hooks)
-    if [ "$platform" = "pi" ] || [ "$platform" = "pi32" ]; then
-        platform_hook="pi"
-    elif [ "$platform" = "k1" ]; then
-        platform_hook="k1"
-    fi
+    # Pi, K1, K2 platform hooks (pi32 shares Pi hooks)
+    case "$platform" in
+        pi|pi32) platform_hook="pi" ;;
+        k1)      platform_hook="k1" ;;
+        k2)      platform_hook="k2" ;;
+    esac
 
     if [ -n "$platform_hook" ]; then
         deploy_platform_hooks "$INSTALL_DIR" "$platform_hook"
@@ -248,6 +248,7 @@ main() {
         log_error "  - Raspberry Pi (aarch64/armv7l)"
         log_error "  - FlashForge Adventurer 5M (armv7l)"
         log_error "  - Creality K1 series with Simple AF"
+        log_error "  - Creality K2 series (K2/K2 Pro/K2 Plus/K2 Max)"
         log_error "  - x86_64 Debian/Ubuntu (x86_64)"
         exit 1
     fi
@@ -372,7 +373,7 @@ main() {
     print_post_install_commands
     echo ""
 
-    if [ "$platform" = "ad5m" ] || [ "$platform" = "k1" ]; then
+    if [ "$platform" = "ad5m" ] || [ "$platform" = "k1" ] || [ "$platform" = "k2" ]; then
         echo "Note: You may need to reboot for the display to update."
     fi
 }

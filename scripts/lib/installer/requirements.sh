@@ -141,13 +141,16 @@ check_disk_space() {
 
     # Get available space in MB
     local available_mb
-    if [ "$platform" = "ad5m" ] || [ "$platform" = "ad5x" ] || [ "$platform" = "k1" ]; then
-        # BusyBox df output format: blocks are in KB by default
-        available_mb=$(df "$check_dir" 2>/dev/null | tail -1 | awk '{print int($4/1024)}')
-    else
-        # GNU df with -m flag outputs in MB
-        available_mb=$(df -m "$check_dir" 2>/dev/null | tail -1 | awk '{print $4}')
-    fi
+    case "$platform" in
+        ad5m|ad5x|k1|k2)
+            # BusyBox df: blocks are in KB by default
+            available_mb=$(df "$check_dir" 2>/dev/null | tail -1 | awk '{print int($4/1024)}')
+            ;;
+        *)
+            # GNU df with -m flag outputs in MB
+            available_mb=$(df -m "$check_dir" 2>/dev/null | tail -1 | awk '{print $4}')
+            ;;
+    esac
 
     if [ -n "$available_mb" ] && [ "$available_mb" -lt "$required_mb" ]; then
         log_error "Insufficient disk space on $check_dir"
@@ -188,7 +191,7 @@ check_klipper_ecosystem() {
 
     # Only relevant for embedded platforms with local Klipper
     case "$platform" in
-        ad5m|ad5x|k1) ;;
+        ad5m|ad5x|k1|k2) ;;
         *) return 0 ;;
     esac
 

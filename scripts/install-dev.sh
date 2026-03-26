@@ -134,11 +134,12 @@ main() {
         log_error "  - Raspberry Pi (aarch64/armv7l)"
         log_error "  - FlashForge Adventurer 5M (armv7l)"
         log_error "  - Creality K1 series with Simple AF"
+        log_error "  - Creality K2 series (K2/K2 Pro/K2 Plus/K2 Max)"
         log_error "  - x86_64 Debian/Ubuntu (x86_64)"
         exit 1
     fi
 
-    # For AD5M, detect firmware variant and set appropriate paths
+    # For AD5M/K1, detect firmware variant and set appropriate paths
     local firmware=""
     if [ "$platform" = "ad5m" ]; then
         AD5M_FIRMWARE=$(detect_ad5m_firmware)
@@ -249,7 +250,7 @@ main() {
     print_post_install_commands
     echo ""
 
-    if [ "$platform" = "ad5m" ] || [ "$platform" = "k1" ]; then
+    if [ "$platform" = "ad5m" ] || [ "$platform" = "k1" ] || [ "$platform" = "k2" ]; then
         echo "Note: You may need to reboot for the display to update."
     fi
 }

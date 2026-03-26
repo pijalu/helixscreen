@@ -268,13 +268,28 @@ KLIPPER_USER=""
 KLIPPER_HOME=""
 
 # Detect platform
-# Returns: "ad5m", "ad5x", "k1", "pi", "pi32", "x86", or "unsupported"
+# Returns: "ad5m", "ad5x", "k1", "k2", "pi", "pi32", "x86", or "unsupported"
 detect_platform() {
     local arch kernel
     arch=$(uname -m)
     kernel=$(uname -r)
 
-    # Check for AD5M (armv7l with specific kernel)
+    # Check for Creality K2 series (armv7l, OpenWrt/Tina Linux, /mnt/UDISK)
+    # MUST come before AD5M check — both are armv7l with kernel 5.4.61
+    if [ "$arch" = "armv7l" ] && [ -d "/mnt/UDISK" ]; then
+        # K2 runs Tina Linux (OpenWrt-based) with storage on /mnt/UDISK
+        if [ -f /etc/os-release ] && grep -qi "openwrt\|tina" /etc/os-release 2>/dev/null; then
+            echo "k2"
+            return
+        fi
+        # Fallback: /mnt/UDISK/printer_data is a strong K2 indicator even without os-release
+        if [ -d "/mnt/UDISK/printer_data" ] || [ -d "/mnt/UDISK/creality" ]; then
+            echo "k2"
+            return
+        fi
+    fi
+
+    # Check for AD5M (armv7l with specific kernel, NOT K2)
     if [ "$arch" = "armv7l" ]; then
         # AD5M has a specific kernel identifier
         if echo "$kernel" | grep -q "ad5m\|5.4.61"; then
@@ -668,6 +683,15 @@ set_install_paths() {
                 ;;
         esac
         log_info "Install directory: ${INSTALL_DIR}"
+    elif [ "$platform" = "k2" ]; then
+        # Creality K2 series - OpenWrt/Tina Linux, storage on /mnt/UDISK
+        INSTALL_DIR="/opt/helixscreen"
+        INIT_SCRIPT_DEST="/etc/init.d/S99helixscreen"
+        PREVIOUS_UI_SCRIPT=""
+        KLIPPER_USER="root"
+        KLIPPER_HOME="/root"
+        log_info "Platform: Creality K2 series"
+        log_info "Install directory: ${INSTALL_DIR}"
     else
         # Pi and other platforms — detect klipper user, then auto-detect install dir
         INIT_SCRIPT_DEST="/etc/init.d/S90helixscreen"
@@ -855,14 +879,16 @@ SUDO=""
 check_permissions() {
     local platform=$1
 
-    if [ "$platform" = "ad5m" ] || [ "$platform" = "ad5x" ] || [ "$platform" = "k1" ]; then
+    case "$platform" in
+    ad5m|ad5x|k1|k2)
         if [ "$(id -u)" != "0" ]; then
             log_error "Installation on $platform requires root privileges."
             log_error "Please run: sudo $0 $*"
             exit 1
         fi
         SUDO=""
-    else
+        ;;
+    *)
         # Pi: warn if not root but allow sudo
         if [ "$(id -u)" != "0" ]; then
             if ! command -v sudo >/dev/null 2>&1; then
@@ -875,7 +901,8 @@ check_permissions() {
         else
             SUDO=""
         fi
-    fi
+        ;;
+    esac
 }
 
 # Check if a polkit rule for HelixScreen exists (either .rules or .pkla)
@@ -915,8 +942,9 @@ install_permission_rules() {
     local platform=$1
     local helix_user="${KLIPPER_USER:-root}"
 
-    # Skip for platforms that run as root (AD5M, AD5X, K1) or if user is root
-    if [ "$platform" = "ad5m" ] || [ "$platform" = "ad5x" ] || [ "$platform" = "k1" ] || [ "$helix_user" = "root" ]; then
+    # Skip for platforms that run as root or if user is root
+    case "$platform" in ad5m|ad5x|k1|k2) helix_user="root" ;; esac
+    if [ "$helix_user" = "root" ]; then
         log_info "Skipping permission rules (running as root)"
         return 0
     fi
@@ -1144,13 +1172,16 @@ check_disk_space() {
 
     # Get available space in MB
     local available_mb
-    if [ "$platform" = "ad5m" ] || [ "$platform" = "ad5x" ] || [ "$platform" = "k1" ]; then
-        # BusyBox df output format: blocks are in KB by default
-        available_mb=$(df "$check_dir" 2>/dev/null | tail -1 | awk '{print int($4/1024)}')
-    else
-        # GNU df with -m flag outputs in MB
-        available_mb=$(df -m "$check_dir" 2>/dev/null | tail -1 | awk '{print $4}')
-    fi
+    case "$platform" in
+        ad5m|ad5x|k1|k2)
+            # BusyBox df: blocks are in KB by default
+            available_mb=$(df "$check_dir" 2>/dev/null | tail -1 | awk '{print int($4/1024)}')
+            ;;
+        *)
+            # GNU df with -m flag outputs in MB
+            available_mb=$(df -m "$check_dir" 2>/dev/null | tail -1 | awk '{print $4}')
+            ;;
+    esac
 
     if [ -n "$available_mb" ] && [ "$available_mb" -lt "$required_mb" ]; then
         log_error "Insufficient disk space on $check_dir"
@@ -1191,7 +1222,7 @@ check_klipper_ecosystem() {
 
     # Only relevant for embedded platforms with local Klipper
     case "$platform" in
-        ad5m|ad5x|k1) ;;
+        ad5m|ad5x|k1|k2) ;;
         *) return 0 ;;
     esac
 
@@ -2537,7 +2568,7 @@ validate_binary_architecture() {
     # Determine expected values based on platform
     local expected_class expected_machine_lo expected_desc
     case "$platform" in
-        ad5m|pi32)
+        ad5m|k2|pi32)
             expected_class="01"
             expected_machine_lo="28"
             expected_desc="ARM 32-bit (armv7l)"
@@ -2624,11 +2655,12 @@ extract_release() {
 
     # BusyBox tar doesn't support -z; use gunzip pipe on embedded platforms
     local extract_ok=false
-    if [ "$platform" = "ad5m" ] || [ "$platform" = "ad5x" ] || [ "$platform" = "k1" ]; then
-        gunzip -c "$tarball" | tar xf - && extract_ok=true
-    else
-        tar -xzf "$tarball" && extract_ok=true
-    fi
+    case "$platform" in
+        ad5m|ad5x|k1|k2)
+            gunzip -c "$tarball" | tar xf - && extract_ok=true ;;
+        *)
+            tar -xzf "$tarball" && extract_ok=true ;;
+    esac
 
     if [ "$extract_ok" = false ]; then
         local post_mb
@@ -4009,12 +4041,12 @@ install_platform_hooks() {
         klipper_mod) platform_hook="ad5m-kmod" ;;
     esac
 
-    # Pi and K1 platform hooks (pi32 shares Pi hooks)
-    if [ "$platform" = "pi" ] || [ "$platform" = "pi32" ]; then
-        platform_hook="pi"
-    elif [ "$platform" = "k1" ]; then
-        platform_hook="k1"
-    fi
+    # Pi, K1, K2 platform hooks (pi32 shares Pi hooks)
+    case "$platform" in
+        pi|pi32) platform_hook="pi" ;;
+        k1)      platform_hook="k1" ;;
+        k2)      platform_hook="k2" ;;
+    esac
 
     if [ -n "$platform_hook" ]; then
         deploy_platform_hooks "$INSTALL_DIR" "$platform_hook"
@@ -4088,6 +4120,7 @@ main() {
         log_error "  - Raspberry Pi (aarch64/armv7l)"
         log_error "  - FlashForge Adventurer 5M (armv7l)"
         log_error "  - Creality K1 series with Simple AF"
+        log_error "  - Creality K2 series (K2/K2 Pro/K2 Plus/K2 Max)"
         log_error "  - x86_64 Debian/Ubuntu (x86_64)"
         exit 1
     fi
@@ -4212,7 +4245,7 @@ main() {
     print_post_install_commands
     echo ""
 
-    if [ "$platform" = "ad5m" ] || [ "$platform" = "k1" ]; then
+    if [ "$platform" = "ad5m" ] || [ "$platform" = "k1" ] || [ "$platform" = "k2" ]; then
         echo "Note: You may need to reboot for the display to update."
     fi
 }

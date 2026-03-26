@@ -480,7 +480,7 @@ validate_binary_architecture() {
     # Determine expected values based on platform
     local expected_class expected_machine_lo expected_desc
     case "$platform" in
-        ad5m|pi32)
+        ad5m|k2|pi32)
             expected_class="01"
             expected_machine_lo="28"
             expected_desc="ARM 32-bit (armv7l)"
@@ -567,11 +567,12 @@ extract_release() {
 
     # BusyBox tar doesn't support -z; use gunzip pipe on embedded platforms
     local extract_ok=false
-    if [ "$platform" = "ad5m" ] || [ "$platform" = "ad5x" ] || [ "$platform" = "k1" ]; then
-        gunzip -c "$tarball" | tar xf - && extract_ok=true
-    else
-        tar -xzf "$tarball" && extract_ok=true
-    fi
+    case "$platform" in
+        ad5m|ad5x|k1|k2)
+            gunzip -c "$tarball" | tar xf - && extract_ok=true ;;
+        *)
+            tar -xzf "$tarball" && extract_ok=true ;;
+    esac
 
     if [ "$extract_ok" = false ]; then
         local post_mb

@@ -18,14 +18,16 @@ SUDO=""
 check_permissions() {
     local platform=$1
 
-    if [ "$platform" = "ad5m" ] || [ "$platform" = "ad5x" ] || [ "$platform" = "k1" ]; then
+    case "$platform" in
+    ad5m|ad5x|k1|k2)
         if [ "$(id -u)" != "0" ]; then
             log_error "Installation on $platform requires root privileges."
             log_error "Please run: sudo $0 $*"
             exit 1
         fi
         SUDO=""
-    else
+        ;;
+    *)
         # Pi: warn if not root but allow sudo
         if [ "$(id -u)" != "0" ]; then
             if ! command -v sudo >/dev/null 2>&1; then
@@ -38,7 +40,8 @@ check_permissions() {
         else
             SUDO=""
         fi
-    fi
+        ;;
+    esac
 }
 
 # Check if a polkit rule for HelixScreen exists (either .rules or .pkla)
@@ -78,8 +81,9 @@ install_permission_rules() {
     local platform=$1
     local helix_user="${KLIPPER_USER:-root}"
 
-    # Skip for platforms that run as root (AD5M, AD5X, K1) or if user is root
-    if [ "$platform" = "ad5m" ] || [ "$platform" = "ad5x" ] || [ "$platform" = "k1" ] || [ "$helix_user" = "root" ]; then
+    # Skip for platforms that run as root or if user is root
+    case "$platform" in ad5m|ad5x|k1|k2) helix_user="root" ;; esac
+    if [ "$helix_user" = "root" ]; then
         log_info "Skipping permission rules (running as root)"
         return 0
     fi

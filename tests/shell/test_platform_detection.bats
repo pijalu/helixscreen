@@ -30,82 +30,37 @@ setup() {
     mkdir -p "$BATS_TEST_TMPDIR/home/pi"
 }
 
-# Helper: override detect_platform to use mocked filesystem and commands
-# We redefine detect_platform to inject our test hooks since it reads
-# system files directly (/etc/os-release, /home/*)
-_detect_platform_with_mocks() {
-    local mock_arch="$1"
-    local mock_getconf="$2"
-    local mock_file_output="${3:-}"
 
-    # Mock uname -m
-    uname() {
-        if [ "$1" = "-m" ]; then
-            echo "$mock_arch"
-        elif [ "$1" = "-r" ]; then
-            echo "6.1.0-rpi"
-        else
-            command uname "$@"
-        fi
-    }
-    export -f uname
+# Since detect_platform reads real /etc/os-release and /home/*, we
+# redefine it with controlled inputs for testing. This helper captures
+# the Pi userspace bitness detection logic from the real function.
+_mock_pi_detect_platform() {
+    local arch="$1"
 
-    # Mock getconf
-    if [ "$mock_getconf" = "unavailable" ]; then
-        getconf() { return 1; }
+    local userspace_bits
+    userspace_bits=$(getconf LONG_BIT 2>/dev/null || echo "")
+    if [ "$userspace_bits" = "64" ]; then
+        echo "pi"
+    elif [ "$userspace_bits" = "32" ]; then
+        echo "pi32"
     else
-        getconf() {
-            if [ "$1" = "LONG_BIT" ]; then
-                echo "$mock_getconf"
-            else
-                command getconf "$@"
-            fi
-        }
-    fi
-    export -f getconf
-
-    # Mock file command (for fallback path)
-    if [ -n "$mock_file_output" ]; then
-        file() { echo "$mock_file_output"; }
-        export -f file
-    fi
-
-    # Mock grep to match our fake os-release
-    # (detect_platform greps /etc/os-release for Raspbian|Debian)
-    local orig_grep
-    orig_grep=$(command -v grep)
-
-    # We need is_pi=true. Override the filesystem checks by creating dirs
-    # The function checks /home/pi, /home/mks, /home/biqu dirs
-    # We already created /home/pi in setup, but detect_platform checks the
-    # real filesystem. Instead, we'll redefine detect_platform inline.
-
-    detect_platform
-}
-
-# Since detect_platform reads real /etc/os-release and /home/*, we need
-# to override the full function with test-specific logic that captures
-# just the userspace detection. Extract the Pi bitness logic into a
-# testable form.
-
-# Test the core logic: given aarch64 kernel + getconf says 32-bit
-@test "Pi aarch64 kernel + 32-bit userspace (getconf) returns pi32" {
-    # Redefine detect_platform with controlled inputs
-    detect_platform() {
-        local arch="aarch64"
-        local is_pi=true
-
-        local userspace_bits
-        userspace_bits=$(getconf LONG_BIT 2>/dev/null || echo "")
-        if [ "$userspace_bits" = "64" ]; then
+        if file /usr/bin/id 2>/dev/null | grep -q "64-bit"; then
             echo "pi"
-        elif [ "$userspace_bits" = "32" ]; then
+        elif file /usr/bin/id 2>/dev/null | grep -q "32-bit"; then
             echo "pi32"
         else
-            echo "pi"
+            # Last resort: trust kernel arch
+            if [ "$arch" = "aarch64" ]; then
+                echo "pi"
+            else
+                echo "pi32"
+            fi
         fi
-    }
+    fi
+}
 
+@test "Pi aarch64 kernel + 32-bit userspace (getconf) returns pi32" {
+    detect_platform() { _mock_pi_detect_platform "aarch64"; }
     mock_command "getconf" "32"
     run detect_platform
     [ "$status" -eq 0 ]
@@ -113,21 +68,7 @@ _detect_platform_with_mocks() {
 }
 
 @test "Pi aarch64 kernel + 64-bit userspace (getconf) returns pi" {
-    detect_platform() {
-        local arch="aarch64"
-        local is_pi=true
-
-        local userspace_bits
-        userspace_bits=$(getconf LONG_BIT 2>/dev/null || echo "")
-        if [ "$userspace_bits" = "64" ]; then
-            echo "pi"
-        elif [ "$userspace_bits" = "32" ]; then
-            echo "pi32"
-        else
-            echo "pi"
-        fi
-    }
-
+    detect_platform() { _mock_pi_detect_platform "aarch64"; }
     mock_command "getconf" "64"
     run detect_platform
     [ "$status" -eq 0 ]
@@ -135,25 +76,7 @@ _detect_platform_with_mocks() {
 }
 
 @test "Pi armv7l kernel + 32-bit userspace returns pi32" {
-    detect_platform() {
-        local arch="armv7l"
-        local is_pi=true
-
-        local userspace_bits
-        userspace_bits=$(getconf LONG_BIT 2>/dev/null || echo "")
-        if [ "$userspace_bits" = "64" ]; then
-            echo "pi"
-        elif [ "$userspace_bits" = "32" ]; then
-            echo "pi32"
-        else
-            if [ "$arch" = "aarch64" ]; then
-                echo "pi"
-            else
-                echo "pi32"
-            fi
-        fi
-    }
-
+    detect_platform() { _mock_pi_detect_platform "armv7l"; }
     mock_command "getconf" "32"
     run detect_platform
     [ "$status" -eq 0 ]
@@ -161,31 +84,7 @@ _detect_platform_with_mocks() {
 }
 
 @test "Pi aarch64 + getconf unavailable + file says 32-bit returns pi32" {
-    detect_platform() {
-        local arch="aarch64"
-        local is_pi=true
-
-        local userspace_bits
-        userspace_bits=$(getconf LONG_BIT 2>/dev/null || echo "")
-        if [ "$userspace_bits" = "64" ]; then
-            echo "pi"
-        elif [ "$userspace_bits" = "32" ]; then
-            echo "pi32"
-        else
-            if file /usr/bin/id 2>/dev/null | grep -q "64-bit"; then
-                echo "pi"
-            elif file /usr/bin/id 2>/dev/null | grep -q "32-bit"; then
-                echo "pi32"
-            else
-                if [ "$arch" = "aarch64" ]; then
-                    echo "pi"
-                else
-                    echo "pi32"
-                fi
-            fi
-        fi
-    }
-
+    detect_platform() { _mock_pi_detect_platform "aarch64"; }
     mock_command_fail "getconf"
     mock_command "file" "/usr/bin/id: ELF 32-bit LSB pie executable, ARM, EABI5"
     run detect_platform
@@ -194,31 +93,7 @@ _detect_platform_with_mocks() {
 }
 
 @test "Pi aarch64 + getconf unavailable + file says 64-bit returns pi" {
-    detect_platform() {
-        local arch="aarch64"
-        local is_pi=true
-
-        local userspace_bits
-        userspace_bits=$(getconf LONG_BIT 2>/dev/null || echo "")
-        if [ "$userspace_bits" = "64" ]; then
-            echo "pi"
-        elif [ "$userspace_bits" = "32" ]; then
-            echo "pi32"
-        else
-            if file /usr/bin/id 2>/dev/null | grep -q "64-bit"; then
-                echo "pi"
-            elif file /usr/bin/id 2>/dev/null | grep -q "32-bit"; then
-                echo "pi32"
-            else
-                if [ "$arch" = "aarch64" ]; then
-                    echo "pi"
-                else
-                    echo "pi32"
-                fi
-            fi
-        fi
-    }
-
+    detect_platform() { _mock_pi_detect_platform "aarch64"; }
     mock_command_fail "getconf"
     mock_command "file" "/usr/bin/id: ELF 64-bit LSB pie executable, ARM aarch64"
     run detect_platform
@@ -227,31 +102,7 @@ _detect_platform_with_mocks() {
 }
 
 @test "Pi aarch64 + getconf unavailable + file unavailable falls back to kernel arch" {
-    detect_platform() {
-        local arch="aarch64"
-        local is_pi=true
-
-        local userspace_bits
-        userspace_bits=$(getconf LONG_BIT 2>/dev/null || echo "")
-        if [ "$userspace_bits" = "64" ]; then
-            echo "pi"
-        elif [ "$userspace_bits" = "32" ]; then
-            echo "pi32"
-        else
-            if file /usr/bin/id 2>/dev/null | grep -q "64-bit"; then
-                echo "pi"
-            elif file /usr/bin/id 2>/dev/null | grep -q "32-bit"; then
-                echo "pi32"
-            else
-                if [ "$arch" = "aarch64" ]; then
-                    echo "pi"
-                else
-                    echo "pi32"
-                fi
-            fi
-        fi
-    }
-
+    detect_platform() { _mock_pi_detect_platform "aarch64"; }
     mock_command_fail "getconf"
     mock_command_fail "file"
     run detect_platform
@@ -261,26 +112,24 @@ _detect_platform_with_mocks() {
 
 # --- AD5X platform detection tests ---
 
-@test "AD5X: MIPS arch + /usr/data + /usr/prog returns ad5x" {
-    # Create mock AD5X filesystem in temp dir
-    mkdir -p "$BATS_TEST_TMPDIR/usr/data"
-    mkdir -p "$BATS_TEST_TMPDIR/usr/prog"
+# Mock detect_platform for AD5X: checks temp dir for AD5X indicators
+_mock_ad5x_detect_platform() {
+    local arch="$1"
+    local mock_root="$BATS_TEST_TMPDIR"
 
-    # Redefine detect_platform to use temp paths instead of real filesystem
-    detect_platform() {
-        local arch="mips"
-        local mock_root="$BATS_TEST_TMPDIR"
-
-        if [ "$arch" = "mips" ]; then
-            if [ -d "$mock_root/usr/data" ] && { [ -d "$mock_root/usr/prog" ] || [ -f "$mock_root/ZMOD" ]; }; then
-                echo "ad5x"
-                return
-            fi
+    if [ "$arch" = "mips" ]; then
+        if [ -d "$mock_root/usr/data" ] && { [ -d "$mock_root/usr/prog" ] || [ -f "$mock_root/ZMOD" ]; }; then
+            echo "ad5x"
+            return
         fi
+    fi
 
-        echo "unsupported"
-    }
+    echo "unsupported"
+}
 
+@test "AD5X: MIPS arch + /usr/data + /usr/prog returns ad5x" {
+    mkdir -p "$BATS_TEST_TMPDIR/usr/data" "$BATS_TEST_TMPDIR/usr/prog"
+    detect_platform() { _mock_ad5x_detect_platform "mips"; }
     run detect_platform
     [ "$status" -eq 0 ]
     [ "$output" = "ad5x" ]
@@ -289,21 +138,7 @@ _detect_platform_with_mocks() {
 @test "AD5X: MIPS arch + /usr/data + /ZMOD file returns ad5x" {
     mkdir -p "$BATS_TEST_TMPDIR/usr/data"
     touch "$BATS_TEST_TMPDIR/ZMOD"
-
-    detect_platform() {
-        local arch="mips"
-        local mock_root="$BATS_TEST_TMPDIR"
-
-        if [ "$arch" = "mips" ]; then
-            if [ -d "$mock_root/usr/data" ] && { [ -d "$mock_root/usr/prog" ] || [ -f "$mock_root/ZMOD" ]; }; then
-                echo "ad5x"
-                return
-            fi
-        fi
-
-        echo "unsupported"
-    }
-
+    detect_platform() { _mock_ad5x_detect_platform "mips"; }
     run detect_platform
     [ "$status" -eq 0 ]
     [ "$output" = "ad5x" ]
@@ -311,22 +146,7 @@ _detect_platform_with_mocks() {
 
 @test "AD5X: MIPS arch + /usr/data but NO /usr/prog and NO /ZMOD does NOT return ad5x" {
     mkdir -p "$BATS_TEST_TMPDIR/usr/data"
-    # Deliberately NOT creating usr/prog or ZMOD
-
-    detect_platform() {
-        local arch="mips"
-        local mock_root="$BATS_TEST_TMPDIR"
-
-        if [ "$arch" = "mips" ]; then
-            if [ -d "$mock_root/usr/data" ] && { [ -d "$mock_root/usr/prog" ] || [ -f "$mock_root/ZMOD" ]; }; then
-                echo "ad5x"
-                return
-            fi
-        fi
-
-        echo "unsupported"
-    }
-
+    detect_platform() { _mock_ad5x_detect_platform "mips"; }
     run detect_platform
     [ "$status" -eq 0 ]
     [ "$output" = "unsupported" ]
@@ -407,20 +227,22 @@ _detect_platform_with_mocks() {
 
 # --- AD5M ZMOD firmware detection tests ---
 
-@test "AD5M: detect_ad5m_firmware returns zmod when /ZMOD exists" {
-    detect_ad5m_firmware() {
-        local mock_root="$BATS_TEST_TMPDIR"
-        if [ -f "$mock_root/ZMOD" ]; then
-            echo "zmod"
-            return
-        fi
-        if [ -d "$mock_root/root/printer_software" ] || [ -d "$mock_root/mnt/data/.klipper_mod" ]; then
-            echo "klipper_mod"
-            return
-        fi
-        echo "forge_x"
-    }
+# Mock detect_ad5m_firmware using temp dir paths
+_mock_detect_ad5m_firmware() {
+    local mock_root="$BATS_TEST_TMPDIR"
+    if [ -f "$mock_root/ZMOD" ]; then
+        echo "zmod"
+        return
+    fi
+    if [ -d "$mock_root/root/printer_software" ] || [ -d "$mock_root/mnt/data/.klipper_mod" ]; then
+        echo "klipper_mod"
+        return
+    fi
+    echo "forge_x"
+}
 
+@test "AD5M: detect_ad5m_firmware returns zmod when /ZMOD exists" {
+    detect_ad5m_firmware() { _mock_detect_ad5m_firmware; }
     touch "$BATS_TEST_TMPDIR/ZMOD"
     run detect_ad5m_firmware
     [ "$status" -eq 0 ]
@@ -428,19 +250,7 @@ _detect_platform_with_mocks() {
 }
 
 @test "AD5M: detect_ad5m_firmware returns klipper_mod when no /ZMOD" {
-    detect_ad5m_firmware() {
-        local mock_root="$BATS_TEST_TMPDIR"
-        if [ -f "$mock_root/ZMOD" ]; then
-            echo "zmod"
-            return
-        fi
-        if [ -d "$mock_root/root/printer_software" ] || [ -d "$mock_root/mnt/data/.klipper_mod" ]; then
-            echo "klipper_mod"
-            return
-        fi
-        echo "forge_x"
-    }
-
+    detect_ad5m_firmware() { _mock_detect_ad5m_firmware; }
     mkdir -p "$BATS_TEST_TMPDIR/root/printer_software"
     run detect_ad5m_firmware
     [ "$status" -eq 0 ]
@@ -448,20 +258,7 @@ _detect_platform_with_mocks() {
 }
 
 @test "AD5M: detect_ad5m_firmware prefers zmod over klipper_mod" {
-    detect_ad5m_firmware() {
-        local mock_root="$BATS_TEST_TMPDIR"
-        if [ -f "$mock_root/ZMOD" ]; then
-            echo "zmod"
-            return
-        fi
-        if [ -d "$mock_root/root/printer_software" ] || [ -d "$mock_root/mnt/data/.klipper_mod" ]; then
-            echo "klipper_mod"
-            return
-        fi
-        echo "forge_x"
-    }
-
-    # Both /ZMOD and klipper_mod indicators present — ZMOD wins
+    detect_ad5m_firmware() { _mock_detect_ad5m_firmware; }
     touch "$BATS_TEST_TMPDIR/ZMOD"
     mkdir -p "$BATS_TEST_TMPDIR/root/printer_software"
     run detect_ad5m_firmware
@@ -491,4 +288,107 @@ _detect_platform_with_mocks() {
     [ -n "$zmod_line" ]
     [ -n "$forge_x_line" ]
     [ "$zmod_line" -lt "$forge_x_line" ]
+}
+
+# --- Creality K2 platform detection tests ---
+
+# Mock detect_platform for K2 vs AD5M disambiguation (armv7l, kernel 5.4.61)
+_mock_k2_detect_platform() {
+    local mock_root="$BATS_TEST_TMPDIR"
+
+    # K2 check (must come before AD5M)
+    if [ -d "$mock_root/mnt/UDISK" ]; then
+        if [ -f "$mock_root/etc/os-release" ] && grep -qi "openwrt\|tina" "$mock_root/etc/os-release" 2>/dev/null; then
+            echo "k2"
+            return
+        fi
+        if [ -d "$mock_root/mnt/UDISK/printer_data" ] || [ -d "$mock_root/mnt/UDISK/creality" ]; then
+            echo "k2"
+            return
+        fi
+    fi
+
+    # AD5M fallback (both share armv7l + kernel 5.4.61)
+    echo "ad5m"
+}
+
+@test "K2: armv7l + OpenWrt + /mnt/UDISK returns k2" {
+    detect_platform() { _mock_k2_detect_platform; }
+    mkdir -p "$BATS_TEST_TMPDIR/mnt/UDISK"
+    echo 'NAME="OpenWrt"' > "$BATS_TEST_TMPDIR/etc/os-release"
+    run detect_platform
+    [ "$status" -eq 0 ]
+    [ "$output" = "k2" ]
+}
+
+@test "K2: armv7l + /mnt/UDISK/printer_data (no os-release match) returns k2" {
+    detect_platform() { _mock_k2_detect_platform; }
+    mkdir -p "$BATS_TEST_TMPDIR/mnt/UDISK/printer_data"
+    echo 'ID=tina' > "$BATS_TEST_TMPDIR/etc/os-release"
+    run detect_platform
+    [ "$status" -eq 0 ]
+    [ "$output" = "k2" ]
+}
+
+@test "K2: detect_platform checks K2 before AD5M (ordering)" {
+    local platform_sh="$WORKTREE_ROOT/scripts/lib/installer/platform.sh"
+    local k2_line ad5m_line
+    k2_line=$(grep -n 'Check for Creality K2' "$platform_sh" | head -1 | cut -d: -f1)
+    ad5m_line=$(grep -n 'Check for AD5M' "$platform_sh" | head -1 | cut -d: -f1)
+    [ -n "$k2_line" ]
+    [ -n "$ad5m_line" ]
+    [ "$k2_line" -lt "$ad5m_line" ]
+}
+
+@test "K2: armv7l + Tina Linux + /mnt/UDISK returns k2" {
+    detect_platform() { _mock_k2_detect_platform; }
+    mkdir -p "$BATS_TEST_TMPDIR/mnt/UDISK"
+    echo 'NAME="Tina Linux"' > "$BATS_TEST_TMPDIR/etc/os-release"
+    run detect_platform
+    [ "$status" -eq 0 ]
+    [ "$output" = "k2" ]
+}
+
+@test "K2: armv7l + /mnt/UDISK/creality (no os-release match) returns k2" {
+    detect_platform() { _mock_k2_detect_platform; }
+    mkdir -p "$BATS_TEST_TMPDIR/mnt/UDISK/creality"
+    echo 'ID=buildroot' > "$BATS_TEST_TMPDIR/etc/os-release"
+    run detect_platform
+    [ "$status" -eq 0 ]
+    [ "$output" = "k2" ]
+}
+
+@test "K2: armv7l + empty /mnt/UDISK (no indicators) returns ad5m" {
+    detect_platform() { _mock_k2_detect_platform; }
+    mkdir -p "$BATS_TEST_TMPDIR/mnt/UDISK"
+    echo 'ID=buildroot' > "$BATS_TEST_TMPDIR/etc/os-release"
+    run detect_platform
+    [ "$status" -eq 0 ]
+    [ "$output" = "ad5m" ]
+}
+
+@test "K2: armv7l + kernel 5.4.61 WITHOUT /mnt/UDISK returns ad5m (not k2)" {
+    # No /mnt/UDISK in temp dir -- falls through to AD5M
+    detect_platform() { _mock_k2_detect_platform; }
+    run detect_platform
+    [ "$status" -eq 0 ]
+    [ "$output" = "ad5m" ]
+}
+
+@test "K2: set_install_paths sets correct paths for k2" {
+    detect_tmp_dir() { TMP_DIR="/tmp/helixscreen-install"; }
+
+    set_install_paths "k2"
+
+    [ "$INSTALL_DIR" = "/opt/helixscreen" ]
+    [ "$INIT_SCRIPT_DEST" = "/etc/init.d/S99helixscreen" ]
+    [ "$KLIPPER_USER" = "root" ]
+}
+
+@test "platform.sh returns k2 in detect_platform docstring" {
+    grep -q '"k2"' "$WORKTREE_ROOT/scripts/lib/installer/platform.sh"
+}
+
+@test "install.sh (bundled) has K2 detection" {
+    grep -q 'k2' "$WORKTREE_ROOT/scripts/install.sh"
 }
