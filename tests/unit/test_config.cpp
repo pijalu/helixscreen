@@ -2162,3 +2162,130 @@ TEST_CASE("Config::init migrates helixconfig.json to settings.json", "[config]")
 
     std::filesystem::remove_all(tmp);
 }
+
+// ============================================================================
+// Corrupt Config Recovery Tests
+// ============================================================================
+
+TEST_CASE("Config::init() recovers from corrupt config by restoring backup",
+          "[core][config][corruption]") {
+    std::string temp_dir = "/tmp/helix_test_corrupt_backup_" + std::to_string(getpid());
+    std::filesystem::remove_all(temp_dir);
+    std::filesystem::create_directories(temp_dir);
+    std::string temp_path = temp_dir + "/settings.json";
+
+    // Write corrupt JSON
+    {
+        std::ofstream o(temp_path);
+        o << "{{{{ not valid json !!!!";
+    }
+
+    // Set HOME so the fallback backup path points to our temp dir
+    const char* original_home = std::getenv("HOME");
+    setenv("HOME", temp_dir.c_str(), 1);
+
+    // Write a valid backup at the fallback backup location
+    std::string backup_dir = temp_dir + "/.helixscreen";
+    std::filesystem::create_directories(backup_dir);
+    std::string backup_path = backup_dir + "/settings.json.backup";
+    json backup_data = {{"config_version", CURRENT_CONFIG_VERSION},
+                        {"active_printer_id", "voron"},
+                        {"brightness", 75},
+                        {"printers", {{"voron", {{"moonraker_host", "10.0.0.5"}}}}}};
+    {
+        std::ofstream o(backup_path);
+        o << backup_data.dump(2);
+    }
+
+    Config test_config;
+    test_config.init(temp_path);
+
+    // Should have restored from backup, not fallen back to defaults
+    REQUIRE(test_config.get<std::string>("/printers/voron/moonraker_host") == "10.0.0.5");
+    REQUIRE(test_config.get<int>("/brightness") == 75);
+
+    // Corrupt file should be preserved for diagnosis
+    REQUIRE(std::filesystem::exists(temp_path + ".corrupt"));
+
+    // Restore HOME
+    if (original_home)
+        setenv("HOME", original_home, 1);
+    else
+        unsetenv("HOME");
+
+    std::filesystem::remove_all(temp_dir);
+}
+
+TEST_CASE("Config::init() falls back to defaults when corrupt and no backup exists",
+          "[core][config][corruption]") {
+    std::string temp_dir = "/tmp/helix_test_corrupt_nobackup_" + std::to_string(getpid());
+    std::filesystem::remove_all(temp_dir);
+    std::filesystem::create_directories(temp_dir);
+    std::string temp_path = temp_dir + "/settings.json";
+
+    // Write corrupt JSON
+    {
+        std::ofstream o(temp_path);
+        o << "not json at all";
+    }
+
+    // Set HOME so fallback backup points to empty dir (no backup exists)
+    const char* original_home = std::getenv("HOME");
+    setenv("HOME", temp_dir.c_str(), 1);
+
+    Config test_config;
+    test_config.init(temp_path);
+
+    // Should have fallen back to defaults (127.0.0.1)
+    REQUIRE(test_config.get<std::string>("/printers/default/moonraker_host") == "127.0.0.1");
+
+    // Corrupt file should still be preserved
+    REQUIRE(std::filesystem::exists(temp_path + ".corrupt"));
+
+    // Restore HOME
+    if (original_home)
+        setenv("HOME", original_home, 1);
+    else
+        unsetenv("HOME");
+
+    std::filesystem::remove_all(temp_dir);
+}
+
+TEST_CASE("Config::init() falls back to defaults when both config and backup are corrupt",
+          "[core][config][corruption]") {
+    std::string temp_dir = "/tmp/helix_test_both_corrupt_" + std::to_string(getpid());
+    std::filesystem::remove_all(temp_dir);
+    std::filesystem::create_directories(temp_dir);
+    std::string temp_path = temp_dir + "/settings.json";
+
+    // Write corrupt config
+    {
+        std::ofstream o(temp_path);
+        o << "{truncated";
+    }
+
+    // Set HOME and write a corrupt backup too
+    const char* original_home = std::getenv("HOME");
+    setenv("HOME", temp_dir.c_str(), 1);
+
+    std::string backup_dir = temp_dir + "/.helixscreen";
+    std::filesystem::create_directories(backup_dir);
+    {
+        std::ofstream o(backup_dir + "/settings.json.backup");
+        o << "also not valid json";
+    }
+
+    Config test_config;
+    test_config.init(temp_path);
+
+    // Both corrupt — should fall back to defaults
+    REQUIRE(test_config.get<std::string>("/printers/default/moonraker_host") == "127.0.0.1");
+
+    // Restore HOME
+    if (original_home)
+        setenv("HOME", original_home, 1);
+    else
+        unsetenv("HOME");
+
+    std::filesystem::remove_all(temp_dir);
+}
