@@ -31,26 +31,28 @@
           <LineChart :data="sessionDurationChartData" />
         </div>
 
-        <div class="chart-section">
-          <h3>Theme Distribution</h3>
-          <BarChart :data="themeChartData" :options="horizontalBarOpts" />
-        </div>
-
-        <div class="chart-section">
-          <h3>Widget Adoption (devices with widget enabled)</h3>
-          <BarChart :data="widgetPlacementChartData" :options="horizontalBarOpts" />
-        </div>
-
-        <div class="chart-section">
-          <h3>Widget Interactions</h3>
-          <BarChart :data="widgetInteractionChartData" :options="horizontalBarOpts" />
-        </div>
-
         <div class="grid-2col">
+          <div class="chart-section">
+            <h3>Theme Distribution</h3>
+            <BarChart :data="themeChartData" :options="horizontalBarOpts" />
+          </div>
           <div class="chart-section">
             <h3>Dark vs Light Mode</h3>
             <PieChart :data="darkLightChartData" />
           </div>
+        </div>
+
+        <div class="chart-section">
+          <h3>Widget Adoption (devices with widget enabled)</h3>
+          <BarChart :data="widgetPlacementChartData" :options="verticalWidgetBarOpts" />
+        </div>
+
+        <div class="chart-section">
+          <h3>Widget Interactions</h3>
+          <BarChart :data="widgetInteractionChartData" :options="verticalWidgetBarOpts" />
+        </div>
+
+        <div class="grid-2col">
           <div class="chart-section">
             <h3>Locale Breakdown</h3>
             <PieChart :data="localeChartData" />
@@ -71,6 +73,7 @@ import PieChart from '@/components/PieChart.vue'
 import { useFiltersStore } from '@/stores/filters'
 import { api } from '@/services/api'
 import type { EngagementData } from '@/services/api'
+import type { ChartOptions } from 'chart.js'
 import { horizontalBarOpts } from '@/utils/chart'
 import { formatDuration } from '@/utils/format'
 
@@ -114,14 +117,21 @@ const sessionDurationChartData = computed(() => ({
   }]
 }))
 
-const themeChartData = computed(() => ({
-  labels: data.value?.themes.map(t => t.name) ?? [],
-  datasets: [{
-    label: 'Users',
-    data: data.value?.themes.map(t => t.count) ?? [],
-    backgroundColor: '#8b5cf6'
-  }]
-}))
+const themeChartData = computed(() => {
+  const filtered = (data.value?.themes ?? []).filter(t => t.name !== 'dark' && t.name !== 'light')
+  return {
+    labels: filtered.map(t => t.name),
+    datasets: [{
+      label: 'Users',
+      data: filtered.map(t => t.count),
+      backgroundColor: '#8b5cf6'
+    }]
+  }
+})
+
+const verticalWidgetBarOpts: ChartOptions<'bar'> = {
+  scales: { x: { ticks: { autoSkip: false, maxRotation: 45, minRotation: 45 } } }
+}
 
 function formatWidgetName(id: string): string {
   return id.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')

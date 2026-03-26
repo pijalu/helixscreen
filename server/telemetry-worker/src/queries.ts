@@ -241,30 +241,42 @@ export function memoryQueries(days: number, filters?: FilterParams): string[] {
   const dataset = "helixscreen_telemetry";
   const f = buildFilterClause(filters);
   return [
-    // RSS over time (avg/p95/max by date)
+    // RSS over time — per-device daily average, then aggregate across devices
     `SELECT
-      toDate(timestamp) as date,
-      avg(double2) as avg_rss_kb,
-      quantileExactWeighted(0.95)(double2, _sample_interval) as p95_rss_kb,
-      max(double2) as max_rss_kb
-    FROM ${dataset}
-    WHERE timestamp >= NOW() - INTERVAL '${days}' DAY AND index1 = 'memory_snapshot'${f}
+      date,
+      avg(dev_avg_rss) as avg_rss_kb,
+      quantileExact(0.95)(dev_avg_rss) as p95_rss_kb,
+      max(dev_avg_rss) as max_rss_kb
+    FROM (
+      SELECT toDate(timestamp) as date, blob1, avg(double2) as dev_avg_rss
+      FROM ${dataset}
+      WHERE timestamp >= NOW() - INTERVAL '${days}' DAY AND index1 = 'memory_snapshot'${f}
+      GROUP BY date, blob1
+    )
     GROUP BY date
     ORDER BY date`,
-    // RSS by platform (avg by blob3)
+    // RSS by platform — per-device average, then aggregate across devices
     `SELECT
-      blob3 as platform,
-      avg(double2) as avg_rss_kb
-    FROM ${dataset}
-    WHERE timestamp >= NOW() - INTERVAL '${days}' DAY AND index1 = 'memory_snapshot' AND blob3 != ''${f}
+      platform,
+      avg(dev_avg_rss) as avg_rss_kb
+    FROM (
+      SELECT blob3 as platform, blob1, avg(double2) as dev_avg_rss
+      FROM ${dataset}
+      WHERE timestamp >= NOW() - INTERVAL '${days}' DAY AND index1 = 'memory_snapshot' AND blob3 != ''${f}
+      GROUP BY platform, blob1
+    )
     GROUP BY platform
     ORDER BY avg_rss_kb DESC`,
-    // VM peak trend (avg by date)
+    // VM peak trend — per-device daily max, then average across devices
     `SELECT
-      toDate(timestamp) as date,
-      avg(double4) as avg_vm_peak_kb
-    FROM ${dataset}
-    WHERE timestamp >= NOW() - INTERVAL '${days}' DAY AND index1 = 'memory_snapshot'${f}
+      date,
+      avg(dev_max_vm) as avg_vm_peak_kb
+    FROM (
+      SELECT toDate(timestamp) as date, blob1, max(double4) as dev_max_vm
+      FROM ${dataset}
+      WHERE timestamp >= NOW() - INTERVAL '${days}' DAY AND index1 = 'memory_snapshot'${f}
+      GROUP BY date, blob1
+    )
     GROUP BY date
     ORDER BY date`,
   ];
@@ -336,54 +348,70 @@ export function hardwareQueries(days: number, filters?: FilterParams): string[] 
   const dataset = "helixscreen_telemetry";
   const f = buildFilterClause(filters);
   return [
-    // Printer models (top 20 by blob4)
-    `SELECT blob4 as name, count() as count FROM ${dataset} WHERE timestamp >= NOW() - INTERVAL '${days}' DAY AND index1 = 'hardware_profile' AND blob4 != ''${f} GROUP BY name ORDER BY count DESC LIMIT 20`,
-    // Kinematics (by blob5)
-    `SELECT blob5 as name, count() as count FROM ${dataset} WHERE timestamp >= NOW() - INTERVAL '${days}' DAY AND index1 = 'hardware_profile' AND blob5 != ''${f} GROUP BY name ORDER BY count DESC`,
-    // MCU chips (by blob6)
-    `SELECT blob6 as name, count() as count FROM ${dataset} WHERE timestamp >= NOW() - INTERVAL '${days}' DAY AND index1 = 'hardware_profile' AND blob6 != ''${f} GROUP BY name ORDER BY count DESC LIMIT 20`,
-    // Capabilities bitmask (bitwise check on double8 for 13 bits)
+    // Printer models (top 20, deduplicated by device_id)
+    `SELECT blob4 as name, count(DISTINCT blob1) as count FROM ${dataset} WHERE timestamp >= NOW() - INTERVAL '${days}' DAY AND index1 = 'hardware_profile' AND blob4 != ''${f} GROUP BY name ORDER BY count DESC LIMIT 20`,
+    // Kinematics (deduplicated by device_id)
+    `SELECT blob5 as name, count(DISTINCT blob1) as count FROM ${dataset} WHERE timestamp >= NOW() - INTERVAL '${days}' DAY AND index1 = 'hardware_profile' AND blob5 != ''${f} GROUP BY name ORDER BY count DESC`,
+    // MCU chips (deduplicated by device_id)
+    `SELECT blob6 as name, count(DISTINCT blob1) as count FROM ${dataset} WHERE timestamp >= NOW() - INTERVAL '${days}' DAY AND index1 = 'hardware_profile' AND blob6 != ''${f} GROUP BY name ORDER BY count DESC LIMIT 20`,
+    // Capabilities bitmask — deduplicate: subquery gets latest row per device, outer query aggregates
     `SELECT
-      sumIf(1, bitAnd(toUInt32(double8), 1) > 0) as cap_0,
-      sumIf(1, bitAnd(toUInt32(double8), 2) > 0) as cap_1,
-      sumIf(1, bitAnd(toUInt32(double8), 4) > 0) as cap_2,
-      sumIf(1, bitAnd(toUInt32(double8), 8) > 0) as cap_3,
-      sumIf(1, bitAnd(toUInt32(double8), 16) > 0) as cap_4,
-      sumIf(1, bitAnd(toUInt32(double8), 32) > 0) as cap_5,
-      sumIf(1, bitAnd(toUInt32(double8), 64) > 0) as cap_6,
-      sumIf(1, bitAnd(toUInt32(double8), 128) > 0) as cap_7,
-      sumIf(1, bitAnd(toUInt32(double8), 256) > 0) as cap_8,
-      sumIf(1, bitAnd(toUInt32(double8), 512) > 0) as cap_9,
-      sumIf(1, bitAnd(toUInt32(double8), 1024) > 0) as cap_10,
-      sumIf(1, bitAnd(toUInt32(double8), 2048) > 0) as cap_11,
-      sumIf(1, bitAnd(toUInt32(double8), 4096) > 0) as cap_12,
+      sum(toUInt32(bitAnd(toUInt32(caps), 1) > 0)) as cap_0,
+      sum(toUInt32(bitAnd(toUInt32(caps), 2) > 0)) as cap_1,
+      sum(toUInt32(bitAnd(toUInt32(caps), 4) > 0)) as cap_2,
+      sum(toUInt32(bitAnd(toUInt32(caps), 8) > 0)) as cap_3,
+      sum(toUInt32(bitAnd(toUInt32(caps), 16) > 0)) as cap_4,
+      sum(toUInt32(bitAnd(toUInt32(caps), 32) > 0)) as cap_5,
+      sum(toUInt32(bitAnd(toUInt32(caps), 64) > 0)) as cap_6,
+      sum(toUInt32(bitAnd(toUInt32(caps), 128) > 0)) as cap_7,
+      sum(toUInt32(bitAnd(toUInt32(caps), 256) > 0)) as cap_8,
+      sum(toUInt32(bitAnd(toUInt32(caps), 512) > 0)) as cap_9,
+      sum(toUInt32(bitAnd(toUInt32(caps), 1024) > 0)) as cap_10,
+      sum(toUInt32(bitAnd(toUInt32(caps), 2048) > 0)) as cap_11,
+      sum(toUInt32(bitAnd(toUInt32(caps), 4096) > 0)) as cap_12,
       count() as total
-    FROM ${dataset}
-    WHERE timestamp >= NOW() - INTERVAL '${days}' DAY AND index1 = 'hardware_profile'${f}`,
-    // Build volume averages
+    FROM (
+      SELECT blob1, argMax(double8, timestamp) as caps
+      FROM ${dataset}
+      WHERE timestamp >= NOW() - INTERVAL '${days}' DAY AND index1 = 'hardware_profile'${f}
+      GROUP BY blob1
+    )`,
+    // Build volume averages (deduplicated: latest per device)
     `SELECT
-      avg(double5) as avg_vol_x,
-      avg(double6) as avg_vol_y,
-      avg(double7) as avg_vol_z
-    FROM ${dataset}
-    WHERE timestamp >= NOW() - INTERVAL '${days}' DAY AND index1 = 'hardware_profile' AND double5 > 0${f}`,
-    // Fan/sensor/macro count averages (filter out rows where all three are zero — old mis-mapped data)
+      avg(vol_x) as avg_vol_x,
+      avg(vol_y) as avg_vol_y,
+      avg(vol_z) as avg_vol_z
+    FROM (
+      SELECT blob1, argMax(double5, timestamp) as vol_x, argMax(double6, timestamp) as vol_y, argMax(double7, timestamp) as vol_z
+      FROM ${dataset}
+      WHERE timestamp >= NOW() - INTERVAL '${days}' DAY AND index1 = 'hardware_profile' AND double5 > 0${f}
+      GROUP BY blob1
+    )`,
+    // Fan/sensor/macro count averages (deduplicated: latest per device, filter out rows where all three are zero — old mis-mapped data)
     `SELECT
-      avg(double2) as avg_fan_count,
-      avg(double3) as avg_sensor_count,
-      avg(double4) as avg_macro_count
-    FROM ${dataset}
-    WHERE timestamp >= NOW() - INTERVAL '${days}' DAY AND index1 = 'hardware_profile' AND (double2 > 0 OR double3 > 0 OR double4 > 0)${f}`,
-    // Host RAM distribution (from session events, double1 = ram_total_mb)
+      avg(fans) as avg_fan_count,
+      avg(sensors) as avg_sensor_count,
+      avg(macros) as avg_macro_count
+    FROM (
+      SELECT blob1, argMax(double2, timestamp) as fans, argMax(double3, timestamp) as sensors, argMax(double4, timestamp) as macros
+      FROM ${dataset}
+      WHERE timestamp >= NOW() - INTERVAL '${days}' DAY AND index1 = 'hardware_profile' AND (double2 > 0 OR double3 > 0 OR double4 > 0)${f}
+      GROUP BY blob1
+    )`,
+    // Host RAM distribution (from session events, deduplicated by device_id)
     `SELECT
-      double1 as ram_mb,
+      ram_mb,
       count() as count
-    FROM ${dataset}
-    WHERE timestamp >= NOW() - INTERVAL '${days}' DAY AND index1 = 'session' AND double1 > 0${f}
+    FROM (
+      SELECT blob1, argMax(double1, timestamp) as ram_mb
+      FROM ${dataset}
+      WHERE timestamp >= NOW() - INTERVAL '${days}' DAY AND index1 = 'session' AND double1 > 0${f}
+      GROUP BY blob1
+    )
     GROUP BY ram_mb
     ORDER BY ram_mb`,
-    // AMS backend distribution (blob8 from hardware_profile)
-    `SELECT blob8 as name, count() as count FROM ${dataset} WHERE timestamp >= NOW() - INTERVAL '${days}' DAY AND index1 = 'hardware_profile' AND blob8 != ''${f} GROUP BY name ORDER BY count DESC`,
+    // AMS backend distribution (deduplicated by device_id)
+    `SELECT blob8 as name, count(DISTINCT blob1) as count FROM ${dataset} WHERE timestamp >= NOW() - INTERVAL '${days}' DAY AND index1 = 'hardware_profile' AND blob8 != ''${f} GROUP BY name ORDER BY count DESC`,
   ];
 }
 
@@ -403,10 +431,10 @@ export function engagementQueries(days: number, filters?: FilterParams): string[
     WHERE timestamp >= NOW() - INTERVAL '${days}' DAY AND index1 = 'panel_usage'${f}
     GROUP BY date
     ORDER BY date`,
-    // Theme distribution (count by blob4 from settings_snapshot)
-    `SELECT blob4 as name, count() as count FROM ${dataset} WHERE timestamp >= NOW() - INTERVAL '${days}' DAY AND index1 = 'settings_snapshot' AND blob4 != ''${f} GROUP BY name ORDER BY count DESC`,
-    // Locale distribution (count by blob5 from settings_snapshot)
-    `SELECT blob5 as name, count() as count FROM ${dataset} WHERE timestamp >= NOW() - INTERVAL '${days}' DAY AND index1 = 'settings_snapshot' AND blob5 != ''${f} GROUP BY name ORDER BY count DESC`,
+    // Theme distribution (deduplicated by device_id)
+    `SELECT blob4 as name, count(DISTINCT blob1) as count FROM ${dataset} WHERE timestamp >= NOW() - INTERVAL '${days}' DAY AND index1 = 'settings_snapshot' AND blob4 != ''${f} GROUP BY name ORDER BY count DESC`,
+    // Locale distribution (deduplicated by device_id)
+    `SELECT blob5 as name, count(DISTINCT blob1) as count FROM ${dataset} WHERE timestamp >= NOW() - INTERVAL '${days}' DAY AND index1 = 'settings_snapshot' AND blob5 != ''${f} GROUP BY name ORDER BY count DESC`,
     // Brightness quantiles
     `SELECT
       quantileExactWeighted(0.25)(double1, _sample_interval) as p25,
@@ -414,8 +442,8 @@ export function engagementQueries(days: number, filters?: FilterParams): string[
       quantileExactWeighted(0.75)(double1, _sample_interval) as p75
     FROM ${dataset}
     WHERE timestamp >= NOW() - INTERVAL '${days}' DAY AND index1 = 'settings_snapshot'${f}`,
-    // Dark vs Light mode distribution (count by blob8 from settings_snapshot)
-    `SELECT blob8 as name, count() as count FROM ${dataset} WHERE timestamp >= NOW() - INTERVAL '${days}' DAY AND index1 = 'settings_snapshot' AND blob8 != ''${f} GROUP BY name ORDER BY count DESC`,
+    // Dark vs Light mode distribution (deduplicated by device_id)
+    `SELECT blob8 as name, count(DISTINCT blob1) as count FROM ${dataset} WHERE timestamp >= NOW() - INTERVAL '${days}' DAY AND index1 = 'settings_snapshot' AND blob8 != ''${f} GROUP BY name ORDER BY count DESC`,
     // Widget placement (count by blob4 from widget_placement, unique per device)
     `SELECT blob4 as widget, count(DISTINCT blob1) as devices FROM ${dataset} WHERE timestamp >= NOW() - INTERVAL '${days}' DAY AND index1 = 'widget_placement' AND blob4 != ''${f} GROUP BY widget ORDER BY devices DESC`,
     // Widget interactions (sum double2 by blob4 from widget_interaction)
