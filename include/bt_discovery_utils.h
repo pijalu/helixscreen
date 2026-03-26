@@ -140,6 +140,13 @@ inline bool is_brother_printer(const char* name)
     return brand && brand->is_brother;
 }
 
+/// Check if a device name indicates a Brother PT-series (P-Touch) printer.
+inline bool is_brother_pt_printer(const char* name)
+{
+    if (!name || !name[0]) return false;
+    return strncasecmp(name, "PT-", 3) == 0;
+}
+
 /// Check if a device name indicates a Niimbot printer.
 inline bool is_niimbot_printer(const char* name)
 {

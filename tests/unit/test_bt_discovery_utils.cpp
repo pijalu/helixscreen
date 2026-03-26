@@ -576,6 +576,20 @@ TEST_CASE("is_brother_printer - Brother models", "[bluetooth][discovery]") {
     REQUIRE(is_brother_printer("RJ-4250WB"));
 }
 
+TEST_CASE("is_brother_pt_printer - PT models", "[bluetooth][discovery]") {
+    REQUIRE(is_brother_pt_printer("PT-P300BT"));
+    REQUIRE(is_brother_pt_printer("PT-P710BT"));
+    REQUIRE(is_brother_pt_printer("pt-p300bt"));
+    REQUIRE(is_brother_pt_printer("PT-P900W"));
+}
+
+TEST_CASE("is_brother_pt_printer - non-PT models", "[bluetooth][discovery]") {
+    REQUIRE_FALSE(is_brother_pt_printer("QL-820NWB"));
+    REQUIRE_FALSE(is_brother_pt_printer(""));
+    REQUIRE_FALSE(is_brother_pt_printer(nullptr));
+    REQUIRE_FALSE(is_brother_pt_printer("Phomemo-M110"));
+}
+
 TEST_CASE("is_brother_printer - non-Brother models", "[bluetooth][discovery]") {
     REQUIRE_FALSE(is_brother_printer("M110"));
     REQUIRE_FALSE(is_brother_printer("Phomemo"));
