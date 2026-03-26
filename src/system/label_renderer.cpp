@@ -385,9 +385,20 @@ LabelBitmap LabelRenderer::render(const SpoolInfo& spool, LabelPreset preset,
     }
 
     // --- STANDARD / COMPACT: QR left, text right (wide labels) ---
-    int qr_target = (preset == LabelPreset::STANDARD)
-                        ? std::min(label_width * 40 / 100, 250)
-                        : std::min(label_width * 30 / 100, 200);
+    // Die-cut labels have fixed dimensions — use tighter margins and smaller
+    // QR to maximize text area (especially important on narrow die-cuts like 38mm).
+    bool die_cut = size.height_px > 0;
+    if (die_cut && label_width < 500) {
+        margin = 12;
+    }
+
+    int qr_pct = (preset == LabelPreset::STANDARD) ? 40 : 30;
+    int qr_max = (preset == LabelPreset::STANDARD) ? 250 : 200;
+    if (die_cut && label_width < 500) {
+        qr_pct -= 8;  // shrink QR on narrow die-cut labels
+        qr_max = std::min(qr_max, 180);
+    }
+    int qr_target = std::min(label_width * qr_pct / 100, qr_max);
     auto qr = generate_qr_bitmap(qr_data, qr_target);
     if (qr.empty()) {
         spdlog::warn("label_renderer: QR generation failed for spool {}",
@@ -395,7 +406,7 @@ LabelBitmap LabelRenderer::render(const SpoolInfo& spool, LabelPreset preset,
         return LabelBitmap::create(label_width, margin * 2);
     }
 
-    int gap = 16;
+    int gap = (die_cut && label_width < 500) ? 10 : 16;
     int text_x = margin + qr.width() + gap;
     int text_area_width = label_width - text_x - margin;
 
