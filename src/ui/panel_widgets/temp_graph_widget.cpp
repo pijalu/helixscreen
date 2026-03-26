@@ -153,6 +153,9 @@ void TempGraphWidget::detach() {
         graph_ = nullptr;
     }
 
+    if (widget_obj_) {
+        lv_obj_set_user_data(widget_obj_, nullptr);
+    }
     widget_obj_ = nullptr;
     parent_screen_ = nullptr;
 

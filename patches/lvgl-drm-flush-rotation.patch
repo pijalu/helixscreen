@@ -1,5 +1,5 @@
 diff --git a/src/drivers/display/drm/lv_linux_drm.c b/src/drivers/display/drm/lv_linux_drm.c
-index 2a6ca6ed0..1edc255d3 100644
+index 2a6ca6ed0..2e7d11dbe 100644
 --- a/src/drivers/display/drm/lv_linux_drm.c
 +++ b/src/drivers/display/drm/lv_linux_drm.c
 @@ -78,6 +78,7 @@ typedef struct {
@@ -223,8 +223,7 @@ index 2a6ca6ed0..1edc255d3 100644
 +                    ptype == DRM_PLANE_TYPE_PRIMARY ? "PRIMARY" :
 +                    ptype == DRM_PLANE_TYPE_OVERLAY ? "OVERLAY" :
 +                    ptype == DRM_PLANE_TYPE_CURSOR  ? "CURSOR"  : "UNKNOWN");
- 
--        LV_LOG_TRACE("found plane %d", *plane_id);
++
 +        if(ptype == DRM_PLANE_TYPE_PRIMARY) {
 +            *plane_id = plane->plane_id;
 +            drmModeFreePlane(plane);
@@ -232,7 +231,8 @@ index 2a6ca6ed0..1edc255d3 100644
 +            LV_LOG_INFO("drm: selected PRIMARY plane %d", *plane_id);
 +            goto out;
 +        }
-+
+ 
+-        LV_LOG_TRACE("found plane %d", *plane_id);
 +        /* Remember first suitable non-primary plane as fallback */
 +        if(!fallback_plane_id && ptype != DRM_PLANE_TYPE_CURSOR) {
 +            fallback_plane_id = plane->plane_id;
@@ -326,10 +326,17 @@ index 2a6ca6ed0..1edc255d3 100644
          else {
              LV_LOG_ERROR("poll failed: %s", strerror(errno));
              return;
-@@ -1074,6 +1228,36 @@ static void drm_flush(lv_display_t * disp, const lv_area_t * area, uint8_t * px_
+@@ -1072,7 +1226,41 @@ static void drm_flush(lv_display_t * disp, const lv_area_t * area, uint8_t * px_
+     LV_UNUSED(px_map);
+     drm_dev_t * drm_dev = lv_display_get_driver_data(disp);
  
-     LV_ASSERT(drm_dev->act_buf != NULL);
- 
+-    LV_ASSERT(drm_dev->act_buf != NULL);
++    if(drm_dev == NULL || drm_dev->act_buf == NULL) {
++        LV_LOG_ERROR("drm_flush: NULL driver data or active buffer, skipping frame");
++        lv_display_flush_ready(disp);
++        return;
++    }
++
 +    /* Software 180° rotation via shadow buffer.
 +     * Copy pixels in reverse order to a temp buffer, then bulk-copy back.
 +     * The single memcpy back prevents tearing (in-place swap is visible
@@ -359,10 +366,9 @@ index 2a6ca6ed0..1edc255d3 100644
 +        rot_buf = NULL;
 +        rot_buf_size = 0;
 +    }
-+
+ 
      if(drm_dmabuf_set_plane(drm_dev, drm_dev->act_buf)) {
          LV_LOG_ERROR("Flush fail");
-         return;
 diff --git a/src/drivers/display/drm/lv_linux_drm.h b/src/drivers/display/drm/lv_linux_drm.h
 index 5afede049..fa1b28b56 100644
 --- a/src/drivers/display/drm/lv_linux_drm.h
