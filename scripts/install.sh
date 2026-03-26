@@ -3133,8 +3133,9 @@ install_update_watcher_systemd() {
     $SUDO cp "$path_src" "$path_dest"
     $SUDO cp "$svc_src" "$svc_dest"
 
-    # Template the install directory path
+    # Template the install directory path in both units
     _sed_inplace "s|@@INSTALL_DIR@@|${install_dir}|g" "$path_dest"
+    _sed_inplace "s|@@INSTALL_DIR@@|${install_dir}|g" "$svc_dest"
 
     $SUDO systemctl daemon-reload
     $SUDO systemctl enable helixscreen-update.path 2>/dev/null || true

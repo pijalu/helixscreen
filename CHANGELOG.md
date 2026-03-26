@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.99.3] - 2026-03-26
+
+### Added
+- Brother PT (P-Touch) label printer support via Bluetooth with auto-detection, PTCBP raster protocol, status feedback, and PackBits compression
+- Startup sounds for UI themes
+
+### Fixed
+- 5 auto-reported crash bugs with defensive guards (#525+)
+- Emergency stop modal validation and toolchanger spool persistence (#540)
+- SSH (dropbear) preserved when disabling stock UI on Creality K1 (#535)
+- Hidden network WiFi connection and password validation for secured networks
+- Config loss during in-app upgrade with backup restore and corruption recovery
+- Update service template surviving Moonraker extraction
+
+### Changed
+- Print abort timer replaced with RAII lifecycle wrapper
+- Cleanup guards added to unguarded queue_update callbacks
+
 ## [0.99.2] - 2026-03-25
 
 ### Added
@@ -2150,6 +2168,7 @@ Initial tagged release. Foundation for all subsequent development.
 - Automated GitHub Actions release pipeline
 - One-liner installation script with platform auto-detection
 
+[0.99.3]: https://github.com/prestonbrown/helixscreen/compare/v0.99.2...v0.99.3
 [0.99.2]: https://github.com/prestonbrown/helixscreen/compare/v0.99.1...v0.99.2
 [0.99.1]: https://github.com/prestonbrown/helixscreen/compare/v0.99.0...v0.99.1
 [0.99.0]: https://github.com/prestonbrown/helixscreen/compare/v0.98.12...v0.99.0
