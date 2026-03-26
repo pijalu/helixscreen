@@ -68,6 +68,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libbluetooth-dev \
     libnl-3-dev \
     libnl-genl-3-dev \
+    libasound2-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # ==============================================================================
