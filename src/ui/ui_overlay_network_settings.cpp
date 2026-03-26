@@ -1042,6 +1042,15 @@ void NetworkSettingsOverlay::handle_hidden_connect_clicked() {
         }
     }
 
+    if (security_idx > 0 && password.empty()) {
+        lv_obj_t* error_label = lv_obj_find_by_name(hidden_network_modal_, "error_label");
+        if (error_label) {
+            lv_label_set_text(error_label, lv_tr("Password is required for secured networks"));
+            lv_obj_remove_flag(error_label, LV_OBJ_FLAG_HIDDEN);
+        }
+        return;
+    }
+
     if (!wifi_manager_) {
         spdlog::error("[NetworkSettingsOverlay] WiFiManager not initialized");
         return;
