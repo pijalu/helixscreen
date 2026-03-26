@@ -271,10 +271,10 @@
           </lv_obj>
         </lv_obj>
 
-        <!-- Control Buttons (stacked below status, no spacer to avoid clipping) -->
+        <!-- Control Buttons (flex_grow pushes to bottom via main_place=end) -->
         <lv_obj name="button_grid"
-                width="100%" height="content" style_pad_top="0" style_pad_bottom="0" style_pad_left="#space_sm"
-                style_pad_right="#space_sm" scrollable="false" flex_flow="column" style_flex_main_place="start"
+                width="100%" flex_grow="1" style_pad_top="0" style_pad_bottom="0" style_pad_left="#space_sm"
+                style_pad_right="#space_sm" scrollable="false" flex_flow="column" style_flex_main_place="end"
                 style_flex_cross_place="center" style_pad_gap="#space_sm">
           <!-- Row 1: Light, Timelapse (conditional), Pause -->
           <lv_obj width="100%"
