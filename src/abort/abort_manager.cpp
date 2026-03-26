@@ -224,10 +224,10 @@ void AbortManager::try_heater_interrupt() {
 
     commands_sent_++;
 
-    // Start timeout timer
-    heater_interrupt_timer_ =
-        lv_timer_create(heater_interrupt_timer_cb, HEATER_INTERRUPT_TIMEOUT_MS, this);
-    lv_timer_set_repeat_count(heater_interrupt_timer_, 1);
+    // Start timeout timer (one-shot; guard auto-deletes on reassignment or destruction)
+    auto* t = lv_timer_create(heater_interrupt_timer_cb, HEATER_INTERRUPT_TIMEOUT_MS, this);
+    lv_timer_set_repeat_count(t, 1);
+    heater_interrupt_timer_.reset(t);
 
     // Send HEATER_INTERRUPT G-code
     api_->execute_gcode(
@@ -263,9 +263,10 @@ void AbortManager::start_probe() {
 
     commands_sent_++;
 
-    // Start timeout timer
-    probe_timer_ = lv_timer_create(probe_timer_cb, PROBE_TIMEOUT_MS, this);
-    lv_timer_set_repeat_count(probe_timer_, 1);
+    // Start timeout timer (one-shot)
+    auto* t = lv_timer_create(probe_timer_cb, PROBE_TIMEOUT_MS, this);
+    lv_timer_set_repeat_count(t, 1);
+    probe_timer_.reset(t);
 
     // Send M115 to probe the queue
     api_->execute_gcode(
@@ -311,23 +312,24 @@ void AbortManager::send_cancel_print() {
 
     commands_sent_++;
 
-    // Start timeout timer
+    // Start timeout timer (one-shot)
     bool escalation_enabled = SafetySettingsManager::instance().get_cancel_escalation_enabled();
+    uint32_t timeout_ms;
     if (escalation_enabled) {
-        uint32_t timeout_ms =
+        timeout_ms =
             static_cast<uint32_t>(
                 SafetySettingsManager::instance().get_cancel_escalation_timeout_seconds()) *
             1000;
         spdlog::info("[AbortManager] Cancel escalation enabled, timeout: {}ms", timeout_ms);
-        cancel_timer_ = lv_timer_create(cancel_timer_cb, timeout_ms, this);
-        lv_timer_set_repeat_count(cancel_timer_, 1);
     } else {
         // Escalation disabled — still create a nudge timer so user gets feedback
+        timeout_ms = CANCEL_TIMEOUT_MS;
         spdlog::info("[AbortManager] Cancel escalation disabled, nudge timer at {}ms",
                      CANCEL_TIMEOUT_MS);
-        cancel_timer_ = lv_timer_create(cancel_timer_cb, CANCEL_TIMEOUT_MS, this);
-        lv_timer_set_repeat_count(cancel_timer_, 1);
     }
+    auto* ct = lv_timer_create(cancel_timer_cb, timeout_ms, this);
+    lv_timer_set_repeat_count(ct, 1);
+    cancel_timer_.reset(ct);
 
     // Use Moonraker RPC (printer.print.cancel) instead of raw CANCEL_PRINT gcode.
     // The RPC calls Klipper's pause_resume/cancel endpoint which bypasses the gcode
@@ -452,9 +454,10 @@ void AbortManager::wait_for_reconnect() {
     set_state(State::WAITING_RECONNECT);
     set_progress_message("Restarting...");
 
-    // Start reconnect timeout timer
-    reconnect_timer_ = lv_timer_create(reconnect_timer_cb, RECONNECT_TIMEOUT_MS, this);
-    lv_timer_set_repeat_count(reconnect_timer_, 1);
+    // Start reconnect timeout timer (one-shot)
+    auto* rt = lv_timer_create(reconnect_timer_cb, RECONNECT_TIMEOUT_MS, this);
+    lv_timer_set_repeat_count(rt, 1);
+    reconnect_timer_.reset(rt);
 
     // Register observer on klippy_state subject to detect when klippy becomes ready
     if (printer_state_) {
@@ -502,10 +505,7 @@ void AbortManager::on_heater_interrupt_success() {
     }
 
     // Cancel timeout timer
-    if (heater_interrupt_timer_) {
-        lv_timer_delete(heater_interrupt_timer_);
-        heater_interrupt_timer_ = nullptr;
-    }
+    heater_interrupt_timer_.reset();
 
     spdlog::info("[AbortManager] Kalico detected (HEATER_INTERRUPT succeeded)");
     kalico_status_ = KalicoStatus::DETECTED;
@@ -522,10 +522,7 @@ void AbortManager::on_heater_interrupt_error() {
     }
 
     // Cancel timeout timer
-    if (heater_interrupt_timer_) {
-        lv_timer_delete(heater_interrupt_timer_);
-        heater_interrupt_timer_ = nullptr;
-    }
+    heater_interrupt_timer_.reset();
 
     spdlog::info("[AbortManager] Kalico NOT present (HEATER_INTERRUPT failed)");
     kalico_status_ = KalicoStatus::NOT_PRESENT;
@@ -541,7 +538,7 @@ void AbortManager::on_heater_interrupt_timeout() {
         return; // Stale callback
     }
 
-    heater_interrupt_timer_ = nullptr;
+    heater_interrupt_timer_.release(); // One-shot already auto-deleted by LVGL
 
     spdlog::warn("[AbortManager] HEATER_INTERRUPT timed out, treating as not-Kalico");
     kalico_status_ = KalicoStatus::NOT_PRESENT;
@@ -558,10 +555,7 @@ void AbortManager::on_probe_response() {
     }
 
     // Cancel timeout timer
-    if (probe_timer_) {
-        lv_timer_delete(probe_timer_);
-        probe_timer_ = nullptr;
-    }
+    probe_timer_.reset();
 
     spdlog::info("[AbortManager] Queue responsive, sending cancel via RPC");
     set_state(State::SENT_CANCEL);
@@ -574,7 +568,7 @@ void AbortManager::on_probe_timeout() {
         return; // Stale callback
     }
 
-    probe_timer_ = nullptr;
+    probe_timer_.release(); // One-shot already auto-deleted by LVGL
 
     bool escalation_enabled = SafetySettingsManager::instance().get_cancel_escalation_enabled();
     if (escalation_enabled) {
@@ -595,10 +589,7 @@ void AbortManager::on_cancel_success() {
     }
 
     // Cancel timeout timer
-    if (cancel_timer_) {
-        lv_timer_delete(cancel_timer_);
-        cancel_timer_ = nullptr;
-    }
+    cancel_timer_.reset();
 
     // Note: cancel_state_observer_ is cleaned up by complete_abort() → cancel_all_timers()
 
@@ -611,7 +602,7 @@ void AbortManager::on_cancel_timeout() {
         return; // Stale callback
     }
 
-    cancel_timer_ = nullptr;
+    cancel_timer_.release(); // One-shot already auto-deleted by LVGL
 
     bool escalation_enabled = SafetySettingsManager::instance().get_cancel_escalation_enabled();
     if (escalation_enabled) {
@@ -665,10 +656,7 @@ void AbortManager::on_klippy_state_changed(KlippyState klippy_state) {
         }
 
         // Cancel reconnect timer
-        if (reconnect_timer_) {
-            lv_timer_delete(reconnect_timer_);
-            reconnect_timer_ = nullptr;
-        }
+        reconnect_timer_.reset();
 
         // Clear the persistent shutdown recovery flag - we've seen READY after SHUTDOWN
         shutdown_recovery_in_progress_.store(false);
@@ -733,22 +721,10 @@ void AbortManager::set_progress_message(const char* message) {
 }
 
 void AbortManager::cancel_all_timers() {
-    if (heater_interrupt_timer_) {
-        lv_timer_delete(heater_interrupt_timer_);
-        heater_interrupt_timer_ = nullptr;
-    }
-    if (probe_timer_) {
-        lv_timer_delete(probe_timer_);
-        probe_timer_ = nullptr;
-    }
-    if (cancel_timer_) {
-        lv_timer_delete(cancel_timer_);
-        cancel_timer_ = nullptr;
-    }
-    if (reconnect_timer_) {
-        lv_timer_delete(reconnect_timer_);
-        reconnect_timer_ = nullptr;
-    }
+    heater_interrupt_timer_.reset();
+    probe_timer_.reset();
+    cancel_timer_.reset();
+    reconnect_timer_.reset();
 
     // Also clean up cancel state observer (may be active during SENT_CANCEL)
     cancel_state_observer_.reset();
@@ -807,7 +783,7 @@ void AbortManager::update_visibility() {
 void AbortManager::heater_interrupt_timer_cb(lv_timer_t* timer) {
     auto* self = static_cast<AbortManager*>(lv_timer_get_user_data(timer));
     if (self) {
-        self->heater_interrupt_timer_ = nullptr; // Timer auto-deletes after one-shot
+        self->heater_interrupt_timer_.release(); // One-shot auto-deleted by LVGL
         self->on_heater_interrupt_timeout();
     }
 }
@@ -815,7 +791,7 @@ void AbortManager::heater_interrupt_timer_cb(lv_timer_t* timer) {
 void AbortManager::probe_timer_cb(lv_timer_t* timer) {
     auto* self = static_cast<AbortManager*>(lv_timer_get_user_data(timer));
     if (self) {
-        self->probe_timer_ = nullptr;
+        self->probe_timer_.release(); // One-shot auto-deleted by LVGL
         self->on_probe_timeout();
     }
 }
@@ -823,7 +799,7 @@ void AbortManager::probe_timer_cb(lv_timer_t* timer) {
 void AbortManager::cancel_timer_cb(lv_timer_t* timer) {
     auto* self = static_cast<AbortManager*>(lv_timer_get_user_data(timer));
     if (self) {
-        self->cancel_timer_ = nullptr;
+        self->cancel_timer_.release(); // One-shot auto-deleted by LVGL
         self->on_cancel_timeout();
     }
 }
@@ -831,7 +807,7 @@ void AbortManager::cancel_timer_cb(lv_timer_t* timer) {
 void AbortManager::reconnect_timer_cb(lv_timer_t* timer) {
     auto* self = static_cast<AbortManager*>(lv_timer_get_user_data(timer));
     if (self) {
-        self->reconnect_timer_ = nullptr;
+        self->reconnect_timer_.release(); // One-shot auto-deleted by LVGL
         // Timeout without reconnect - still complete (with warning message)
         self->complete_abort("Abort complete (reconnect timeout). Check printer status.");
     }

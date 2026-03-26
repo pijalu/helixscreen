@@ -3,6 +3,7 @@
 #pragma once
 
 #include "ui_observer_guard.h"
+#include "ui_timer_guard.h"
 
 #include "lvgl/lvgl.h"
 #include "printer_state.h"
@@ -270,11 +271,11 @@ class AbortManager {
     // This prevents completing immediately when observer fires with stale READY value
     std::atomic<bool> seen_shutdown_during_reconnect_{false};
 
-    // Timeout timers
-    lv_timer_t* heater_interrupt_timer_ = nullptr;
-    lv_timer_t* probe_timer_ = nullptr;
-    lv_timer_t* cancel_timer_ = nullptr;
-    lv_timer_t* reconnect_timer_ = nullptr;
+    // Timeout timers (RAII — auto-deleted on destruction or reassignment)
+    helix::ui::LvglTimerGuard heater_interrupt_timer_;
+    helix::ui::LvglTimerGuard probe_timer_;
+    helix::ui::LvglTimerGuard cancel_timer_;
+    helix::ui::LvglTimerGuard reconnect_timer_;
 
     // ========================================================================
     // State Machine Transitions

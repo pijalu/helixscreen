@@ -109,10 +109,7 @@ class AbortManagerTestAccess {
     }
 
     static void on_reconnect_timeout(AbortManager& m) {
-        if (m.reconnect_timer_) {
-            lv_timer_delete(m.reconnect_timer_);
-            m.reconnect_timer_ = nullptr;
-        }
+        m.reconnect_timer_.reset();
         m.complete_abort("Abort complete (reconnect timeout). Check printer status.");
     }
 
