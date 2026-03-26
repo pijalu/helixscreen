@@ -162,6 +162,10 @@ package_platform() {
     # Copy config files
     cp "${PROJECT_DIR}/config/helixscreen.init" "$pkg_dir/config/"
     cp "${PROJECT_DIR}/config/helixscreen.service" "$pkg_dir/config/"
+    cp "${PROJECT_DIR}/config/helixscreen-update.service" "$pkg_dir/config/"
+    cp "${PROJECT_DIR}/config/helixscreen-update.path" "$pkg_dir/config/"
+    cp "${PROJECT_DIR}/config/refresh-service-units.sh" "$pkg_dir/config/"
+    chmod +x "$pkg_dir/config/refresh-service-units.sh"
     cp "${PROJECT_DIR}/config/printer_database.json" "$pkg_dir/config/" 2>/dev/null || true
     cp "${PROJECT_DIR}/config/printing_tips.json" "$pkg_dir/config/" 2>/dev/null || true
 
