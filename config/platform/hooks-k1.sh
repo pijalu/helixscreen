@@ -44,7 +44,7 @@ _ensure_ssh_running() {
     done
 
     # Start directly as fallback and create init script for next boot
-    local dropbear_bin=""
+    dropbear_bin=""
     for bin in /usr/sbin/dropbear /usr/bin/dropbear /sbin/dropbear; do
         if [ -x "$bin" ]; then
             dropbear_bin="$bin"
