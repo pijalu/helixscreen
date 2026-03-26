@@ -2010,6 +2010,119 @@ void Application::setup_discovery_callbacks() {
                     get_printer_state().set_helix_plugin_installed(false);
                 });
 
+            // Sync external spool from Moonraker's active Spoolman spool
+            // This ensures the filament panel shows the correct spool on startup,
+            // even if the active spool was changed via Spoolman's web UI or another client
+            {
+                MoonrakerAPI* api_for_spool = c->api;
+                api_for_spool->spoolman().get_spoolman_status(
+                    [api_for_spool](bool connected, int active_spool_id) {
+                        if (!connected || active_spool_id <= 0) {
+                            spdlog::debug("[Application] No active Spoolman spool to sync "
+                                          "(connected={}, spool_id={})",
+                                          connected, active_spool_id);
+                            return;
+                        }
+
+                        // Check if existing external spool already matches
+                        auto existing = AmsState::instance().get_external_spool_info();
+                        if (existing && existing->spoolman_id == active_spool_id) {
+                            spdlog::debug("[Application] External spool already matches active "
+                                          "Spoolman spool {}",
+                                          active_spool_id);
+                            return;
+                        }
+
+                        // Fetch spool details and populate external spool
+                        spdlog::info("[Application] Syncing external spool from Moonraker active "
+                                     "spool {}",
+                                     active_spool_id);
+                        api_for_spool->spoolman().get_spoolman_spool(
+                            active_spool_id,
+                            [active_spool_id](const std::optional<SpoolInfo>& spool_opt) {
+                                if (!spool_opt) {
+                                    spdlog::warn("[Application] Active spool {} not found in "
+                                                 "Spoolman",
+                                                 active_spool_id);
+                                    return;
+                                }
+                                const auto& found = *spool_opt;
+                                helix::ui::queue_update([found]() {
+                                    SlotInfo slot;
+                                    slot.slot_index = -2;
+                                    slot.global_index = -2;
+                                    apply_spool_to_slot(slot, found);
+                                    slot.spool_name = found.display_name();
+                                    slot.multi_color_hexes = found.multi_color_hexes;
+                                    AmsState::instance().set_external_spool_info(slot);
+                                    spdlog::info("[Application] External spool synced: {} (id={})",
+                                                 slot.spool_name, slot.spoolman_id);
+                                });
+                            },
+                            [active_spool_id](const MoonrakerError& err) {
+                                spdlog::warn("[Application] Failed to fetch active spool {}: {}",
+                                             active_spool_id, err.message);
+                            });
+                    },
+                    [](const MoonrakerError& err) {
+                        spdlog::warn("[Application] Failed to query Spoolman status: {}",
+                                     err.message);
+                    });
+            }
+
+            // Listen for Moonraker active spool changes (user changes spool in
+            // Spoolman web UI or another client while HelixScreen is running)
+            {
+                MoonrakerAPI* api_for_notify = c->api;
+                c->client->register_method_callback(
+                    "notify_active_spool_set", "external_spool_sync",
+                    [api_for_notify](const nlohmann::json& data) {
+                        int spool_id = 0;
+                        if (data.is_array() && !data.empty()) {
+                            const auto& params = data[0];
+                            if (params.contains("spool_id") && !params["spool_id"].is_null()) {
+                                spool_id = params["spool_id"].get<int>();
+                            }
+                        }
+
+                        if (spool_id <= 0) {
+                            spdlog::info("[Application] Active spool cleared via notification");
+                            helix::ui::queue_update([]() {
+                                AmsState::instance().clear_external_spool_info();
+                            });
+                            return;
+                        }
+
+                        spdlog::info("[Application] Active spool changed to {} via notification",
+                                     spool_id);
+                        api_for_notify->spoolman().get_spoolman_spool(
+                            spool_id,
+                            [spool_id](const std::optional<SpoolInfo>& spool_opt) {
+                                if (!spool_opt)
+                                    return;
+                                const auto& found = *spool_opt;
+                                helix::ui::queue_update([found]() {
+                                    SlotInfo slot;
+                                    slot.slot_index = -2;
+                                    slot.global_index = -2;
+                                    apply_spool_to_slot(slot, found);
+                                    slot.spool_name = found.display_name();
+                                    slot.multi_color_hexes = found.multi_color_hexes;
+                                    AmsState::instance().set_external_spool_info(slot);
+                                    spdlog::info(
+                                        "[Application] External spool updated via notification: "
+                                        "{} (id={})",
+                                        slot.spool_name, slot.spoolman_id);
+                                });
+                            },
+                            [spool_id](const MoonrakerError& err) {
+                                spdlog::warn(
+                                    "[Application] Failed to fetch notified spool {}: {}",
+                                    spool_id, err.message);
+                            });
+                    });
+            }
+
             // Fetch job queue now that WebSocket is actually connected
             if (c->app->m_job_queue_state) {
                 c->app->m_job_queue_state->fetch();

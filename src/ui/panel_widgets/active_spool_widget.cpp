@@ -1,0 +1,356 @@
+// Copyright (C) 2025-2026 356C LLC
+// SPDX-License-Identifier: GPL-3.0-or-later
+
+#include "active_spool_widget.h"
+
+#include "ui_event_safety.h"
+#include "ui_spool_canvas.h"
+#include "ui_utils.h"
+
+#include "active_material_provider.h"
+#include "ams_state.h"
+#include "app_globals.h"
+#include "moonraker_api.h"
+#include "observer_factory.h"
+#include "panel_widget_manager.h"
+#include "panel_widget_registry.h"
+#include "theme_manager.h"
+#include "ui_ams_edit_modal.h"
+#include "ui_toast_manager.h"
+
+#include <spdlog/spdlog.h>
+
+namespace helix {
+
+void register_active_spool_widget() {
+    register_widget_factory("active_spool", [](const std::string&) {
+        auto* api = PanelWidgetManager::instance().shared_resource<MoonrakerAPI>();
+        return std::make_unique<ActiveSpoolWidget>(api);
+    });
+}
+
+ActiveSpoolWidget::ActiveSpoolWidget(MoonrakerAPI* api) : api_(api) {}
+
+ActiveSpoolWidget::~ActiveSpoolWidget() {
+    detach();
+}
+
+void ActiveSpoolWidget::attach(lv_obj_t* widget_obj, lv_obj_t* parent_screen) {
+    widget_obj_ = widget_obj;
+    parent_screen_ = parent_screen;
+    *alive_ = true;
+
+    if (!widget_obj_)
+        return;
+
+    lv_obj_set_user_data(widget_obj_, this);
+
+    // Register click handler via per-callback user_data
+    auto* btn = lv_obj_find_by_name(widget_obj_, "spoolman_btn");
+    if (btn) {
+        lv_obj_add_event_cb(btn, clicked_cb, LV_EVENT_CLICKED, this);
+    }
+
+    // Cache element pointers
+    spool_compact_ = lv_obj_find_by_name(widget_obj_, "spool_compact");
+    wide_layout_ = lv_obj_find_by_name(widget_obj_, "spoolman_wide_layout");
+    spool_wide_ = lv_obj_find_by_name(widget_obj_, "spool_wide");
+    material_label_ = lv_obj_find_by_name(widget_obj_, "spoolman_material");
+    brand_color_label_ = lv_obj_find_by_name(widget_obj_, "spoolman_brand_color");
+    weight_label_ = lv_obj_find_by_name(widget_obj_, "spoolman_weight");
+    no_spool_label_ = lv_obj_find_by_name(widget_obj_, "spoolman_no_spool_label");
+
+    // Observe spool changes from all sources
+    std::weak_ptr<bool> weak_alive = alive_;
+
+    // External spool changes
+    spool_color_observer_ = helix::ui::observe_int_sync<ActiveSpoolWidget>(
+        AmsState::instance().get_external_spool_color_subject(), this,
+        [weak_alive](ActiveSpoolWidget* self, int /*color*/) {
+            if (weak_alive.expired())
+                return;
+            self->update_spool_display();
+        });
+
+    // AMS backend active slot changes
+    current_slot_observer_ = helix::ui::observe_int_sync<ActiveSpoolWidget>(
+        AmsState::instance().get_current_slot_subject(), this,
+        [weak_alive](ActiveSpoolWidget* self, int /*slot*/) {
+            if (weak_alive.expired())
+                return;
+            self->update_spool_display();
+        });
+
+    // AMS slot info changes (material/color edits)
+    slots_version_observer_ = helix::ui::observe_int_sync<ActiveSpoolWidget>(
+        AmsState::instance().get_slots_version_subject(), this,
+        [weak_alive](ActiveSpoolWidget* self, int /*version*/) {
+            if (weak_alive.expired())
+                return;
+            self->update_spool_display();
+        });
+
+    // Size spool canvases to match responsive icon size
+    resize_spool_canvases();
+
+    // Initial display update
+    update_spool_display();
+
+    spdlog::debug("[ActiveSpoolWidget] Attached");
+}
+
+void ActiveSpoolWidget::detach() {
+    *alive_ = false;
+
+    spool_color_observer_.reset();
+    current_slot_observer_.reset();
+    slots_version_observer_.reset();
+
+    if (widget_obj_) {
+        lv_obj_set_user_data(widget_obj_, nullptr);
+    }
+
+    widget_obj_ = nullptr;
+    parent_screen_ = nullptr;
+    spool_compact_ = nullptr;
+    wide_layout_ = nullptr;
+    spool_wide_ = nullptr;
+    material_label_ = nullptr;
+    brand_color_label_ = nullptr;
+    weight_label_ = nullptr;
+    no_spool_label_ = nullptr;
+
+    spdlog::debug("[ActiveSpoolWidget] Detached");
+}
+
+void ActiveSpoolWidget::on_size_changed(int colspan, int /*rowspan*/, int /*width_px*/,
+                                        int /*height_px*/) {
+    bool wide = (colspan >= 2);
+    if (wide == is_wide_)
+        return;
+    is_wide_ = wide;
+
+    if (!widget_obj_)
+        return;
+
+    if (wide) {
+        // Show wide layout, hide compact spool
+        if (wide_layout_)
+            lv_obj_remove_flag(wide_layout_, LV_OBJ_FLAG_HIDDEN);
+        if (spool_compact_)
+            lv_obj_add_flag(spool_compact_, LV_OBJ_FLAG_HIDDEN);
+    } else {
+        // Show compact spool, hide wide layout
+        if (wide_layout_)
+            lv_obj_add_flag(wide_layout_, LV_OBJ_FLAG_HIDDEN);
+        if (spool_compact_)
+            lv_obj_remove_flag(spool_compact_, LV_OBJ_FLAG_HIDDEN);
+    }
+
+    // Refresh display for the now-visible elements
+    update_spool_display();
+
+    spdlog::debug("[ActiveSpoolWidget] on_size_changed colspan={} -> {}", colspan,
+                  wide ? "wide" : "compact");
+}
+
+void ActiveSpoolWidget::resize_spool_canvases() {
+    // Use the responsive icon font that matches #icon_size (the standard widget icon)
+    // icon_size resolves to md/lg/xl per breakpoint; icon_font_{size} gives the font
+    // We use icon_font_lg which scales: tiny=32, small=48, medium=48, large=48
+    // For the spool we want it slightly bigger, matching #icon_size mapping:
+    //   tiny/small=md(32), medium=lg(48), large=xl(64)
+    const lv_font_t* icon_font = theme_manager_get_font("icon_font_xl");
+    int32_t spool_size = icon_font ? lv_font_get_line_height(icon_font) : 48;
+
+    if (spool_compact_)
+        ui_spool_canvas_set_size(spool_compact_, spool_size);
+    if (spool_wide_)
+        ui_spool_canvas_set_size(spool_wide_, spool_size);
+
+    spdlog::debug("[ActiveSpoolWidget] Spool canvas size: {}px (from icon font)", spool_size);
+}
+
+void ActiveSpoolWidget::update_spool_display() {
+    // Use ActiveMaterialProvider which checks AMS backend first, then external spool
+    auto active = helix::get_active_material();
+    bool has_spool = active.has_value();
+
+    // Also try to get weight info from the source SlotInfo
+    float remaining_weight = 0;
+    float total_weight = 0;
+    std::string brand;
+    std::string color_name;
+    std::string spool_name;
+
+    if (has_spool) {
+        // Get weight from the source slot (AMS or external)
+        auto& ams = AmsState::instance();
+        AmsBackend* backend = ams.get_backend();
+        if (backend && backend->is_filament_loaded()) {
+            int current = backend->get_current_slot();
+            if (current >= 0) {
+                SlotInfo slot = backend->get_slot_info(current);
+                remaining_weight = slot.remaining_weight_g;
+                total_weight = slot.total_weight_g;
+                brand = slot.brand;
+                color_name = slot.color_name;
+                spool_name = slot.spool_name;
+            }
+        } else {
+            auto ext = ams.get_external_spool_info();
+            if (ext) {
+                remaining_weight = ext->remaining_weight_g;
+                total_weight = ext->total_weight_g;
+                brand = ext->brand;
+                color_name = ext->color_name;
+                spool_name = ext->spool_name;
+            }
+        }
+    }
+
+    // Compute fill level and color
+    lv_color_t spool_color = lv_color_hex(0x808080); // Gray for no-spool
+    float fill_level = 0.0f;
+
+    if (has_spool) {
+        spool_color = lv_color_hex(active->color_rgb);
+        if (total_weight > 0) {
+            fill_level = remaining_weight / total_weight;
+            fill_level = LV_CLAMP(fill_level, 0.0f, 1.0f);
+        } else {
+            fill_level = 1.0f; // No weight data -- show full
+        }
+    }
+
+    // Determine which spool canvas is active based on current mode
+    lv_obj_t* active_spool = is_wide_ ? spool_wide_ : spool_compact_;
+
+    // Update the active spool canvas
+    if (active_spool) {
+        ui_spool_canvas_set_color(active_spool, spool_color);
+        ui_spool_canvas_set_fill_level(active_spool, fill_level);
+        // Semi-transparent when no spool assigned
+        lv_obj_set_style_opa(active_spool, has_spool ? LV_OPA_COVER : LV_OPA_40, 0);
+    }
+
+    // Update text labels (wide mode)
+    if (material_label_) {
+        if (has_spool) {
+            lv_label_set_text(material_label_, active->material_name.c_str());
+            lv_obj_set_style_text_align(material_label_, LV_TEXT_ALIGN_LEFT, 0);
+        } else {
+            lv_label_set_text(material_label_, is_wide_ ? lv_tr("No Spool") : "");
+            lv_obj_set_style_text_align(material_label_, LV_TEXT_ALIGN_CENTER, 0);
+        }
+    }
+    if (brand_color_label_) {
+        std::string brand_color_str;
+        if (has_spool) {
+            if (!brand.empty() && !color_name.empty()) {
+                brand_color_str = brand + " " + color_name;
+            } else if (!brand.empty()) {
+                brand_color_str = brand;
+            } else if (!spool_name.empty()) {
+                brand_color_str = spool_name;
+            }
+        }
+        lv_label_set_text(brand_color_label_, brand_color_str.c_str());
+        if (brand_color_str.empty()) {
+            lv_obj_add_flag(brand_color_label_, LV_OBJ_FLAG_HIDDEN);
+        } else {
+            lv_obj_remove_flag(brand_color_label_, LV_OBJ_FLAG_HIDDEN);
+        }
+    }
+    if (weight_label_) {
+        std::string weight_str;
+        if (has_spool && total_weight > 0) {
+            weight_str = std::to_string(static_cast<int>(remaining_weight)) + "g / " +
+                         std::to_string(static_cast<int>(total_weight)) + "g";
+        }
+        lv_label_set_text(weight_label_, weight_str.c_str());
+        if (weight_str.empty()) {
+            lv_obj_add_flag(weight_label_, LV_OBJ_FLAG_HIDDEN);
+        } else {
+            lv_obj_remove_flag(weight_label_, LV_OBJ_FLAG_HIDDEN);
+        }
+    }
+
+    // Show/hide no-spool label (compact mode only -- wide mode uses material_label)
+    if (no_spool_label_) {
+        if (has_spool || is_wide_) {
+            lv_obj_add_flag(no_spool_label_, LV_OBJ_FLAG_HIDDEN);
+        } else {
+            lv_obj_remove_flag(no_spool_label_, LV_OBJ_FLAG_HIDDEN);
+        }
+    }
+}
+
+void ActiveSpoolWidget::handle_clicked() {
+    spdlog::info("[ActiveSpoolWidget] Clicked");
+
+    auto& ams = AmsState::instance();
+
+    // Check if AMS backend has active material
+    AmsBackend* backend = ams.get_backend();
+    if (backend && backend->is_filament_loaded()) {
+        int current = backend->get_current_slot();
+        if (current >= 0) {
+            spdlog::info("[ActiveSpoolWidget] Opening AMS slot edit for slot {}", current);
+            if (!edit_modal_) {
+                edit_modal_ = std::make_unique<helix::ui::AmsEditModal>();
+            }
+            SlotInfo slot = backend->get_slot_info(current);
+            edit_modal_->set_completion_callback(
+                [current](const helix::ui::AmsEditModal::EditResult& result) {
+                    if (result.saved) {
+                        AmsBackend* be = AmsState::instance().get_backend();
+                        if (be) {
+                            be->set_slot_info(current, result.slot_info);
+                        }
+                    }
+                });
+            edit_modal_->show_for_slot(parent_screen_, current, slot, api_);
+            return;
+        }
+    }
+
+    // External spool or no spool -- open external spool edit modal
+    open_external_spool_edit();
+}
+
+void ActiveSpoolWidget::open_external_spool_edit() {
+    spdlog::info("[ActiveSpoolWidget] Opening external spool edit modal");
+
+    if (!edit_modal_) {
+        edit_modal_ = std::make_unique<helix::ui::AmsEditModal>();
+    }
+
+    auto ext = AmsState::instance().get_external_spool_info();
+    SlotInfo initial_info = ext.value_or(SlotInfo{});
+    initial_info.slot_index = -2;
+    initial_info.global_index = -2;
+
+    edit_modal_->set_completion_callback([](const helix::ui::AmsEditModal::EditResult& result) {
+        if (result.saved) {
+            if (result.slot_info.spoolman_id > 0 || !result.slot_info.material.empty()) {
+                AmsState::instance().set_external_spool_info(result.slot_info);
+            } else {
+                AmsState::instance().clear_external_spool_info();
+            }
+        }
+    });
+    edit_modal_->show_for_slot(parent_screen_, -2, initial_info, api_);
+}
+
+void ActiveSpoolWidget::clicked_cb(lv_event_t* e) {
+    LVGL_SAFE_EVENT_CB_BEGIN("[ActiveSpoolWidget] clicked_cb");
+    auto* self = static_cast<ActiveSpoolWidget*>(lv_event_get_user_data(e));
+    if (self) {
+        self->record_interaction();
+        self->handle_clicked();
+    }
+    LVGL_SAFE_EVENT_CB_END();
+}
+
+} // namespace helix

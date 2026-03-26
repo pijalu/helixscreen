@@ -437,6 +437,25 @@ void ui_spool_canvas_set_fill_level(lv_obj_t* canvas, float fill_level) {
     }
 }
 
+void ui_spool_canvas_set_size(lv_obj_t* canvas, int32_t size) {
+    auto* data = get_data(canvas);
+    if (!data || size <= 0 || size == data->size)
+        return;
+
+    data->size = size;
+    if (data->draw_buf) {
+        lv_draw_buf_destroy(data->draw_buf);
+    }
+    data->draw_buf = lv_draw_buf_create(size, size, LV_COLOR_FORMAT_ARGB8888, 0);
+    if (!data->draw_buf) {
+        spdlog::error("[SpoolCanvas] Failed to create draw buffer for size {}", size);
+        return;
+    }
+    lv_canvas_set_draw_buf(data->canvas, data->draw_buf);
+    lv_obj_set_size(data->canvas, size, size);
+    redraw_spool(data);
+}
+
 void ui_spool_canvas_redraw(lv_obj_t* canvas) {
     auto* data = get_data(canvas);
     if (data) {

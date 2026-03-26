@@ -42,6 +42,7 @@ lv_obj_t* ui_spool_canvas_create(lv_obj_t* parent, int32_t size);
 
 void ui_spool_canvas_set_color(lv_obj_t* canvas, lv_color_t color);
 void ui_spool_canvas_set_fill_level(lv_obj_t* canvas, float fill_level);
+void ui_spool_canvas_set_size(lv_obj_t* canvas, int32_t size);
 void ui_spool_canvas_redraw(lv_obj_t* canvas);
 float ui_spool_canvas_get_fill_level(lv_obj_t* canvas);
 lv_color_t ui_spool_canvas_get_color(lv_obj_t* canvas);

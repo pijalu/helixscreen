@@ -1,0 +1,58 @@
+<?xml version="1.0"?>
+<!-- Copyright (C) 2025-2026 356C LLC -->
+<!-- SPDX-License-Identifier: GPL-3.0-or-later -->
+<component>
+  <view name="panel_widget_active_spool" extends="lv_obj"
+        height="100%" flex_grow="1" style_pad_all="0" scrollable="false">
+    <ui_button name="spoolman_btn"
+               width="100%" height="100%" variant="ghost" flex_flow="column"
+               style_flex_main_place="center" style_flex_cross_place="center"
+               style_flex_track_place="center" style_border_width="0" focusable="false">
+      <bind_state_if_not_eq subject="printer_connection_state" state="disabled" ref_value="2"/>
+
+      <!-- Wide layout: row with spool + text (hidden by default, shown in on_size_changed) -->
+      <lv_obj name="spoolman_wide_layout" flex_flow="row" width="100%" height="100%"
+              style_flex_main_place="center" style_flex_cross_place="center"
+              style_flex_track_place="center" style_pad_column="#space_md"
+              style_pad_left="#space_md" style_pad_right="#space_md"
+              style_pad_top="#space_xs" style_pad_bottom="#space_xs"
+              style_bg_opa="0" scrollable="false"
+              clickable="false" event_bubble="true"
+              hidden="true">
+        <spool_canvas name="spool_wide" size="64"
+                      clickable="false" event_bubble="true"/>
+        <lv_obj name="spoolman_text_stack" flex_flow="column" width="0" flex_grow="1"
+                height="content" style_pad_row="#space_xxs"
+                style_bg_opa="0" scrollable="false"
+                clickable="false" event_bubble="true">
+          <text_body name="spoolman_material" text=""
+                     style_text_align="left" width="100%"
+                     clickable="false" event_bubble="true"/>
+          <text_small name="spoolman_brand_color" text=""
+                      style_text_color="#text_muted" style_text_align="left" width="100%"
+                      clickable="false" event_bubble="true"/>
+          <text_tiny name="spoolman_weight" text=""
+                     style_text_color="#text_muted" style_text_align="left" width="100%"
+                     clickable="false" event_bubble="true"/>
+        </lv_obj>
+      </lv_obj>
+
+      <!-- Compact layout: just spool canvas centered (default visible) -->
+      <spool_canvas name="spool_compact" size="64"
+                    clickable="false" event_bubble="true"/>
+
+      <!-- "No Spool" label shown when nothing is active -->
+      <text_tiny name="spoolman_no_spool_label" text="No Spool" translation_tag="No Spool"
+                 style_text_color="#text_muted" style_text_align="center"
+                 clickable="false" event_bubble="true"
+                 hidden="true"/>
+    </ui_button>
+
+    <text_tiny name="spoolman_label" text="Active Spool" translation_tag="Active Spool"
+               style_text_color="#text_muted" style_text_align="center"
+               align="bottom_mid" y="-#space_md"
+               clickable="false" event_bubble="true">
+      <bind_flag_if_eq subject="show_widget_labels" flag="hidden" ref_value="0"/>
+    </text_tiny>
+  </view>
+</component>

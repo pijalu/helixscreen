@@ -55,6 +55,12 @@ std::vector<PanelWidgetEntry> PanelWidgetConfig::parse_widget_array(const nlohma
             }
         }
 
+        // Migration: spoolman -> active_spool (widget shows any active material, not just Spoolman)
+        if (id == "spoolman") {
+            spdlog::info("[PanelWidgetConfig] Migrating 'spoolman' -> 'active_spool'");
+            id = "active_spool";
+        }
+
         bool enabled = item["enabled"].get<bool>();
 
         // Skip duplicates
