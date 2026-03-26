@@ -712,9 +712,10 @@ lv_obj_t* Modal::find_widget(const char* name) {
 void Modal::wire_button(const char* name, const char* role_name, lv_event_cb_t cb) {
     lv_obj_t* btn = find_widget(name);
     if (btn) {
-        lv_obj_set_user_data(btn, this);
-        // Add direct event callback so button works even without XML callback attribute
-        lv_obj_add_event_cb(btn, cb, LV_EVENT_CLICKED, nullptr);
+        // Pass 'this' as the per-callback user_data (4th param), NOT via
+        // lv_obj_set_user_data() which collides with ui_button's UiButtonData.
+        // Per-callback user_data is read via lv_event_get_user_data(e).
+        lv_obj_add_event_cb(btn, cb, LV_EVENT_CLICKED, this);
         spdlog::trace("[{}] Wired {} button '{}'", get_name(), role_name, name);
     } else {
         spdlog::warn("[{}] {} button '{}' not found", get_name(), role_name, name);
@@ -808,15 +809,14 @@ void Modal::destroy() {
 // ============================================================================
 
 // Helper macro to reduce boilerplate in button callbacks.
-// All button callbacks follow the same pattern: extract Modal* from button's
-// user_data and call the appropriate virtual method.
-// Uses current_target (where handler is registered) not target (which may be
-// a child label due to event bubbling, with unrelated user_data).
+// All button callbacks follow the same pattern: extract Modal* from the
+// per-callback user_data and call the appropriate virtual method.
+// Uses lv_event_get_user_data (per-callback) not lv_obj_get_user_data
+// (per-object) to avoid colliding with ui_button's internal UiButtonData.
 #define MODAL_BUTTON_CB_IMPL(cb_name, method_name, button_label)                                   \
     void Modal::cb_name(lv_event_t* e) {                                                           \
         LVGL_SAFE_EVENT_CB_BEGIN("[Modal] " #cb_name);                                             \
-        lv_obj_t* btn = static_cast<lv_obj_t*>(lv_event_get_current_target(e));                    \
-        auto* self = static_cast<Modal*>(lv_obj_get_user_data(btn));                               \
+        auto* self = static_cast<Modal*>(lv_event_get_user_data(e));                               \
         if (self) {                                                                                \
             spdlog::debug("[{}] " button_label " button clicked", self->get_name());               \
             self->method_name();                                                                   \
