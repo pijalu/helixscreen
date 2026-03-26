@@ -30,17 +30,19 @@ void MacrosWidget::attach(lv_obj_t* widget_obj, lv_obj_t* parent_screen) {
     widget_obj_ = widget_obj;
     parent_screen_ = parent_screen;
 
+    // Set user_data on the root lv_obj, NOT on the ui_button child.
+    // ui_button allocates its own UiButtonData in user_data — overwriting it
+    // leaks memory and breaks button style/contrast auto-updates.
+    lv_obj_set_user_data(widget_obj_, this);
+
     btn_ = lv_obj_find_by_name(widget_obj_, "macros_button");
-    if (btn_) {
-        lv_obj_set_user_data(btn_, this);
-    }
 }
 
 void MacrosWidget::detach() {
-    if (btn_) {
-        lv_obj_set_user_data(btn_, nullptr);
-        btn_ = nullptr;
+    if (widget_obj_) {
+        lv_obj_set_user_data(widget_obj_, nullptr);
     }
+    btn_ = nullptr;
     widget_obj_ = nullptr;
     parent_screen_ = nullptr;
 }
@@ -52,8 +54,16 @@ void MacrosWidget::handle_click() {
 
 void MacrosWidget::clicked_cb(lv_event_t* e) {
     LVGL_SAFE_EVENT_CB_BEGIN("[MacrosWidget] clicked_cb");
-    auto* target = static_cast<lv_obj_t*>(lv_event_get_current_target(e));
-    auto* self = static_cast<MacrosWidget*>(lv_obj_get_user_data(target));
+    // Walk up from the event target to find the root widget_obj_ that holds
+    // our user_data. The event_cb is on a ui_button child, but user_data is
+    // on the parent lv_obj to avoid colliding with ui_button's UiButtonData.
+    auto* obj = static_cast<lv_obj_t*>(lv_event_get_current_target(e));
+    MacrosWidget* self = nullptr;
+    while (obj) {
+        self = static_cast<MacrosWidget*>(lv_obj_get_user_data(obj));
+        if (self) break;
+        obj = lv_obj_get_parent(obj);
+    }
     if (self) {
         self->record_interaction();
         self->handle_click();
