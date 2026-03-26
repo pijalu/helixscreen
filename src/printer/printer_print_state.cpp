@@ -540,22 +540,23 @@ void PrinterPrintState::set_print_start_state(PrintStartPhase phase, const char*
     std::string msg = message ? message : "";
     int clamped_progress = std::clamp(progress, 0, 100);
     helix::ui::queue_update([this, phase, msg, clamped_progress]() {
-        // Guard: reject non-IDLE phase updates when print is no longer active.
+        // Guard: reject non-IDLE phase updates when print is no longer active,
+        // UNLESS this is a new print starting (transitioning from IDLE phase).
         // This prevents a deferred COMPLETE callback from arriving after the print
-        // has ended and the safety reset has already cleared the phase to IDLE.
-        if (phase != PrintStartPhase::IDLE && lv_subject_get_int(&print_active_) == 0) {
+        // has ended and the safety reset has already cleared the phase to IDLE,
+        // while still allowing new prints to start from an inactive state.
+        int current_phase = lv_subject_get_int(&print_start_phase_);
+        bool is_new_print_start = (current_phase == static_cast<int>(PrintStartPhase::IDLE));
+        if (phase != PrintStartPhase::IDLE && lv_subject_get_int(&print_active_) == 0 &&
+            !is_new_print_start) {
             spdlog::debug("[PrinterPrintState] Ignoring stale phase {} (print inactive)",
                           static_cast<int>(phase));
             return;
         }
 
         // Reset print progress when transitioning from IDLE to a preparing phase
-        // IMPORTANT: Read old_phase inside lambda for thread safety - avoids race
-        // condition where another callback could modify print_start_phase_ between
-        // the read and this lambda's execution.
-        int old_phase = lv_subject_get_int(&print_start_phase_);
-        if (old_phase == static_cast<int>(PrintStartPhase::IDLE) &&
-            phase != PrintStartPhase::IDLE) {
+        // (current_phase was already read above for the stale-update guard)
+        if (is_new_print_start && phase != PrintStartPhase::IDLE) {
             reset_for_new_print();
             // Clear terminal outcome immediately so cancel button shows during pre-print.
             // Without this, print_outcome stays COMPLETE/CANCELLED/ERROR until Moonraker
