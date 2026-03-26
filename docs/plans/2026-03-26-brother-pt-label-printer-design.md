@@ -150,7 +150,7 @@ The PT backend manages its own BT context lifecycle directly, following the same
 5. `helix_bt_disconnect(ctx, fd)`
 6. `helix_bt_deinit(ctx)`
 
-The shared `s_rfcomm_mutex` from `bt_print_utils.cpp` must still be acquired to prevent concurrent RFCOMM connections with other printer backends.
+The PT backend uses a file-local `s_print_mutex` (same pattern as `MakeIdBluetoothPrinter`) to serialize its own print operations. Cross-backend serialization (e.g., PT and QL printing simultaneously) is handled at the BlueZ socket level — the adapter only supports one RFCOMM connection at a time, so a second `helix_bt_connect_rfcomm()` will fail with an error rather than corrupt state.
 
 ### Deferred Rendering (Auto-Detect Pattern)
 
@@ -265,7 +265,7 @@ Two changes:
 
 ```cpp
 if (helix::bluetooth::is_brother_printer(bt_name.c_str())) {
-    if (is_brother_pt(bt_name)) {
+    if (is_brother_pt_printer(bt_name)) {
         sizes = BrotherPTBluetoothPrinter::supported_sizes_static();
     } else {
         sizes = BrotherQLPrinter::supported_sizes_static();
@@ -277,7 +277,7 @@ if (helix::bluetooth::is_brother_printer(bt_name.c_str())) {
 
 ```cpp
 if (is_brother_printer(bt_name.c_str())) {
-    if (is_brother_pt(bt_name)) {
+    if (is_brother_pt_printer(bt_name)) {
         // PT series: deferred render — tape width unknown until status query
         BrotherPTBluetoothPrinter printer;
         printer.set_device(bt_address);
@@ -291,7 +291,7 @@ if (is_brother_printer(bt_name.c_str())) {
 }
 ```
 
-Helper function `is_brother_pt()` uses case-insensitive check for `"PT-"` prefix via `find_brand()` from `bt_discovery_utils.h`.
+Helper function `is_brother_pt_printer()` uses case-insensitive check for `"PT-"` prefix via `find_brand()` from `bt_discovery_utils.h`, matching the naming convention of `is_brother_printer()`, `is_niimbot_printer()`, etc.
 
 #### `bt_discovery_utils.h`
 
@@ -309,7 +309,7 @@ User taps "Print Label" on spool
     → detects BT + Brother + "PT-" prefix
     → BrotherPTBluetoothPrinter::print_spool(spool, preset, callback)
         → detach thread
-        → acquire s_rfcomm_mutex
+        → acquire s_print_mutex (file-local)
         → helix_bt_init() → ctx
         → helix_bt_connect_rfcomm(ctx, mac, channel) → fd
         → write(fd, status_request)
@@ -326,7 +326,7 @@ User taps "Print Label" on spool
         → if timeout → callback("Print timed out")
         → helix_bt_disconnect(ctx, fd)
         → helix_bt_deinit(ctx)
-        → release s_rfcomm_mutex
+        → release s_print_mutex
         → queue_update → callback(success/error)
 ```
 
