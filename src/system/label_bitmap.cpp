@@ -70,9 +70,10 @@ LabelBitmap generate_qr_bitmap(const std::string& data, int target_size_px) {
         return {};
     }
 
-    // Calculate module size — round up to fill the target. The bitmap may be
-    // slightly larger than target_size_px; the caller's blit() clips to label bounds.
-    int module_px = (target_size_px + qr_size - 1) / qr_size;
+    // Calculate module size — round down to ensure the QR fits within the target.
+    // Rounding up can produce a bitmap larger than the label width, causing clipping
+    // on narrow media like 12mm TZe tape (70px printable).
+    int module_px = target_size_px / qr_size;
     if (module_px < 1)
         module_px = 1;
 
