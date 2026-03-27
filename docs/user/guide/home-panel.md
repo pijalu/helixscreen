@@ -266,7 +266,7 @@ Some widgets depend on specific hardware being detected by Klipper. If the hardw
 | Widget | Required Hardware |
 |--------|-------------------|
 | Camera | Webcam configured in Moonraker (crowsnest, camera-streamer, etc.) |
-| AMS Status | AMS, AFC (Box Turtle), Happy Hare, ValgACE, or compatible MMU system |
+| AMS Status | AMS, AFC (Box Turtle), Happy Hare, ACE (Anycubic ACE Pro), or compatible MMU system |
 | Clog Detection | AMS, AFC, Happy Hare, or compatible MMU with clog/flow detection |
 | LED Light / LED Controls | Any LED strip configured in Klipper (neopixel, dotstar, output_pin) |
 | Power / Power Device | Moonraker power devices (PSU control, smart plugs) |

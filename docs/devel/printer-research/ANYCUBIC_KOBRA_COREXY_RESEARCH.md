@@ -5,7 +5,7 @@
 
 ## Executive Summary
 
-The most relevant AnyCubic CoreXY printers are the **Kobra S1 Combo** and **Kobra 3 Combo** series. They run **KobraOS** (Klipper rewritten in Golang) and can be extended with **Rinkhals** custom firmware for standard Moonraker. **HelixScreen already has ValgACE backend support** for the ACE Pro multi-material system.
+The most relevant AnyCubic CoreXY printers are the **Kobra S1 Combo** and **Kobra 3 Combo** series. They run **KobraOS** (Klipper rewritten in Golang) and can be extended with **Rinkhals** custom firmware for standard Moonraker. **HelixScreen already has ACE backend support** for the ACE Pro multi-material system.
 
 ---
 
@@ -209,11 +209,11 @@ enable_rfid: 1
 
 ## 9. HelixScreen Compatibility
 
-### Existing ValgACE Support
+### Existing ACE Support
 
-HelixScreen already has complete ValgACE backend:
-- `include/ams_backend_valgace.h`
-- `src/printer/ams_backend_valgace.cpp`
+HelixScreen already has a complete ACE backend:
+- `include/ams_backend_ace.h`
+- `src/printer/ams_backend_ace.cpp`
 
 **Features:**
 - Polls REST at 500ms intervals
@@ -240,12 +240,12 @@ HelixScreen already has complete ValgACE backend:
 
 ---
 
-## 10. ValgACE - Klipper Driver for ACE Pro
+## 10. ACE Klipper Drivers
 
-### Overview
-[github.com/agrloki/ValgACE](https://github.com/agrloki/ValgACE) - ACE Pro driver for any Klipper printer.
+### ValgACE (Primary — includes Moonraker component)
+[github.com/agrloki/ValgACE](https://github.com/agrloki/ValgACE) - ACE Pro driver for any Klipper printer. Provides the `ace_status.py` Moonraker component with REST endpoints required by HelixScreen.
 
-### Installation
+### Installation (ValgACE)
 ```bash
 git clone https://github.com/agrloki/ValgACE.git
 cd ValgACE && ./install.sh
@@ -306,16 +306,16 @@ Add to printer.cfg:
 ### Target Configuration
 - **AnyCubic Kobra S1 Combo** (CoreXY, enclosed)
 - **Rinkhals firmware** for Moonraker
-- **ACE Pro** with ValgACE (already supported)
+- **ACE Pro** already supported (install the ValgACE Moonraker component for REST access)
 
 ### Integration Path
 1. **External HelixScreen** device (Pi + touchscreen)
 2. Connect to Rinkhals Moonraker
-3. ValgACE backend handles ACE Pro
+3. ACE backend handles ACE Pro
 
 ### Challenges
 - klipper-go WebSocket differences
-- May need REST polling (like ValgACE does)
+- May need REST polling (like ACE does)
 - Limited onboard resources for direct printer install
 
 ---
@@ -325,5 +325,5 @@ Add to printer.cfg:
 AnyCubic Kobra S1 Combo is a good HelixScreen target:
 - ARM architecture (Cortex-A7)
 - Rinkhals provides Moonraker
-- ACE Pro **already supported** via ValgACE backend
+- ACE Pro **already supported** via ACE backend
 - Best approach: external HelixScreen device connecting to printer's Moonraker

@@ -57,7 +57,7 @@ Welcome to the HelixScreen documentation. Choose your path:
 | Document | Description |
 |----------|-------------|
 | [**Label Printer System**](devel/LABEL_PRINTER_SYSTEM.md) | Brother QL, Phomemo, Niimbot, MakeID; USB/TCP/Bluetooth |
-| [**Filament Management**](devel/FILAMENT_MANAGEMENT.md) | AMS, AFC, Happy Hare, ValgACE, Tool Changer |
+| [**Filament Management**](devel/FILAMENT_MANAGEMENT.md) | AMS, AFC, Happy Hare, ACE, Tool Changer |
 | [**Spoolman Spool Wizard**](devel/plans/2026-02-15-spool-wizard-status.md) | 3-step spool creation wizard, API methods, visual test plan |
 | [**Input Shaper & PID**](devel/INPUT_SHAPER.md) | Calibration, frequency response charts, CSV parser |
 | [**Preprint Prediction**](devel/PREPRINT_PREDICTION.md) | ETA prediction engine, phase timing, history |

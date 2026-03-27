@@ -50,7 +50,7 @@ Fast, beautiful, and built for every Klipper printer — from a Creality K1 to a
 - **Every feature at your fingertips** — 30+ panels, 18 overlays, 13 modals, 250+ XML layouts
 - **Runs on anything** — ~10MB RAM, from a Creality K1 to a Raspberry Pi 5
 - **71 printers in the database** — Auto-detects your hardware and configures itself
-- **Multi-material ready** — AFC, Happy Hare, ValgACE, ViViD, CFS, tool changers, Spoolman
+- **Multi-material ready** — AFC, Happy Hare, ACE, ViViD, CFS, tool changers, Spoolman
 - **Exclude objects** — Tap-to-exclude overhead map view with object outlines during prints
 - **Looks great** — Light/dark themes with 17 presets, responsive layouts, GPU-accelerated blur
 - **First-run wizard** — 13-step guided setup discovers your printer's capabilities
@@ -117,7 +117,7 @@ See [docs/devel/GALLERY.md](docs/devel/GALLERY.md) for the full gallery.
 
 **Printer Control** — Print management with G-code preview, motion controls, temperature presets with per-material overrides, multi-fan control, Z-offset, speed/flow tuning, live filament consumption tracking, power device management
 
-**Multi-Material** — 6 filament system backends: AFC (Box Turtle), Happy Hare (ERCF, 3MS, Tradrack), ValgACE, ViViD, Creality CFS, and tool changers. Multi-unit and multi-backend support. Full Spoolman integration with spool creation wizard.
+**Multi-Material** — 6 filament system backends: AFC (Box Turtle), Happy Hare (ERCF, 3MS, Tradrack), ACE (Anycubic ACE Pro), ViViD, Creality CFS, and tool changers. Multi-unit and multi-backend support. Full Spoolman integration with spool creation wizard.
 
 **Visualization** — 3D G-code layer preview with memory-aware geometry budgets, 3D bed mesh with async rendering, print thumbnails, frequency response charts, unified temperature graph
 
@@ -212,7 +212,7 @@ Any Klipper + Moonraker printer. 68 models in the auto-detection database spanni
 800x480, 1024x600, and 1920x480 (ultrawide) are fully supported with auto-detecting layouts. Display rotation (0/90/180/270) is supported with auto-detection. Smaller displays like 480x320 are a work-in-progress.
 
 **What multi-material systems work?**
-AFC (Box Turtle), Happy Hare (ERCF, 3MS, Tradrack, Night Owl), ValgACE, ViViD, Creality CFS, and tool changers (viesturz/klipper-toolchanger). Full Spoolman integration for spool management.
+AFC (Box Turtle), Happy Hare (ERCF, 3MS, Tradrack, Night Owl), ACE (Anycubic ACE Pro), ViViD, Creality CFS, and tool changers (viesturz/klipper-toolchanger). Full Spoolman integration for spool management.
 
 See [docs/user/FAQ.md](docs/user/FAQ.md) for the full FAQ.
 

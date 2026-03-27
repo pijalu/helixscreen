@@ -29,7 +29,7 @@ HelixScreen uses a backend abstraction layer to support multiple multi-filament 
      ┌────────┼─────────┬───────────┬──────────────┘
      ▼        ▼         ▼           ▼           ▼           ▼
   ┌────────┐ ┌────────┐ ┌────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐
-  │Happy   │ │  AFC   │ │ValgACE │ │  Tool    │ │ AD5X IFS │ │  Mock    │
+  │Happy   │ │  AFC   │ │  ACE   │ │  Tool    │ │ AD5X IFS │ │  Mock    │
   │Hare    │ │Backend │ │Backend │ │ Changer  │ │ Backend  │ │ Backend  │
   └────────┘ └────────┘ └────────┘ └──────────┘ └──────────┘ └──────────┘
        │          │          │           │            │            │
@@ -54,7 +54,7 @@ HelixScreen uses a backend abstraction layer to support multiple multi-filament 
 | `src/printer/slot_registry.cpp` | SlotRegistry implementation (name/index mapping, reorganize, tool map) |
 | `include/ams_backend_happy_hare.h` | Happy Hare MMU implementation |
 | `include/ams_backend_afc.h` | AFC (Armored Turtle / Box Turtle) implementation |
-| `include/ams_backend_valgace.h` | ValgACE (AnyCubic ACE Pro) implementation |
+| `include/ams_backend_ace.h` | ACE (Anycubic ACE Pro) implementation |
 | `include/ams_backend_toolchanger.h` | Physical tool changer (viesturz/klipper-toolchanger) |
 | `include/ams_backend_ad5x_ifs.h` | FlashForge AD5X IFS (Intelligent Filament Switching) |
 | `include/ams_backend_mock.h` | Mock backend for development and testing |
@@ -67,7 +67,7 @@ HelixScreen uses a backend abstraction layer to support multiple multi-filament 
 
 ### Data Flow
 
-1. **Discovery**: `PrinterDiscovery::parse_objects()` scans Klipper's `printer.objects.list` for `mmu`, `AFC`, `toolchanger`, `AFC_stepper lane*`, `AFC_hub *`, `tool T*`, and `filament_switch_sensor _ifs_port_sensor_*` objects.
+1. **Discovery**: `PrinterDiscovery::parse_objects()` scans Klipper's `printer.objects.list` for `mmu`, `AFC`, `toolchanger`, `ace`, `AFC_stepper lane*`, `AFC_hub *`, `tool T*`, and `filament_switch_sensor _ifs_port_sensor_*` objects.
 2. **Backend Creation**: `AmsState::init_backend_from_hardware()` calls `AmsBackend::create()` with the detected `AmsType` and Moonraker dependencies.
 3. **Slot State**: Each backend stores per-slot state in its `SlotRegistry` instance (`slots_`), which provides indexed access, name lookup, and multi-unit reorganization. Moonraker status updates write to the registry under the backend's mutex.
 4. **State Sync**: Backend emits events (`STATE_CHANGED`, `SLOT_CHANGED`, etc.) which `AmsState` translates to LVGL subject updates.
@@ -276,7 +276,7 @@ enum class AmsType {
     NONE = 0,         // No AMS detected
     HAPPY_HARE = 1,   // Happy Hare MMU (mmu object in Moonraker)
     AFC = 2,          // AFC-Klipper-Add-On (AFC object, lane_data database)
-    VALGACE = 3,      // AnyCubic ACE Pro via ValgACE Klipper driver
+    ACE = 3,          // AnyCubic ACE Pro (ValgACE/BunnyACE/DuckACE Klipper drivers)
     TOOL_CHANGER = 4, // Physical tool changer (viesturz/klipper-toolchanger)
     AD5X_IFS = 5      // FlashForge AD5X IFS (Intelligent Filament Switching)
 };
@@ -626,13 +626,28 @@ The backend detects the installed version by querying the `afc-install` database
 
 ---
 
-## ValgACE (AnyCubic ACE Pro)
+## ACE (Anycubic ACE Pro)
 
-ValgACE is the Klipper driver for AnyCubic ACE Pro hardware. Unlike the other backends, ValgACE uses a REST polling model rather than WebSocket subscriptions.
+The ACE backend supports the Anycubic ACE Pro multi-material hub. Unlike the other backends, ACE uses a REST polling model rather than WebSocket subscriptions.
+
+### Supported Klipper Drivers
+
+Three community Klipper drivers support the ACE Pro hardware — all register as `[ace]` in Klipper and use the same G-code commands:
+
+| Driver | Source | Notes |
+|--------|--------|-------|
+| **ValgACE** (agrloki) | [github.com/agrloki/ValgACE](https://github.com/agrloki/ValgACE) | Includes Moonraker component (`ace_status.py`) with REST endpoints |
+| **BunnyACE** | Community fork | Compatible driver, no Moonraker component |
+| **DuckACE** | Community fork | Compatible driver, no Moonraker component |
+
+HelixScreen polls ValgACE's REST endpoints for state. BunnyACE and DuckACE users must install ValgACE's `ace_status.py` Moonraker component separately — the REST bridge is required.
 
 ### Detection
 
-ValgACE is detected via a REST probe to `/server/ace/info`. Since ValgACE does not appear in `printer.objects.list`, the `AmsState::probe_valgace()` method is called during backend initialization to check for its presence.
+ACE is detected in two ways:
+
+1. **Object list detection**: `ace` in `printer.objects.list` (ValgACE, BunnyACE, and DuckACE all register this object).
+2. **REST probe fallback**: A probe to `/server/ace/info` via `AmsState::probe_ace()` catches setups where the object list is unavailable.
 
 ### REST Endpoints
 
@@ -667,7 +682,7 @@ A background polling thread runs at ~500ms intervals when the backend is active.
 
 ### Dryer Control
 
-ValgACE is the primary backend with integrated dryer support. The `DryerInfo` struct provides:
+ACE is the primary backend with integrated dryer support. The `DryerInfo` struct provides:
 
 - Current/target temperature
 - Duration and remaining time
@@ -1064,7 +1079,7 @@ Add corresponding `set_my_system_mode()` to `AmsBackendMock` if the new system h
 
 ### 6. Update AmsState (if needed)
 
-If the new backend has special discovery requirements, update `AmsState::init_backend_from_hardware()` accordingly. For example, ValgACE uses REST probing since it does not appear in Klipper's object list.
+If the new backend has special discovery requirements, update `AmsState::init_backend_from_hardware()` accordingly. For example, ACE supports both object-list detection (`ace` in `printer.objects.list`) and a REST probe fallback.
 
 ### 7. Add Tests
 
@@ -1146,13 +1161,13 @@ See `docs/devel/plans/2026-02-15-spool-wizard-status.md` for visual test plan.
 | Bowden length slider shows wrong range | Default 450mm being used | Hub data may not be received yet; wait for state sync |
 | Quiet mode not toggling | G-code not recognized | Verify AFC firmware supports `AFC_QUIET_MODE` command |
 
-#### ValgACE
+#### ACE (Anycubic ACE Pro)
 
 | Symptom | Cause | Fix |
 |---------|-------|-----|
-| ACE Pro not detected | REST probe failed | Verify ValgACE plugin is installed, check `/server/ace/info` endpoint |
-| Stale state | Polling interval | ValgACE polls at 500ms; state may lag slightly |
-| Dryer not controllable | Connection issue | Check Moonraker connection and ValgACE plugin status |
+| ACE Pro not detected | Object not in list + REST probe failed | Verify a ValgACE/BunnyACE/DuckACE driver is installed; check `ace` in `printer.objects.list` and `/server/ace/info` endpoint |
+| Stale state | Polling interval | ACE polls at 500ms; state may lag slightly |
+| Dryer not controllable | Missing REST bridge | BunnyACE/DuckACE users must install ValgACE's `ace_status.py` Moonraker component |
 
 #### Tool Changer
 
@@ -1187,7 +1202,7 @@ All backends log with prefixes:
 | `[AMS Backend]` | Factory/creation |
 | `[AMS Happy Hare]` / `[AmsBackendHappyHare]` | Happy Hare |
 | `[AMS AFC]` | AFC |
-| `[AMS ValgACE]` | ValgACE |
+| `[AMS ACE]` | ACE (Anycubic ACE Pro) |
 | `[AMS ToolChanger]` | Tool Changer |
 | `[AMS AD5X-IFS]` | AD5X IFS |
 | `[AmsBackendMock]` | Mock |

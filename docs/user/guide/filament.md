@@ -94,7 +94,7 @@ When multiple backends are detected:
 | **CFS** | Creality Filament System (K2 series printers) |
 | **Happy Hare** | MMU2, ERCF, 3MS, Tradrack, EMU |
 | **AFC** | Box Turtle, OpenAMS, ViViD |
-| **ValgACE** | ValgACE filament changer |
+| **ACE** | Anycubic ACE Pro (via ValgACE/BunnyACE/DuckACE Klipper drivers) |
 | **Tool Changer** | Toolchanger-based filament routing |
 | **AD5X IFS** *(testing)* | FlashForge Adventurer 5X Intelligent Filament Switching |
 

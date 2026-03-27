@@ -7,7 +7,7 @@ This directory contains research documentation on various 3D printers for HelixS
 | Printer | Architecture | Display | Moonraker | Multi-Material | HelixScreen Status |
 |---------|-------------|---------|-----------|----------------|-------------------|
 | **FlashForge AD5M Pro** | ARM (Allwinner T113) | 800x480 FB | Forge-X | None | **Supported** |
-| **AnyCubic Kobra S1** | ARM (Cortex-A7) | 480x320 FB | Rinkhals | ACE Pro | **ValgACE ready** |
+| **AnyCubic Kobra S1** | ARM (Cortex-A7) | 480x320 FB | Rinkhals | ACE Pro | **ACE supported** |
 | **Creality K2 Plus** | ARM (Allwinner A133?) | 480x800 FB | Stock | CFS (16 colors) | **Build target ready** (untested) |
 | **Creality K1C/K1 Max** | MIPS (X2000E) | 480x400 FB | After root | Single | Needs MIPS port |
 | **FlashForge AD5X** | MIPS | 800x480 FB | ZMOD | IFS (4 colors) | **Active testing** |
@@ -17,7 +17,7 @@ This directory contains research documentation on various 3D printers for HelixS
 
 ### Already Compatible
 - **AD5M Pro**: Fully supported via Forge-X
-- **AnyCubic + ACE Pro**: ValgACE backend already implemented, just needs Rinkhals for Moonraker
+- **AnyCubic + ACE Pro**: ACE backend already implemented, just needs Rinkhals for Moonraker
 
 ### Needs MIPS Toolchain
 - **Creality K1 series**: Ingenic X2000E (MIPS32r2) - GuppyScreen proves LVGL works
@@ -52,7 +52,7 @@ This directory contains research documentation on various 3D printers for HelixS
 
 | System | Type | Colors | Protocol | HelixScreen Support |
 |--------|------|--------|----------|---------------------|
-| **ACE Pro** | Filament switcher | 4-8 | USB serial + REST | **AmsBackendValgACE** |
+| **ACE Pro** | Filament switcher | 4-8 | USB serial + REST | **AmsBackendAce** |
 | **CFS** | Filament switcher | 4-16 | RS-485 | Via G-code macros |
 | **IFS** | Filament switcher | 4 | Serial | Needs investigation |
 | **SnapSwap** | Toolchanger | 4 | Unknown | Needs open source |

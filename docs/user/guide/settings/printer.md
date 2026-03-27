@@ -24,7 +24,7 @@ Other detected sensors (accelerometers, probes, humidity, width, color) are list
 
 > Only shown when an AMS (Automatic Material System) is detected.
 
-Tap to open Device Operations for quick actions, calibration, and speed settings for multi-material systems. Supports AFC, Happy Hare, ValgACE, and other Klipper-based filament changers.
+Tap to open Device Operations for quick actions, calibration, and speed settings for multi-material systems. Supports AFC, Happy Hare, ACE, and other Klipper-based filament changers.
 
 ---
 

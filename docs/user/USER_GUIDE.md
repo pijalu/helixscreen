@@ -42,7 +42,7 @@ Jog pad controls, homing, distance increments, and emergency stop.
 ![Motion Controls](../images/screenshot-motion-panel.png)
 
 ### [Filament Management](guide/filament.md)
-Extrusion controls, load/unload procedures, AMS multi-material systems with multi-backend support (run Happy Hare, AFC, ValgACE, or Tool Changer simultaneously), Spoolman integration, and dryer control.
+Extrusion controls, load/unload procedures, AMS multi-material systems with multi-backend support (run Happy Hare, AFC, ACE, or Tool Changer simultaneously), Spoolman integration, and dryer control.
 
 ![AMS Panel](../images/user/ams.png)
 

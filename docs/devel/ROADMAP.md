@@ -160,7 +160,7 @@ Remaining items for production readiness:
 | **Happy Hare** | ERCF, Tradrack, 3MS, Night Owl | Linear | 1-16 | Tool mapping, bypass, endless spool (read-only) |
 | **AFC** | Box Turtle (AFC-Klipper-Add-On) | Hub | 1-16 | Editable endless spool, auto-heat on load, buffer health, 12+ device actions |
 | **Tool Changer** | viesturz/klipper-toolchanger | Parallel | 1-16 | Mounted/detect state, per-tool filament systems |
-| **ValgACE** | AnyCubic ACE Pro | Hub | 4 | Integrated dryer control (temp/duration/fan), REST polling |
+| **ACE** | Anycubic ACE Pro (ValgACE/BunnyACE/DuckACE) | Hub | 4 | Integrated dryer control (temp/duration/fan), REST polling |
 | **Mock** | Development simulation | All | Config | Simulates all 4 types with realistic multi-phase operations |
 
 **Multi-backend architecture:**

@@ -6,7 +6,7 @@ All 40+ singletons organized by responsibility.
 graph TB
     subgraph CoreState["Core State (LVGL Subjects + StaticSubjectRegistry)"]
         PS["PrinterState<br/>~50 subjects: temps, motion,<br/>print progress, errors"]
-        AS["AmsState<br/>Filament backends:<br/>AFC | HappyHare | ValgACE | ToolChanger"]
+        AS["AmsState<br/>Filament backends:<br/>AFC | HappyHare | ACE | ToolChanger"]
         TS["ToolState<br/>Multi-tool tracking"]
         SM["SettingsManager<br/>Persistent preferences"]
         TLS["TimelapseState<br/>Recording + render progress"]
