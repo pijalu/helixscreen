@@ -219,8 +219,8 @@ PrintStatusPanel::PrintStatusPanel(PrinterState& printer_state, MoonrakerAPI* ap
 PrintStatusPanel::~PrintStatusPanel() {
     deinit_subjects();
 
-    // Signal async callbacks to abort before destroying resources
-    m_alive->store(false);
+    // Expire all outstanding async callback tokens before destroying resources
+    lifetime_.invalidate();
 
     // Cancel pending deferred G-code load timer
     if (gcode_load_timer_) {
@@ -1228,22 +1228,20 @@ void PrintStatusPanel::handle_reprint_button() {
         lv_obj_set_style_opa(btn_cancel_, LV_OPA_50, LV_PART_MAIN);
     }
 
-    // Capture variables for async callback [L012]
-    auto alive = m_alive;
     std::string filename = current_print_filename_;
 
     api_->job().start_print(
         filename,
-        [this, alive, filename]() {
+        [this, filename]() {
             spdlog::info("[{}] Reprint started: {}", get_name(), filename);
             // State will update via PrinterState observer when Moonraker confirms
             // Button will transform back to Cancel mode when state changes to Printing
         },
-        [this, alive](const MoonrakerError& err) {
+        [this, token = lifetime_.token()](const MoonrakerError& err) {
             spdlog::error("[{}] Failed to reprint: {}", get_name(), err.message);
             NOTIFY_ERROR("Failed to reprint: {}", err.user_message());
             // Re-enable button on failure (with lifetime guard)
-            if (!alive->load())
+            if (token.expired())
                 return;
             if (btn_cancel_) {
                 lv_obj_remove_state(btn_cancel_, LV_STATE_DISABLED);
@@ -2078,15 +2076,13 @@ void PrintStatusPanel::load_thumbnail_for_file(const std::string& filename) {
     // (Moonraker only has metadata for original files, not modified copies)
     std::string metadata_filename = resolve_gcode_filename(filename);
 
-    // Capture alive flag for shutdown safety [L012]
-    auto alive = m_alive;
-
     // First, get file metadata to find thumbnail path
+    auto token = lifetime_.token();
     api_->files().get_file_metadata(
         metadata_filename,
-        [this, alive, current_gen](const FileMetadata& metadata) {
+        [this, token, current_gen](const FileMetadata& metadata) {
             // Abort if panel was destroyed during async operation
-            if (!alive->load()) {
+            if (token.expired()) {
                 return;
             }
             // Check if this callback is still relevant
@@ -2121,16 +2117,16 @@ void PrintStatusPanel::load_thumbnail_for_file(const std::string& filename) {
 
             // Use fetch_for_detail_view() for full-resolution PNG (not pre-scaled .bin)
             // The semantic API ensures we always get the right format for large views.
-            // Create context with captured generation for validity checking.
+            // Create context with lifetime token for validity checking.
             ThumbnailLoadContext ctx;
-            ctx.alive = alive;
+            ctx.lifetime_token = token;
             ctx.generation = nullptr; // Using manual gen check below
             ctx.captured_gen = current_gen;
 
             get_thumbnail_cache().fetch_for_detail_view(
                 api_, thumbnail_rel_path, ctx,
-                [this, current_gen, alive](const std::string& lvgl_path) {
-                    // Note: alive check is done by fetch_for_detail_view's guard.
+                [this, current_gen, token](const std::string& lvgl_path) {
+                    // Note: lifetime check is done by fetch_for_detail_view's guard.
                     // We still need generation check since we passed nullptr for generation.
                     if (current_gen != thumbnail_load_generation_) {
                         spdlog::trace("[{}] Stale thumbnail callback (gen {} != {}), ignoring",
@@ -2143,10 +2139,7 @@ void PrintStatusPanel::load_thumbnail_for_file(const std::string& filename) {
 
                     // Defer LVGL calls to main thread — this callback runs on the
                     // WebSocket/libhv background thread (prestonbrown/helixscreen#192)
-                    helix::ui::queue_update([this, alive_ref = alive, lvgl_path, current_gen]() {
-                        if (!alive_ref->load()) {
-                            return;
-                        }
+                    lifetime_.defer([this, lvgl_path, current_gen]() {
                         if (current_gen != thumbnail_load_generation_) {
                             return;
                         }
@@ -2167,8 +2160,8 @@ void PrintStatusPanel::load_thumbnail_for_file(const std::string& filename) {
                     spdlog::warn("[{}] Failed to fetch thumbnail: {}", get_name(), error);
                 });
         },
-        [this, alive](const MoonrakerError& err) {
-            if (!alive->load()) {
+        [this, token](const MoonrakerError& err) {
+            if (token.expired()) {
                 return;
             }
             spdlog::debug("[{}] Failed to get file metadata: {}", get_name(), err.message);
@@ -2248,14 +2241,13 @@ void PrintStatusPanel::load_gcode_for_viewing(const std::string& filename) {
     // This prevents OOM on memory-constrained devices like AD5M
     std::string metadata_filename = resolve_gcode_filename(filename);
 
-    // Capture alive flag for shutdown safety [L012]
-    auto alive = m_alive;
+    auto token = lifetime_.token();
 
     api_->files().get_file_metadata(
         metadata_filename,
-        [this, alive, filename, temp_path](const FileMetadata& metadata) {
+        [this, token, filename, temp_path](const FileMetadata& metadata) {
             // Abort if panel was destroyed during async operation
-            if (!alive->load()) {
+            if (token.expired()) {
                 return;
             }
             // Check if 2D streaming rendering is safe for this file size + available RAM
@@ -2289,9 +2281,9 @@ void PrintStatusPanel::load_gcode_for_viewing(const std::string& filename) {
             // For real mode, this streams from Moonraker using libhv's chunked download
             api_->transfers().download_file_to_path(
                 "gcodes", filename, temp_path,
-                [this, alive, temp_path](const std::string& path) {
-                    // Abort if panel was destroyed during download [L012]
-                    if (!alive->load()) {
+                [this, token, temp_path](const std::string& path) {
+                    // Abort if panel was destroyed during download
+                    if (token.expired()) {
                         return;
                     }
                     // Track the temp file for cleanup
@@ -2303,9 +2295,9 @@ void PrintStatusPanel::load_gcode_for_viewing(const std::string& filename) {
                     // Load into the viewer widget
                     load_gcode_file(path.c_str());
                 },
-                [this, alive, filename](const MoonrakerError& err) {
-                    // Abort if panel was destroyed during download [L012]
-                    if (!alive->load()) {
+                [this, token, filename](const MoonrakerError& err) {
+                    // Abort if panel was destroyed during download
+                    if (token.expired()) {
                         return;
                     }
                     spdlog::warn("[{}] Failed to stream G-code for viewing '{}': {}", get_name(),
@@ -2314,9 +2306,9 @@ void PrintStatusPanel::load_gcode_for_viewing(const std::string& filename) {
                     show_gcode_viewer(false);
                 });
         },
-        [this, alive, filename](const MoonrakerError& err) {
-            // Abort if panel was destroyed during async operation [L012]
-            if (!alive->load()) {
+        [this, token, filename](const MoonrakerError& err) {
+            // Abort if panel was destroyed during async operation
+            if (token.expired()) {
                 return;
             }
             spdlog::debug("[{}] Failed to get G-code metadata for '{}': {} - skipping 3D render",
@@ -2387,9 +2379,6 @@ void PrintStatusPanel::schedule_deferred_gcode_load() {
     gcode_load_timer_ = lv_timer_create(
         [](lv_timer_t* timer) {
             auto* self = static_cast<PrintStatusPanel*>(lv_timer_get_user_data(timer));
-            auto alive_ptr = self->m_alive;
-            if (!alive_ptr || !alive_ptr->load()) return;
-
             self->gcode_load_timer_ = nullptr; // timer is auto-deleted after one-shot
             if (!self->pending_gcode_filename_.empty()) {
                 spdlog::info("[{}] Deferred G-code load firing: {}", self->get_name(),

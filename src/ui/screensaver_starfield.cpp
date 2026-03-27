@@ -73,7 +73,7 @@ void StarfieldScreensaver::start() {
     draw_buf_ = static_cast<uint8_t*>(lv_malloc(buf_size));
     if (!draw_buf_) {
         spdlog::error("[Screensaver] Failed to allocate {}KB draw buffer", buf_size / 1024);
-        lv_obj_delete(overlay_);
+        lv_obj_delete_async(overlay_);
         overlay_ = nullptr;
         canvas_ = nullptr;
         return;

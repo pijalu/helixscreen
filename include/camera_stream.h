@@ -7,6 +7,8 @@
 // (SIMD-accelerated, loaded via dlopen) at runtime, falling back to stb_image.
 #if HELIX_HAS_CAMERA
 
+#include "async_lifetime_guard.h"
+
 #include <atomic>
 #include <functional>
 #include <memory>
@@ -138,8 +140,8 @@ class CameraStream {
     void free_buffers();
 
     // Thread-safe error reporting: copies on_error_ under cb_mutex_, invokes outside lock.
-    // Only invokes if the alive flag is still set.
-    void report_error(const std::shared_ptr<std::atomic<bool>>& alive, const char* message);
+    // Only invokes if the lifetime token is still valid.
+    void report_error(const helix::LifetimeToken& token, const char* message);
 
     // Resolve rotation + flip atomics into output dimensions and effective transform
     struct TransformParams {
@@ -196,9 +198,9 @@ class CameraStream {
     std::weak_ptr<HttpRequest> active_req_;
     std::mutex req_mutex_;
 
-    // State — alive_ is captured as weak_ptr by http_cb closures so they
+    // State — lifetime_ tokens are captured by http_cb closures so they
     // can detect object destruction and bail out before touching members
-    std::shared_ptr<std::atomic<bool>> alive_ = std::make_shared<std::atomic<bool>>(true);
+    helix::AsyncLifetimeGuard lifetime_;
     std::atomic<bool> running_{false};
     std::atomic<bool> frame_pending_{false};
     std::atomic<bool> got_stream_data_{false}; // Set by http_cb when data arrives

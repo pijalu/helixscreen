@@ -22,7 +22,6 @@
 // Forward declaration
 class MoonrakerAPI;
 
-#include <atomic>
 #include <functional>
 #include <memory>
 #include <string>
@@ -328,9 +327,7 @@ class PrintStatusPanel : public OverlayBase {
     // === Instance State ===
     //
 
-    /// Shutdown guard for async callbacks - set false in destructor
-    /// Captured by lambdas to prevent use-after-free on shutdown [L012]
-    std::shared_ptr<std::atomic<bool>> m_alive = std::make_shared<std::atomic<bool>>(true);
+    // Async callback safety provided by OverlayBase::lifetime_
 
     /// Pure-logic state machine (no LVGL deps) — owns all print state variables
     PrintLifecycleState lifecycle_;

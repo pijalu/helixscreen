@@ -110,10 +110,6 @@ void CameraStream::start(const std::string& stream_url, const std::string& snaps
         stop();
     }
 
-    // Fresh alive guard — old weak_ptrs from any detached thread
-    // will either fail to lock or see false
-    alive_ = std::make_shared<std::atomic<bool>>(true);
-
     stream_url_ = stream_url;
     snapshot_url_ = snapshot_url;
     on_frame_ = std::move(on_frame);
@@ -137,9 +133,9 @@ void CameraStream::start(const std::string& stream_url, const std::string& snaps
 }
 
 void CameraStream::stop() {
-    // Invalidate alive guard FIRST — http_cb closures capture a weak_ptr
+    // Invalidate lifetime guard FIRST — http_cb closures capture a token
     // and bail out before accessing any member state
-    alive_->store(false);
+    lifetime_.invalidate();
 
     bool was_running = running_.exchange(false);
 
@@ -172,7 +168,7 @@ void CameraStream::stop() {
         while (!joined->load()) {
             if (std::chrono::steady_clock::now() > deadline) {
                 spdlog::error("[CameraStream] Thread join timed out after 5s, "
-                              "detaching (alive_ guard prevents UAF)");
+                              "detaching (lifetime_ guard prevents UAF)");
                 join_helper.detach();
                 stream_thread_.detach();
                 thread_joined = false;
@@ -207,7 +203,7 @@ void CameraStream::stop() {
                 on_error_ = nullptr;
             }
         } else {
-            // Thread still running with alive_=false — don't touch state it
+            // Thread still running with lifetime_ invalidated — don't touch state it
             // may reference. Leak buffers and callbacks to avoid UAF.
             spdlog::warn("[CameraStream] Leaking state (stream thread still running)");
             std::lock_guard<std::mutex> lock(buf_mutex_);
@@ -263,9 +259,9 @@ std::string CameraStream::parse_boundary(const std::string& content_type) {
 // ============================================================================
 
 void CameraStream::stream_thread_func() {
-    // Hold a shared reference to alive_ so exception handlers can check
+    // Capture a lifetime token so exception handlers can check
     // object validity even after CameraStream may be destroyed
-    auto thread_alive = alive_;
+    auto thread_token = lifetime_.token();
 
     try {
     spdlog::debug("[CameraStream] Stream thread started for {}", stream_url_);
@@ -297,13 +293,12 @@ void CameraStream::stream_thread_func() {
         // Set up http_cb for incremental MJPEG parsing. The callback fires as
         // HTTP data arrives: HP_HEADERS_COMPLETE once headers are ready, then
         // HP_BODY repeatedly with each chunk of the multipart body.
-        // Capture alive_ as weak_ptr — safe to check even after object destruction
-        std::weak_ptr<std::atomic<bool>> weak_alive = alive_;
-        req->http_cb = [this, weak_alive](HttpMessage* resp, http_parser_state state,
+        // Capture lifetime token — safe to check even after object destruction
+        auto cb_token = lifetime_.token();
+        req->http_cb = [this, cb_token](HttpMessage* resp, http_parser_state state,
                               const char* data, size_t size) {
-            // Check alive_ first — object may be destroyed or shutting down
-            auto alive = weak_alive.lock();
-            if (!alive || !alive->load()) return;
+            // Check lifetime first — object may be destroyed or shutting down
+            if (cb_token.expired()) return;
 
             if (!running_.load()) {
                 // Cancel the request from within the callback
@@ -398,24 +393,24 @@ void CameraStream::stream_thread_func() {
         spdlog::warn("[CameraStream] Stream failed {} times, falling back to snapshot mode",
                      stream_fail_count_);
         if (!snapshot_url_.empty()) {
-            report_error(thread_alive, "Stream failed, trying snapshots...");
+            report_error(thread_token, "Stream failed, trying snapshots...");
             snapshot_poll_loop();
         } else {
-            report_error(thread_alive, "Stream unavailable");
+            report_error(thread_token, "Stream unavailable");
         }
     }
 
     spdlog::debug("[CameraStream] Stream thread exiting");
     } catch (const std::bad_alloc& e) {
         spdlog::error("[CameraStream] Out of memory in stream thread: {}", e.what());
-        if (thread_alive->load()) {
+        if (!thread_token.expired()) {
             recv_buf_.clear();
             recv_buf_.shrink_to_fit();
-            report_error(thread_alive, "Out of memory");
+            report_error(thread_token, "Out of memory");
         }
     } catch (const std::exception& e) {
         spdlog::error("[CameraStream] Uncaught exception in stream thread: {}", e.what());
-        report_error(thread_alive, e.what());
+        report_error(thread_token, e.what());
     }
 }
 
@@ -481,18 +476,18 @@ int CameraStream::process_stream_data() {
 }
 
 void CameraStream::snapshot_poll_loop() {
-    // Capture alive guard — if the thread is detached and the CameraStream
-    // destroyed, this keeps the atomic<bool> valid for safe checking.
-    auto thread_alive = alive_;
+    // Capture lifetime token — if the thread is detached and the CameraStream
+    // destroyed, the token detects invalidation for safe checking.
+    auto poll_token = lifetime_.token();
 
     spdlog::info("[CameraStream] Starting snapshot poll loop (interval={}ms)", kSnapshotIntervalMs);
 
-    while (thread_alive->load() && running_.load()) {
+    while (!poll_token.expired() && running_.load()) {
         if (!frame_pending_.load()) {
             fetch_snapshot();
         }
         // Sleep in small increments to check running_ flag
-        for (int i = 0; i < kSnapshotIntervalMs / 100 && thread_alive->load() && running_.load();
+        for (int i = 0; i < kSnapshotIntervalMs / 100 && !poll_token.expired() && running_.load();
              i++) {
             std::this_thread::sleep_for(std::chrono::milliseconds(100));
         }
@@ -500,10 +495,10 @@ void CameraStream::snapshot_poll_loop() {
 }
 
 void CameraStream::fetch_snapshot() {
-    // Capture alive guard — if the thread is detached and the CameraStream
-    // destroyed during the blocking HTTP call, this keeps the atomic<bool>
-    // valid so we can check before accessing member state (UAF prevention).
-    auto thread_alive = alive_;
+    // Capture lifetime token — if the thread is detached and the CameraStream
+    // destroyed during the blocking HTTP call, the token detects invalidation
+    // so we can check before accessing member state (UAF prevention).
+    auto snap_token = lifetime_.token();
 
     if (snapshot_url_.empty()) {
         return;
@@ -525,8 +520,8 @@ void CameraStream::fetch_snapshot() {
     auto resp = requests::request(req);
 
     // After the blocking HTTP call, stop() may have run and the CameraStream
-    // may be destroyed (detached thread). Check alive BEFORE touching members.
-    if (!thread_alive->load()) {
+    // may be destroyed (detached thread). Check lifetime BEFORE touching members.
+    if (snap_token.expired()) {
         return;
     }
 
@@ -797,9 +792,9 @@ bool CameraStream::decode_jpeg_stb(const uint8_t* data, size_t len) {
 // Error Reporting
 // ============================================================================
 
-void CameraStream::report_error(const std::shared_ptr<std::atomic<bool>>& alive, const char* message) {
+void CameraStream::report_error(const helix::LifetimeToken& token, const char* message) {
     ErrorCallback err_cb;
-    if (alive->load()) {
+    if (!token.expired()) {
         std::lock_guard<std::mutex> lock(cb_mutex_);
         err_cb = on_error_;
     }
@@ -811,7 +806,7 @@ void CameraStream::report_error(const std::shared_ptr<std::atomic<bool>>& alive,
 // ============================================================================
 
 void CameraStream::deliver_frame() {
-    if (!alive_ || !alive_->load()) {
+    if (!running_.load()) {
         return;
     }
 
