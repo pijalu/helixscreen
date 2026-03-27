@@ -62,20 +62,37 @@ When disconnected, a toast notification appears and HelixScreen attempts to reco
 
 ## First-Time Setup
 
-When you first start HelixScreen, the Setup Wizard guides you through initial configuration.
+When you first start HelixScreen, the Setup Wizard guides you through initial configuration. You can re-run the wizard anytime via **Settings > Factory Reset**.
 
-### Setup Wizard Overview
+### Setup Wizard
 
-The wizard walks you through these steps:
+The first time you launch HelixScreen, a setup wizard guides you through configuration. The wizard adapts to your hardware — steps that don't apply to your setup are automatically skipped.
 
-1. **Language selection** — Choose your interface language
-2. **WiFi configuration** — Connect to your wireless network (if needed)
-3. **Printer connection** — Enter your Moonraker address
-4. **Hardware discovery** — Identify heaters, fans, sensors, and LEDs
-5. **Touch calibration** — Calibrate your touchscreen (if applicable)
-6. **Summary** — Review your configuration
+**Core steps (always shown):**
 
-You can re-run the wizard anytime via **Settings > Factory Reset**.
+1. **WiFi Setup** — Scan and connect to your network
+2. **Printer Connection** — Enter your printer's IP address or hostname. HelixScreen tests the connection to Moonraker before continuing.
+3. **Heater Selection** — Choose your bed and hotend heaters from the hardware detected on your printer
+4. **Fan Selection** — Choose your part cooling and hotend fans
+5. **Summary** — Review all your selections and save
+
+**Conditional steps (shown when hardware is detected):**
+
+| Step | Appears When |
+|------|-------------|
+| **Touch Calibration** | Resistive touchscreen detected (not yet calibrated) |
+| **Language Selection** | Language not previously set on this device |
+| **Printer Identification** | Printer model auto-detection suggests options (K1, K2, etc.) |
+| **AMS / Filament System** | An AMS, CFS, Happy Hare, or other filament system is detected |
+| **LED Configuration** | Addressable LED strips (NeoPixel, RGB) are discovered |
+| **Filament Sensor Setup** | Multiple filament runout sensors are detected |
+| **Input Shaper** | An accelerometer is detected on the printer |
+
+The progress indicator (e.g., "Step 3 of 8") only counts the steps that apply to your setup — skipped steps aren't shown or counted.
+
+> **Tip:** You can always go back to previous steps using the **Back** button. The connection test in step 2 must pass before you can proceed.
+
+For details on touch screen calibration, see the [Touch Calibration Guide](touch-calibration.md).
 
 ### WiFi Configuration
 
@@ -101,30 +118,6 @@ Enter your Moonraker connection details:
 - **API Key**: Only needed if Moonraker requires authentication
 
 Tap **Test Connection** to verify before continuing. If the port field is empty, it auto-fills with the default port `7125`. HelixScreen auto-discovers printers on your network when possible — tap a discovered printer to auto-fill the connection details.
-
-### Hardware Discovery
-
-![Hardware Discovery](../../images/user/wizard-hardware.png)
-
-HelixScreen scans your Klipper configuration and identifies:
-
-- **Heaters**: Hotend, bed, chamber (if present)
-- **Fans**: Part cooling, hotend, auxiliary fans
-- **Sensors**: Filament runout, probes, accelerometers
-- **LEDs**: Chamber lights, status LEDs
-- **AMS**: Multi-material systems (Happy Hare, AFC-Klipper)
-
-For each category, confirm which hardware should be monitored and controlled. You can adjust these later in **Settings > Sensors** and **Settings > Hardware Health**.
-
-### Touch Calibration
-
-On touchscreen displays, you'll be prompted to tap calibration targets:
-
-1. Tap each crosshair target as it appears (usually 4-5 points)
-2. Tap as close to the center of each target as possible
-3. Calibration saves automatically when complete
-
-If your touchscreen feels inaccurate later, recalibrate via **Settings > Touch Calibration**.
 
 ---
 
