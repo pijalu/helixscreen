@@ -98,7 +98,7 @@
         <!-- Indicator (left) + Controls (right) side-by-side -->
         <lv_obj width="100%"
                 height="content" style_pad_all="0" flex_flow="row" style_pad_gap="#space_sm"
-                style_flex_cross_place="stretch" scrollable="false">
+                scrollable="false">
           <!-- Nozzle-over-bed visual indicator -->
           <z_offset_indicator name="z_offset_indicator" width="170"/>
           <!-- Controls column: amount buttons row with direction buttons stacked on the right -->

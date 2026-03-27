@@ -208,7 +208,7 @@ void HomePanel::build_carousel() {
         lv_obj_t* plus_label = lv_label_create(plus_btn);
         lv_label_set_text(plus_label, ui_icon::lookup_codepoint("plus"));
         lv_obj_set_style_text_font(plus_label, &mdi_icons_32, LV_PART_MAIN);
-        lv_obj_set_style_text_color(plus_label, theme_manager_get_color("icon_secondary"),
+        lv_obj_set_style_text_color(plus_label, theme_manager_get_color("secondary"),
                                     LV_PART_MAIN);
         lv_obj_align(plus_label, LV_ALIGN_CENTER, 0, 0);
 

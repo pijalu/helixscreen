@@ -2505,7 +2505,7 @@ int Application::main_loop() {
         get_runtime_config()->splash_pid > 0 && !m_splash_manager.has_exited();
     uint32_t suppression_start_tick = DisplayManager::get_ticks();
     static constexpr uint32_t INVALIDATION_FAILSAFE_MS =
-        8000; // Must exceed DISCOVERY_TIMEOUT_MS (5s)
+        11000; // Must exceed DISCOVERY_TIMEOUT_MS (8s)
 
     // Configure main loop handler
     helix::application::MainLoopHandler::Config loop_config;

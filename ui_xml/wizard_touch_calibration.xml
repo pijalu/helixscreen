@@ -30,7 +30,7 @@
 
     <!-- Test area container - shown in COMPLETE state for testing calibration -->
     <lv_obj name="test_area_container"
-            width="100%" flex_grow="1" flex_flow="row" style_flex_main_place="start" style_flex_cross_place="stretch"
+            width="100%" flex_grow="1" flex_flow="row" style_flex_main_place="start"
             style_pad_all="#space_md" style_pad_gap="#space_md" scrollable="false" hidden="true">
 
       <!-- Large touch test area - user taps here to verify calibration -->

@@ -29,7 +29,7 @@ namespace helix::application {
 class SplashScreenManager {
   public:
     /// Discovery timeout in milliseconds (how long to wait before giving up)
-    static constexpr int64_t DISCOVERY_TIMEOUT_MS = 5000;
+    static constexpr int64_t DISCOVERY_TIMEOUT_MS = 8000;
 
     /**
      * @brief Initialize with splash process PID
