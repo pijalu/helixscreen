@@ -97,17 +97,12 @@ void ChangeHostModal::on_show() {
 }
 
 void ChangeHostModal::on_hide() {
-    // Increment generation to invalidate any pending async callbacks
-    ++(*test_generation_);
+    // Base class already called lifetime_.invalidate()
 
-    // Clear active instance
     active_instance_ = nullptr;
 
     // Remove observers NOW rather than relying on auto-removal when dialog
-    // widget is deleted after exit animation. The 150ms animation window
-    // allows subject notifications (from reconnection flood) to fire these
-    // observers on a widget being destroyed, causing heap corruption.
-    // Applying [L073]: reset() because subjects are still alive at this point.
+    // widget is deleted after exit animation.
     host_ip_observer_.reset();
     host_port_observer_.reset();
 
@@ -166,83 +161,58 @@ void ChangeHostModal::handle_test_connection() {
 
     spdlog::debug("[ChangeHostModal] Test connection: {}:{}", ip ? ip : "", port_clean);
 
-    // Reset validation state
     lv_subject_set_int(&validated_subject_, 0);
 
-    // Validate inputs
     if (!ip || strlen(ip) == 0) {
         set_status(nullptr, nullptr, "Please enter a host address");
         return;
     }
-
     if (!is_valid_ip_or_hostname(ip)) {
         set_status("icon_xmark_circle", "danger", "Invalid IP address or hostname");
         return;
     }
-
     if (!is_valid_port(port_clean)) {
         set_status("icon_xmark_circle", "danger", "Invalid port (must be 1-65535)");
         return;
     }
 
-    // Get the global MoonrakerClient (same approach as wizard)
     MoonrakerClient* client = get_moonraker_client();
     if (!client) {
         set_status("icon_xmark_circle", "danger", "Client not available");
         return;
     }
 
-    // Suppress recovery modal during intentional host change
     EmergencyStopOverlay::instance().suppress_recovery_dialog(RecoverySuppression::NORMAL);
     client->disconnect();
 
-    // Increment generation for stale callback detection
-    uint64_t this_generation = ++(*test_generation_);
+    // Cancel any in-flight test callbacks, get fresh token
+    lifetime_.invalidate();
+    auto token = lifetime_.token();
 
-    // Store values for async callback (thread-safe)
-    {
-        std::lock_guard<std::mutex> lock(saved_values_mutex_);
-        saved_ip_ = ip;
-        saved_port_ = port_clean;
-    }
-
-    // Set UI to testing state
     lv_subject_set_int(&testing_subject_, 1);
     set_status("icon_question_circle", "text_muted", "Testing connection...");
 
-    // Shorter timeout for testing
     client->set_connection_timeout(5000);
 
-    // Construct WebSocket URL
     std::string ws_url = "ws://" + std::string(ip) + ":" + port_clean + "/websocket";
 
-    // Capture dialog widget for widget-safe async callbacks.
-    // We capture it here (on main thread) because the bg thread lambdas
-    // cannot safely read dialog() which may be cleared by hide().
-    //
-    // Capture shared_ptr to generation counter so bg thread can check
-    // staleness without dereferencing 'this' (which may be destroyed).
-    ChangeHostModal* self = this;
-    lv_obj_t* guard_widget = dialog();
-    auto generation = test_generation_;
     int result = client->connect(
         ws_url.c_str(),
-        [self, this_generation, guard_widget, generation]() {
-            if (generation->load() != this_generation) {
+        [this, token]() {
+            if (token.expired()) {
                 spdlog::debug("[ChangeHostModal] Ignoring stale success callback");
                 return;
             }
-            self->on_test_success(guard_widget);
+            on_test_success();
         },
-        [self, this_generation, guard_widget, generation]() {
-            if (generation->load() != this_generation) {
+        [this, token]() {
+            if (token.expired()) {
                 spdlog::debug("[ChangeHostModal] Ignoring stale failure callback");
                 return;
             }
-            self->on_test_failure(guard_widget);
+            on_test_failure();
         });
 
-    // Disable automatic reconnection for testing
     client->setReconnect(nullptr);
 
     if (result != 0) {
@@ -252,43 +222,33 @@ void ChangeHostModal::handle_test_connection() {
     }
 }
 
-void ChangeHostModal::on_test_success(lv_obj_t* guard_widget) {
+void ChangeHostModal::on_test_success() {
     spdlog::info("[ChangeHostModal] Test connection successful");
 
-    // Use widget-safe async_call: if dialog is destroyed before this fires
-    // (e.g. user cancelled while test was in flight), the callback is skipped.
-    helix::ui::async_call(
-        guard_widget,
-        [](void* ctx) {
-            auto* self = static_cast<ChangeHostModal*>(ctx);
-            if (!self->is_visible())
-                return;
+    lifetime_.defer([this]() {
+        if (!is_visible())
+            return;
 
-            self->set_status("icon_check_circle", "success", "Connection successful!");
-            lv_subject_set_int(&self->testing_subject_, 0);
-            lv_subject_set_int(&self->validated_subject_, 1);
+        set_status("icon_check_circle", "success", "Connection successful!");
+        lv_subject_set_int(&testing_subject_, 0);
+        lv_subject_set_int(&validated_subject_, 1);
 
-            spdlog::info("[ChangeHostModal] Test passed, Save button enabled");
-        },
-        this);
+        spdlog::info("[ChangeHostModal] Test passed, Save button enabled");
+    });
 }
 
-void ChangeHostModal::on_test_failure(lv_obj_t* guard_widget) {
+void ChangeHostModal::on_test_failure() {
     spdlog::warn("[ChangeHostModal] Test connection failed");
 
-    helix::ui::async_call(
-        guard_widget,
-        [](void* ctx) {
-            auto* self = static_cast<ChangeHostModal*>(ctx);
-            if (!self->is_visible())
-                return;
+    lifetime_.defer([this]() {
+        if (!is_visible())
+            return;
 
-            self->set_status("icon_xmark_circle", "danger", "Connection failed");
-            lv_subject_set_int(&self->testing_subject_, 0);
+        set_status("icon_xmark_circle", "danger", "Connection failed");
+        lv_subject_set_int(&testing_subject_, 0);
 
-            spdlog::debug("[ChangeHostModal] Test failed, keeping Save disabled");
-        },
-        this);
+        spdlog::debug("[ChangeHostModal] Test failed, keeping Save disabled");
+    });
 }
 
 void ChangeHostModal::handle_save() {
@@ -336,9 +296,6 @@ void ChangeHostModal::handle_save() {
 
 void ChangeHostModal::handle_cancel() {
     spdlog::debug("[ChangeHostModal] Cancel clicked");
-
-    // Increment generation to invalidate any pending test callbacks
-    ++(*test_generation_);
 
     hide();
 

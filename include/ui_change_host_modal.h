@@ -6,10 +6,7 @@
 #include "ui_modal.h"
 #include "ui_observer_guard.h"
 
-#include <atomic>
 #include <functional>
-#include <memory>
-#include <mutex>
 #include <string>
 
 /**
@@ -77,15 +74,6 @@ class ChangeHostModal : public Modal {
     char host_port_buf_[8] = {0};
     bool subjects_initialized_ = false;
 
-    // === Stale callback protection ===
-    // Shared so bg thread lambdas can safely check generation without
-    // dereferencing 'this' (which may be destroyed).
-    std::shared_ptr<std::atomic<uint64_t>> test_generation_ =
-        std::make_shared<std::atomic<uint64_t>>(0);
-    std::mutex saved_values_mutex_;
-    std::string saved_ip_;
-    std::string saved_port_;
-
     // === Completion callback ===
     CompletionCallback completion_callback_;
 
@@ -100,8 +88,8 @@ class ChangeHostModal : public Modal {
     void handle_save();
     void handle_cancel();
     void set_status(const char* icon_name, const char* color_token, const char* text);
-    void on_test_success(lv_obj_t* guard_widget);
-    void on_test_failure(lv_obj_t* guard_widget);
+    void on_test_success();
+    void on_test_failure();
     static void on_input_changed_cb(lv_observer_t* observer, lv_subject_t* subject);
 
     // === Static callback registration ===
