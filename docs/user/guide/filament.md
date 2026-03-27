@@ -188,4 +188,15 @@ If your filament system has an integrated dryer (AMS, CFS, etc.):
 
 ---
 
+---
+
+## See Also
+
+- [Temperature Control](temperature.md) — Preheat presets work with spool material info
+- [Bluetooth Setup](bluetooth-setup.md) — Required for Bluetooth-connected AMS and label printers
+- [Label Printing](label-printing.md) — Print physical spool labels with Spoolman data
+- [Settings: Printer](settings/printer.md) — AMS, Spoolman, and filament sensor configuration
+
+---
+
 **Next:** [Label Printing](label-printing.md) | **Prev:** [Motion & Positioning](motion.md) | [Back to User Guide](../USER_GUIDE.md)
