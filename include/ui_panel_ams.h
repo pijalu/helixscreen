@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include "async_lifetime_guard.h"
 #include "ui_ams_context_menu.h"
 #include "ui_ams_detail.h"
 #include "ui_ams_edit_modal.h"
@@ -142,6 +143,8 @@ class AmsPanel : public PanelBase {
     ObserverGuard path_topology_observer_;
     ObserverGuard backend_count_observer_;  ///< For backend selector visibility
     ObserverGuard external_spool_observer_; ///< Reactive updates when external spool color changes
+    helix::AsyncLifetimeGuard lifetime_;    ///< Guards deferred callbacks from accessing destroyed panel
+    bool backend_rebuild_pending_ = false;  ///< Coalesces rapid backend count changes
 
     // === Dynamic Slot State ===
 

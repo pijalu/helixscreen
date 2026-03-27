@@ -220,46 +220,58 @@ void ExcludeObjectsListOverlay::start_thumbnail_render() {
                 return;
             }
 
-            spdlog::debug("[{}] Thumbnails ready: {} objects", get_name(),
-                          result->thumbnails.size());
+            // Defer the widget tree rebuild to avoid lv_obj_clean() inside a
+            // queue_update callback, which can corrupt LVGL's event linked list
+            // during layout refresh (issue #555).
+            auto shared_result = std::shared_ptr<helix::gcode::ObjectThumbnailSet>(std::move(result));
+            lifetime_.defer(
+                "ExcludeObjectsListOverlay::thumbnails_ready",
+                [this, res = std::move(shared_result)]() {
+                    if (!is_visible())
+                        return;
 
-            // Clear list first to destroy lv_image widgets referencing old draw buffers,
-            // then free the old buffers before creating new ones
-            if (objects_list_) {
-                lv_obj_clean(objects_list_);
-            }
-            for (auto& [name, buf] : object_thumbnails_) {
-                if (buf) {
-                    lv_draw_buf_destroy(buf);
-                }
-            }
-            object_thumbnails_.clear();
+                    spdlog::debug("[{}] Thumbnails ready: {} objects", get_name(),
+                                  res->thumbnails.size());
 
-            // Convert raw pixel buffers to LVGL draw buffers
-            for (auto& thumb : result->thumbnails) {
-                if (!thumb.is_valid())
-                    continue;
+                    // Clear list first to destroy lv_image widgets referencing old draw
+                    // buffers, then free the old buffers before creating new ones
+                    if (objects_list_) {
+                        lv_obj_clean(objects_list_);
+                    }
+                    for (auto& [name, buf] : object_thumbnails_) {
+                        if (buf) {
+                            lv_draw_buf_destroy(buf);
+                        }
+                    }
+                    object_thumbnails_.clear();
 
-                auto* buf = lv_draw_buf_create(thumb.width, thumb.height, LV_COLOR_FORMAT_ARGB8888,
-                                               LV_STRIDE_AUTO);
-                if (!buf)
-                    continue;
+                    // Convert raw pixel buffers to LVGL draw buffers
+                    for (auto& thumb : res->thumbnails) {
+                        if (!thumb.is_valid())
+                            continue;
 
-                // Copy raw pixels into LVGL draw buffer
-                const int lvgl_stride = buf->header.stride;
-                for (int y = 0; y < thumb.height; ++y) {
-                    memcpy(buf->data + y * lvgl_stride, thumb.pixels.get() + y * thumb.stride,
-                           static_cast<size_t>(thumb.width) * 4);
-                }
-                lv_draw_buf_invalidate_cache(buf, nullptr);
+                        auto* buf = lv_draw_buf_create(thumb.width, thumb.height,
+                                                       LV_COLOR_FORMAT_ARGB8888, LV_STRIDE_AUTO);
+                        if (!buf)
+                            continue;
 
-                object_thumbnails_[thumb.object_name] = buf;
-            }
+                        // Copy raw pixels into LVGL draw buffer
+                        const int lvgl_stride = buf->header.stride;
+                        for (int y = 0; y < thumb.height; ++y) {
+                            memcpy(buf->data + y * lvgl_stride,
+                                   thumb.pixels.get() + y * thumb.stride,
+                                   static_cast<size_t>(thumb.width) * 4);
+                        }
+                        lv_draw_buf_invalidate_cache(buf, nullptr);
 
-            thumbnails_available_ = true;
+                        object_thumbnails_[thumb.object_name] = buf;
+                    }
 
-            // Re-populate list to show thumbnails
-            populate_list();
+                    thumbnails_available_ = true;
+
+                    // Re-populate list to show thumbnails
+                    populate_list();
+                });
         });
 }
 

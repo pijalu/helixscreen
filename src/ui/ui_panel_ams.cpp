@@ -261,7 +261,15 @@ void AmsPanel::init_subjects() {
     // Backend count observer for multi-backend selector
     backend_count_observer_ = observe_int_sync<AmsPanel>(
         AmsState::instance().get_backend_count_subject(), this,
-        [](AmsPanel* self, int /*count*/) { self->rebuild_backend_selector(); });
+        [](AmsPanel* self, int /*count*/) {
+            if (!self->backend_rebuild_pending_) {
+                self->backend_rebuild_pending_ = true;
+                self->lifetime_.defer("AmsPanel::rebuild_backend_selector", [self]() {
+                    self->backend_rebuild_pending_ = false;
+                    self->rebuild_backend_selector();
+                });
+            }
+        });
 
     // Observe external spool color changes to reactively update bypass in path canvas.
     // NOTE: set_external_spool_info() calls lv_subject_set_int() directly (not via
