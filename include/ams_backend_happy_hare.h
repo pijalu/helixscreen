@@ -4,10 +4,9 @@
 #pragma once
 
 #include "ams_subscription_backend.h"
+#include "async_lifetime_guard.h"
 #include "slot_registry.h"
 
-#include <atomic>
-#include <memory>
 #include <optional>
 #include <string>
 
@@ -233,8 +232,8 @@ class AmsBackendHappyHare : public AmsSubscriptionBackend {
 
     std::string selector_type_; ///< Selector type from config (e.g., "VirtualSelector" for Type B)
 
-    // Alive guard for async callback safety
-    std::shared_ptr<std::atomic<bool>> alive_ = std::make_shared<std::atomic<bool>>(true);
+    // Async callback safety guard
+    helix::AsyncLifetimeGuard lifetime_;
 
     // Cached MMU state
     helix::printer::SlotRegistry slots_;    ///< Single source of truth for per-slot state

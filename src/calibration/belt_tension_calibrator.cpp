@@ -33,9 +33,7 @@ BeltTensionCalibrator::BeltTensionCalibrator(MoonrakerAPI* api) : api_(api) {
 }
 
 BeltTensionCalibrator::~BeltTensionCalibrator() {
-    if (alive_) {
-        alive_->store(false);
-    }
+    // lifetime_ destructor calls invalidate() automatically
 }
 
 // ============================================================================
@@ -88,18 +86,18 @@ void BeltTensionCalibrator::ensure_homed_then(std::function<void()> then, BeltEr
 
     spdlog::info("[BeltTension] Not fully homed (axes={}), sending G28", homed ? homed : "none");
 
-    auto alive = alive_;
+    auto token = lifetime_.token();
     api_->execute_gcode(
         "G28",
-        [alive, then = std::move(then)]() {
-            if (!alive->load()) {
+        [token, then = std::move(then)]() {
+            if (token.expired()) {
                 return;
             }
             spdlog::info("[BeltTension] G28 complete, proceeding");
             then();
         },
-        [alive, this, on_error](const MoonrakerError& err) {
-            if (!alive->load()) {
+        [token, this, on_error](const MoonrakerError& err) {
+            if (token.expired()) {
                 return;
             }
             if (err.type == MoonrakerErrorType::TIMEOUT) {
@@ -135,19 +133,19 @@ void BeltTensionCalibrator::detect_hardware(BeltHardwareDetectCallback on_comple
     state_.store(State::DETECTING_HARDWARE);
     spdlog::info("[BeltTension] Detecting printer hardware capabilities");
 
-    auto alive = alive_;
+    auto token = lifetime_.token();
 
     api_->advanced().detect_belt_hardware(
-        [this, alive, on_complete](const BeltTensionHardware& hw) {
-            if (!alive->load())
+        [this, token, on_complete](const BeltTensionHardware& hw) {
+            if (token.expired())
                 return;
             hardware_ = hw;
             state_.store(State::IDLE);
             if (on_complete)
                 on_complete(hw);
         },
-        [this, alive, on_error](const MoonrakerError& err) {
-            if (!alive->load())
+        [this, token, on_error](const MoonrakerError& err) {
+            if (token.expired())
                 return;
             state_.store(State::ERROR);
             if (on_error)
@@ -212,12 +210,12 @@ void BeltTensionCalibrator::execute_resonance_test(BeltPath path, BeltProgressCa
         on_progress(10);
     }
 
-    auto alive = alive_;
+    auto token = lifetime_.token();
     api_->advanced().test_belt_resonance(
         axis_param, name,
         nullptr, // API-level progress (not used currently)
-        [this, alive, name, on_progress, on_complete, on_error](const std::string& output_name) {
-            if (!alive->load())
+        [this, token, name, on_progress, on_complete, on_error](const std::string& output_name) {
+            if (token.expired())
                 return;
 
             spdlog::info("[BeltTension] Resonance test complete for {}", output_name);
@@ -228,20 +226,20 @@ void BeltTensionCalibrator::execute_resonance_test(BeltPath path, BeltProgressCa
             // Download and process the CSV
             api_->advanced().download_accel_csv(
                 output_name,
-                [this, alive, on_complete, on_error](const std::string& csv_data) {
-                    if (!alive->load())
+                [this, token, on_complete, on_error](const std::string& csv_data) {
+                    if (token.expired())
                         return;
                     process_csv_data(csv_data, on_complete, on_error);
                 },
-                [alive, on_error](const MoonrakerError& err) {
-                    if (!alive->load())
+                [token, on_error](const MoonrakerError& err) {
+                    if (token.expired())
                         return;
                     if (on_error)
                         on_error("Failed to download data: " + err.message);
                 });
         },
-        [this, alive, on_error](const MoonrakerError& err) {
-            if (!alive->load())
+        [this, token, on_error](const MoonrakerError& err) {
+            if (token.expired())
                 return;
             state_.store(State::ERROR);
             if (on_error)
@@ -279,16 +277,16 @@ void BeltTensionCalibrator::test_path(BeltPath path, BeltProgressCallback on_pro
 
     spdlog::info("[BeltTension] Starting test for path {}", static_cast<int>(path));
 
-    auto alive = alive_;
+    auto token = lifetime_.token();
     ensure_homed_then(
-        [this, alive, path, on_progress, on_complete, on_error]() {
-            if (!alive->load()) {
+        [this, token, path, on_progress, on_complete, on_error]() {
+            if (token.expired()) {
                 return;
             }
             execute_resonance_test(
                 path, on_progress,
-                [this, alive, path, on_complete](const BeltMeasurement& measurement) {
-                    if (!alive->load()) {
+                [this, token, path, on_complete](const BeltMeasurement& measurement) {
+                    if (token.expired()) {
                         return;
                     }
 
@@ -360,7 +358,7 @@ void BeltTensionCalibrator::run_auto_sweep(BeltProgressCallback on_progress,
         second_path = BeltPath::Y_AXIS;
     }
 
-    auto alive = alive_;
+    auto token = lifetime_.token();
 
     // Wrap progress to scale across both paths (0-50 for A, 50-100 for B)
     auto progress_a = [on_progress](int pct) {
@@ -378,15 +376,15 @@ void BeltTensionCalibrator::run_auto_sweep(BeltProgressCallback on_progress,
     // Test path A, then path B
     test_path(
         first_path, progress_a,
-        [this, alive, second_path, progress_b, on_complete, on_error](const BeltMeasurement&) {
-            if (!alive->load()) {
+        [this, token, second_path, progress_b, on_complete, on_error](const BeltMeasurement&) {
+            if (token.expired()) {
                 return;
             }
             // Now test path B
             test_path(
                 second_path, progress_b,
-                [this, alive, on_complete](const BeltMeasurement&) {
-                    if (!alive->load()) {
+                [this, token, on_complete](const BeltMeasurement&) {
+                    if (token.expired()) {
                         return;
                     }
                     spdlog::info("[BeltTension] Auto-sweep complete");
@@ -432,12 +430,12 @@ void BeltTensionCalibrator::start_strobe(float frequency_hz, BeltErrorCallback o
     spdlog::info("[BeltTension] Starting strobe at {:.1f} Hz on pin {}", frequency_hz,
                  hardware_.pwm_led_pin);
 
-    auto alive = alive_;
+    auto token = lifetime_.token();
     api_->advanced().set_strobe_frequency(
         hardware_.pwm_led_pin, frequency_hz,
         []() {}, // Strobe started successfully
-        [this, alive, on_error](const MoonrakerError& err) {
-            if (!alive->load())
+        [this, token, on_error](const MoonrakerError& err) {
+            if (token.expired())
                 return;
             spdlog::error("[BeltTension] Failed to start strobe: {}", err.message);
             state_.store(State::IDLE);
@@ -457,12 +455,12 @@ void BeltTensionCalibrator::set_strobe_frequency(float frequency_hz) {
 
     strobe_frequency_ = frequency_hz;
 
-    auto alive = alive_;
+    auto token = lifetime_.token();
     api_->advanced().set_strobe_frequency(
         hardware_.pwm_led_pin, frequency_hz,
         []() {},
-        [alive](const MoonrakerError& err) {
-            if (!alive->load())
+        [token](const MoonrakerError& err) {
+            if (token.expired())
                 return;
             spdlog::warn("[BeltTension] Failed to update strobe frequency: {}", err.message);
         });
@@ -480,12 +478,12 @@ void BeltTensionCalibrator::stop_strobe() {
     spdlog::info("[BeltTension] Stopping strobe");
 
     if (api_ && !hardware_.pwm_led_pin.empty()) {
-        auto alive = alive_;
+        auto token = lifetime_.token();
         api_->advanced().set_strobe_frequency(
             hardware_.pwm_led_pin, 0.0f, // 0 = turn off
             []() {},
-            [alive](const MoonrakerError& err) {
-                if (!alive->load())
+            [token](const MoonrakerError& err) {
+                if (token.expired())
                     return;
                 spdlog::warn("[BeltTension] Failed to stop strobe: {}", err.message);
             });
@@ -523,31 +521,31 @@ void BeltTensionCalibrator::start_z_belt_listening(ZBeltCorner corner,
                  static_cast<int>(corner));
 
     // Use ACCELEROMETER_MEASURE to capture a short burst (generic G-code)
-    auto alive = alive_;
+    auto token = lifetime_.token();
     api_->execute_gcode(
         "ACCELEROMETER_MEASURE CHIP=adxl345",
-        [this, alive, corner, on_complete, on_error]() {
-            if (!alive->load())
+        [this, token, corner, on_complete, on_error]() {
+            if (token.expired())
                 return;
             // Brief capture, then stop and analyze
             api_->execute_gcode(
                 "ACCELEROMETER_MEASURE CHIP=adxl345 NAME=z_belt",
-                [this, alive, corner, on_complete, on_error]() {
-                    if (!alive->load())
+                [this, token, corner, on_complete, on_error]() {
+                    if (token.expired())
                         return;
 
                     // Download and analyze the captured data via API
                     api_->advanced().download_accel_csv(
                         "z_belt",
-                        [this, alive, corner, on_complete, on_error](const std::string& csv_data) {
-                            if (!alive->load())
+                        [this, token, corner, on_complete, on_error](const std::string& csv_data) {
+                            if (token.expired())
                                 return;
 
                             process_csv_data(
                                 csv_data,
-                                [this, alive, corner,
+                                [this, token, corner,
                                  on_complete](const BeltMeasurement& measurement) {
-                                    if (!alive->load())
+                                    if (token.expired())
                                         return;
 
                                     ZBeltMeasurement z_result;
@@ -566,24 +564,24 @@ void BeltTensionCalibrator::start_z_belt_listening(ZBeltCorner corner,
 
                                     state_.store(State::Z_RESULTS_READY);
                                 },
-                                [this, alive, on_error](const std::string& err_msg) {
-                                    if (!alive->load())
+                                [this, token, on_error](const std::string& err_msg) {
+                                    if (token.expired())
                                         return;
                                     state_.store(State::ERROR);
                                     if (on_error)
                                         on_error(err_msg);
                                 });
                         },
-                        [this, alive, on_error](const MoonrakerError& err) {
-                            if (!alive->load())
+                        [this, token, on_error](const MoonrakerError& err) {
+                            if (token.expired())
                                 return;
                             state_.store(State::ERROR);
                             if (on_error)
                                 on_error("Failed to download Z belt data: " + err.message);
                         });
                 },
-                [this, alive, on_error](const MoonrakerError& err) {
-                    if (!alive->load())
+                [this, token, on_error](const MoonrakerError& err) {
+                    if (token.expired())
                         return;
                     spdlog::error("[BeltTension] Z belt capture failed: {}", err.message);
                     state_.store(State::ERROR);
@@ -591,8 +589,8 @@ void BeltTensionCalibrator::start_z_belt_listening(ZBeltCorner corner,
                         on_error("Z belt measurement failed: " + err.message);
                 });
         },
-        [this, alive, on_error](const MoonrakerError& err) {
-            if (!alive->load())
+        [this, token, on_error](const MoonrakerError& err) {
+            if (token.expired())
                 return;
             spdlog::error("[BeltTension] Failed to start accelerometer: {}", err.message);
             state_.store(State::ERROR);

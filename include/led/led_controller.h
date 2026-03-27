@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #pragma once
 
+#include "async_lifetime_guard.h"
 #include "led/led_backend.h"
 
-#include <atomic>
 #include <cstdint>
 #include <functional>
 #include <lvgl.h>
@@ -488,7 +488,7 @@ class LedController {
     bool initialized_ = false;
     MoonrakerAPI* api_ = nullptr;
     MoonrakerClient* client_ = nullptr;
-    std::shared_ptr<std::atomic<bool>> alive_ = std::make_shared<std::atomic<bool>>(true);
+    helix::AsyncLifetimeGuard lifetime_;
 
     NativeBackend native_;
     LedEffectBackend effects_;

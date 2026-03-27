@@ -4,6 +4,7 @@
 #pragma once
 
 #include "ams_backend.h"
+#include "async_lifetime_guard.h"
 #include "moonraker_types.h"
 
 #include <atomic>
@@ -260,7 +261,7 @@ class AmsBackendValgACE : public AmsBackend {
     std::atomic<bool> info_fetched_{false}; ///< Have we got /server/ace/info yet?
 
     // Callback lifetime management
-    std::shared_ptr<std::atomic<bool>> alive_; ///< Weak flag for callback safety
+    helix::AsyncLifetimeGuard lifetime_;
 
     // Events
     EventCallback event_callback_;      ///< Registered event handler

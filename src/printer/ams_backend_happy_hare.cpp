@@ -39,12 +39,7 @@ AmsBackendHappyHare::AmsBackendHappyHare(MoonrakerAPI* api, MoonrakerClient* cli
 }
 
 AmsBackendHappyHare::~AmsBackendHappyHare() {
-    // Invalidate alive guard FIRST — prevents in-flight async callbacks from
-    // dereferencing this after destruction (e.g., query_tip_method_from_config).
-    // Store false then reset the shared_ptr so weak_ptr::lock() fails for
-    // any callbacks that haven't yet checked the guard.
-    alive_->store(false);
-    alive_.reset();
+    // lifetime_ destructor calls invalidate() automatically
 }
 
 // ============================================================================
@@ -1055,13 +1050,11 @@ void AmsBackendHappyHare::query_tip_method_from_config() {
     // it's a cutter system (e.g., _MMU_CUT_TIP). Otherwise it's tip-forming.
     nlohmann::json params = {{"objects", nlohmann::json::object({{"configfile", {"settings"}}})}};
 
-    std::weak_ptr<std::atomic<bool>> weak_alive = alive_;
+    auto token = lifetime_.token();
     client_->send_jsonrpc(
         "printer.objects.query", params,
-        [this, weak_alive](nlohmann::json response) {
-            auto alive_lock = weak_alive.lock();
-            if (!alive_lock || !alive_lock->load())
-                return;
+        [this, token](nlohmann::json response) {
+            if (token.expired()) return;
             try {
                 const auto& settings = response["result"]["status"]["configfile"]["settings"];
 
@@ -1125,13 +1118,11 @@ void AmsBackendHappyHare::query_selector_type_from_config() {
     // LinearSelector/RotarySelector/ServoSelector = Type A (linear: ERCF, Tradrack)
     nlohmann::json params = {{"objects", nlohmann::json::object({{"configfile", {"settings"}}})}};
 
-    std::weak_ptr<std::atomic<bool>> weak_alive = alive_;
+    auto token = lifetime_.token();
     client_->send_jsonrpc(
         "printer.objects.query", params,
-        [this, weak_alive](nlohmann::json response) {
-            auto alive_lock = weak_alive.lock();
-            if (!alive_lock || !alive_lock->load())
-                return;
+        [this, token](nlohmann::json response) {
+            if (token.expired()) return;
             try {
                 const auto& settings = response["result"]["status"]["configfile"]["settings"];
 
@@ -1181,13 +1172,11 @@ void AmsBackendHappyHare::query_config_defaults() {
     // These serve as defaults until the user overrides them via the UI.
     nlohmann::json params = {{"objects", nlohmann::json::object({{"configfile", {"settings"}}})}};
 
-    std::weak_ptr<std::atomic<bool>> weak_alive = alive_;
+    auto token = lifetime_.token();
     client_->send_jsonrpc(
         "printer.objects.query", params,
-        [this, weak_alive](nlohmann::json response) {
-            auto alive_lock = weak_alive.lock();
-            if (!alive_lock || !alive_lock->load())
-                return;
+        [this, token](nlohmann::json response) {
+            if (token.expired()) return;
             try {
                 const auto& settings = response["result"]["status"]["configfile"]["settings"];
 

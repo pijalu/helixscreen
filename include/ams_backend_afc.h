@@ -5,9 +5,9 @@
 
 #include "afc_config_manager.h"
 #include "ams_subscription_backend.h"
+#include "async_lifetime_guard.h"
 #include "slot_registry.h"
 
-#include <atomic>
 #include <memory>
 #include <string>
 #include <unordered_map>
@@ -301,8 +301,8 @@ class AmsBackendAfc : public AmsSubscriptionBackend {
     }
 
   private:
-    /// Alive guard for async callback safety. Shared with AfcConfigManager instances.
-    std::shared_ptr<std::atomic<bool>> alive_ = std::make_shared<std::atomic<bool>>(true);
+    /// Async callback safety guard. Tokens shared with AfcConfigManager instances.
+    helix::AsyncLifetimeGuard lifetime_;
 
     /**
      * @brief Parse AFC state from Moonraker JSON

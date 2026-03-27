@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #pragma once
 
+#include "async_lifetime_guard.h"
 #include "klipper_config_parser.h"
 
-#include <atomic>
 #include <functional>
-#include <memory>
+#include <optional>
 #include <string>
 
 class MoonrakerAPI;
@@ -27,8 +27,8 @@ class AfcConfigManager {
   public:
     using Callback = std::function<void(bool success, const std::string& error)>;
 
-    explicit AfcConfigManager(MoonrakerAPI* api,
-                              std::shared_ptr<std::atomic<bool>> alive = nullptr);
+    explicit AfcConfigManager(MoonrakerAPI* api);
+    AfcConfigManager(MoonrakerAPI* api, helix::LifetimeToken token);
     ~AfcConfigManager() = default;
 
     /// Load a config file from the printer via Moonraker.
@@ -63,7 +63,7 @@ class AfcConfigManager {
 
   private:
     MoonrakerAPI* api_;
-    std::shared_ptr<std::atomic<bool>> alive_; ///< Shared alive guard from owning backend
+    std::optional<helix::LifetimeToken> token_; ///< Lifetime token from owning backend
     KlipperConfigParser parser_;
     std::string original_content_; ///< Content at last load/save (baseline for discard)
     std::string loaded_filename_;

@@ -25,7 +25,7 @@ using namespace helix;
 // ============================================================================
 
 AmsBackendValgACE::AmsBackendValgACE(MoonrakerAPI* api, MoonrakerClient* client)
-    : api_(api), client_(client), alive_(std::make_shared<std::atomic<bool>>(true)) {
+    : api_(api), client_(client) {
     // Initialize system info with ValgACE defaults
     system_info_.type = AmsType::VALGACE;
     system_info_.type_name = "ValgACE";
@@ -43,10 +43,7 @@ AmsBackendValgACE::AmsBackendValgACE(MoonrakerAPI* api, MoonrakerClient* client)
 }
 
 AmsBackendValgACE::~AmsBackendValgACE() {
-    // Mark as dead FIRST - any in-flight callbacks will see this and bail out
-    if (alive_) {
-        alive_->store(false);
-    }
+    // lifetime_ destructor calls invalidate() automatically
     stop();
 }
 
@@ -473,12 +470,11 @@ void AmsBackendValgACE::poll_info() {
     };
     auto state = std::make_shared<SyncState>();
 
-    // Capture alive_ by value (shared_ptr copy) for callback lifetime safety
-    auto alive = alive_;
+    auto token = lifetime_.token();
 
-    api_->rest().call_rest_get("/server/ace/info", [this, state, alive](const RestResponse& resp) {
+    api_->rest().call_rest_get("/server/ace/info", [this, state, token](const RestResponse& resp) {
         // Check if object is still alive before accessing members
-        if (!alive || !alive->load()) {
+        if (token.expired()) {
             std::lock_guard<std::mutex> lock(state->mtx);
             state->done = true;
             state->cv.notify_one();
@@ -511,14 +507,10 @@ void AmsBackendValgACE::poll_status() {
 
     spdlog::trace("[ValgACE] Polling /server/ace/status");
 
-    // Capture alive_ by value for callback lifetime safety
-    auto alive = alive_;
+    auto token = lifetime_.token();
 
-    api_->rest().call_rest_get("/server/ace/status", [this, alive](const RestResponse& resp) {
-        // Check if object is still alive before accessing members
-        if (!alive || !alive->load()) {
-            return;
-        }
+    api_->rest().call_rest_get("/server/ace/status", [this, token](const RestResponse& resp) {
+        if (token.expired()) return;
 
         if (resp.success && resp.data.contains("result")) {
             if (parse_status_response(resp.data["result"])) {
@@ -537,14 +529,10 @@ void AmsBackendValgACE::poll_slots() {
 
     spdlog::trace("[ValgACE] Polling /server/ace/slots");
 
-    // Capture alive_ by value for callback lifetime safety
-    auto alive = alive_;
+    auto token = lifetime_.token();
 
-    api_->rest().call_rest_get("/server/ace/slots", [this, alive](const RestResponse& resp) {
-        // Check if object is still alive before accessing members
-        if (!alive || !alive->load()) {
-            return;
-        }
+    api_->rest().call_rest_get("/server/ace/slots", [this, token](const RestResponse& resp) {
+        if (token.expired()) return;
 
         if (resp.success && resp.data.contains("result")) {
             if (parse_slots_response(resp.data["result"])) {
