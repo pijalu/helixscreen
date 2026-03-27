@@ -197,11 +197,13 @@ void FilamentMappingCard::rebuild_compact_view() {
 
         // Slot color swatch
         uint32_t slot_color = 0x808080;
+        bool slot_empty = false;
         if (!mapping.is_auto && mapping.mapped_slot >= 0) {
             for (const auto& s : available_slots_) {
                 if (s.slot_index == mapping.mapped_slot &&
                     s.backend_index == mapping.mapped_backend) {
                     slot_color = s.color_rgb;
+                    slot_empty = s.is_empty;
                     break;
                 }
             }
@@ -210,11 +212,19 @@ void FilamentMappingCard::rebuild_compact_view() {
         lv_obj_remove_style_all(slot_sw);
         lv_obj_set_size(slot_sw, swatch_sz, swatch_sz);
         lv_obj_set_style_radius(slot_sw, LV_RADIUS_CIRCLE, 0);
-        lv_obj_set_style_bg_color(slot_sw, lv_color_hex(slot_color), 0);
-        lv_obj_set_style_bg_opa(slot_sw, LV_OPA_COVER, 0);
-        lv_obj_set_style_border_width(slot_sw, 1, 0);
-        lv_obj_set_style_border_color(slot_sw, theme_manager_get_color("text_muted"), 0);
-        lv_obj_set_style_border_opa(slot_sw, SWATCH_BORDER_OPA, 0);
+        if (slot_empty) {
+            // Empty slot: transparent fill with warning border
+            lv_obj_set_style_bg_opa(slot_sw, LV_OPA_TRANSP, 0);
+            lv_obj_set_style_border_width(slot_sw, 2, 0);
+            lv_obj_set_style_border_color(slot_sw, theme_manager_get_color("warning"), 0);
+            lv_obj_set_style_border_opa(slot_sw, LV_OPA_COVER, 0);
+        } else {
+            lv_obj_set_style_bg_color(slot_sw, lv_color_hex(slot_color), 0);
+            lv_obj_set_style_bg_opa(slot_sw, LV_OPA_COVER, 0);
+            lv_obj_set_style_border_width(slot_sw, 1, 0);
+            lv_obj_set_style_border_color(slot_sw, theme_manager_get_color("text_muted"), 0);
+            lv_obj_set_style_border_opa(slot_sw, SWATCH_BORDER_OPA, 0);
+        }
         lv_obj_remove_flag(slot_sw, LV_OBJ_FLAG_SCROLLABLE);
         lv_obj_remove_flag(slot_sw, LV_OBJ_FLAG_CLICKABLE);
         lv_obj_add_flag(slot_sw, LV_OBJ_FLAG_EVENT_BUBBLE);
