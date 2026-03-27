@@ -14,6 +14,8 @@
 
 #include "moonraker_api.h"
 #include "moonraker_client.h"
+#include "ui_toast_manager.h"
+#include "ui_update_queue.h"
 #include "spdlog/spdlog.h"
 
 #include <chrono>
@@ -714,6 +716,13 @@ void AmsBackendAce::poll_info() {
                            "ACE detected but Moonraker bridge not found. "
                            "Install the ace_status.py component from ValgACE for full ACE "
                            "support.");
+                helix::ui::queue_update([]() {
+                    ToastManager::instance().show(
+                        ToastSeverity::WARNING,
+                        "ACE Moonraker bridge not found. Install ace_status.py "
+                        "from ValgACE for full support.",
+                        6000);
+                });
             }
         }
 
