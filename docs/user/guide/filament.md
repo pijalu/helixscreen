@@ -91,6 +91,7 @@ When multiple backends are detected:
 
 | System | Description |
 |--------|-------------|
+| **CFS** | Creality Filament System (K2 series printers) |
 | **Happy Hare** | MMU2, ERCF, 3MS, Tradrack, EMU |
 | **AFC** | Box Turtle, OpenAMS, ViViD |
 | **ValgACE** | ValgACE filament changer |
@@ -100,6 +101,46 @@ When multiple backends are detected:
 Each system displays its own logo in the AMS panel header. Happy Hare and AFC show their firmware logos; specific hardware variants (ERCF, Box Turtle, ViViD, etc.) show hardware-specific logos when detected.
 
 Single-backend setups are unaffected — the panel works exactly as before with no selector shown.
+
+---
+
+## Creality Filament System (CFS)
+
+The CFS is an enclosed filament storage and delivery system for **Creality K2 series** printers. Each CFS unit holds 4 spools of filament, and up to 4 units can be connected (16 total slots). HelixScreen auto-detects CFS when connected to a K2 printer.
+
+### Slot Layout
+
+CFS uses a **TNN address format** to identify each slot:
+
+| Unit | Slot A | Slot B | Slot C | Slot D |
+|------|--------|--------|--------|--------|
+| Unit 1 | T1A | T1B | T1C | T1D |
+| Unit 2 | T2A | T2B | T2C | T2D |
+| Unit 3 | T3A | T3B | T3C | T3D |
+| Unit 4 | T4A | T4B | T4C | T4D |
+
+Each slot displays the detected filament color, material type (PLA, PETG, ABS, etc.), brand, and remaining filament length.
+
+### RFID Detection
+
+CFS units have built-in RFID readers that automatically detect Creality filament spools:
+
+- Place a spool in any slot and its material info appears within seconds
+- Supported materials include Hyper PLA, Hyper PETG, Hyper ABS, CR-PLA, CR-Silk, and more
+- Remaining filament length is tracked automatically
+- If a spool isn't recognized, a generic entry is shown — you can identify it manually
+
+> **Tip:** If a slot shows incorrect info, remove and re-seat the spool to trigger a fresh RFID read.
+
+### CFS Device Actions
+
+Tap the menu icon on the CFS panel to access device actions:
+
+| Action | What It Does |
+|--------|--------------|
+| **Refresh** | Re-read all RFID tags across all units — useful after swapping spools while the printer was off |
+| **Auto-Refill** | Toggle automatic backup spool switching — when enabled, if the current spool runs out mid-print, the system loads the next spool of the same material |
+| **Nozzle Clean** | Trigger the nozzle cleaning routine using the CFS's built-in silicone strip |
 
 ---
 
@@ -137,11 +178,13 @@ The wizard creates all records (vendor, filament, spool) atomically in Spoolman.
 
 ## Dryer Control
 
-If your AMS has an integrated dryer:
+If your filament system has an integrated dryer (AMS, CFS, etc.):
 
-- Temperature display and control
-- Timer settings
+- Temperature display and current humidity reading
+- Timer settings for drying duration
 - Enable/disable drying cycle
+
+**Multi-unit setups:** Each unit has its own dryer with independent controls. The dryer panel shows which unit you're controlling — tap to switch between units. You can run dryers on multiple units simultaneously.
 
 ---
 
