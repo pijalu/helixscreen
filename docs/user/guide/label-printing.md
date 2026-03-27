@@ -6,11 +6,12 @@ Print spool labels directly from HelixScreen to a compatible thermal label print
 
 ## Supported Printers
 
-HelixScreen supports four families of label printers:
+HelixScreen supports five families of label printers:
 
 | Brand | Connection | Models |
 |-------|------------|--------|
-| **Brother QL** | Network (TCP) or Bluetooth | QL-820NWB, QL-810W, QL-800, PT-*, TD-*, RJ-* |
+| **Brother QL** | Network (TCP) or Bluetooth | QL-820NWB, QL-810W, QL-800, TD-*, RJ-* |
+| **Brother PT** | Bluetooth | PT-P300BT, PT-P710BT, PT-P910BT, and other P-Touch models with Bluetooth |
 | **Phomemo** | USB or Bluetooth | M110, M120, M02, Q199, and other M*/Q* series |
 | **Niimbot** | Bluetooth only | B21, D11, D110 |
 | **MakeID** | Bluetooth only | E1 (advertises as "YichipFPGA-XXXX"), L1, M1 — 9/12/16mm continuous tape |
@@ -60,6 +61,8 @@ Choose your printer's connection method:
 Select the label size that matches your loaded label roll:
 
 **Brother QL sizes:** 29mm, 62mm, 29x90mm, and more (300 DPI)
+
+**Brother PT sizes:** 3.5mm, 6mm, 9mm, 12mm, 18mm, 24mm continuous tape (180 DPI). Tape width is **auto-detected** — HelixScreen reads the installed tape cassette and adjusts the label layout automatically. Narrow tapes (≤9mm) use a compact minimal layout.
 
 **Phomemo sizes:** 40x30mm, 50x30mm, and more (203 DPI)
 
@@ -136,6 +139,14 @@ A toast notification confirms success or shows an error message.
 - Make sure no other app (like the MakeID phone app) is connected to the printer
 - MakeID printers use Bluetooth Classic (RFCOMM), so any Bluetooth adapter that supports standard Bluetooth will work (BLE-only dongles are not required)
 - Power cycle the printer and try again if the first attempt fails
+
+### Brother PT printer not printing
+
+- Brother PT printers connect via Bluetooth Classic (RFCOMM), not BLE — make sure your Bluetooth adapter supports standard Bluetooth profiles
+- The printer must be paired at the OS level first, then configured in HelixScreen with its Bluetooth MAC address
+- If auto-detection shows "No tape installed", check that a tape cassette is properly seated in the printer
+- If the label is blank or cut incorrectly, the tape width may not have been detected properly — power cycle the printer and try again
+- For narrow tapes (3.5mm, 6mm), labels use a minimal format with less detail — this is expected
 
 ---
 
