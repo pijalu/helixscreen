@@ -11,7 +11,6 @@
 #include "ui_button.h"
 #include "ui_fonts.h"
 #include "ui_icon_codepoints.h"
-#include "ui_update_queue.h"
 
 #include <lvgl/lvgl.h>
 #include <spdlog/spdlog.h>
@@ -54,8 +53,6 @@ JobQueueModal::~JobQueueModal() {
     if (s_active_instance_ == this) {
         s_active_instance_ = nullptr;
     }
-    if (alive_guard_) *alive_guard_ = false;
-    alive_guard_.reset();
 }
 
 void JobQueueModal::register_callbacks() {
@@ -97,27 +94,17 @@ void JobQueueModal::on_show() {
     if (count_subj) {
         count_observer_ = helix::ui::observe_int_sync<JobQueueModal>(
             count_subj, this, [](JobQueueModal* self, int /*count*/) {
-                // Use lv_async_call to defer the rebuild outside process_pending(), preventing
+                // Defer the rebuild outside process_pending(), preventing
                 // lv_obj_clean() from corrupting the LVGL event linked list (issue #190).
                 if (!self->list_rebuild_pending_) {
                     self->list_rebuild_pending_ = true;
-                    struct RebuildCtx {
-                        std::weak_ptr<bool> alive;
-                        JobQueueModal* self;
-                    };
-                    auto* ctx = new RebuildCtx{self->alive_guard_, self};
-                    lv_async_call([](void* data) {
-                        auto* ctx = static_cast<RebuildCtx*>(data);
-                        auto guard = ctx->alive.lock();
-                        auto* modal = ctx->self;
-                        delete ctx;
-                        if (!guard || !*guard) return;
-                        modal->list_rebuild_pending_ = false;
-                        if (s_active_instance_ == modal) {
-                            modal->populate_job_list();
-                            modal->update_queue_state_ui();
+                    self->lifetime_.defer("JobQueueModal::rebuild", [self]() {
+                        self->list_rebuild_pending_ = false;
+                        if (s_active_instance_ == self) {
+                            self->populate_job_list();
+                            self->update_queue_state_ui();
                         }
-                    }, ctx);
+                    });
                 }
             });
     }
@@ -129,9 +116,7 @@ void JobQueueModal::on_show() {
 void JobQueueModal::on_hide() {
     count_observer_ = {};
     list_rebuild_pending_ = false;
-    // Invalidate alive guard so pending lv_async_call / API callbacks become no-ops
-    if (alive_guard_) *alive_guard_ = false;
-    alive_guard_ = std::make_shared<bool>(true);
+    // lifetime_.invalidate() already called by Modal::hide() before on_hide()
     s_active_instance_ = nullptr;
 }
 
@@ -311,11 +296,11 @@ void JobQueueModal::toggle_queue() {
     if (!jqs) return;
 
     bool is_paused = (jqs->get_queue_state() == "paused");
-    auto guard = alive_guard_;
+    auto token = lifetime_.token();
 
-    auto on_success = [guard, this]() {
-        helix::ui::queue_update([guard, this]() {
-            if (!*guard) return;
+    auto on_success = [token, this]() {
+        if (token.expired()) return;
+        lifetime_.defer("JobQueueModal::toggle_queue", [this]() {
             auto* jqs2 = get_job_queue_state();
             if (jqs2) jqs2->fetch();
             update_queue_state_ui();
@@ -339,12 +324,12 @@ void JobQueueModal::remove_job(const std::string& job_id) {
 
     spdlog::info("[JobQueueModal] Removing job: {}", job_id);
 
-    auto guard = alive_guard_;
+    auto token = lifetime_.token();
     api->queue().remove_jobs(
         {job_id},
-        [guard, this]() {
-            helix::ui::queue_update([guard, this]() {
-                if (!*guard) return;
+        [token, this]() {
+            if (token.expired()) return;
+            lifetime_.defer("JobQueueModal::remove_job", [this]() {
                 // Fetch refreshed data — count observer will auto-rebuild the list
                 auto* jqs = get_job_queue_state();
                 if (jqs) jqs->fetch();
@@ -371,17 +356,18 @@ void JobQueueModal::start_job(const std::string& job_id, const std::string& file
     }
 
     spdlog::info("[JobQueueModal] Starting print: {}", filename);
-    auto guard = alive_guard_;
+    auto token = lifetime_.token();
 
     // Remove from queue first, then start the print
     api->queue().remove_jobs(
         {job_id},
-        [guard, this, filename, api]() {
+        [token, this, filename, api]() {
+            if (token.expired()) return;
             api->job().start_print(
                 filename,
-                [guard, this]() {
-                    helix::ui::queue_update([guard, this]() {
-                        if (!*guard) return;
+                [token, this]() {
+                    if (token.expired()) return;
+                    lifetime_.defer("JobQueueModal::start_job", [this]() {
                         spdlog::info("[JobQueueModal] Print started, closing modal");
                         hide();
                     });
