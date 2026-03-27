@@ -1155,6 +1155,50 @@ helix::ui::queue_update("cleanup", [this]() {
 
 **Rule of thumb:** If your code runs inside a `queue_update`/`async_call` lambda, any object deletion must be deferred one more level — either via `safe_delete_deferred()` or the hide + `lv_async_call` pattern.
 
+### Async Callback Safety: AsyncLifetimeGuard
+
+Background-thread callbacks (WebSocket, HTTP, timers) that need to update UI must be guarded against the owning modal/overlay/panel being dismissed before the callback fires. Use `AsyncLifetimeGuard` — a generation-counter-based utility in `include/async_lifetime_guard.h`.
+
+**Basic pattern** (90% of cases):
+
+```cpp
+// In your class (Modal and OverlayBase provide this automatically):
+helix::AsyncLifetimeGuard lifetime_;
+
+// In a background-thread callback:
+auto token = lifetime_.token();
+api->fetch([this, token]() {
+    if (token.expired()) return;          // Owner was dismissed
+    lifetime_.defer([this]() {            // Queue to main thread, auto-guarded
+        update_ui();
+    });
+});
+```
+
+**Cancel-and-retry** (e.g., re-test connection while previous test is in flight):
+
+```cpp
+lifetime_.invalidate();                   // Expire all outstanding tokens
+auto token = lifetime_.token();           // Fresh token for new operation
+api->test([this, token]() { ... });
+```
+
+**Key properties:**
+- `Modal::hide()` and `OverlayBase::cleanup()`/`on_deactivate()` call `invalidate()` automatically — subclasses don't need to remember
+- `defer()` queues work via `queue_update()`, silently skipping if invalidated before execution
+- `token()` returns a `LifetimeToken` for manual checking in non-queue callbacks (e.g., timers, state machine handlers)
+- Safe after owner destruction — tokens hold a `shared_ptr` to the generation counter, not a pointer to the owner
+- Subclasses may call `invalidate()` manually for cancel-and-retry scenarios
+
+**Standalone panels** (not inheriting Modal/OverlayBase) should add `helix::AsyncLifetimeGuard lifetime_;` as a member directly. The destructor calls `invalidate()` automatically.
+
+**Do NOT use these deprecated patterns for new code:**
+- `shared_ptr<bool> callback_guard_` / `alive_guard_`
+- `shared_ptr<atomic<bool>> alive_`
+- `shared_ptr<atomic<uint64_t>>` generation counters
+- `weak_ptr<bool>` for callback safety
+- `async_call(guard_widget, cb, data)` for modal/overlay callback guards
+
 ### Backend Integration Pattern: helix::ui::queue_update()
 
 **Problem:** Backend threads (networking, file I/O, WiFi scanning) need to update UI but cannot call LVGL APIs directly.

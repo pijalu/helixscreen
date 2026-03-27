@@ -588,6 +588,40 @@ If your XML used `extends="ui_card"`, simply change to `extends="ui_dialog"`. Th
 
 ---
 
+## Async Callback Safety
+
+Modal subclasses that make asynchronous API calls (WebSocket, HTTP, Moonraker) need protection against callbacks arriving after the modal is dismissed.
+
+The `Modal` base class provides `lifetime_` (a `helix::AsyncLifetimeGuard`) that handles this automatically:
+
+```cpp
+void MyModal::start_operation() {
+    auto token = lifetime_.token();
+    api->fetch([this, token]() {
+        if (token.expired()) return;       // Modal dismissed
+        lifetime_.defer([this]() {         // Safe main-thread update
+            lv_subject_set_int(&result_subject_, 1);
+        });
+    });
+}
+```
+
+`Modal::hide()` calls `lifetime_.invalidate()` before `on_hide()`, so all outstanding tokens expire automatically. Your `on_hide()` override does **not** need to manually invalidate — just handle observer cleanup and state reset.
+
+For cancel-and-retry scenarios (e.g., user clicks "Test Connection" again while a test is in flight), call `lifetime_.invalidate()` explicitly before starting the new operation:
+
+```cpp
+void MyModal::handle_retry() {
+    lifetime_.invalidate();               // Cancel previous callbacks
+    auto token = lifetime_.token();       // Fresh token
+    api->test([this, token]() { ... });
+}
+```
+
+See `include/async_lifetime_guard.h` for the full API documentation.
+
+---
+
 ## Legacy API
 
 The following `ui_modal_*()` functions are inline wrappers around the `Modal` class, preserved for backward compatibility:
