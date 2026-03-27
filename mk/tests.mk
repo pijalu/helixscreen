@@ -465,7 +465,7 @@ test-printer: test-build
 	DURATION=$$((END_TIME - START_TIME)); \
 	echo "$(GREEN)✓ Printer tests passed in $${DURATION}s$(RESET)"
 
-# AMS tests - All AMS/MMU backends (includes [afc], [valgace])
+# AMS tests - All AMS/MMU backends (includes [afc], [ace])
 test-ams: test-build
 	$(ECHO) "$(CYAN)$(BOLD)Running AMS tests...$(RESET)"
 	@START_TIME=$$(date +%s); \

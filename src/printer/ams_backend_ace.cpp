@@ -2,14 +2,14 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 /**
- * @file ams_backend_valgace.cpp
+ * @file ams_backend_ace.cpp
  * @brief ValgACE (AnyCubic ACE Pro) backend implementation
  *
  * Implements AMS backend for ValgACE using REST API polling.
- * See ams_backend_valgace.h for API documentation.
+ * See ams_backend_ace.h for API documentation.
  */
 
-#include "ams_backend_valgace.h"
+#include "ams_backend_ace.h"
 
 #include "moonraker_api.h"
 #include "moonraker_client.h"

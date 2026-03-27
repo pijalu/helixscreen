@@ -19,7 +19,7 @@ class MoonrakerClient;
 }
 
 /**
- * @file ams_backend_valgace.h
+ * @file ams_backend_ace.h
  * @brief ValgACE (AnyCubic ACE Pro) backend implementation
  *
  * Implements the AmsBackend interface for AnyCubic ACE Pro systems
