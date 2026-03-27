@@ -655,6 +655,9 @@ void Modal::hide() {
 
     spdlog::info("[{}] Hiding modal", get_name());
 
+    // Cancel all deferred async callbacks before any widget cleanup
+    lifetime_.invalidate();
+
     // Clear user_data on all wired buttons in the dialog tree to prevent
     // stale vtable dispatch if events fire during exit animation after
     // the Modal subclass has been deleted (e.g. CrashReportModal's
