@@ -174,17 +174,11 @@ lv_obj_t* FilamentMappingModal::create_tool_row(int tool_index) {
     lv_obj_remove_flag(arrow, LV_OBJ_FLAG_CLICKABLE);
     lv_obj_add_flag(arrow, LV_OBJ_FLAG_EVENT_BUBBLE);
 
+    // Look up the mapped slot once for color and warning checks
+    const auto* mapped = find_mapped_slot(mapping);
+    uint32_t slot_color = mapped ? mapped->color_rgb : 0x808080;
+
     // Right swatch: chosen slot color
-    uint32_t slot_color = 0x808080;
-    if (!mapping.is_auto && mapping.mapped_slot >= 0) {
-        for (const auto& s : available_slots_) {
-            if (s.slot_index == mapping.mapped_slot &&
-                s.backend_index == mapping.mapped_backend) {
-                slot_color = s.color_rgb;
-                break;
-            }
-        }
-    }
     lv_obj_t* chosen_swatch = lv_obj_create(row);
     lv_obj_remove_style_all(chosen_swatch);
     lv_obj_set_size(chosen_swatch, swatch_sz, swatch_sz);
@@ -209,16 +203,7 @@ lv_obj_t* FilamentMappingModal::create_tool_row(int tool_index) {
     lv_obj_add_flag(slot_text, LV_OBJ_FLAG_EVENT_BUBBLE);
 
     // Warning indicator: material mismatch or empty slot
-    bool mapped_to_empty = false;
-    if (!mapping.is_auto && mapping.mapped_slot >= 0) {
-        for (const auto& s : available_slots_) {
-            if (s.slot_index == mapping.mapped_slot &&
-                s.backend_index == mapping.mapped_backend) {
-                mapped_to_empty = s.is_empty;
-                break;
-            }
-        }
-    }
+    bool mapped_to_empty = mapped && mapped->is_empty;
     if (mapping.material_mismatch || mapped_to_empty) {
         lv_obj_t* warn = lv_label_create(row);
         lv_label_set_text(warn, ICON_TRIANGLE_EXCLAMATION);
@@ -255,6 +240,20 @@ lv_obj_t* FilamentMappingModal::create_tool_row(int tool_index) {
 // Display text helpers
 // ============================================================================
 
+const helix::AvailableSlot* FilamentMappingModal::find_mapped_slot(
+    const helix::ToolMapping& mapping) const {
+    if (mapping.is_auto || mapping.mapped_slot < 0) {
+        return nullptr;
+    }
+    for (const auto& slot : available_slots_) {
+        if (slot.slot_index == mapping.mapped_slot &&
+            slot.backend_index == mapping.mapped_backend) {
+            return &slot;
+        }
+    }
+    return nullptr;
+}
+
 std::string FilamentMappingModal::get_slot_display_text(const helix::ToolMapping& mapping) const {
     if (mapping.is_auto) {
         return lv_tr("Auto");
@@ -264,11 +263,9 @@ std::string FilamentMappingModal::get_slot_display_text(const helix::ToolMapping
         return lv_tr("Unmapped");
     }
 
-    for (const auto& slot : available_slots_) {
-        if (slot.slot_index == mapping.mapped_slot &&
-            slot.backend_index == mapping.mapped_backend) {
-            return helix::FilamentMapper::format_slot_label(slot);
-        }
+    const auto* slot = find_mapped_slot(mapping);
+    if (slot) {
+        return helix::FilamentMapper::format_slot_label(*slot);
     }
 
     char buf[32];
@@ -290,10 +287,8 @@ void FilamentMappingModal::on_row_tapped(int tool_index) {
 
     spdlog::debug("[FilamentMappingModal] Row tapped: T{}", tool_index);
 
-    FilamentSlotPicker::Selection current;
-    current.slot_index = mapping.mapped_slot;
-    current.backend_index = mapping.mapped_backend;
-    current.is_auto = mapping.is_auto;
+    FilamentSlotPicker::Selection current{mapping.mapped_slot, mapping.mapped_backend,
+                                          mapping.is_auto};
 
     // Capture click point from the active input device
     lv_point_t click_pt;
@@ -318,24 +313,15 @@ void FilamentMappingModal::on_slot_selected(int tool_index,
     mapping.mapped_backend = selection.backend_index;
     mapping.is_auto = selection.is_auto;
 
+    mapping.material_mismatch = false;
     if (selection.is_auto) {
         mapping.reason = helix::ToolMapping::MatchReason::AUTO;
-        mapping.material_mismatch = false;
     } else {
-        // Check material mismatch
-        mapping.material_mismatch = false;
         const auto& tool = tool_info_[static_cast<size_t>(tool_index)];
-        if (!tool.material.empty()) {
-            for (const auto& slot : available_slots_) {
-                if (slot.slot_index == selection.slot_index &&
-                    slot.backend_index == selection.backend_index) {
-                    if (!slot.material.empty() &&
-                        !helix::FilamentMapper::materials_match(tool.material, slot.material)) {
-                        mapping.material_mismatch = true;
-                    }
-                    break;
-                }
-            }
+        const auto* slot = find_mapped_slot(mapping);
+        if (slot && !tool.material.empty() && !slot->material.empty() &&
+            !helix::FilamentMapper::materials_match(tool.material, slot->material)) {
+            mapping.material_mismatch = true;
         }
     }
 

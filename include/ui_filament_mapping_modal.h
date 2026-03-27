@@ -49,6 +49,10 @@ class FilamentMappingModal : public Modal {
     void on_slot_selected(int tool_index, const FilamentSlotPicker::Selection& sel);
     std::string get_slot_display_text(const helix::ToolMapping& mapping) const;
 
+    /// Find the AvailableSlot matching a mapping's (slot_index, backend_index).
+    /// Returns nullptr if the mapping is auto or the slot is not found.
+    const helix::AvailableSlot* find_mapped_slot(const helix::ToolMapping& mapping) const;
+
     void create_toggle_row();
     void on_toggle_changed(bool auto_color);
     void recalculate_mappings();

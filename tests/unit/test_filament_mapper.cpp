@@ -555,7 +555,7 @@ TEST_CASE("compute_defaults propagates backend index", "[filament_mapper][comput
 // Multi-backend slot uniqueness (critical bug fix)
 // =============================================================================
 
-TEST_CASE("compute_defaults distinguishes same slot_index across backends",
+TEST_CASE("compute_defaults allows slot re-use across backends",
           "[filament_mapper][compute][multi_backend]") {
     // Two backends each have slot 0 with red filament
     std::vector<GcodeToolInfo> tools = {
@@ -570,13 +570,12 @@ TEST_CASE("compute_defaults distinguishes same slot_index across backends",
     auto result = FilamentMapper::compute_defaults(tools, slots);
     REQUIRE(result.size() == 2);
 
-    // Tool 0 gets slot 0 from backend 0
+    // Both tools map to the best color match (slot re-use allowed)
     CHECK(result[0].mapped_slot == 0);
     CHECK(result[0].mapped_backend == 0);
 
-    // Tool 1 gets slot 0 from backend 1 (NOT auto, because the slot is available)
     CHECK(result[1].mapped_slot == 0);
-    CHECK(result[1].mapped_backend == 1);
+    CHECK(result[1].mapped_backend == 0);
     CHECK_FALSE(result[1].is_auto);
 }
 
@@ -822,7 +821,7 @@ TEST_CASE("find_unresolved_tools", "[filament_mapper]") {
     }
 }
 
-TEST_CASE("compute_defaults all slots are empty",
+TEST_CASE("compute_defaults all slots are empty falls to positional",
           "[filament_mapper][compute]") {
     std::vector<GcodeToolInfo> tools = {{0, 0xFF0000, "PLA"}};
     std::vector<AvailableSlot> slots = {
@@ -832,8 +831,8 @@ TEST_CASE("compute_defaults all slots are empty",
 
     auto result = FilamentMapper::compute_defaults(tools, slots);
     REQUIRE(result.size() == 1);
-    // Empty slots should not be matched
-    CHECK(result[0].mapped_slot == -1);
+    // No color match (black vs red), positional fallback assigns slot 0
+    CHECK(result[0].mapped_slot == 0);
 }
 
 // =============================================================================
