@@ -32,7 +32,6 @@ HelixScreen works with any Klipper-based printer running Moonraker. Tested and s
 | Creality K1 / K1C / K1 Max / K1 SE | **Supported** | Requires rooting or Guilouz firmware |
 | Creality K2 / K2 Plus | **Untested** | Binaries available, community testing welcome |
 | Creality Sonic Pad | **Supported** | 32-bit ARM, dedicated build |
-| Snapmaker U1 | **Untested** | Binaries available |
 | FlashForge AD5X | **Testing** | Active testing, IFS integration in progress |
 | SOVOL SV06 / SV08 | **Testing** | Community reports welcome |
 | Elegoo Centauri Carbon 1 | **Testing** | Dedicated build target |
@@ -56,7 +55,7 @@ HelixScreen works with any Klipper-based printer running Moonraker. Tested and s
 - Other HDMI displays
 - SPI displays (with proper configuration)
 
-**Display sizes:** HelixScreen auto-detects the best layout for your display. 800x480, 1024x600, and 1920x480 (ultrawide) are fully supported. 480x320 (Snapmaker U1) will run but may have layout overlap issues — improved small-screen support is ongoing.
+**Display sizes:** HelixScreen auto-detects the best layout for your display. 800x480, 1024x600, and 1920x480 (ultrawide) are fully supported. 480x320 displays will run but may have layout overlap issues — improved small-screen support is ongoing.
 
 **Display rotation:** All three binaries (main, splash, watchdog) support 0°, 90°, 180°, and 270° rotation via config or command line.
 
