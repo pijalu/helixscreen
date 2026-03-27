@@ -341,10 +341,8 @@ void register_xml_components() {
     register_xml("components/panel_widget_temp_stack.xml");
     register_xml("components/panel_widget_temp_carousel.xml");
     register_xml("components/panel_widget_preheat.xml");
-#if HELIX_HAS_LED
     register_xml("components/panel_widget_led.xml");
     register_xml("components/panel_widget_led_controls.xml");
-#endif
     register_xml("components/panel_widget_humidity.xml");
     register_xml("components/panel_widget_width_sensor.xml");
     register_xml("components/panel_widget_filament.xml");
@@ -408,11 +406,9 @@ void register_xml_components() {
     register_fan_dial_callbacks(); // Register FanDial event callbacks
     register_xml("fan_status_card.xml");
     register_xml("fan_control_overlay.xml");
-#if HELIX_HAS_LED
     register_xml("led_action_chip.xml");
     register_xml("led_color_swatch.xml");
     register_xml("led_control_overlay.xml");
-#endif
     register_xml("ams_current_tool.xml");
     register_xml("components/exclude_object_map.xml");
     register_xml("exclude_objects_list_overlay.xml");
@@ -457,9 +453,7 @@ void register_xml_components() {
     register_xml("setting_action_row.xml");
     register_xml("setting_info_row.xml");
     register_xml("setting_slider_row.xml");
-#if HELIX_HAS_LED
     register_xml("setting_led_chip_row.xml");
-#endif
     register_xml("setting_state_row.xml");
     register_xml("setting_detail_panel.xml");
     register_xml("setting_form_dropdown.xml");
@@ -490,9 +484,7 @@ void register_xml_components() {
 #if HELIX_HAS_LABEL_PRINTER
     register_xml("label_printer_settings.xml");
 #endif
-#if HELIX_HAS_LED
     register_xml("led_settings_overlay.xml");
-#endif
     register_xml("theme_editor_overlay.xml");
     register_xml("theme_preview_overlay.xml");
     register_xml("theme_save_as_modal.xml");
@@ -559,9 +551,7 @@ void register_xml_components() {
     register_xml("wizard_heater_select.xml");
     register_xml("wizard_fan_select.xml");
     register_xml("wizard_ams_identify.xml");
-#if HELIX_HAS_LED
     register_xml("wizard_led_select.xml");
-#endif
     register_xml("wizard_filament_sensor_select.xml");
     register_xml("wizard_input_shaper.xml");
     register_xml("wizard_language_chooser.xml");

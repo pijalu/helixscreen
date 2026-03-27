@@ -2,10 +2,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #pragma once
 
-#include "lvgl.h"
-
-#if HELIX_HAS_LED
-
 #include "ui_observer_guard.h"
 
 #include "led/led_backend.h"
@@ -172,22 +168,3 @@ helix::led::LedControlOverlay& get_led_control_overlay();
  * @param printer_state Reference to global helix::PrinterState
  */
 void init_led_control_overlay(helix::PrinterState& printer_state);
-
-#else // !HELIX_HAS_LED
-
-// Stub declarations — no-ops when LED subsystem is excluded
-namespace helix {
-class PrinterState;
-} // namespace helix
-
-struct LedControlOverlayStub {
-    bool are_subjects_initialized() const { return false; }
-};
-
-inline LedControlOverlayStub& get_led_control_overlay() {
-    static LedControlOverlayStub s;
-    return s;
-}
-inline void init_led_control_overlay(helix::PrinterState& /*printer_state*/) {}
-
-#endif // HELIX_HAS_LED

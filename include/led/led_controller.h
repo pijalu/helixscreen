@@ -23,8 +23,6 @@ namespace helix {
 class PrinterDiscovery;
 }
 
-#if HELIX_HAS_LED
-
 namespace helix::led {
 
 class NativeBackend {
@@ -522,66 +520,3 @@ class LedController {
 };
 
 } // namespace helix::led
-
-#else // !HELIX_HAS_LED
-
-namespace helix::led {
-
-struct StubNativeBackend {
-    void update_from_status(const nlohmann::json& /*status*/) {}
-};
-struct StubEffectsBackend {
-    void update_from_status(const nlohmann::json& /*status*/) {}
-};
-struct StubOutputPinBackend {
-    void update_from_status(const nlohmann::json& /*status*/) {}
-};
-
-struct LedMacroInfo {
-    std::string name;
-    std::string on_macro;
-    std::string off_macro;
-    std::string toggle_macro;
-    std::string custom_gcode;
-};
-
-class LedController {
-  public:
-    static LedController& instance() {
-        static LedController s;
-        return s;
-    }
-
-    void init(MoonrakerAPI* /*api*/, helix::MoonrakerClient* /*client*/) {}
-    void deinit() {}
-    void apply_startup_preference() {}
-    bool is_initialized() const { return false; }
-    void discover_from_hardware(const nlohmann::json& /*obj_list*/) {}
-    void discover_wled_strips(const std::string& /*strip_name*/) {}
-    void update_effect_targets(const std::string& /*effect_name*/,
-                               const std::vector<std::string>& /*targets*/) {}
-    void update_output_pin_config(const std::string& /*pin_name*/, bool /*is_pwm*/) {}
-    void light_set(bool /*on*/) {}
-    bool get_led_on_at_start() const { return false; }
-    void set_led_on_at_start(bool /*enabled*/) {}
-    void save_config() {}
-    bool light_state_trackable() const { return false; }
-    void sync_light_state(bool /*on*/) {}
-    const std::vector<std::string>& selected_strips() const { return empty_strips_; }
-    lv_subject_t* get_led_config_version_subject() { return nullptr; }
-
-    StubNativeBackend& native() { return native_; }
-    StubEffectsBackend& effects() { return effects_; }
-    StubOutputPinBackend& output_pin() { return output_pin_; }
-
-  private:
-    LedController() = default;
-    StubNativeBackend native_;
-    StubEffectsBackend effects_;
-    StubOutputPinBackend output_pin_;
-    std::vector<std::string> empty_strips_;
-};
-
-} // namespace helix::led
-
-#endif // HELIX_HAS_LED

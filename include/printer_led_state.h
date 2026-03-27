@@ -26,20 +26,69 @@ class PrinterLedState {
     PrinterLedState(const PrinterLedState&) = delete;
     PrinterLedState& operator=(const PrinterLedState&) = delete;
 
-#if HELIX_HAS_LED
+    /**
+     * @brief Initialize LED subjects
+     * @param register_xml If true, register subjects with LVGL XML system
+     */
     void init_subjects(bool register_xml = true);
-    void deinit_subjects();
-    void update_from_status(const nlohmann::json& status);
-    void set_tracked_led(const std::string& led_name);
-    std::string get_tracked_led() const { return tracked_led_name_; }
-    bool has_tracked_led() const { return !tracked_led_name_.empty(); }
 
-    lv_subject_t* get_led_state_subject() { return &led_state_; }
-    lv_subject_t* get_led_r_subject() { return &led_r_; }
-    lv_subject_t* get_led_g_subject() { return &led_g_; }
-    lv_subject_t* get_led_b_subject() { return &led_b_; }
-    lv_subject_t* get_led_w_subject() { return &led_w_; }
-    lv_subject_t* get_led_brightness_subject() { return &led_brightness_; }
+    /**
+     * @brief Deinitialize subjects (called by SubjectManager automatically)
+     */
+    void deinit_subjects();
+
+    /**
+     * @brief Update LED state from Moonraker status JSON
+     * @param status JSON object containing LED data (keyed by tracked LED name)
+     */
+    void update_from_status(const nlohmann::json& status);
+
+    /**
+     * @brief Set which LED to track for state updates
+     *
+     * Call this after loading config to tell PrinterLedState which LED object
+     * to monitor from Moonraker notifications. The LED name should match
+     * the Klipper config (e.g., "neopixel chamber_light", "led status_led").
+     *
+     * @param led_name Full LED name including type prefix, or empty to disable
+     */
+    void set_tracked_led(const std::string& led_name);
+
+    /**
+     * @brief Get the currently tracked LED name
+     * @return LED name being tracked, or empty string if none
+     */
+    std::string get_tracked_led() const {
+        return tracked_led_name_;
+    }
+
+    /**
+     * @brief Check if an LED is configured for tracking
+     * @return true if a LED name has been set
+     */
+    bool has_tracked_led() const {
+        return !tracked_led_name_.empty();
+    }
+
+    // Subject accessors
+    lv_subject_t* get_led_state_subject() {
+        return &led_state_;
+    }
+    lv_subject_t* get_led_r_subject() {
+        return &led_r_;
+    }
+    lv_subject_t* get_led_g_subject() {
+        return &led_g_;
+    }
+    lv_subject_t* get_led_b_subject() {
+        return &led_b_;
+    }
+    lv_subject_t* get_led_w_subject() {
+        return &led_w_;
+    }
+    lv_subject_t* get_led_brightness_subject() {
+        return &led_brightness_;
+    }
 
   private:
     friend class PrinterLedStateTestAccess;
@@ -48,29 +97,13 @@ class PrinterLedState {
     bool subjects_initialized_ = false;
     std::string tracked_led_name_;
 
-    lv_subject_t led_state_{};
-    lv_subject_t led_r_{};
-    lv_subject_t led_g_{};
-    lv_subject_t led_b_{};
-    lv_subject_t led_w_{};
-    lv_subject_t led_brightness_{};
-
-#else // !HELIX_HAS_LED — no-op stubs when LED subsystem is excluded
-    void init_subjects(bool /*register_xml*/ = true) {}
-    void deinit_subjects() {}
-    void update_from_status(const nlohmann::json& /*status*/) {}
-    void set_tracked_led(const std::string& /*led_name*/) {}
-    std::string get_tracked_led() const { return {}; }
-    bool has_tracked_led() const { return false; }
-    lv_subject_t* get_led_state_subject() { return nullptr; }
-    lv_subject_t* get_led_r_subject() { return nullptr; }
-    lv_subject_t* get_led_g_subject() { return nullptr; }
-    lv_subject_t* get_led_b_subject() { return nullptr; }
-    lv_subject_t* get_led_w_subject() { return nullptr; }
-    lv_subject_t* get_led_brightness_subject() { return nullptr; }
-
-  private:
-#endif // HELIX_HAS_LED
+    // LED subjects
+    lv_subject_t led_state_{};      // 0=off, 1=on
+    lv_subject_t led_r_{};          // 0-255
+    lv_subject_t led_g_{};          // 0-255
+    lv_subject_t led_b_{};          // 0-255
+    lv_subject_t led_w_{};          // 0-255
+    lv_subject_t led_brightness_{}; // 0-100 (derived from max channel)
 };
 
 } // namespace helix

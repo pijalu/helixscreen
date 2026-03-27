@@ -10,8 +10,6 @@
 
 #include <spdlog/spdlog.h>
 
-#if HELIX_HAS_LED
-
 namespace helix::led {
 
 LedAutoState& LedAutoState::instance() {
@@ -329,5 +327,3 @@ void LedAutoState::save_config() {
 }
 
 } // namespace helix::led
-
-#endif // HELIX_HAS_LED

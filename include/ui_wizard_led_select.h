@@ -5,8 +5,6 @@
 
 #include "lvgl/lvgl.h"
 
-#if HELIX_HAS_LED
-
 #include <memory>
 #include <string>
 #include <vector>
@@ -120,24 +118,3 @@ class WizardLedSelectStep {
 
 WizardLedSelectStep* get_wizard_led_select_step();
 void destroy_wizard_led_select_step();
-
-#else // !HELIX_HAS_LED
-
-// Stub when LED subsystem is excluded
-struct WizardLedSelectStep {
-    void init_subjects() {}
-    void register_callbacks() {}
-    lv_obj_t* create(lv_obj_t* /*parent*/) { return nullptr; }
-    void cleanup() {}
-    bool is_validated() const { return true; }
-    bool should_skip() const { return true; }
-    const char* get_name() const { return "Wizard LED"; }
-};
-
-inline WizardLedSelectStep* get_wizard_led_select_step() {
-    static WizardLedSelectStep s;
-    return &s;
-}
-inline void destroy_wizard_led_select_step() {}
-
-#endif // HELIX_HAS_LED

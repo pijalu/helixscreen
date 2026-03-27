@@ -17,8 +17,6 @@
 
 #include <lvgl.h>
 
-#if HELIX_HAS_LED
-
 namespace helix {
 
 void register_led_controls_widget() {
@@ -100,5 +98,3 @@ void LedControlsWidget::handle_clicked() {
 }
 
 } // namespace helix
-
-#endif // HELIX_HAS_LED

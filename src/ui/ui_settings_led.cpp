@@ -28,8 +28,6 @@
 #include <algorithm>
 #include <memory>
 
-#if HELIX_HAS_LED
-
 namespace helix::settings {
 
 // ============================================================================
@@ -1744,5 +1742,3 @@ void LedSettingsOverlay::on_add_macro_device(lv_event_t* e) {
 }
 
 } // namespace helix::settings
-
-#endif // HELIX_HAS_LED

@@ -93,9 +93,7 @@ class SettingsPanel : public PanelBase {
     lv_obj_t* dark_mode_switch_ = nullptr;
     lv_obj_t* animations_switch_ = nullptr;
     lv_obj_t* gcode_3d_switch_ = nullptr;
-#if HELIX_HAS_LED
     lv_obj_t* led_light_switch_ = nullptr;
-#endif
     lv_obj_t* estop_confirm_switch_ = nullptr;
     lv_obj_t* telemetry_switch_ = nullptr;
     // Dropdowns
@@ -116,10 +114,8 @@ class SettingsPanel : public PanelBase {
     // Change host modal (lazy-created)
     std::unique_ptr<ChangeHostModal> change_host_modal_;
 
-#if HELIX_HAS_LED
     // LED state observer (syncs toggle with printer LED state)
     ObserverGuard led_state_observer_;
-#endif
 
     //
     // === Reactive Subjects ===
@@ -175,10 +171,8 @@ class SettingsPanel : public PanelBase {
     void handle_dark_mode_changed(bool enabled);
     void handle_animations_changed(bool enabled);
     void handle_display_sleep_changed(int index);
-#if HELIX_HAS_LED
     void handle_led_light_changed(bool enabled);
     void handle_led_settings_clicked();
-#endif
     void handle_sound_settings_clicked();
     void handle_security_settings_clicked();
 #if HELIX_HAS_LABEL_PRINTER
@@ -233,10 +227,8 @@ class SettingsPanel : public PanelBase {
     // These are registered before settings_panel.xml is parsed [L013]
     //
     static void on_animations_changed(lv_event_t* e);
-#if HELIX_HAS_LED
     static void on_led_light_changed(lv_event_t* e);
     static void on_led_settings_clicked(lv_event_t* e);
-#endif
     static void on_timelapse_settings_clicked(lv_event_t* e);
     static void on_sound_settings_clicked(lv_event_t* e);
     static void on_security_clicked(lv_event_t* e);

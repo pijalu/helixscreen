@@ -1572,7 +1572,6 @@ void Application::create_overlays() {
         }
     }
 
-#if HELIX_HAS_LED
     if (m_args.overlays.led) {
         auto& overlay = get_led_control_overlay();
 
@@ -1592,7 +1591,6 @@ void Application::create_overlays() {
             NavigationManager::instance().push_overlay(p);
         }
     }
-#endif // HELIX_HAS_LED
 
     if (m_args.overlays.print_status) {
         PrintStatusPanel::push_overlay(m_screen);

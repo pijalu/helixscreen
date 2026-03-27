@@ -25,8 +25,6 @@
 #include <string>
 #include <vector>
 
-#if HELIX_HAS_LED
-
 using namespace helix;
 
 // ============================================================================
@@ -207,5 +205,3 @@ bool WizardLedSelectStep::should_skip() const {
 
     return should_skip;
 }
-
-#endif // HELIX_HAS_LED

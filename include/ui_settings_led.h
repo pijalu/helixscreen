@@ -19,11 +19,8 @@
 
 #pragma once
 
-#include "lvgl/lvgl.h"
-
-#if HELIX_HAS_LED
-
 #include "led/led_auto_state.h"
+#include "lvgl/lvgl.h"
 #include "overlay_base.h"
 #include "subject_managed_panel.h"
 
@@ -148,5 +145,3 @@ class LedSettingsOverlay : public OverlayBase {
 LedSettingsOverlay& get_led_settings_overlay();
 
 } // namespace helix::settings
-
-#endif // HELIX_HAS_LED

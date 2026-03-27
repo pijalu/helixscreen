@@ -860,13 +860,6 @@
 #define HELIX_HAS_CAMERA 0
 #endif
 
-/* LED subsystem — disabled on memory-constrained AD5M platform. */
-#if defined(HELIX_PLATFORM_AD5M)
-#define HELIX_HAS_LED 0
-#else
-#define HELIX_HAS_LED 1
-#endif
-
 /*GIF decoder library*/
 #define LV_USE_GIF 0
 #if LV_USE_GIF

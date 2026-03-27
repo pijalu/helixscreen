@@ -315,10 +315,8 @@ void SettingsPanel::init_subjects() {
         // Toggle switches
         {"on_dark_mode_changed", on_dark_mode_changed},
         {"on_animations_changed", on_animations_changed},
-#if HELIX_HAS_LED
         {"on_led_light_changed", on_led_light_changed},
         {"on_led_settings_clicked", on_led_settings_clicked},
-#endif
         // Note: on_retraction_row_clicked is registered by RetractionSettingsOverlay
         {"on_sound_settings_clicked", on_sound_settings_clicked},
         {"on_security_clicked", on_security_clicked},
@@ -446,7 +444,6 @@ void SettingsPanel::setup_toggle_handlers() {
 
     // LED chip selection moved to LedSettingsOverlay
 
-#if HELIX_HAS_LED
     // === LED Light Toggle ===
     // Event handler wired via XML <event_cb>, sync toggle with actual printer LED state
     lv_obj_t* led_light_row = lv_obj_find_by_name(panel_, "row_led_light");
@@ -468,7 +465,6 @@ void SettingsPanel::setup_toggle_handlers() {
             spdlog::trace("[{}]   ✓ LED light toggle (observing printer state)", get_name());
         }
     }
-#endif // HELIX_HAS_LED
 
     // === Telemetry Toggle ===
     lv_obj_t* telemetry_row = lv_obj_find_by_name(panel_, "row_telemetry");
@@ -698,12 +694,10 @@ void SettingsPanel::handle_display_sleep_changed(int index) {
     DisplaySettingsManager::instance().set_display_sleep_sec(seconds);
 }
 
-#if HELIX_HAS_LED
 void SettingsPanel::handle_led_light_changed(bool enabled) {
     spdlog::info("[{}] LED light toggled: {}", get_name(), enabled ? "ON" : "OFF");
     SettingsManager::instance().set_led_enabled(enabled);
 }
-#endif // HELIX_HAS_LED
 
 // handle_led_chip_clicked moved to LedSettingsOverlay
 
@@ -807,14 +801,12 @@ void SettingsPanel::handle_label_printer_settings_clicked() {
 }
 #endif
 
-#if HELIX_HAS_LED
 void SettingsPanel::handle_led_settings_clicked() {
     spdlog::debug("[{}] LED Settings clicked - delegating to LedSettingsOverlay", get_name());
 
     auto& overlay = helix::settings::get_led_settings_overlay();
     overlay.show(parent_screen_);
 }
-#endif // HELIX_HAS_LED
 
 void SettingsPanel::handle_printers_clicked() {
     spdlog::debug("[{}] Printers clicked - opening Printer List", get_name());
@@ -1126,7 +1118,6 @@ void SettingsPanel::on_display_sleep_changed(lv_event_t* e) {
     LVGL_SAFE_EVENT_CB_END();
 }
 
-#if HELIX_HAS_LED
 void SettingsPanel::on_led_light_changed(lv_event_t* e) {
     LVGL_SAFE_EVENT_CB_BEGIN("[SettingsPanel] on_led_light_changed");
     auto* toggle = static_cast<lv_obj_t*>(lv_event_get_current_target(e));
@@ -1134,7 +1125,6 @@ void SettingsPanel::on_led_light_changed(lv_event_t* e) {
     get_global_settings_panel().handle_led_light_changed(enabled);
     LVGL_SAFE_EVENT_CB_END();
 }
-#endif // HELIX_HAS_LED
 
 void SettingsPanel::on_estop_confirm_changed(lv_event_t* e) {
     LVGL_SAFE_EVENT_CB_BEGIN("[SettingsPanel] on_estop_confirm_changed");
@@ -1204,13 +1194,11 @@ void SettingsPanel::on_label_printer_settings_clicked(lv_event_t* /*e*/) {
 }
 #endif
 
-#if HELIX_HAS_LED
 void SettingsPanel::on_led_settings_clicked(lv_event_t* /*e*/) {
     LVGL_SAFE_EVENT_CB_BEGIN("[SettingsPanel] on_led_settings_clicked");
     get_global_settings_panel().handle_led_settings_clicked();
     LVGL_SAFE_EVENT_CB_END();
 }
-#endif // HELIX_HAS_LED
 
 void SettingsPanel::on_timelapse_settings_clicked(lv_event_t* /*e*/) {
     LVGL_SAFE_EVENT_CB_BEGIN("[SettingsPanel] on_timelapse_settings_clicked");
@@ -1381,10 +1369,8 @@ void register_settings_panel_callbacks() {
     register_xml_callbacks({
         // Toggle callbacks used in settings_panel.xml
         {"on_animations_changed", SettingsPanel::on_animations_changed},
-#if HELIX_HAS_LED
         {"on_led_light_changed", SettingsPanel::on_led_light_changed},
         {"on_led_settings_clicked", SettingsPanel::on_led_settings_clicked},
-#endif
         {"on_timelapse_settings_clicked", SettingsPanel::on_timelapse_settings_clicked},
         {"on_sound_settings_clicked", SettingsPanel::on_sound_settings_clicked},
         {"on_security_clicked", SettingsPanel::on_security_clicked},
