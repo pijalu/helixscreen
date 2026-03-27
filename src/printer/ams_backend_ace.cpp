@@ -438,10 +438,27 @@ std::vector<DryingPreset> AmsBackendAce::get_drying_presets() const {
 void AmsBackendAce::polling_thread_func() {
     spdlog::debug("[ACE] Polling thread started");
 
-    // First, fetch system info (one-time)
+    // Fetch system info — retry until success or failure limit reached.
+    // info_fetch_failures_ is incremented on each failed attempt; after 3
+    // failures we stop retrying to avoid hammering a missing bridge endpoint.
+    static constexpr int MAX_INFO_FETCH_FAILURES = 3;
     poll_info();
 
     while (!stop_requested_.load()) {
+        // Retry info fetch if it hasn't succeeded yet and we haven't hit the limit
+        if (!info_fetched_.load() && info_fetch_failures_ < MAX_INFO_FETCH_FAILURES) {
+            poll_info();
+        } else if (!info_fetched_.load() && info_fetch_failures_ >= MAX_INFO_FETCH_FAILURES) {
+            // Bridge is not available — log once at this threshold and keep backend alive
+            // so it can recover if the bridge is later installed and the backend restarted.
+            if (info_fetch_failures_ == MAX_INFO_FETCH_FAILURES) {
+                spdlog::warn("[ACE] Giving up on /server/ace/info after {} attempts. "
+                             "Backend will remain idle until restarted.",
+                             MAX_INFO_FETCH_FAILURES);
+                ++info_fetch_failures_; // Advance past threshold so this logs only once
+            }
+        }
+
         // Poll status and slots
         poll_status();
         poll_slots();
@@ -484,8 +501,19 @@ void AmsBackendAce::poll_info() {
         if (resp.success && resp.data.contains("result")) {
             parse_info_response(resp.data["result"]);
             info_fetched_.store(true);
+            info_fetch_failures_ = 0;
         } else {
-            spdlog::warn("[ACE] Failed to get /server/ace/info: {}", resp.error);
+            ++info_fetch_failures_;
+            if (info_fetch_failures_ <= 3) {
+                spdlog::warn("[ACE] Moonraker bridge not available at /server/ace/info: {}. "
+                             "BunnyACE/DuckACE users need to install ValgACE's ace_status.py "
+                             "Moonraker component for HelixScreen integration.",
+                             resp.error);
+                emit_event(EVENT_ERROR,
+                           "ACE detected but Moonraker bridge not found. "
+                           "Install the ace_status.py component from ValgACE for full ACE "
+                           "support.");
+            }
         }
 
         {
