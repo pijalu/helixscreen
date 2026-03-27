@@ -25,6 +25,9 @@
 
 #include <spdlog/spdlog.h>
 
+#include <algorithm>
+#include <thread>
+
 namespace helix::ui {
 
 // ============================================================================
@@ -264,6 +267,16 @@ void QrScannerOverlay::stop_scanning() {
     if (camera_ && camera_->is_running()) {
         camera_->stop();
     }
+
+    // Wait for any in-flight detached QR decode thread to finish before
+    // we return — the decode thread accesses qr_decoder_ which the
+    // destructor will free.
+    for (int i = 0; i < 50 && decode_busy_.load(); ++i) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    }
+    if (decode_busy_.load()) {
+        spdlog::warn("[QR Scanner] QR decode thread still running after 500ms");
+    }
 #endif
 
     if (usb_monitor_.is_running()) {
@@ -279,14 +292,14 @@ void QrScannerOverlay::stop_scanning() {
 
 #if HELIX_HAS_CAMERA
 void QrScannerOverlay::on_camera_frame(lv_draw_buf_t* frame) {
-    // Called on background camera thread
+    // Called on background camera thread — must return quickly to keep
+    // the MJPEG stream flowing at full frame rate.
 
     if (!scan_active_.load() || !frame) {
         camera_->frame_consumed();
         return;
     }
 
-    // Extract frame dimensions and pixel data for grayscale conversion
     const int width = static_cast<int>(frame->header.w);
     const int height = static_cast<int>(frame->header.h);
     const auto* pixels = static_cast<const uint8_t*>(frame->data);
@@ -296,25 +309,28 @@ void QrScannerOverlay::on_camera_frame(lv_draw_buf_t* frame) {
         return;
     }
 
-    // Convert to grayscale for QR detection (copies pixel data so we can
-    // release the frame after the UI thread displays it)
     const int stride = static_cast<int>(frame->header.stride);
     const int pixel_size = (frame->header.cf == LV_COLOR_FORMAT_ARGB8888) ? 4 : 3;
 
-    const auto buf_size = static_cast<size_t>(width * height);
+    // Subsample during grayscale conversion — QR codes are easily readable
+    // at 480px, so processing full 1080p frames wastes ~16x CPU cycles.
+    const int max_dim = std::max(width, height);
+    const int step = std::max(1, max_dim / kQrMaxDimension);
+    qr_width_ = width / step;
+    qr_height_ = height / step;
+
+    const auto buf_size = static_cast<size_t>(qr_width_ * qr_height_);
     grayscale_buf_.resize(buf_size);
-    for (int y = 0; y < height; ++y) {
-        const uint8_t* row = pixels + y * stride;
-        for (int x = 0; x < width; ++x) {
-            const uint8_t* px = row + x * pixel_size;
-            grayscale_buf_[static_cast<size_t>(y * width + x)] = px[1];
+    for (int y = 0; y < qr_height_; ++y) {
+        const uint8_t* row = pixels + (y * step) * stride;
+        for (int x = 0; x < qr_width_; ++x) {
+            const uint8_t* px = row + (x * step) * pixel_size;
+            grayscale_buf_[static_cast<size_t>(y * qr_width_ + x)] = px[1];
         }
     }
 
     // Display the frame on the UI thread, then release it.
     // frame pointer stays valid until frame_consumed() is called.
-    // Must also check scan_active_ — if stop_scanning() ran between queueing
-    // and execution, camera_->stop() already freed the frame buffer.
     auto tok = lifetime_.token();
     helix::ui::queue_update([this, tok, frame]() {
         if (!tok.expired() && scan_active_.load()) {
@@ -325,18 +341,28 @@ void QrScannerOverlay::on_camera_frame(lv_draw_buf_t* frame) {
         camera_->frame_consumed();
     });
 
-    // Decode QR from grayscale copy (runs on background thread, doesn't
-    // need the frame buffer — we already copied the pixels above)
+    // Run QR decode on a separate thread so the camera stream thread
+    // returns immediately and can keep receiving MJPEG frames.
     if (!decode_busy_.exchange(true)) {
-        auto result = qr_decoder_->decode(grayscale_buf_.data(), width, height);
-        decode_busy_ = false;
+        // Copy the subsampled grayscale data for the decode thread
+        auto qr_buf = std::make_shared<std::vector<uint8_t>>(grayscale_buf_);
+        int qr_w = qr_width_;
+        int qr_h = qr_height_;
+        auto decode_tok = lifetime_.token();
 
-        if (result.success && result.spool_id >= 0) {
-            int spool_id = result.spool_id;
-            lifetime_.defer([this, spool_id]() {
-                on_spool_id_detected(spool_id);
-            });
-        }
+        std::thread([this, qr_buf, qr_w, qr_h, decode_tok]() {
+            auto result = qr_decoder_->decode(qr_buf->data(), qr_w, qr_h);
+            decode_busy_ = false;
+
+            if (decode_tok.expired()) return;
+
+            if (result.success && result.spool_id >= 0) {
+                int spool_id = result.spool_id;
+                lifetime_.defer([this, spool_id]() {
+                    on_spool_id_detected(spool_id);
+                });
+            }
+        }).detach();
     }
 }
 #endif

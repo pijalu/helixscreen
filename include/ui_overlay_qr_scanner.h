@@ -113,7 +113,13 @@ class QrScannerOverlay : public OverlayBase {
     std::unique_ptr<helix::CameraStream> camera_;
     std::unique_ptr<helix::QrDecoder> qr_decoder_;
     std::atomic<bool> decode_busy_{false};
-    std::vector<uint8_t> grayscale_buf_;  // Reused across frames to avoid per-frame allocation
+    std::vector<uint8_t> grayscale_buf_;  // Subsampled grayscale for QR decode
+    int qr_width_ = 0;                   // Dimensions of subsampled QR buffer
+    int qr_height_ = 0;
+
+    // Target max dimension for QR decode — QR codes are readable at low
+    // resolution, so we subsample to avoid burning CPU on full-res frames.
+    static constexpr int kQrMaxDimension = 480;
 #endif
     helix::UsbScannerMonitor usb_monitor_;
 
