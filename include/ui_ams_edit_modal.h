@@ -135,9 +135,6 @@ class AmsEditModal : public Modal {
     lv_observer_t* remaining_pct_observer_ = nullptr;
     lv_observer_t* save_btn_text_observer_ = nullptr;
 
-    // === Async callback guard [L012] ===
-    std::shared_ptr<bool> callback_guard_;
-
     // === Dropdown data (materials from filament_database, vendors from Spoolman) ===
     std::string material_options_;           ///< Newline-separated material names for dropdown
     std::vector<std::string> material_list_; ///< Material names for index lookup

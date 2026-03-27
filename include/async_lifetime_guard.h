@@ -133,7 +133,7 @@ class AsyncLifetimeGuard {
     void defer(F&& fn) {
         auto gen = gen_;
         auto snapshot = gen_->load(std::memory_order_acquire);
-        helix::ui::queue_update([gen, snapshot, f = std::forward<F>(fn)]() {
+        helix::ui::queue_update([gen, snapshot, f = std::forward<F>(fn)]() mutable {
             if (gen->load(std::memory_order_acquire) != snapshot) {
                 return;
             }
@@ -155,7 +155,7 @@ class AsyncLifetimeGuard {
     void defer(const char* tag, F&& fn) {
         auto gen = gen_;
         auto snapshot = gen_->load(std::memory_order_acquire);
-        helix::ui::queue_update(tag, [gen, snapshot, tag, f = std::forward<F>(fn)]() {
+        helix::ui::queue_update(tag, [gen, snapshot, tag, f = std::forward<F>(fn)]() mutable {
             if (gen->load(std::memory_order_acquire) != snapshot) {
                 spdlog::trace("[AsyncLifetimeGuard] Skipped expired callback: {}",
                               tag ? tag : "unknown");
