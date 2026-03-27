@@ -521,7 +521,7 @@ On printers with a toolchanger (IDEX, multi-head, tool-changing systems), the Ho
 
 ## Emergency Stop
 
-The red **Emergency Stop** button in the top bar halts all printer motion immediately. By default, a confirmation dialog appears before executing. You can disable the confirmation in **Settings > Safety > E-Stop Confirmation**.
+The red **Emergency Stop** button in the top bar halts all printer motion immediately. By default, a confirmation dialog appears before executing. You can disable the confirmation in **Settings > Motion > E-Stop Confirmation**.
 
 ---
 
