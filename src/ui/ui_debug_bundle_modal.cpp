@@ -204,17 +204,20 @@ void DebugBundleModal::handle_upload() {
                               "during upload, ignoring result");
                 return;
             }
-            if (result.success) {
-                lv_subject_copy_string(&share_code_subject_, result.share_code.c_str());
-                lv_subject_set_int(&state_subject_, 2);
-                spdlog::info("[DebugBundleModal] Upload succeeded, "
-                             "share code: {}",
-                             result.share_code);
-            } else {
-                lv_subject_copy_string(&error_subject_, result.error_message.c_str());
-                lv_subject_set_int(&state_subject_, 3);
-                spdlog::warn("[DebugBundleModal] Upload failed: {}", result.error_message);
-            }
+            // Marshal to UI thread — this callback fires from the upload thread
+            lifetime_.defer([this, result]() {
+                if (result.success) {
+                    lv_subject_copy_string(&share_code_subject_, result.share_code.c_str());
+                    lv_subject_set_int(&state_subject_, 2);
+                    spdlog::info("[DebugBundleModal] Upload succeeded, "
+                                 "share code: {}",
+                                 result.share_code);
+                } else {
+                    lv_subject_copy_string(&error_subject_, result.error_message.c_str());
+                    lv_subject_set_int(&state_subject_, 3);
+                    spdlog::warn("[DebugBundleModal] Upload failed: {}", result.error_message);
+                }
+            });
         });
 }
 
