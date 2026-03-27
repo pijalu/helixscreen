@@ -2,7 +2,7 @@
 
 This document explains the HelixScreen prototype's system design, data flow patterns, and architectural decisions.
 
-> **Visual diagrams:** See [`docs/architecture/`](../architecture/README.md) for Mermaid and D2 diagrams covering system overview, data flow, threading, UI layer, startup sequence, and singleton map.
+> **Visual diagrams:** See [`architecture/`](architecture/README.md) for D2 diagrams covering system overview, data flow, threading, UI layer, startup sequence, and singleton map.
 
 ## Overview
 

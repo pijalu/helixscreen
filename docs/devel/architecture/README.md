@@ -17,7 +17,7 @@ Each diagram exists in two formats:
 | [5. Startup Sequence](./05-startup-sequence.md) | Application boot phases and init order |
 | [6. Singleton Map](./06-singleton-map.md) | All singletons grouped by responsibility |
 
-For detailed implementation patterns, conventions, and code examples, see the [Architecture Guide](../devel/ARCHITECTURE.md).
+For detailed implementation patterns, conventions, and code examples, see the [Architecture Guide](../ARCHITECTURE.md).
 
 ## Rendering D2 Diagrams
 
@@ -26,10 +26,10 @@ For detailed implementation patterns, conventions, and code examples, see the [A
 brew install d2
 
 # Render all diagrams
-for f in docs/architecture/*.d2; do
+for f in docs/devel/architecture/*.d2; do
   d2 "$f" "${f%.d2}.svg"
 done
 
 # Or render one with live preview
-d2 --watch docs/architecture/01-system-overview.d2
+d2 --watch docs/devel/architecture/01-system-overview.d2
 ```
