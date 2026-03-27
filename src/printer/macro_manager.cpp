@@ -94,9 +94,7 @@ std::vector<std::string> parse_macro_names(const std::string& content) {
 MacroManager::MacroManager(MoonrakerAPI& api, const PrinterDiscovery& hardware)
     : api_(api), hardware_(hardware) {}
 
-MacroManager::~MacroManager() {
-    alive_->store(false);
-}
+MacroManager::~MacroManager() = default;
 
 bool MacroManager::is_installed() const {
     return hardware_.has_helix_macros();
@@ -139,19 +137,19 @@ bool MacroManager::update_available() const {
 void MacroManager::install(SuccessCallback on_success, ErrorCallback on_error) {
     spdlog::info("[HelixMacroManager] Starting macro installation...");
 
-    auto alive = alive_;
+    auto token = lifetime_.token();
 
     // Step 1: Upload macro file
     upload_macro_file(
-        [this, alive, on_success, on_error]() {
-            if (!alive->load())
+        [this, token, on_success, on_error]() {
+            if (token.expired())
                 return;
             spdlog::info("[HelixMacroManager] Macro file uploaded, adding include...");
 
             // Step 2: Add include to printer.cfg
             add_include_to_config(
-                [this, alive, on_success, on_error]() {
-                    if (!alive->load())
+                [this, token, on_success, on_error]() {
+                    if (token.expired())
                         return;
                     spdlog::info("[HelixMacroManager] Include added, restarting Klipper...");
 
@@ -171,12 +169,12 @@ void MacroManager::install(SuccessCallback on_success, ErrorCallback on_error) {
 void MacroManager::update(SuccessCallback on_success, ErrorCallback on_error) {
     spdlog::info("[HelixMacroManager] Starting macro update...");
 
-    auto alive = alive_;
+    auto token = lifetime_.token();
 
     // Just upload the new file and restart
     upload_macro_file(
-        [this, alive, on_success, on_error]() {
-            if (!alive->load())
+        [this, token, on_success, on_error]() {
+            if (token.expired())
                 return;
             restart_klipper(on_success, on_error);
         },
@@ -186,17 +184,17 @@ void MacroManager::update(SuccessCallback on_success, ErrorCallback on_error) {
 void MacroManager::uninstall(SuccessCallback on_success, ErrorCallback on_error) {
     spdlog::info("[HelixMacroManager] Starting macro uninstall...");
 
-    auto alive = alive_;
+    auto token = lifetime_.token();
 
     // Step 1: Remove include from printer.cfg
     remove_include_from_config(
-        [this, alive, on_success, on_error]() {
-            if (!alive->load())
+        [this, token, on_success, on_error]() {
+            if (token.expired())
                 return;
             // Step 2: Delete macro file
             delete_macro_file(
-                [this, alive, on_success, on_error]() {
-                    if (!alive->load())
+                [this, token, on_success, on_error]() {
+                    if (token.expired())
                         return;
                     // Step 3: Restart Klipper
                     restart_klipper(on_success, on_error);
@@ -260,14 +258,14 @@ void MacroManager::upload_macro_file(SuccessCallback on_success, ErrorCallback o
 void MacroManager::add_include_to_config(SuccessCallback on_success, ErrorCallback on_error) {
     spdlog::info("[HelixMacroManager] Adding include line to printer.cfg");
 
-    auto alive = alive_;
+    auto token = lifetime_.token();
 
     // Download printer.cfg
     api_.transfers().download_file(
         "config", "printer.cfg",
         // Download success
-        [this, alive, on_success, on_error](const std::string& content) {
-            if (!alive->load())
+        [this, token, on_success, on_error](const std::string& content) {
+            if (token.expired())
                 return;
             // Check if include line already exists
             std::string include_line = "[include " + std::string(HELIX_MACROS_FILENAME) + "]";
@@ -343,14 +341,14 @@ void MacroManager::add_include_to_config(SuccessCallback on_success, ErrorCallba
 void MacroManager::remove_include_from_config(SuccessCallback on_success, ErrorCallback on_error) {
     spdlog::info("[HelixMacroManager] Removing include line from printer.cfg");
 
-    auto alive = alive_;
+    auto token = lifetime_.token();
 
     // Download printer.cfg
     api_.transfers().download_file(
         "config", "printer.cfg",
         // Download success
-        [this, alive, on_success, on_error](const std::string& content) {
-            if (!alive->load())
+        [this, token, on_success, on_error](const std::string& content) {
+            if (token.expired())
                 return;
             std::string include_line = "[include " + std::string(HELIX_MACROS_FILENAME) + "]";
 

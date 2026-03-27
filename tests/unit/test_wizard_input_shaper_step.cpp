@@ -353,43 +353,36 @@ TEST_CASE_METHOD(WizardInputShaperStepTestFixture, "WizardInputShaperStep - stat
 
 TEST_CASE_METHOD(WizardInputShaperStepTestFixture, "WizardInputShaperStep - lifetime guard",
                  "[wizard][input-shaper][threading]") {
-    SECTION("Alive flag is true after construction") {
+    SECTION("Token is valid after construction") {
         WizardInputShaperStep step;
         step.init_subjects();
 
-        std::weak_ptr<std::atomic<bool>> alive_weak = step.get_alive_flag();
-        auto alive = alive_weak.lock();
-        REQUIRE(alive != nullptr);
-        REQUIRE(alive->load() == true);
+        auto token = step.get_lifetime_token();
+        REQUIRE_FALSE(token.expired());
     }
 
-    SECTION("Alive flag becomes false after cleanup") {
+    SECTION("Token becomes expired after cleanup") {
         WizardInputShaperStep step;
         step.init_subjects();
 
-        std::weak_ptr<std::atomic<bool>> alive_weak = step.get_alive_flag();
+        auto token = step.get_lifetime_token();
 
         step.cleanup();
 
-        auto alive = alive_weak.lock();
-        REQUIRE(alive != nullptr);
-        REQUIRE(alive->load() == false);
+        REQUIRE(token.expired());
     }
 
-    SECTION("Weak pointer remains valid after cleanup for callback safety") {
+    SECTION("Token remains checkable after cleanup for callback safety") {
         WizardInputShaperStep step;
         step.init_subjects();
 
-        std::weak_ptr<std::atomic<bool>> alive_weak = step.get_alive_flag();
+        auto token = step.get_lifetime_token();
 
         // Simulate callback checking after cleanup
         step.cleanup();
 
-        // Weak pointer should still be lockable (shared_ptr keeps flag alive)
-        auto alive = alive_weak.lock();
-        REQUIRE(alive != nullptr);
-        // But the flag should be false
-        REQUIRE(alive->load() == false);
+        // Token should report expired (guard was invalidated)
+        REQUIRE(token.expired());
     }
 }
 
@@ -659,25 +652,17 @@ TEST_CASE_METHOD(WizardInputShaperStepTestFixture, "WizardInputShaperStep - canc
         REQUIRE(cal->get_state() == InputShaperCalibrator::State::IDLE);
     }
 
-    SECTION("alive flag prevents callbacks after cleanup") {
-        auto alive_weak = step.get_alive_flag();
+    SECTION("lifetime token prevents callbacks after cleanup") {
+        auto token = step.get_lifetime_token();
 
-        // Before cleanup - alive
-        {
-            auto alive = alive_weak.lock();
-            REQUIRE(alive != nullptr);
-            REQUIRE(alive->load() == true);
-        }
+        // Before cleanup - valid
+        REQUIRE_FALSE(token.expired());
 
         // Cleanup
         step.cleanup();
 
-        // After cleanup - dead
-        {
-            auto alive = alive_weak.lock();
-            REQUIRE(alive != nullptr);       // Pointer still valid
-            REQUIRE(alive->load() == false); // But flag is false
-        }
+        // After cleanup - expired
+        REQUIRE(token.expired());
     }
 
     SECTION("user skip sets flag and allows validation") {
@@ -704,42 +689,37 @@ TEST_CASE_METHOD(WizardInputShaperStepTestFixture, "WizardInputShaperStep - canc
 
 TEST_CASE_METHOD(WizardInputShaperStepTestFixture, "WizardInputShaperStep - async callback safety",
                  "[wizard][input-shaper][async]") {
-    SECTION("weak_ptr remains valid after step destruction") {
-        std::weak_ptr<std::atomic<bool>> alive_weak;
+    SECTION("token reports expired after step destruction") {
+        helix::LifetimeToken token_copy(helix::LifetimeToken{helix::AsyncLifetimeGuard{}.token()});
 
         {
             WizardInputShaperStep step;
             step.init_subjects();
-            alive_weak = step.get_alive_flag();
+            token_copy = step.get_lifetime_token();
 
-            // Verify alive inside scope
-            auto alive = alive_weak.lock();
-            REQUIRE(alive != nullptr);
-            REQUIRE(alive->load() == true);
+            // Verify valid inside scope
+            REQUIRE_FALSE(token_copy.expired());
         }
-        // Step destroyed here
+        // Step destroyed here — guard destructor calls invalidate()
 
-        // Weak pointer should be expired OR lockable but false
-        auto alive = alive_weak.lock();
-        if (alive) {
-            // If the shared_ptr was kept alive by something, flag should be false
-            REQUIRE(alive->load() == false);
-        }
-        // If alive is nullptr, that's also acceptable (no references left)
+        // Token should be expired after destruction
+        REQUIRE(token_copy.expired());
     }
 
-    SECTION("multiple alive checks are consistent") {
+    SECTION("multiple tokens from same step are consistent") {
         WizardInputShaperStep step;
         step.init_subjects();
 
-        auto weak1 = step.get_alive_flag();
-        auto weak2 = step.get_alive_flag();
+        auto token1 = step.get_lifetime_token();
+        auto token2 = step.get_lifetime_token();
 
-        auto ptr1 = weak1.lock();
-        auto ptr2 = weak2.lock();
+        REQUIRE_FALSE(token1.expired());
+        REQUIRE_FALSE(token2.expired());
 
-        REQUIRE(ptr1 != nullptr);
-        REQUIRE(ptr2 != nullptr);
-        REQUIRE(ptr1.get() == ptr2.get()); // Same underlying atomic
+        step.cleanup();
+
+        // Both should expire together
+        REQUIRE(token1.expired());
+        REQUIRE(token2.expired());
     }
 }

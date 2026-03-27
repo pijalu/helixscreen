@@ -8,8 +8,6 @@
 #include "subject_managed_panel.h"
 
 #include <array>
-#include <atomic>
-#include <memory>
 #include <string>
 #include <vector>
 
@@ -164,8 +162,6 @@ class ScrewsTiltPanel : public OverlayBase {
     State state_ = State::IDLE;
     void set_state(State new_state);
 
-    // Async safety flag - survives after panel destruction [L012]
-    std::shared_ptr<std::atomic<bool>> alive_ = std::make_shared<std::atomic<bool>>(true);
 
     // Command helpers
     void start_probing();

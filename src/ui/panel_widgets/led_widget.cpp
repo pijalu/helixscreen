@@ -45,7 +45,6 @@ LedWidget::~LedWidget() {
 void LedWidget::attach(lv_obj_t* widget_obj, lv_obj_t* parent_screen) {
     widget_obj_ = widget_obj;
     parent_screen_ = parent_screen;
-    *alive_ = true;
 
     if (!widget_obj_) {
         return;
@@ -70,12 +69,12 @@ void LedWidget::attach(lv_obj_t* widget_obj, lv_obj_t* parent_screen) {
     }
 
     // Observe led_config_version to rebind when LED discovery or settings change.
-    std::weak_ptr<bool> weak_alive = alive_;
+    auto token = lifetime_.token();
     auto& led_ctrl = helix::led::LedController::instance();
     led_version_observer_ =
         helix::ui::observe_int_sync<LedWidget>(led_ctrl.get_led_config_version_subject(), this,
-                                               [weak_alive](LedWidget* self, int /*version*/) {
-                                                   if (weak_alive.expired())
+                                               [token](LedWidget* self, int /*version*/) {
+                                                   if (token.expired())
                                                        return;
                                                    self->bind_led();
                                                });
@@ -90,7 +89,7 @@ void LedWidget::attach(lv_obj_t* widget_obj, lv_obj_t* parent_screen) {
 }
 
 void LedWidget::detach() {
-    *alive_ = false;
+    lifetime_.invalidate();
 
     // Nullify widget pointers BEFORE resetting observers
     if (widget_obj_) {
@@ -118,17 +117,17 @@ void LedWidget::bind_led() {
         printer_state_.set_tracked_led(strips.front());
 
         // Create state/brightness observers
-        std::weak_ptr<bool> weak_alive = alive_;
+        auto token = lifetime_.token();
         led_state_observer_ = helix::ui::observe_int_sync<LedWidget>(
-            printer_state_.get_led_state_subject(), this, [weak_alive](LedWidget* self, int state) {
-                if (weak_alive.expired())
+            printer_state_.get_led_state_subject(), this, [token](LedWidget* self, int state) {
+                if (token.expired())
                     return;
                 self->on_led_state_changed(state);
             });
         led_brightness_observer_ = helix::ui::observe_int_sync<LedWidget>(
             printer_state_.get_led_brightness_subject(), this,
-            [weak_alive](LedWidget* self, int /*brightness*/) {
-                if (weak_alive.expired())
+            [token](LedWidget* self, int /*brightness*/) {
+                if (token.expired())
                     return;
                 self->update_light_icon();
             });

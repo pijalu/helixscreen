@@ -21,10 +21,8 @@
  * @see docs/FILAMENT_RUNOUT.md for feature design
  */
 
+#include "async_lifetime_guard.h"
 #include "ui_runout_guidance_modal.h"
-
-#include <atomic>
-#include <memory>
 
 // Forward declarations
 class MoonrakerAPI;
@@ -137,8 +135,8 @@ class FilamentRunoutHandler {
     /// Reset when print resumes or ends, prevents repeated modal popups
     bool runout_modal_shown_for_pause_{false};
 
-    /// Shutdown guard for async callbacks - set false in destructor
-    std::shared_ptr<std::atomic<bool>> alive_ = std::make_shared<std::atomic<bool>>(true);
+    /// Async callback safety guard
+    helix::AsyncLifetimeGuard lifetime_;
 
     //
     // === Internal Methods ===

@@ -6,7 +6,6 @@
 #include "helix-xml/src/xml/lv_xml.h"
 #include "static_panel_registry.h"
 #include "thumbnail_cache.h"
-#include "thumbnail_load_context.h"
 #include "thumbnail_processor.h"
 #include "timelapse_state.h"
 #include "timelapse_thumbnailer.h"
@@ -97,7 +96,7 @@ void open_timelapse_videos() {
 // ============================================================================
 
 TimelapseVideosOverlay::TimelapseVideosOverlay(MoonrakerAPI* api)
-    : api_(api), alive_(std::make_shared<std::atomic<bool>>(true)) {
+    : api_(api) {
     spdlog::debug("[{}] Constructor", get_name());
 }
 
@@ -135,7 +134,6 @@ lv_obj_t* TimelapseVideosOverlay::create(lv_obj_t* parent) {
 
 void TimelapseVideosOverlay::on_activate() {
     OverlayBase::on_activate();
-    nav_generation_.fetch_add(1);
     spdlog::debug("[{}] on_activate() - fetching video list", get_name());
     detect_playback_capability();
     fetch_frame_info();
@@ -143,13 +141,12 @@ void TimelapseVideosOverlay::on_activate() {
 
     // Register render-complete callback to auto-refresh the video list
     // when a new timelapse render finishes (picks up new video + companion thumbnail)
-    auto alive = alive_;
+    auto tok = lifetime_.token();
     helix::TimelapseState::instance().set_on_render_complete(
-        [this, alive](const std::string& filename) {
-            if (!alive || !alive->load()) return;
+        [this, tok](const std::string& filename) {
+            if (tok.expired()) return;
             spdlog::info("[Timelapse Videos] Render complete for '{}', refreshing list", filename);
-            helix::ui::queue_update([this, alive]() {
-                if (!alive->load()) return;
+            lifetime_.defer([this]() {
                 fetch_video_list();
             });
         });
@@ -157,7 +154,6 @@ void TimelapseVideosOverlay::on_activate() {
 
 void TimelapseVideosOverlay::on_deactivate() {
     OverlayBase::on_deactivate();
-    nav_generation_.fetch_add(1);
     clear_video_grid();
 
     // Unregister render-complete callback to avoid dangling references
@@ -168,9 +164,6 @@ void TimelapseVideosOverlay::on_deactivate() {
 
 void TimelapseVideosOverlay::cleanup() {
     spdlog::debug("[{}] cleanup()", get_name());
-    if (alive_) {
-        alive_->store(false);
-    }
     OverlayBase::cleanup();
 }
 
@@ -181,10 +174,10 @@ void TimelapseVideosOverlay::cleanup() {
 void TimelapseVideosOverlay::fetch_frame_info() {
     if (!api_) return;
 
-    auto alive = alive_;
+    auto tok = lifetime_.token();
     api_->timelapse().get_last_frame_info(
-        [alive](const LastFrameInfo& info) {
-            if (!alive || !alive->load()) return;
+        [tok](const LastFrameInfo& info) {
+            if (tok.expired()) return;
             helix::ui::queue_update([info]() {
                 auto& tl = helix::TimelapseState::instance();
                 lv_subject_set_int(tl.get_frame_count_subject(), info.frame_count);
@@ -202,15 +195,13 @@ void TimelapseVideosOverlay::fetch_video_list() {
         return;
     }
 
-    auto alive = alive_;
-    uint32_t gen = nav_generation_.load();
+    auto tok = lifetime_.token();
 
     api_->files().list_files(
         "timelapse", "", false,
-        [this, alive, gen](const std::vector<FileInfo>& files) {
-            if (!alive || !alive->load()) return;
-            helix::ui::queue_update([this, files, alive, gen]() {
-                if (!alive->load() || gen != nav_generation_.load()) return;
+        [this, tok](const std::vector<FileInfo>& files) {
+            if (tok.expired()) return;
+            lifetime_.defer([this, files]() {
                 populate_video_grid(files);
             });
         },
@@ -368,8 +359,8 @@ void TimelapseVideosOverlay::populate_video_grid(const std::vector<FileInfo>& fi
         available_files.insert(file.filename);
     }
 
-    // Bump thumbnail generation so stale callbacks are ignored
-    thumb_generation_.fetch_add(1);
+    // Invalidate stale thumbnail callbacks from previous grid population
+    thumb_lifetime_.invalidate();
 
     for (const auto& video : videos_) {
         const char* attrs[] = {"filename",  video.filename.c_str(),
@@ -485,7 +476,6 @@ void TimelapseVideosOverlay::load_thumbnail_for_card(
         lv_obj_remove_flag(no_thumb_icon, LV_OBJ_FLAG_HIDDEN);
     }
 
-    auto ctx = ThumbnailLoadContext::capture(alive_, &thumb_generation_);
     std::string filename_copy = filename;
 
     // Download the companion thumbnail via the timelapse file root.
@@ -498,14 +488,14 @@ void TimelapseVideosOverlay::load_thumbnail_for_card(
 
     // Download companion to a temp location, then save to cache and pre-scale
     std::string dest_path = "/tmp/helix_timelapse_thumb_" + companion;
-    auto alive = alive_;
-    uint32_t gen = thumb_generation_.load();
+    auto tok = lifetime_.token();
+    auto thumb_tok = thumb_lifetime_.token();
 
     api_->transfers().download_file_to_path(
         "timelapse", companion, dest_path,
-        [this, alive, gen, dest_path, cache_key, target, filename_copy](
+        [this, tok, thumb_tok, dest_path, cache_key, target, filename_copy](
             const std::string& /*path*/) {
-            if (!alive || !alive->load() || gen != thumb_generation_.load()) return;
+            if (tok.expired() || thumb_tok.expired()) return;
 
             // Read the downloaded file into memory for ThumbnailProcessor
             FILE* f = fopen(dest_path.c_str(), "rb");
@@ -535,12 +525,11 @@ void TimelapseVideosOverlay::load_thumbnail_for_card(
             // Pre-scale via ThumbnailProcessor (runs on worker thread)
             helix::ThumbnailProcessor::instance().process_async(
                 data, cache_key, target,
-                [this, alive, gen, filename_copy](const std::string& lvbin_path) {
-                    if (!alive || !alive->load() || gen != thumb_generation_.load()) return;
+                [this, tok, thumb_tok, filename_copy](const std::string& lvbin_path) {
+                    if (tok.expired() || thumb_tok.expired()) return;
 
-                    helix::ui::queue_update(
-                        [this, alive, gen, filename_copy, lvbin_path]() {
-                            if (!alive->load() || gen != thumb_generation_.load()) return;
+                    thumb_lifetime_.defer(
+                        [this, filename_copy, lvbin_path]() {
                             if (!video_grid_container_) return;
 
                             // Find the card for this filename by scanning children
@@ -707,8 +696,7 @@ void TimelapseVideosOverlay::play_video(const std::string& filename) {
         // Ensure temp directory exists
         mkdir("/tmp/helix_timelapse", 0755);
 
-        auto alive = alive_;
-        uint32_t gen = nav_generation_.load();
+        auto tok = lifetime_.token();
         std::string player = player_command_;
 
         spdlog::info("[{}] Downloading remote video '{}' for playback", get_name(), filename);
@@ -717,11 +705,9 @@ void TimelapseVideosOverlay::play_video(const std::string& filename) {
 
         api_->transfers().download_file_to_path(
             "timelapse", filename, dest_path,
-            [this, alive, gen, dest_path, player](const std::string& /*path*/) {
-                if (!alive || !alive->load()) return;
-                helix::ui::queue_update([this, alive, gen, dest_path, player]() {
-                    if (!alive->load() || gen != nav_generation_.load()) return;
-
+            [this, tok, dest_path, player](const std::string& /*path*/) {
+                if (tok.expired()) return;
+                lifetime_.defer([this, dest_path, player]() {
                     auto args = helix::timelapse::build_player_args(player, dest_path);
                     spdlog::info("[{}] Playing downloaded video: {} {}", get_name(), args[0],
                                  dest_path);
@@ -761,16 +747,15 @@ void TimelapseVideosOverlay::on_delete_confirmed(lv_event_t* e) {
     if (!self->api_ || self->pending_delete_filename_.empty()) return;
 
     std::string full_path = "timelapse/" + self->pending_delete_filename_;
-    auto alive = self->alive_;
+    auto tok = self->lifetime_.token();
 
     spdlog::info("[Timelapse Videos] Deleting video: {}", self->pending_delete_filename_);
 
     self->api_->files().delete_file(
         full_path,
-        [self, alive]() {
-            if (!alive || !alive->load()) return;
-            helix::ui::queue_update([self, alive]() {
-                if (!alive->load()) return;
+        [self, tok]() {
+            if (tok.expired()) return;
+            self->lifetime_.defer([self]() {
                 spdlog::info("[Timelapse Videos] Video deleted, refreshing list");
                 self->fetch_video_list();
             });

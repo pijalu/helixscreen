@@ -187,13 +187,6 @@ void ScrewsTiltPanel::deinit_subjects() {
 // ============================================================================
 
 ScrewsTiltPanel::~ScrewsTiltPanel() {
-    // Applying [L011]: No mutex in destructors - may deadlock
-
-    // Signal pending callbacks to stop (safe even if already done in cleanup())
-    if (alive_) {
-        alive_->store(false);
-    }
-
     // Deinitialize subjects to disconnect observers before we're destroyed
     deinit_subjects();
 
@@ -301,11 +294,6 @@ void ScrewsTiltPanel::on_deactivate() {
 void ScrewsTiltPanel::cleanup() {
     spdlog::debug("[ScrewsTilt] Cleanup called");
 
-    // Signal async callbacks to stop [L012]
-    if (alive_) {
-        alive_->store(false);
-    }
-
     // Unregister from NavigationManager
     if (overlay_root_) {
         NavigationManager::instance().unregister_overlay_instance(overlay_root_);
@@ -344,21 +332,21 @@ void ScrewsTiltPanel::start_probing() {
 
     spdlog::info("[ScrewsTilt] Starting probe #{}", probe_count_);
 
-    // Capture alive_ for async safety [L012]
-    auto alive = alive_;
+    auto token = lifetime_.token();
     api_->advanced().calculate_screws_tilt(
-        [this, alive](const std::vector<ScrewTiltResult>& results) {
-            // Route to UI thread - LVGL is not thread-safe (#309)
-            helix::ui::queue_update([this, alive, results]() {
-                if (!alive->load() || cleanup_called()) return;
+        [this, token](const std::vector<ScrewTiltResult>& results) {
+            if (token.expired()) return;
+            lifetime_.defer("ScrewsTilt::results", [this, results]() {
+                if (cleanup_called()) return;
                 if (state_ != State::PROBING) return;
                 on_screws_tilt_results(results);
             });
         },
-        [this, alive](const MoonrakerError& err) {
-            // Route to UI thread - LVGL is not thread-safe (#309)
-            helix::ui::queue_update([this, alive, msg = err.message]() {
-                if (!alive->load() || cleanup_called()) return;
+        [this, token](const MoonrakerError& err) {
+            if (token.expired()) return;
+            auto msg = err.message;
+            lifetime_.defer("ScrewsTilt::error", [this, msg]() {
+                if (cleanup_called()) return;
                 if (state_ != State::PROBING) return;
                 on_screws_tilt_error(msg);
             });

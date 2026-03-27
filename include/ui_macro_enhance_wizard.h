@@ -207,8 +207,6 @@ class MacroEnhanceWizard : public Modal {
     // === Callbacks ===
     WizardCompleteCallback on_complete_;
 
-    // === Async callback guard [L012] ===
-    std::shared_ptr<bool> callback_guard_;
 
     // === Internal Methods ===
 

@@ -40,18 +40,17 @@ NozzleTempsWidget::~NozzleTempsWidget() {
 void NozzleTempsWidget::attach(lv_obj_t* widget_obj, lv_obj_t* parent_screen) {
     widget_obj_ = widget_obj;
     parent_screen_ = parent_screen;
-    *alive_ = true;
 
     rebuild_rows();
 
     // Observe extruder version changes to rebuild rows when tools are discovered.
     // Capture current version to skip the initial immediate callback — rows already built.
-    std::weak_ptr<bool> weak_alive = alive_;
+    auto token = lifetime_.token();
     int initial_version = lv_subject_get_int(printer_state_.get_extruder_version_subject());
     version_observer_ = helix::ui::observe_int_sync<NozzleTempsWidget>(
         printer_state_.get_extruder_version_subject(), this,
-        [weak_alive, initial_version](NozzleTempsWidget* self, int version) {
-            if (weak_alive.expired())
+        [token, initial_version](NozzleTempsWidget* self, int version) {
+            if (token.expired())
                 return;
             if (version == initial_version)
                 return; // Skip initial callback — rows already built in attach()
@@ -62,7 +61,7 @@ void NozzleTempsWidget::attach(lv_obj_t* widget_obj, lv_obj_t* parent_screen) {
 }
 
 void NozzleTempsWidget::detach() {
-    *alive_ = false;
+    lifetime_.invalidate();
     version_observer_.reset();
     clear_rows();
     widget_obj_ = nullptr;
@@ -101,7 +100,7 @@ void NozzleTempsWidget::rebuild_rows() {
         return;
     }
 
-    std::weak_ptr<bool> weak_alive = alive_;
+    auto token = lifetime_.token();
 
     // Create extruder rows ordered by ToolState tools
     const auto& tools = ToolState::instance().tools();
@@ -126,9 +125,9 @@ void NozzleTempsWidget::rebuild_rows() {
             auto* bar = row.progress_bar;
             row.temp_observer = helix::ui::observe_int_sync<NozzleTempsWidget>(
                 temp_subj, this,
-                [weak_alive, idx = extruder_rows_.size(), temp_lbl, target_lbl,
+                [token, idx = extruder_rows_.size(), temp_lbl, target_lbl,
                  bar](NozzleTempsWidget* self, int temp) {
-                    if (weak_alive.expired())
+                    if (token.expired())
                         return;
                     if (idx < self->extruder_rows_.size()) {
                         self->extruder_rows_[idx].cached_temp = temp;
@@ -146,9 +145,9 @@ void NozzleTempsWidget::rebuild_rows() {
             auto* bar = row.progress_bar;
             row.target_observer = helix::ui::observe_int_sync<NozzleTempsWidget>(
                 target_subj, this,
-                [weak_alive, idx = extruder_rows_.size(), temp_lbl, target_lbl,
+                [token, idx = extruder_rows_.size(), temp_lbl, target_lbl,
                  bar](NozzleTempsWidget* self, int target) {
-                    if (weak_alive.expired())
+                    if (token.expired())
                         return;
                     if (idx < self->extruder_rows_.size()) {
                         self->extruder_rows_[idx].cached_target = target;
@@ -178,8 +177,8 @@ void NozzleTempsWidget::rebuild_rows() {
         cached_bed_temp_ = lv_subject_get_int(bed_temp_subj);
         bed_temp_observer_ = helix::ui::observe_int_sync<NozzleTempsWidget>(
             bed_temp_subj, this,
-            [weak_alive](NozzleTempsWidget* self, int temp) {
-                if (weak_alive.expired())
+            [token](NozzleTempsWidget* self, int temp) {
+                if (token.expired())
                     return;
                 self->cached_bed_temp_ = temp;
                 self->update_row_display(self->bed_temp_label_, self->bed_target_label_,
@@ -192,8 +191,8 @@ void NozzleTempsWidget::rebuild_rows() {
         cached_bed_target_ = lv_subject_get_int(bed_target_subj);
         bed_target_observer_ = helix::ui::observe_int_sync<NozzleTempsWidget>(
             bed_target_subj, this,
-            [weak_alive](NozzleTempsWidget* self, int target) {
-                if (weak_alive.expired())
+            [token](NozzleTempsWidget* self, int target) {
+                if (token.expired())
                     return;
                 self->cached_bed_target_ = target;
                 self->update_row_display(self->bed_temp_label_, self->bed_target_label_,

@@ -3,15 +3,14 @@
 
 #pragma once
 
+#include "async_lifetime_guard.h"
 #include "ui_observer_guard.h"
 #include "ui_panel_base.h"
 
 #include "moonraker_api.h" // Need full definition for PowerDevice
 #include "subject_managed_panel.h"
 
-#include <atomic>
 #include <map>
-#include <memory>
 #include <set>
 #include <string>
 #include <vector>
@@ -68,7 +67,7 @@ class PowerPanel : public PanelBase {
     lv_obj_t* cached_overlay_ = nullptr; // Single shared overlay widget
 
     // Guards async API callbacks from accessing a destroyed instance
-    std::shared_ptr<std::atomic<bool>> alive_ = std::make_shared<std::atomic<bool>>(true);
+    helix::AsyncLifetimeGuard lifetime_;
 
     // Subject manager for automatic cleanup
     SubjectManager subjects_;

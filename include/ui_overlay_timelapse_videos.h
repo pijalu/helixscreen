@@ -9,8 +9,8 @@
 #include "overlay_base.h"
 #include "thumbnail_cache.h"
 
-#include <atomic>
-#include <memory>
+#include "async_lifetime_guard.h"
+
 #include <set>
 #include <string>
 #include <vector>
@@ -71,9 +71,7 @@ class TimelapseVideosOverlay : public OverlayBase {
     std::string player_command_;
     bool is_local_moonraker_ = false;
 
-    std::shared_ptr<std::atomic<bool>> alive_;
-    std::atomic<uint32_t> nav_generation_{0};
-    std::atomic<uint32_t> thumb_generation_{0};
+    helix::AsyncLifetimeGuard thumb_lifetime_;
 
     lv_obj_t* video_grid_container_ = nullptr;
     lv_obj_t* video_grid_empty_ = nullptr;

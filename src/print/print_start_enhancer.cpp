@@ -385,8 +385,8 @@ void PrintStartEnhancer::apply_enhancements(MoonrakerAPI* api, const std::string
     spdlog::info("[PrintStartEnhancer] Applying {} enhancements to {} in {}", approved.size(),
                  macro_name, config_file);
 
-    // Capture lifetime guard and operation flag pointer for async callbacks
-    auto alive = alive_guard_;
+    // Capture lifetime token and operation flag pointer for async callbacks
+    auto token = lifetime_.token();
     auto* op_flag = &operation_in_progress_;
 
     // Step 1: Create backup
@@ -396,11 +396,11 @@ void PrintStartEnhancer::apply_enhancements(MoonrakerAPI* api, const std::string
     }
 
     // Wrap error callback to clear operation flag and check lifetime
-    auto safe_error = [on_error, alive, op_flag](const MoonrakerError& err) {
+    auto safe_error = [on_error, token, op_flag](const MoonrakerError& err) {
         if (op_flag) {
             op_flag->store(false);
         }
-        if (alive && *alive && on_error) {
+        if (!token.expired() && on_error) {
             on_error(err);
         }
     };
@@ -408,8 +408,8 @@ void PrintStartEnhancer::apply_enhancements(MoonrakerAPI* api, const std::string
     create_backup(
         api, config_file, backup_filename,
         [this, api, macro_name, config_file, approved, backup_filename, on_progress, on_complete,
-         safe_error, alive, op_flag]() {
-            if (!alive || !*alive) {
+         safe_error, token, op_flag]() {
+            if (token.expired()) {
                 if (op_flag)
                     op_flag->store(false);
                 spdlog::debug("[PrintStartEnhancer] Destroyed during backup, aborting");
@@ -425,9 +425,9 @@ void PrintStartEnhancer::apply_enhancements(MoonrakerAPI* api, const std::string
 
             modify_and_upload_config(
                 api, macro_name, config_file, approved,
-                [this, api, backup_filename, on_progress, on_complete, safe_error, alive,
+                [this, api, backup_filename, on_progress, on_complete, safe_error, token,
                  op_flag](size_t ops, size_t lines) {
-                    if (!alive || !*alive) {
+                    if (token.expired()) {
                         if (op_flag)
                             op_flag->store(false);
                         spdlog::debug("[PrintStartEnhancer] Destroyed during modify, aborting");
@@ -444,12 +444,12 @@ void PrintStartEnhancer::apply_enhancements(MoonrakerAPI* api, const std::string
 
                     restart_klipper(
                         api,
-                        [backup_filename, ops, lines, on_progress, on_complete, alive, op_flag]() {
+                        [backup_filename, ops, lines, on_progress, on_complete, token, op_flag]() {
                             // Clear operation flag on success
                             if (op_flag)
                                 op_flag->store(false);
 
-                            if (!alive || !*alive) {
+                            if (token.expired()) {
                                 spdlog::debug(
                                     "[PrintStartEnhancer] Destroyed during restart, aborting");
                                 return;
@@ -493,11 +493,11 @@ void PrintStartEnhancer::restore_from_backup(MoonrakerAPI* api, const std::strin
     }
 
     spdlog::info("[PrintStartEnhancer] Restoring from backup: {}", backup_filename);
-    auto alive = alive_guard_;
+    auto token = lifetime_.token();
 
     // Wrap error callback with lifetime check
-    auto safe_error = [on_error, alive](const MoonrakerError& err) {
-        if (alive && *alive && on_error) {
+    auto safe_error = [on_error, token](const MoonrakerError& err) {
+        if (!token.expired() && on_error) {
             on_error(err);
         }
     };
@@ -506,10 +506,8 @@ void PrintStartEnhancer::restore_from_backup(MoonrakerAPI* api, const std::strin
     // Note: copy_file uses full paths like "config/printer.cfg"
     api->files().copy_file(
         "config/" + backup_filename, "config/printer.cfg",
-        [this, api, on_complete, safe_error, alive]() {
-            if (!alive || !*alive) {
-                return;
-            }
+        [this, api, on_complete, safe_error, token]() {
+            if (token.expired()) return;
 
             spdlog::debug("[PrintStartEnhancer] Backup restored, restarting Klipper");
             restart_klipper(api, on_complete, safe_error);
@@ -531,11 +529,11 @@ void PrintStartEnhancer::list_backups(
     }
 
     spdlog::debug("[PrintStartEnhancer] Listing backups");
-    auto alive = alive_guard_;
+    auto token = lifetime_.token();
 
     // Wrap error callback with lifetime check
-    auto safe_error = [on_error, alive](const MoonrakerError& err) {
-        if (alive && *alive && on_error) {
+    auto safe_error = [on_error, token](const MoonrakerError& err) {
+        if (!token.expired() && on_error) {
             on_error(err);
         }
     };
@@ -544,10 +542,8 @@ void PrintStartEnhancer::list_backups(
     // list_files returns FileInfo objects via FileListCallback
     api->files().list_files(
         "config", "", false,
-        [on_complete, alive](const std::vector<FileInfo>& file_infos) {
-            if (!alive || !*alive) {
-                return;
-            }
+        [on_complete, token](const std::vector<FileInfo>& file_infos) {
+            if (token.expired()) return;
 
             std::vector<std::string> backups;
             for (const auto& info : file_infos) {
@@ -585,17 +581,15 @@ void PrintStartEnhancer::modify_and_upload_config(
     MoonrakerAPI* api, const std::string& macro_name, const std::string& source_file,
     const std::vector<MacroEnhancement>& enhancements,
     std::function<void(size_t ops, size_t lines)> on_success, EnhancementErrorCallback on_error) {
-    auto alive = alive_guard_;
+    auto token = lifetime_.token();
 
     // Download current config file
     // Note: download_file takes (root, path, on_success, on_error)
     api->transfers().download_file(
         "config", source_file,
         [api, macro_name, source_file, enhancements, on_success, on_error,
-         alive](const std::string& content) {
-            if (!alive || !*alive) {
-                return;
-            }
+         token](const std::string& content) {
+            if (token.expired()) return;
 
             // Find the macro section
             std::string section_start = "[gcode_macro " + macro_name + "]";

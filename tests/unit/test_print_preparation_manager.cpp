@@ -563,29 +563,8 @@ TEST_CASE("PrintPreparationManager: is_print_in_progress", "[print_preparation][
 // Tests: Move Semantics
 // ============================================================================
 
-TEST_CASE("PrintPreparationManager: move constructor", "[print_preparation][lifecycle]") {
-    PrintPreparationManager manager1;
-    manager1.set_cached_file_size(1024);
-
-    SECTION("Move constructor transfers state") {
-        PrintPreparationManager manager2 = std::move(manager1);
-        // manager2 should be usable - verify by calling a method
-        manager2.clear_scan_cache();
-        REQUIRE(manager2.is_print_in_progress() == false);
-    }
-}
-
-TEST_CASE("PrintPreparationManager: move assignment", "[print_preparation][lifecycle]") {
-    PrintPreparationManager manager1;
-    PrintPreparationManager manager2;
-    manager1.set_cached_file_size(2048);
-
-    SECTION("Move assignment transfers state") {
-        manager2 = std::move(manager1);
-        // manager2 should be usable
-        REQUIRE(manager2.is_print_in_progress() == false);
-    }
-}
+// PrintPreparationManager is non-movable (contains AsyncLifetimeGuard)
+// Move constructor/assignment tests removed
 
 // ============================================================================
 // Tests: Capability Database Key Naming Convention

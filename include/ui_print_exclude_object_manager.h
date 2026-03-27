@@ -19,12 +19,11 @@
  * @see docs/devel/EXCLUDE_OBJECTS.md for feature design
  */
 
+#include "async_lifetime_guard.h"
 #include "ui_exclude_object_modal.h"
 #include "ui_observer_guard.h"
 
-#include <atomic>
 #include <lvgl.h>
-#include <memory>
 #include <string>
 #include <unordered_set>
 
@@ -201,8 +200,8 @@ class PrintExcludeObjectManager {
     /// Observer for excluded objects changes from PrinterState
     ObserverGuard excluded_objects_observer_;
 
-    /// Shutdown guard for async callbacks - set false in destructor
-    std::shared_ptr<std::atomic<bool>> alive_ = std::make_shared<std::atomic<bool>>(true);
+    /// Async callback safety guard
+    helix::AsyncLifetimeGuard lifetime_;
 
     /// Track if init() was called
     bool initialized_{false};

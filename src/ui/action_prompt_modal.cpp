@@ -23,18 +23,13 @@ ActionPromptModal::ActionPromptModal() {
 }
 
 ActionPromptModal::~ActionPromptModal() {
-    // Signal destruction to any pending button event callbacks.
-    // Guard against moved-from state where alive_ is null.
-    if (alive_) {
-        alive_->store(false);
-    }
-    // Modal destructor will call hide() if visible
+    // Modal destructor will call hide() if visible, which invalidates lifetime_
     // Note: No spdlog here - logger may be destroyed before us during shutdown [L010]
 }
 
 ActionPromptModal::ActionPromptModal(ActionPromptModal&& other) noexcept
     : Modal(std::move(other)), prompt_data_(std::move(other.prompt_data_)),
-      gcode_callback_(std::move(other.gcode_callback_)), alive_(std::move(other.alive_)),
+      gcode_callback_(std::move(other.gcode_callback_)),
       created_buttons_(std::move(other.created_buttons_)),
       created_text_labels_(std::move(other.created_text_labels_)),
       button_callback_data_(std::move(other.button_callback_data_)) {
@@ -49,7 +44,6 @@ ActionPromptModal& ActionPromptModal::operator=(ActionPromptModal&& other) noexc
         Modal::operator=(std::move(other));
         prompt_data_ = std::move(other.prompt_data_);
         gcode_callback_ = std::move(other.gcode_callback_);
-        alive_ = std::move(other.alive_);
         created_buttons_ = std::move(other.created_buttons_);
         created_text_labels_ = std::move(other.created_text_labels_);
         button_callback_data_ = std::move(other.button_callback_data_);
@@ -234,10 +228,10 @@ void ActionPromptModal::create_button(const PromptButton& btn, lv_obj_t* contain
     lv_obj_set_style_text_font(label, theme_manager_get_font("font_body"), LV_PART_MAIN);
     lv_obj_set_style_text_color(label, theme_manager_get_contrast_color(bg_color), LV_PART_MAIN);
 
-    // Create callback data with owned copy of gcode string and alive flag
+    // Create callback data with owned copy of gcode string and lifetime token
     auto cbd = std::make_unique<ButtonCallbackData>();
     cbd->modal = this;
-    cbd->alive = alive_;
+    cbd->token = lifetime_.token();
     cbd->gcode = btn.gcode.empty() ? btn.label : btn.gcode;
 
     // Add click callback with ButtonCallbackData as user_data
@@ -324,9 +318,8 @@ void ActionPromptModal::on_button_cb(lv_event_t* e) {
     }
 
     // Check if the modal is still alive (guards against use-after-free).
-    // ButtonCallbackData holds a shared_ptr to keep the control block alive
-    // until this callback fires — prevents SIGSEGV in weak_ptr::lock() (#437).
-    if (!cbd->alive || !cbd->alive->load()) {
+    // LifetimeToken is safe to query even after the guard is destroyed (#437).
+    if (!cbd->token || cbd->token->expired()) {
         spdlog::debug("[ActionPromptModal] Modal destroyed before button callback fired");
         return;
     }

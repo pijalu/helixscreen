@@ -33,7 +33,6 @@ ShutdownWidget::~ShutdownWidget() {
 void ShutdownWidget::attach(lv_obj_t* widget_obj, lv_obj_t* parent_screen) {
     widget_obj_ = widget_obj;
     parent_screen_ = parent_screen;
-    *alive_ = true;
 
     // Set user_data on the root lv_obj, NOT on the ui_button child.
     // ui_button allocates its own UiButtonData in user_data — overwriting it
@@ -47,7 +46,7 @@ void ShutdownWidget::attach(lv_obj_t* widget_obj, lv_obj_t* parent_screen) {
 }
 
 void ShutdownWidget::detach() {
-    *alive_ = false;
+    lifetime_.invalidate();
 
     if (shutdown_modal_.is_visible()) {
         shutdown_modal_.hide();
@@ -77,12 +76,11 @@ void ShutdownWidget::handle_click() {
 void ShutdownWidget::execute_shutdown() {
     spdlog::info("[ShutdownWidget] Executing machine shutdown");
 
-    std::weak_ptr<bool> weak_alive = alive_;
     api_->machine_shutdown(
-        [weak_alive]() {
+        []() {
             spdlog::info("[ShutdownWidget] Machine shutdown command sent successfully");
         },
-        [weak_alive](const MoonrakerError& err) {
+        [](const MoonrakerError& err) {
             spdlog::error("[ShutdownWidget] Machine shutdown failed: {}", err.message);
         });
 }
@@ -90,12 +88,11 @@ void ShutdownWidget::execute_shutdown() {
 void ShutdownWidget::execute_reboot() {
     spdlog::info("[ShutdownWidget] Executing machine reboot");
 
-    std::weak_ptr<bool> weak_alive = alive_;
     api_->machine_reboot(
-        [weak_alive]() {
+        []() {
             spdlog::info("[ShutdownWidget] Machine reboot command sent successfully");
         },
-        [weak_alive](const MoonrakerError& err) {
+        [](const MoonrakerError& err) {
             spdlog::error("[ShutdownWidget] Machine reboot failed: {}", err.message);
         });
 }

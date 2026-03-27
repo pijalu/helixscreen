@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include "async_lifetime_guard.h"
 #include "ui_observer_guard.h" // SubjectLifetime
 
 #include "lvgl.h"
@@ -274,8 +275,8 @@ class TemperatureSensorManager : public ISensorManager {
     // Recursive mutex for thread-safe state access
     mutable std::recursive_mutex mutex_;
 
-    // Alive guard for async callback safety (L072: never access state after shutdown)
-    std::shared_ptr<bool> alive_ = std::make_shared<bool>(true);
+    // Async callback safety guard (L072: never access state after shutdown)
+    helix::AsyncLifetimeGuard lifetime_;
 
     // Configuration
     std::vector<TemperatureSensorConfig> sensors_;

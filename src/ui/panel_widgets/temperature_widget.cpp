@@ -45,7 +45,6 @@ TemperatureWidget::~TemperatureWidget() {
 void TemperatureWidget::attach(lv_obj_t* widget_obj, lv_obj_t* parent_screen) {
     widget_obj_ = widget_obj;
     parent_screen_ = parent_screen;
-    *alive_ = true;
 
     // Set user_data on the root lv_obj, NOT on the ui_button child.
     // ui_button allocates its own UiButtonData in user_data — overwriting it
@@ -57,21 +56,21 @@ void TemperatureWidget::attach(lv_obj_t* widget_obj, lv_obj_t* parent_screen) {
         lv_obj_add_event_cb(temp_btn_, temp_clicked_cb, LV_EVENT_CLICKED, this);
     }
 
-    // Set up temperature observers with alive guard
+    // Set up temperature observers with lifetime guard
     using helix::ui::observe_int_sync;
-    std::weak_ptr<bool> weak_alive = alive_;
+    auto token = lifetime_.token();
 
     extruder_temp_observer_ =
         observe_int_sync<TemperatureWidget>(printer_state_.get_active_extruder_temp_subject(), this,
-                                            [weak_alive](TemperatureWidget* self, int temp) {
-                                                if (weak_alive.expired())
+                                            [token](TemperatureWidget* self, int temp) {
+                                                if (token.expired())
                                                     return;
                                                 self->on_extruder_temp_changed(temp);
                                             });
     extruder_target_observer_ = observe_int_sync<TemperatureWidget>(
         printer_state_.get_active_extruder_target_subject(), this,
-        [weak_alive](TemperatureWidget* self, int target) {
-            if (weak_alive.expired())
+        [token](TemperatureWidget* self, int target) {
+            if (token.expired())
                 return;
             self->on_extruder_target_changed(target);
         });
@@ -92,7 +91,7 @@ void TemperatureWidget::attach(lv_obj_t* widget_obj, lv_obj_t* parent_screen) {
 }
 
 void TemperatureWidget::detach() {
-    *alive_ = false;
+    lifetime_.invalidate();
     temp_icon_animator_.detach();
     extruder_temp_observer_.reset();
     extruder_target_observer_.reset();

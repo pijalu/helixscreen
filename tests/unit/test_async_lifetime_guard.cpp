@@ -1,0 +1,187 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+
+/**
+ * @file test_async_lifetime_guard.cpp
+ * @brief Unit tests for AsyncLifetimeGuard — generation-counter-based async callback safety
+ */
+
+#include "../lvgl_test_fixture.h"
+#include "async_lifetime_guard.h"
+
+#include <spdlog/spdlog.h>
+
+#include <atomic>
+#include <thread>
+
+#include "../catch_amalgamated.hpp"
+
+using namespace helix;
+
+// ============================================================================
+// Pure token tests (no LVGL needed)
+// ============================================================================
+
+TEST_CASE("Token valid when no invalidation", "[lifetime_guard]") {
+    AsyncLifetimeGuard guard;
+    auto tok = guard.token();
+
+    REQUIRE_FALSE(tok.expired());
+    REQUIRE(static_cast<bool>(tok));
+}
+
+TEST_CASE("Token expired after invalidate", "[lifetime_guard]") {
+    AsyncLifetimeGuard guard;
+    auto tok = guard.token();
+
+    guard.invalidate();
+
+    REQUIRE(tok.expired());
+    REQUIRE_FALSE(static_cast<bool>(tok));
+}
+
+TEST_CASE("Multiple tokens all expire", "[lifetime_guard]") {
+    AsyncLifetimeGuard guard;
+    auto t1 = guard.token();
+    auto t2 = guard.token();
+    auto t3 = guard.token();
+
+    REQUIRE_FALSE(t1.expired());
+    REQUIRE_FALSE(t2.expired());
+    REQUIRE_FALSE(t3.expired());
+
+    guard.invalidate();
+
+    REQUIRE(t1.expired());
+    REQUIRE(t2.expired());
+    REQUIRE(t3.expired());
+}
+
+TEST_CASE("Generation cycling — old token expired, new token valid", "[lifetime_guard]") {
+    AsyncLifetimeGuard guard;
+    auto old_tok = guard.token();
+
+    guard.invalidate();
+
+    auto new_tok = guard.token();
+
+    REQUIRE(old_tok.expired());
+    REQUIRE_FALSE(new_tok.expired());
+}
+
+TEST_CASE("Double invalidate still works correctly", "[lifetime_guard]") {
+    AsyncLifetimeGuard guard;
+    auto t1 = guard.token();
+
+    guard.invalidate();
+    REQUIRE(t1.expired());
+
+    // Second invalidate should not break anything
+    guard.invalidate();
+    REQUIRE(t1.expired());
+
+    // New token after double-invalidate should be valid
+    auto t2 = guard.token();
+    REQUIRE_FALSE(t2.expired());
+}
+
+// ============================================================================
+// Defer tests (need LVGL for UpdateQueue)
+// ============================================================================
+
+TEST_CASE_METHOD(LVGLTestFixture, "Defer runs when valid", "[lifetime_guard]") {
+    AsyncLifetimeGuard guard;
+    bool ran = false;
+
+    guard.defer([&ran]() { ran = true; });
+
+    helix::ui::UpdateQueue::instance().drain();
+    REQUIRE(ran);
+}
+
+TEST_CASE_METHOD(LVGLTestFixture, "Defer skips when invalidated", "[lifetime_guard]") {
+    AsyncLifetimeGuard guard;
+    bool ran = false;
+
+    guard.defer([&ran]() { ran = true; });
+    guard.invalidate();
+
+    helix::ui::UpdateQueue::instance().drain();
+    REQUIRE_FALSE(ran);
+}
+
+TEST_CASE_METHOD(LVGLTestFixture, "Defer with tag skips when invalidated", "[lifetime_guard]") {
+    AsyncLifetimeGuard guard;
+    bool ran = false;
+
+    guard.defer("test::tagged_callback", [&ran]() { ran = true; });
+    guard.invalidate();
+
+    helix::ui::UpdateQueue::instance().drain();
+    REQUIRE_FALSE(ran);
+}
+
+TEST_CASE_METHOD(LVGLTestFixture, "Defer safe after guard destroyed", "[lifetime_guard]") {
+    bool ran = false;
+
+    {
+        AsyncLifetimeGuard guard;
+        guard.defer([&ran]() { ran = true; });
+        // guard destroyed here — invalidate() called in destructor
+    }
+
+    // Draining should not crash, and callback should NOT run
+    helix::ui::UpdateQueue::instance().drain();
+    REQUIRE_FALSE(ran);
+}
+
+TEST_CASE_METHOD(LVGLTestFixture, "Defer after invalidate uses new generation",
+                 "[lifetime_guard]") {
+    AsyncLifetimeGuard guard;
+    bool first_ran = false;
+    bool second_ran = false;
+
+    guard.defer([&first_ran]() { first_ran = true; });
+    guard.invalidate();
+    guard.defer([&second_ran]() { second_ran = true; });
+
+    helix::ui::UpdateQueue::instance().drain();
+
+    REQUIRE_FALSE(first_ran);
+    REQUIRE(second_ran);
+}
+
+TEST_CASE("Thread safety — concurrent token and invalidate", "[lifetime_guard][slow]") {
+    AsyncLifetimeGuard guard;
+    std::atomic<bool> stop{false};
+    std::atomic<int> token_count{0};
+    std::atomic<int> invalidate_count{0};
+
+    // Thread 1: repeatedly create tokens and check them
+    std::thread reader([&]() {
+        while (!stop.load(std::memory_order_relaxed)) {
+            auto tok = guard.token();
+            // Just exercise expired() — result may vary due to races, but must not crash
+            (void)tok.expired();
+            token_count.fetch_add(1, std::memory_order_relaxed);
+        }
+    });
+
+    // Thread 2: repeatedly invalidate
+    std::thread writer([&]() {
+        while (!stop.load(std::memory_order_relaxed)) {
+            guard.invalidate();
+            invalidate_count.fetch_add(1, std::memory_order_relaxed);
+        }
+    });
+
+    // Let them race for a short time
+    std::this_thread::sleep_for(std::chrono::milliseconds(50));
+    stop.store(true, std::memory_order_relaxed);
+
+    reader.join();
+    writer.join();
+
+    // If we got here without crashing, the test passed
+    REQUIRE(token_count.load() > 0);
+    REQUIRE(invalidate_count.load() > 0);
+}

@@ -3,10 +3,10 @@
 
 #pragma once
 
+#include "async_lifetime_guard.h"
 #include "moonraker_queue_api.h"
 
 #include <lvgl.h>
-#include <memory>
 #include <string>
 #include <vector>
 
@@ -74,5 +74,5 @@ class JobQueueState {
     char summary_buffer_[128];
 
     // Async callback safety guard
-    std::shared_ptr<bool> callback_guard_ = std::make_shared<bool>(true);
+    helix::AsyncLifetimeGuard lifetime_;
 };

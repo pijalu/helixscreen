@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #pragma once
 
+#include "async_lifetime_guard.h"
 #include "panel_widget.h"
 #include "ui_observer_guard.h"
 #include <memory>
@@ -33,7 +34,7 @@ class ToolSwitcherWidget : public PanelWidget {
     int current_colspan_ = 1;
     int current_rowspan_ = 1;
 
-    std::shared_ptr<bool> alive_ = std::make_shared<bool>(false);
+    helix::AsyncLifetimeGuard lifetime_;
 
     ObserverGuard active_tool_observer_;
     ObserverGuard tool_count_observer_;

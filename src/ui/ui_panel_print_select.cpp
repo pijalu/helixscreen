@@ -173,8 +173,8 @@ PrintSelectPanel::~PrintSelectPanel() {
     // Deinitialize subjects first to disconnect observers [L041]
     deinit_subjects();
 
-    // Signal destruction to async callbacks [L012]
-    alive_->store(false);
+    // Signal ThumbnailLoadContext compatibility flag
+    thumbnail_alive_->store(false);
 
     // Remove history manager observer first (simple pointer comparison removal)
     if (history_observer_) {
@@ -416,21 +416,20 @@ void PrintSelectPanel::setup(lv_obj_t* panel, lv_obj_t* parent_screen) {
     file_provider_ = std::make_unique<helix::ui::PrintSelectFileProvider>();
     file_provider_->set_api(api_);
     file_provider_->set_on_files_ready([self,
-                                        alive = std::weak_ptr<std::atomic<bool>>(self->alive_)](
+                                        token = self->lifetime_.token()](
                                            std::vector<PrintFileData>&& files) {
-        // CRITICAL: Defer ALL work to main thread [L012][L072]
+        // CRITICAL: Defer ALL work to main thread
         // WebSocket callbacks run on libhv thread - direct LVGL calls cause crashes
         struct FilesReadyContext {
             PrintSelectPanel* panel;
-            std::weak_ptr<std::atomic<bool>> alive;
+            helix::LifetimeToken token;
             std::vector<PrintFileData> files;
         };
         auto ctx =
-            std::make_unique<FilesReadyContext>(FilesReadyContext{self, alive, std::move(files)});
+            std::make_unique<FilesReadyContext>(FilesReadyContext{self, token, std::move(files)});
 
         helix::ui::queue_update<FilesReadyContext>(std::move(ctx), [](FilesReadyContext* c) {
-            auto a = c->alive.lock();
-            if (!a || !a->load())
+            if (c->token.expired())
                 return;
             auto* panel = c->panel;
 
@@ -486,22 +485,21 @@ void PrintSelectPanel::setup(lv_obj_t* panel, lv_obj_t* parent_screen) {
         });
     });
     file_provider_->set_on_metadata_updated(
-        [self, alive = std::weak_ptr<std::atomic<bool>>(self->alive_)](
+        [self, token = self->lifetime_.token()](
             size_t index, const PrintFileData& updated) {
-            // CRITICAL: Defer all work to main thread [L012][L072]
+            // CRITICAL: Defer all work to main thread
             // WebSocket callbacks run on libhv thread - direct LVGL calls cause crashes
             struct MetadataUpdateContext {
                 PrintSelectPanel* panel;
-                std::weak_ptr<std::atomic<bool>> alive;
+                helix::LifetimeToken token;
                 size_t index;
                 PrintFileData updated; // Copy the data
             };
             auto ctx = std::make_unique<MetadataUpdateContext>(
-                MetadataUpdateContext{self, alive, index, updated});
+                MetadataUpdateContext{self, token, index, updated});
             helix::ui::queue_update<MetadataUpdateContext>(
                 std::move(ctx), [](MetadataUpdateContext* c) {
-                    auto a = c->alive.lock();
-                    if (!a || !a->load())
+                    if (c->token.expired())
                         return;
                     auto* panel = c->panel;
                     size_t idx = c->index;
@@ -866,9 +864,9 @@ void PrintSelectPanel::fetch_metadata_range(size_t start, size_t end) {
             file_path,
             // Metadata success callback (runs on background thread)
             [self, i, filename, file_path, captured_gen,
-             alive = self->alive_](const FileMetadata& metadata) {
+             token = self->lifetime_.token()](const FileMetadata& metadata) {
                 // Check panel is still alive before accessing any members
-                if (!alive->load()) {
+                if (token.expired()) {
                     return;
                 }
                 // Discard if user navigated to a different directory since this request
@@ -889,8 +887,8 @@ void PrintSelectPanel::fetch_metadata_range(size_t start, size_t end) {
                     // Trigger metascan to generate metadata on-demand
                     self->api_->files().metascan_file(
                         file_path,
-                        [self, i, filename, captured_gen, alive](const FileMetadata& scanned) {
-                            if (!alive->load()) {
+                        [self, i, filename, captured_gen, token](const FileMetadata& scanned) {
+                            if (token.expired()) {
                                 return;
                             }
                             // Discard if directory changed during metascan
@@ -900,8 +898,8 @@ void PrintSelectPanel::fetch_metadata_range(size_t start, size_t end) {
                             // Metascan succeeded - process the fresh metadata
                             self->process_metadata_result(i, filename, scanned);
                         },
-                        [self, filename, alive](const MoonrakerError& error) {
-                            if (!alive->load()) {
+                        [self, filename, token](const MoonrakerError& error) {
+                            if (token.expired()) {
                                 return;
                             }
                             spdlog::debug("[{}] Metascan failed for {}: {}", self->get_name(),
@@ -915,9 +913,9 @@ void PrintSelectPanel::fetch_metadata_range(size_t start, size_t end) {
             },
             // Metadata error callback
             [self, i, filename, file_path, captured_gen,
-             alive = self->alive_](const MoonrakerError& error) {
+             token = self->lifetime_.token()](const MoonrakerError& error) {
                 // Check panel is still alive before accessing any members
-                if (!alive->load()) {
+                if (token.expired()) {
                     return;
                 }
                 // Discard if user navigated to a different directory since this request
@@ -934,8 +932,8 @@ void PrintSelectPanel::fetch_metadata_range(size_t start, size_t end) {
                                   self->get_name(), filename);
                     self->api_->files().metascan_file(
                         file_path,
-                        [self, i, filename, captured_gen, alive](const FileMetadata& scanned) {
-                            if (!alive->load()) {
+                        [self, i, filename, captured_gen, token](const FileMetadata& scanned) {
+                            if (token.expired()) {
                                 return;
                             }
                             // Discard if directory changed during metascan
@@ -944,8 +942,8 @@ void PrintSelectPanel::fetch_metadata_range(size_t start, size_t end) {
                             }
                             self->process_metadata_result(i, filename, scanned);
                         },
-                        [self, filename, alive](const MoonrakerError& scan_error) {
-                            if (!alive->load()) {
+                        [self, filename, token](const MoonrakerError& scan_error) {
+                            if (token.expired()) {
                                 return;
                             }
                             spdlog::debug("[{}] Metascan also failed for {}: {}", self->get_name(),
@@ -1133,7 +1131,7 @@ void PrintSelectPanel::process_metadata_result(size_t i, const std::string& file
 
                     // Create context with alive flag and nav generation for safety
                     ThumbnailLoadContext ctx;
-                    ctx.alive = self->alive_;
+                    ctx.alive = self->thumbnail_alive_;
                     ctx.generation = &self->nav_generation_;
                     ctx.captured_gen = self->nav_generation_.load();
 
@@ -2222,7 +2220,7 @@ void PrintSelectPanel::start_print() {
 void PrintSelectPanel::delete_file() {
     std::string filename_to_delete(selected_filename_buffer_);
     auto* self = this;
-    auto alive = alive_; // Capture shared_ptr by value for destruction check [L012]
+    auto token = lifetime_.token();
 
     if (api_) {
         // Construct full path: gcodes/<current_path>/<filename>
@@ -2239,14 +2237,14 @@ void PrintSelectPanel::delete_file() {
         // Context struct for async callbacks
         struct DeleteFileContext {
             PrintSelectPanel* panel;
-            std::weak_ptr<std::atomic<bool>> alive;
+            helix::LifetimeToken token;
         };
 
         api_->files().delete_file(
             full_path,
             // Success callback - dispatch to main thread for LVGL safety
-            [self, alive]() {
-                if (!alive->load()) {
+            [self, token]() {
+                if (token.expired()) {
                     spdlog::debug("[PrintSelectPanel] delete_file success callback skipped - panel "
                                   "destroyed");
                     return;
@@ -2254,12 +2252,11 @@ void PrintSelectPanel::delete_file() {
                 spdlog::info("[{}] File deleted successfully", self->get_name());
                 struct SuccessContext {
                     PrintSelectPanel* panel;
-                    std::weak_ptr<std::atomic<bool>> alive;
+                    helix::LifetimeToken token;
                 };
-                auto ctx = std::make_unique<SuccessContext>(SuccessContext{self, alive});
+                auto ctx = std::make_unique<SuccessContext>(SuccessContext{self, token});
                 helix::ui::queue_update<SuccessContext>(std::move(ctx), [](SuccessContext* c) {
-                    auto alive_weak = c->alive.lock();
-                    if (!alive_weak || !alive_weak->load()) {
+                    if (c->token.expired()) {
                         return;
                     }
                     c->panel->hide_delete_confirmation();
@@ -2268,8 +2265,8 @@ void PrintSelectPanel::delete_file() {
                 });
             },
             // Error callback - dispatch to main thread for LVGL safety
-            [self, alive](const MoonrakerError& error) {
-                if (!alive->load()) {
+            [self, token](const MoonrakerError& error) {
+                if (token.expired()) {
                     spdlog::debug("[PrintSelectPanel] delete_file error callback skipped - panel "
                                   "destroyed");
                     return;
@@ -2278,12 +2275,11 @@ void PrintSelectPanel::delete_file() {
                                    error.message, error.get_type_string());
                 struct ErrorContext {
                     PrintSelectPanel* panel;
-                    std::weak_ptr<std::atomic<bool>> alive;
+                    helix::LifetimeToken token;
                 };
-                auto ctx = std::make_unique<ErrorContext>(ErrorContext{self, alive});
+                auto ctx = std::make_unique<ErrorContext>(ErrorContext{self, token});
                 helix::ui::queue_update<ErrorContext>(std::move(ctx), [](ErrorContext* c) {
-                    auto alive_weak = c->alive.lock();
-                    if (!alive_weak || !alive_weak->load()) {
+                    if (c->token.expired()) {
                         return;
                     }
                     NOTIFY_ERROR("Failed to delete file");

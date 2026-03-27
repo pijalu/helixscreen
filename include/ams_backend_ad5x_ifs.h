@@ -5,12 +5,11 @@
 #if HELIX_HAS_IFS
 
 #include "ams_subscription_backend.h"
+#include "async_lifetime_guard.h"
 #include "slot_registry.h"
 
 #include <array>
-#include <atomic>
 #include <chrono>
-#include <memory>
 #include <string>
 
 class Ad5xIfsTestAccess;
@@ -107,8 +106,8 @@ class AmsBackendAd5xIfs : public AmsSubscriptionBackend {
     static constexpr int ACTION_TIMEOUT_SECONDS = 90;
     std::chrono::steady_clock::time_point action_start_time_;
 
-    // Async callback safety: shared flag cleared on destruction
-    std::shared_ptr<std::atomic<bool>> alive_;
+    // Async callback safety guard
+    helix::AsyncLifetimeGuard lifetime_;
 };
 
 #endif // HELIX_HAS_IFS

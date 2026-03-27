@@ -82,7 +82,6 @@ class LabelPrinterSettingsOverlay : public OverlayBase {
     std::vector<DiscoveredPrinter> raw_printers_;        ///< temp buffer for raw TCP results
     std::vector<DiscoveredPrinter> ipp_printers_;        ///< temp buffer for IPP results
     std::vector<DiscoveredNetworkPrinter> discovered_network_printers_; ///< merged list
-    std::shared_ptr<std::atomic<bool>> alive_ = std::make_shared<std::atomic<bool>>(true);
     lv_subject_t ipp_selected_subject_{}; ///< 0=not IPP, 1=IPP protocol selected
 
     // USB printer detection

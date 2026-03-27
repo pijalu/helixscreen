@@ -104,7 +104,6 @@ bool SpoolEditModal::show_for_spool(lv_obj_t* parent, const SpoolInfo& spool, Mo
 
 void SpoolEditModal::on_show() {
     active_instance_ = this;
-    callback_guard_ = std::make_shared<bool>(true);
 
     // Suppress field change events during initial population — setting textarea
     // text fires VALUE_CHANGED which would read formatted values back, and
@@ -125,7 +124,6 @@ void SpoolEditModal::on_show() {
 
 void SpoolEditModal::on_hide() {
     active_instance_ = nullptr;
-    callback_guard_.reset();
     deinit_subjects();
     spdlog::debug("[SpoolEditModal] on_hide()");
 }
@@ -502,27 +500,21 @@ void SpoolEditModal::handle_save() {
 
     int spool_id = working_spool_.id;
     int filament_id = working_spool_.filament_id;
-    std::weak_ptr<bool> guard = callback_guard_;
+    auto token = lifetime_.token();
 
     // Completion handler — called after all PATCHes succeed
-    auto on_all_saved = [this, guard, spool_id]() {
-        if (guard.expired()) {
+    auto on_all_saved = [this, token, spool_id]() {
+        if (token.expired()) {
             return;
         }
         spdlog::info("[SpoolEditModal] All changes saved for spool {}", spool_id);
-        helix::ui::async_call(
-            [](void* ud) {
-                auto* self = static_cast<SpoolEditModal*>(ud);
-                if (!self->callback_guard_) {
-                    return;
-                }
-                ToastManager::instance().show(ToastSeverity::SUCCESS, lv_tr("Spool saved"), 2000);
-                if (self->completion_callback_) {
-                    self->completion_callback_(true);
-                }
-                self->hide();
-            },
-            this);
+        lifetime_.defer("SpoolEditModal::on_all_saved", [this]() {
+            ToastManager::instance().show(ToastSeverity::SUCCESS, lv_tr("Spool saved"), 2000);
+            if (completion_callback_) {
+                completion_callback_(true);
+            }
+            hide();
+        });
     };
 
     auto on_error = [spool_id](const MoonrakerError& err) {
@@ -539,8 +531,8 @@ void SpoolEditModal::handle_save() {
     if (!spool_patch.empty()) {
         api_->spoolman().update_spoolman_spool(
             spool_id, spool_patch,
-            [this, guard, filament_id, filament_patch, on_all_saved, on_error]() {
-                if (guard.expired()) {
+            [this, token, filament_id, filament_patch, on_all_saved, on_error]() {
+                if (token.expired()) {
                     return;
                 }
                 if (!filament_patch.empty() && filament_id > 0) {

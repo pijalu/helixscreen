@@ -25,12 +25,12 @@
  * 4. Call apply_enhancements() to create backup, modify macro, restart Klipper
  */
 
+#include "async_lifetime_guard.h"
 #include "moonraker_error.h"
 #include "print_start_analyzer.h"
 
 #include <atomic>
 #include <functional>
-#include <memory>
 #include <string>
 #include <vector>
 
@@ -289,7 +289,7 @@ class PrintStartEnhancer {
                          EnhancementErrorCallback on_error);
 
     // === Lifetime Guard for Async Callbacks ===
-    std::shared_ptr<bool> alive_guard_ = std::make_shared<bool>(true);
+    helix::AsyncLifetimeGuard lifetime_;
 
     // === Concurrency Guard ===
     // Prevents concurrent apply_enhancements() calls (e.g., from double-click)

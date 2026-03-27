@@ -38,7 +38,6 @@ ActiveSpoolWidget::~ActiveSpoolWidget() {
 void ActiveSpoolWidget::attach(lv_obj_t* widget_obj, lv_obj_t* parent_screen) {
     widget_obj_ = widget_obj;
     parent_screen_ = parent_screen;
-    *alive_ = true;
 
     if (!widget_obj_)
         return;
@@ -61,13 +60,13 @@ void ActiveSpoolWidget::attach(lv_obj_t* widget_obj, lv_obj_t* parent_screen) {
     no_spool_label_ = lv_obj_find_by_name(widget_obj_, "spoolman_no_spool_label");
 
     // Observe spool changes from all sources
-    std::weak_ptr<bool> weak_alive = alive_;
+    auto token = lifetime_.token();
 
     // External spool changes
     spool_color_observer_ = helix::ui::observe_int_sync<ActiveSpoolWidget>(
         AmsState::instance().get_external_spool_color_subject(), this,
-        [weak_alive](ActiveSpoolWidget* self, int /*color*/) {
-            if (weak_alive.expired())
+        [token](ActiveSpoolWidget* self, int /*color*/) {
+            if (token.expired())
                 return;
             self->update_spool_display();
         });
@@ -75,8 +74,8 @@ void ActiveSpoolWidget::attach(lv_obj_t* widget_obj, lv_obj_t* parent_screen) {
     // AMS backend active slot changes
     current_slot_observer_ = helix::ui::observe_int_sync<ActiveSpoolWidget>(
         AmsState::instance().get_current_slot_subject(), this,
-        [weak_alive](ActiveSpoolWidget* self, int /*slot*/) {
-            if (weak_alive.expired())
+        [token](ActiveSpoolWidget* self, int /*slot*/) {
+            if (token.expired())
                 return;
             self->update_spool_display();
         });
@@ -84,8 +83,8 @@ void ActiveSpoolWidget::attach(lv_obj_t* widget_obj, lv_obj_t* parent_screen) {
     // AMS slot info changes (material/color edits)
     slots_version_observer_ = helix::ui::observe_int_sync<ActiveSpoolWidget>(
         AmsState::instance().get_slots_version_subject(), this,
-        [weak_alive](ActiveSpoolWidget* self, int /*version*/) {
-            if (weak_alive.expired())
+        [token](ActiveSpoolWidget* self, int /*version*/) {
+            if (token.expired())
                 return;
             self->update_spool_display();
         });
@@ -100,7 +99,7 @@ void ActiveSpoolWidget::attach(lv_obj_t* widget_obj, lv_obj_t* parent_screen) {
 }
 
 void ActiveSpoolWidget::detach() {
-    *alive_ = false;
+    lifetime_.invalidate();
 
     spool_color_observer_.reset();
     current_slot_observer_.reset();

@@ -187,8 +187,7 @@ class FanControlOverlay : public OverlayBase {
     ObserverGuard anim_settings_observer_;           ///< Animation settings changes
     bool fans_rebuild_pending_ = false; ///< Coalesces rapid fans_version observer notifications
 
-    /// Guards lv_async_call callbacks from accessing a destroyed overlay
-    std::shared_ptr<bool> alive_guard_ = std::make_shared<bool>(true);
+
 
     //
     // === Fan Icon Spin Animation ===

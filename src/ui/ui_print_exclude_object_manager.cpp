@@ -35,8 +35,7 @@ PrintExcludeObjectManager::PrintExcludeObjectManager(MoonrakerAPI* api, PrinterS
 }
 
 PrintExcludeObjectManager::~PrintExcludeObjectManager() {
-    // Signal async callbacks to abort
-    alive_->store(false);
+    // lifetime_ destructor calls invalidate() automatically
 
     // Clean up timer if LVGL is still active
     if (lv_is_initialized() && exclude_undo_timer_) {
@@ -148,17 +147,13 @@ void PrintExcludeObjectManager::handle_object_long_press(const char* object_name
 
     // Configure and show the modal
     exclude_modal_.set_object_name(object_name);
-    std::weak_ptr<std::atomic<bool>> weak_alive = alive_;
-    exclude_modal_.set_on_confirm([this, weak_alive]() {
-        auto alive = weak_alive.lock();
-        if (!alive || !alive->load())
-            return;
+    auto token = lifetime_.token();
+    exclude_modal_.set_on_confirm([this, token]() {
+        if (token.expired()) return;
         handle_exclude_confirmed();
     });
-    exclude_modal_.set_on_cancel([this, weak_alive]() {
-        auto alive = weak_alive.lock();
-        if (!alive || !alive->load())
-            return;
+    exclude_modal_.set_on_cancel([this, token]() {
+        if (token.expired()) return;
         handle_exclude_cancelled();
     });
 
@@ -285,35 +280,29 @@ void PrintExcludeObjectManager::exclude_undo_timer_cb(lv_timer_t* timer) {
         "[PrintExcludeObjectManager] Undo window expired - sending EXCLUDE_OBJECT for '{}'",
         object_name);
 
-    // Capture alive guard for async callback safety
-    auto alive = self->alive_;
+    // Capture token for async callback safety
+    auto token = self->lifetime_.token();
 
     // Actually send the command to Klipper via MoonrakerAPI
     if (self->api_) {
         self->api_->exclude_object(
             object_name,
-            [self, alive, object_name]() {
-                if (!alive->load()) {
-                    return; // Manager was destroyed
-                }
+            [self, token, object_name]() {
+                if (token.expired()) return;
                 spdlog::info("[PrintExcludeObjectManager] EXCLUDE_OBJECT '{}' sent successfully",
                              object_name);
                 // Move to confirmed excluded set
                 self->excluded_objects_.insert(object_name);
             },
-            [self, alive, object_name](const MoonrakerError& err) {
-                if (!alive->load()) {
-                    return; // Manager was destroyed
-                }
+            [self, token, object_name](const MoonrakerError& err) {
+                if (token.expired()) return;
                 spdlog::error("[PrintExcludeObjectManager] Failed to exclude '{}': {}", object_name,
                               err.message);
 
                 // UI operations must happen on the main thread
-                helix::ui::queue_update(
-                    [self, alive, object_name, user_msg = err.user_message()]() {
-                        if (!alive->load()) {
-                            return;
-                        }
+                self->lifetime_.defer(
+                    "PrintExcludeObjectManager::exclude_error",
+                    [self, object_name, user_msg = err.user_message()]() {
                         NOTIFY_ERROR("Failed to exclude '{}': {}", object_name, user_msg);
 
                         // Revert visual state - refresh viewer with only confirmed exclusions

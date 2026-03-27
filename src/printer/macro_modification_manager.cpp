@@ -74,15 +74,12 @@ std::string MacroModificationManager::compute_hash(const std::string& content) {
 // ============================================================================
 
 MacroModificationManager::MacroModificationManager(Config* config, MoonrakerAPI* api)
-    : config_(config), api_(api), callback_guard_(std::make_shared<bool>(true)) {
+    : config_(config), api_(api) {
     spdlog::debug("[MacroModificationManager] Created");
 }
 
 MacroModificationManager::~MacroModificationManager() {
-    // Invalidate callback guard [L012]
-    if (callback_guard_) {
-        *callback_guard_ = false;
-    }
+    // lifetime_ destructor calls invalidate() automatically
 
     // Clean up wizard if visible
     wizard_.reset();
@@ -138,17 +135,12 @@ void MacroModificationManager::check_and_notify() {
 
     analyzing_ = true;
 
-    // Capture weak guard for async callback [L012]
-    std::weak_ptr<bool> weak_guard = callback_guard_;
+    auto token = lifetime_.token();
 
     analyzer_.analyze(
         api_,
-        [this, weak_guard, wizard_config](const PrintStartAnalysis& analysis) {
-            // Check if manager still exists
-            auto guard = weak_guard.lock();
-            if (!guard || !*guard) {
-                return;
-            }
+        [this, token, wizard_config](const PrintStartAnalysis& analysis) {
+            if (token.expired()) return;
 
             analyzing_ = false;
             cached_analysis_ = analysis;
@@ -166,11 +158,8 @@ void MacroModificationManager::check_and_notify() {
                     "or no uncontrollable ops)");
             }
         },
-        [this, weak_guard](const MoonrakerError& error) {
-            auto guard = weak_guard.lock();
-            if (!guard || !*guard) {
-                return;
-            }
+        [this, token](const MoonrakerError& error) {
+            if (token.expired()) return;
 
             analyzing_ = false;
             spdlog::warn("[MacroModificationManager] Analysis failed: {}", error.message);
@@ -187,15 +176,12 @@ void MacroModificationManager::analyze_and_launch_wizard() {
 
     analyzing_ = true;
 
-    std::weak_ptr<bool> weak_guard = callback_guard_;
+    auto token = lifetime_.token();
 
     analyzer_.analyze(
         api_,
-        [this, weak_guard](const PrintStartAnalysis& analysis) {
-            auto guard = weak_guard.lock();
-            if (!guard || !*guard) {
-                return;
-            }
+        [this, token](const PrintStartAnalysis& analysis) {
+            if (token.expired()) return;
 
             analyzing_ = false;
             cached_analysis_ = analysis;
@@ -230,11 +216,8 @@ void MacroModificationManager::analyze_and_launch_wizard() {
 
             launch_wizard();
         },
-        [this, weak_guard](const MoonrakerError& error) {
-            auto guard = weak_guard.lock();
-            if (!guard || !*guard) {
-                return;
-            }
+        [this, token](const MoonrakerError& error) {
+            if (token.expired()) return;
 
             analyzing_ = false;
             spdlog::warn("[MacroModificationManager] Analysis failed: {}", error.message);
@@ -336,7 +319,7 @@ void MacroModificationManager::show_configure_toast() {
              uncontrollable == 1 ? "" : "s");
 
     // Show toast with Configure action
-    // Using raw pointer for callback since toast lifetime is short [L012]
+    // Using raw pointer for callback since toast lifetime is short
     ToastManager::instance().show_with_action(
         ToastSeverity::INFO, message, "Configure",
         [](void* user_data) {
@@ -369,14 +352,10 @@ void MacroModificationManager::launch_wizard() {
     wizard_->set_api(api_);
     wizard_->set_analysis(cached_analysis_);
 
-    // Capture weak guard for completion callback [L012]
-    std::weak_ptr<bool> weak_guard = callback_guard_;
+    auto token = lifetime_.token();
 
-    wizard_->set_complete_callback([this, weak_guard](bool applied, size_t operations_enhanced) {
-        auto guard = weak_guard.lock();
-        if (!guard || !*guard) {
-            return;
-        }
+    wizard_->set_complete_callback([this, token](bool applied, size_t operations_enhanced) {
+        if (token.expired()) return;
         on_wizard_complete(applied, operations_enhanced);
     });
 

@@ -49,7 +49,6 @@ SpoolmanPanel::SpoolmanPanel() {
 }
 
 SpoolmanPanel::~SpoolmanPanel() {
-    callback_guard_.reset();
     if (search_debounce_timer_) {
         lv_timer_delete(search_debounce_timer_);
         search_debounce_timer_ = nullptr;
@@ -158,8 +157,6 @@ void SpoolmanPanel::on_activate() {
     // Call base class first
     OverlayBase::on_activate();
 
-    // Create callback guard for async operations
-    callback_guard_ = std::make_shared<bool>(true);
 
     spdlog::debug("[{}] on_activate()", get_name());
 
@@ -179,8 +176,6 @@ void SpoolmanPanel::on_activate() {
 }
 
 void SpoolmanPanel::on_deactivate() {
-    // Invalidate callback guard to prevent async callbacks from using stale 'this'
-    callback_guard_.reset();
 
     AmsState::instance().stop_spoolman_polling();
 
@@ -213,13 +208,9 @@ void SpoolmanPanel::refresh_spools() {
 
     show_loading_state();
 
-    std::weak_ptr<bool> weak_guard = callback_guard_;
-
     // Shared handler: update cached spools and active ID, then repopulate
-    auto apply_spools = [this, weak_guard](std::vector<SpoolInfo> spools, int active_id) {
-        helix::ui::queue_update([this, weak_guard, spools = std::move(spools), active_id]() {
-            if (weak_guard.expired())
-                return;
+    auto apply_spools = [this](std::vector<SpoolInfo> spools, int active_id) {
+        lifetime_.defer([this, spools = std::move(spools), active_id]() {
             cached_spools_ = spools;
             active_spool_id_ = active_id;
             populate_spool_list();
@@ -250,11 +241,9 @@ void SpoolmanPanel::refresh_spools() {
                     apply_spools(spools, -1);
                 });
         },
-        [this, weak_guard, name](const MoonrakerError& err) {
+        [this, name](const MoonrakerError& err) {
             spdlog::error("[{}] Failed to fetch spools: {}", name, err.message);
-            helix::ui::queue_update([this, weak_guard]() {
-                if (weak_guard.expired())
-                    return;
+            lifetime_.defer([this]() {
                 cached_spools_.clear();
                 show_empty_state();
                 ToastManager::instance().show(ToastSeverity::ERROR, lv_tr("Failed to load spools"),
@@ -499,19 +488,14 @@ void SpoolmanPanel::set_active_spool(int spool_id) {
         return;
     }
 
-    std::weak_ptr<bool> weak_guard = callback_guard_;
-
     std::string name = get_name();
 
     api->spoolman().set_active_spool(
         spool_id,
-        [this, spool_id, weak_guard, name]() {
+        [this, spool_id, name]() {
             spdlog::info("[{}] Set active spool to {}", name, spool_id);
 
-            helix::ui::queue_update([this, spool_id, weak_guard]() {
-                if (weak_guard.expired())
-                    return;
-
+            lifetime_.defer([this, spool_id]() {
                 const SpoolInfo* found = find_cached_spool(spool_id);
                 std::string spool_name =
                     found ? found->display_name() : "Spool " + std::to_string(spool_id);
@@ -612,17 +596,17 @@ void SpoolmanPanel::duplicate_spool(int spool_id) {
     }
 
     std::string display = spool->display_name();
-    std::weak_ptr<bool> weak_guard = callback_guard_;
+    auto token = lifetime_.token();
 
     api->spoolman().create_spoolman_spool(
         body,
-        [weak_guard, display](const SpoolInfo& created) {
+        [token, display](const SpoolInfo& created) {
             spdlog::info("[Spoolman] Duplicated '{}' as spool #{}", display, created.id);
-            helix::ui::queue_update([weak_guard, created]() {
+            helix::ui::queue_update([token, created]() {
                 std::string msg =
                     std::string(lv_tr("Duplicated")) + ": #" + std::to_string(created.id);
                 ToastManager::instance().show(ToastSeverity::SUCCESS, msg.c_str(), 3000);
-                if (weak_guard.expired())
+                if (token.expired())
                     return;
                 auto& panel = get_global_spoolman_panel();
                 panel.preserve_scroll_ = true;

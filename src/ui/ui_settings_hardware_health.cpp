@@ -51,7 +51,6 @@ HardwareHealthOverlay::HardwareHealthOverlay() {
 }
 
 HardwareHealthOverlay::~HardwareHealthOverlay() {
-    *alive_guard_ = false;
     spdlog::trace("[{}] Destroyed", get_name());
 }
 
@@ -127,11 +126,6 @@ void HardwareHealthOverlay::on_activate() {
 
 void HardwareHealthOverlay::on_deactivate() {
     OverlayBase::on_deactivate();
-
-    // Invalidate alive guard so pending lv_async_call callbacks become no-ops,
-    // then create a fresh guard for the next on_activate() cycle
-    *alive_guard_ = false;
-    alive_guard_ = std::make_shared<bool>(true);
 
     // Clean up any open modal dialog
     if (hardware_save_dialog_) {
@@ -329,20 +323,10 @@ void HardwareHealthOverlay::handle_hardware_action(const char* hardware_name, bo
         // this event is a child of the list being cleaned by populate_hardware_issues().
         // lv_async_call runs at the start of the next lv_timer_handler cycle when
         // event_head is guaranteed NULL, preventing LVGL event list corruption (issue #190).
-        struct RebuildCtx {
-            std::weak_ptr<bool> alive;
-            HardwareHealthOverlay* self;
-        };
-        auto* ctx = new RebuildCtx{alive_guard_, this};
-        lv_async_call([](void* data) {
-            auto* ctx = static_cast<RebuildCtx*>(data);
-            auto guard = ctx->alive.lock();
-            auto* self = ctx->self;
-            delete ctx;
-            if (!guard || !*guard) return;
-            if (self->is_created() && self->is_visible())
-                self->populate_hardware_issues();
-        }, ctx);
+        lifetime_.defer("HardwareHealthOverlay::rebuild", [this]() {
+            if (is_created() && is_visible())
+                populate_hardware_issues();
+        });
     } else {
         // "Save" - Add to expected hardware (with confirmation)
         // Close any existing dialog first (must happen before writing to static buffer)
@@ -389,20 +373,10 @@ void HardwareHealthOverlay::handle_hardware_save_confirm() {
     // lv_async_call runs at the start of the next lv_timer_handler cycle when
     // event_head is guaranteed NULL, preventing LVGL event list corruption (issue #190).
     {
-        struct RebuildCtx {
-            std::weak_ptr<bool> alive;
-            HardwareHealthOverlay* self;
-        };
-        auto* ctx = new RebuildCtx{alive_guard_, this};
-        lv_async_call([](void* data) {
-            auto* ctx = static_cast<RebuildCtx*>(data);
-            auto guard = ctx->alive.lock();
-            auto* self = ctx->self;
-            delete ctx;
-            if (!guard || !*guard) return;
-            if (self->is_created() && self->is_visible())
-                self->populate_hardware_issues();
-        }, ctx);
+        lifetime_.defer("HardwareHealthOverlay::rebuild", [this]() {
+            if (is_created() && is_visible())
+                populate_hardware_issues();
+        });
     }
     pending_hardware_save_.clear();
 }

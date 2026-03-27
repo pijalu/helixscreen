@@ -155,15 +155,17 @@ void QrScannerOverlay::show_for_active_spool(lv_obj_t* parent,
 
 void QrScannerOverlay::on_activate() {
     OverlayBase::on_activate();
-    *alive_ = true;
     start_scanning();
 
     // Auto-close after 60 seconds if no scan result
-    auto weak = std::weak_ptr<bool>(alive_);
+    struct TimerData {
+        helix::LifetimeToken token;
+    };
+    auto* data = new TimerData{lifetime_.token()};
     timeout_timer_ = lv_timer_create(
         [](lv_timer_t* timer) {
-            auto* w = static_cast<std::weak_ptr<bool>*>(lv_timer_get_user_data(timer));
-            if (auto alive = w->lock(); alive && *alive) {
+            auto* d = static_cast<TimerData*>(lv_timer_get_user_data(timer));
+            if (!d->token.expired()) {
                 auto& overlay = get_qr_scanner_overlay();
                 spdlog::info("[{}] Timeout — auto-closing", overlay.get_name());
                 overlay.timeout_timer_ = nullptr;
@@ -173,17 +175,16 @@ void QrScannerOverlay::on_activate() {
                 }
                 NavigationManager::instance().go_back();
             }
-            delete w;
+            delete d;
             lv_timer_delete(timer);
         },
-        60000, new std::weak_ptr<bool>(weak));
+        60000, data);
     lv_timer_set_repeat_count(timeout_timer_, 1);
 
     spdlog::debug("[{}] Activated", get_name());
 }
 
 void QrScannerOverlay::on_deactivate() {
-    *alive_ = false;
     stop_scanning();
 
     // Clear image source before camera is stopped to prevent dangling frame ref
@@ -224,15 +225,15 @@ void QrScannerOverlay::start_scanning() {
     std::string stream_url, snapshot_url;
     if (camera_->configure_from_printer(stream_url, snapshot_url)) {
         decode_busy_ = false;
-        auto weak = std::weak_ptr<bool>(alive_);
+        auto tok = lifetime_.token();
         camera_->start(stream_url, snapshot_url,
-            [this, weak](lv_draw_buf_t* frame) {
-                if (auto alive = weak.lock(); alive && *alive) {
+            [this, tok](lv_draw_buf_t* frame) {
+                if (!tok.expired()) {
                     on_camera_frame(frame);
                 }
             },
-            [weak](const char* msg) {
-                if (auto alive = weak.lock(); alive && *alive) {
+            [tok](const char* msg) {
+                if (!tok.expired()) {
                     spdlog::warn("[QR Scanner] Camera error: {}", msg);
                 }
             });
@@ -247,12 +248,10 @@ void QrScannerOverlay::start_scanning() {
 #endif
 
     // Start USB barcode scanner monitor
-    auto weak = std::weak_ptr<bool>(alive_);
-    usb_monitor_.start([this, weak](int spool_id) {
-        helix::ui::queue_update([this, weak, spool_id]() {
-            if (auto alive = weak.lock(); alive && *alive) {
-                on_spool_id_detected(spool_id);
-            }
+    auto tok_usb = lifetime_.token();
+    usb_monitor_.start([this, tok_usb](int spool_id) {
+        lifetime_.defer([this, spool_id]() {
+            on_spool_id_detected(spool_id);
         });
     });
     spdlog::debug("[{}] USB scanner monitor started", get_name());
@@ -316,11 +315,9 @@ void QrScannerOverlay::on_camera_frame(lv_draw_buf_t* frame) {
     // frame pointer stays valid until frame_consumed() is called.
     // Must also check scan_active_ — if stop_scanning() ran between queueing
     // and execution, camera_->stop() already freed the frame buffer.
-    // The alive_ check alone is insufficient because alive_ isn't set false
-    // until on_deactivate() (up to 500ms after stop_scanning frees buffers).
-    auto weak = std::weak_ptr<bool>(alive_);
-    helix::ui::queue_update([this, weak, frame]() {
-        if (auto alive = weak.lock(); alive && *alive && scan_active_.load()) {
+    auto tok = lifetime_.token();
+    helix::ui::queue_update([this, tok, frame]() {
+        if (!tok.expired() && scan_active_.load()) {
             if (viewfinder_) {
                 lv_image_set_src(viewfinder_, frame);
             }
@@ -336,10 +333,8 @@ void QrScannerOverlay::on_camera_frame(lv_draw_buf_t* frame) {
 
         if (result.success && result.spool_id >= 0) {
             int spool_id = result.spool_id;
-            helix::ui::queue_update([this, weak, spool_id]() {
-                if (auto alive = weak.lock(); alive && *alive) {
-                    on_spool_id_detected(spool_id);
-                }
+            lifetime_.defer([this, spool_id]() {
+                on_spool_id_detected(spool_id);
             });
         }
     }
@@ -376,28 +371,26 @@ void QrScannerOverlay::lookup_spool(int spool_id) {
         return;
     }
 
-    auto weak = std::weak_ptr<bool>(alive_);
+    auto tok = lifetime_.token();
     api->spoolman().get_spoolman_spool(spool_id,
-        [this, weak, spool_id](const std::optional<SpoolInfo>& spool) {
-            helix::ui::queue_update([this, weak, spool_id, spool]() {
-                if (auto alive = weak.lock(); alive && *alive) {
-                    if (spool.has_value()) {
-                        on_spool_found(spool.value());
-                    } else {
-                        spdlog::warn("[{}] Spool #{} not found in Spoolman", get_name(), spool_id);
-                        update_status("Spool #" + std::to_string(spool_id) + " not found");
-                        last_decoded_id_ = -1; // Allow retry
-                    }
+        [this, tok, spool_id](const std::optional<SpoolInfo>& spool) {
+            if (tok.expired()) return;
+            lifetime_.defer([this, spool_id, spool]() {
+                if (spool.has_value()) {
+                    on_spool_found(spool.value());
+                } else {
+                    spdlog::warn("[{}] Spool #{} not found in Spoolman", get_name(), spool_id);
+                    update_status("Spool #" + std::to_string(spool_id) + " not found");
+                    last_decoded_id_ = -1; // Allow retry
                 }
             });
         },
-        [this, weak, spool_id](const MoonrakerError& err) {
-            helix::ui::queue_update([this, weak, spool_id, err]() {
-                if (auto alive = weak.lock(); alive && *alive) {
-                    spdlog::error("[{}] Spool lookup failed: {}", get_name(), err.message);
-                    update_status("Spool #" + std::to_string(spool_id) + " lookup failed");
-                    last_decoded_id_ = -1; // Allow retry
-                }
+        [this, tok, spool_id](const MoonrakerError& err) {
+            if (tok.expired()) return;
+            lifetime_.defer([this, spool_id, err]() {
+                spdlog::error("[{}] Spool lookup failed: {}", get_name(), err.message);
+                update_status("Spool #" + std::to_string(spool_id) + " lookup failed");
+                last_decoded_id_ = -1; // Allow retry
             });
         });
 }
@@ -416,18 +409,17 @@ void QrScannerOverlay::on_spool_found(const SpoolInfo& spool) {
     show_success_flash();
 
     // Fire result callback and close after a brief delay
-    // Capture weak alive guard per [L051] for timer lifetime safety
     struct TimerData {
         ResultCallback callback;
         SpoolInfo spool;
-        std::weak_ptr<bool> alive;
+        helix::LifetimeToken token;
     };
-    auto* data = new TimerData{result_callback_, spool, std::weak_ptr<bool>(alive_)};
+    auto* data = new TimerData{result_callback_, spool, lifetime_.token()};
 
     success_timer_ = lv_timer_create(
         [](lv_timer_t* timer) {
             auto* d = static_cast<TimerData*>(lv_timer_get_user_data(timer));
-            if (auto alive = d->alive.lock(); alive && *alive) {
+            if (!d->token.expired()) {
                 // Null member before delete to prevent double-free in on_deactivate()
                 get_qr_scanner_overlay().success_timer_ = nullptr;
                 if (d->callback) {

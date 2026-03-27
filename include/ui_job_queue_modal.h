@@ -6,9 +6,7 @@
 #include "ui_modal.h"
 #include "ui_observer_guard.h"
 
-#include <memory>
 #include <string>
-#include <vector>
 
 struct JobQueueEntry;
 
@@ -51,8 +49,6 @@ class JobQueueModal : public Modal {
     ObserverGuard count_observer_;
     bool list_rebuild_pending_ = false; ///< Coalesces rapid count observer notifications
 
-    // Async callback safety
-    std::shared_ptr<bool> alive_guard_ = std::make_shared<bool>(true);
 };
 
 } // namespace helix

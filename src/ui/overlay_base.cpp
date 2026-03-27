@@ -32,11 +32,13 @@ void OverlayBase::on_activate() {
 
 void OverlayBase::on_deactivate() {
     spdlog::trace("[OverlayBase] on_deactivate() - {}", get_name());
+    lifetime_.invalidate();
     visible_ = false;
 }
 
 void OverlayBase::cleanup() {
     spdlog::trace("[OverlayBase] cleanup() - {}", get_name());
+    lifetime_.invalidate();
     cleanup_called_ = true;
     visible_ = false;
 }

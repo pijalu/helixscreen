@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include "async_lifetime_guard.h"
 #include "panel_widget.h"
 #include "ui_job_queue_modal.h"
 #include "ui_observer_guard.h"
@@ -36,7 +37,7 @@ class JobQueueWidget : public PanelWidget {
     bool list_rebuild_pending_ = false; ///< Coalesces rapid count observer notifications
 
     /// Guards lv_async_call callbacks from accessing a detached widget
-    std::shared_ptr<bool> alive_guard_ = std::make_shared<bool>(true);
+    helix::AsyncLifetimeGuard lifetime_;
 
     void rebuild_job_list();
 

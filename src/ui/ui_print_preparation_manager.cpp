@@ -40,10 +40,7 @@ using helix::OperationCategory;
 // ============================================================================
 
 PrintPreparationManager::~PrintPreparationManager() {
-    // Invalidate lifetime guard so pending async callbacks bail out safely
-    if (alive_guard_) {
-        *alive_guard_ = false;
-    }
+    // lifetime_ destructor calls invalidate() automatically
 }
 
 // ============================================================================
@@ -173,15 +170,15 @@ void PrintPreparationManager::analyze_print_start_macro() {
 void PrintPreparationManager::schedule_deferred_macro_check() {
     struct DeferData {
         PrintPreparationManager* mgr;
-        std::shared_ptr<bool> alive;
+        helix::LifetimeToken token;
     };
-    auto data = std::make_unique<DeferData>(DeferData{this, alive_guard_});
+    auto data = std::make_unique<DeferData>(DeferData{this, lifetime_.token()});
 
     lv_timer_t* timer = lv_timer_create(
         [](lv_timer_t* t) {
             std::unique_ptr<DeferData> d(static_cast<DeferData*>(lv_timer_get_user_data(t)));
             lv_timer_delete(t);
-            if (d && d->alive && *d->alive) {
+            if (d && !d->token.expired()) {
                 d->mgr->analyze_print_start_macro();
             }
         },
@@ -206,92 +203,59 @@ void PrintPreparationManager::analyze_print_start_macro_internal() {
         "[PrintPreparationManager] Starting PRINT_START macro analysis (attempt {} of {})",
         macro_analysis_retry_count_ + 1, MAX_MACRO_ANALYSIS_RETRIES + 1);
 
-    auto* self = this;
-    auto alive = alive_guard_; // Capture shared_ptr to detect destruction
+    auto token = lifetime_.token();
     helix::PrintStartAnalyzer analyzer;
 
     analyzer.analyze(
         api_,
         // Success callback - NOTE: runs on HTTP thread
-        [self, alive](const helix::PrintStartAnalysis& analysis) {
+        [this, token](const helix::PrintStartAnalysis& analysis) {
+            if (token.expired()) return;
             spdlog::debug("[PrintPreparationManager] PRINT_START analysis complete: {}",
                           analysis.summary());
 
-            // Defer shared state updates to main LVGL thread
-            struct MacroAnalysisData {
-                PrintPreparationManager* mgr;
-                std::shared_ptr<bool> alive_guard;
-                helix::PrintStartAnalysis result;
-            };
-            helix::ui::queue_update<MacroAnalysisData>(
-                std::make_unique<MacroAnalysisData>(MacroAnalysisData{self, alive, analysis}),
-                [](MacroAnalysisData* d) {
-                    // Check if manager was destroyed before this callback executed
-                    if (!d->alive_guard || !*d->alive_guard) {
-                        spdlog::debug(
-                            "[PrintPreparationManager] Skipping macro analysis callback - "
-                            "manager destroyed");
-                        return;
-                    }
-                    d->mgr->macro_analysis_ = d->result;
-                    d->mgr->macro_analysis_in_progress_ = false;
-                    if (d->mgr->on_macro_analysis_complete_) {
-                        d->mgr->on_macro_analysis_complete_(d->result);
-                    }
-                });
+            lifetime_.defer("PrintPreparationManager::macro_analysis_success",
+                            [this, analysis]() {
+                                macro_analysis_ = analysis;
+                                macro_analysis_in_progress_ = false;
+                                if (on_macro_analysis_complete_) {
+                                    on_macro_analysis_complete_(analysis);
+                                }
+                            });
         },
         // Error callback - NOTE: runs on HTTP thread
-        [self, alive](const MoonrakerError& error) {
+        [this, token](const MoonrakerError& error) {
+            if (token.expired()) return;
             spdlog::warn("[PrintPreparationManager] PRINT_START analysis failed (attempt {}): {}",
-                         self->macro_analysis_retry_count_ + 1, error.message);
+                         macro_analysis_retry_count_ + 1, error.message);
 
-            // Defer shared state updates to main LVGL thread
-            struct MacroErrorData {
-                PrintPreparationManager* mgr;
-                std::shared_ptr<bool> alive_guard;
-            };
-            helix::ui::queue_update<MacroErrorData>(
-                std::make_unique<MacroErrorData>(MacroErrorData{self, alive}),
-                [](MacroErrorData* d) {
-                    // Check if manager was destroyed before this callback executed
-                    if (!d->alive_guard || !*d->alive_guard) {
-                        spdlog::debug("[PrintPreparationManager] Skipping macro error callback - "
-                                      "manager destroyed");
-                        return;
-                    }
-
-                    auto* mgr = d->mgr;
-
+            lifetime_.defer("PrintPreparationManager::macro_analysis_error", [this]() {
                     // Check if we should retry
-                    if (mgr->macro_analysis_retry_count_ < MAX_MACRO_ANALYSIS_RETRIES) {
-                        mgr->macro_analysis_retry_count_++;
+                    if (macro_analysis_retry_count_ < MAX_MACRO_ANALYSIS_RETRIES) {
+                        macro_analysis_retry_count_++;
                         // Exponential backoff: 1s, 2s
-                        int delay_ms = 1000 * (1 << (mgr->macro_analysis_retry_count_ - 1));
+                        int delay_ms = 1000 * (1 << (macro_analysis_retry_count_ - 1));
 
                         spdlog::info("[PrintPreparationManager] Retrying PRINT_START analysis in "
                                      "{}ms (attempt {} of {})",
-                                     delay_ms, mgr->macro_analysis_retry_count_ + 1,
+                                     delay_ms, macro_analysis_retry_count_ + 1,
                                      MAX_MACRO_ANALYSIS_RETRIES + 1);
 
                         // Schedule retry via LVGL timer
-                        // Capture alive_guard to avoid use-after-free if manager destroyed
                         struct RetryTimerData {
                             PrintPreparationManager* mgr;
-                            std::shared_ptr<bool> alive_guard;
+                            helix::LifetimeToken token;
                         };
                         auto timer_data_ptr = std::make_unique<RetryTimerData>(
-                            RetryTimerData{mgr, mgr->alive_guard_});
+                            RetryTimerData{this, lifetime_.token()});
 
                         lv_timer_t* retry_timer = lv_timer_create(
                             [](lv_timer_t* timer) {
-                                // Wrap raw pointer in unique_ptr for RAII cleanup
                                 std::unique_ptr<RetryTimerData> data(
                                     static_cast<RetryTimerData*>(lv_timer_get_user_data(timer)));
-                                // Check alive_guard BEFORE dereferencing manager
-                                if (data && data->alive_guard && *data->alive_guard) {
+                                if (data && !data->token.expired()) {
                                     data->mgr->analyze_print_start_macro_internal();
                                 }
-                                // data automatically freed via ~unique_ptr()
                                 lv_timer_delete(timer);
                             },
                             delay_ms, timer_data_ptr.release());
@@ -307,12 +271,12 @@ void PrintPreparationManager::analyze_print_start_macro_internal() {
                                  "unavailable.");
 
                     // Set empty result
-                    mgr->macro_analysis_in_progress_ = false;
+                    macro_analysis_in_progress_ = false;
                     helix::PrintStartAnalysis not_found;
                     not_found.found = false;
-                    mgr->macro_analysis_ = not_found;
-                    if (mgr->on_macro_analysis_complete_) {
-                        mgr->on_macro_analysis_complete_(not_found);
+                    macro_analysis_ = not_found;
+                    if (on_macro_analysis_complete_) {
+                        on_macro_analysis_complete_(not_found);
                     }
                 });
         });
@@ -457,8 +421,7 @@ void PrintPreparationManager::scan_file_for_operations(const std::string& filena
     spdlog::info("[PrintPreparationManager] Scanning G-code for embedded operations: {}",
                  file_path);
 
-    auto* self = this;
-    auto alive = alive_guard_; // Capture shared_ptr to detect destruction
+    auto token = lifetime_.token();
 
     // Use partial download - only first 200KB is needed for preamble scanning
     // (thumbnails + slicer metadata + START_PRINT call + any early G-code ops)
@@ -470,7 +433,9 @@ void PrintPreparationManager::scan_file_for_operations(const std::string& filena
         // Success: parse content and cache result
         // NOTE: This callback runs on a background HTTP thread, so we must defer
         // shared state updates and LVGL calls to the main thread via lv_async_call
-        [self, alive, filename](const std::string& content) {
+        [this, token, filename](const std::string& content) {
+            if (token.expired()) return;
+
             // Parse on background thread (safe - no shared state access)
             gcode::GCodeOpsDetector detector;
             auto scan_result = detector.scan_content(content);
@@ -488,55 +453,29 @@ void PrintPreparationManager::scan_file_for_operations(const std::string& filena
                 }
             }
 
-            // Defer shared state updates to main LVGL thread
-            struct ScanUpdateData {
-                PrintPreparationManager* mgr;
-                std::shared_ptr<bool> alive_guard;
-                std::string filename;
-                gcode::ScanResult result;
-            };
-            helix::ui::queue_update<ScanUpdateData>(
-                std::make_unique<ScanUpdateData>(
-                    ScanUpdateData{self, alive, filename, scan_result}),
-                [](ScanUpdateData* d) {
-                    // Check if manager was destroyed before this callback executed
-                    if (!d->alive_guard || !*d->alive_guard) {
-                        spdlog::debug("[PrintPreparationManager] Skipping scan callback - "
-                                      "manager destroyed");
-                        return;
-                    }
-                    d->mgr->cached_scan_result_ = d->result;
-                    d->mgr->cached_scan_filename_ = d->filename;
-                    if (d->mgr->on_scan_complete_) {
-                        d->mgr->on_scan_complete_(d->mgr->format_detected_operations());
-                    }
-                });
+            lifetime_.defer("PrintPreparationManager::scan_success",
+                            [this, filename, scan_result]() {
+                                cached_scan_result_ = scan_result;
+                                cached_scan_filename_ = filename;
+                                if (on_scan_complete_) {
+                                    on_scan_complete_(format_detected_operations());
+                                }
+                            });
         },
         // Error: just log, don't block the UI
         // NOTE: Also runs on background thread
-        [self, alive, filename](const MoonrakerError& error) {
+        [this, token, filename](const MoonrakerError& error) {
+            if (token.expired()) return;
             spdlog::warn("[PrintPreparationManager] Failed to scan G-code {}: {}", filename,
                          error.message);
 
-            // Defer shared state updates to main LVGL thread
-            struct ScanErrorData {
-                PrintPreparationManager* mgr;
-                std::shared_ptr<bool> alive_guard;
-            };
-            helix::ui::queue_update<ScanErrorData>(
-                std::make_unique<ScanErrorData>(ScanErrorData{self, alive}), [](ScanErrorData* d) {
-                    // Check if manager was destroyed before this callback executed
-                    if (!d->alive_guard || !*d->alive_guard) {
-                        spdlog::debug("[PrintPreparationManager] Skipping scan error callback - "
-                                      "manager destroyed");
-                        return;
-                    }
-                    d->mgr->cached_scan_result_.reset();
-                    d->mgr->cached_scan_filename_.clear();
-                    if (d->mgr->on_scan_complete_) {
-                        d->mgr->on_scan_complete_("");
-                    }
-                });
+            lifetime_.defer("PrintPreparationManager::scan_error", [this]() {
+                cached_scan_result_.reset();
+                cached_scan_filename_.clear();
+                if (on_scan_complete_) {
+                    on_scan_complete_("");
+                }
+            });
         });
 }
 
@@ -883,17 +822,15 @@ void PrintPreparationManager::start_print(const std::string& filename,
         spdlog::info("[PrintPreparationManager] Executing pre-start gcode: {}",
                      caps.pre_start_gcode);
 
-        auto alive = alive_guard_;
+        auto token = lifetime_.token();
         api_->execute_gcode(
             caps.pre_start_gcode,
-            [this, alive, filename_to_print, ops_to_disable, on_navigate_to_status,
+            [this, token, filename_to_print, ops_to_disable, on_navigate_to_status,
              wrapped_completion]() {
-                if (!*alive)
-                    return;
-                helix::ui::queue_update([this, alive, filename_to_print, ops_to_disable,
-                                         on_navigate_to_status, wrapped_completion]() {
-                    if (!*alive)
-                        return;
+                if (token.expired()) return;
+                lifetime_.defer("PrintPreparationManager::pre_start_gcode_success",
+                                [this, filename_to_print, ops_to_disable,
+                                 on_navigate_to_status, wrapped_completion]() {
                     spdlog::info("[PrintPreparationManager] Pre-start gcode executed");
                     if (!ops_to_disable.empty()) {
                         modify_and_print(filename_to_print, ops_to_disable, {},
@@ -904,10 +841,10 @@ void PrintPreparationManager::start_print(const std::string& filename,
                     }
                 });
             },
-            [alive, wrapped_completion](const MoonrakerError& err) {
-                if (!*alive)
-                    return;
-                helix::ui::queue_update([wrapped_completion, msg = err.message]() {
+            [this, token, wrapped_completion](const MoonrakerError& err) {
+                if (token.expired()) return;
+                lifetime_.defer("PrintPreparationManager::pre_start_gcode_error",
+                                [wrapped_completion, msg = err.message]() {
                     spdlog::error("[PrintPreparationManager] Pre-start gcode failed: {}", msg);
                     NOTIFY_ERROR("Pre-print command failed: {}", msg);
                     if (wrapped_completion)
@@ -1314,8 +1251,7 @@ void PrintPreparationManager::modify_and_print_streaming(
     const std::vector<std::pair<std::string, std::string>>& macro_skip_params,
     const std::vector<std::string>& mod_names, NavigateToStatusCallback on_navigate_to_status,
     bool use_plugin) {
-    auto* self = this;
-    auto alive = alive_guard_;              // Capture for lifetime checking in async callbacks
+    auto token = lifetime_.token();          // Capture for lifetime checking in async callbacks
     auto scan_result = cached_scan_result_; // Copy for lambda capture
 
     // Validate scan_result before proceeding (SERIOUS-3 fix)
@@ -1363,11 +1299,11 @@ void PrintPreparationManager::modify_and_print_streaming(
     api_->transfers().download_file_to_path(
         "gcodes", file_path, local_download_path,
         // Download success - NOTE: runs on HTTP thread
-        [self, alive, file_path, display_filename, ops_to_disable, macro_skip_params, mod_names,
+        [this, token, file_path, display_filename, ops_to_disable, macro_skip_params, mod_names,
          scan_result, local_download_path, remote_temp_path, on_navigate_to_status,
          use_plugin](const std::string& /*dest_path*/) {
             // Check if manager was destroyed before this callback executed
-            if (!alive || !*alive) {
+            if (token.expired()) {
                 spdlog::debug("[PrintPreparationManager] Skipping streaming download callback - "
                               "manager destroyed");
                 // Clean up download file since we're bailing out
@@ -1407,8 +1343,8 @@ void PrintPreparationManager::modify_and_print_streaming(
 
             if (!result.success) {
                 NOTIFY_ERROR("Failed to modify G-code: {}", result.error_message);
-                if (self->printer_state_)
-                    self->printer_state_->set_print_in_progress(false);
+                if (printer_state_)
+                    printer_state_->set_print_in_progress(false);
                 return;
             }
 
@@ -1419,10 +1355,10 @@ void PrintPreparationManager::modify_and_print_streaming(
 
             // Step 3: Upload modified file from disk
             std::string modified_path = result.modified_path; // Copy for lambda
-            self->api_->transfers().upload_file_from_path(
+            api_->transfers().upload_file_from_path(
                 "gcodes", remote_temp_path, modified_path,
                 // Upload success - NOTE: runs on HTTP thread, defer LVGL ops
-                [self, alive, modified_path, display_filename, remote_temp_path, file_path,
+                [this, token, modified_path, display_filename, remote_temp_path, file_path,
                  mod_names, on_navigate_to_status, use_plugin]() {
                     // Clean up local modified file (safe - filesystem op, always do it)
                     std::error_code ec;
@@ -1434,7 +1370,7 @@ void PrintPreparationManager::modify_and_print_streaming(
                     }
 
                     // Check if manager was destroyed before this callback executed
-                    if (!alive || !*alive) {
+                    if (token.expired()) {
                         spdlog::debug("[PrintPreparationManager] Skipping upload callback - "
                                       "manager destroyed");
                         return;
@@ -1450,15 +1386,15 @@ void PrintPreparationManager::modify_and_print_streaming(
                     // Otherwise, use standard start_print
 
                     // Define common callbacks to avoid code duplication
-                    auto on_print_success = [self, on_navigate_to_status, display_filename,
+                    auto on_print_success = [this, on_navigate_to_status, display_filename,
                                              file_path]() {
                         spdlog::info("[PrintPreparationManager] Print started with "
                                      "modified G-code (streaming, original: {})",
                                      display_filename);
 
                         // Clear in-progress flag on success
-                        if (self->printer_state_) {
-                            self->printer_state_->set_print_in_progress(false);
+                        if (printer_state_) {
+                            printer_state_->set_print_in_progress(false);
                         }
 
                         // Defer LVGL operations to main thread
@@ -1490,7 +1426,7 @@ void PrintPreparationManager::modify_and_print_streaming(
                             });
                     };
 
-                    auto on_print_error = [self, alive,
+                    auto on_print_error = [this, token,
                                            remote_temp_path](const MoonrakerError& error) {
                         // Hide overlay on error (defer to main thread)
                         helix::ui::async_call([](void*) { BusyOverlay::hide(); }, nullptr);
@@ -1501,12 +1437,12 @@ void PrintPreparationManager::modify_and_print_streaming(
                             remote_temp_path, error.message);
 
                         // Clear in-progress flag on error
-                        if (self->printer_state_) {
-                            self->printer_state_->set_print_in_progress(false);
+                        if (printer_state_) {
+                            printer_state_->set_print_in_progress(false);
                         }
 
                         // Check if manager still valid before cleanup
-                        if (!alive || !*alive) {
+                        if (token.expired()) {
                             spdlog::debug(
                                 "[PrintPreparationManager] Skipping remote cleanup - manager "
                                 "destroyed");
@@ -1516,7 +1452,7 @@ void PrintPreparationManager::modify_and_print_streaming(
                         // Clean up remote temp file on failure
                         // Moonraker's delete_file requires full path including root
                         std::string full_path = "gcodes/" + remote_temp_path;
-                        self->api_->files().delete_file(
+                        api_->files().delete_file(
                             full_path,
                             []() {
                                 spdlog::debug("[PrintPreparationManager] Cleaned up "
@@ -1531,7 +1467,7 @@ void PrintPreparationManager::modify_and_print_streaming(
                     if (use_plugin) {
                         // Plugin path: Use path-based API (v2.0)
                         // The plugin will create symlink, patch history, and start print
-                        self->api_->job().start_modified_print(
+                        api_->job().start_modified_print(
                             file_path,        // Original filename for history
                             remote_temp_path, // Path to uploaded modified file
                             mod_names,
@@ -1544,12 +1480,12 @@ void PrintPreparationManager::modify_and_print_streaming(
                             on_print_error);
                     } else {
                         // Standard path: Just start print with modified file
-                        self->api_->job().start_print(remote_temp_path, on_print_success,
+                        api_->job().start_print(remote_temp_path, on_print_success,
                                                       on_print_error);
                     }
                 },
                 // Upload error - clean up local file
-                [self, modified_path](const MoonrakerError& error) {
+                [this, modified_path](const MoonrakerError& error) {
                     // Hide overlay on error (defer to main thread)
                     helix::ui::async_call([](void*) { BusyOverlay::hide(); }, nullptr);
 
@@ -1560,8 +1496,8 @@ void PrintPreparationManager::modify_and_print_streaming(
                     NOTIFY_ERROR("Failed to upload modified G-code: {}", error.message);
                     LOG_ERROR_INTERNAL("[PrintPreparationManager] Upload failed: {}",
                                        error.message);
-                    if (self->printer_state_)
-                        self->printer_state_->set_print_in_progress(false);
+                    if (printer_state_)
+                        printer_state_->set_print_in_progress(false);
                 },
                 // Upload progress callback
                 [](size_t sent, size_t total) {
@@ -1579,7 +1515,7 @@ void PrintPreparationManager::modify_and_print_streaming(
                 });
         },
         // Download error - clean up partial download
-        [self, file_path, local_download_path](const MoonrakerError& error) {
+        [this, file_path, local_download_path](const MoonrakerError& error) {
             // Hide overlay on error (defer to main thread)
             helix::ui::async_call([](void*) { BusyOverlay::hide(); }, nullptr);
 
@@ -1590,8 +1526,8 @@ void PrintPreparationManager::modify_and_print_streaming(
             NOTIFY_ERROR("Failed to download G-code for modification: {}", error.message);
             LOG_ERROR_INTERNAL("[PrintPreparationManager] Download failed for {}: {}", file_path,
                                error.message);
-            if (self->printer_state_)
-                self->printer_state_->set_print_in_progress(false);
+            if (printer_state_)
+                printer_state_->set_print_in_progress(false);
         },
         // Download progress callback
         download_progress);

@@ -179,7 +179,6 @@ ConsolePanel::ConsolePanel() {
 }
 
 ConsolePanel::~ConsolePanel() {
-    alive_->store(false);
     deinit_subjects();
 }
 
@@ -446,10 +445,10 @@ void ConsolePanel::fetch_history() {
 
     // Request gcode history from Moonraker
     // CRITICAL: Callbacks run on libhv background thread - defer LVGL work to main thread
-    // and guard with alive_ to prevent use-after-free if panel is destroyed [L072]
+    // and guard with lifetime_ token to prevent use-after-free if panel is destroyed
     api->get_gcode_store(
         FETCH_COUNT,
-        [this, alive_weak = std::weak_ptr<std::atomic<bool>>(alive_)](
+        [this, token = lifetime_.token()](
             const std::vector<GcodeStoreEntry>& entries) {
             spdlog::info("[Console] Received {} gcode entries", entries.size());
 
@@ -467,40 +466,25 @@ void ConsolePanel::fetch_history() {
                 converted.push_back(e);
             }
 
-            // Defer LVGL operations to main thread with alive guard
-            struct Ctx {
-                ConsolePanel* panel;
-                std::weak_ptr<std::atomic<bool>> alive;
-                std::vector<GcodeEntry> entries;
-            };
-            auto ctx = std::make_unique<Ctx>(Ctx{this, alive_weak, std::move(converted)});
-            helix::ui::queue_update<Ctx>(std::move(ctx), [](Ctx* c) {
-                auto alive = c->alive.lock();
-                if (!alive || !alive->load())
-                    return;
-                c->panel->fetch_in_flight_ = false;
-                c->panel->populate_entries(c->entries);
+            // Defer LVGL operations to main thread with lifetime guard
+            if (token.expired()) return;
+            auto entries_ptr = std::make_shared<std::vector<GcodeEntry>>(std::move(converted));
+            lifetime_.defer("ConsolePanel::fetch_done", [this, entries_ptr]() {
+                fetch_in_flight_ = false;
+                populate_entries(*entries_ptr);
             });
         },
-        [this, alive_weak = std::weak_ptr<std::atomic<bool>>(alive_)](const MoonrakerError& err) {
+        [this, token = lifetime_.token()](const MoonrakerError& err) {
             spdlog::error("[Console] Failed to fetch gcode store: {}", err.message);
 
-            // Defer LVGL operations to main thread with alive guard
-            struct Ctx {
-                ConsolePanel* panel;
-                std::weak_ptr<std::atomic<bool>> alive;
-                std::string error_msg;
-            };
-            auto ctx = std::make_unique<Ctx>(Ctx{this, alive_weak, err.message});
-            helix::ui::queue_update<Ctx>(std::move(ctx), [](Ctx* c) {
-                auto alive = c->alive.lock();
-                if (!alive || !alive->load())
-                    return;
-                c->panel->fetch_in_flight_ = false;
-                std::snprintf(c->panel->status_buf_, sizeof(c->panel->status_buf_), "%s",
+            // Defer LVGL operations to main thread with lifetime guard
+            if (token.expired()) return;
+            lifetime_.defer("ConsolePanel::fetch_error", [this]() {
+                fetch_in_flight_ = false;
+                std::snprintf(status_buf_, sizeof(status_buf_), "%s",
                               lv_tr("Failed to load history"));
-                lv_subject_copy_string(&c->panel->status_subject_, c->panel->status_buf_);
-                c->panel->update_visibility();
+                lv_subject_copy_string(&status_subject_, status_buf_);
+                update_visibility();
             });
         });
 }
@@ -713,13 +697,11 @@ void ConsolePanel::subscribe_to_gcode_responses() {
     gcode_handler_name_ = "console_panel_" + std::to_string(++s_handler_id);
 
     // Register for notify_gcode_response notifications
-    // Guard with alive_ weak_ptr in case panel is destroyed before unsubscribe [L072]
+    // Guard with lifetime token in case panel is destroyed before unsubscribe
     api->register_method_callback(
         "notify_gcode_response", gcode_handler_name_,
-        [this, alive_weak = std::weak_ptr<std::atomic<bool>>(alive_)](const nlohmann::json& msg) {
-            auto alive = alive_weak.lock();
-            if (!alive || !alive->load())
-                return;
+        [this, token = lifetime_.token()](const nlohmann::json& msg) {
+            if (token.expired()) return;
             on_gcode_response(msg);
         });
 
@@ -770,23 +752,13 @@ void ConsolePanel::on_gcode_response(const nlohmann::json& msg) {
     entry.type = GcodeEntry::Type::RESPONSE;
     entry.is_error = is_error_message(line);
 
-    // CRITICAL: Defer LVGL operations to main thread via ui_queue_update [L012][L072]
+    // CRITICAL: Defer LVGL operations to main thread via lifetime_.defer
     // WebSocket callbacks run on libhv thread - direct LVGL calls cause crashes
-    struct Ctx {
-        ConsolePanel* panel;
-        std::weak_ptr<std::atomic<bool>> alive;
-        GcodeEntry entry;
-        bool is_temp;
-    };
-    auto ctx = std::make_unique<Ctx>(Ctx{this, alive_, std::move(entry), is_temp});
-    helix::ui::queue_update<Ctx>(std::move(ctx), [](Ctx* c) {
-        auto alive = c->alive.lock();
-        if (!alive || !alive->load())
-            return;
+    lifetime_.defer("ConsolePanel::gcode_entry", [this, entry = std::move(entry), is_temp]() {
         // C1: Read filter_temps_ on main thread only (avoids data race)
-        if (c->panel->filter_temps_ && c->is_temp)
+        if (filter_temps_ && is_temp)
             return;
-        c->panel->add_entry(c->entry);
+        add_entry(entry);
     });
 }
 
@@ -857,10 +829,8 @@ void ConsolePanel::send_gcode_command() {
     if (api) {
         api->execute_gcode(
             command, nullptr, // success: no-op, response comes via WS subscription
-            [alive_weak = std::weak_ptr<std::atomic<bool>>(alive_)](const MoonrakerError& err) {
-                auto alive = alive_weak.lock();
-                if (!alive || !alive->load())
-                    return;
+            [token = lifetime_.token()](const MoonrakerError& err) {
+                if (token.expired()) return;
                 NOTIFY_ERROR("Failed to send command: {}", err.message);
             });
     } else {

@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include "async_lifetime_guard.h"
 #include "ui_observer_guard.h"
 
 #include "panel_widget.h"
@@ -41,8 +42,8 @@ class PowerWidget : public PanelWidget {
 
     bool power_on_ = false;
 
-    // Shared flag for async callback safety — set false on detach
-    std::shared_ptr<bool> alive_ = std::make_shared<bool>(false);
+    // Lifetime guard for async callback safety
+    helix::AsyncLifetimeGuard lifetime_;
 
     ObserverGuard power_count_observer_;
 

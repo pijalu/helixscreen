@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include "async_lifetime_guard.h"
 #include "ui_observer_guard.h"
 
 #include "panel_widget.h"
@@ -62,7 +63,7 @@ class ThermistorWidget : public PanelWidget {
     std::string selected_sensor_; // klipper_name (e.g., "temperature_sensor mcu_temp")
     std::string display_name_;    // Pretty name for label
     ObserverGuard temp_observer_;
-    std::shared_ptr<bool> alive_ = std::make_shared<bool>(false);
+    helix::AsyncLifetimeGuard lifetime_;
     char temp_buffer_[16] = {};
 
     // Carousel mode

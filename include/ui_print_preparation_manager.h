@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include "async_lifetime_guard.h"
 #include "ui_observer_guard.h"
 
 #include "capability_matrix.h"
@@ -141,11 +142,11 @@ class PrintPreparationManager {
     PrintPreparationManager() = default;
     ~PrintPreparationManager();
 
-    // Non-copyable, movable
+    // Non-copyable, non-movable (AsyncLifetimeGuard is non-movable)
     PrintPreparationManager(const PrintPreparationManager&) = delete;
     PrintPreparationManager& operator=(const PrintPreparationManager&) = delete;
-    PrintPreparationManager(PrintPreparationManager&&) noexcept = default;
-    PrintPreparationManager& operator=(PrintPreparationManager&&) noexcept = default;
+    PrintPreparationManager(PrintPreparationManager&&) = delete;
+    PrintPreparationManager& operator=(PrintPreparationManager&&) = delete;
 
     // === Setup ===
 
@@ -505,9 +506,7 @@ class PrintPreparationManager {
     static constexpr int MAX_MACRO_ANALYSIS_RETRIES = 2; // 3 total attempts
 
     // === Lifetime Guard for Async Callbacks ===
-    // Shared pointer to track if this object is still alive when async callbacks execute.
-    // Callbacks capture this shared_ptr; if *alive_guard_ is false, the callback bails out.
-    std::shared_ptr<bool> alive_guard_ = std::make_shared<bool>(true);
+    helix::AsyncLifetimeGuard lifetime_;
 
     // === Connection Observer ===
     // Triggers macro analysis when printer connection becomes CONNECTED

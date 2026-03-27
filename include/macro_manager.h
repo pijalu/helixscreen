@@ -3,13 +3,12 @@
 
 #pragma once
 
+#include "async_lifetime_guard.h"
 #include "moonraker_api.h"
 #include "moonraker_error.h"
 #include "printer_discovery.h"
 
-#include <atomic>
 #include <functional>
-#include <memory>
 #include <optional>
 #include <string>
 #include <vector>
@@ -221,8 +220,8 @@ class MacroManager {
     MoonrakerAPI& api_;
     const PrinterDiscovery& hardware_;
 
-    /// Alive guard for async callback safety (prevents use-after-free)
-    std::shared_ptr<std::atomic<bool>> alive_ = std::make_shared<std::atomic<bool>>(true);
+    /// Async callback safety guard (prevents use-after-free)
+    helix::AsyncLifetimeGuard lifetime_;
 
     /**
      * @brief Upload macro file to printer config directory

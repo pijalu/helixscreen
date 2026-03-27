@@ -85,15 +85,13 @@ void CameraWidget::on_camera_clicked(lv_event_t* e) {
     self->open_fullscreen();
 }
 
-CameraWidget::CameraWidget() : alive_(std::make_shared<bool>(true)) {}
+CameraWidget::CameraWidget() {}
 
 CameraWidget::~CameraWidget() {
     // detach() handles LVGL pointer cleanup, observer release, fullscreen close
     detach();
-    // Full cleanup beyond detach: invalidate alive guard and stop stream
-    if (alive_) {
-        *alive_ = false;
-    }
+    // Full cleanup beyond detach: invalidate lifetime guard and stop stream
+    lifetime_.invalidate();
     stop_stream();
 }
 
@@ -157,7 +155,7 @@ void CameraWidget::detach() {
     destroy_fullscreen();
 
     // Lightweight detach: release observer and LVGL pointers but preserve
-    // the camera stream. alive_ is intentionally NOT invalidated here
+    // the camera stream. lifetime_ is intentionally NOT invalidated here
     // (unlike other widgets) — the stream keeps running during the
     // detach→reattach gap. Frame callbacks check camera_image_ (null
     // after detach) and safely no-op until re-attach.
@@ -179,12 +177,11 @@ void CameraWidget::on_activate() {
 
     // Register for display sleep/wake notifications to suspend the camera
     // stream while the screen is off (saves ~20% CPU on Pi).
-    // Uses weak_ptr to alive_ so the callback safely no-ops after destruction.
+    // Uses LifetimeToken so the callback safely no-ops after destruction.
     if (!sleep_cb_registered_) {
-        std::weak_ptr<bool> weak_alive = alive_;
-        DisplayManager::instance()->register_sleep_callback([this, weak_alive](bool sleeping) {
-            auto alive = weak_alive.lock();
-            if (!alive || !*alive)
+        auto token = lifetime_.token();
+        DisplayManager::instance()->register_sleep_callback([this, token](bool sleeping) {
+            if (token.expired())
                 return;
             if (sleeping) {
                 // Don't stop the stream if fullscreen overlay is open — the
@@ -264,12 +261,8 @@ void CameraWidget::start_stream() {
         return;
     }
 
-    // Ensure alive guard is valid — it may be stale (false) after a
-    // stop_stream() → detach() → reattach cycle where stop invalidated
-    // the old guard and detach preserved the (now-false) shared_ptr.
-    if (!alive_ || !*alive_) {
-        alive_ = std::make_shared<bool>(true);
-    }
+    // No action needed — lifetime_ is always valid (invalidate() just bumps
+    // the generation counter; new tokens from token() are automatically valid).
 
     stream_ = std::make_unique<CameraStream>();
     std::string stream_url, snapshot_url;
@@ -291,21 +284,16 @@ void CameraWidget::start_stream() {
         lv_obj_remove_flag(camera_overlay_, LV_OBJ_FLAG_HIDDEN);
     }
 
-    // Capture alive guard by value for safe callback
-    std::weak_ptr<bool> weak_alive = alive_;
+    // Capture lifetime token by value for safe callback
+    auto token = lifetime_.token();
 
     stream_->start(
         stream_url, snapshot_url,
-        [this, weak_alive](lv_draw_buf_t* frame) {
-            auto alive = weak_alive.lock();
-            if (!alive || !*alive)
+        [this, token](lv_draw_buf_t* frame) {
+            if (token.expired())
                 return;
 
-            helix::ui::queue_update([this, weak_alive, frame]() {
-                auto alive = weak_alive.lock();
-                if (!alive || !*alive)
-                    return;
-
+            lifetime_.defer("CameraWidget::frame", [this, frame]() {
                 // Deliver frame to fullscreen image if open, otherwise widget image
                 lv_obj_t* target = fullscreen_image_ ? fullscreen_image_ : camera_image_;
                 if (target) {
@@ -324,16 +312,12 @@ void CameraWidget::start_stream() {
                     stream_->frame_consumed();
             });
         },
-        [this, weak_alive](const char* msg) {
-            auto alive = weak_alive.lock();
-            if (!alive || !*alive)
+        [this, token](const char* msg) {
+            if (token.expired())
                 return;
 
             std::string status(msg);
-            helix::ui::queue_update([this, weak_alive, status]() {
-                auto alive = weak_alive.lock();
-                if (!alive || !*alive)
-                    return;
+            lifetime_.defer("CameraWidget::status", [this, status]() {
                 set_status_text(status.c_str());
             });
         });
@@ -349,9 +333,9 @@ void CameraWidget::stop_stream() {
     }
     spdlog::debug("[CameraWidget] stop_stream: stopping active stream (active={})", active_);
 
-    // Invalidate alive guard FIRST — queued UI callbacks check this and
+    // Invalidate lifetime guard FIRST — queued UI callbacks check this and
     // become no-ops, preventing use-after-free on freed draw buffers
-    *alive_ = false;
+    lifetime_.invalidate();
 
     // Clear image sources before stopping — stop() frees the draw buffers
     // that LVGL may still reference for rendering
@@ -367,8 +351,7 @@ void CameraWidget::stop_stream() {
     stream_->stop();
     stream_.reset();
 
-    // Reset alive guard so the stream can be restarted (on_activate)
-    alive_ = std::make_shared<bool>(true);
+    // No action needed — lifetime_ auto-recovers (new tokens from token() are valid)
 
     spdlog::debug("[CameraWidget] Stream stopped");
 }

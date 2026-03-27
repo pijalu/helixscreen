@@ -126,7 +126,6 @@ lv_obj_t* MacrosPanel::create(lv_obj_t* parent) {
 void MacrosPanel::on_activate() {
     // Call base class first
     OverlayBase::on_activate();
-    *alive_ = true;
 
     spdlog::debug("[{}] on_activate()", get_name());
 
@@ -134,21 +133,15 @@ void MacrosPanel::on_activate() {
     // overlay_slide_out_complete_cb() while LVGL is still processing the
     // animation tick.  Synchronous lv_obj_clean() here would delete children
     // whose events LVGL still references → SIGSEGV in lv_event_mark_deleted.
-    lv_async_call(
-        [](void* ud) {
-            auto* self = static_cast<MacrosPanel*>(ud);
-            // Panel may have been destroyed between scheduling and execution
-            if (!self->alive_ || !*self->alive_) return;
-            self->populate_macro_list();
-        },
-        this);
+    lifetime_.defer("MacrosPanel::populate", [this]() {
+        populate_macro_list();
+    });
 }
 
 void MacrosPanel::on_deactivate() {
     spdlog::debug("[{}] on_deactivate()", get_name());
-    *alive_ = false;
 
-    // Call base class
+    // Call base class (invalidates lifetime_)
     OverlayBase::on_deactivate();
 }
 
@@ -325,10 +318,10 @@ void MacrosPanel::fetch_params_and_run(const std::string& macro_name) {
         return;
     }
 
-    std::weak_ptr<bool> weak = alive_;
+    auto token = lifetime_.token();
     std::string name = macro_name;
-    auto on_result = [this, weak, name](const helix::MacroParamResult& result) {
-        if (weak.expired())
+    auto on_result = [this, token, name](const helix::MacroParamResult& result) {
+        if (token.expired())
             return;
         execute_with_params(name, result);
     };

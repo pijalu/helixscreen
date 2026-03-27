@@ -41,7 +41,6 @@ PowerWidget::~PowerWidget() {
 void PowerWidget::attach(lv_obj_t* widget_obj, lv_obj_t* parent_screen) {
     widget_obj_ = widget_obj;
     parent_screen_ = parent_screen;
-    *alive_ = true;
 
     if (widget_obj_) {
         lv_obj_set_user_data(widget_obj_, this);
@@ -54,11 +53,11 @@ void PowerWidget::attach(lv_obj_t* widget_obj, lv_obj_t* parent_screen) {
 
     // Observe power_device_count to refresh state when devices are discovered.
     // Fires immediately on add (triggers initial refresh), so no separate call needed.
-    std::weak_ptr<bool> weak_alive = alive_;
+    auto token = lifetime_.token();
     power_count_observer_ = helix::ui::observe_int_sync<PowerWidget>(
         get_printer_state().get_power_device_count_subject(), this,
-        [weak_alive](PowerWidget* self, int /*count*/) {
-            if (weak_alive.expired())
+        [token](PowerWidget* self, int /*count*/) {
+            if (token.expired())
                 return;
             self->refresh_power_state();
         });
@@ -69,7 +68,7 @@ void PowerWidget::on_activate() {
 }
 
 void PowerWidget::detach() {
-    *alive_ = false;
+    lifetime_.invalidate();
 
     // Nullify widget pointers BEFORE resetting observers (matches LedWidget pattern)
     if (widget_obj_) {
@@ -108,7 +107,6 @@ void PowerWidget::handle_power_toggle() {
         EmergencyStopOverlay::instance().suppress_recovery_dialog(RecoverySuppression::NORMAL);
     }
 
-    std::weak_ptr<bool> weak_alive = alive_;
     for (const auto& device : selected) {
         api_->set_device_power(
             device, action,
@@ -145,11 +143,12 @@ void PowerWidget::refresh_power_state() {
     std::set<std::string> selected_set(selected.begin(), selected.end());
 
     // Query power devices to determine if selected ones are on.
-    // Use weak_ptr to alive_ flag so async callback is safe if widget is destroyed.
-    std::weak_ptr<bool> weak_alive = alive_;
-    PowerWidget* self_ptr = this;
+    // Use LifetimeToken so async callback is safe if widget is destroyed.
+    auto token = lifetime_.token();
     api_->get_power_devices(
-        [weak_alive, self_ptr, selected_set](const std::vector<PowerDevice>& devices) {
+        [this, token, selected_set](const std::vector<PowerDevice>& devices) {
+            if (token.expired())
+                return;
             bool any_on = false;
             for (const auto& dev : devices) {
                 if (selected_set.count(dev.device) > 0 && dev.status == "on") {
@@ -158,14 +157,11 @@ void PowerWidget::refresh_power_state() {
                 }
             }
 
-            helix::ui::queue_update([weak_alive, self_ptr, any_on]() {
-                auto alive = weak_alive.lock();
-                if (!alive || !*alive)
-                    return;
-                self_ptr->power_on_ = any_on;
-                self_ptr->update_power_icon(self_ptr->power_on_);
+            lifetime_.defer("PowerWidget::refresh", [this, any_on]() {
+                power_on_ = any_on;
+                update_power_icon(power_on_);
                 spdlog::debug("[PowerWidget] Power state refreshed: {}",
-                              self_ptr->power_on_ ? "on" : "off");
+                              power_on_ ? "on" : "off");
             });
         },
         [](const MoonrakerError& err) {

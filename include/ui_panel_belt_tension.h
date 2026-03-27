@@ -5,10 +5,10 @@
 
 #include "belt_tension_calibrator.h"
 #include "belt_tension_types.h"
+#include "async_lifetime_guard.h"
 #include "overlay_base.h"
 #include "subject_managed_panel.h"
 
-#include <atomic>
 #include <memory>
 
 class MoonrakerAPI;
@@ -170,8 +170,8 @@ class BeltTensionPanel : public OverlayBase {
     // Last results for re-display
     helix::calibration::BeltTensionResult last_result_;
 
-    // Async safety
-    std::shared_ptr<std::atomic<bool>> alive_ = std::make_shared<std::atomic<bool>>(true);
+    // Async callback safety: destructor auto-invalidates all outstanding tokens
+    helix::AsyncLifetimeGuard lifetime_;
 };
 
 // Global instance accessor

@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include "async_lifetime_guard.h"
 #include "panel_widget.h"
 #include "ui_observer_guard.h"
 
@@ -47,7 +48,7 @@ class ActiveSpoolWidget : public PanelWidget {
     // No-spool label
     lv_obj_t* no_spool_label_ = nullptr;
 
-    std::shared_ptr<bool> alive_ = std::make_shared<bool>(false);
+    helix::AsyncLifetimeGuard lifetime_;
     ObserverGuard spool_color_observer_;
     ObserverGuard current_slot_observer_;
     ObserverGuard slots_version_observer_;

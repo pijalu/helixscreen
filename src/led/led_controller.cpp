@@ -60,7 +60,6 @@ LedController& LedController::instance() {
 }
 
 void LedController::init(MoonrakerAPI* api, MoonrakerClient* client) {
-    alive_ = std::make_shared<std::atomic<bool>>(true);
     api_ = api;
     client_ = client;
 
@@ -89,7 +88,7 @@ void LedController::init(MoonrakerAPI* api, MoonrakerClient* client) {
 }
 
 void LedController::deinit() {
-    alive_->store(false);
+    lifetime_.invalidate();
 
     native_.clear();
     effects_.clear();
@@ -340,12 +339,10 @@ void LedController::discover_wled_strips() {
 
     spdlog::debug("[LedController] Starting WLED strip discovery via Moonraker");
 
-    std::weak_ptr<std::atomic<bool>> weak_alive = alive_;
+    auto token = lifetime_.token();
     api_->rest().wled_get_strips(
-        [this, weak_alive](const RestResponse& resp) {
-            auto alive = weak_alive.lock();
-            if (!alive || !alive->load())
-                return;
+        [this, token](const RestResponse& resp) {
+            if (token.expired()) return;
 
             // Response format: {"result": {strip_name: {details...}, ...}}
             if (!resp.data.is_object()) {
@@ -421,10 +418,8 @@ void LedController::discover_wled_strips() {
 
                 // Fetch server config to get WLED device addresses
                 this->api_->rest().get_server_config(
-                    [this, weak_alive](const RestResponse& cfg_resp) {
-                        auto alive = weak_alive.lock();
-                        if (!alive || !alive->load())
-                            return;
+                    [this, token](const RestResponse& cfg_resp) {
+                        if (token.expired()) return;
 
                         if (!cfg_resp.data.is_object())
                             return;
@@ -450,10 +445,8 @@ void LedController::discover_wled_strips() {
                                 wled_.set_strip_address(strip_name, addr);
                                 // Attempt to fetch preset names from the WLED device
                                 wled_.fetch_presets_from_device(
-                                    strip_name, [this, strip_name, weak_alive]() {
-                                        auto alive = weak_alive.lock();
-                                        if (!alive || !alive->load())
-                                            return;
+                                    strip_name, [this, strip_name, token]() {
+                                        if (token.expired()) return;
 
                                         // If fetch didn't populate presets (mock/offline), set
                                         // defaults

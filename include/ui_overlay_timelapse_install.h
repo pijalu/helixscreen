@@ -6,7 +6,6 @@
 #include "overlay_base.h"
 
 #include <functional>
-#include <memory>
 #include <string>
 #include <vector>
 
@@ -110,7 +109,6 @@ class TimelapseInstallOverlay : public OverlayBase {
     Step current_step_ = Step::CHECKING_WEBCAM;
     bool wizard_active_ = false;
     std::function<void()> action_callback_;
-    std::shared_ptr<bool> alive_guard_ = std::make_shared<bool>(true);
 };
 
 TimelapseInstallOverlay& get_global_timelapse_install();

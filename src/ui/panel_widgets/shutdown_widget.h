@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include "async_lifetime_guard.h"
 #include "ui_shutdown_modal.h"
 
 #include "panel_widget.h"
@@ -36,8 +37,8 @@ class ShutdownWidget : public PanelWidget {
 
     ShutdownModal shutdown_modal_;
 
-    // Shared flag for async callback safety
-    std::shared_ptr<bool> alive_ = std::make_shared<bool>(false);
+    // Lifetime guard for async callback safety
+    helix::AsyncLifetimeGuard lifetime_;
 
     void handle_click();
     void execute_shutdown();

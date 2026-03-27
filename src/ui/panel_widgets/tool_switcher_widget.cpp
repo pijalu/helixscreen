@@ -40,7 +40,6 @@ ToolSwitcherWidget::ToolSwitcherWidget(PrinterState& printer_state)
     : printer_state_(printer_state) {}
 
 ToolSwitcherWidget::~ToolSwitcherWidget() {
-    *alive_ = false;
     if (s_active_instance == this) {
         s_active_instance = nullptr;
     }
@@ -49,25 +48,24 @@ ToolSwitcherWidget::~ToolSwitcherWidget() {
 void ToolSwitcherWidget::attach(lv_obj_t* widget_obj, lv_obj_t* parent_screen) {
     widget_obj_ = widget_obj;
     parent_screen_ = parent_screen;
-    *alive_ = true;
     s_active_instance = this;
 
     auto& tool_state = ToolState::instance();
-    std::weak_ptr<bool> weak_alive = alive_;
+    auto token = lifetime_.token();
 
     // Observe active tool changes
     active_tool_observer_ = helix::ui::observe_int_sync<ToolSwitcherWidget>(
         tool_state.get_active_tool_subject(), this,
-        [weak_alive](ToolSwitcherWidget* self, int tool) {
-            if (weak_alive.expired()) return;
+        [token](ToolSwitcherWidget* self, int tool) {
+            if (token.expired()) return;
             self->on_active_tool_changed(tool);
         });
 
     // Observe tool count changes to trigger rebuild
     tool_count_observer_ = helix::ui::observe_int_sync<ToolSwitcherWidget>(
         tool_state.get_tool_count_subject(), this,
-        [weak_alive](ToolSwitcherWidget* self, int /*count*/) {
-            if (weak_alive.expired()) return;
+        [token](ToolSwitcherWidget* self, int /*count*/) {
+            if (token.expired()) return;
             if (self->current_colspan_ == 1 && self->current_rowspan_ == 1) {
                 self->rebuild_compact();
             } else {
@@ -81,7 +79,7 @@ void ToolSwitcherWidget::attach(lv_obj_t* widget_obj, lv_obj_t* parent_screen) {
 }
 
 void ToolSwitcherWidget::detach() {
-    *alive_ = false;
+    lifetime_.invalidate();
     dismiss_tool_picker();
     active_tool_observer_.reset();
     tool_count_observer_.reset();

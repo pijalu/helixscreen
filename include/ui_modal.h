@@ -12,6 +12,7 @@
 
 #pragma once
 
+#include "async_lifetime_guard.h"
 #include "lvgl/lvgl.h"
 #include "subject_managed_panel.h"
 
@@ -239,6 +240,11 @@ class Modal {
     lv_obj_t* backdrop_ = nullptr;
     lv_obj_t* dialog_ = nullptr;
     lv_obj_t* parent_ = nullptr;
+
+    /// Async callback safety. Automatically invalidated on hide().
+    /// Subclasses use lifetime_.defer(...) or lifetime_.token() for
+    /// bg-thread callbacks that need to touch UI.
+    helix::AsyncLifetimeGuard lifetime_;
 
     // Helpers
     lv_obj_t* find_widget(const char* name);

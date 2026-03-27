@@ -231,7 +231,6 @@ ThermistorWidget::~ThermistorWidget() {
 void ThermistorWidget::attach(lv_obj_t* widget_obj, lv_obj_t* parent_screen) {
     widget_obj_ = widget_obj;
     parent_screen_ = parent_screen;
-    *alive_ = true;
 
     if (widget_obj_) {
         lv_obj_set_user_data(widget_obj_, this);
@@ -269,11 +268,11 @@ void ThermistorWidget::attach_single() {
         SubjectLifetime lifetime;
         lv_subject_t* subject = tsm.get_temp_subject(selected_sensor_, lifetime);
         if (subject) {
-            std::weak_ptr<bool> weak_alive = alive_;
+            auto token = lifetime_.token();
             temp_observer_ = helix::ui::observe_int_sync<ThermistorWidget>(
                 subject, this,
-                [weak_alive](ThermistorWidget* self, int temp) {
-                    if (weak_alive.expired())
+                [token](ThermistorWidget* self, int temp) {
+                    if (token.expired())
                         return;
                     self->on_temp_changed(temp);
                 },
@@ -295,10 +294,10 @@ void ThermistorWidget::attach_carousel() {
 
     // Observe sensor count to rebind when sensors are discovered
     auto& tsm = helix::sensors::TemperatureSensorManager::instance();
-    std::weak_ptr<bool> weak_alive = alive_;
+    auto token = lifetime_.token();
     version_observer_ = helix::ui::observe_int_sync<ThermistorWidget>(
-        tsm.get_sensor_count_subject(), this, [weak_alive](ThermistorWidget* self, int /*count*/) {
-            if (weak_alive.expired())
+        tsm.get_sensor_count_subject(), this, [token](ThermistorWidget* self, int /*count*/) {
+            if (token.expired())
                 return;
             self->bind_carousel_sensors();
         });
@@ -360,7 +359,7 @@ void ThermistorWidget::bind_carousel_sensors() {
         return;
     }
 
-    std::weak_ptr<bool> weak_alive = alive_;
+    auto token = lifetime_.token();
     const lv_font_t* xs_font = theme_manager_get_font("font_xs");
     lv_color_t text_muted = theme_manager_get_color("text_muted");
 
@@ -437,8 +436,8 @@ void ThermistorWidget::bind_carousel_sensors() {
         if (subject) {
             auto obs = helix::ui::observe_int_sync<ThermistorWidget>(
                 subject, this,
-                [weak_alive, page_idx](ThermistorWidget* self, int centidegrees) {
-                    if (weak_alive.expired())
+                [token, page_idx](ThermistorWidget* self, int centidegrees) {
+                    if (token.expired())
                         return;
                     if (page_idx >= self->carousel_pages_.size())
                         return;
@@ -468,7 +467,7 @@ void ThermistorWidget::bind_carousel_sensors() {
 }
 
 void ThermistorWidget::detach() {
-    *alive_ = false;
+    lifetime_.invalidate();
     dismiss_sensor_picker();
     {
         auto freeze = helix::ui::UpdateQueue::instance().scoped_freeze();
@@ -531,11 +530,11 @@ void ThermistorWidget::select_sensor(const std::string& klipper_name) {
     SubjectLifetime lifetime;
     lv_subject_t* subject = tsm.get_temp_subject(klipper_name, lifetime);
     if (subject) {
-        std::weak_ptr<bool> weak_alive = alive_;
+        auto token = lifetime_.token();
         temp_observer_ = helix::ui::observe_int_sync<ThermistorWidget>(
             subject, this,
-            [weak_alive](ThermistorWidget* self, int temp) {
-                if (weak_alive.expired())
+            [token](ThermistorWidget* self, int temp) {
+                if (token.expired())
                     return;
                 self->on_temp_changed(temp);
             },
@@ -751,8 +750,7 @@ void ThermistorWidget::show_sensor_picker() {
                 if (!name_ptr)
                     return;
 
-                if (ThermistorWidget::s_active_picker_ &&
-                    *ThermistorWidget::s_active_picker_->alive_) {
+                if (ThermistorWidget::s_active_picker_) {
                     std::string sensor_name = *name_ptr;
                     ThermistorWidget::s_active_picker_->select_sensor(sensor_name);
                     ThermistorWidget::s_active_picker_->dismiss_sensor_picker();
@@ -1025,7 +1023,7 @@ void ThermistorWidget::apply_sensor_selection(const std::vector<std::string>& se
 void ThermistorWidget::thermistor_picker_done_cb(lv_event_t* e) {
     LVGL_SAFE_EVENT_CB_BEGIN("[ThermistorWidget] thermistor_picker_done_cb");
     (void)e;
-    if (!s_active_picker_ || !*s_active_picker_->alive_)
+    if (!s_active_picker_)
         return;
 
     auto* self = s_active_picker_;
@@ -1076,7 +1074,7 @@ void ThermistorWidget::thermistor_clicked_cb(lv_event_t* e) {
 void ThermistorWidget::thermistor_picker_backdrop_cb(lv_event_t* e) {
     LVGL_SAFE_EVENT_CB_BEGIN("[ThermistorWidget] thermistor_picker_backdrop_cb");
     (void)e;
-    if (s_active_picker_ && *s_active_picker_->alive_) {
+    if (s_active_picker_) {
         s_active_picker_->dismiss_sensor_picker();
     }
     LVGL_SAFE_EVENT_CB_END();

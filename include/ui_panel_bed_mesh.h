@@ -12,7 +12,6 @@
 #include "subject_managed_panel.h"
 
 #include <array>
-#include <atomic>
 #include <memory>
 #include <string>
 #include <vector>
@@ -174,9 +173,6 @@ class BedMeshPanel : public OverlayBase {
         120000; // load, save_config (Klipper restart)
     static constexpr uint32_t CALIBRATION_TIMEOUT_MS = 300000; // 5 min for BED_MESH_CALIBRATE
 
-    // Destruction flag for async callback safety [L012]
-    // Shared with WebSocket callbacks to detect when panel is destroyed
-    std::shared_ptr<std::atomic<bool>> alive_ = std::make_shared<std::atomic<bool>>(true);
 
     // RAII subscription guard - auto-unsubscribes from Moonraker on destruction
     SubscriptionGuard subscription_;

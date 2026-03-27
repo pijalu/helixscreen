@@ -45,8 +45,7 @@ BeltTensionPanel& get_global_belt_tension_panel() {
 }
 
 BeltTensionPanel::~BeltTensionPanel() {
-    // Signal to async callbacks that this panel is being destroyed
-    alive_->store(false);
+    // lifetime_ destructor auto-invalidates all outstanding tokens
 
     // Deinitialize subjects to disconnect observers before destruction
     if (subjects_initialized_) {
@@ -341,18 +340,18 @@ void BeltTensionPanel::on_activate() {
 
     // Detect hardware capabilities
     if (calibrator_) {
-        auto alive = alive_;
+        auto tok = lifetime_.token();
         calibrator_->detect_hardware(
-            [this, alive](const helix::calibration::BeltTensionHardware& hw) {
-                ui::queue_update([this, alive, hw]() {
-                    if (!alive->load())
+            [this, tok](const helix::calibration::BeltTensionHardware& hw) {
+                ui::queue_update([this, tok, hw]() {
+                    if (tok.expired())
                         return;
                     on_hardware_detected(hw);
                 });
             },
-            [this, alive](const std::string& msg) {
-                ui::queue_update([this, alive, msg]() {
-                    if (!alive->load())
+            [this, tok](const std::string& msg) {
+                ui::queue_update([this, tok, msg]() {
+                    if (tok.expired())
                         return;
                     spdlog::warn("[BeltTension] Hardware detection failed: {}", msg);
                     // Show defaults, user can still try
@@ -384,8 +383,8 @@ void BeltTensionPanel::on_deactivate() {
 void BeltTensionPanel::cleanup() {
     spdlog::debug("[BeltTension] Cleaning up");
 
-    // Signal to async callbacks that this panel is being destroyed
-    alive_->store(false);
+    // Expire all outstanding async tokens
+    lifetime_.invalidate();
 
     // Unregister from NavigationManager
     if (overlay_root_) {
@@ -465,12 +464,12 @@ void BeltTensionPanel::handle_start_clicked() {
     snprintf(progress_label_buf_, sizeof(progress_label_buf_), "Starting measurement...");
     lv_subject_notify(&progress_label_subject_);
 
-    auto alive = alive_;
+    auto tok = lifetime_.token();
     calibrator_->run_auto_sweep(
         // Progress callback
-        [this, alive](int percent) {
-            ui::queue_update([this, alive, percent]() {
-                if (!alive->load())
+        [this, tok](int percent) {
+            ui::queue_update([this, tok, percent]() {
+                if (tok.expired())
                     return;
                 lv_subject_set_int(&progress_subject_, percent);
 
@@ -485,17 +484,17 @@ void BeltTensionPanel::handle_start_clicked() {
             });
         },
         // Complete callback
-        [this, alive](const helix::calibration::BeltTensionResult& result) {
-            ui::queue_update([this, alive, result]() {
-                if (!alive->load())
+        [this, tok](const helix::calibration::BeltTensionResult& result) {
+            ui::queue_update([this, tok, result]() {
+                if (tok.expired())
                     return;
                 on_sweep_complete(result);
             });
         },
         // Error callback
-        [this, alive](const std::string& msg) {
-            ui::queue_update([this, alive, msg]() {
-                if (!alive->load())
+        [this, tok](const std::string& msg) {
+            ui::queue_update([this, tok, msg]() {
+                if (tok.expired())
                     return;
                 on_error(msg);
             });

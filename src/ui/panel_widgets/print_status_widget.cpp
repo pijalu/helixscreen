@@ -74,7 +74,6 @@ void PrintStatusWidget::attach(lv_obj_t* widget_obj, lv_obj_t* parent_screen) {
 
     widget_obj_ = widget_obj;
     parent_screen_ = parent_screen;
-    alive_->store(true);
     live_instances().insert(this);
 
     // Store this pointer for event callback recovery
@@ -156,10 +155,10 @@ void PrintStatusWidget::attach(lv_obj_t* widget_obj, lv_obj_t* parent_screen) {
             });
     }
 
-    // Register history observer to update idle thumbnail when history loads [L072]
-    std::weak_ptr<std::atomic<bool>> weak = alive_;
-    history_changed_cb_ = [this, weak]() {
-        if (weak.expired())
+    // Register history observer to update idle thumbnail when history loads
+    auto token = lifetime_.token();
+    history_changed_cb_ = [this, token]() {
+        if (token.expired())
             return;
         if (!widget_obj_ || !print_card_thumb_)
             return;
@@ -202,8 +201,8 @@ void PrintStatusWidget::detach() {
     // Dismiss any open configure picker
     dismiss_configure_picker();
 
-    // Invalidate alive guard FIRST to abort in-flight async fetches
-    alive_->store(false);
+    // Invalidate lifetime guard FIRST to abort in-flight async fetches
+    lifetime_.invalidate();
     live_instances().erase(this);
 
     // Unregister history observer
@@ -579,15 +578,15 @@ void PrintStatusWidget::reset_print_card_to_idle() {
         return;
     }
 
-    // Use alive guard to prevent use-after-free if widget is destroyed during fetch [L072]
+    // Use lifetime token to prevent use-after-free if widget is destroyed during fetch
     lv_obj_t* thumb_widget = print_card_thumb_;
     lv_obj_t* thumb_compact = print_card_thumb_compact_;
-    std::weak_ptr<std::atomic<bool>> weak_alive = alive_;
+    auto token = lifetime_.token();
 
     get_thumbnail_cache().fetch_optimized(
         api, thumb_rel_path, target,
-        [thumb_widget, thumb_compact, weak_alive](const std::string& lvgl_path) {
-            if (weak_alive.expired())
+        [thumb_widget, thumb_compact, token](const std::string& lvgl_path) {
+            if (token.expired())
                 return;
             helix::ui::queue_update<std::string>(
                 std::make_unique<std::string>(lvgl_path),

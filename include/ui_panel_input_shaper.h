@@ -7,13 +7,13 @@
 
 #include "calibration_types.h" // For InputShaperResult
 #include "input_shaper_calibrator.h"
+#include "async_lifetime_guard.h"
 #include "overlay_base.h"
 #include "platform_capabilities.h"
 #include "subject_managed_panel.h"
 
 #include <algorithm>
 #include <array>
-#include <atomic>
 #include <lvgl.h>
 #include <memory>
 #include <string>
@@ -293,7 +293,7 @@ class InputShaperPanel : public OverlayBase {
     // Calibrate All flow tracking
     bool calibrate_all_mode_ = false; ///< True when doing X+Y sequential calibration
     InputShaperResult x_result_;      ///< Stored X result when doing Calibrate All
-    uint32_t calibration_gen_ = 0;    ///< Generation counter to discard stale callbacks (UI-thread only)
+    helix::AsyncLifetimeGuard calibration_lifetime_; ///< Generation guard to discard stale calibration callbacks
 
     // Results data
     char current_axis_ = 'X';
@@ -352,8 +352,8 @@ class InputShaperPanel : public OverlayBase {
     // Calibrator for delegating operations
     std::unique_ptr<helix::calibration::InputShaperCalibrator> calibrator_;
 
-    // Destruction flag for async callback safety [L012]
-    std::shared_ptr<std::atomic<bool>> alive_ = std::make_shared<std::atomic<bool>>(true);
+    // Async callback safety: destructor auto-invalidates all outstanding tokens
+    helix::AsyncLifetimeGuard lifetime_;
 
   public:
     /**

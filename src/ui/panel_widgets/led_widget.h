@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include "async_lifetime_guard.h"
 #include "ui_observer_guard.h"
 
 #include "panel_widget.h"
@@ -39,7 +40,7 @@ class LedWidget : public PanelWidget {
     lv_obj_t* parent_screen_ = nullptr;
     lv_obj_t* light_icon_ = nullptr;
 
-    std::shared_ptr<bool> alive_ = std::make_shared<bool>(false);
+    helix::AsyncLifetimeGuard lifetime_;
     bool light_on_ = false;
 
     ObserverGuard led_version_observer_;

@@ -79,7 +79,6 @@ void TempGraphWidget::set_config(const nlohmann::json& config) {
 void TempGraphWidget::attach(lv_obj_t* widget_obj, lv_obj_t* parent_screen) {
     widget_obj_ = widget_obj;
     parent_screen_ = parent_screen;
-    alive_ = std::make_shared<bool>(true);
     ++generation_;
 
     // Store self-pointer for click callback routing
@@ -130,9 +129,7 @@ void TempGraphWidget::attach(lv_obj_t* widget_obj, lv_obj_t* parent_screen) {
 }
 
 void TempGraphWidget::detach() {
-    if (alive_) {
-        *alive_ = false;
-    }
+    lifetime_.invalidate();
 
     {
         auto freeze = helix::ui::UpdateQueue::instance().scoped_freeze("TempGraphWidget::detach");
@@ -184,14 +181,14 @@ void TempGraphWidget::on_deactivate() {
 }
 
 bool TempGraphWidget::on_edit_configure() {
-    std::weak_ptr<bool> weak = alive_;
+    auto token = lifetime_.token();
     auto* saved_widget = widget_obj_;
     auto* saved_parent = parent_screen_;
 
     config_modal_ = std::make_unique<TempGraphConfigModal>(
         config_,
-        [this, weak, saved_widget, saved_parent](const nlohmann::json& new_config) {
-            if (weak.expired()) return;
+        [this, token, saved_widget, saved_parent](const nlohmann::json& new_config) {
+            if (token.expired()) return;
             config_ = new_config;
             save_widget_config(config_);
             generation_++;
@@ -299,7 +296,7 @@ void TempGraphWidget::setup_series() {
 
 void TempGraphWidget::setup_observers() {
     auto& ps = get_printer_state();
-    std::weak_ptr<bool> weak_alive = alive_;
+    auto token = lifetime_.token();
     uint32_t gen = generation_;
 
     for (size_t i = 0; i < series_.size(); ++i) {
@@ -334,8 +331,8 @@ void TempGraphWidget::setup_observers() {
             size_t idx = i;
             s.temp_obs = observe_int_sync<TempGraphWidget>(
                 temp_subj, this,
-                [weak_alive, gen, idx](TempGraphWidget* self, int temp_centi) {
-                    if (weak_alive.expired() || gen != self->generation_) return;
+                [token, gen, idx](TempGraphWidget* self, int temp_centi) {
+                    if (token.expired() || gen != self->generation_) return;
                     if (self->paused_ || !self->graph_) return;
 
                     auto& si = self->series_[idx];
@@ -356,8 +353,8 @@ void TempGraphWidget::setup_observers() {
             size_t idx = i;
             s.target_obs = observe_int_sync<TempGraphWidget>(
                 target_subj, this,
-                [weak_alive, gen, idx](TempGraphWidget* self, int target_centi) {
-                    if (weak_alive.expired() || gen != self->generation_) return;
+                [token, gen, idx](TempGraphWidget* self, int target_centi) {
+                    if (token.expired() || gen != self->generation_) return;
                     if (!self->graph_) return;
 
                     auto& si = self->series_[idx];
@@ -375,12 +372,12 @@ void TempGraphWidget::setup_observers() {
     // Observe printer connection state to clear/rebuild on disconnect/reconnect
     auto* conn_subj = ps.get_printer_connection_state_subject();
     if (conn_subj) {
-        std::weak_ptr<bool> weak = alive_;
+        auto conn_token = lifetime_.token();
         uint32_t conn_gen = generation_;
         connection_observer_ = observe_int_sync<TempGraphWidget>(
             conn_subj, this,
-            [weak, conn_gen](TempGraphWidget* self, int state) {
-                if (weak.expired() || conn_gen != self->generation_) return;
+            [conn_token, conn_gen](TempGraphWidget* self, int state) {
+                if (conn_token.expired() || conn_gen != self->generation_) return;
                 if (state == 2) { // Connected
                     spdlog::debug("[TempGraphWidget:{}] Reconnected, rebuilding series",
                                   self->instance_id_);

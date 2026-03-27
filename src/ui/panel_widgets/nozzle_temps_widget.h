@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #pragma once
 
+#include "async_lifetime_guard.h"
 #include "panel_widget.h"
 #include "ui_observer_guard.h"
 
@@ -29,7 +30,7 @@ class NozzleTempsWidget : public PanelWidget {
     PrinterState& printer_state_;
     lv_obj_t* widget_obj_ = nullptr;
     lv_obj_t* parent_screen_ = nullptr;
-    std::shared_ptr<bool> alive_ = std::make_shared<bool>(false);
+    helix::AsyncLifetimeGuard lifetime_;
 
     struct ExtruderRow {
         std::string name;

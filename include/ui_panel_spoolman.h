@@ -79,8 +79,6 @@ class SpoolmanPanel : public OverlayBase {
     // ========== Flags ==========
     bool callbacks_registered_ = false;
 
-    // ========== Async callback guard ==========
-    std::shared_ptr<bool> callback_guard_;
 
     // ========== State ==========
     std::vector<SpoolInfo> cached_spools_;

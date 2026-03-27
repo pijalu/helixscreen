@@ -25,6 +25,7 @@
  * is suppressed.
  */
 
+#include "async_lifetime_guard.h"
 #include "print_start_analyzer.h"
 
 #include <functional>
@@ -138,8 +139,8 @@ class MacroModificationManager {
     std::unique_ptr<ui::MacroEnhanceWizard> wizard_;
     bool analyzing_ = false;
 
-    // === Async callback guard [L012] ===
-    std::shared_ptr<bool> callback_guard_;
+    // === Async callback guard ===
+    helix::AsyncLifetimeGuard lifetime_;
 
     // === Internal Methods ===
 

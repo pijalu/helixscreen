@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include "async_lifetime_guard.h"
 #include "ui_observer_guard.h"
 
 #include "moonraker_api.h"
@@ -92,7 +93,11 @@ class ActivePrintMediaManager {
     bool last_was_empty_ = false; ///< Prevents repeated "empty filename" log spam
     uint32_t thumbnail_load_generation_ = 0;
 
-    /// Alive flag for ThumbnailLoadContext compatibility (always true for singleton)
+    /// Async callback safety guard
+    helix::AsyncLifetimeGuard lifetime_;
+
+    /// Alive flag for ThumbnailLoadContext compatibility (kept until ThumbnailLoadContext
+    /// is migrated to LifetimeToken)
     std::shared_ptr<std::atomic<bool>> alive_ = std::make_shared<std::atomic<bool>>(true);
 };
 

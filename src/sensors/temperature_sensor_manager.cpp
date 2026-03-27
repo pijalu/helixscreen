@@ -230,13 +230,7 @@ void TemperatureSensorManager::update_from_status(const nlohmann::json& status) 
             } else {
                 spdlog::trace(
                     "[TemperatureSensorManager] async_mode: deferring via ui_queue_update");
-                std::weak_ptr<bool> weak = alive_;
-                helix::ui::queue_update([weak] {
-                    if (weak.expired()) {
-                        spdlog::trace("[TemperatureSensorManager] Skipping queued update — "
-                                      "manager shut down");
-                        return;
-                    }
+                lifetime_.defer("TemperatureSensorManager::update_subjects", [] {
                     TemperatureSensorManager::instance().update_subjects_on_main_thread();
                 });
             }
@@ -357,9 +351,9 @@ void TemperatureSensorManager::deinit_subjects() {
     {
         std::lock_guard<std::recursive_mutex> lock(mutex_);
 
-        // Invalidate alive guard FIRST — expires weak_ptrs in queued callbacks
+        // Invalidate lifetime guard FIRST — expires tokens in queued callbacks
         // so they won't access state after we clear it (L072, L054)
-        *alive_ = false;
+        lifetime_.invalidate();
 
         // Clear all collections under mutex to prevent background thread access
         // to stale iterators during shutdown race

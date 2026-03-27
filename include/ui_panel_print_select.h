@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include "async_lifetime_guard.h"
 #include "ui_observer_guard.h"
 #include "ui_panel_base.h"
 #include "ui_plugin_install_modal.h"
@@ -526,9 +527,11 @@ class PrintSelectPanel : public PanelBase {
     /// Observer for PrintHistoryManager - updates file status when history changes
     helix::HistoryChangedCallback history_observer_;
 
-    /// Destruction flag for async callback safety [L012]
-    /// Shared pointer allows callbacks to check if panel is still alive
-    std::shared_ptr<std::atomic<bool>> alive_ = std::make_shared<std::atomic<bool>>(true);
+    /// Guards async API callbacks from accessing a destroyed instance
+    helix::AsyncLifetimeGuard lifetime_;
+
+    /// Compatibility alive flag for ThumbnailLoadContext (which uses shared_ptr<atomic<bool>> API)
+    std::shared_ptr<std::atomic<bool>> thumbnail_alive_ = std::make_shared<std::atomic<bool>>(true);
 
     /// Navigation generation counter: incremented on each directory change.
     /// Metadata callbacks capture the current value and discard results

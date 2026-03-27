@@ -15,8 +15,7 @@
 using json = nlohmann::json;
 
 AmsBackendAd5xIfs::AmsBackendAd5xIfs(MoonrakerAPI* api, helix::MoonrakerClient* client)
-    : AmsSubscriptionBackend(api, client),
-      alive_(std::make_shared<std::atomic<bool>>(true)) {
+    : AmsSubscriptionBackend(api, client) {
     // Fill tool map with UNMAPPED_PORT
     tool_map_.fill(UNMAPPED_PORT);
     port_presence_.fill(false);
@@ -39,7 +38,7 @@ AmsBackendAd5xIfs::AmsBackendAd5xIfs(MoonrakerAPI* api, helix::MoonrakerClient* 
 }
 
 AmsBackendAd5xIfs::~AmsBackendAd5xIfs() {
-    alive_->store(false);
+    // lifetime_ destructor calls invalidate() automatically
 }
 
 // --- Lifecycle ---
@@ -48,7 +47,7 @@ void AmsBackendAd5xIfs::on_started() {
     // Query initial state from printer
     if (!client_) return;
 
-    auto alive = alive_;
+    auto token = lifetime_.token();
     client_->send_jsonrpc(
         "printer.objects.query",
         json{{"objects", json{
@@ -63,8 +62,8 @@ void AmsBackendAd5xIfs::on_started() {
             // Native ZMOD IFS: single motion sensor (replaces per-port sensors)
             {"filament_motion_sensor ifs_motion_sensor", nullptr}
         }}},
-        [this, alive](const json& response) {
-            if (!alive->load()) return;
+        [this, token](const json& response) {
+            if (token.expired()) return;
             if (response.contains("result") && response["result"].contains("status")) {
                 handle_status_update(response["result"]["status"]);
             }
@@ -662,13 +661,13 @@ AmsError AmsBackendAd5xIfs::ensure_homed_then(std::string gcode) {
         return execute_gcode(gcode);
     }
 
-    auto alive = alive_;
+    auto token = lifetime_.token();
     auto gcode_copy = std::move(gcode);
     client_->send_jsonrpc(
         "printer.objects.query",
         json{{"objects", json{{"toolhead", json::array({"homed_axes"})}}}},
-        [this, alive, gcode_copy](const json& response) {
-            if (!alive->load()) return;
+        [this, token, gcode_copy](const json& response) {
+            if (token.expired()) return;
 
             bool needs_home = true;
             if (response.contains("result") && response["result"].contains("status")) {
@@ -685,14 +684,14 @@ AmsError AmsBackendAd5xIfs::ensure_homed_then(std::string gcode) {
                 spdlog::info("{} Not homed, sending G28 before operation", backend_log_tag());
                 api_->execute_gcode(
                     "G28",
-                    [this, alive, gcode_copy]() {
-                        if (!alive->load()) return;
+                    [this, token, gcode_copy]() {
+                        if (token.expired()) return;
                         spdlog::info("{} Homing complete, proceeding with: {}",
                                      backend_log_tag(), gcode_copy);
                         execute_gcode(gcode_copy);
                     },
-                    [this, alive](const MoonrakerError& err) {
-                        if (!alive->load()) return;
+                    [this, token](const MoonrakerError& err) {
+                        if (token.expired()) return;
                         spdlog::error("{} Homing failed: {}", backend_log_tag(), err.message);
                         std::lock_guard<std::mutex> lock(mutex_);
                         system_info_.action = AmsAction::IDLE;

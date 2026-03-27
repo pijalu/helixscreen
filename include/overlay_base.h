@@ -65,6 +65,7 @@
 
 #pragma once
 
+#include "async_lifetime_guard.h"
 #include "lvgl/lvgl.h"
 #include "panel_lifecycle.h"
 
@@ -259,6 +260,11 @@ class OverlayBase : public IPanelLifecycle {
     bool subjects_initialized_ = false; ///< True after init_subjects() called
     bool visible_ = false;              ///< True when overlay is visible
     bool cleanup_called_ = false;       ///< True after cleanup() called
+
+    /// Async callback safety. Automatically invalidated on cleanup()/on_deactivate().
+    /// Subclasses use lifetime_.defer(...) or lifetime_.token() for
+    /// bg-thread callbacks that need to touch UI.
+    helix::AsyncLifetimeGuard lifetime_;
 
     /**
      * @brief Called after widget tree is destroyed by destroy_overlay_ui()

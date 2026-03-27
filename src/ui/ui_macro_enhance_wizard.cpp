@@ -23,14 +23,13 @@ bool MacroEnhanceWizard::callbacks_registered_ = false;
 // Construction / Destruction
 // ============================================================================
 
-MacroEnhanceWizard::MacroEnhanceWizard() : callback_guard_(std::make_shared<bool>(true)) {
+MacroEnhanceWizard::MacroEnhanceWizard() {
     init_subjects();
     register_callbacks();
     spdlog::debug("[MacroEnhanceWizard] Constructed");
 }
 
 MacroEnhanceWizard::~MacroEnhanceWizard() {
-    *callback_guard_ = false;
     if (subjects_initialized_ && lv_is_initialized()) {
         lv_subject_deinit(&step_title_subject_);
         lv_subject_deinit(&step_progress_subject_);
@@ -159,9 +158,6 @@ bool MacroEnhanceWizard::show(lv_obj_t* parent) {
     state_ = MacroEnhanceState::OPERATION;
     current_op_index_ = 0;
     enhancements_.clear();
-
-    // Reset callback guard
-    callback_guard_ = std::make_shared<bool>(true);
 
     // Initialize subjects BEFORE Modal::show() calls lv_xml_create() [L004]
     // XML bindings like bind_text="macro_enhance_step_title" require subjects to exist
@@ -519,72 +515,40 @@ void MacroEnhanceWizard::apply_enhancements() {
     // TODO: Pass create_backup to enhancer when API supports it
     (void)create_backup;
 
-    auto guard = callback_guard_;
-
-    // Async context structures for thread-safe callbacks [L012]
-    // Uses weak_ptr to safely check if wizard is still valid
-    struct AsyncProgressCtx {
-        std::weak_ptr<bool> guard;
-        MacroEnhanceWizard* wizard;
-        std::string message;
-    };
-    struct AsyncSuccessCtx {
-        std::weak_ptr<bool> guard;
-        MacroEnhanceWizard* wizard;
-        size_t count;
-        std::string backup;
-    };
-    struct AsyncErrorCtx {
-        std::weak_ptr<bool> guard;
-        MacroEnhanceWizard* wizard;
-        std::string message;
-    };
+    auto token = lifetime_.token();
 
     // Apply enhancements using PrintStartEnhancer
     enhancer_.apply_enhancements(
         api_, analysis_.macro_name, analysis_.source_file, approved,
         // Progress callback
-        [this, guard](const std::string& step, int /*current*/, int /*total*/) {
-            if (!*guard) {
-                return;
-            }
-            auto ctx = std::make_unique<AsyncProgressCtx>(AsyncProgressCtx{guard, this, step});
-            helix::ui::queue_update<AsyncProgressCtx>(std::move(ctx), [](AsyncProgressCtx* c) {
-                // Check guard in main thread [SERIOUS-5: Thread safety]
-                auto guard_locked = c->guard.lock();
-                if (guard_locked && *guard_locked && c->wizard->is_visible()) {
-                    c->wizard->show_applying(c->message);
+        [this, token](const std::string& step, int /*current*/, int /*total*/) {
+            if (token.expired()) return;
+            lifetime_.defer("MacroEnhanceWizard::progress", [this, step]() {
+                if (is_visible()) {
+                    show_applying(step);
                 }
             });
         },
         // Success callback
-        [this, guard, approved_count = approved.size()](const helix::EnhancementResult& result) {
-            if (!*guard) {
-                return;
-            }
-            auto ctx = std::make_unique<AsyncSuccessCtx>(
-                AsyncSuccessCtx{guard, this, approved_count, result.backup_filename});
-            helix::ui::queue_update<AsyncSuccessCtx>(std::move(ctx), [](AsyncSuccessCtx* c) {
-                auto guard_locked = c->guard.lock();
-                if (guard_locked && *guard_locked && c->wizard->is_visible()) {
-                    std::string msg = "Successfully enhanced " + std::to_string(c->count) +
-                                      " operation(s).\n\nBackup: " + c->backup +
+        [this, token, approved_count = approved.size()](const helix::EnhancementResult& result) {
+            if (token.expired()) return;
+            auto backup = result.backup_filename;
+            lifetime_.defer("MacroEnhanceWizard::success", [this, approved_count, backup]() {
+                if (is_visible()) {
+                    std::string msg = "Successfully enhanced " + std::to_string(approved_count) +
+                                      " operation(s).\n\nBackup: " + backup +
                                       "\n\nKlipper is restarting...";
-                    c->wizard->show_success(msg);
+                    show_success(msg);
                 }
             });
         },
         // Error callback
-        [this, guard](const MoonrakerError& err) {
-            if (!*guard) {
-                return;
-            }
-            auto ctx =
-                std::make_unique<AsyncErrorCtx>(AsyncErrorCtx{guard, this, err.user_message()});
-            helix::ui::queue_update<AsyncErrorCtx>(std::move(ctx), [](AsyncErrorCtx* c) {
-                auto guard_locked = c->guard.lock();
-                if (guard_locked && *guard_locked && c->wizard->is_visible()) {
-                    c->wizard->show_error(c->message);
+        [this, token](const MoonrakerError& err) {
+            if (token.expired()) return;
+            auto msg = err.user_message();
+            lifetime_.defer("MacroEnhanceWizard::error", [this, msg]() {
+                if (is_visible()) {
+                    show_error(msg);
                 }
             });
         });

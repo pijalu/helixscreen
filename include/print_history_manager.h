@@ -3,10 +3,10 @@
 
 #pragma once
 
+#include "async_lifetime_guard.h"
 #include "print_history_data.h"
 
 #include <functional>
-#include <memory>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -225,7 +225,7 @@ class PrintHistoryManager {
     bool is_loaded_ = false;
     bool is_fetching_ = false;
 
-    /// Guard for async callback safety [L012]
+    /// Guard for async callback safety
     /// Prevents use-after-free when callbacks fire after destruction
-    std::shared_ptr<bool> callback_guard_ = std::make_shared<bool>(true);
+    helix::AsyncLifetimeGuard lifetime_;
 };

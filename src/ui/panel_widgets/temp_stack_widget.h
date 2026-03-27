@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include "async_lifetime_guard.h"
 #include "ui_heating_animator.h"
 #include "ui_observer_guard.h"
 
@@ -49,7 +50,7 @@ class TempStackWidget : public PanelWidget {
     int cached_bed_temp_ = 25;
     int cached_bed_target_ = 0;
 
-    std::shared_ptr<bool> alive_ = std::make_shared<bool>(false);
+    helix::AsyncLifetimeGuard lifetime_;
     bool long_pressed_ = false;
 
     // Observers

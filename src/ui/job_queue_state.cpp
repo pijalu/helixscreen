@@ -7,7 +7,6 @@
 #include "moonraker_client.h"
 #include "static_subject_registry.h"
 #include "subject_debug_registry.h"
-#include "ui_update_queue.h"
 
 #include <spdlog/spdlog.h>
 
@@ -25,8 +24,7 @@ JobQueueState::JobQueueState(MoonrakerAPI* api, helix::MoonrakerClient* client)
 }
 
 JobQueueState::~JobQueueState() {
-    // Invalidate callback guard so in-flight async callbacks become no-ops
-    *callback_guard_ = false;
+    // lifetime_ destructor calls invalidate() automatically
 
     if (client_) {
         client_->unregister_method_callback("notify_job_queue_changed", "JobQueueState");
@@ -83,16 +81,15 @@ void JobQueueState::fetch() {
     if (is_fetching_ || !api_) return;
     is_fetching_ = true;
 
-    auto guard = callback_guard_;
+    auto token = lifetime_.token();
     api_->queue().get_queue_status(
-        [this, guard](const JobQueueStatus& status) {
-            if (!*guard) return;
+        [this, token](const JobQueueStatus& status) {
+            if (token.expired()) return;
             on_queue_fetched(status);
         },
-        [this, guard](const MoonrakerError& err) {
-            if (!*guard) return;
-            helix::ui::queue_update([this, guard, msg = err.message]() {
-                if (!*guard) return;
+        [this, token](const MoonrakerError& err) {
+            if (token.expired()) return;
+            lifetime_.defer("JobQueueState::fetch_error", [this, msg = err.message]() {
                 is_fetching_ = false;
                 spdlog::warn("[JobQueueState] Fetch failed: {}", msg);
             });
@@ -104,9 +101,7 @@ void JobQueueState::on_queue_fetched(const JobQueueStatus& status) {
     // Use queue_update to marshal onto the LVGL main thread.
     // Guard must be captured into the lambda to prevent use-after-free
     // if JobQueueState is destroyed before the queued update executes.
-    auto guard = callback_guard_;
-    helix::ui::queue_update([this, guard, status]() {
-        if (!*guard) return;
+    lifetime_.defer("JobQueueState::on_queue_fetched", [this, status]() {
         cached_jobs_ = status.queued_jobs;
         queue_state_ = status.queue_state;
         is_loaded_ = true;
@@ -145,10 +140,10 @@ void JobQueueState::update_subjects() {
 void JobQueueState::subscribe_to_notifications() {
     if (!client_) return;
 
-    auto guard = callback_guard_;
+    auto token = lifetime_.token();
     client_->register_method_callback(
-        "notify_job_queue_changed", "JobQueueState", [this, guard](const nlohmann::json& /*data*/) {
-            if (!*guard) return;
+        "notify_job_queue_changed", "JobQueueState", [this, token](const nlohmann::json& /*data*/) {
+            if (token.expired()) return;
             // Re-fetch full queue status on any change notification
             fetch();
         });

@@ -145,11 +145,11 @@ bool AmsEditModal::show_for_slot(lv_obj_t* parent, int slot_index, const SlotInf
     // so the form shows current Spoolman state, not stale backend data
     if (working_info_.spoolman_id > 0 && api_) {
         const int spool_id = working_info_.spoolman_id;
-        std::weak_ptr<bool> guard = callback_guard_;
+        auto token = lifetime_.token();
         api_->spoolman().get_spoolman_spool(
             spool_id,
-            [this, guard, spool_id](const std::optional<SpoolInfo>& spool) {
-                if (!spool)
+            [this, token, spool_id](const std::optional<SpoolInfo>& spool) {
+                if (!spool || token.expired())
                     return;
                 // Capture Spoolman's authoritative data for the spool
                 int fetched_filament_id = spool->filament_id;
@@ -157,12 +157,10 @@ bool AmsEditModal::show_for_slot(lv_obj_t* parent, int slot_index, const SlotInf
                 std::string fetched_vendor = spool->vendor;
                 std::string fetched_material = spool->material;
                 std::string fetched_color_hex = spool->color_hex;
-                helix::ui::queue_update([this, guard, spool_id, fetched_filament_id,
+                lifetime_.defer([this, spool_id, fetched_filament_id,
                                          fetched_vendor_id, fetched_vendor = std::move(fetched_vendor),
                                          fetched_material = std::move(fetched_material),
                                          fetched_color_hex = std::move(fetched_color_hex)]() {
-                    if (guard.expired())
-                        return;
                     if (fetched_filament_id > 0) {
                         original_info_.spoolman_filament_id = fetched_filament_id;
                         working_info_.spoolman_filament_id = fetched_filament_id;
@@ -219,9 +217,6 @@ bool AmsEditModal::show_for_slot(lv_obj_t* parent, int slot_index, const SlotInf
 // ============================================================================
 
 void AmsEditModal::on_show() {
-    // Create callback guard for async operations [L012]
-    callback_guard_ = std::make_shared<bool>(true);
-
     // Fetch vendor list from Spoolman (async, will update dropdown when ready)
     fetch_vendors_from_spoolman();
 
@@ -274,9 +269,6 @@ void AmsEditModal::on_show() {
 void AmsEditModal::on_hide() {
     // Clear static active instance
     s_active_instance_ = nullptr;
-
-    // Invalidate callback guard to prevent async callbacks from using stale 'this' [L012]
-    callback_guard_.reset();
 
     // Check if LVGL is initialized - may be called from destructor during static destruction
     if (!lv_is_initialized()) {
@@ -387,12 +379,12 @@ void AmsEditModal::fetch_vendors_from_spoolman() {
         return;
     }
 
-    // Capture callback guard for async safety [L012]
-    std::weak_ptr<bool> guard = callback_guard_;
+    auto token = lifetime_.token();
 
     // Use dedicated vendor endpoint instead of downloading all spools
     api_->spoolman().get_spoolman_vendors(
-        [this, guard](const std::vector<VendorInfo>& vendors_result) {
+        [this, token](const std::vector<VendorInfo>& vendors_result) {
+            if (token.expired()) return;
             // Build vendor list on background thread, then marshal to main
             std::set<std::string> unique_vendors;
             unique_vendors.insert("Generic"); // Always have Generic as first option
@@ -426,11 +418,8 @@ void AmsEditModal::fetch_vendors_from_spoolman() {
             }
 
             // Marshal member writes to main thread
-            helix::ui::queue_update([this, guard, vendors = std::move(vendors),
+            lifetime_.defer([this, vendors = std::move(vendors),
                                      options = std::move(options)]() mutable {
-                if (guard.expired()) {
-                    return;
-                }
                 vendor_list_ = std::move(vendors);
                 vendor_options_ = std::move(options);
                 vendors_loaded_ = true;
@@ -482,9 +471,8 @@ void AmsEditModal::switch_to_picker() {
         spdlog::warn("[AmsEditModal] switch_to_picker() aborted: subjects not initialized");
         return;
     }
-    spdlog::debug("[AmsEditModal] Switching to picker view (dialog_={}, api_={}, guard={})",
-                  static_cast<void*>(dialog_), static_cast<void*>(api_),
-                  callback_guard_ ? "valid" : "null");
+    spdlog::debug("[AmsEditModal] Switching to picker view (dialog_={}, api_={})",
+                  static_cast<void*>(dialog_), static_cast<void*>(api_));
     lv_subject_set_int(&view_mode_subject_, 1);
     populate_picker();
 }
@@ -509,12 +497,6 @@ void AmsEditModal::populate_picker() {
         return;
     }
 
-    if (!callback_guard_) {
-        spdlog::warn("[AmsEditModal] populate_picker() aborted: callback_guard_ is null");
-        lv_subject_set_int(&picker_state_subject_, 1);
-        return;
-    }
-
     // Show loading state
     lv_subject_set_int(&picker_state_subject_, 0);
 
@@ -524,19 +506,15 @@ void AmsEditModal::populate_picker() {
         lv_textarea_set_text(search, "");
     }
 
-    // Use weak_ptr pattern for async callback safety [L012]
-    std::weak_ptr<bool> weak_guard = callback_guard_;
+    auto token = lifetime_.token();
 
     spdlog::debug("[AmsEditModal] populate_picker() fetching spools from Spoolman...");
 
     api_->spoolman().get_spoolman_spools(
-        [this, weak_guard](const std::vector<SpoolInfo>& spools) {
+        [this, token](const std::vector<SpoolInfo>& spools) {
+            if (token.expired()) return;
             spdlog::debug("[AmsEditModal] Spoolman returned {} spools", spools.size());
-            helix::ui::queue_update([this, weak_guard, spools]() {
-                if (weak_guard.expired()) {
-                    spdlog::warn("[AmsEditModal] populate_picker callback dropped: guard expired");
-                    return;
-                }
+            lifetime_.defer([this, spools]() {
                 if (!dialog_) {
                     spdlog::warn("[AmsEditModal] populate_picker callback dropped: dialog_ null");
                     return;
@@ -557,13 +535,13 @@ void AmsEditModal::populate_picker() {
                 render_spool_list("");
             });
         },
-        [this, weak_guard](const MoonrakerError& err) {
+        [this, token](const MoonrakerError& err) {
             spdlog::warn("[AmsEditModal] Spoolman fetch error: {}", err.message);
-            helix::ui::queue_update([this, weak_guard, msg = err.message]() {
-                if (weak_guard.expired() || !dialog_ || !subjects_initialized_) {
-                    spdlog::warn("[AmsEditModal] Error callback dropped: guard={}, dialog_={}, "
+            lifetime_.defer([this, msg = err.message]() {
+                if (!dialog_ || !subjects_initialized_) {
+                    spdlog::warn("[AmsEditModal] Error callback dropped: dialog_={}, "
                                  "subjects={}",
-                                 !weak_guard.expired(), static_cast<void*>(dialog_),
+                                 static_cast<void*>(dialog_),
                                  subjects_initialized_);
                     return;
                 }
@@ -718,11 +696,11 @@ void AmsEditModal::handle_unlink() {
 void AmsEditModal::handle_scan_qr() {
     spdlog::info("[AmsEditModal] Scan QR requested for slot {}", slot_index_);
 
-    auto guard = callback_guard_;
+    auto token = lifetime_.token();
     auto& scanner = helix::ui::get_qr_scanner_overlay();
     scanner.show(dialog(), slot_index_,
-        [this, guard](const SpoolInfo& spool) {
-            if (!guard || !*guard) return;
+        [this, token](const SpoolInfo& spool) {
+            if (token.expired()) return;
 
             // Add scanned spool to cache so handle_spool_selected() finds it
             cached_spools_.push_back(spool);
@@ -1253,18 +1231,18 @@ void AmsEditModal::handle_save() {
     // If slot was unlinked from Spoolman, clear active spool on server
     if (original_info_.spoolman_id > 0 && working_info_.spoolman_id == 0 && api_) {
         spdlog::info("[AmsEditModal] Spool unlinked — clearing active spool on server");
-        std::weak_ptr<bool> guard = callback_guard_;
+        auto token = lifetime_.token();
         api_->spoolman().set_active_spool(
             0,
-            [this, guard]() {
-                helix::ui::queue_update([this, guard]() {
-                    if (guard.expired()) return;
+            [this, token]() {
+                if (token.expired()) return;
+                lifetime_.defer([this]() {
                     fire_completion(true);
                 });
             },
-            [this, guard](const MoonrakerError& err) {
-                helix::ui::queue_update([this, guard, err]() {
-                    if (guard.expired()) return;
+            [this, token](const MoonrakerError& err) {
+                if (token.expired()) return;
+                lifetime_.defer([this, err]() {
                     spdlog::warn("[AmsEditModal] Failed to clear active spool: {}", err.message);
                     fire_completion(true); // Still save locally
                 });
@@ -1276,18 +1254,15 @@ void AmsEditModal::handle_save() {
     if (working_info_.spoolman_id > 0 && api_) {
         auto changes = helix::SpoolmanSlotSaver::detect_changes(original_info_, working_info_);
         if (changes.any()) {
-            std::weak_ptr<bool> guard = callback_guard_;
+            auto token = lifetime_.token();
             auto saver = std::make_shared<helix::SpoolmanSlotSaver>(api_);
-            saver->save(original_info_, working_info_, [this, guard, saver](bool success) {
-                if (guard.expired()) {
+            saver->save(original_info_, working_info_, [this, token, saver](bool success) {
+                if (token.expired()) {
                     return;
                 }
                 // Spoolman callback arrives on a background thread — defer
                 // to the UI thread before touching LVGL subjects/widgets.
-                helix::ui::queue_update([this, guard, success]() {
-                    if (guard.expired()) {
-                        return;
-                    }
+                lifetime_.defer([this, success]() {
                     if (!success) {
                         spdlog::error("[AmsEditModal] Spoolman save failed, saving locally");
                         ToastManager::instance().show(

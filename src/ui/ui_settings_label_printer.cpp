@@ -140,7 +140,6 @@ LabelPrinterSettingsOverlay::LabelPrinterSettingsOverlay() {
 }
 
 LabelPrinterSettingsOverlay::~LabelPrinterSettingsOverlay() {
-    alive_->store(false);
     stop_label_printer_discovery();
     stop_usb_detection();
     stop_bt_discovery();
@@ -451,10 +450,10 @@ void LabelPrinterSettingsOverlay::start_label_printer_discovery() {
     // Start raw TCP discovery (_pdl-datastream._tcp)
     if (!mdns_discovery_ || !mdns_discovery_->is_discovering()) {
         mdns_discovery_ = std::make_unique<MdnsDiscovery>("_pdl-datastream._tcp.local");
-        auto alive = alive_;
+        auto token = lifetime_.token();
         mdns_discovery_->start_discovery(
-            [this, alive](const std::vector<DiscoveredPrinter>& printers) {
-                if (!alive->load()) return;
+            [this, token](const std::vector<DiscoveredPrinter>& printers) {
+                if (token.expired()) return;
                 raw_printers_ = printers;
                 merge_and_update_discovery();
             });
@@ -463,10 +462,10 @@ void LabelPrinterSettingsOverlay::start_label_printer_discovery() {
     // Start IPP discovery (_ipp._tcp)
     if (!ipp_mdns_discovery_ || !ipp_mdns_discovery_->is_discovering()) {
         ipp_mdns_discovery_ = std::make_unique<MdnsDiscovery>("_ipp._tcp.local");
-        auto alive = alive_;
+        auto token = lifetime_.token();
         ipp_mdns_discovery_->start_discovery(
-            [this, alive](const std::vector<DiscoveredPrinter>& printers) {
-                if (!alive->load()) return;
+            [this, token](const std::vector<DiscoveredPrinter>& printers) {
+                if (token.expired()) return;
                 ipp_printers_ = printers;
                 merge_and_update_discovery();
             });
@@ -796,9 +795,9 @@ void LabelPrinterSettingsOverlay::start_usb_detection() {
         return;
 
     usb_detector_ = std::make_unique<helix::UsbPrinterDetector>();
-    auto alive = alive_;
-    usb_detector_->start_polling([this, alive](const std::vector<helix::UsbPrinterInfo>& printers) {
-        if (!alive->load())
+    auto token = lifetime_.token();
+    usb_detector_->start_polling([this, token](const std::vector<helix::UsbPrinterInfo>& printers) {
+        if (token.expired())
             return;
         on_usb_printers_detected(printers);
     });
@@ -1002,8 +1001,8 @@ void LabelPrinterSettingsOverlay::handle_test_print() {
 
     ToastManager::instance().show(ToastSeverity::INFO, lv_tr("Printing test label..."), 2000);
 
-    auto alive = alive_;
-    helix::print_spool_label(mock_spool, [alive](bool success, const std::string& error) {
+    auto token = lifetime_.token();
+    helix::print_spool_label(mock_spool, [token](bool success, const std::string& error) {
         if (success) {
             ToastManager::instance().show(ToastSeverity::SUCCESS, lv_tr("Test label printed"),
                                           2000);
@@ -1013,7 +1012,7 @@ void LabelPrinterSettingsOverlay::handle_test_print() {
         }
 
         // Re-enable test print button via subject
-        if (alive->load()) {
+        if (!token.expired()) {
             get_label_printer_settings_overlay().test_printing_subject_set(0);
         }
     });
@@ -1082,18 +1081,18 @@ void LabelPrinterSettingsOverlay::init_bt_printer_dropdown() {
             bt_ctx_ = loader.init();
         }
         if (bt_ctx_ && loader.is_paired) {
-            auto alive = alive_;
+            auto bt_token = lifetime_.token();
             auto* ctx = bt_ctx_;
             std::string addr = saved_addr;
-            std::thread([alive, ctx, addr]() {
+            std::thread([bt_token, ctx, addr]() {
                 auto& ldr = helix::bluetooth::BluetoothLoader::instance();
                 int paired_r = ldr.is_paired ? ldr.is_paired(ctx, addr.c_str()) : -1;
                 bool connected = check_bt_connected(ctx, addr);
                 spdlog::debug("[Label Printer] Async BT state: is_paired={} connected={}",
                               paired_r, connected);
 
-                helix::ui::queue_update([alive, paired_r, connected, addr]() {
-                    if (!alive->load())
+                helix::ui::queue_update([bt_token, paired_r, connected, addr]() {
+                    if (bt_token.expired())
                         return;
                     auto& ov = get_label_printer_settings_overlay();
                     for (auto& dev : ov.bt_devices_) {
@@ -1184,10 +1183,10 @@ void LabelPrinterSettingsOverlay::start_bt_discovery() {
 
     auto* disc_ctx = bt_discovery_ctx_.get();
     auto* ctx = bt_ctx_;
-    auto alive = alive_;
+    auto token = lifetime_.token();
 
     // Run discovery on a detached thread
-    std::thread([ctx, disc_ctx, alive, &loader]() {
+    std::thread([ctx, disc_ctx, token, &loader]() {
         loader.discover(
             ctx, 15000,
             [](const helix_bt_device* dev, void* user_data) {
@@ -1247,8 +1246,8 @@ void LabelPrinterSettingsOverlay::start_bt_discovery() {
             disc_ctx);
 
         // Discovery completed (timeout or stopped)
-        helix::ui::queue_update([disc_ctx, alive]() {
-            if (!alive->load())
+        helix::ui::queue_update([disc_ctx, token]() {
+            if (token.expired())
                 return;
             if (!disc_ctx->alive.load())
                 return;
@@ -1473,10 +1472,10 @@ void LabelPrinterSettingsOverlay::handle_bt_connect() {
             lv_obj_add_state(btn, LV_STATE_DISABLED);
     }
 
-    auto alive = alive_;
+    auto token = lifetime_.token();
     auto* ctx = bt_ctx_;
 
-    std::thread([mac, ctx, alive]() {
+    std::thread([mac, ctx, token]() {
         auto& ldr = helix::bluetooth::BluetoothLoader::instance();
         auto* init_ctx = ctx;
         int ret = -1;
@@ -1517,8 +1516,8 @@ void LabelPrinterSettingsOverlay::handle_bt_connect() {
             paired_ok = (ldr.is_paired(init_ctx, mac.c_str()) == 1);
         }
 
-        helix::ui::queue_update([mac, paired_ok, connected, alive]() {
-            if (!alive->load())
+        helix::ui::queue_update([mac, paired_ok, connected, token]() {
+            if (token.expired())
                 return;
 
             auto& ov = get_label_printer_settings_overlay();
@@ -1603,10 +1602,10 @@ void LabelPrinterSettingsOverlay::on_pair_confirm(lv_event_t* e) {
 
     ToastManager::instance().show(ToastSeverity::INFO, lv_tr("Pairing..."), 5000);
 
-    auto alive = overlay.alive_;
+    auto token = overlay.lifetime_.token();
 
     // Pair on a detached thread
-    std::thread([mac, bt_ctx, alive]() {
+    std::thread([mac, bt_ctx, token, &overlay]() {
         auto& ldr = helix::bluetooth::BluetoothLoader::instance();
         int ret = ldr.pair(bt_ctx, mac.c_str());
 
@@ -1621,8 +1620,8 @@ void LabelPrinterSettingsOverlay::on_pair_confirm(lv_event_t* e) {
                          paired_r, connected);
         }
 
-        helix::ui::queue_update([ret, mac, alive, bt_ctx, paired_r, connected]() {
-            if (!alive->load())
+        helix::ui::queue_update([ret, mac, token, bt_ctx, paired_r, connected]() {
+            if (token.expired())
                 return;
 
             if (ret == 0) {

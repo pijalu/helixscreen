@@ -130,7 +130,6 @@ PrintStatsWidget::~PrintStatsWidget() {
 void PrintStatsWidget::attach(lv_obj_t* widget_obj, lv_obj_t* parent_screen) {
     widget_obj_ = widget_obj;
     parent_screen_ = parent_screen;
-    *alive_ = true;
     lv_obj_set_user_data(widget_obj_, this);
 
     // Pressed feedback: dim on touch
@@ -142,9 +141,9 @@ void PrintStatsWidget::attach(lv_obj_t* widget_obj, lv_obj_t* parent_screen) {
     // silently dropped. Data loading is deferred to on_activate().
     auto* hm = get_print_history_manager();
     if (hm) {
-        std::weak_ptr<bool> weak = alive_;
-        history_observer_ = [this, weak]() {
-            if (weak.expired())
+        auto token = lifetime_.token();
+        history_observer_ = [this, token]() {
+            if (token.expired())
                 return;
             update_stats();
         };
@@ -163,24 +162,24 @@ void PrintStatsWidget::on_activate() {
         update_stats();
     } else {
         // Defer fetch to next tick so it runs outside any ScopedFreeze
-        std::weak_ptr<bool> weak = alive_;
+        auto token = lifetime_.token();
         lv_async_call(
             [](void* ctx) {
-                auto weak_ptr = static_cast<std::weak_ptr<bool>*>(ctx);
-                if (!weak_ptr->expired()) {
+                auto token_ptr = static_cast<helix::LifetimeToken*>(ctx);
+                if (!token_ptr->expired()) {
                     auto* history = get_print_history_manager();
                     if (history && !history->is_loaded()) {
                         history->fetch();
                     }
                 }
-                delete weak_ptr;
+                delete token_ptr;
             },
-            new std::weak_ptr<bool>(weak));
+            new helix::LifetimeToken(token));
     }
 }
 
 void PrintStatsWidget::detach() {
-    *alive_ = false;
+    lifetime_.invalidate();
     if (auto* hm = get_print_history_manager()) {
         hm->remove_observer(&history_observer_);
     }

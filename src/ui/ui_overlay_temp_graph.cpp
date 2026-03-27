@@ -26,6 +26,7 @@
 
 #include <algorithm>
 #include <chrono>
+#include <optional>
 
 using helix::ui::observe_int_sync;
 using helix::ui::temperature::centi_to_degrees_f;
@@ -128,7 +129,6 @@ lv_obj_t* TempGraphOverlay::create(lv_obj_t* parent) {
 
 void TempGraphOverlay::on_activate() {
     OverlayBase::on_activate();
-    *alive_ = true;
 
     // Resolve dependencies
     printer_state_ = &get_printer_state();
@@ -177,7 +177,7 @@ void TempGraphOverlay::on_activate() {
 }
 
 void TempGraphOverlay::on_deactivate() {
-    *alive_ = false;
+    OverlayBase::on_deactivate();
     teardown_observers();
 
     // Destroy graph (will be recreated on next activate)
@@ -469,7 +469,7 @@ void TempGraphOverlay::update_chip_style(size_t series_idx) {
 void TempGraphOverlay::setup_observers() {
     if (!printer_state_) return;
 
-    std::weak_ptr<bool> weak_alive = alive_;
+    auto token = lifetime_.token();
 
     for (size_t i = 0; i < series_.size(); ++i) {
         auto& s = series_[i];
@@ -505,8 +505,8 @@ void TempGraphOverlay::setup_observers() {
             size_t idx = i; // Capture by value
             s.temp_observer = observe_int_sync<TempGraphOverlay>(
                 temp_subj, this,
-                [weak_alive, idx](TempGraphOverlay* self, int temp) {
-                    if (weak_alive.expired()) return;
+                [token, idx](TempGraphOverlay* self, int temp) {
+                    if (token.expired()) return;
                     self->on_series_temp_changed(idx, temp);
                 },
                 s.lifetime);
@@ -516,8 +516,8 @@ void TempGraphOverlay::setup_observers() {
             size_t idx = i;
             s.target_observer = observe_int_sync<TempGraphOverlay>(
                 target_subj, this,
-                [weak_alive, idx](TempGraphOverlay* self, int target) {
-                    if (weak_alive.expired()) return;
+                [token, idx](TempGraphOverlay* self, int target) {
+                    if (token.expired()) return;
                     self->on_series_target_changed(idx, target);
                 },
                 s.lifetime);
@@ -761,13 +761,15 @@ void TempGraphOverlay::on_temp_graph_custom_clicked(lv_event_t* e) {
     auto& heater = overlay.temp_control_panel_->heater(type);
 
     // Store context for keypad callback (static because keypad outlives this scope)
-    // alive_guard protects against overlay destruction while keypad is open
-    static struct {
-        TempGraphOverlay* overlay;
-        helix::HeaterType type;
-        std::weak_ptr<bool> alive_guard;
+    // lifetime token protects against overlay destruction while keypad is open
+    static struct KeypadCtxStatic {
+        TempGraphOverlay* overlay = nullptr;
+        helix::HeaterType type{};
+        std::optional<helix::LifetimeToken> token;
     } s_keypad_ctx;
-    s_keypad_ctx = {&overlay, type, overlay.alive_};
+    s_keypad_ctx.overlay = &overlay;
+    s_keypad_ctx.type = type;
+    s_keypad_ctx.token = overlay.lifetime_.token();
 
     ui_keypad_config_t keypad_config = {
         .initial_value = static_cast<float>(heater.target / 10),
@@ -788,10 +790,10 @@ void TempGraphOverlay::keypad_value_cb(float value, void* user_data) {
     struct KeypadCtx {
         TempGraphOverlay* overlay;
         helix::HeaterType type;
-        std::weak_ptr<bool> alive_guard;
+        std::optional<helix::LifetimeToken> token;
     };
     auto* ctx = static_cast<KeypadCtx*>(user_data);
-    if (!ctx || !ctx->overlay || ctx->alive_guard.expired() || !ctx->overlay->api_) return;
+    if (!ctx || !ctx->overlay || !ctx->token || ctx->token->expired() || !ctx->overlay->api_) return;
 
     int temp = static_cast<int>(value);
     auto& heater = ctx->overlay->temp_control_panel_->heater(ctx->type);

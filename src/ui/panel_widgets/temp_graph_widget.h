@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include "async_lifetime_guard.h"
 #include "panel_widget.h"
 #include "ui_modal.h"
 #include "ui_observer_guard.h"
@@ -73,7 +74,7 @@ class TempGraphWidget : public PanelWidget {
     std::vector<SeriesInfo> series_;
     ObserverGuard connection_observer_;
 
-    std::shared_ptr<bool> alive_;
+    helix::AsyncLifetimeGuard lifetime_;
     uint32_t generation_ = 0;
     bool paused_ = false;
 

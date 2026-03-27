@@ -155,8 +155,7 @@ class TempGraphOverlay : public OverlayBase {
     // Subject management
     SubjectManager subjects_;
 
-    // Alive guard for async safety
-    std::shared_ptr<bool> alive_ = std::make_shared<bool>(false);
+
 
     // Cached panel for lazy creation
     lv_obj_t* cached_overlay_ = nullptr;

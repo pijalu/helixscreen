@@ -29,7 +29,6 @@ DebugBundleModal::DebugBundleModal() {
 }
 
 DebugBundleModal::~DebugBundleModal() {
-    *alive_ = false;   // Signal async callbacks that we're gone
     deinit_subjects(); // MUST be before member destruction
     if (active_instance_ == this) {
         active_instance_ = nullptr;
@@ -196,27 +195,29 @@ void DebugBundleModal::handle_upload() {
     lv_subject_set_int(&state_subject_, 1);
     lv_subject_copy_string(&status_subject_, lv_tr("Collecting data..."));
 
-    // Capture alive flag to prevent use-after-free if modal is dismissed during upload
-    auto alive = alive_;
+    auto token = lifetime_.token();
 
     helix::DebugBundleCollector::upload_async(
-        options, [this, alive](const helix::BundleResult& result) {
-            if (!*alive) {
+        options, [this, token](const helix::BundleResult& result) {
+            if (token.expired()) {
                 spdlog::debug("[DebugBundleModal] Modal destroyed "
                               "during upload, ignoring result");
                 return;
             }
-            if (result.success) {
-                lv_subject_copy_string(&share_code_subject_, result.share_code.c_str());
-                lv_subject_set_int(&state_subject_, 2);
-                spdlog::info("[DebugBundleModal] Upload succeeded, "
-                             "share code: {}",
-                             result.share_code);
-            } else {
-                lv_subject_copy_string(&error_subject_, result.error_message.c_str());
-                lv_subject_set_int(&state_subject_, 3);
-                spdlog::warn("[DebugBundleModal] Upload failed: {}", result.error_message);
-            }
+            // Marshal to UI thread — this callback fires from the upload thread
+            lifetime_.defer([this, result]() {
+                if (result.success) {
+                    lv_subject_copy_string(&share_code_subject_, result.share_code.c_str());
+                    lv_subject_set_int(&state_subject_, 2);
+                    spdlog::info("[DebugBundleModal] Upload succeeded, "
+                                 "share code: {}",
+                                 result.share_code);
+                } else {
+                    lv_subject_copy_string(&error_subject_, result.error_message.c_str());
+                    lv_subject_set_int(&state_subject_, 3);
+                    spdlog::warn("[DebugBundleModal] Upload failed: {}", result.error_message);
+                }
+            });
         });
 }
 

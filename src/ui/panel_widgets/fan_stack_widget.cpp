@@ -123,7 +123,6 @@ bool FanStackWidget::is_carousel_mode() const {
 void FanStackWidget::attach(lv_obj_t* widget_obj, lv_obj_t* parent_screen) {
     widget_obj_ = widget_obj;
     parent_screen_ = parent_screen;
-    *alive_ = true;
     lv_obj_set_user_data(widget_obj_, this);
 
     // Pressed feedback: dim widget on touch
@@ -182,7 +181,7 @@ void FanStackWidget::attach_carousel(lv_obj_t* widget_obj) {
 }
 
 void FanStackWidget::detach() {
-    *alive_ = false;
+    lifetime_.invalidate();
     dismiss_fan_picker();
 
     // Freeze queue, drain pending deferred callbacks, THEN tear down observers
@@ -634,11 +633,11 @@ ObserverGuard FanStackWidget::bind_fan_observer(const std::string& fan_name,
     if (!subject)
         return {};
 
-    std::weak_ptr<bool> weak_alive = alive_;
+    auto token = lifetime_.token();
     auto guard = helix::ui::observe_int_sync<FanStackWidget>(
         subject, this,
-        [weak_alive, on_update](FanStackWidget* /*self*/, int speed) {
-            if (weak_alive.expired())
+        [token, on_update](FanStackWidget* /*self*/, int speed) {
+            if (token.expired())
                 return;
             on_update(speed);
         },
@@ -654,11 +653,11 @@ void FanStackWidget::setup_common_observers(std::function<void()> on_anim_change
                                             std::function<void()> on_fans_version) {
     animations_enabled_ = DisplaySettingsManager::instance().get_animations_enabled();
 
-    std::weak_ptr<bool> weak_alive = alive_;
+    auto token = lifetime_.token();
     anim_settings_observer_ = helix::ui::observe_int_sync<FanStackWidget>(
         DisplaySettingsManager::instance().subject_animations_enabled(), this,
-        [weak_alive, on_anim_changed](FanStackWidget* self, int enabled) {
-            if (weak_alive.expired())
+        [token, on_anim_changed](FanStackWidget* self, int enabled) {
+            if (token.expired())
                 return;
             self->animations_enabled_ = (enabled != 0);
             on_anim_changed();
@@ -666,8 +665,8 @@ void FanStackWidget::setup_common_observers(std::function<void()> on_anim_change
 
     version_observer_ = helix::ui::observe_int_sync<FanStackWidget>(
         printer_state_.get_fans_version_subject(), this,
-        [weak_alive, on_fans_version](FanStackWidget* /*self*/, int /*version*/) {
-            if (weak_alive.expired())
+        [token, on_fans_version](FanStackWidget* /*self*/, int /*version*/) {
+            if (token.expired())
                 return;
             on_fans_version();
         });

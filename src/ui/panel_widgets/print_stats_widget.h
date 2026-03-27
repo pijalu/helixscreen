@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #pragma once
 
+#include "async_lifetime_guard.h"
 #include "panel_widget.h"
 #include "print_history_manager.h"
 #include "ui_observer_guard.h"
@@ -33,7 +34,7 @@ class PrintStatsWidget : public PanelWidget {
     lv_obj_t* parent_screen_ = nullptr;
 
     helix::HistoryChangedCallback history_observer_;
-    std::shared_ptr<bool> alive_ = std::make_shared<bool>(false);
+    helix::AsyncLifetimeGuard lifetime_;
 };
 
 void register_print_stats_widget();

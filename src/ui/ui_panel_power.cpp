@@ -37,7 +37,6 @@ PowerPanel::PowerPanel(PrinterState& printer_state, MoonrakerAPI* api)
 }
 
 PowerPanel::~PowerPanel() {
-    *alive_ = false;
     deinit_subjects();
     // Guard against static destruction order fiasco (spdlog may be gone)
     if (!StaticPanelRegistry::is_destroyed()) {
@@ -120,52 +119,24 @@ void PowerPanel::fetch_devices() {
     std::snprintf(status_buf_, sizeof(status_buf_), "Loading devices...");
     lv_subject_copy_string(&status_subject_, status_buf_);
 
-    std::weak_ptr<std::atomic<bool>> weak_alive = alive_;
-    PowerPanel* self_ptr = this;
+    auto token = lifetime_.token();
     api_->get_power_devices(
-        [weak_alive, self_ptr](const std::vector<PowerDevice>& devices) {
+        [this, token](const std::vector<PowerDevice>& devices) {
+            if (token.expired()) return;
             // Marshal onto UI thread — API callbacks fire on a background thread.
-            // Use a shared_ptr to carry devices through two deferred hops:
-            // 1. queue_update: arrives on UI thread (still inside process_pending)
-            // 2. lv_async_call: defers widget deletion to the next lv_timer_handler
-            //    cycle where event_head is guaranteed NULL (issue #190).
-            auto devices_ptr = std::make_shared<std::vector<PowerDevice>>(devices);
-            helix::ui::queue_update("PowerPanel::list_power_devices",
-                                    [weak_alive, self_ptr, devices_ptr]() {
-                                        auto alive = weak_alive.lock();
-                                        if (!alive || !*alive)
-                                            return;
-                                        spdlog::info("[{}] Received {} power devices",
-                                                     self_ptr->get_name(), devices_ptr->size());
-                                        // Further defer the actual populate (which calls
-                                        // safe_delete) to avoid corrupting the LVGL event linked
-                                        // list while process_pending() is running.
-                                        struct AsyncCtx {
-                                            std::weak_ptr<std::atomic<bool>> weak_alive;
-                                            PowerPanel* self;
-                                            std::shared_ptr<std::vector<PowerDevice>> devices;
-                                        };
-                                        auto* ctx = new AsyncCtx{weak_alive, self_ptr, devices_ptr};
-                                        lv_async_call(
-                                            [](void* data) {
-                                                auto* ctx = static_cast<AsyncCtx*>(data);
-                                                auto alive = ctx->weak_alive.lock();
-                                                if (alive && *alive)
-                                                    ctx->self->populate_device_list(*ctx->devices);
-                                                delete ctx;
-                                            },
-                                            ctx);
-                                    });
+            auto devices_copy = std::make_shared<std::vector<PowerDevice>>(devices);
+            lifetime_.defer("PowerPanel::list_power_devices", [this, devices_copy]() {
+                spdlog::info("[{}] Received {} power devices", get_name(), devices_copy->size());
+                populate_device_list(*devices_copy);
+            });
         },
-        [weak_alive, self_ptr](const MoonrakerError& err) {
-            helix::ui::queue_update([weak_alive, self_ptr, msg = err.message]() {
-                auto alive = weak_alive.lock();
-                if (!alive || !*alive)
-                    return;
-                spdlog::error("[{}] Failed to fetch power devices: {}", self_ptr->get_name(), msg);
-                std::snprintf(self_ptr->status_buf_, sizeof(self_ptr->status_buf_),
-                              "Failed to load devices");
-                lv_subject_copy_string(&self_ptr->status_subject_, self_ptr->status_buf_);
+        [this, token](const MoonrakerError& err) {
+            if (token.expired()) return;
+            auto msg = err.message;
+            lifetime_.defer("PowerPanel::fetch_error", [this, msg]() {
+                spdlog::error("[{}] Failed to fetch power devices: {}", get_name(), msg);
+                std::snprintf(status_buf_, sizeof(status_buf_), "Failed to load devices");
+                lv_subject_copy_string(&status_subject_, status_buf_);
             });
         });
 }
@@ -308,27 +279,22 @@ void PowerPanel::handle_device_toggle(const std::string& device, bool power_on) 
         EmergencyStopOverlay::instance().suppress_recovery_dialog(RecoverySuppression::NORMAL);
     }
 
-    std::weak_ptr<std::atomic<bool>> weak_alive = alive_;
-    PowerPanel* self_ptr = this;
+    auto token = lifetime_.token();
     api_->set_device_power(
         device, action,
         [device, power_on]() {
             spdlog::debug("[PowerPanel] Device '{}' set to {} successfully", device,
                           power_on ? "on" : "off");
         },
-        [weak_alive, self_ptr, device](const MoonrakerError& err) {
-            helix::ui::queue_update([weak_alive, self_ptr, device, msg = err.message]() {
-                auto alive = weak_alive.lock();
-                if (!alive || !*alive)
-                    return;
-                spdlog::error("[{}] Failed to toggle device '{}': {}", self_ptr->get_name(), device,
-                              msg);
-                std::snprintf(self_ptr->status_buf_, sizeof(self_ptr->status_buf_),
+        [this, token, device](const MoonrakerError& err) {
+            if (token.expired()) return;
+            auto msg = err.message;
+            lifetime_.defer("PowerPanel::toggle_error", [this, device, msg]() {
+                spdlog::error("[{}] Failed to toggle device '{}': {}", get_name(), device, msg);
+                std::snprintf(status_buf_, sizeof(status_buf_),
                               "Failed to toggle %s", device.c_str());
-                lv_subject_copy_string(&self_ptr->status_subject_, self_ptr->status_buf_);
-
-                // Revert the toggle to previous state by re-fetching
-                self_ptr->fetch_devices();
+                lv_subject_copy_string(&status_subject_, status_buf_);
+                fetch_devices();
             });
         });
 }

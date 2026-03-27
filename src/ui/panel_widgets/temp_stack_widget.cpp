@@ -106,7 +106,6 @@ bool TempStackWidget::is_carousel_mode() const {
 void TempStackWidget::attach(lv_obj_t* widget_obj, lv_obj_t* parent_screen) {
     widget_obj_ = widget_obj;
     parent_screen_ = parent_screen;
-    *alive_ = true;
     s_active_instance = this;
     lv_obj_set_user_data(widget_obj_, this);
 
@@ -127,35 +126,35 @@ void TempStackWidget::attach(lv_obj_t* widget_obj, lv_obj_t* parent_screen) {
 
 void TempStackWidget::attach_stack(lv_obj_t* /*widget_obj*/) {
     using helix::ui::observe_int_sync;
-    std::weak_ptr<bool> weak_alive = alive_;
+    auto token = lifetime_.token();
 
     // Nozzle observers
     nozzle_temp_observer_ =
         observe_int_sync<TempStackWidget>(printer_state_.get_active_extruder_temp_subject(), this,
-                                          [weak_alive](TempStackWidget* self, int temp) {
-                                              if (weak_alive.expired())
+                                          [token](TempStackWidget* self, int temp) {
+                                              if (token.expired())
                                                   return;
                                               self->on_nozzle_temp_changed(temp);
                                           });
     nozzle_target_observer_ =
         observe_int_sync<TempStackWidget>(printer_state_.get_active_extruder_target_subject(), this,
-                                          [weak_alive](TempStackWidget* self, int target) {
-                                              if (weak_alive.expired())
+                                          [token](TempStackWidget* self, int target) {
+                                              if (token.expired())
                                                   return;
                                               self->on_nozzle_target_changed(target);
                                           });
 
     // Bed observers
     bed_temp_observer_ = observe_int_sync<TempStackWidget>(
-        printer_state_.get_bed_temp_subject(), this, [weak_alive](TempStackWidget* self, int temp) {
-            if (weak_alive.expired())
+        printer_state_.get_bed_temp_subject(), this, [token](TempStackWidget* self, int temp) {
+            if (token.expired())
                 return;
             self->on_bed_temp_changed(temp);
         });
     bed_target_observer_ =
         observe_int_sync<TempStackWidget>(printer_state_.get_bed_target_subject(), this,
-                                          [weak_alive](TempStackWidget* self, int target) {
-                                              if (weak_alive.expired())
+                                          [token](TempStackWidget* self, int target) {
+                                              if (token.expired())
                                                   return;
                                               self->on_bed_target_changed(target);
                                           });
@@ -295,32 +294,32 @@ void TempStackWidget::attach_carousel(lv_obj_t* widget_obj) {
 
     // Observe heating state for animators in carousel mode
     using helix::ui::observe_int_sync;
-    std::weak_ptr<bool> weak_alive = alive_;
+    auto token = lifetime_.token();
 
     nozzle_temp_observer_ =
         observe_int_sync<TempStackWidget>(printer_state_.get_active_extruder_temp_subject(), this,
-                                          [weak_alive](TempStackWidget* self, int temp) {
-                                              if (weak_alive.expired())
+                                          [token](TempStackWidget* self, int temp) {
+                                              if (token.expired())
                                                   return;
                                               self->on_nozzle_temp_changed(temp);
                                           });
     nozzle_target_observer_ =
         observe_int_sync<TempStackWidget>(printer_state_.get_active_extruder_target_subject(), this,
-                                          [weak_alive](TempStackWidget* self, int target) {
-                                              if (weak_alive.expired())
+                                          [token](TempStackWidget* self, int target) {
+                                              if (token.expired())
                                                   return;
                                               self->on_nozzle_target_changed(target);
                                           });
     bed_temp_observer_ = observe_int_sync<TempStackWidget>(
-        printer_state_.get_bed_temp_subject(), this, [weak_alive](TempStackWidget* self, int temp) {
-            if (weak_alive.expired())
+        printer_state_.get_bed_temp_subject(), this, [token](TempStackWidget* self, int temp) {
+            if (token.expired())
                 return;
             self->on_bed_temp_changed(temp);
         });
     bed_target_observer_ =
         observe_int_sync<TempStackWidget>(printer_state_.get_bed_target_subject(), this,
-                                          [weak_alive](TempStackWidget* self, int target) {
-                                              if (weak_alive.expired())
+                                          [token](TempStackWidget* self, int target) {
+                                              if (token.expired())
                                                   return;
                                               self->on_bed_target_changed(target);
                                           });
@@ -387,7 +386,7 @@ void TempStackWidget::on_size_changed(int /*colspan*/, int rowspan, int /*width_
 }
 
 void TempStackWidget::detach() {
-    *alive_ = false;
+    lifetime_.invalidate();
     nozzle_animator_.detach();
     bed_animator_.detach();
     nozzle_temp_observer_.reset();

@@ -264,8 +264,6 @@ void LedControlOverlay::on_deactivate() {
 
 void LedControlOverlay::cleanup() {
     spdlog::debug("[{}] Cleanup", get_name());
-    // Invalidate alive guard so pending lv_async_call callbacks become no-ops
-    *alive_guard_ = false;
     wled_brightness_observer_.reset();
     deinit_subjects_base(subjects_);
 
@@ -1016,24 +1014,14 @@ void LedControlOverlay::handle_strip_selected(const std::string& strip_id) {
     // preventing lv_obj_clean() from corrupting the LVGL event linked list (issue #190).
     if (!strips_rebuild_pending_) {
         strips_rebuild_pending_ = true;
-        struct RebuildCtx {
-            std::weak_ptr<bool> alive;
-            LedControlOverlay* self;
-        };
-        auto* ctx = new RebuildCtx{alive_guard_, this};
-        lv_async_call([](void* data) {
-            auto* ctx = static_cast<RebuildCtx*>(data);
-            auto guard = ctx->alive.lock();
-            auto* self = ctx->self;
-            delete ctx;
-            if (!guard || !*guard) return;
-            self->strips_rebuild_pending_ = false;
-            if (self->strip_selector_section_) {
-                lv_obj_clean(self->strip_selector_section_);
-                self->populate_strip_selector();
+        lifetime_.defer("LedControlOverlay::rebuild_strips", [this]() {
+            strips_rebuild_pending_ = false;
+            if (strip_selector_section_) {
+                lv_obj_clean(strip_selector_section_);
+                populate_strip_selector();
             }
-            self->update_section_visibility();
-        }, ctx);
+            update_section_visibility();
+        });
     }
 }
 

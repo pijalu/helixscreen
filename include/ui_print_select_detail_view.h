@@ -6,11 +6,11 @@
 #include "ui_filament_mapping_card.h"
 #include "ui_print_preparation_manager.h"
 
+#include "async_lifetime_guard.h"
 #include "overlay_base.h"
 #include "print_file_data.h" // For FileHistoryStatus
 #include "subject_managed_panel.h"
 
-#include <atomic>
 #include <functional>
 #include <lvgl.h>
 #include <memory>
@@ -115,14 +115,14 @@ class PrintSelectDetailView : public OverlayBase {
     /**
      * @brief Called when overlay is being hidden
      *
-     * Closes any open modals, pauses gcode viewer. Async scans will check alive_ flag.
+     * Closes any open modals, pauses gcode viewer.
      */
     void on_deactivate() override;
 
     /**
      * @brief Clean up resources for async-safe destruction
      *
-     * Sets alive_ flag to false so async callbacks bail out.
+     * Invalidates lifetime tokens so async callbacks bail out.
      * Unregisters from NavigationManager and deinitializes subjects.
      */
     void cleanup() override;
@@ -294,7 +294,7 @@ class PrintSelectDetailView : public OverlayBase {
      * @brief Called after widget tree is destroyed by destroy_overlay_ui()
      *
      * Nulls all child widget pointers so that create() works correctly
-     * when re-invoked on next open. Also invalidates the alive_ token
+     * when re-invoked on next open. Also invalidates lifetime tokens
      * so in-flight async callbacks bail out (they may reference stale
      * widget pointers like gcode_viewer_).
      */
@@ -363,9 +363,8 @@ class PrintSelectDetailView : public OverlayBase {
     std::vector<std::string> current_filament_materials_;
     size_t current_file_size_bytes_ = 0;
 
-    // === Async Safety [L012] ===
-    // Shared pointer to track if this object is still alive when async callbacks execute.
-    std::shared_ptr<std::atomic<bool>> alive_ = std::make_shared<std::atomic<bool>>(true);
+    // Async callback safety: destructor auto-invalidates all outstanding tokens
+    helix::AsyncLifetimeGuard lifetime_;
 
     // === Callbacks ===
     DeleteConfirmedCallback on_delete_confirmed_;

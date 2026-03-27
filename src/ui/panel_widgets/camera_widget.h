@@ -5,6 +5,7 @@
 
 #if HELIX_HAS_CAMERA
 
+#include "async_lifetime_guard.h"
 #include "camera_stream.h"
 #include "observer_factory.h"
 #include "panel_widget.h"
@@ -64,8 +65,8 @@ class CameraWidget : public PanelWidget {
     // Observer for webcam availability — starts stream when URLs arrive
     ObserverGuard webcam_observer_;
 
-    // Alive guard — prevents use-after-free in queued callbacks
-    std::shared_ptr<bool> alive_;
+    // Lifetime guard — prevents use-after-free in queued callbacks
+    helix::AsyncLifetimeGuard lifetime_;
 
     // Config modal (owned, destroyed when modal closes)
     std::unique_ptr<CameraConfigModal> config_modal_;

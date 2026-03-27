@@ -76,6 +76,7 @@ Most commonly needed:
 | 4 | **NO C++ styling** | `lv_obj_set_style_bg_color()` | XML: `style_bg_color="#card_bg"` |
 | 5 | **NO manual LVGL cleanup** | `lv_display_delete()`, `lv_group_delete()` | Just `lv_deinit()` - handles everything |
 | 6 | **bind_style priority** | `style_bg_color` + `bind_style` | Inline attrs override - use TWO bind_styles |
+| 7 | **NO ad-hoc callback guards** | `shared_ptr<bool> alive_`, `callback_guard_`, `alive_guard_` | `lifetime_.defer(...)` or `lifetime_.token()` via `AsyncLifetimeGuard` |
 
 **Exceptions:** DELETE cleanup, widget pool recycling, chart data, animations
 
@@ -110,6 +111,31 @@ helix::ui::UpdateQueue::instance().drain();
 lv_obj_clean(container);  // or safe_delete(), lv_obj_delete()
 // freeze thaws when it goes out of scope
 ```
+
+**Async callback safety (MANDATORY):** When background threads (WebSocket, HTTP, timers) need
+to update UI, use `AsyncLifetimeGuard` to prevent use-after-free if the owning object is dismissed.
+
+`Modal` and `OverlayBase` provide `lifetime_` automatically. Standalone classes add their own:
+`helix::AsyncLifetimeGuard lifetime_;`
+
+```cpp
+// Common pattern: bg thread → deferred UI update
+auto token = lifetime_.token();
+api->fetch([this, token]() {
+    if (token.expired()) return;       // Owner dismissed — skip
+    lifetime_.defer([this]() {         // Queue to main thread, auto-guarded
+        update_ui();
+    });
+});
+
+// Cancel-and-retry (e.g., re-test while previous test in flight):
+lifetime_.invalidate();                // Expire all outstanding tokens
+auto token = lifetime_.token();        // Fresh token for new operation
+```
+
+Do **NOT** use `shared_ptr<bool> alive_`, `callback_guard_`, `alive_guard_`, `weak_ptr<bool>`,
+or `shared_ptr<atomic<bool>>` for callback safety. These are deprecated patterns replaced by
+`AsyncLifetimeGuard`. See `include/async_lifetime_guard.h` and `docs/devel/ARCHITECTURE.md`.
 
 **No `safe_delete()` in queued callbacks:** `safe_delete()` is synchronous — never call it inside `queue_update()`/`async_call()` lambdas. Multiple synchronous deletions in the same `process_pending()` batch corrupt LVGL's event linked list (SIGSEGV). Use `safe_delete_deferred()` or hide + `lv_async_call()` pattern instead. See `ARCHITECTURE.md` § "No safe_delete() Inside UpdateQueue Callbacks".
 

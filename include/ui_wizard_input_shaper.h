@@ -2,6 +2,7 @@
 
 #pragma once
 
+#include "async_lifetime_guard.h"
 #include "input_shaper_calibrator.h"
 #include "lvgl/lvgl.h"
 
@@ -168,13 +169,12 @@ class WizardInputShaperStep {
     }
 
     /**
-     * @brief Get alive flag for async callback safety
+     * @brief Get lifetime token for async callback safety
      *
      * Used by callbacks to check if step is still valid before updating subjects.
-     * Returns weak_ptr to allow safe checking without preventing cleanup.
      */
-    std::weak_ptr<std::atomic<bool>> get_alive_flag() {
-        return alive_;
+    helix::LifetimeToken get_lifetime_token() {
+        return lifetime_.token();
     }
 
     /**
@@ -207,8 +207,7 @@ class WizardInputShaperStep {
     bool user_skipped_ = false;
 
     // Lifetime guard for async callback safety
-    // Shared pointer ensures the flag outlives the callbacks that capture it
-    std::shared_ptr<std::atomic<bool>> alive_ = std::make_shared<std::atomic<bool>>(true);
+    helix::AsyncLifetimeGuard lifetime_;
 };
 
 // ============================================================================

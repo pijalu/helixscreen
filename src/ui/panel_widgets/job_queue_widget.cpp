@@ -98,17 +98,17 @@ void JobQueueWidget::attach(lv_obj_t* widget_obj, lv_obj_t* parent_screen) {
                 if (!self->list_rebuild_pending_) {
                     self->list_rebuild_pending_ = true;
                     struct RebuildCtx {
-                        std::weak_ptr<bool> alive;
+                        helix::LifetimeToken token;
                         JobQueueWidget* self;
                     };
-                    auto* ctx = new RebuildCtx{self->alive_guard_, self};
+                    auto* ctx = new RebuildCtx{self->lifetime_.token(), self};
                     lv_async_call(
                         [](void* data) {
                             auto* ctx = static_cast<RebuildCtx*>(data);
-                            auto guard = ctx->alive.lock();
+                            auto token = ctx->token;
                             auto* widget = ctx->self;
                             delete ctx;
-                            if (!guard || !*guard)
+                            if (token.expired())
                                 return;
                             widget->list_rebuild_pending_ = false;
                             if (widget->job_list_container_)
@@ -123,8 +123,8 @@ void JobQueueWidget::attach(lv_obj_t* widget_obj, lv_obj_t* parent_screen) {
 }
 
 void JobQueueWidget::detach() {
-    // Invalidate alive guard so pending lv_async_call callbacks become no-ops
-    *alive_guard_ = false;
+    // Invalidate lifetime guard so pending lv_async_call callbacks become no-ops
+    lifetime_.invalidate();
 
     if (lv_is_initialized()) {
         count_observer_ = {};

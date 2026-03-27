@@ -54,10 +54,6 @@ WizardInputShaperStep::WizardInputShaperStep()
 }
 
 WizardInputShaperStep::~WizardInputShaperStep() {
-    // Mark as dead to prevent any pending callbacks from executing
-    if (alive_) {
-        alive_->store(false, std::memory_order_release);
-    }
 
     // Deinitialize subjects to disconnect observers before destruction
     // NOTE: lv_subject_deinit() is safe to call even during shutdown
@@ -108,15 +104,11 @@ void WizardInputShaperStep::init_subjects() {
 
 // Helper to safely update subjects from async callbacks
 // Captures alive flag and queues update to UI thread
-static void safe_update_status(std::weak_ptr<std::atomic<bool>> alive_weak,
+static void safe_update_status(helix::LifetimeToken token,
                                const std::string& msg) {
-    helix::ui::queue_update([alive_weak, msg]() {
-        if (auto alive = alive_weak.lock()) {
-            if (!alive->load(std::memory_order_acquire)) {
-                return; // Step was cleaned up
-            }
-        } else {
-            return; // Alive flag destroyed
+    helix::ui::queue_update([token, msg]() {
+        if (token.expired()) {
+            return; // Step was cleaned up
         }
         WizardInputShaperStep* step = get_wizard_input_shaper_step();
         if (step) {
@@ -125,14 +117,10 @@ static void safe_update_status(std::weak_ptr<std::atomic<bool>> alive_weak,
     });
 }
 
-static void safe_update_progress(std::weak_ptr<std::atomic<bool>> alive_weak, int progress) {
-    helix::ui::queue_update([alive_weak, progress]() {
-        if (auto alive = alive_weak.lock()) {
-            if (!alive->load(std::memory_order_acquire)) {
-                return; // Step was cleaned up
-            }
-        } else {
-            return; // Alive flag destroyed
+static void safe_update_progress(helix::LifetimeToken token, int progress) {
+    helix::ui::queue_update([token, progress]() {
+        if (token.expired()) {
+            return; // Step was cleaned up
         }
         WizardInputShaperStep* step = get_wizard_input_shaper_step();
         if (step) {
@@ -141,14 +129,10 @@ static void safe_update_progress(std::weak_ptr<std::atomic<bool>> alive_weak, in
     });
 }
 
-static void safe_set_complete(std::weak_ptr<std::atomic<bool>> alive_weak) {
-    helix::ui::queue_update([alive_weak]() {
-        if (auto alive = alive_weak.lock()) {
-            if (!alive->load(std::memory_order_acquire)) {
-                return; // Step was cleaned up
-            }
-        } else {
-            return; // Alive flag destroyed
+static void safe_set_complete(helix::LifetimeToken token) {
+    helix::ui::queue_update([token]() {
+        if (token.expired()) {
+            return; // Step was cleaned up
         }
         WizardInputShaperStep* step = get_wizard_input_shaper_step();
         if (step) {
@@ -162,13 +146,9 @@ static void safe_set_complete(std::weak_ptr<std::atomic<bool>> alive_weak) {
     });
 }
 
-static void safe_handle_error(std::weak_ptr<std::atomic<bool>> alive_weak) {
-    helix::ui::queue_update([alive_weak]() {
-        if (auto alive = alive_weak.lock()) {
-            if (!alive->load(std::memory_order_acquire)) {
-                return;
-            }
-        } else {
+static void safe_handle_error(helix::LifetimeToken token) {
+    helix::ui::queue_update([token]() {
+        if (token.expired()) {
             return;
         }
         // On error: switch footer back to Skip so user can proceed past the step
@@ -197,17 +177,16 @@ static void on_start_calibration_clicked(lv_event_t* e) {
     lv_subject_copy_string(step->get_status_subject(), lv_tr("Checking accelerometer..."));
     lv_subject_set_int(step->get_progress_subject(), 0);
 
-    // Capture alive flag as weak_ptr for async callbacks
-    std::weak_ptr<std::atomic<bool>> alive_weak = step->get_alive_flag();
+    auto token = step->get_lifetime_token();
 
     // Start calibration via calibrator
     InputShaperCalibrator* calibrator = step->get_calibrator();
     if (calibrator) {
         calibrator->check_accelerometer(
-            [alive_weak](float noise_level) {
+            [token](float noise_level) {
                 // Noise check passed - continue to X axis calibration
                 spdlog::info("[Wizard Input Shaper] Noise check passed: {:.2f}", noise_level);
-                safe_update_status(alive_weak, "Calibrating X axis...");
+                safe_update_status(token, "Calibrating X axis...");
 
                 WizardInputShaperStep* step = get_wizard_input_shaper_step();
                 if (!step) {
@@ -217,13 +196,13 @@ static void on_start_calibration_clicked(lv_event_t* e) {
                 if (cal) {
                     cal->run_calibration(
                         'X',
-                        [alive_weak](int percent) {
-                            safe_update_progress(alive_weak, percent / 2);
+                        [token](int percent) {
+                            safe_update_progress(token, percent / 2);
                         },
-                        [alive_weak](const InputShaperResult& result) {
+                        [token](const InputShaperResult& result) {
                             (void)result;
                             spdlog::info("[Wizard Input Shaper] X axis complete");
-                            safe_update_status(alive_weak, "Calibrating Y axis...");
+                            safe_update_status(token, "Calibrating Y axis...");
 
                             // Run Y axis calibration
                             WizardInputShaperStep* step = get_wizard_input_shaper_step();
@@ -234,36 +213,36 @@ static void on_start_calibration_clicked(lv_event_t* e) {
                             if (cal2) {
                                 cal2->run_calibration(
                                     'Y',
-                                    [alive_weak](int percent) {
-                                        safe_update_progress(alive_weak, 50 + percent / 2);
+                                    [token](int percent) {
+                                        safe_update_progress(token, 50 + percent / 2);
                                     },
-                                    [alive_weak](const InputShaperResult& result) {
+                                    [token](const InputShaperResult& result) {
                                         (void)result;
                                         spdlog::info("[Wizard Input Shaper] Y axis complete");
-                                        safe_set_complete(alive_weak);
+                                        safe_set_complete(token);
                                     },
-                                    [alive_weak](const std::string& error) {
+                                    [token](const std::string& error) {
                                         spdlog::error("[Wizard Input Shaper] Y axis error: {}",
                                                       error);
-                                        safe_update_status(alive_weak, error);
-                                        safe_update_progress(alive_weak, 0);
-                                        safe_handle_error(alive_weak);
+                                        safe_update_status(token, error);
+                                        safe_update_progress(token, 0);
+                                        safe_handle_error(token);
                                     });
                             }
                         },
-                        [alive_weak](const std::string& error) {
+                        [token](const std::string& error) {
                             spdlog::error("[Wizard Input Shaper] X axis error: {}", error);
-                            safe_update_status(alive_weak, error);
-                            safe_update_progress(alive_weak, 0);
-                            safe_handle_error(alive_weak);
+                            safe_update_status(token, error);
+                            safe_update_progress(token, 0);
+                            safe_handle_error(token);
                         });
                 }
             },
-            [alive_weak](const std::string& error) {
+            [token](const std::string& error) {
                 spdlog::error("[Wizard Input Shaper] Accelerometer check failed: {}", error);
-                safe_update_status(alive_weak, error);
-                safe_update_progress(alive_weak, 0);
-                safe_handle_error(alive_weak);
+                safe_update_status(token, error);
+                safe_update_progress(token, 0);
+                safe_handle_error(token);
             });
     }
 }
@@ -309,10 +288,8 @@ lv_obj_t* WizardInputShaperStep::create(lv_obj_t* parent) {
 void WizardInputShaperStep::cleanup() {
     spdlog::debug("[{}] Cleaning up resources", get_name());
 
-    // Mark as dead FIRST to prevent callbacks from updating subjects
-    if (alive_) {
-        alive_->store(false, std::memory_order_release);
-    }
+    // Invalidate lifetime to prevent callbacks from updating subjects
+    lifetime_.invalidate();
 
     // Cancel any in-progress calibration
     if (calibrator_) {

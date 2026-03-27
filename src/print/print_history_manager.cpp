@@ -49,30 +49,24 @@ void PrintHistoryManager::fetch(int limit) {
     is_fetching_ = true;
     spdlog::debug("[HistoryManager] Fetching history (limit={})", limit);
 
-    // Capture weak_ptr for async callback safety [L012]
-    std::weak_ptr<bool> weak_guard = callback_guard_;
+    auto token = lifetime_.token();
 
     api_->history().get_history_list(
         limit, 0, 0.0, 0.0, // limit, start, since, before
-        [this, weak_guard](const std::vector<PrintHistoryJob>& jobs, uint64_t /*total*/) {
+        [this, token](const std::vector<PrintHistoryJob>& jobs, uint64_t /*total*/) {
+            if (token.expired()) return;
             // Copy jobs since callback param is const ref
             std::vector<PrintHistoryJob> jobs_copy = jobs;
 
-            // Dispatch to main thread with guard check
-            helix::ui::queue_update([this, weak_guard, jobs = std::move(jobs_copy)]() mutable {
-                if (!weak_guard.lock()) {
-                    return; // Object destroyed, abort
-                }
-                on_history_fetched(std::move(jobs));
-            });
+            lifetime_.defer("PrintHistoryManager::fetch_success",
+                            [this, jobs = std::move(jobs_copy)]() mutable {
+                                on_history_fetched(std::move(jobs));
+                            });
         },
-        [this, weak_guard](const MoonrakerError& error) {
+        [this, token](const MoonrakerError& error) {
+            if (token.expired()) return;
             spdlog::warn("[HistoryManager] Failed to fetch history: {}", error.message);
-            // Dispatch to main thread with guard check
-            helix::ui::queue_update([this, weak_guard]() {
-                if (!weak_guard.lock()) {
-                    return; // Object destroyed, abort
-                }
+            lifetime_.defer("PrintHistoryManager::fetch_error", [this]() {
                 is_fetching_ = false;
             });
         });
@@ -185,21 +179,19 @@ void PrintHistoryManager::subscribe_to_notifications() {
         return;
     }
 
-    // Capture weak_ptr for async callback safety [L012]
-    std::weak_ptr<bool> weak_guard = callback_guard_;
+    auto token = lifetime_.token();
 
     client_->register_method_callback("notify_history_changed", "PrintHistoryManager",
-                                      [this, weak_guard](const nlohmann::json& /*data*/) {
+                                      [this, token](const nlohmann::json& /*data*/) {
+                                          if (token.expired()) return;
                                           spdlog::debug(
                                               "[HistoryManager] Received notify_history_changed");
 
-                                          // Dispatch to main thread with guard check
-                                          helix::ui::queue_update([this, weak_guard]() {
-                                              if (!weak_guard.lock()) {
-                                                  return; // Object destroyed, abort
-                                              }
-                                              invalidate();
-                                              fetch();
-                                          });
+                                          lifetime_.defer(
+                                              "PrintHistoryManager::notify_history_changed",
+                                              [this]() {
+                                                  invalidate();
+                                                  fetch();
+                                              });
                                       });
 }

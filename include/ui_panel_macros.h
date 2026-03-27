@@ -146,7 +146,6 @@ class MacrosPanel : public OverlayBase {
 
     // Macro parameter modal and dangerous macro confirmation
     helix::MacroParamModal param_modal_;
-    std::shared_ptr<bool> alive_ = std::make_shared<bool>(false);
     std::string pending_dangerous_macro_; ///< Macro awaiting danger confirmation
 
     // Subjects

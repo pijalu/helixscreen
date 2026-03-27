@@ -28,9 +28,7 @@ FilamentRunoutHandler::FilamentRunoutHandler(MoonrakerAPI* api) : api_(api) {
 }
 
 FilamentRunoutHandler::~FilamentRunoutHandler() {
-    // Signal async callbacks to abort
-    alive_->store(false);
-
+    // lifetime_ destructor calls invalidate() automatically
     spdlog::trace("[FilamentRunoutHandler] Destroyed");
 }
 
@@ -89,23 +87,19 @@ void FilamentRunoutHandler::show_runout_guidance_modal() {
 
     spdlog::info("[FilamentRunoutHandler] Showing runout guidance modal");
 
-    // Capture alive guard for async callback safety
-    auto alive = alive_;
+    // Capture token for async callback safety
+    auto token = lifetime_.token();
 
     // Configure callbacks for the six options
-    runout_modal_.set_on_load_filament([alive]() {
-        if (!alive->load()) {
-            return;
-        }
+    runout_modal_.set_on_load_filament([token]() {
+        if (token.expired()) return;
         spdlog::info("[FilamentRunoutHandler] User chose to load filament after runout");
         // Navigate to filament panel for loading
         NavigationManager::instance().set_active(PanelId::Filament);
     });
 
-    runout_modal_.set_on_resume([this, alive]() {
-        if (!alive->load()) {
-            return;
-        }
+    runout_modal_.set_on_resume([this, token]() {
+        if (token.expired()) return;
 
         // Check if filament is now present before allowing resume
         auto& sensor_mgr = helix::FilamentSensorManager::instance();
@@ -141,10 +135,8 @@ void FilamentRunoutHandler::show_runout_guidance_modal() {
         }
     });
 
-    runout_modal_.set_on_cancel_print([this, alive]() {
-        if (!alive->load()) {
-            return;
-        }
+    runout_modal_.set_on_cancel_print([this, token]() {
+        if (token.expired()) return;
 
         spdlog::info("[FilamentRunoutHandler] User chose to cancel print after runout");
 
@@ -171,10 +163,8 @@ void FilamentRunoutHandler::show_runout_guidance_modal() {
         }
     });
 
-    runout_modal_.set_on_unload_filament([this, alive]() {
-        if (!alive->load()) {
-            return;
-        }
+    runout_modal_.set_on_unload_filament([this, token]() {
+        if (token.expired()) return;
 
         spdlog::info("[FilamentRunoutHandler] User chose to unload filament after runout");
 
@@ -199,10 +189,8 @@ void FilamentRunoutHandler::show_runout_guidance_modal() {
         }
     });
 
-    runout_modal_.set_on_purge([this, alive]() {
-        if (!alive->load()) {
-            return;
-        }
+    runout_modal_.set_on_purge([this, token]() {
+        if (token.expired()) return;
 
         spdlog::info("[FilamentRunoutHandler] User chose to purge after runout");
 
@@ -226,10 +214,8 @@ void FilamentRunoutHandler::show_runout_guidance_modal() {
         }
     });
 
-    runout_modal_.set_on_ok_dismiss([alive]() {
-        if (!alive->load()) {
-            return;
-        }
+    runout_modal_.set_on_ok_dismiss([token]() {
+        if (token.expired()) return;
         spdlog::info("[FilamentRunoutHandler] User dismissed runout modal (idle mode)");
         // Just hide the modal - no action needed
     });

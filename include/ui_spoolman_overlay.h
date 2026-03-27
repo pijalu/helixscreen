@@ -267,7 +267,7 @@ class SpoolmanOverlay : public OverlayBase {
     lv_obj_t* setup_card_ = nullptr;
     lv_obj_t* status_card_ = nullptr;
 
-    std::shared_ptr<bool> alive_guard_ = std::make_shared<bool>(true);
+
 };
 
 /**

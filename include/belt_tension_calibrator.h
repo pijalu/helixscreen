@@ -19,10 +19,10 @@
  * @see InputShaperCalibrator for the equivalent input shaper workflow
  */
 
+#include "async_lifetime_guard.h"
 #include "belt_tension_types.h"
 
 #include <atomic>
-#include <memory>
 #include <string>
 
 // Forward declaration
@@ -183,8 +183,8 @@ class BeltTensionCalibrator {
     BeltTensionHardware hardware_;
     float strobe_frequency_ = 0.0f;
 
-    /// Shared alive flag for async callback safety
-    std::shared_ptr<std::atomic<bool>> alive_ = std::make_shared<std::atomic<bool>>(true);
+    /// Async callback safety guard
+    helix::AsyncLifetimeGuard lifetime_;
 };
 
 }  // namespace helix::calibration

@@ -121,7 +121,6 @@ std::string FanWidget::get_component_name() const {
 void FanWidget::attach(lv_obj_t* widget_obj, lv_obj_t* parent_screen) {
     widget_obj_ = widget_obj;
     parent_screen_ = parent_screen;
-    *alive_ = true;
 
     if (widget_obj_) {
         lv_obj_set_user_data(widget_obj_, this);
@@ -141,11 +140,11 @@ void FanWidget::attach(lv_obj_t* widget_obj, lv_obj_t* parent_screen) {
     }
 
     // Observe fan version to detect fan discovery/reconnection
-    std::weak_ptr<bool> weak_alive = alive_;
+    auto token = lifetime_.token();
     version_observer_ = helix::ui::observe_int_sync<FanWidget>(
         get_printer_state().get_fans_version_subject(), this,
-        [weak_alive](FanWidget* self, int /*version*/) {
-            if (weak_alive.expired())
+        [token](FanWidget* self, int /*version*/) {
+            if (token.expired())
                 return;
             if (self->selected_fan_.empty()) {
                 self->auto_select_first_fan();
@@ -161,7 +160,7 @@ void FanWidget::attach(lv_obj_t* widget_obj, lv_obj_t* parent_screen) {
 }
 
 void FanWidget::detach() {
-    *alive_ = false;
+    lifetime_.invalidate();
     dismiss_fan_picker();
     {
         auto freeze = helix::ui::UpdateQueue::instance().scoped_freeze();
@@ -216,11 +215,11 @@ void FanWidget::bind_speed_observer() {
     speed_lifetime_.reset();
     lv_subject_t* subj = ps.get_fan_speed_subject(selected_fan_, speed_lifetime_);
     if (subj) {
-        std::weak_ptr<bool> weak_alive = alive_;
+        auto token = lifetime_.token();
         speed_observer_ = helix::ui::observe_int_sync<FanWidget>(
             subj, this,
-            [weak_alive](FanWidget* self, int speed) {
-                if (weak_alive.expired())
+            [token](FanWidget* self, int speed) {
+                if (token.expired())
                     return;
                 self->on_speed_changed(speed);
             },
@@ -377,8 +376,7 @@ void FanWidget::show_fan_picker() {
                 if (!name_ptr)
                     return;
 
-                if (FanWidget::s_active_picker_ &&
-                    *FanWidget::s_active_picker_->alive_) {
+                if (FanWidget::s_active_picker_) {
                     std::string fan_name = *name_ptr;
                     FanWidget::s_active_picker_->select_fan(fan_name);
                     FanWidget::s_active_picker_->dismiss_fan_picker();
@@ -446,7 +444,7 @@ void FanWidget::fan_widget_clicked_cb(lv_event_t* e) {
 void FanWidget::fan_picker_backdrop_cb(lv_event_t* e) {
     LVGL_SAFE_EVENT_CB_BEGIN("[FanWidget] fan_picker_backdrop_cb");
     (void)e;
-    if (s_active_picker_ && *s_active_picker_->alive_) {
+    if (s_active_picker_) {
         s_active_picker_->dismiss_fan_picker();
     }
     LVGL_SAFE_EVENT_CB_END();

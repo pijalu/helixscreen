@@ -62,8 +62,7 @@ PrintSelectDetailView::~PrintSelectDetailView() {
         s_detail_view_instance = nullptr;
     }
 
-    // Signal async callbacks to bail out [L012]
-    alive_->store(false);
+    // lifetime_ destructor auto-invalidates all outstanding tokens
 
     // Clean up temp gcode file
     if (!temp_gcode_path_.empty()) {
@@ -435,7 +434,7 @@ void PrintSelectDetailView::on_deactivate() {
     hide_delete_confirmation();
 
     // Note: We don't cancel scans here because PrintPreparationManager
-    // has its own alive_guard_ pattern. Async callbacks in prep_manager_
+    // has its own lifetime guard. Async callbacks in prep_manager_
     // will check cleanup_called() if needed.
 
     // Call base class
@@ -450,8 +449,8 @@ void PrintSelectDetailView::cleanup() {
         ui_gcode_viewer_set_paused(gcode_viewer_, true);
     }
 
-    // Signal async callbacks to bail out [L012]
-    alive_->store(false);
+    // Expire all outstanding async tokens
+    lifetime_.invalidate();
 
     // Unregister from NavigationManager before cleaning up
     if (overlay_root_) {
@@ -475,13 +474,11 @@ void PrintSelectDetailView::cleanup() {
 void PrintSelectDetailView::on_ui_destroyed() {
     spdlog::debug("[DetailView] on_ui_destroyed() - nulling widget pointers");
 
-    // Invalidate alive_ token so in-flight async callbacks (gcode download,
+    // Invalidate outstanding tokens so in-flight async callbacks (gcode download,
     // metadata fetch, load callbacks) bail out — they captured pointers to
     // widgets that no longer exist (e.g. gcode_viewer_).
-    alive_->store(false);
-
-    // Allocate a fresh token for the next create() cycle
-    alive_ = std::make_shared<std::atomic<bool>>(true);
+    // New tokens from lifetime_.token() will be valid for the next create() cycle.
+    lifetime_.invalidate();
 
     // Pause and clear gcode viewer state (widget is already deleted by base)
     gcode_loaded_ = false;
@@ -829,14 +826,10 @@ void PrintSelectDetailView::load_gcode_for_preview() {
             temp_gcode_path_ = temp_path;
 
             // Set up load callback and load the file
-            auto alive = alive_;
             ui_gcode_viewer_set_load_callback(
                 gcode_viewer_,
                 [](lv_obj_t* viewer, void* user_data, bool success) {
                     auto* self = static_cast<PrintSelectDetailView*>(user_data);
-                    if (!self->alive_->load()) {
-                        return;
-                    }
                     if (!success) {
                         spdlog::warn("[DetailView] G-code load failed from cache");
                         self->show_gcode_viewer(false);
@@ -872,13 +865,12 @@ void PrintSelectDetailView::load_gcode_for_preview() {
         current_path_.empty() ? current_filename_ : current_path_ + "/" + current_filename_;
     std::string metadata_filename = file_path;
 
-    // Capture alive flag for shutdown safety [L012]
-    auto alive = alive_;
+    auto tok = lifetime_.token();
 
     api_->files().get_file_metadata(
         metadata_filename,
-        [this, alive, temp_path, file_path](const FileMetadata& metadata) {
-            if (!alive->load()) {
+        [this, tok, temp_path, file_path](const FileMetadata& metadata) {
+            if (tok.expired()) {
                 return;
             }
 
@@ -904,13 +896,13 @@ void PrintSelectDetailView::load_gcode_for_preview() {
             // Stream download to disk
             api_->transfers().download_file_to_path(
                 "gcodes", file_path, temp_path,
-                [this, alive, temp_path](const std::string& path) {
-                    if (!alive->load()) {
+                [this, tok, temp_path](const std::string& path) {
+                    if (tok.expired()) {
                         return;
                     }
                     // Marshal to main thread — this callback runs on HTTP thread
-                    helix::ui::queue_update([this, alive, path]() {
-                        if (!alive->load()) {
+                    helix::ui::queue_update([this, tok, path]() {
+                        if (tok.expired()) {
                             return;
                         }
                         temp_gcode_path_ = path;
@@ -923,9 +915,6 @@ void PrintSelectDetailView::load_gcode_for_preview() {
                             gcode_viewer_,
                             [](lv_obj_t* viewer, void* user_data, bool success) {
                                 auto* self = static_cast<PrintSelectDetailView*>(user_data);
-                                if (!self->alive_->load()) {
-                                    return;
-                                }
                                 if (!success) {
                                     spdlog::warn("[DetailView] G-code load failed after download");
                                     self->show_gcode_viewer(false);
@@ -953,21 +942,21 @@ void PrintSelectDetailView::load_gcode_for_preview() {
                         ui_gcode_viewer_load_file(gcode_viewer_, path.c_str());
                     });
                 },
-                [this, alive](const MoonrakerError& err) {
-                    if (!alive->load()) {
+                [this, tok](const MoonrakerError& err) {
+                    if (tok.expired()) {
                         return;
                     }
                     spdlog::warn("[DetailView] Failed to download G-code: {}", err.message);
                     // Marshal to main thread — this callback runs on HTTP thread
-                    helix::ui::queue_update([this, alive]() {
-                        if (!alive->load())
+                    helix::ui::queue_update([this, tok]() {
+                        if (tok.expired())
                             return;
                         show_gcode_viewer(false);
                     });
                 });
         },
-        [this, alive](const MoonrakerError& err) {
-            if (!alive->load()) {
+        [this, tok](const MoonrakerError& err) {
+            if (tok.expired()) {
                 return;
             }
             spdlog::debug("[DetailView] Failed to get G-code metadata: {} - skipping preview",

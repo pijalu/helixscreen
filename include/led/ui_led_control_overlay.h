@@ -150,8 +150,7 @@ class LedControlOverlay : public OverlayBase {
     LedBackendType selected_backend_type_ = LedBackendType::NATIVE;
     bool strips_rebuild_pending_ = false; ///< Coalesces strip selector rebuild requests
 
-    /// Guards lv_async_call callbacks from accessing a destroyed overlay
-    std::shared_ptr<bool> alive_guard_ = std::make_shared<bool>(true);
+
 };
 
 } // namespace helix::led

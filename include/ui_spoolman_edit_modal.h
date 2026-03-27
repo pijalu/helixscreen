@@ -9,7 +9,6 @@
 #include "subject_managed_panel.h"
 
 #include <functional>
-#include <memory>
 #include <string>
 
 class MoonrakerAPI;
@@ -78,8 +77,6 @@ class SpoolEditModal : public Modal {
     SpoolInfo working_spool_;
     MoonrakerAPI* api_ = nullptr;
     CompletionCallback completion_callback_;
-    std::shared_ptr<bool> callback_guard_;
-
 
     bool subjects_initialized_ = false;
     bool populating_ = false;

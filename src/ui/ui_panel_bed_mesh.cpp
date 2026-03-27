@@ -90,10 +90,6 @@ BedMeshPanel::BedMeshPanel() {
 BedMeshPanel::~BedMeshPanel() {
     deinit_subjects();
 
-    // Signal to async callbacks that this panel is being destroyed [L012]
-    // Must happen BEFORE any cleanup that callbacks might reference
-    alive_->store(false);
-
     // During shutdown, MoonrakerClient may already be destroyed - release subscription
     // guard WITHOUT trying to unsubscribe (matches pattern in ams_backend_*.cpp)
     subscription_.release();
@@ -371,36 +367,25 @@ void BedMeshPanel::on_activate() {
     // during lv_timer_handler(). Calling lv_obj_update_layout() here can crash in
     // layout_update_core() because lv_obj_move_foreground() just modified the
     // children array in the same cycle (#417, #419).
-    std::weak_ptr<std::atomic<bool>> weak = alive_;
-    lv_async_call(
-        [](void* data) {
-            auto weak_alive =
-                *static_cast<std::weak_ptr<std::atomic<bool>>*>(data);
-            delete static_cast<std::weak_ptr<std::atomic<bool>>*>(data);
-            auto alive = weak_alive.lock();
-            if (!alive || !alive->load()) return;
+    lifetime_.defer("BedMeshPanel::activate_layout", [this]() {
+        if (canvas_) {
+            lv_obj_update_layout(canvas_);
+        }
 
-            auto& panel = get_global_bed_mesh_panel();
-
-            if (panel.canvas_) {
-                lv_obj_update_layout(panel.canvas_);
+        MoonrakerAPI* api = get_moonraker_api();
+        if (api && api->advanced().has_bed_mesh()) {
+            const BedMeshProfile* mesh = api->advanced().get_active_bed_mesh();
+            if (mesh) {
+                on_mesh_update_internal(*mesh);
             }
+        }
 
-            MoonrakerAPI* api = get_moonraker_api();
-            if (api && api->advanced().has_bed_mesh()) {
-                const BedMeshProfile* mesh = api->advanced().get_active_bed_mesh();
-                if (mesh) {
-                    panel.on_mesh_update_internal(*mesh);
-                }
-            }
+        if (api) {
+            update_profile_list_subjects();
+        }
 
-            if (api) {
-                panel.update_profile_list_subjects();
-            }
-
-            panel.ensure_async_rendering();
-        },
-        new std::weak_ptr<std::atomic<bool>>(weak));
+        ensure_async_rendering();
+    });
 
 }
 
@@ -567,17 +552,13 @@ void BedMeshPanel::setup_moonraker_subscription() {
         return;
     }
 
-    auto alive = alive_; // Capture shared_ptr by value for destruction detection [L012]
+    auto token = lifetime_.token();
 
     SubscriptionId id =
-        api->subscribe_notifications([this, api, alive](nlohmann::json notification) {
-            // Check destruction flag FIRST - panel may have been deleted
-            if (!alive->load()) {
-                return;
-            }
+        api->subscribe_notifications([this, api, token](nlohmann::json notification) {
+            if (token.expired()) return;
 
             // Check if this notification contains bed_mesh data BEFORE deferring to main thread
-            // This avoids unnecessary context switches for unrelated notifications
             if (!notification.contains("params") || !notification["params"].is_array() ||
                 notification["params"].empty()) {
                 return;
@@ -587,24 +568,13 @@ void BedMeshPanel::setup_moonraker_subscription() {
                 return;
             }
 
-            // CRITICAL: Defer LVGL modifications to main thread via ui_queue_update [L012]
-            // WebSocket callbacks run on libhv thread - direct lv_subject_* calls cause crashes
-            struct Ctx {
-                BedMeshPanel* panel;
-                MoonrakerAPI* api;
-                std::shared_ptr<std::atomic<bool>> alive;
-            };
-            auto ctx = std::make_unique<Ctx>(Ctx{this, api, alive});
-            helix::ui::queue_update<Ctx>(std::move(ctx), [](Ctx* c) {
-                // Check again on main thread - panel could be destroyed between queue and exec
-                if (!c->alive->load()) {
-                    return;
-                }
-                const BedMeshProfile* mesh = c->api->advanced().get_active_bed_mesh();
+            // Defer LVGL modifications to main thread
+            lifetime_.defer("BedMeshPanel::mesh_update", [this, api]() {
+                const BedMeshProfile* mesh = api->advanced().get_active_bed_mesh();
                 if (mesh) {
-                    c->panel->on_mesh_update_internal(*mesh);
+                    on_mesh_update_internal(*mesh);
                 }
-                c->panel->update_profile_list_subjects();
+                update_profile_list_subjects();
             });
         });
 
@@ -858,10 +828,7 @@ void BedMeshPanel::load_profile(int index) {
                 // Explicitly refresh mesh visualization from the loaded profile data.
                 // The subscription notification may arrive with only profile_name (no
                 // probed_matrix) on some Klipper versions, leaving the 3D graph stale.
-                auto alive = alive_;
-                helix::ui::queue_update([this, api, alive]() {
-                    if (!alive->load())
-                        return;
+                lifetime_.defer("BedMeshPanel::load_refresh", [this, api]() {
                     const BedMeshProfile* mesh = api->advanced().get_active_bed_mesh();
                     if (mesh) {
                         on_mesh_update_internal(*mesh);
@@ -926,32 +893,23 @@ void BedMeshPanel::start_calibration() {
                      homed ? homed : "none");
         lv_subject_copy_string(&bed_mesh_probe_text_, lv_tr("Homing..."));
 
-        auto alive = alive_;
+        auto token = lifetime_.token();
         api->execute_gcode(
             "G28",
-            [this, alive]() {
-                if (!alive->load())
-                    return;
-                helix::ui::async_call(
-                    [](void* data) {
-                        spdlog::info("[BedMeshPanel] G28 complete, starting calibration");
-                        static_cast<BedMeshPanel*>(data)->start_calibration_probing();
-                    },
-                    this);
+            [this, token]() {
+                if (token.expired()) return;
+                lifetime_.defer("BedMeshPanel::g28_done", [this]() {
+                    spdlog::info("[BedMeshPanel] G28 complete, starting calibration");
+                    start_calibration_probing();
+                });
             },
-            [this, alive](const MoonrakerError& err) {
-                if (!alive->load())
-                    return;
-                struct ErrorCtx {
-                    BedMeshPanel* panel;
-                    std::string message;
-                };
+            [this, token](const MoonrakerError& err) {
+                if (token.expired()) return;
                 std::string msg = (err.type == MoonrakerErrorType::TIMEOUT)
                                       ? "Homing timed out — printer may still be homing"
                                       : "Homing failed: " + err.message;
-                auto ctx = std::make_unique<ErrorCtx>(ErrorCtx{this, std::move(msg)});
-                helix::ui::queue_update<ErrorCtx>(std::move(ctx), [](ErrorCtx* c) {
-                    c->panel->on_calibration_error(c->message);
+                lifetime_.defer("BedMeshPanel::g28_error", [this, msg]() {
+                    on_calibration_error(msg);
                 });
             },
             MoonrakerAPI::HOMING_TIMEOUT_MS);
@@ -967,45 +925,31 @@ void BedMeshPanel::start_calibration_probing() {
 
     lv_subject_copy_string(&bed_mesh_probe_text_, lv_tr("Preparing..."));
 
-    // Capture alive flag for callback safety
-    auto alive = alive_;
+    auto token = lifetime_.token();
 
     // Start calibration with progress tracking
     api->advanced().start_bed_mesh_calibrate(
         // Progress callback (from WebSocket thread)
-        [this, alive](int current, int total) {
-            if (!alive->load())
-                return;
-            // Must use ui_queue_update for thread safety [L012]
-            struct ProgressCtx {
-                BedMeshPanel* panel;
-                int current;
-                int total;
-            };
-            auto ctx = std::make_unique<ProgressCtx>(ProgressCtx{this, current, total});
-            helix::ui::queue_update<ProgressCtx>(std::move(ctx), [](ProgressCtx* c) {
-                c->panel->on_probe_progress(c->current, c->total);
+        [this, token](int current, int total) {
+            if (token.expired()) return;
+            lifetime_.defer("BedMeshPanel::probe_progress", [this, current, total]() {
+                on_probe_progress(current, total);
             });
         },
         // Complete callback (from WebSocket thread)
-        [this, alive]() {
-            if (!alive->load())
-                return;
-            helix::ui::async_call(
-                [](void* data) { static_cast<BedMeshPanel*>(data)->on_calibration_complete(); },
-                this);
+        [this, token]() {
+            if (token.expired()) return;
+            lifetime_.defer("BedMeshPanel::calibrate_done", [this]() {
+                on_calibration_complete();
+            });
         },
         // Error callback (from WebSocket thread)
-        [this, alive](const MoonrakerError& err) {
-            if (!alive->load())
-                return;
-            struct ErrorCtx {
-                BedMeshPanel* panel;
-                std::string message;
-            };
-            auto ctx = std::make_unique<ErrorCtx>(ErrorCtx{this, err.message});
-            helix::ui::queue_update<ErrorCtx>(
-                std::move(ctx), [](ErrorCtx* c) { c->panel->on_calibration_error(c->message); });
+        [this, token](const MoonrakerError& err) {
+            if (token.expired()) return;
+            auto msg = err.message;
+            lifetime_.defer("BedMeshPanel::calibrate_error", [this, msg]() {
+                on_calibration_error(msg);
+            });
         });
 }
 
