@@ -3,7 +3,6 @@
 
 #include "ui_spool_canvas.h"
 
-#include "memory_utils.h"
 #include "ui_utils.h"
 
 #include "helix-xml/src/xml/lv_xml.h"
@@ -32,14 +31,6 @@ static constexpr float SPOOL_DEPTH = 0.35f; // Depth/width of spool (distance be
 static constexpr int32_t DEFAULT_SIZE = 64;
 static constexpr uint32_t DEFAULT_COLOR = 0xE0E0E0; // Default white/light filament
 
-// RGB565 on constrained devices saves 50% canvas memory (no alpha needed for spool rendering)
-static lv_color_format_t spool_canvas_format() {
-    static const lv_color_format_t fmt =
-        helix::get_system_memory_info().is_constrained_device()
-            ? LV_COLOR_FORMAT_RGB565
-            : spool_canvas_format();
-    return fmt;
-}
 
 // Note: Spool body colors now come from theme tokens in globals.xml:
 // - spool_body: Front flange color
@@ -304,7 +295,7 @@ static void* spool_canvas_xml_create(lv_xml_parser_state_t* state, const char** 
 
     // Create draw buffer
     data_ptr->draw_buf =
-        lv_draw_buf_create(data_ptr->size, data_ptr->size, spool_canvas_format(), 0);
+        lv_draw_buf_create(data_ptr->size, data_ptr->size, LV_COLOR_FORMAT_ARGB8888, 0);
     if (data_ptr->draw_buf) {
         lv_canvas_set_draw_buf(canvas, data_ptr->draw_buf);
     }
@@ -358,7 +349,7 @@ static void spool_canvas_xml_apply(lv_xml_parser_state_t* state, const char** at
                     lv_draw_buf_destroy(data->draw_buf);
                 }
                 data->draw_buf =
-                    lv_draw_buf_create(new_size, new_size, spool_canvas_format(), 0);
+                    lv_draw_buf_create(new_size, new_size, LV_COLOR_FORMAT_ARGB8888, 0);
                 if (data->draw_buf) {
                     lv_canvas_set_draw_buf(data->canvas, data->draw_buf);
                 }
@@ -403,7 +394,7 @@ lv_obj_t* ui_spool_canvas_create(lv_obj_t* parent, int32_t size) {
     data_ptr->fill_level = 1.0f;
 
     // Create draw buffer
-    data_ptr->draw_buf = lv_draw_buf_create(size, size, spool_canvas_format(), 0);
+    data_ptr->draw_buf = lv_draw_buf_create(size, size, LV_COLOR_FORMAT_ARGB8888, 0);
     if (data_ptr->draw_buf) {
         lv_canvas_set_draw_buf(canvas, data_ptr->draw_buf);
     } else {
@@ -456,7 +447,7 @@ void ui_spool_canvas_set_size(lv_obj_t* canvas, int32_t size) {
     if (data->draw_buf) {
         lv_draw_buf_destroy(data->draw_buf);
     }
-    data->draw_buf = lv_draw_buf_create(size, size, spool_canvas_format(), 0);
+    data->draw_buf = lv_draw_buf_create(size, size, LV_COLOR_FORMAT_ARGB8888, 0);
     if (!data->draw_buf) {
         spdlog::error("[SpoolCanvas] Failed to create draw buffer for size {}", size);
         return;

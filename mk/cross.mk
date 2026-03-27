@@ -214,7 +214,7 @@ else ifeq ($(PLATFORM_TARGET),ad5m)
     TARGET_CFLAGS := -march=armv7-a -mfpu=neon-vfpv4 -mfloat-abi=hard -mtune=cortex-a7 \
         -Os -flto -ffunction-sections -fdata-sections -funwind-tables \
         -Wno-error=conversion -Wno-error=sign-conversion -DHELIX_RELEASE_BUILD -DHELIX_PLATFORM_AD5M \
-        -DHELIX_HAS_LABEL_PRINTER=0 -DHELIX_HAS_LED=0 -DHELIX_HAS_CFS=0 -DHELIX_HAS_IFS=0
+        -DHELIX_HAS_LABEL_PRINTER=0 -DHELIX_HAS_CFS=0 -DHELIX_HAS_IFS=0
     # -Wl,--gc-sections: Remove unused sections during linking (works with -ffunction-sections)
     # -flto: Must match compiler flag for LTO to work
     # -static: Fully static binary - no runtime dependencies on system libs
