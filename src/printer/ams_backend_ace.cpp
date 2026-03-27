@@ -828,23 +828,66 @@ bool AmsBackendAce::interruptible_sleep(int ms) {
 }
 
 // ============================================================================
-// Device Actions (stub - not yet exposed)
+// Device Actions
 // ============================================================================
 
 std::vector<helix::printer::DeviceSection> AmsBackendAce::get_device_sections() const {
-    // ACE doesn't expose device-specific actions yet
-    // Future: could expose dryer settings here
-    return {};
+    using DS = helix::printer::DeviceSection;
+    return {
+        DS{"filament_control", "Filament Control", 0, "Manual feed and retract operations"},
+        DS{"maintenance", "Maintenance", 1, "Feed assist and debug tools"},
+    };
 }
 
 std::vector<helix::printer::DeviceAction> AmsBackendAce::get_device_actions() const {
-    // ACE doesn't expose device-specific actions yet
-    return {};
+    using DA = helix::printer::DeviceAction;
+    using AT = helix::printer::ActionType;
+    return {
+        DA{"ace_manual_feed", "Manual Feed", "", "filament_control",
+           "Feed filament from current slot",
+           AT::BUTTON, {}, {}, 0, 100, "", -1, true, ""},
+        DA{"ace_manual_retract", "Manual Retract", "", "filament_control",
+           "Retract filament to current slot",
+           AT::BUTTON, {}, {}, 0, 100, "", -1, true, ""},
+        DA{"ace_feed_assist_toggle", "Feed Assist", "", "maintenance",
+           "Enable feed assist for active slot during printing",
+           AT::TOGGLE, {}, {}, 0, 100, "", -1, true, ""},
+    };
 }
 
 AmsError AmsBackendAce::execute_device_action(const std::string& action_id,
                                                   const std::any& value) {
-    (void)action_id;
-    (void)value;
-    return AmsErrorHelper::not_supported("Device actions");
+    if (action_id == "ace_manual_feed") {
+        int slot = get_current_slot();
+        if (slot < 0) slot = 0;
+        return execute_gcode("ACE_FEED INDEX=" + std::to_string(slot) + " LENGTH=50 SPEED=50");
+    }
+
+    if (action_id == "ace_manual_retract") {
+        int slot = get_current_slot();
+        if (slot < 0) slot = 0;
+        return execute_gcode("ACE_RETRACT INDEX=" + std::to_string(slot) + " LENGTH=50 SPEED=50");
+    }
+
+    if (action_id == "ace_feed_assist_toggle") {
+        int slot = get_current_slot();
+        if (slot < 0) slot = 0;
+
+        bool enable = true;
+        if (value.has_value()) {
+            try {
+                enable = std::any_cast<bool>(value);
+            } catch (const std::bad_any_cast&) {
+                // Default to enable if cast fails
+            }
+        }
+
+        if (enable) {
+            return execute_gcode("ACE_ENABLE_FEED_ASSIST INDEX=" + std::to_string(slot));
+        } else {
+            return execute_gcode("ACE_DISABLE_FEED_ASSIST INDEX=" + std::to_string(slot));
+        }
+    }
+
+    return AmsErrorHelper::not_supported("Unknown ACE action: " + action_id);
 }

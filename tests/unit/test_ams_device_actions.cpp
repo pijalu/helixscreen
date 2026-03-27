@@ -614,35 +614,119 @@ TEST_CASE("AmsBackendMock execute with different value types", "[ams][device_act
 }
 
 // =============================================================================
-// ACE Backend Stub Tests
+// ACE Backend Device Action Tests
 // =============================================================================
 
-TEST_CASE("ACE device actions stubs", "[ams][device_actions][ace]") {
-    // Create ACE backend with null dependencies (for stub testing)
+TEST_CASE("ACE device actions - sections and actions", "[ams][device_actions][ace]") {
+    // Create ACE backend with null dependencies (for structure testing)
     AmsBackendAce backend(nullptr, nullptr);
 
-    SECTION("get_device_sections returns empty vector") {
+    SECTION("get_device_sections returns two sections") {
         auto sections = backend.get_device_sections();
-        CHECK(sections.empty());
+        REQUIRE(sections.size() == 2);
+
+        auto it = std::find_if(sections.begin(), sections.end(),
+                               [](const DeviceSection& s) { return s.id == "filament_control"; });
+        REQUIRE(it != sections.end());
+        CHECK(it->label == "Filament Control");
+
+        it = std::find_if(sections.begin(), sections.end(),
+                          [](const DeviceSection& s) { return s.id == "maintenance"; });
+        REQUIRE(it != sections.end());
+        CHECK(it->label == "Maintenance");
     }
 
-    SECTION("get_device_actions returns empty vector") {
+    SECTION("get_device_actions returns three actions") {
         auto actions = backend.get_device_actions();
-        CHECK(actions.empty());
+        REQUIRE(actions.size() == 3);
+
+        for (const auto& action : actions) {
+            CHECK_FALSE(action.id.empty());
+            CHECK_FALSE(action.label.empty());
+            CHECK_FALSE(action.section.empty());
+            CHECK(action.enabled == true);
+        }
     }
 
-    SECTION("execute_device_action returns not_supported") {
-        auto result = backend.execute_device_action("any_action");
+    SECTION("ace_manual_feed is a BUTTON in filament_control section") {
+        auto actions = backend.get_device_actions();
+        auto it = std::find_if(actions.begin(), actions.end(),
+                               [](const DeviceAction& a) { return a.id == "ace_manual_feed"; });
+        REQUIRE(it != actions.end());
+        CHECK(it->type == ActionType::BUTTON);
+        CHECK(it->section == "filament_control");
+    }
 
+    SECTION("ace_manual_retract is a BUTTON in filament_control section") {
+        auto actions = backend.get_device_actions();
+        auto it = std::find_if(actions.begin(), actions.end(),
+                               [](const DeviceAction& a) { return a.id == "ace_manual_retract"; });
+        REQUIRE(it != actions.end());
+        CHECK(it->type == ActionType::BUTTON);
+        CHECK(it->section == "filament_control");
+    }
+
+    SECTION("ace_feed_assist_toggle is a TOGGLE in maintenance section") {
+        auto actions = backend.get_device_actions();
+        auto it = std::find_if(actions.begin(), actions.end(),
+                               [](const DeviceAction& a) { return a.id == "ace_feed_assist_toggle"; });
+        REQUIRE(it != actions.end());
+        CHECK(it->type == ActionType::TOGGLE);
+        CHECK(it->section == "maintenance");
+    }
+}
+
+TEST_CASE("ACE device actions - execute unknown returns not_supported",
+          "[ams][device_actions][ace]") {
+    AmsBackendAce backend(nullptr, nullptr);
+
+    SECTION("unknown action returns not_supported") {
+        auto result = backend.execute_device_action("nonexistent_action");
         CHECK_FALSE(result);
         CHECK(result.result == AmsResult::NOT_SUPPORTED);
     }
 
-    SECTION("execute_device_action with value still returns not_supported") {
-        auto result = backend.execute_device_action("any_action", 42);
-
+    SECTION("unknown action with value returns not_supported") {
+        auto result = backend.execute_device_action("nonexistent_action", 42);
         CHECK_FALSE(result);
         CHECK(result.result == AmsResult::NOT_SUPPORTED);
+    }
+}
+
+TEST_CASE("ACE device actions - execute valid actions", "[ams][device_actions][ace]") {
+    // Note: ACE backend requires api_ for execute_gcode, so these tests verify
+    // that execute_device_action recognizes the action IDs (returns NOT_CONNECTED, not NOT_SUPPORTED)
+    AmsBackendAce backend(nullptr, nullptr);
+
+    SECTION("ace_manual_feed with null API returns not_connected") {
+        auto result = backend.execute_device_action("ace_manual_feed");
+        // Should fail with not_connected (recognized action), not not_supported (unknown action)
+        CHECK_FALSE(result);
+        CHECK(result.result == AmsResult::NOT_CONNECTED);
+    }
+
+    SECTION("ace_manual_retract with null API returns not_connected") {
+        auto result = backend.execute_device_action("ace_manual_retract");
+        CHECK_FALSE(result);
+        CHECK(result.result == AmsResult::NOT_CONNECTED);
+    }
+
+    SECTION("ace_feed_assist_toggle with enable=true returns not_connected") {
+        auto result = backend.execute_device_action("ace_feed_assist_toggle", true);
+        CHECK_FALSE(result);
+        CHECK(result.result == AmsResult::NOT_CONNECTED);
+    }
+
+    SECTION("ace_feed_assist_toggle with enable=false returns not_connected") {
+        auto result = backend.execute_device_action("ace_feed_assist_toggle", false);
+        CHECK_FALSE(result);
+        CHECK(result.result == AmsResult::NOT_CONNECTED);
+    }
+
+    SECTION("ace_feed_assist_toggle with no value returns not_connected") {
+        auto result = backend.execute_device_action("ace_feed_assist_toggle");
+        CHECK_FALSE(result);
+        CHECK(result.result == AmsResult::NOT_CONNECTED);
     }
 }
 
