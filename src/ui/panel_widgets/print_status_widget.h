@@ -11,8 +11,6 @@
 #include "panel_widget.h"
 #include "print_history_manager.h"
 
-#include <atomic>
-#include <memory>
 #include <string>
 #include <unordered_set>
 
@@ -94,7 +92,7 @@ class PrintStatusWidget : public PanelWidget {
     ObserverGuard filament_runout_observer_;
     ObserverGuard job_queue_count_observer_;
 
-    // Lifetime guard for async thumbnail callbacks and history observer [L072]
+    // Guards async thumbnail callbacks and history observer from use-after-free
     helix::AsyncLifetimeGuard lifetime_;
 
     // History observer for updating idle thumbnail when history loads

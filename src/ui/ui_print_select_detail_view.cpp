@@ -434,7 +434,7 @@ void PrintSelectDetailView::on_deactivate() {
     hide_delete_confirmation();
 
     // Note: We don't cancel scans here because PrintPreparationManager
-    // has its own alive_guard_ pattern. Async callbacks in prep_manager_
+    // has its own lifetime guard. Async callbacks in prep_manager_
     // will check cleanup_called() if needed.
 
     // Call base class

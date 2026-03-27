@@ -418,7 +418,7 @@ void PrintSelectPanel::setup(lv_obj_t* panel, lv_obj_t* parent_screen) {
     file_provider_->set_on_files_ready([self,
                                         token = self->lifetime_.token()](
                                            std::vector<PrintFileData>&& files) {
-        // CRITICAL: Defer ALL work to main thread [L012][L072]
+        // CRITICAL: Defer ALL work to main thread
         // WebSocket callbacks run on libhv thread - direct LVGL calls cause crashes
         struct FilesReadyContext {
             PrintSelectPanel* panel;
@@ -487,7 +487,7 @@ void PrintSelectPanel::setup(lv_obj_t* panel, lv_obj_t* parent_screen) {
     file_provider_->set_on_metadata_updated(
         [self, token = self->lifetime_.token()](
             size_t index, const PrintFileData& updated) {
-            // CRITICAL: Defer all work to main thread [L012][L072]
+            // CRITICAL: Defer all work to main thread
             // WebSocket callbacks run on libhv thread - direct LVGL calls cause crashes
             struct MetadataUpdateContext {
                 PrintSelectPanel* panel;

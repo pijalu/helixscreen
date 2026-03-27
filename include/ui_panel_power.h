@@ -10,9 +10,7 @@
 #include "moonraker_api.h" // Need full definition for PowerDevice
 #include "subject_managed_panel.h"
 
-#include <atomic>
 #include <map>
-#include <memory>
 #include <set>
 #include <string>
 #include <vector>

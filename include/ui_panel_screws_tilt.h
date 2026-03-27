@@ -8,8 +8,6 @@
 #include "subject_managed_panel.h"
 
 #include <array>
-#include <atomic>
-#include <memory>
 #include <string>
 #include <vector>
 

@@ -137,7 +137,7 @@ void ChangeHostModal::deinit_subjects() {
     if (!subjects_initialized_)
         return;
 
-    // Applying [L073]: release() because subjects are about to be destroyed —
+    // release() because subjects are about to be destroyed —
     // calling reset() (which does lv_observer_remove) on a dead subject = crash.
     host_ip_observer_.release();
     host_port_observer_.release();

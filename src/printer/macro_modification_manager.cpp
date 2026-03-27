@@ -319,7 +319,7 @@ void MacroModificationManager::show_configure_toast() {
              uncontrollable == 1 ? "" : "s");
 
     // Show toast with Configure action
-    // Using raw pointer for callback since toast lifetime is short [L012]
+    // Using raw pointer for callback since toast lifetime is short
     ToastManager::instance().show_with_action(
         ToastSeverity::INFO, message, "Configure",
         [](void* user_data) {

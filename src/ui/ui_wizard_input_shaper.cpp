@@ -177,7 +177,6 @@ static void on_start_calibration_clicked(lv_event_t* e) {
     lv_subject_copy_string(step->get_status_subject(), lv_tr("Checking accelerometer..."));
     lv_subject_set_int(step->get_progress_subject(), 0);
 
-    // Capture alive flag as weak_ptr for async callbacks
     auto token = step->get_lifetime_token();
 
     // Start calibration via calibrator

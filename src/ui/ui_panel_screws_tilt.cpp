@@ -332,7 +332,6 @@ void ScrewsTiltPanel::start_probing() {
 
     spdlog::info("[ScrewsTilt] Starting probe #{}", probe_count_);
 
-    // Capture alive_ for async safety [L012]
     auto token = lifetime_.token();
     api_->advanced().calculate_screws_tilt(
         [this, token](const std::vector<ScrewTiltResult>& results) {

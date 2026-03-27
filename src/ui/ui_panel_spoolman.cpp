@@ -206,13 +206,9 @@ void SpoolmanPanel::refresh_spools() {
 
     show_loading_state();
 
-    auto token = lifetime_.token();
-
     // Shared handler: update cached spools and active ID, then repopulate
-    auto apply_spools = [this, token](std::vector<SpoolInfo> spools, int active_id) {
-        helix::ui::queue_update([this, token, spools = std::move(spools), active_id]() {
-            if (token.expired())
-                return;
+    auto apply_spools = [this](std::vector<SpoolInfo> spools, int active_id) {
+        lifetime_.defer([this, spools = std::move(spools), active_id]() {
             cached_spools_ = spools;
             active_spool_id_ = active_id;
             populate_spool_list();
@@ -243,11 +239,9 @@ void SpoolmanPanel::refresh_spools() {
                     apply_spools(spools, -1);
                 });
         },
-        [this, token, name](const MoonrakerError& err) {
+        [this, name](const MoonrakerError& err) {
             spdlog::error("[{}] Failed to fetch spools: {}", name, err.message);
-            helix::ui::queue_update([this, token]() {
-                if (token.expired())
-                    return;
+            lifetime_.defer([this]() {
                 cached_spools_.clear();
                 show_empty_state();
                 ToastManager::instance().show(ToastSeverity::ERROR, lv_tr("Failed to load spools"),
@@ -490,19 +484,14 @@ void SpoolmanPanel::set_active_spool(int spool_id) {
         return;
     }
 
-    auto token = lifetime_.token();
-
     std::string name = get_name();
 
     api->spoolman().set_active_spool(
         spool_id,
-        [this, spool_id, token, name]() {
+        [this, spool_id, name]() {
             spdlog::info("[{}] Set active spool to {}", name, spool_id);
 
-            helix::ui::queue_update([this, spool_id, token]() {
-                if (token.expired())
-                    return;
-
+            lifetime_.defer([this, spool_id]() {
                 const SpoolInfo* found = find_cached_spool(spool_id);
                 std::string spool_name =
                     found ? found->display_name() : "Spool " + std::to_string(spool_id);

@@ -155,7 +155,7 @@ void PrintStatusWidget::attach(lv_obj_t* widget_obj, lv_obj_t* parent_screen) {
             });
     }
 
-    // Register history observer to update idle thumbnail when history loads [L072]
+    // Register history observer to update idle thumbnail when history loads
     auto token = lifetime_.token();
     history_changed_cb_ = [this, token]() {
         if (token.expired())
@@ -578,7 +578,7 @@ void PrintStatusWidget::reset_print_card_to_idle() {
         return;
     }
 
-    // Use lifetime token to prevent use-after-free if widget is destroyed during fetch [L072]
+    // Use lifetime token to prevent use-after-free if widget is destroyed during fetch
     lv_obj_t* thumb_widget = print_card_thumb_;
     lv_obj_t* thumb_compact = print_card_thumb_compact_;
     auto token = lifetime_.token();
