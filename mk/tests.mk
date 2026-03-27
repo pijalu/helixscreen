@@ -802,7 +802,7 @@ TEST_TSAN_BIN := $(BIN_DIR)/helix-tests-tsan
 # Build and run tests with AddressSanitizer
 test-asan: clean-tests
 	$(ECHO) "$(CYAN)$(BOLD)Building tests with AddressSanitizer...$(RESET)"
-	@$(MAKE) CXXFLAGS="$(CXXFLAGS) $(ASAN_FLAGS)" LDFLAGS="$(LDFLAGS) $(ASAN_FLAGS)" TEST_BIN=$(TEST_ASAN_BIN) $(TEST_ASAN_BIN)
+	@$(MAKE) CXXFLAGS='$(CXXFLAGS) $(ASAN_FLAGS)' LDFLAGS='$(LDFLAGS) $(ASAN_FLAGS)' TEST_BIN=$(TEST_ASAN_BIN) $(TEST_ASAN_BIN)
 	$(ECHO) "$(CYAN)$(BOLD)Running tests with AddressSanitizer...$(RESET)"
 	@ASAN_OPTIONS=detect_leaks=1:halt_on_error=0 $(TEST_ASAN_BIN) "~[.]" 2>&1 | tee /tmp/asan_output.txt
 	$(ECHO) "$(GREEN)✓ ASAN test complete - check /tmp/asan_output.txt for issues$(RESET)"
@@ -810,7 +810,7 @@ test-asan: clean-tests
 # Build and run tests with ThreadSanitizer
 test-tsan: clean-tests
 	$(ECHO) "$(CYAN)$(BOLD)Building tests with ThreadSanitizer...$(RESET)"
-	@$(MAKE) CXXFLAGS="$(CXXFLAGS) $(TSAN_FLAGS)" LDFLAGS="$(LDFLAGS) $(TSAN_FLAGS)" TEST_BIN=$(TEST_TSAN_BIN) $(TEST_TSAN_BIN)
+	@$(MAKE) CXXFLAGS='$(CXXFLAGS) $(TSAN_FLAGS)' LDFLAGS='$(LDFLAGS) $(TSAN_FLAGS)' TEST_BIN=$(TEST_TSAN_BIN) $(TEST_TSAN_BIN)
 	$(ECHO) "$(CYAN)$(BOLD)Running tests with ThreadSanitizer...$(RESET)"
 	@TSAN_OPTIONS=halt_on_error=0 $(TEST_TSAN_BIN) "~[.]" 2>&1 | tee /tmp/tsan_output.txt
 	$(ECHO) "$(GREEN)✓ TSAN test complete - check /tmp/tsan_output.txt for issues$(RESET)"
@@ -818,14 +818,14 @@ test-tsan: clean-tests
 # Run specific test with ASAN (usage: make test-asan-one TEST="[streaming]")
 test-asan-one: clean-tests
 	$(ECHO) "$(CYAN)$(BOLD)Building tests with AddressSanitizer...$(RESET)"
-	@$(MAKE) CXXFLAGS="$(CXXFLAGS) $(ASAN_FLAGS)" LDFLAGS="$(LDFLAGS) $(ASAN_FLAGS)" TEST_BIN=$(TEST_ASAN_BIN) $(TEST_ASAN_BIN)
+	@$(MAKE) CXXFLAGS='$(CXXFLAGS) $(ASAN_FLAGS)' LDFLAGS='$(LDFLAGS) $(ASAN_FLAGS)' TEST_BIN=$(TEST_ASAN_BIN) $(TEST_ASAN_BIN)
 	$(ECHO) "$(CYAN)$(BOLD)Running test '$(TEST)' with AddressSanitizer...$(RESET)"
 	@ASAN_OPTIONS=detect_leaks=1:halt_on_error=0 $(TEST_ASAN_BIN) "$(TEST)" 2>&1 | tee /tmp/asan_output.txt
 
 # Run specific test with TSAN (usage: make test-tsan-one TEST="[streaming]")
 test-tsan-one: clean-tests
 	$(ECHO) "$(CYAN)$(BOLD)Building tests with ThreadSanitizer...$(RESET)"
-	@$(MAKE) CXXFLAGS="$(CXXFLAGS) $(TSAN_FLAGS)" LDFLAGS="$(LDFLAGS) $(TSAN_FLAGS)" TEST_BIN=$(TEST_TSAN_BIN) $(TEST_TSAN_BIN)
+	@$(MAKE) CXXFLAGS='$(CXXFLAGS) $(TSAN_FLAGS)' LDFLAGS='$(LDFLAGS) $(TSAN_FLAGS)' TEST_BIN=$(TEST_TSAN_BIN) $(TEST_TSAN_BIN)
 	$(ECHO) "$(CYAN)$(BOLD)Running test '$(TEST)' with ThreadSanitizer...$(RESET)"
 	@TSAN_OPTIONS=halt_on_error=0 $(TEST_TSAN_BIN) "$(TEST)" 2>&1 | tee /tmp/tsan_output.txt
 
