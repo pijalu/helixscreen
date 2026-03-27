@@ -20,6 +20,9 @@
 using json = nlohmann::json;
 using namespace helix;
 
+/// Max consecutive /server/ace/info failures before giving up
+static constexpr int MAX_INFO_FETCH_FAILURES = 3;
+
 // ============================================================================
 // Construction / Destruction
 // ============================================================================
@@ -439,9 +442,6 @@ void AmsBackendAce::polling_thread_func() {
     spdlog::debug("[ACE] Polling thread started");
 
     // Fetch system info — retry until success or failure limit reached.
-    // info_fetch_failures_ is incremented on each failed attempt; after 3
-    // failures we stop retrying to avoid hammering a missing bridge endpoint.
-    static constexpr int MAX_INFO_FETCH_FAILURES = 3;
     poll_info();
 
     while (!stop_requested_.load()) {
@@ -459,9 +459,11 @@ void AmsBackendAce::polling_thread_func() {
             }
         }
 
-        // Poll status and slots
-        poll_status();
-        poll_slots();
+        // Only poll status and slots if info was successfully fetched
+        if (info_fetched_.load()) {
+            poll_status();
+            poll_slots();
+        }
 
         // Sleep with interrupt support
         if (!interruptible_sleep(POLL_INTERVAL_MS)) {
@@ -503,12 +505,13 @@ void AmsBackendAce::poll_info() {
             info_fetched_.store(true);
             info_fetch_failures_ = 0;
         } else {
-            ++info_fetch_failures_;
-            if (info_fetch_failures_ <= 3) {
-                spdlog::warn("[ACE] Moonraker bridge not available at /server/ace/info: {}. "
+            int failures = ++info_fetch_failures_;
+            spdlog::debug("[ACE] /server/ace/info attempt {} failed: {}", failures, resp.error);
+            if (failures == MAX_INFO_FETCH_FAILURES) {
+                spdlog::warn("[ACE] Moonraker bridge not available at /server/ace/info after {} attempts. "
                              "BunnyACE/DuckACE users need to install ValgACE's ace_status.py "
                              "Moonraker component for HelixScreen integration.",
-                             resp.error);
+                             failures);
                 emit_event(EVENT_ERROR,
                            "ACE detected but Moonraker bridge not found. "
                            "Install the ace_status.py component from ValgACE for full ACE "
@@ -888,13 +891,21 @@ AmsError AmsBackendAce::execute_device_action(const std::string& action_id,
     if (action_id == "ace_manual_feed") {
         int slot = get_current_slot();
         if (slot < 0) slot = 0;
-        return execute_gcode("ACE_FEED INDEX=" + std::to_string(slot) + " LENGTH=50 SPEED=50");
+        static constexpr int MANUAL_FEED_LENGTH = 50;
+        static constexpr int MANUAL_FEED_SPEED = 50;
+        return execute_gcode("ACE_FEED INDEX=" + std::to_string(slot) +
+                             " LENGTH=" + std::to_string(MANUAL_FEED_LENGTH) +
+                             " SPEED=" + std::to_string(MANUAL_FEED_SPEED));
     }
 
     if (action_id == "ace_manual_retract") {
         int slot = get_current_slot();
         if (slot < 0) slot = 0;
-        return execute_gcode("ACE_RETRACT INDEX=" + std::to_string(slot) + " LENGTH=50 SPEED=50");
+        static constexpr int MANUAL_RETRACT_LENGTH = 50;
+        static constexpr int MANUAL_RETRACT_SPEED = 50;
+        return execute_gcode("ACE_RETRACT INDEX=" + std::to_string(slot) +
+                             " LENGTH=" + std::to_string(MANUAL_RETRACT_LENGTH) +
+                             " SPEED=" + std::to_string(MANUAL_RETRACT_SPEED));
     }
 
     if (action_id == "ace_feed_assist_toggle") {

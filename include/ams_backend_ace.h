@@ -140,7 +140,7 @@ class AmsBackendAce : public AmsBackend {
     [[nodiscard]] std::vector<DryingPreset> get_drying_presets() const override;
 
     // ========================================================================
-    // Device Actions (stub - not yet exposed)
+    // Device Actions
     // ========================================================================
 
     [[nodiscard]] std::vector<helix::printer::DeviceSection> get_device_sections() const override;
@@ -259,7 +259,7 @@ class AmsBackendAce : public AmsBackend {
     AmsSystemInfo system_info_;             ///< Cached system state
     DryerInfo dryer_info_;                  ///< Cached dryer state
     std::atomic<bool> info_fetched_{false}; ///< Have we got /server/ace/info yet?
-    int info_fetch_failures_{0};            ///< Consecutive /server/ace/info fetch failures
+    std::atomic<int> info_fetch_failures_{0}; ///< Consecutive /server/ace/info fetch failures
 
     // Callback lifetime management
     helix::AsyncLifetimeGuard lifetime_;
