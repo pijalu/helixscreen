@@ -2851,6 +2851,18 @@ extract_release() {
         fi
     fi
 
+    # Phase 4b: Stash release_info.json from the new install to prevent
+    # helixscreen-update.path from firing a premature systemctl restart.
+    # The path unit watches PathChanged on release_info.json — if it appears
+    # during the swap, systemd kills the cgroup (including install.sh) before
+    # Phase 6 (config restore) completes, causing config loss.
+    # We restore it after Phase 6 so the path unit only fires when safe.
+    local _stashed_release_info=""
+    if [ -f "${new_install}/release_info.json" ]; then
+        _stashed_release_info="${TMP_DIR}/release_info.json.stash"
+        mv "${new_install}/release_info.json" "$_stashed_release_info"
+    fi
+
     # Phase 5: Move new install into place
     $(file_sudo "$(dirname "${INSTALL_DIR}")") mkdir -p "$(dirname "${INSTALL_DIR}")"
     if ! $(file_sudo "$(dirname "${INSTALL_DIR}")") mv "${new_install}" "${INSTALL_DIR}"; then
@@ -2960,6 +2972,14 @@ extract_release() {
                 done
             fi
         done
+    fi
+
+    # Phase 7: Restore release_info.json now that config is safely in place.
+    # This allows helixscreen-update.path to detect the new version and trigger
+    # a restart — but only after the install is fully complete.
+    if [ -n "$_stashed_release_info" ] && [ -f "$_stashed_release_info" ]; then
+        cp "$_stashed_release_info" "${INSTALL_DIR}/release_info.json" 2>/dev/null || true
+        rm -f "$_stashed_release_info"
     fi
 
     # Cleanup
