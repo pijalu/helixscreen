@@ -5,8 +5,47 @@
 #include <algorithm>
 #include <cctype>
 #include <cmath>
+#include <cstdio>
+
+#include "lvgl/src/others/translation/lv_translation.h"
 
 namespace helix {
+
+std::string FilamentMapper::format_slot_label(const AvailableSlot& slot) {
+    char buf[192];
+
+    // Build material suffix
+    const char* material_str = nullptr;
+    if (slot.is_empty) {
+        material_str = lv_tr("Empty");
+    } else if (!slot.material.empty()) {
+        material_str = slot.material.c_str();
+    }
+
+    if (slot.unit_display_name.empty()) {
+        // Single-unit: "Slot 2" or "Slot 2: PLA"
+        if (material_str) {
+            snprintf(buf, sizeof(buf), "%s %d: %s",
+                     lv_tr("Slot"), slot.slot_index + 1, material_str);
+        } else {
+            snprintf(buf, sizeof(buf), "%s %d",
+                     lv_tr("Slot"), slot.slot_index + 1);
+        }
+    } else {
+        // Multi-unit: "Turtle 1 · Slot 2" or "Turtle 1 · Slot 2: PLA"
+        // unit_display_name is not translated — it's a user-configured AFC name
+        if (material_str) {
+            snprintf(buf, sizeof(buf), "%s \xc2\xb7 %s %d: %s",
+                     slot.unit_display_name.c_str(),
+                     lv_tr("Slot"), slot.slot_index + 1, material_str);
+        } else {
+            snprintf(buf, sizeof(buf), "%s \xc2\xb7 %s %d",
+                     slot.unit_display_name.c_str(),
+                     lv_tr("Slot"), slot.slot_index + 1);
+        }
+    }
+    return buf;
+}
 
 int FilamentMapper::color_distance(uint32_t a, uint32_t b) {
     int r1 = (a >> 16) & 0xFF;

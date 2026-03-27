@@ -213,18 +213,10 @@ lv_obj_t* FilamentPickerModal::create_slot_row(lv_obj_t* parent, int index,
     // Color swatch
     create_color_swatch(row, slot.color_rgb, swatch_sz);
 
-    // Slot label: "Slot N: Material"
+    // Slot label: "Slot N: Material" or "Turtle 1 · Slot N: Material"
     lv_obj_t* label = lv_label_create(row);
-    char buf[128];
-    if (slot.is_empty) {
-        snprintf(buf, sizeof(buf), "%s %d: %s",
-                 lv_tr("Slot"), slot.slot_index + 1, lv_tr("Empty"));
-    } else {
-        snprintf(buf, sizeof(buf), "%s %d: %s",
-                 lv_tr("Slot"), slot.slot_index + 1,
-                 slot.material.empty() ? "---" : slot.material.c_str());
-    }
-    lv_label_set_text(label, buf);
+    std::string label_text = helix::FilamentMapper::format_slot_label(slot);
+    lv_label_set_text(label, label_text.c_str());
     lv_obj_set_style_text_font(label, theme_manager_get_font("font_body"), 0);
     lv_obj_set_style_text_color(label, theme_manager_get_color("text"), 0);
     lv_obj_set_flex_grow(label, 1);

@@ -750,3 +750,81 @@ TEST_CASE("compute_defaults all slots are empty",
     // Empty slots should not be matched
     CHECK(result[0].mapped_slot == -1);
 }
+
+// =============================================================================
+// format_slot_label
+// =============================================================================
+
+TEST_CASE("FilamentMapper format_slot_label", "[filament_mapper]") {
+    SECTION("single-unit slot with material") {
+        helix::AvailableSlot slot;
+        slot.slot_index = 2;
+        slot.backend_index = 0;
+        slot.material = "PLA";
+        slot.is_empty = false;
+        slot.unit_display_name = ""; // single-unit
+
+        auto label = helix::FilamentMapper::format_slot_label(slot);
+        CHECK(label == "Slot 3: PLA");
+    }
+
+    SECTION("single-unit slot without material") {
+        helix::AvailableSlot slot;
+        slot.slot_index = 0;
+        slot.backend_index = 0;
+        slot.material = "";
+        slot.is_empty = false;
+        slot.unit_display_name = "";
+
+        auto label = helix::FilamentMapper::format_slot_label(slot);
+        CHECK(label == "Slot 1");
+    }
+
+    SECTION("single-unit empty slot") {
+        helix::AvailableSlot slot;
+        slot.slot_index = 1;
+        slot.backend_index = 0;
+        slot.material = "";
+        slot.is_empty = true;
+        slot.unit_display_name = "";
+
+        auto label = helix::FilamentMapper::format_slot_label(slot);
+        CHECK(label == "Slot 2: Empty");
+    }
+
+    SECTION("multi-unit slot with material") {
+        helix::AvailableSlot slot;
+        slot.slot_index = 0;
+        slot.backend_index = 0;
+        slot.material = "PETG";
+        slot.is_empty = false;
+        slot.unit_display_name = "Turtle 1";
+
+        auto label = helix::FilamentMapper::format_slot_label(slot);
+        CHECK(label == "Turtle 1 \xc2\xb7 Slot 1: PETG");
+    }
+
+    SECTION("multi-unit slot without material") {
+        helix::AvailableSlot slot;
+        slot.slot_index = 3;
+        slot.backend_index = 0;
+        slot.material = "";
+        slot.is_empty = false;
+        slot.unit_display_name = "Turtle 2";
+
+        auto label = helix::FilamentMapper::format_slot_label(slot);
+        CHECK(label == "Turtle 2 \xc2\xb7 Slot 4");
+    }
+
+    SECTION("multi-unit empty slot") {
+        helix::AvailableSlot slot;
+        slot.slot_index = 1;
+        slot.backend_index = 0;
+        slot.material = "";
+        slot.is_empty = true;
+        slot.unit_display_name = "Turtle 3";
+
+        auto label = helix::FilamentMapper::format_slot_label(slot);
+        CHECK(label == "Turtle 3 \xc2\xb7 Slot 2: Empty");
+    }
+}

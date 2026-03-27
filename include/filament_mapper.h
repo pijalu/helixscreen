@@ -22,12 +22,14 @@ struct GcodeToolInfo {
 /// This is an intentional abstraction boundary — callers convert from
 /// ams_types.h SlotInfo to keep FilamentMapper free of LVGL dependency.
 struct AvailableSlot {
-    int slot_index;           ///< Slot index within its backend
+    int slot_index;           ///< Slot index within its unit
     int backend_index;        ///< Which AMS backend (0 = primary)
     uint32_t color_rgb;       ///< Loaded filament color (0xRRGGBB)
     std::string material;     ///< Loaded material type
     bool is_empty;            ///< True if slot has no filament
     int current_tool_mapping; ///< What tool this slot is currently mapped to (-1 = none)
+    int unit_index = 0;       ///< Unit index within the backend
+    std::string unit_display_name; ///< Unit name for display (empty = single-unit backend)
 
     /// Unique key for this slot across all backends
     SlotKey key() const { return {slot_index, backend_index}; }
@@ -80,6 +82,9 @@ public:
 
     /// Case-insensitive material comparison
     static bool materials_match(const std::string& a, const std::string& b);
+
+    /// Format a slot label: "Turtle 1 · Slot 2: PLA" or "Slot 2: PLA"
+    static std::string format_slot_label(const AvailableSlot& slot);
 
     static constexpr int COLOR_MATCH_TOLERANCE = 40;
 };

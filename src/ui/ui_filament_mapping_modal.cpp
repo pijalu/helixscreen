@@ -240,15 +240,7 @@ std::string FilamentMappingModal::get_slot_display_text(const helix::ToolMapping
     for (const auto& slot : available_slots_) {
         if (slot.slot_index == mapping.mapped_slot &&
             slot.backend_index == mapping.mapped_backend) {
-            char buf[128];
-            if (slot.material.empty()) {
-                snprintf(buf, sizeof(buf), "%s %d",
-                         lv_tr("Slot"), slot.slot_index + 1);
-            } else {
-                snprintf(buf, sizeof(buf), "%s %d: %s",
-                         lv_tr("Slot"), slot.slot_index + 1, slot.material.c_str());
-            }
-            return buf;
+            return helix::FilamentMapper::format_slot_label(slot);
         }
     }
 

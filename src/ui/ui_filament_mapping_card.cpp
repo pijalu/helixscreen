@@ -287,6 +287,8 @@ std::vector<helix::AvailableSlot> FilamentMappingCard::collect_available_slots()
         }
 
         auto info = backend->get_system_info();
+        bool multi_unit = info.units.size() > 1;
+
         for (const auto& unit : info.units) {
             for (const auto& slot_info : unit.slots) {
                 helix::AvailableSlot as;
@@ -297,6 +299,12 @@ std::vector<helix::AvailableSlot> FilamentMappingCard::collect_available_slots()
                 as.is_empty = (slot_info.status == SlotStatus::EMPTY ||
                                slot_info.status == SlotStatus::UNKNOWN);
                 as.current_tool_mapping = slot_info.mapped_tool;
+                as.unit_index = unit.unit_index;
+                if (multi_unit) {
+                    as.unit_display_name = unit.display_name.empty()
+                                               ? unit.name
+                                               : unit.display_name;
+                }
                 slots.push_back(std::move(as));
             }
         }
