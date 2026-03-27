@@ -153,7 +153,9 @@ void NavigationManager::overlay_slide_out_complete_cb(lv_anim_t* anim) {
         lv_async_call(
             [](void* data) {
                 auto* cb = static_cast<OverlayCloseCallback*>(data);
-                (*cb)();
+                if (!NavigationManager::is_destroyed()) {
+                    (*cb)();
+                }
                 delete cb;
             },
             deferred);

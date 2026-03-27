@@ -682,9 +682,19 @@ bool CameraStream::decode_jpeg(const uint8_t* data, size_t len) {
         return false;
     }
 
-    // Validate JPEG SOI marker
-    if (len < 2 || data[0] != 0xFF || data[1] != 0xD8) {
-        spdlog::debug("[CameraStream] Invalid JPEG data (no SOI marker)");
+    // Validate JPEG SOI marker and minimum viable size.
+    // A valid JPEG needs SOI (2) + at least one marker segment (4) + EOI (2) = 8 bytes minimum.
+    // In practice, camera frames should be much larger — reject suspiciously tiny payloads
+    // that can cause NULL dereferences inside turbojpeg (see issue #552).
+    constexpr size_t kMinJpegSize = 64;
+    if (len < kMinJpegSize || data[0] != 0xFF || data[1] != 0xD8) {
+        spdlog::debug("[CameraStream] Invalid JPEG data (len={}, need >= {})", len, kMinJpegSize);
+        return false;
+    }
+    // After SOI, the next byte must be 0xFF (start of a marker segment).
+    // Corrupt/truncated frames that pass SOI but have garbage after can crash turbojpeg.
+    if (data[2] != 0xFF) {
+        spdlog::debug("[CameraStream] Malformed JPEG: no marker after SOI (0x{:02X})", data[2]);
         return false;
     }
 

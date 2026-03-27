@@ -534,14 +534,11 @@ void ControlsPanel::register_observers() {
             // lv_obj_clean() from corrupting the LVGL event linked list (issue #190).
             if (!self->fans_rebuild_pending_) {
                 self->fans_rebuild_pending_ = true;
-                lv_async_call(
-                    [](void* data) {
-                        auto* panel = static_cast<ControlsPanel*>(data);
-                        panel->fans_rebuild_pending_ = false;
-                        if (panel->active_ && panel->secondary_fans_list_)
-                            panel->populate_secondary_fans();
-                    },
-                    self);
+                self->lifetime_.defer("ControlsPanel::populate_secondary_fans", [self]() {
+                    self->fans_rebuild_pending_ = false;
+                    if (self->active_ && self->secondary_fans_list_)
+                        self->populate_secondary_fans();
+                });
             }
         });
 
@@ -565,14 +562,11 @@ void ControlsPanel::register_observers() {
             // lv_obj_clean() from corrupting the LVGL event linked list (issue #190).
             if (!self->temps_rebuild_pending_) {
                 self->temps_rebuild_pending_ = true;
-                lv_async_call(
-                    [](void* data) {
-                        auto* panel = static_cast<ControlsPanel*>(data);
-                        panel->temps_rebuild_pending_ = false;
-                        if (panel->active_ && panel->secondary_temps_list_)
-                            panel->populate_secondary_temps();
-                    },
-                    self);
+                self->lifetime_.defer("ControlsPanel::populate_secondary_temps", [self]() {
+                    self->temps_rebuild_pending_ = false;
+                    if (self->active_ && self->secondary_temps_list_)
+                        self->populate_secondary_temps();
+                });
             }
         });
 

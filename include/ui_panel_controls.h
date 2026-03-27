@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include "async_lifetime_guard.h"
 #include "ui_heating_animator.h"
 #include "ui_observer_guard.h"
 #include "ui_panel_base.h"
@@ -211,6 +212,7 @@ class ControlsPanel : public PanelBase {
 
     bool fans_rebuild_pending_ = false;  ///< Coalesces rapid fans_version observer notifications
     bool temps_rebuild_pending_ = false; ///< Coalesces rapid temp_sensor_count observer notifications
+    helix::AsyncLifetimeGuard lifetime_; ///< Guards deferred callbacks from accessing destroyed panel
 
     //
     // === Lazily-Created Child Panels ===

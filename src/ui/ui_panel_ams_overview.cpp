@@ -123,13 +123,13 @@ void AmsOverviewPanel::init_subjects() {
                                                    // event linked list (issue #190).
                                                    if (!self->units_rebuild_pending_) {
                                                        self->units_rebuild_pending_ = true;
-                                                       lv_async_call([](void* data) {
-                                                           auto* panel = static_cast<AmsOverviewPanel*>(data);
-                                                           panel->units_rebuild_pending_ = false;
-                                                           if (panel->panel_ && panel->cards_row_ &&
-                                                               panel->detail_unit_index_ < 0)
-                                                               panel->refresh_units();
-                                                       }, self);
+                                                       self->lifetime_.defer(
+                                                           "AmsOverviewPanel::refresh_units", [self]() {
+                                                               self->units_rebuild_pending_ = false;
+                                                               if (self->panel_ && self->cards_row_ &&
+                                                                   self->detail_unit_index_ < 0)
+                                                                   self->refresh_units();
+                                                           });
                                                    }
                                                });
 
@@ -146,15 +146,13 @@ void AmsOverviewPanel::init_subjects() {
                 }
                 if (!self->units_rebuild_pending_) {
                     self->units_rebuild_pending_ = true;
-                    lv_async_call(
-                        [](void* data) {
-                            auto* panel = static_cast<AmsOverviewPanel*>(data);
-                            panel->units_rebuild_pending_ = false;
-                            if (panel->panel_ && panel->cards_row_ &&
-                                panel->detail_unit_index_ < 0)
-                                panel->refresh_units();
-                        },
-                        self);
+                    self->lifetime_.defer(
+                        "AmsOverviewPanel::refresh_units/slot", [self]() {
+                            self->units_rebuild_pending_ = false;
+                            if (self->panel_ && self->cards_row_ &&
+                                self->detail_unit_index_ < 0)
+                                self->refresh_units();
+                        });
                 }
             });
 

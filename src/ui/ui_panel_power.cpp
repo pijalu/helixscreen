@@ -412,14 +412,11 @@ void PowerPanel::populate_device_chips() {
     // from corrupting the LVGL event linked list during chip rebuild (issue #190).
     if (!chips_rebuild_pending_) {
         chips_rebuild_pending_ = true;
-        lv_async_call(
-            [](void* data) {
-                auto* self = static_cast<PowerPanel*>(data);
-                self->chips_rebuild_pending_ = false;
-                if (self->chip_container_)
-                    self->populate_device_chips_impl();
-            },
-            this);
+        lifetime_.defer("PowerPanel::populate_device_chips", [this]() {
+            chips_rebuild_pending_ = false;
+            if (chip_container_)
+                populate_device_chips_impl();
+        });
     }
 }
 

@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include "async_lifetime_guard.h"
 #include "ui_ams_context_menu.h"
 #include "ui_ams_detail.h"
 #include "ui_ams_edit_modal.h"
@@ -108,6 +109,7 @@ class AmsOverviewPanel : public PanelBase {
     ObserverGuard current_slot_observer_;   ///< Reactive highlight update when active slot changes
     ObserverGuard external_spool_observer_; ///< Reactive updates when external spool color changes
     bool units_rebuild_pending_ = false; ///< Coalesces rapid slots_version observer notifications
+    helix::AsyncLifetimeGuard lifetime_; ///< Guards deferred callbacks from accessing destroyed panel
 
     // === Setup Helpers ===
     void create_unit_cards(const AmsSystemInfo& info);
