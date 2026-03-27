@@ -36,8 +36,6 @@ Fast, beautiful, and built for every Klipper printer — from a Creality K1 to a
 >
 > **Creality:** Sonic Pad, K1/K1C/K1 Max, and K2 Max binaries are included. CFS (Creality Filament System) support is in progress.
 >
-> **Snapmaker U1:** Cross-compile target with 480x320 display support.
->
 > **Ready to help?** See [Installation](#installation). Found a bug? [Open an issue](https://github.com/prestonbrown/helixscreen/issues). Have an idea? [Request a feature](https://github.com/prestonbrown/helixscreen/issues/new?labels=enhancement). Want to chat? [Join our Discord](https://discord.gg/RZCT2StKhr).
 
 ---
@@ -146,7 +144,6 @@ See [docs/devel/GALLERY.md](docs/devel/GALLERY.md) for the full gallery.
 | Creality K2 Max/Plus | ARM (musl) | Tested |
 | Sovol SV06/SV08 | Pi build | Active testing |
 | Elegoo Centauri Carbon | Dedicated build | Active testing |
-| Snapmaker U1 | armv7-a | Cross-compile target |
 | x86 Mini PC (Debian) | x86_64 | Tested |
 | macOS / Linux desktop | x86_64/ARM64 | Development / CI |
 
@@ -212,7 +209,7 @@ More features, way less resource usage (~10MB RAM vs ~50MB for KlipperScreen), a
 Any Klipper + Moonraker printer. 68 models in the auto-detection database spanning Voron, Creality, QIDI, Anycubic, Flashforge, Sovol, RatRig, FLSUN, Elegoo, Prusa, and more. The wizard auto-discovers your printer's capabilities even if it's not in the database.
 
 **What screen sizes are supported?**
-800x480, 1024x600, and 1920x480 (ultrawide) are fully supported with auto-detecting layouts. Display rotation (0/90/180/270) is supported with auto-detection. Smaller displays like 480x320 (Snapmaker U1) are a work-in-progress.
+800x480, 1024x600, and 1920x480 (ultrawide) are fully supported with auto-detecting layouts. Display rotation (0/90/180/270) is supported with auto-detection. Smaller displays like 480x320 are a work-in-progress.
 
 **What multi-material systems work?**
 AFC (Box Turtle), Happy Hare (ERCF, 3MS, Tradrack, Night Owl), ValgACE, ViViD, Creality CFS, and tool changers (viesturz/klipper-toolchanger). Full Spoolman integration for spool management.
@@ -236,7 +233,7 @@ See [docs/user/TROUBLESHOOTING.md](docs/user/TROUBLESHOOTING.md) for more soluti
 ### User Guides
 | Guide | Description |
 |-------|-------------|
-| [Installation](docs/user/INSTALL.md) | Setup for Pi, Sonic Pad, K1, K2, AD5M, AD5X, QIDI, Snapmaker U1 |
+| [Installation](docs/user/INSTALL.md) | Setup for Pi, Sonic Pad, K1, K2, AD5M, AD5X, QIDI |
 | [User Guide](docs/user/USER_GUIDE.md) | Using HelixScreen — panels, overlays, settings |
 | [Configuration](docs/user/CONFIGURATION.md) | All settings with examples |
 | [Upgrading](docs/user/UPGRADING.md) | Version upgrade instructions |
