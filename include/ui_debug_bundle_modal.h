@@ -14,7 +14,6 @@
 #include "ui_modal.h"
 
 #include <lvgl.h>
-#include <memory>
 
 class DebugBundleModal : public Modal {
   public:
@@ -52,10 +51,6 @@ class DebugBundleModal : public Modal {
     char status_buf_[256] = {};
     char share_code_buf_[32] = {};
     char error_buf_[256] = {};
-
-    // Prevents use-after-free: if modal is destroyed during async upload,
-    // the callback checks this flag before touching 'this'
-    std::shared_ptr<bool> alive_ = std::make_shared<bool>(true);
 
     // Subject management
     void init_subjects();

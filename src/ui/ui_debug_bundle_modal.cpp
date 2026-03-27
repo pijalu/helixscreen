@@ -29,7 +29,6 @@ DebugBundleModal::DebugBundleModal() {
 }
 
 DebugBundleModal::~DebugBundleModal() {
-    *alive_ = false;   // Signal async callbacks that we're gone
     deinit_subjects(); // MUST be before member destruction
     if (active_instance_ == this) {
         active_instance_ = nullptr;
@@ -196,12 +195,11 @@ void DebugBundleModal::handle_upload() {
     lv_subject_set_int(&state_subject_, 1);
     lv_subject_copy_string(&status_subject_, lv_tr("Collecting data..."));
 
-    // Capture alive flag to prevent use-after-free if modal is dismissed during upload
-    auto alive = alive_;
+    auto token = lifetime_.token();
 
     helix::DebugBundleCollector::upload_async(
-        options, [this, alive](const helix::BundleResult& result) {
-            if (!*alive) {
+        options, [this, token](const helix::BundleResult& result) {
+            if (token.expired()) {
                 spdlog::debug("[DebugBundleModal] Modal destroyed "
                               "during upload, ignoring result");
                 return;
