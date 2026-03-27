@@ -49,6 +49,7 @@ Tap the **About** row at the bottom of the Settings panel to open the About over
 | **Moonraker** | Installed Moonraker version |
 | **OS** | Operating system version |
 | **Print Hours** | Total print hours tracked — tap to open the [History Dashboard](../advanced.md) |
+| **Open Source Licenses** | View licenses for all open source libraries used by HelixScreen |
 
 ### Easter Eggs
 

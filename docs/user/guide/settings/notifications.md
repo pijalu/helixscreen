@@ -47,6 +47,7 @@ Advanced users can create custom sound themes by adding a JSON file to `config/s
 | Error notification | Short buzz | An error toast appeared |
 | Critical alarm | Urgent siren | Critical failure requiring attention |
 | Test sound | Short beep | "Test Sound" button in settings |
+| Startup | Theme jingle | HelixScreen launches (plays once at startup) |
 
 The first five (button press, toggles, navigation) are **UI sounds** and respect the "UI Sounds" toggle. The rest always play as long as the master toggle is on.
 
@@ -55,6 +56,7 @@ The first five (button press, toggles, navigation) are **UI sounds** and respect
 | Hardware | How It Works |
 |----------|-------------|
 | **Desktop (SDL)** | Full audio synthesis through your computer speakers. Best sound quality. |
+| **ALSA (Linux)** | Direct audio output on devices with ALSA sound support. 4-voice polyphony with MOD/MED tracker music support for richer sound themes. |
 | **Creality AD5M / AD5M Pro** | Hardware PWM buzzer. Supports different tones and volume levels. |
 | **Other Klipper printers** | Beeper commands sent through Moonraker. Requires `[output_pin beeper]` in your Klipper config. Basic beep tones only. |
 
