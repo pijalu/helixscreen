@@ -798,7 +798,7 @@ void ThermistorWidget::dismiss_sensor_picker() {
     s_active_picker_ = nullptr;
 
     if (lv_obj_is_valid(backdrop)) {
-        helix::ui::safe_delete(backdrop);
+        helix::ui::safe_delete_deferred(backdrop);
     }
 
     spdlog::debug("[ThermistorWidget] Sensor picker dismissed");
