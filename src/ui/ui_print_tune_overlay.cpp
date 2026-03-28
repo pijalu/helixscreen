@@ -475,14 +475,14 @@ void PrintTuneOverlay::handle_z_offset_changed(double delta) {
     }
 
     // Round to nearest micron to prevent floating-point drift from repeated additions
-    current_z_offset_ = std::round((current_z_offset_ + delta) * 1000.0) / 1000.0;
+    current_z_offset_ = std::round(new_offset * 1000.0) / 1000.0;
     helix::format::format_distance_mm(current_z_offset_, 3, tune_z_offset_buf_,
                                       sizeof(tune_z_offset_buf_));
     lv_subject_copy_string(&tune_z_offset_subject_, tune_z_offset_buf_);
 
     // Track pending delta for "unsaved adjustment" notification in Controls panel
     if (printer_state_) {
-        int delta_microns = static_cast<int>(delta * 1000.0);
+        int delta_microns = static_cast<int>(std::lround(delta * 1000.0));
         printer_state_->add_pending_z_offset_delta(delta_microns);
     }
 
