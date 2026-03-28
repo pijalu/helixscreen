@@ -538,9 +538,27 @@ void PrinterState::set_hardware(const helix::PrinterDiscovery& hardware) {
         set_kinematics(hardware.kinematics());
     }
 
-    // Tell temperature state which sensor/heater to use for chamber temperature
-    temperature_state_.set_chamber_sensor_name(hardware.chamber_sensor_name());
-    temperature_state_.set_chamber_heater_name(hardware.chamber_heater_name());
+    // Resolve chamber assignments: manual override > auto-detection
+    auto& settings = helix::SettingsManager::instance();
+
+    std::string chamber_sensor = settings.get_chamber_sensor_assignment();
+    if (chamber_sensor == "auto") {
+        chamber_sensor = hardware.chamber_sensor_name();
+    } else if (chamber_sensor == "none") {
+        chamber_sensor = "";
+    }
+
+    std::string chamber_heater = settings.get_chamber_heater_assignment();
+    if (chamber_heater == "auto") {
+        chamber_heater = hardware.chamber_heater_name();
+    } else if (chamber_heater == "none") {
+        chamber_heater = "";
+    }
+
+    spdlog::debug("[PrinterState] Chamber resolved: sensor='{}' heater='{}'",
+                  chamber_sensor, chamber_heater);
+    temperature_state_.set_chamber_sensor_name(chamber_sensor);
+    temperature_state_.set_chamber_heater_name(chamber_heater);
 
     // Update composite subjects for G-code modification options
     // (visibility depends on both plugin status and capability)
