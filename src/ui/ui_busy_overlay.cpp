@@ -108,7 +108,8 @@ void create_overlay_internal() {
 }
 
 void destroy_overlay_internal() {
-    if (helix::ui::safe_delete(g_overlay)) {
+    if (g_overlay) {
+        helix::ui::safe_delete_deferred(g_overlay);
         // g_spinner and g_label are children of g_overlay and were destroyed with it
         g_spinner = nullptr;
         g_label = nullptr;
