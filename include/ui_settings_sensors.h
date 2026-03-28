@@ -250,6 +250,11 @@ class SensorSettingsOverlay : public OverlayBase {
     void update_color_sensor_count();
 
     /**
+     * @brief Populate chamber assignment dropdowns from PrinterDiscovery
+     */
+    void populate_chamber_assignment();
+
+    /**
      * @brief Populate temperature sensor list from TemperatureSensorManager
      */
     void populate_temperature_sensors();
