@@ -229,7 +229,8 @@ void AboutSettingsOverlay::setup_contributor_marquee() {
         return;
     }
 
-    // Build a single concatenated string: "Name1  •  Name2  •  Name3"
+    // Build a single concatenated string: "Name1  •  Name2  •  Name3  •  "
+    // Trailing separator ensures continuity when LVGL wraps circular scroll
     std::string text;
     for (int i = 0; i < kContributorCount; i++) {
         if (i > 0) {
@@ -237,6 +238,7 @@ void AboutSettingsOverlay::setup_contributor_marquee() {
         }
         text += kContributors[i];
     }
+    text += "  \xe2\x80\xa2  ";
 
     // Single label with LVGL's built-in scroll long mode
     marquee_content_ = lv_label_create(marquee_container);
