@@ -626,8 +626,9 @@ void PrintStatusPanel::on_activate() {
         schedule_deferred_gcode_load();
     }
 
-    // After destroy-on-close, the gcode viewer widget was recreated empty.
-    // Re-feed the current print filename to trigger gcode + thumbnail reload.
+    // The gcode viewer may be empty after destroy-on-close recreation, or after
+    // on_deactivate() cleared it due to memory pressure. Re-feed the current
+    // print filename to trigger gcode + thumbnail reload.
     if (lifecycle_.want_viewer() && !gcode_loaded_ && gcode_viewer_ &&
         pending_gcode_filename_.empty()) {
         const char* filename =
@@ -685,13 +686,24 @@ void PrintStatusPanel::on_deactivate() {
     if (gcode_viewer_) {
         ui_gcode_viewer_set_paused(gcode_viewer_, true);
 
-        // Release heavy 3D resources when leaving the panel if the print is no
-        // longer active. Keeps resources during printing/paused/preparing so the
-        // user can return without a full reload. New prints clear via load_gcode_file.
+        // Release heavy 3D resources when leaving the panel if:
+        // 1. Print is no longer active (keeps resources during printing/paused/preparing), AND
+        // 2. Device is memory-constrained OR currently under memory pressure.
+        // On devices with plenty of available RAM, keep resources cached so
+        // re-opening doesn't trigger a thumbnail→3D rebuild jump (issue #618).
         auto state = lifecycle_.state();
         if (state != PrintState::Printing && state != PrintState::Paused &&
             state != PrintState::Preparing) {
-            ui_gcode_viewer_clear(gcode_viewer_);
+            auto mem = helix::get_system_memory_info();
+            if (!mem.is_good_device() || mem.is_low_memory()) {
+                ui_gcode_viewer_clear(gcode_viewer_);
+                gcode_loaded_ = false;
+                spdlog::debug("[{}] Cleared gcode viewer ({}MB available, {}MB total)",
+                              get_name(), mem.available_mb(), mem.total_mb());
+            } else {
+                spdlog::debug("[{}] Keeping gcode viewer cached ({}MB available)",
+                              get_name(), mem.available_mb());
+            }
         }
     }
 
@@ -788,15 +800,27 @@ bool PrintStatusPanel::push_overlay(lv_obj_t* parent_screen) {
         // Register with NavigationManager for lifecycle callbacks
         NavigationManager::instance().register_overlay_instance(s_cached_panel, &panel);
 
-        // Register close callback to destroy widget tree when overlay closes.
-        // Frees ~400-800KB per close. Subjects survive; next open re-creates widgets.
-        NavigationManager::instance().register_overlay_close_callback(
-            s_cached_panel, []() {
-                auto& p = get_global_print_status_panel();
-                p.destroy_overlay_ui(s_cached_panel);
-            });
-
-        spdlog::info("[PrintStatusPanel] Print status overlay created (destroy-on-close)");
+        // Decide whether to destroy the widget tree when the overlay closes.
+        // On memory-constrained devices or when currently under pressure, destroy
+        // on close to free ~400-800KB. On devices with plenty of available RAM,
+        // keep the widget tree alive so re-opening is instant — no thumbnail→3D
+        // rebuild jump (issue #618).
+        auto mem = helix::get_system_memory_info();
+        bool should_destroy = !mem.is_good_device() || mem.is_low_memory();
+        if (should_destroy) {
+            NavigationManager::instance().register_overlay_close_callback(
+                s_cached_panel, []() {
+                    auto& p = get_global_print_status_panel();
+                    p.destroy_overlay_ui(s_cached_panel);
+                });
+            spdlog::info("[PrintStatusPanel] Print status overlay created (destroy-on-close, "
+                         "{}MB available, {}MB total)",
+                         mem.available_mb(), mem.total_mb());
+        } else {
+            spdlog::info("[PrintStatusPanel] Print status overlay created (persistent, "
+                         "{}MB available, {}MB total)",
+                         mem.available_mb(), mem.total_mb());
+        }
     }
 
     NavigationManager::instance().push_overlay(s_cached_panel);
