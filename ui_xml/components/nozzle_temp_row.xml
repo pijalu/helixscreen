@@ -17,9 +17,5 @@
             <text_small name="target_label" text="off" style_text_color="#text_muted"
                         style_text_align="right"/>
         </lv_obj>
-        <lv_bar name="progress_bar" width="100%" height="3"
-                range_min="0" range_max="100" value="0"
-                style_bg_color="#card_bg" style_bg_opa="cover"
-                style_radius="1"/>
     </view>
 </component>

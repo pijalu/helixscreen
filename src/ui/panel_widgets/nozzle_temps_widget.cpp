@@ -2,6 +2,7 @@
 
 #include "nozzle_temps_widget.h"
 
+#include "ui_temperature_utils.h"
 #include "ui_update_queue.h"
 
 #include "app_globals.h"
@@ -270,40 +271,20 @@ void NozzleTempsWidget::create_bed_row(lv_obj_t* container) {
 }
 
 void NozzleTempsWidget::update_row_display(lv_obj_t* temp_label, lv_obj_t* target_label,
-                                           lv_obj_t* progress_bar, int temp_centi,
-                                           int target_centi, bool is_bed) {
-    if (!temp_label || !target_label || !progress_bar)
+                                           lv_obj_t* /* progress_bar */, int temp_centi,
+                                           int target_centi, bool /* is_bed */) {
+    if (!temp_label || !target_label)
         return;
 
-    float temp = temp_centi / 10.0f;
-    float target = target_centi / 10.0f;
-    (void)target; // used only in format string
+    auto result = helix::ui::temperature::heater_display(temp_centi, target_centi);
 
-    lv_label_set_text_fmt(temp_label, "%.0f\xC2\xB0", temp);
+    // Current temp with color coding (green=at-temp, red=heating, blue=cooling, gray=off)
+    lv_label_set_text_fmt(temp_label, "%d\xC2\xB0", temp_centi / 10);
+    lv_obj_set_style_text_color(temp_label, result.color, LV_PART_MAIN);
 
     if (target_centi > 0) {
-        lv_label_set_text_fmt(target_label, "\xE2\x86\x92 %.0f\xC2\xB0",
-                              target_centi / 10.0f);
-        int progress = (temp_centi * 100) / target_centi;
-        progress = std::clamp(progress, 0, 100);
-        lv_bar_set_value(progress_bar, progress, LV_ANIM_ON);
-
-        bool at_temp = std::abs(temp_centi - target_centi) <= 20;
-        lv_color_t bar_color;
-        if (at_temp) {
-            bar_color = theme_manager_get_color("success");
-        } else if (is_bed) {
-            bar_color = theme_manager_get_color("danger");
-        } else {
-            bar_color = theme_manager_get_color("warning");
-        }
-        lv_obj_set_style_bg_color(progress_bar, bar_color, LV_PART_INDICATOR);
-        lv_obj_set_style_bg_opa(progress_bar, LV_OPA_COVER, LV_PART_INDICATOR);
+        lv_label_set_text_fmt(target_label, "/ %d\xC2\xB0", target_centi / 10);
     } else {
         lv_label_set_text(target_label, "off");
-        lv_bar_set_value(progress_bar, 0, LV_ANIM_OFF);
-        lv_obj_set_style_bg_color(progress_bar, theme_manager_get_color("text_muted"),
-                                  LV_PART_INDICATOR);
-        lv_obj_set_style_bg_opa(progress_bar, LV_OPA_30, LV_PART_INDICATOR);
     }
 }
