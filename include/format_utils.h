@@ -241,4 +241,21 @@ std::string duration_padded(int total_seconds);
  */
 std::string format_filament_length(double mm);
 
+// =============================================================================
+// Clock Time Formatting
+// =============================================================================
+
+/**
+ * @brief Format remaining seconds as an estimated finish clock time string
+ *
+ * Computes the wall-clock finish time by adding remaining_seconds to the
+ * current local time, then formats it as "(~H:MM AM/PM)".
+ *
+ * Returns an empty string if remaining_seconds <= 0.
+ *
+ * @param remaining_seconds Seconds until completion (must be > 0 to produce output)
+ * @return Formatted string like "(~2:45 PM)", or "" if remaining_seconds <= 0
+ */
+std::string eta_clock_time(int remaining_seconds);
+
 } // namespace helix::format

@@ -192,6 +192,8 @@
                 <text_small text=" elapsed · " translation_tag=" elapsed · " variant="muted"/>
                 <text_small name="print_remaining" text="0m" bind_text="print_remaining"/>
                 <text_small text=" left" translation_tag=" left" variant="muted"/>
+                <text_small name="print_eta" text="" bind_text="print_eta" variant="muted"
+                            style_pad_left="#space_xs"/>
               </lv_obj>
               <text_small name="print_percent" text="0%" bind_text="print_progress_text"/>
             </lv_obj>

@@ -276,6 +276,7 @@ void PrintStatusPanel::init_subjects() {
     UI_MANAGED_SUBJECT_STRING(elapsed_subject_, elapsed_buf_, "0h 00m", "print_elapsed", subjects_);
     UI_MANAGED_SUBJECT_STRING(remaining_subject_, remaining_buf_, "0h 00m", "print_remaining",
                               subjects_);
+    UI_MANAGED_SUBJECT_STRING(eta_subject_, eta_buf_, "", "print_eta", subjects_);
     UI_MANAGED_SUBJECT_STRING(nozzle_temp_subject_, nozzle_temp_buf_, "0 / 0°C", "nozzle_temp_text",
                               subjects_);
     UI_MANAGED_SUBJECT_STRING(bed_temp_subject_, bed_temp_buf_, "0 / 0°C", "bed_temp_text",
@@ -1743,7 +1744,12 @@ void PrintStatusPanel::on_print_time_left_changed(int seconds) {
 
     format_time(lifecycle_.remaining_seconds(), remaining_buf_, sizeof(remaining_buf_));
     lv_subject_copy_string(&remaining_subject_, remaining_buf_);
-    spdlog::trace("[{}] Time remaining updated: {}s", get_name(), seconds);
+
+    auto eta_str = helix::format::eta_clock_time(lifecycle_.remaining_seconds());
+    std::snprintf(eta_buf_, sizeof(eta_buf_), "%s", eta_str.c_str());
+    lv_subject_copy_string(&eta_subject_, eta_buf_);
+
+    spdlog::trace("[{}] Time remaining updated: {}s, ETA: {}", get_name(), seconds, eta_buf_);
 }
 
 void PrintStatusPanel::on_print_start_phase_changed(int phase) {
