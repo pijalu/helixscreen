@@ -1477,9 +1477,11 @@ class BedMeshProgressCollector : public std::enable_shared_from_this<BedMeshProg
 
     BedMeshProgressCollector(MoonrakerClient& client, ProgressCallback on_progress,
                              MoonrakerAdvancedAPI::SuccessCallback on_complete,
-                             MoonrakerAdvancedAPI::ErrorCallback on_error)
+                             MoonrakerAdvancedAPI::ErrorCallback on_error,
+                             int expected_probes = 0)
         : client_(client), on_progress_(std::move(on_progress)),
-          on_complete_(std::move(on_complete)), on_error_(std::move(on_error)) {}
+          on_complete_(std::move(on_complete)), on_error_(std::move(on_error)),
+          expected_probes_(expected_probes) {}
 
     ~BedMeshProgressCollector() {
         unregister();
@@ -1591,12 +1593,13 @@ class BedMeshProgressCollector : public std::enable_shared_from_this<BedMeshProg
         // progress line but do emit per-probe result lines.
         if (line.find("probe at ") != std::string::npos && line.find(" is z=") != std::string::npos) {
             probe_at_count_++;
-            spdlog::debug("[BedMeshProgressCollector] Probe result line #{}", probe_at_count_);
+            spdlog::debug("[BedMeshProgressCollector] Probe result line #{} (expected: {})",
+                          probe_at_count_, expected_probes_);
 
             if (on_progress_) {
-                // We don't know the total, but we can still show activity.
-                // Use 0 as total to signal "indeterminate but counting".
-                on_progress_(probe_at_count_, 0);
+                // Use expected_probes_ from configfile query as denominator.
+                // 0 = unknown → indeterminate spinner in UI.
+                on_progress_(probe_at_count_, expected_probes_);
             }
         }
     }
@@ -1642,17 +1645,21 @@ class BedMeshProgressCollector : public std::enable_shared_from_this<BedMeshProg
 
     int current_probe_ = 0;
     int total_probes_ = 0;
-    int probe_at_count_ = 0; // fallback counter for "probe at X,Y is z=Z" lines
+    int probe_at_count_ = 0;  // fallback counter for "probe at X,Y is z=Z" lines
+    int expected_probes_ = 0; // hint from configfile (0 = unknown)
 };
 
 void MoonrakerAdvancedAPI::start_bed_mesh_calibrate(BedMeshProgressCallback on_progress,
                                                     SuccessCallback on_complete,
-                                                    ErrorCallback on_error) {
-    spdlog::info("[MoonrakerAPI] Starting bed mesh calibration with progress tracking");
+                                                    ErrorCallback on_error,
+                                                    int expected_probes) {
+    spdlog::info("[MoonrakerAPI] Starting bed mesh calibration with progress tracking "
+                 "(expected_probes={})",
+                 expected_probes);
 
     // Create collector to track progress
-    auto collector = std::make_shared<BedMeshProgressCollector>(client_, std::move(on_progress),
-                                                                std::move(on_complete), on_error);
+    auto collector = std::make_shared<BedMeshProgressCollector>(
+        client_, std::move(on_progress), std::move(on_complete), on_error, expected_probes);
 
     collector->start();
 

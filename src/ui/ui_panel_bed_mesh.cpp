@@ -931,6 +931,47 @@ void BedMeshPanel::start_calibration_probing() {
 
     auto token = lifetime_.token();
 
+    // Query configfile for bed_mesh probe_count before starting calibration.
+    // This gives us the expected total for firmware that only emits
+    // "probe at X,Y" lines without a "Probing point X/Y" progress line.
+    json params = {{"objects", json::object({{"configfile", json::array({"settings"})}})}};
+    api->get_client().send_jsonrpc(
+        "printer.objects.query", params,
+        [this, api, token](json response) {
+            if (token.expired()) return;
+
+            int expected = 0;
+            try {
+                const auto& settings =
+                    response["result"]["status"]["configfile"]["settings"];
+                if (settings.contains("bed_mesh") &&
+                    settings["bed_mesh"].contains("probe_count")) {
+                    const auto& pc = settings["bed_mesh"]["probe_count"];
+                    if (pc.is_array() && pc.size() >= 2) {
+                        expected = pc[0].template get<int>() * pc[1].template get<int>();
+                    } else if (pc.is_number_integer()) {
+                        int n = pc.template get<int>();
+                        expected = n * n; // square grid
+                    }
+                }
+            } catch (...) {
+                // Non-fatal — proceed with 0 (indeterminate)
+            }
+
+            spdlog::info("[BedMeshPanel] Expected probe count from config: {}", expected);
+            launch_calibration(api, token, expected);
+        },
+        [this, api, token](const MoonrakerError& /*err*/) {
+            if (token.expired()) return;
+            spdlog::warn("[BedMeshPanel] Failed to query bed_mesh config, "
+                         "proceeding without expected probe count");
+            launch_calibration(api, token, 0);
+        });
+}
+
+void BedMeshPanel::launch_calibration(MoonrakerAPI* api,
+                                      helix::LifetimeToken token,
+                                      int expected_probes) {
     // Start calibration with progress tracking
     api->advanced().start_bed_mesh_calibrate(
         // Progress callback (from WebSocket thread)
@@ -954,7 +995,8 @@ void BedMeshPanel::start_calibration_probing() {
             lifetime_.defer("BedMeshPanel::calibrate_error", [this, msg]() {
                 on_calibration_error(msg);
             });
-        });
+        },
+        expected_probes);
 }
 
 // ============================================================================
@@ -1233,7 +1275,9 @@ void BedMeshPanel::execute_save_config() {
 void BedMeshPanel::on_probe_progress(int current, int total) {
     if (total > 0) {
         lv_subject_set_int(&bed_mesh_probe_indeterminate_, 0);
-        int progress = current * 100 / total;
+        // Cap at 99% — completion signal handles the final transition.
+        // Adaptive mesh may produce more probes than the config hint.
+        int progress = std::min(current * 100 / total, 99);
         lv_subject_set_int(&bed_mesh_probe_progress_, progress);
 
         std::snprintf(probe_text_buf_, sizeof(probe_text_buf_), "Probing point %d of %d", current,

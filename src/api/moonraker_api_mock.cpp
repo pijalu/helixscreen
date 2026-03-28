@@ -963,7 +963,8 @@ void MoonrakerAdvancedAPIMock::reset_mock_bed_state() {
 
 void MoonrakerAdvancedAPIMock::start_bed_mesh_calibrate(BedMeshProgressCallback on_progress,
                                                         SuccessCallback on_complete,
-                                                        ErrorCallback /*on_error*/) {
+                                                        ErrorCallback /*on_error*/,
+                                                        int /*expected_probes*/) {
     spdlog::info(
         "[MoonrakerAdvancedAPIMock] start_bed_mesh_calibrate() - simulating probe sequence");
 

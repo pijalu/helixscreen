@@ -11,10 +11,14 @@
 #include "overlay_base.h"
 #include "subject_managed_panel.h"
 
+#include "async_lifetime_guard.h"
+
 #include <array>
 #include <memory>
 #include <string>
 #include <vector>
+
+class MoonrakerAPI;
 
 /**
  * @brief Bed mesh visualization panel with 3D renderer
@@ -98,6 +102,8 @@ class BedMeshPanel : public OverlayBase {
     void start_calibration_probing();
 
   private:
+    void launch_calibration(MoonrakerAPI* api, helix::LifetimeToken token,
+                            int expected_probes);
     // ========== Subject Manager (RAII cleanup) ==========
     SubjectManager subjects_;
 

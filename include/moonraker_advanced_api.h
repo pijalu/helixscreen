@@ -199,9 +199,13 @@ class MoonrakerAdvancedAPI {
      * @param on_progress Called for each probe point (current, total)
      * @param on_complete Called when calibration completes successfully
      * @param on_error Called on failure
+     * @param expected_probes Hint for total probe count (from configfile).
+     *        Used as denominator when firmware doesn't emit "Probing point X/Y"
+     *        progress lines.  0 = unknown (shows indeterminate spinner).
      */
     virtual void start_bed_mesh_calibrate(BedMeshProgressCallback on_progress,
-                                          SuccessCallback on_complete, ErrorCallback on_error);
+                                          SuccessCallback on_complete, ErrorCallback on_error,
+                                          int expected_probes = 0);
 
     /**
      * @brief Calculate screw adjustments for manual bed leveling
