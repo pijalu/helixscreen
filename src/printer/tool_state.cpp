@@ -118,7 +118,11 @@ void ToolState::init_tools(const helix::PrinterDiscovery& hardware) {
         for (const auto& h : hardware.heaters()) {
             if (h == "extruder" ||
                 (h.size() > 8 && h.rfind("extruder", 0) == 0 && std::isdigit(h[8]))) {
-                extruder_names.push_back(h);
+                // Deduplicate (mock can produce duplicates from dual parse_objects calls)
+                if (std::find(extruder_names.begin(), extruder_names.end(), h) ==
+                    extruder_names.end()) {
+                    extruder_names.push_back(h);
+                }
             }
         }
         std::sort(extruder_names.begin(), extruder_names.end());
