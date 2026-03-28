@@ -2184,14 +2184,21 @@ void AmsState::refresh_spoolman_weights() {
                                 state.spoolman_consecutive_failures_,
                                 SPOOLMAN_CB_BACKOFF_MS / 1000);
 
-                            // Notify user once per outage
+                            // Notify user once per outage — only if Spoolman is
+                            // actually configured (avoid confusing toast on printers
+                            // that never set up Spoolman)
                             if (!state.spoolman_unavailable_notified_) {
                                 state.spoolman_unavailable_notified_ = true;
-                                // i18n: Spoolman is a product name, do not translate
-                                ToastManager::instance().show(
-                                    ToastSeverity::WARNING,
-                                    lv_tr("Spoolman unavailable — filament weights may be stale"),
-                                    6000);
+                                auto* subj =
+                                    lv_xml_get_subject(nullptr, "printer_has_spoolman");
+                                if (subj && lv_subject_get_int(subj) == 1) {
+                                    // i18n: Spoolman is a product name, do not translate
+                                    ToastManager::instance().show(
+                                        ToastSeverity::WARNING,
+                                        lv_tr("Spoolman unavailable — filament weights "
+                                              "may be stale"),
+                                        6000);
+                                }
                             }
                         }
                     });

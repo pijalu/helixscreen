@@ -22,8 +22,14 @@
       <!-- Progress text -->
       <text_muted name="probe_progress_text"
                   width="100%" bind_text="bed_mesh_probe_text" text="Initializing..." translation_tag="Initializing..." style_text_align="center"/>
-      <!-- Progress bar -->
-      <progress_bar name="probe_progress_bar" width="90%" bind_value="bed_mesh_probe_progress"/>
+      <!-- Determinate progress bar (hidden when indeterminate) -->
+      <progress_bar name="probe_progress_bar" width="90%" bind_value="bed_mesh_probe_progress">
+        <bind_flag_if_eq subject="bed_mesh_probe_indeterminate" flag="hidden" ref_value="1"/>
+      </progress_bar>
+      <!-- Indeterminate spinner (hidden when determinate) -->
+      <spinner size="md">
+        <bind_flag_if_eq subject="bed_mesh_probe_indeterminate" flag="hidden" ref_value="0"/>
+      </spinner>
       <!-- E-Stop button (prominent, red) -->
       <ui_button name="btn_emergency_stop"
                  width="100%" height="#button_height_lg" variant="danger" icon="alert_octagon" text="EMERGENCY STOP" translation_tag="EMERGENCY STOP"

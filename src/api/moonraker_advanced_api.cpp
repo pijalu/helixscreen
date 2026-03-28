@@ -1510,6 +1510,14 @@ class BedMeshProgressCollector : public std::enable_shared_from_this<BedMeshProg
         completed_.store(true);
     }
 
+    /// Called when the JSON-RPC response returns successfully — the command
+    /// finished on the Klipper side.  Acts as a fallback completion signal in
+    /// case the gcode_response stream didn't contain a recognised completion
+    /// marker (e.g. "Mesh Bed Leveling Complete").
+    void on_command_finished() {
+        complete_success();
+    }
+
     void on_gcode_response(const json& msg) {
         if (completed_.load()) {
             return;
@@ -1551,10 +1559,10 @@ class BedMeshProgressCollector : public std::enable_shared_from_this<BedMeshProg
 
   private:
     void parse_probe_line(const std::string& line) {
-        // Static regex for performance - handles both formats:
-        // "Probing point 5/25" and "Probe point 5 of 25"
+        // Static regex for performance - handles formats:
+        // "Probing point 5/25", "Probe point 5 of 25", "Probing mesh point 5/25"
         static const std::regex probe_regex(
-            R"(Prob(?:ing point|e point) (\d+)[/\s]+(?:of\s+)?(\d+))");
+            R"(Prob(?:ing (?:mesh )?point|e point) (\d+)[/\s]+(?:of\s+)?(\d+))");
 
         std::smatch match;
         if (std::regex_search(line, match, probe_regex) && match.size() == 3) {
@@ -1574,6 +1582,21 @@ class BedMeshProgressCollector : public std::enable_shared_from_this<BedMeshProg
                 }
             } catch (const std::exception& e) {
                 spdlog::warn("[BedMeshProgressCollector] Failed to parse values: {}", e.what());
+            }
+            return;
+        }
+
+        // Fallback: count "probe at X,Y is z=Z" lines (standard Klipper probe
+        // output).  Some firmware variants don't emit the "Probing point X/Y"
+        // progress line but do emit per-probe result lines.
+        if (line.find("probe at ") != std::string::npos && line.find(" is z=") != std::string::npos) {
+            probe_at_count_++;
+            spdlog::debug("[BedMeshProgressCollector] Probe result line #{}", probe_at_count_);
+
+            if (on_progress_) {
+                // We don't know the total, but we can still show activity.
+                // Use 0 as total to signal "indeterminate but counting".
+                on_progress_(probe_at_count_, 0);
             }
         }
     }
@@ -1619,6 +1642,7 @@ class BedMeshProgressCollector : public std::enable_shared_from_this<BedMeshProg
 
     int current_probe_ = 0;
     int total_probes_ = 0;
+    int probe_at_count_ = 0; // fallback counter for "probe at X,Y is z=Z" lines
 };
 
 void MoonrakerAdvancedAPI::start_bed_mesh_calibrate(BedMeshProgressCallback on_progress,
@@ -1637,8 +1661,11 @@ void MoonrakerAdvancedAPI::start_bed_mesh_calibrate(BedMeshProgressCallback on_p
     api_.execute_gcode(
         "BED_MESH_CALIBRATE",
         [collector]() {
-            // Command accepted - collector will handle completion via gcode_response
-            spdlog::debug("[MoonrakerAPI] BED_MESH_CALIBRATE command accepted");
+            // JSON-RPC returned — command finished on Klipper side.
+            // Some firmware variants don't emit "Mesh Bed Leveling Complete"
+            // in gcode_response, so use the RPC return as a fallback signal.
+            spdlog::debug("[MoonrakerAPI] BED_MESH_CALIBRATE command finished");
+            collector->on_command_finished();
         },
         [collector, on_error](const MoonrakerError& err) {
             if (err.type == MoonrakerErrorType::TIMEOUT) {

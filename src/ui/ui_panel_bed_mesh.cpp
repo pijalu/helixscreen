@@ -21,6 +21,7 @@
 #include "ui_nav_manager.h"
 #include "ui_panel_common.h"
 #include "ui_subject_registry.h"
+#include "ui_emergency_stop.h"
 #include "ui_toast_manager.h"
 #include "ui_update_queue.h"
 
@@ -184,6 +185,8 @@ void BedMeshPanel::init_subjects() {
         // Calibration state machine subjects
         UI_MANAGED_SUBJECT_INT(bed_mesh_calibrate_state_, 0, "bed_mesh_calibrate_state", subjects_);
         UI_MANAGED_SUBJECT_INT(bed_mesh_probe_progress_, 0, "bed_mesh_probe_progress", subjects_);
+        UI_MANAGED_SUBJECT_INT(bed_mesh_probe_indeterminate_, 0, "bed_mesh_probe_indeterminate",
+                               subjects_);
         UI_MANAGED_SUBJECT_STRING(bed_mesh_probe_text_, probe_text_buf_, "Preparing...",
                                   "bed_mesh_probe_text", subjects_);
         UI_MANAGED_SUBJECT_STRING(bed_mesh_error_message_, error_message_buf_, "",
@@ -869,6 +872,7 @@ void BedMeshPanel::start_calibration() {
     lv_subject_set_int(&bed_mesh_calibrate_state_,
                        static_cast<int>(BedMeshCalibrationState::PROBING));
     lv_subject_set_int(&bed_mesh_probe_progress_, 0);
+    lv_subject_set_int(&bed_mesh_probe_indeterminate_, 0);
     lv_subject_copy_string(&bed_mesh_probe_text_, lv_tr("Preparing..."));
 
     // Show modal immediately
@@ -1199,6 +1203,9 @@ void BedMeshPanel::execute_save_config() {
 
     spdlog::info("[{}] Saving config (will restart Klipper)", get_name());
 
+    // Suppress recovery dialog — SAVE_CONFIG triggers an expected Klipper restart
+    EmergencyStopOverlay::instance().suppress_recovery_dialog(RecoverySuppression::LONG);
+
     operation_guard_.begin(SLOW_OPERATION_TIMEOUT_MS, [this] {
         hide_all_modals();
         pending_operation_ = PendingOperation::None;
@@ -1224,14 +1231,21 @@ void BedMeshPanel::execute_save_config() {
 // ============================================================================
 
 void BedMeshPanel::on_probe_progress(int current, int total) {
-    int progress = (total > 0) ? (current * 100 / total) : 0;
-    lv_subject_set_int(&bed_mesh_probe_progress_, progress);
+    if (total > 0) {
+        lv_subject_set_int(&bed_mesh_probe_indeterminate_, 0);
+        int progress = current * 100 / total;
+        lv_subject_set_int(&bed_mesh_probe_progress_, progress);
 
-    std::snprintf(probe_text_buf_, sizeof(probe_text_buf_), "Probing point %d of %d", current,
-                  total);
+        std::snprintf(probe_text_buf_, sizeof(probe_text_buf_), "Probing point %d of %d", current,
+                      total);
+        spdlog::debug("[BedMeshPanel] Probe progress: {}/{} ({}%)", current, total, progress);
+    } else {
+        // Fallback: firmware didn't report total — show spinner instead of bar
+        lv_subject_set_int(&bed_mesh_probe_indeterminate_, 1);
+        std::snprintf(probe_text_buf_, sizeof(probe_text_buf_), "Probing... (%d points)", current);
+        spdlog::debug("[BedMeshPanel] Probe progress: {} points (total unknown)", current);
+    }
     lv_subject_copy_string(&bed_mesh_probe_text_, probe_text_buf_);
-
-    spdlog::debug("[BedMeshPanel] Probe progress: {}/{} ({}%)", current, total, progress);
 }
 
 void BedMeshPanel::on_calibration_complete() {
