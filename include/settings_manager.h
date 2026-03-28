@@ -120,6 +120,22 @@ class SettingsManager {
     /** @brief Get dropdown options string "Auto\nBed Moves\nNozzle Moves" */
     static const char* get_z_movement_style_options();
 
+    // =========================================================================
+    // CHAMBER ASSIGNMENT (owned by SettingsManager — sensor/heater override)
+    // =========================================================================
+
+    /** @brief Get chamber heater assignment ("auto", "none", or klipper name) */
+    std::string get_chamber_heater_assignment() const;
+
+    /** @brief Set chamber heater assignment and persist */
+    void set_chamber_heater_assignment(const std::string& value);
+
+    /** @brief Get chamber sensor assignment ("auto", "none", or klipper name) */
+    std::string get_chamber_sensor_assignment() const;
+
+    /** @brief Set chamber sensor assignment and persist */
+    void set_chamber_sensor_assignment(const std::string& value);
+
     /** @brief Z movement style subject (integer: 0=Auto, 1=Bed Moves, 2=Nozzle Moves) */
     lv_subject_t* subject_z_movement_style() {
         return &z_movement_style_subject_;
@@ -261,6 +277,10 @@ class SettingsManager {
 
     // External references
     MoonrakerClient* moonraker_client_ = nullptr;
+
+    // Chamber assignment settings (plain strings, no LVGL subjects needed)
+    std::string chamber_heater_assignment_{"auto"};
+    std::string chamber_sensor_assignment_{"auto"};
 
     // State
     bool subjects_initialized_ = false;

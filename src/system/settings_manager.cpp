@@ -143,6 +143,12 @@ void SettingsManager::init_subjects() {
     UI_MANAGED_SUBJECT_INT(auto_color_map_subject_, auto_color_map ? 1 : 0,
                            "auto_color_map", subjects_);
 
+    // Chamber assignment (default: "auto" = use name heuristics)
+    chamber_heater_assignment_ =
+        config->get<std::string>(config->df() + "printer/chamber_heater", "auto");
+    chamber_sensor_assignment_ =
+        config->get<std::string>(config->df() + "printer/chamber_sensor", "auto");
+
     subjects_initialized_ = true;
 
     // Self-register cleanup — ensures deinit runs before lv_deinit()
@@ -434,6 +440,38 @@ void SettingsManager::set_external_spool_info(const SlotInfo& info) {
                        info.total_weight_g);
     config->save();
 }
+
+// ============================================================================
+// Chamber Assignment
+// ============================================================================
+
+std::string SettingsManager::get_chamber_heater_assignment() const {
+    return chamber_heater_assignment_;
+}
+
+void SettingsManager::set_chamber_heater_assignment(const std::string& value) {
+    chamber_heater_assignment_ = value;
+    spdlog::info("[SettingsManager] set_chamber_heater_assignment({})", value);
+    Config* config = Config::get_instance();
+    config->set<std::string>(config->df() + "printer/chamber_heater", value);
+    config->save();
+}
+
+std::string SettingsManager::get_chamber_sensor_assignment() const {
+    return chamber_sensor_assignment_;
+}
+
+void SettingsManager::set_chamber_sensor_assignment(const std::string& value) {
+    chamber_sensor_assignment_ = value;
+    spdlog::info("[SettingsManager] set_chamber_sensor_assignment({})", value);
+    Config* config = Config::get_instance();
+    config->set<std::string>(config->df() + "printer/chamber_sensor", value);
+    config->save();
+}
+
+// ============================================================================
+// Filament Settings
+// ============================================================================
 
 void SettingsManager::clear_external_spool_info() {
     Config* config = Config::get_instance();

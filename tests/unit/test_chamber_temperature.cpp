@@ -5,6 +5,7 @@
 #include "printer_capabilities_state.h"
 #include "printer_discovery.h"
 #include "printer_temperature_state.h"
+#include "settings_manager.h"
 
 #include "../catch_amalgamated.hpp"
 #include "hv/json.hpp"
@@ -92,4 +93,35 @@ TEST_CASE("PrinterTemperatureState ignores chamber when sensor not configured",
 
     // Should remain at initial value (0)
     REQUIRE(lv_subject_get_int(temp_state.get_chamber_temp_subject()) == 0);
+}
+
+// 6. Chamber assignment settings default to "auto"
+TEST_CASE("Chamber assignment settings default to auto", "[settings][chamber]") {
+    LVGLTestFixture fixture;
+
+    auto& settings = helix::SettingsManager::instance();
+    settings.init_subjects();
+
+    REQUIRE(settings.get_chamber_heater_assignment() == "auto");
+    REQUIRE(settings.get_chamber_sensor_assignment() == "auto");
+}
+
+// 7. Chamber assignment settings persist values
+TEST_CASE("Chamber assignment settings persist values", "[settings][chamber]") {
+    LVGLTestFixture fixture;
+
+    auto& settings = helix::SettingsManager::instance();
+    settings.init_subjects();
+
+    settings.set_chamber_heater_assignment("heater_generic my_chamber");
+    REQUIRE(settings.get_chamber_heater_assignment() == "heater_generic my_chamber");
+
+    settings.set_chamber_sensor_assignment("temperature_sensor enclosure_bme");
+    REQUIRE(settings.get_chamber_sensor_assignment() == "temperature_sensor enclosure_bme");
+
+    settings.set_chamber_heater_assignment("none");
+    REQUIRE(settings.get_chamber_heater_assignment() == "none");
+
+    settings.set_chamber_sensor_assignment("auto");
+    REQUIRE(settings.get_chamber_sensor_assignment() == "auto");
 }
