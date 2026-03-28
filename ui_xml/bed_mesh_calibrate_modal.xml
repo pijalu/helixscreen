@@ -30,8 +30,6 @@
       <spinner size="md">
         <bind_flag_if_eq subject="bed_mesh_probe_indeterminate" flag="hidden" ref_value="0"/>
       </spinner>
-      <!-- Warning text about emergency stop -->
-      <text_small width="100%" text="Stops all motion. Requires firmware restart." translation_tag="Stops all motion. Requires firmware restart." style_text_align="center"/>
     </lv_obj>
     <!-- ============================================================ -->
     <!-- STATE: NAMING (state=2) - Success + Profile name input -->
@@ -73,6 +71,11 @@
     </lv_obj>
     <!-- Horizontal divider above buttons -->
     <divider_horizontal/>
+    <!-- Warning text about emergency stop (probing state only) -->
+    <text_small width="100%" text="Stops all motion. Requires firmware restart." translation_tag="Stops all motion. Requires firmware restart."
+                style_text_align="center" style_pad_top="#space_sm" style_pad_bottom="#space_sm" hidden="true">
+      <bind_flag_if_not_eq subject="bed_mesh_calibrate_state" flag="hidden" ref_value="1"/>
+    </text_small>
     <!-- ============================================================ -->
     <!-- Button row: PROBING state (state=1) - Cancel only -->
     <!-- ============================================================ -->
