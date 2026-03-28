@@ -23,6 +23,8 @@
 #include "theme_manager.h"
 #include "unit_conversions.h"
 
+#include "lvgl/src/others/translation/lv_translation.h"
+
 #include <spdlog/spdlog.h>
 
 #include <cmath>
@@ -43,11 +45,11 @@ static std::string clean_gcode_error(const std::string& msg) {
     // Provide friendly messages for common error patterns
     if (cleaned.find("Must home axis") != std::string::npos ||
         cleaned.find("must home") != std::string::npos) {
-        return "Must home axes first";
+        return lv_tr("Must home axes first");
     }
     if (cleaned.find("out of range") != std::string::npos ||
         cleaned.find("Move out of range") != std::string::npos) {
-        return "Move out of range";
+        return lv_tr("Move out of range");
     }
 
     // Truncate long messages for toast display

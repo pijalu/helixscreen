@@ -1212,12 +1212,14 @@ std::vector<GCodeThumbnail> extract_thumbnails(const std::string& filepath) {
         if (png_begin_pos != std::string::npos) {
             std::string dims = line.substr(png_begin_pos + 12);
             int w = 0, h = 0, size = 0;
-            if (sscanf(dims.c_str(), "%d*%d %d", &w, &h, &size) >= 2) {
+            if (sscanf(dims.c_str(), "%d*%d %d", &w, &h, &size) >= 2 && w > 0 && h > 0) {
                 current_thumb = GCodeThumbnail();
                 current_thumb.width = w;
                 current_thumb.height = h;
                 base64_data.clear();
-                base64_data.reserve(static_cast<size_t>(size) * 4 / 3 + 100);
+                if (size > 0) {
+                    base64_data.reserve(static_cast<size_t>(size) * 4 / 3 + 100);
+                }
                 in_thumbnail_block = true;
                 spdlog::debug("[GCode Parser] Found Creality thumbnail {}x{} in {}", w, h,
                               filepath);
@@ -1311,12 +1313,14 @@ std::vector<GCodeThumbnail> extract_thumbnails_from_content(const std::string& c
         if (png_begin_pos != std::string::npos) {
             std::string dims = line.substr(png_begin_pos + 12);
             int w = 0, h = 0, size = 0;
-            if (sscanf(dims.c_str(), "%d*%d %d", &w, &h, &size) >= 2) {
+            if (sscanf(dims.c_str(), "%d*%d %d", &w, &h, &size) >= 2 && w > 0 && h > 0) {
                 current_thumb = GCodeThumbnail();
                 current_thumb.width = w;
                 current_thumb.height = h;
                 base64_data.clear();
-                base64_data.reserve(static_cast<size_t>(size) * 4 / 3 + 100);
+                if (size > 0) {
+                    base64_data.reserve(static_cast<size_t>(size) * 4 / 3 + 100);
+                }
                 in_thumbnail_block = true;
                 spdlog::debug("[GCode Parser] Found Creality thumbnail {}x{} in content", w, h);
             }
