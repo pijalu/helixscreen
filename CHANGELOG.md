@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.99.8] - 2026-03-28
+
+This release enriches the print status panel with speed/flow indicators, estimated finish time, Z height, and a unified temperature card with chamber support. It also fixes several crashes and UI issues across filament management, temperature controls, and navigation.
+
+### Added
+- Print status: speed and flow rate indicators visible on medium and larger screens (#597)
+- Print status: estimated finish time ETA in metadata overlay (#597)
+- Print status: Z height shown alongside layer progress (#597)
+- Print status: unified temperature card with chamber temp support (#597)
+
+### Fixed
+- Nozzle temps widget: color-coded temperature display replaces progress bars; compact font and bed icon on small screens
+- Speed/flow row on print status panel is now clickable to open the Tune overlay (#597)
+- Spoolman error toasts no longer appear when Spoolman is not configured (#609)
+- Bed mesh probe modal now shows emergency stop instead of cancel
+- Power widgets now work when Moonraker is connected but Klipper is not running (#587)
+- File list always refreshes when returning to print select panel (#577)
+- AMS slot crash from dangling widget pointers during deferred deletion (#604, #579)
+- Overlay state not clearing when switching navbar tabs (#607)
+- Material temperature save button hidden when preheat macro was selected (#588)
+- Temperature chart uses deci-degrees for smoother lines (#600)
+- Z offset baby stepping: added MOVE=1, clamped to ±2mm, fixed float rounding (#592)
+
 ## [0.99.7] - 2026-03-27
 
 ### Added
@@ -2250,6 +2273,7 @@ Initial tagged release. Foundation for all subsequent development.
 - Automated GitHub Actions release pipeline
 - One-liner installation script with platform auto-detection
 
+[0.99.8]: https://github.com/prestonbrown/helixscreen/compare/v0.99.7...v0.99.8
 [0.99.7]: https://github.com/prestonbrown/helixscreen/compare/v0.99.6...v0.99.7
 [0.99.6]: https://github.com/prestonbrown/helixscreen/compare/v0.99.5...v0.99.6
 [0.99.5]: https://github.com/prestonbrown/helixscreen/compare/v0.99.4...v0.99.5
