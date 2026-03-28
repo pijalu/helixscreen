@@ -184,7 +184,7 @@
                        style_flex_grow="1"/>
             <lv_dropdown name="chamber_heater_dropdown"
                          options="Auto"
-                         style_min_width="200"/>
+                         style_min_width="250"/>
           </lv_obj>
 
           <!-- Chamber Sensor Row -->
@@ -198,7 +198,7 @@
                        style_flex_grow="1"/>
             <lv_dropdown name="chamber_sensor_dropdown"
                          options="Auto"
-                         style_min_width="200"/>
+                         style_min_width="250"/>
           </lv_obj>
 
           <!-- Divider between chamber assignment and sensor list -->
