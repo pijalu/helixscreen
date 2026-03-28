@@ -47,10 +47,7 @@ static std::string clean_gcode_error(const std::string& msg) {
         cleaned.find("must home") != std::string::npos) {
         return lv_tr("Must home axes first");
     }
-    if (cleaned.find("out of range") != std::string::npos ||
-        cleaned.find("Move out of range") != std::string::npos) {
-        return lv_tr("Move out of range");
-    }
+    // "Move out of range" — let through with truncation so user sees the limits
 
     // Truncate long messages for toast display
     constexpr size_t MAX_LEN = 80;
