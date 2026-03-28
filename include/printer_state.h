@@ -1156,6 +1156,19 @@ class PrinterState {
     }
 
     /**
+     * @brief Get cached hardware discovery result
+     *
+     * Provides access to the full list of heaters and sensors discovered
+     * during hardware enumeration. Used by the chamber assignment UI to
+     * populate dropdown options.
+     *
+     * @return Reference to the cached PrinterDiscovery instance
+     */
+    [[nodiscard]] const helix::PrinterDiscovery& get_discovery() const {
+        return discovery_;
+    }
+
+    /**
      * @brief Set power device count
      *
      * Delegates to PrinterCapabilitiesState (thread-safe).
@@ -1791,6 +1804,9 @@ class PrinterState {
 
     // Capability override layer (user config overrides for auto-detected capabilities)
     CapabilityOverrides capability_overrides_;
+
+    // Cached hardware discovery result (for UI access to heater/sensor lists)
+    helix::PrinterDiscovery discovery_;
 
     // Printer type and print start capabilities
     std::string printer_type_;                        ///< Selected printer type name

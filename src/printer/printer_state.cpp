@@ -526,6 +526,9 @@ void PrinterState::set_hardware(const helix::PrinterDiscovery& hardware) {
     // No deferral needed — the caller is already inside a queue_update callback.
     spdlog::debug("[PrinterState] set_hardware: has_probe={}", hardware.has_probe());
 
+    // Store for later access by UI (e.g., chamber assignment dropdowns)
+    discovery_ = hardware;
+
     // Pass auto-detected hardware to the override layer
     capability_overrides_.set_hardware(hardware);
 
