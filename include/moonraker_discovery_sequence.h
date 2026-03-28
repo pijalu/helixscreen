@@ -185,6 +185,15 @@ class MoonrakerDiscoverySequence {
     void continue_discovery();
 
     /**
+     * @brief Discover Moonraker-managed power devices (fire-and-forget)
+     *
+     * Queries machine.device_power.devices and populates PowerDeviceState.
+     * Called both during full discovery and as partial discovery when
+     * Klippy is not ready (power devices only need Moonraker, not Klipper).
+     */
+    void discover_power_devices();
+
+    /**
      * @brief Continue discovery after Klippy readiness gate passes
      *
      * Chains: objects.list → server.info → printer.info → MCU queries → subscribe

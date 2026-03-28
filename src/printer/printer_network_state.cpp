@@ -51,6 +51,10 @@ void PrinterNetworkState::init_subjects(bool register_xml) {
     // Starts disabled (0) - will be updated when connection/klippy state changes
     INIT_SUBJECT_INT(nav_buttons_enabled, 0, subjects_, register_xml);
 
+    // Moonraker WebSocket connection state (independent of Klipper)
+    // Used by power widgets that only need Moonraker, not Klipper
+    INIT_SUBJECT_INT(moonraker_connection_state, 0, subjects_, register_xml);
+
     subjects_initialized_ = true;
     spdlog::trace("[PrinterNetworkState] Subjects initialized successfully");
 }
@@ -122,6 +126,13 @@ void PrinterNetworkState::update_nav_buttons_enabled() {
             "[PrinterNetworkState] nav_buttons_enabled: {} (connected={}, klippy_ready={})",
             enabled, connected, klippy_ready);
         lv_subject_set_int(&nav_buttons_enabled_, enabled);
+    }
+
+    // Moonraker connection state: WebSocket connected, independent of Klipper
+    int moonraker_connected = connected ? 1 : 0;
+    if (lv_subject_get_int(&moonraker_connection_state_) != moonraker_connected) {
+        spdlog::debug("[PrinterNetworkState] moonraker_connection_state: {}", moonraker_connected);
+        lv_subject_set_int(&moonraker_connection_state_, moonraker_connected);
     }
 }
 

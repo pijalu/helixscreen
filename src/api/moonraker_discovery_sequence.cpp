@@ -87,6 +87,46 @@ void MoonrakerDiscoverySequence::start(std::function<void()> on_complete,
         });
 }
 
+void MoonrakerDiscoverySequence::discover_power_devices() {
+    // Fire-and-forget power device detection (silent — not all printers
+    // have the power component, and "Method not found" is expected).
+    // Called both during full discovery and as partial discovery when
+    // Klippy is not ready (power devices only need Moonraker, not Klipper).
+    client_.send_jsonrpc(
+        "machine.device_power.devices", json::object(),
+        [](json response) {
+            std::vector<PowerDevice> devices;
+            if (response.contains("result") && response["result"].contains("devices")) {
+                for (const auto& dev : response["result"]["devices"]) {
+                    if (!dev.is_object())
+                        continue;
+                    PowerDevice pd;
+                    pd.device = dev.value("device", "");
+                    pd.type = dev.value("type", "");
+                    pd.status = dev.value("status", "off");
+                    pd.locked_while_printing = dev.value("locked_while_printing", false);
+                    if (!pd.device.empty()) {
+                        devices.push_back(std::move(pd));
+                    }
+                }
+            }
+            spdlog::info("[Moonraker Client] Power device detection: {} devices", devices.size());
+            get_printer_state().set_power_device_count(static_cast<int>(devices.size()));
+            // Marshal to UI thread — set_devices creates LVGL subjects
+            auto devices_copy =
+                std::make_shared<std::vector<PowerDevice>>(std::move(devices));
+            helix::ui::queue_update("PowerDeviceState::set_devices", [devices_copy]() {
+                helix::PowerDeviceState::instance().set_devices(*devices_copy);
+            });
+        },
+        [](const MoonrakerError& err) {
+            spdlog::debug("[Moonraker Client] Power device detection failed: {}", err.message);
+            get_printer_state().set_power_device_count(0);
+        },
+        0,     // default timeout
+        true); // silent — suppress error toast
+}
+
 void MoonrakerDiscoverySequence::continue_discovery() {
     // Step 1: Check Klippy readiness via server.info before querying printer objects.
     // When Klippy is in STARTUP state, printer.objects.list returns JSON-RPC error
@@ -111,6 +151,11 @@ void MoonrakerDiscoverySequence::continue_discovery() {
             if (klippy_state != "ready" && klippy_state != "shutdown") {
                 std::string reason = fmt::format("Klippy not ready (state: {})", klippy_state);
                 spdlog::warn("[Moonraker Client] {}", reason);
+
+                // Partial discovery: power devices are Moonraker-managed, not Klipper-dependent.
+                // Query them even when Klippy isn't ready so users can power on their printer.
+                discover_power_devices();
+
                 client_.emit_event(MoonrakerEventType::DISCOVERY_FAILED, reason, true);
                 if (on_error_discovery_) {
                     auto cb = std::move(on_error_discovery_);
@@ -278,45 +323,8 @@ void MoonrakerDiscoverySequence::continue_discovery_objects() {
                     0,     // default timeout
                     true); // silent — webcams not always configured
 
-                // Fire-and-forget power device detection (silent — not all printers
-                // have the power component, and "Method not found" is expected)
-                client_.send_jsonrpc(
-                    "machine.device_power.devices", json::object(),
-                    [](json response) {
-                        std::vector<PowerDevice> devices;
-                        if (response.contains("result") && response["result"].contains("devices")) {
-                            for (const auto& dev : response["result"]["devices"]) {
-                                if (!dev.is_object())
-                                    continue;
-                                PowerDevice pd;
-                                pd.device = dev.value("device", "");
-                                pd.type = dev.value("type", "");
-                                pd.status = dev.value("status", "off");
-                                pd.locked_while_printing =
-                                    dev.value("locked_while_printing", false);
-                                if (!pd.device.empty()) {
-                                    devices.push_back(std::move(pd));
-                                }
-                            }
-                        }
-                        spdlog::info("[Moonraker Client] Power device detection: {} devices",
-                                     devices.size());
-                        get_printer_state().set_power_device_count(
-                            static_cast<int>(devices.size()));
-                        // Marshal to UI thread — set_devices creates LVGL subjects
-                        auto devices_copy =
-                            std::make_shared<std::vector<PowerDevice>>(std::move(devices));
-                        helix::ui::queue_update("PowerDeviceState::set_devices", [devices_copy]() {
-                            helix::PowerDeviceState::instance().set_devices(*devices_copy);
-                        });
-                    },
-                    [](const MoonrakerError& err) {
-                        spdlog::debug("[Moonraker Client] Power device detection failed: {}",
-                                      err.message);
-                        get_printer_state().set_power_device_count(0);
-                    },
-                    0,     // default timeout
-                    true); // silent — suppress error toast
+                // Fire-and-forget power device detection
+                discover_power_devices();
 
                 // Step 3: Get printer information
                 client_.send_jsonrpc("printer.info", {}, [this](json printer_response) {

@@ -25,6 +25,7 @@
 #include "macro_modification_manager.h"
 #include "moonraker_api.h"
 #include "moonraker_client.h"
+#include "power_device_state.h"
 #ifdef HELIX_ENABLE_MOCKS
 #include "moonraker_api_mock.h"
 #include "moonraker_client_mock.h"
@@ -200,6 +201,13 @@ void MoonrakerManager::process_notifications() {
             spdlog::trace("[MoonrakerManager] Processing connection state change: {}",
                           messages[new_state]);
             get_printer_state().set_printer_connection_state(new_state, messages[new_state]);
+
+            // Subscribe to power device events as soon as WebSocket connects.
+            // Power devices are Moonraker-managed and don't need Klipper.
+            // Safe to call multiple times — insert is a no-op if handler already registered.
+            if (new_state == static_cast<int>(ConnectionState::CONNECTED) && m_api) {
+                helix::PowerDeviceState::instance().subscribe(*m_api);
+            }
 
             // Auto-close Connection Failed modal when connection is restored
             // (Disconnect modal is now handled by unified recovery dialog in EmergencyStopOverlay)

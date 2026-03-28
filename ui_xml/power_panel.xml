@@ -9,8 +9,8 @@
             width="100%" flex_grow="1" style_pad_left="#space_lg" style_pad_right="#space_lg"
             style_pad_top="0" style_pad_bottom="#space_lg" flex_flow="column" style_pad_gap="0"
             scrollable="false">
-      <!-- Disable content when printer not connected or klippy not ready -->
-      <bind_state_if_not_eq subject="nav_buttons_enabled" state="disabled" ref_value="1"/>
+      <!-- Disable content when Moonraker WebSocket not connected -->
+      <bind_state_if_not_eq subject="moonraker_connection_state" state="disabled" ref_value="1"/>
       <!-- Home button device selection chips -->
       <lv_obj name="chip_section" width="100%" height="content" flex_flow="column"
               style_pad_all="0" style_pad_gap="0" scrollable="false">

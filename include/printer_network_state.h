@@ -25,12 +25,13 @@ namespace helix {
  *
  * Extracted from PrinterState as part of god class decomposition.
  *
- * Subjects (5 total):
+ * Subjects (6 total):
  * - printer_connection_state_ (int) - ConnectionState enum values
  * - printer_connection_message_ (string, 128-byte buffer) - status message
  * - network_status_ (int) - NetworkStatus enum values
  * - klippy_state_ (int) - KlippyState enum values
  * - nav_buttons_enabled_ (int, derived) - 1 when connected AND klippy ready
+ * - moonraker_connection_state_ (int, derived) - 1 when Moonraker WebSocket connected
  *
  * Additional state:
  * - was_ever_connected_ (bool) - tracks if ever successfully connected this session
@@ -119,6 +120,11 @@ class PrinterNetworkState {
         return &nav_buttons_enabled_;
     }
 
+    /// Moonraker WebSocket connected (1 when WebSocket is up, independent of Klipper state)
+    lv_subject_t* get_moonraker_connection_state_subject() {
+        return &moonraker_connection_state_;
+    }
+
     // ========================================================================
     // Query methods
     // ========================================================================
@@ -137,9 +143,10 @@ class PrinterNetworkState {
     }
 
     /**
-     * @brief Update combined nav_buttons_enabled subject
+     * @brief Update derived connection subjects (nav_buttons_enabled + moonraker_connection_state)
      *
-     * Recalculates nav_buttons_enabled based on connection and klippy state.
+     * Recalculates nav_buttons_enabled (connected AND klippy ready) and
+     * moonraker_connection_state (WebSocket connected, independent of Klipper).
      * Called whenever printer_connection_state or klippy_state changes.
      * Public so PrinterState can call it when needed.
      */
@@ -157,6 +164,7 @@ class PrinterNetworkState {
     lv_subject_t network_status_{};             // Integer: NetworkStatus enum values
     lv_subject_t klippy_state_{};               // Integer: KlippyState enum values
     lv_subject_t nav_buttons_enabled_{};        // Derived: 1 when connected AND klippy ready
+    lv_subject_t moonraker_connection_state_{}; // Derived: 1 when Moonraker WebSocket connected
 
     // String buffer for connection message
     char printer_connection_message_buf_[128];
