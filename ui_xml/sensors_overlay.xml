@@ -153,55 +153,6 @@
       </lv_obj>
 
       <!-- ================================================================== -->
-      <!-- CHAMBER ASSIGNMENT SECTION -->
-      <!-- ================================================================== -->
-      <lv_obj name="chamber_assignment_card"
-              width="100%" height="content"
-              style_bg_color="#card_bg" style_bg_opa="255"
-              style_radius="#border_radius"
-              style_pad_all="#space_md"
-              style_border_width="1" style_border_color="#card_border"
-              flex_flow="column" style_pad_gap="#space_sm"
-              scrollable="false">
-
-        <text_small text="Chamber Assignment"
-                    translation_tag="Chamber Assignment"
-                    style_text_color="#text"/>
-
-        <text_tiny text="Override auto-detection if your chamber sensor or heater isn't named 'chamber'."
-                   translation_tag="Override auto-detection if your chamber sensor or heater isn't named 'chamber'."
-                   style_text_color="#text_muted"/>
-
-        <!-- Chamber Heater Row -->
-        <lv_obj width="100%" height="content"
-                style_pad_all="0" style_bg_opa="0" style_border_width="0"
-                flex_flow="row" style_flex_cross_place="center"
-                scrollable="false">
-          <text_small text="Chamber Heater"
-                      translation_tag="Chamber Heater"
-                      style_text_color="#text_secondary"
-                      style_flex_grow="1"/>
-          <lv_dropdown name="chamber_heater_dropdown"
-                       options="Auto"
-                       style_min_width="200"/>
-        </lv_obj>
-
-        <!-- Chamber Sensor Row -->
-        <lv_obj width="100%" height="content"
-                style_pad_all="0" style_bg_opa="0" style_border_width="0"
-                flex_flow="row" style_flex_cross_place="center"
-                scrollable="false">
-          <text_small text="Chamber Sensor"
-                      translation_tag="Chamber Sensor"
-                      style_text_color="#text_secondary"
-                      style_flex_grow="1"/>
-          <lv_dropdown name="chamber_sensor_dropdown"
-                       options="Auto"
-                       style_min_width="200"/>
-        </lv_obj>
-      </lv_obj>
-
-      <!-- ================================================================== -->
       <!-- TEMPERATURE SENSORS SECTION -->
       <!-- ================================================================== -->
       <lv_obj name="temp_sensors_section"
@@ -216,6 +167,43 @@
           <text_small width="100%"
                       text="MCU, host, and auxiliary temperature monitoring"
                       translation_tag="MCU, host, and auxiliary temperature monitoring" style_text_align="left"/>
+
+          <!-- Chamber Assignment (inside temp sensors section) -->
+          <text_tiny text="Override auto-detection if your chamber sensor or heater isn't named 'chamber'."
+                     translation_tag="Override auto-detection if your chamber sensor or heater isn't named 'chamber'."
+                     style_text_color="#text_muted"/>
+
+          <!-- Chamber Heater Row -->
+          <lv_obj width="100%" height="content"
+                  style_pad_all="#space_sm" style_bg_opa="0" style_border_width="0"
+                  flex_flow="row" style_flex_cross_place="center"
+                  scrollable="false">
+            <text_body text="Chamber Heater"
+                       translation_tag="Chamber Heater"
+                       style_text_color="#text"
+                       style_flex_grow="1"/>
+            <lv_dropdown name="chamber_heater_dropdown"
+                         options="Auto"
+                         style_min_width="200"/>
+          </lv_obj>
+
+          <!-- Chamber Sensor Row -->
+          <lv_obj width="100%" height="content"
+                  style_pad_all="#space_sm" style_bg_opa="0" style_border_width="0"
+                  flex_flow="row" style_flex_cross_place="center"
+                  scrollable="false">
+            <text_body text="Chamber Sensor"
+                       translation_tag="Chamber Sensor"
+                       style_text_color="#text"
+                       style_flex_grow="1"/>
+            <lv_dropdown name="chamber_sensor_dropdown"
+                         options="Auto"
+                         style_min_width="200"/>
+          </lv_obj>
+
+          <!-- Divider between chamber assignment and sensor list -->
+          <divider_horizontal/>
+
           <lv_obj name="temp_sensors_list"
                   width="100%" height="content" style_pad_all="0" scrollable="false" flex_flow="column"
                   style_pad_gap="#space_xs"/>

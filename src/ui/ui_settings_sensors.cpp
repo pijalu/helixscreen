@@ -900,6 +900,11 @@ void SensorSettingsOverlay::populate_temperature_sensors() {
                   sensors.size());
 
     for (const auto& sensor : sensors) {
+        // Skip CHAMBER-role sensors — they're represented by the chamber assignment dropdowns
+        if (sensor.role == helix::sensors::TemperatureSensorRole::CHAMBER) {
+            continue;
+        }
+
         auto* row = lv_obj_create(sensors_list);
         lv_obj_set_width(row, lv_pct(100));
         lv_obj_set_height(row, LV_SIZE_CONTENT);
@@ -917,9 +922,6 @@ void SensorSettingsOverlay::populate_temperature_sensors() {
         auto* type_label = lv_label_create(row);
         const char* type_str = "Sensor";
         switch (sensor.role) {
-        case helix::sensors::TemperatureSensorRole::CHAMBER:
-            type_str = "Chamber";
-            break;
         case helix::sensors::TemperatureSensorRole::MCU:
             type_str = "MCU";
             break;
