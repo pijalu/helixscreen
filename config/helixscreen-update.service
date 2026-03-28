@@ -17,6 +17,19 @@ Description=Restart HelixScreen after update
 
 [Service]
 Type=oneshot
+
+# Skip restart if helixscreen started less than 60s ago.  NTP clock sync
+# during early boot can cause PathChanged to fire spuriously (#536).
+# A real Moonraker update can't land that fast after boot.
+# Uses monotonic timestamps (immune to clock jumps).
+ExecStartPre=/bin/sh -c '\
+  ACTIVE_MONO=$$(/bin/systemctl show helixscreen.service -p ActiveEnterTimestampMonotonic --value 2>/dev/null); \
+  [ "$${ACTIVE_MONO:-0}" = "0" ] && exit 0; \
+  UPTIME_S=$$(cut -d. -f1 /proc/uptime); \
+  ACTIVE_S=$$((ACTIVE_MONO / 1000000)); \
+  ELAPSED=$$((UPTIME_S - ACTIVE_S)); \
+  [ "$$ELAPSED" -lt 60 ] && { echo "Skipping: helixscreen started $${ELAPSED}s ago (< 60s grace)"; exit 1; } || true'
+
 ExecStartPre=/bin/sleep 10
 
 # Refresh systemd units from the newly extracted install dir.
