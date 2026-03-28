@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.99.7] - 2026-03-27
+
+### Added
+- Bed mesh calibration now shows determinate progress by querying the configured probe count
+
+### Fixed
+- Bed mesh progress bar could get stuck; suppress spurious disconnect toast on profile save
+- Spoolman active spool now auto-assigns to the active tool on tool changers (#543)
+- AMS slot and path updates deferred to prevent race conditions during hardware discovery (#562, #563)
+- About page marquee scroll on wide screens
+- Installer self-update on SonicPad (kernel 4.9) when sudo is unavailable
+
 ## [0.99.6] - 2026-03-27
 
 This release adds ACE filament system support, overhauls the filament mapping UI with an inline slot picker and smarter color matching, and continues hardening async callback safety across the UI.
@@ -2237,6 +2249,7 @@ Initial tagged release. Foundation for all subsequent development.
 - Automated GitHub Actions release pipeline
 - One-liner installation script with platform auto-detection
 
+[0.99.7]: https://github.com/prestonbrown/helixscreen/compare/v0.99.6...v0.99.7
 [0.99.6]: https://github.com/prestonbrown/helixscreen/compare/v0.99.5...v0.99.6
 [0.99.5]: https://github.com/prestonbrown/helixscreen/compare/v0.99.4...v0.99.5
 [0.99.4]: https://github.com/prestonbrown/helixscreen/compare/v0.99.3...v0.99.4
