@@ -292,6 +292,9 @@ static bool parse_panel_arg(const char* panel_arg, CliArgs& args) {
     } else if (strcmp(panel_arg, "print-tune") == 0 || strcmp(panel_arg, "tune") == 0) {
         args.overlays.print_status = true; // Needs print running
         args.overlays.print_tune = true;
+    } else if (strcmp(panel_arg, "about") == 0) {
+        args.initial_panel = static_cast<int>(PanelId::Settings);
+        args.overlays.about = true;
     } else if (strcmp(panel_arg, "timelapse-videos") == 0 ||
                strcmp(panel_arg, "timelapse_videos") == 0 ||
                strcmp(panel_arg, "timelapse") == 0) {
@@ -307,7 +310,7 @@ static bool parse_panel_arg(const char* panel_arg, CliArgs& args) {
             printf("Available panels: home, controls, motion, nozzle-temp, bed-temp, "
                    "bed-mesh, zoffset, pid, screws, input-shaper, fan, led, ams, "
                    "spoolman, print-status, filament, settings, advanced, print-history, "
-                   "print-select, timelapse, step-test, test, gcode-test, glyphs, "
+                   "print-select, timelapse, about, step-test, test, gcode-test, glyphs, "
                    "gradient-test, wizard-ams-identify\n");
             return false;
         }

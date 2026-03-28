@@ -15,8 +15,8 @@ mkdir -p "$OUTDIR"
 # Get unique contributor names, excluding bots and invalid entries
 # In Docker cross-compile environments, git may not be available — use
 # the existing generated file from build/generated/ as a fallback.
-if command -v git >/dev/null 2>&1 && git rev-parse --git-dir >/dev/null 2>&1; then
-    contributors=$(git log --format='%aN' | sort -u \
+if command -v git >/dev/null 2>&1 && git -c safe.directory='*' rev-parse --git-dir >/dev/null 2>&1; then
+    contributors=$(git -c safe.directory='*' log --format='%aN' | sort -u \
         | grep -ivE 'bot\b|\[bot\]|dependabot|github-actions|claude' \
         | awk 'length >= 2' || true)
 elif [ -f "build/generated/contributors.h" ] && [ "$OUTDIR" != "build/generated" ]; then

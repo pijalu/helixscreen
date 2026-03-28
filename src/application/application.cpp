@@ -1797,6 +1797,12 @@ void Application::create_overlays() {
         spdlog::info("[Application] Opened hardware health overlay via CLI");
     }
 
+    if (m_args.overlays.about) {
+        auto& overlay = helix::settings::get_about_settings_overlay();
+        overlay.show(m_screen);
+        spdlog::info("[Application] Opened about overlay via CLI");
+    }
+
     if (m_args.overlays.network_settings) {
         auto& overlay = get_network_settings_overlay();
         overlay.init_subjects();

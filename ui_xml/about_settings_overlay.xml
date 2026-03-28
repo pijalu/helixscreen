@@ -23,8 +23,10 @@
         <text_body text="by Preston Brown" style_text_align="center" width="100%"/>
         <text_small name="copyright_text" bind_text="about_copyright" style_text_color="#text_muted" style_text_align="center" width="100%"/>
         <!-- Scrolling contributor marquee (populated by C++) -->
+        <!-- Max width ensures the text always overflows and triggers scroll animation,
+             even on wide screens (1024px+) where the full text might fit at 100%. -->
         <lv_obj name="contributor_marquee"
-                width="100%" height="30" style_pad_all="0" style_pad_gap="0" style_bg_opa="0" style_border_width="0"
+                width="80%" height="content" style_pad_all="0" style_pad_gap="0" style_bg_opa="0" style_border_width="0"
                 scrollable="false" style_clip_corner="true" overflow="hidden"/>
       </lv_obj>
       <!-- Printer Name (7-tap easter egg trigger) -->

@@ -65,6 +65,7 @@ struct OverlayFlags {
     bool macros = false;
     bool print_tune = false;
     bool timelapse_videos = false;
+    bool about = false;
 
     // Dev/test overlays
     bool release_notes = false; // --release-notes: show update modal with sample markdown
