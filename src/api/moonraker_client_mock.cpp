@@ -243,6 +243,9 @@ void MoonrakerClientMock::populate_capabilities() {
     mock_objects.push_back("output_pin beeper");   // Triggers has_speaker_ capability
     mock_objects.push_back("firmware_retraction"); // Triggers has_firmware_retraction_ capability
 
+    // Chamber temperature sensor for UI testing
+    mock_objects.push_back("temperature_sensor chamber");
+
     // Add hardware objects from populated lists
     for (const auto& heater : discovery_.heaters()) {
         // Skip if already added (heater_bed, extruder)
@@ -2859,6 +2862,7 @@ void MoonrakerClientMock::dispatch_initial_state() {
     json initial_status = {
         {"extruder", {{"temperature", ext_temp}, {"target", ext_target}}},
         {"heater_bed", {{"temperature", bed_temp_val}, {"target", bed_target_val}}},
+        {"temperature_sensor chamber", {{"temperature", 42.3}}},
         {"toolhead",
          {{"position", {x, y, z, 0.0}},
           {"homed_axes", homed},

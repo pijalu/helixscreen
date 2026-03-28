@@ -33,14 +33,15 @@
     <!-- Content Area (two columns: viewer left, controls right) -->
     <lv_obj name="overlay_content"
             width="100%" flex_grow="1" style_pad_left="#space_lg" style_pad_right="#space_lg" style_pad_top="0"
-            style_pad_bottom="#space_md" flex_flow="row" style_pad_gap="#space_md" scrollable="false">
+            style_pad_bottom="0" flex_flow="row" style_pad_gap="#space_md" scrollable="false">
       <!-- Disable content when printer not connected or klippy not ready -->
       <bind_state_if_not_eq subject="nav_buttons_enabled" state="disabled" ref_value="1"/>
       <!-- ================================================================== -->
       <!-- LEFT SECTION: G-code Viewer / Thumbnail (5/9 width via flex_grow) -->
       <!-- ================================================================== -->
       <ui_card name="thumbnail_section"
-               height="100%" flex_grow="5" style_pad_all="0" style_radius="#border_radius" style_clip_corner="true">
+               height="100%" flex_grow="5" style_pad_all="0" style_margin_bottom="#space_md"
+               style_radius="#border_radius" style_clip_corner="true">
         <!-- All children overlap as direct children of the card (matching print_file_detail pattern) -->
 
         <!-- Pre-rendered gradient background (shown in thumbnail[0] and 2D[2] modes, hidden in 3D[1]) -->
@@ -210,7 +211,7 @@
       <!-- ================================================================== -->
       <lv_obj name="controls_section"
               height="100%" flex_grow="4" style_pad_all="0" scrollable="false" flex_flow="column"
-              style_pad_gap="#space_lg">
+              style_pad_gap="#space_md">
 
         <!-- Unified Temperature Card (nozzle + bed + optional chamber) -->
         <temp_card_unified name="temp_card"/>
@@ -222,10 +223,10 @@
                 style_pad_gap="#space_sm" scrollable="false">
           <bind_flag_if_eq subject="ui_breakpoint" flag="hidden" ref_value="0"/>
           <bind_flag_if_eq subject="ui_breakpoint" flag="hidden" ref_value="1"/>
-          <text_small text="Spd" variant="muted"/>
+          <text_small text="Speed" variant="muted"/>
           <text_small name="speed_value" bind_text="print_speed_text"/>
           <text_small text=" · " variant="muted"/>
-          <text_small text="Fl" variant="muted"/>
+          <text_small text="Flow" variant="muted"/>
           <text_small name="flow_value" bind_text="print_flow_text"/>
         </lv_obj>
 
@@ -260,8 +261,8 @@
 
         <!-- Control Buttons (flex_grow pushes to bottom via main_place=end) -->
         <lv_obj name="button_grid"
-                width="100%" flex_grow="1" style_pad_top="0" style_pad_bottom="0" style_pad_left="#space_sm"
-                style_pad_right="#space_sm" scrollable="false" flex_flow="column" style_flex_main_place="end"
+                width="100%" flex_grow="1" style_pad_all="0"
+                scrollable="false" flex_flow="column" style_flex_main_place="end"
                 style_flex_cross_place="center" style_pad_gap="#space_sm">
           <!-- Row 1: Light, Timelapse (conditional), Pause -->
           <lv_obj width="100%"
@@ -315,7 +316,8 @@
         <!-- Plugin injection point: widgets from plugins appear here -->
         <!-- Plugins can inject print monitoring widgets, sensor readouts, etc. -->
         <lv_obj name="print_status_extras"
-                width="100%" height="content" style_pad_all="0" flex_flow="column" style_pad_gap="#space_md"/>
+                width="100%" height="content" style_pad_all="0"
+                flex_flow="column" style_pad_gap="#space_md"/>
       </lv_obj>
     </lv_obj>
   </view>

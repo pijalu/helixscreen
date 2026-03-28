@@ -11,7 +11,7 @@
   <view name="temp_card_unified" extends="ui_card"
         width="100%" height="content" style_radius="#border_radius"
         flex_flow="column" style_pad_top="#space_sm" style_pad_bottom="#space_sm"
-        style_pad_left="#space_md" style_pad_right="#space_md" style_pad_gap="0">
+        style_pad_left="#space_md" style_pad_right="#space_md" style_pad_gap="#space_md">
 
     <!-- Nozzle row -->
     <lv_obj name="nozzle_row"

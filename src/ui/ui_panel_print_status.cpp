@@ -644,6 +644,9 @@ void PrintStatusPanel::on_activate() {
         lv_image_set_src(print_thumbnail_, cached_thumbnail_path_.c_str());
     }
 
+    // Sync chamber row visibility (observer may have fired before UI was created)
+    update_chamber_visibility();
+
     // Restore G-code viewer state based on current print conditions
     // This ensures the viewer is properly restored when returning from overlays like Tune panel
     show_gcode_viewer(lifecycle_.want_viewer() && gcode_loaded_);
