@@ -256,22 +256,24 @@ std::string format_filament_length(double mm) {
 // Clock Time Formatting
 // =============================================================================
 
-std::string eta_clock_time(int remaining_seconds) {
+std::string eta_clock_time(int remaining_seconds, std::time_t now) {
     if (remaining_seconds <= 0) {
         return "";
     }
 
-    std::time_t now = std::time(nullptr);
+    if (now == 0) {
+        now = std::time(nullptr);
+    }
     std::time_t finish = now + static_cast<std::time_t>(remaining_seconds);
 
-    struct std::tm* local_tm = std::localtime(&finish);
-    if (local_tm == nullptr) {
+    struct std::tm local_tm;
+    if (localtime_r(&finish, &local_tm) == nullptr) {
         return "";
     }
 
     // Format as "(~H:MM AM/PM)"
-    int hour = local_tm->tm_hour;
-    int minute = local_tm->tm_min;
+    int hour = local_tm.tm_hour;
+    int minute = local_tm.tm_min;
     const char* ampm = (hour >= 12) ? "PM" : "AM";
     int hour12 = hour % 12;
     if (hour12 == 0) {

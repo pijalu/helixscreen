@@ -254,8 +254,9 @@ std::string format_filament_length(double mm);
  * Returns an empty string if remaining_seconds <= 0.
  *
  * @param remaining_seconds Seconds until completion (must be > 0 to produce output)
+ * @param now Current time (default: system clock). Pass explicit value for deterministic tests.
  * @return Formatted string like "(~2:45 PM)", or "" if remaining_seconds <= 0
  */
-std::string eta_clock_time(int remaining_seconds);
+std::string eta_clock_time(int remaining_seconds, std::time_t now = 0);
 
 } // namespace helix::format

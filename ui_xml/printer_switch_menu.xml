@@ -10,7 +10,7 @@
     <!-- Context menu card - width and position set dynamically by C++ -->
     <lv_obj name="context_menu"
             width="content" height="content" style_bg_color="#elevated_bg" style_bg_opa="255"
-            style_radius="#border_radius" style_pad_all="#space_sm" style_pad_gap="#space_xs"
+            style_radius="#border_radius" style_pad_all="#space_sm" style_pad_gap="#space_sm"
             style_min_width="160"
             flex_flow="column" scrollable="false" clickable="true">
       <text_small text="Switch Printer" translation_tag="Switch Printer"

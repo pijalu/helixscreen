@@ -11,7 +11,7 @@
     <lv_obj name="context_menu"
             width="content" height="content" style_max_height="85%"
             style_bg_color="#elevated_bg" style_bg_opa="255"
-            style_radius="#border_radius" style_pad_all="#space_sm" style_pad_gap="#space_xs"
+            style_radius="#border_radius" style_pad_all="#space_sm" style_pad_gap="#space_sm"
             flex_flow="column" style_flex_main_place="start" style_flex_cross_place="start"
             scrollable="true" clickable="true">
       <!-- Header row: title + Done button -->

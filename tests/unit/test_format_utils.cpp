@@ -326,3 +326,63 @@ TEST_CASE("format_short_date handles zero timestamp", "[format_utils][date]") {
     CHECK(!result.empty());
     CHECK(result != "Unknown");
 }
+
+// =============================================================================
+// ETA clock time formatting
+// =============================================================================
+
+// Helper: build a local time_t from hour:minute on 2026-03-27
+static std::time_t make_ref_time(int hour, int minute) {
+    struct tm t = {};
+    t.tm_year = 126; // 2026
+    t.tm_mon = 2;    // March
+    t.tm_mday = 27;
+    t.tm_hour = hour;
+    t.tm_min = minute;
+    t.tm_sec = 0;
+    t.tm_isdst = -1;
+    return mktime(&t);
+}
+
+TEST_CASE("eta_clock_time produces clock time from remaining seconds", "[format_utils][eta]") {
+    SECTION("30 minutes remaining from 14:00 gives 2:30 PM") {
+        auto now = make_ref_time(14, 0);
+        auto eta = eta_clock_time(30 * 60, now);
+        CHECK(eta == "(~2:30 PM)");
+    }
+
+    SECTION("0 seconds remaining returns empty") {
+        CHECK(eta_clock_time(0, make_ref_time(14, 0)).empty());
+    }
+
+    SECTION("negative remaining returns empty") {
+        CHECK(eta_clock_time(-100, make_ref_time(14, 0)).empty());
+    }
+
+    SECTION("crosses midnight — 11 hours from 14:00 is 1:00 AM") {
+        auto eta = eta_clock_time(11 * 3600, make_ref_time(14, 0));
+        CHECK(eta == "(~1:00 AM)");
+    }
+
+    SECTION("very short remaining — 30 seconds from 23:59") {
+        auto eta = eta_clock_time(30, make_ref_time(23, 59));
+        CHECK(eta == "(~11:59 PM)");
+    }
+
+    SECTION("noon produces 12:00 PM") {
+        auto eta = eta_clock_time(3600, make_ref_time(11, 0));
+        CHECK(eta == "(~12:00 PM)");
+    }
+
+    SECTION("midnight produces 12:00 AM") {
+        auto eta = eta_clock_time(3600, make_ref_time(23, 0));
+        CHECK(eta == "(~12:00 AM)");
+    }
+
+    SECTION("48 hours remaining still produces valid output") {
+        auto eta = eta_clock_time(48 * 3600, make_ref_time(10, 0));
+        CHECK(!eta.empty());
+        CHECK(eta.front() == '(');
+        CHECK(eta.back() == ')');
+    }
+}

@@ -13,7 +13,7 @@
     <!-- Context menu card - positioned by C++ -->
     <lv_obj name="context_menu"
             width="220" height="content" style_bg_color="#elevated_bg" style_bg_opa="255" style_radius="#border_radius"
-            style_pad_all="#space_sm" style_pad_gap="#space_xs" flex_flow="column" style_flex_main_place="start"
+            style_pad_all="#space_sm" style_pad_gap="#space_sm" flex_flow="column" style_flex_main_place="start"
             style_flex_cross_place="start" scrollable="false" clickable="true">
       <!-- Header: spool material name (e.g., "Polymaker PLA") -->
       <text_body name="spool_header"
