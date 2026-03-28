@@ -2023,6 +2023,12 @@ void AmsState::refresh_spoolman_weights() {
         return;
     }
 
+    // Skip if Spoolman is not configured/connected in Moonraker
+    if (!get_printer_state().is_spoolman_available()) {
+        spdlog::trace("[AmsState] Spoolman not available, skipping weight refresh");
+        return;
+    }
+
     auto* backend = get_backend(0);
     if (!backend) {
         return;
@@ -2202,7 +2208,8 @@ void AmsState::refresh_spoolman_weights() {
                             }
                         }
                     });
-                });
+                },
+                /*silent=*/true);
         }
     }
 
@@ -2255,7 +2262,8 @@ void AmsState::refresh_spoolman_weights() {
             [ext_spoolman_id](const MoonrakerError& err) {
                 spdlog::warn("[AmsState] Failed to fetch external spool Spoolman #{}: {}",
                              ext_spoolman_id, err.message);
-            });
+            },
+            /*silent=*/true);
     }
 
     if (linked_count > 0) {

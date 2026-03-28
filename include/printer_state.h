@@ -1188,6 +1188,16 @@ class PrinterState {
     void set_spoolman_available(bool available);
 
     /**
+     * @brief Check if Spoolman is available
+     *
+     * Reads the printer_has_spoolman subject value. Safe to call from any thread
+     * (reads a single int).
+     */
+    bool is_spoolman_available() const {
+        return lv_subject_get_int(capabilities_state_.get_printer_has_spoolman_subject()) == 1;
+    }
+
+    /**
      * @brief Set webcam availability status
      *
      * Called after checking Moonraker's server.webcams.list API.
