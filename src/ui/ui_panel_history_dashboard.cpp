@@ -376,7 +376,90 @@ void HistoryDashboardPanel::refresh_data() {
     spdlog::info("[{}] Got {} jobs from manager (filter={})", get_name(), cached_jobs_.size(),
                  static_cast<int>(current_filter_));
 
-    update_statistics(cached_jobs_);
+    if (current_filter_ == HistoryTimeFilter::ALL_TIME) {
+        // For ALL_TIME, use server.history.totals for accurate lifetime stats.
+        // The cached 500 jobs can't represent the full history, but totals can.
+        // Success rate is computed from cached jobs (best available approximation).
+        fetch_totals_for_all_time();
+    } else {
+        update_statistics(cached_jobs_);
+    }
+}
+
+void HistoryDashboardPanel::fetch_totals_for_all_time() {
+    MoonrakerAPI* api = get_moonraker_api();
+    if (!api) {
+        // Fallback to cached jobs if no API
+        update_statistics(cached_jobs_);
+        return;
+    }
+
+    auto token = lifetime_.token();
+
+    api->history().get_history_totals(
+        [this, token](const PrintHistoryTotals& totals) {
+            if (token.expired()) return;
+
+            lifetime_.defer("HistoryDashboard::totals_received", [this, totals]() {
+                update_all_time_statistics(totals);
+            });
+        },
+        [this, token](const MoonrakerError& error) {
+            if (token.expired()) return;
+            spdlog::warn("[{}] Failed to fetch totals, falling back to cached: {}", get_name(),
+                         error.message);
+
+            lifetime_.defer("HistoryDashboard::totals_fallback",
+                            [this]() { update_statistics(cached_jobs_); });
+        });
+}
+
+void HistoryDashboardPanel::update_all_time_statistics(const PrintHistoryTotals& totals) {
+    lv_subject_set_int(&history_has_jobs_subject_, totals.total_jobs > 0 ? 1 : 0);
+
+    if (totals.total_jobs == 0) {
+        lv_subject_copy_string(&stat_total_prints_subject_, "0");
+        lv_subject_copy_string(&stat_print_time_subject_, "0h");
+        lv_subject_copy_string(&stat_filament_subject_, "0m");
+        lv_subject_copy_string(&stat_success_rate_subject_, "0%");
+        return;
+    }
+
+    // Total prints, time, filament from server-computed totals (accurate)
+    char buf[32];
+    snprintf(buf, sizeof(buf), "%llu", static_cast<unsigned long long>(totals.total_jobs));
+    lv_subject_copy_string(&stat_total_prints_subject_, buf);
+
+    std::string time_str = format_duration(static_cast<double>(totals.total_time));
+    lv_subject_copy_string(&stat_print_time_subject_, time_str.c_str());
+
+    std::string filament_str = format_filament(totals.total_filament_used);
+    lv_subject_copy_string(&stat_filament_subject_, filament_str.c_str());
+
+    // Success rate: computed from cached jobs (best approximation available —
+    // Moonraker's totals endpoint doesn't provide status breakdown)
+    double success_rate = 0.0;
+    if (!cached_jobs_.empty()) {
+        uint64_t completed = 0;
+        for (const auto& job : cached_jobs_) {
+            if (job.status == PrintJobStatus::COMPLETED) {
+                completed++;
+            }
+        }
+        success_rate = (static_cast<double>(completed) / static_cast<double>(cached_jobs_.size())) *
+                       100.0;
+    }
+    snprintf(buf, sizeof(buf), "%.0f%%", success_rate);
+    lv_subject_copy_string(&stat_success_rate_subject_, buf);
+
+    // Charts still use cached jobs (visual approximation)
+    update_trend_chart(cached_jobs_);
+    update_filament_chart(cached_jobs_);
+
+    spdlog::debug("[{}] ALL_TIME stats from totals: {} prints, {} time, {} filament, ~{:.0f}% "
+                  "success (from {} cached)",
+                  get_name(), totals.total_jobs, format_duration(static_cast<double>(totals.total_time)),
+                  format_filament(totals.total_filament_used), success_rate, cached_jobs_.size());
 }
 
 void HistoryDashboardPanel::update_statistics(const std::vector<PrintHistoryJob>& jobs) {

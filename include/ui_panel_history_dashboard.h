@@ -244,6 +244,25 @@ class HistoryDashboardPanel : public OverlayBase {
     void refresh_data();
 
     /**
+     * @brief Fetch server.history.totals for accurate ALL_TIME stats
+     *
+     * Called when filter is ALL_TIME. Uses Moonraker's server-computed
+     * totals instead of summing the cached 500-job subset.
+     */
+    void fetch_totals_for_all_time();
+
+    /**
+     * @brief Update stats display using server-computed totals
+     *
+     * Uses PrintHistoryTotals for total_prints, time, filament.
+     * Success rate is approximated from cached jobs since Moonraker
+     * doesn't provide status breakdown in totals.
+     *
+     * @param totals Server-computed lifetime totals
+     */
+    void update_all_time_statistics(const PrintHistoryTotals& totals);
+
+    /**
      * @brief Calculate and display statistics from job list
      *
      * @param jobs Vector of print history jobs

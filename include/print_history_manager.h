@@ -7,7 +7,6 @@
 #include "print_history_data.h"
 
 #include <functional>
-#include <memory>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -137,17 +136,16 @@ class PrintHistoryManager {
     // ========================================================================
 
     /**
-     * @brief Fetch ALL history from Moonraker asynchronously via pagination
+     * @brief Fetch history from Moonraker asynchronously
      *
-     * Paginates through `get_history_list()` until all jobs are retrieved,
-     * then populates both `cached_jobs_` and `filename_stats_`.
-     * Notifies all observers when complete.
+     * Calls `get_history_list()` and populates both `cached_jobs_` and
+     * `filename_stats_`. Notifies all observers when complete.
      *
      * Concurrent calls are ignored (only one fetch in progress at a time).
      *
-     * @param page_size Jobs per API request (default 500)
+     * @param limit Maximum number of jobs to fetch (default 500)
      */
-    void fetch(int page_size = 500);
+    void fetch(int limit = 500);
 
     /**
      * @brief Mark cache as stale
@@ -190,20 +188,6 @@ class PrintHistoryManager {
      * @brief Handle completed fetch (runs on main thread)
      */
     void on_history_fetched(std::vector<PrintHistoryJob>&& jobs);
-
-    /**
-     * @brief Fetch a single page from Moonraker and continue if more exist
-     *
-     * Paginates through server.history.list by comparing accumulated count
-     * against the total reported by Moonraker. Calls on_history_fetched()
-     * when all pages are loaded.
-     *
-     * @param accumulated Shared accumulator across pages
-     * @param page_size Jobs per request
-     * @param offset Starting offset for this page
-     */
-    void fetch_page(std::shared_ptr<std::vector<PrintHistoryJob>> accumulated, int page_size,
-                    int offset);
 
     /**
      * @brief Build filename_stats_ from cached_jobs_

@@ -35,7 +35,7 @@ PrintHistoryManager::~PrintHistoryManager() {
 // Fetch / Refresh
 // ============================================================================
 
-void PrintHistoryManager::fetch(int page_size) {
+void PrintHistoryManager::fetch(int limit) {
     if (is_fetching_) {
         spdlog::debug("[HistoryManager] Fetch already in progress, ignoring");
         return;
@@ -47,46 +47,21 @@ void PrintHistoryManager::fetch(int page_size) {
     }
 
     is_fetching_ = true;
-    spdlog::debug("[HistoryManager] Fetching all history (page_size={})", page_size);
+    spdlog::debug("[HistoryManager] Fetching history (limit={})", limit);
 
-    // Paginate to fetch ALL jobs, not just the first page
-    auto accumulated = std::make_shared<std::vector<PrintHistoryJob>>();
-    fetch_page(accumulated, page_size, 0);
-}
-
-void PrintHistoryManager::fetch_page(std::shared_ptr<std::vector<PrintHistoryJob>> accumulated,
-                                     int page_size, int offset) {
     auto token = lifetime_.token();
 
     api_->history().get_history_list(
-        page_size, offset, 0.0, 0.0,
-        [this, token, accumulated, page_size](const std::vector<PrintHistoryJob>& jobs,
-                                              uint64_t total) {
+        limit, 0, 0.0, 0.0, // limit, start, since, before
+        [this, token](const std::vector<PrintHistoryJob>& jobs, uint64_t /*total*/) {
             if (token.expired()) return;
+            // Copy jobs since callback param is const ref
+            std::vector<PrintHistoryJob> jobs_copy = jobs;
 
-            // Accumulate this page
-            accumulated->insert(accumulated->end(), jobs.begin(), jobs.end());
-
-            if (!jobs.empty() && accumulated->size() < total) {
-                // More pages remain — fetch next
-                int next_offset = static_cast<int>(accumulated->size());
-                spdlog::debug("[HistoryManager] Fetched page ({}/{} jobs), fetching more",
-                              accumulated->size(), total);
-
-                lifetime_.defer("PrintHistoryManager::fetch_next_page",
-                                [this, accumulated, page_size, next_offset]() {
-                                    fetch_page(accumulated, page_size, next_offset);
-                                });
-            } else {
-                // All pages loaded
-                spdlog::debug("[HistoryManager] All pages fetched ({} jobs total)",
-                              accumulated->size());
-
-                lifetime_.defer("PrintHistoryManager::fetch_complete",
-                                [this, accumulated]() mutable {
-                                    on_history_fetched(std::move(*accumulated));
-                                });
-            }
+            lifetime_.defer("PrintHistoryManager::fetch_success",
+                            [this, jobs = std::move(jobs_copy)]() mutable {
+                                on_history_fetched(std::move(jobs));
+                            });
         },
         [this, token](const MoonrakerError& error) {
             if (token.expired()) return;
