@@ -121,6 +121,17 @@ void ui_ams_slot_move_label_to_layer(lv_obj_t* obj, lv_obj_t* labels_layer, int3
  * @param badge_layer   Target container (should be above tray in z-order)
  * @param slot_center_x X position of slot center in badge_layer coords
  */
+/**
+ * @brief Detach reparented widgets (badges, labels) from slot data
+ *
+ * Nulls out pointers to widgets that were reparented to external layers
+ * (badge_layer, labels_layer). Must be called before those layers are
+ * cleaned, to prevent dangling pointer access in deferred observer callbacks.
+ *
+ * @param obj The ams_slot widget
+ */
+void ui_ams_slot_detach_layers(lv_obj_t* obj);
+
 void ui_ams_slot_move_badge_to_layer(lv_obj_t* obj, lv_obj_t* badge_layer, int32_t slot_center_x);
 
 /**

@@ -334,6 +334,13 @@ void ams_detail_destroy_slots(AmsDetailWidgets& w, lv_obj_t* slot_widgets[], int
 
     for (int i = 0; i < slot_count; ++i) {
         if (slot_widgets[i] && lv_obj_is_valid(slot_widgets[i])) {
+            // Null out pointers to reparented badges/labels BEFORE deferred
+            // deletion.  These widgets live on badge_layer/labels_layer which
+            // will be cleaned synchronously in ams_detail_update_badges/labels,
+            // but the slot's DELETE event (and unregister_slot_data) won't fire
+            // until the condemned container is actually deleted.  Without this,
+            // deferred observer callbacks find dangling pointers (#604).
+            ui_ams_slot_detach_layers(slot_widgets[i]);
             lv_obj_set_parent(slot_widgets[i], condemned);
         }
         slot_widgets[i] = nullptr;

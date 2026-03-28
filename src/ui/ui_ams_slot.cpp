@@ -1308,6 +1308,22 @@ void ui_ams_slot_move_label_to_layer(lv_obj_t* obj, lv_obj_t* labels_layer, int3
                   data->slot_index, label_x, label_y, slot_pad_top, label_relative_y);
 }
 
+void ui_ams_slot_detach_layers(lv_obj_t* obj) {
+    auto* data = get_slot_data(obj);
+    if (!data)
+        return;
+
+    // Null out pointers to widgets that were reparented to badge_layer / labels_layer.
+    // These widgets will be deleted by lv_obj_clean() on those layers during rebuild,
+    // BEFORE this slot's DELETE event fires and unregister_slot_data() runs.
+    // Without nulling, deferred observer callbacks find non-null but dangling pointers
+    // and crash in apply_slot_status() / apply_slot_color() (#604).
+    data->status_badge_bg = nullptr;
+    data->slot_badge = nullptr;
+    data->material_label = nullptr;
+    data->leader_line = nullptr;
+}
+
 void ui_ams_slot_move_badge_to_layer(lv_obj_t* obj, lv_obj_t* badge_layer, int32_t slot_center_x) {
     auto* data = get_slot_data(obj);
     if (!data || !badge_layer || !data->status_badge_bg || !data->spool_container) {
