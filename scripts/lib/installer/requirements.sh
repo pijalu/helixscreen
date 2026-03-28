@@ -108,7 +108,7 @@ install_runtime_deps() {
             return 0
         fi
         log_info "Installing missing libraries: $missing"
-        $SUDO apt-get update -qq
+        $SUDO apt-get update -qq 2>/dev/null || true
         # shellcheck disable=SC2086
         if ! $SUDO apt-get install -y --no-install-recommends $missing; then
             log_warn "Failed to install some runtime libraries: $missing"

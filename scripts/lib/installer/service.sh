@@ -26,7 +26,14 @@ _sed_inplace() {
 # copy, daemon-reload, systemctl start) and instead let update_checker.cpp restart
 # the process via exit(0), which the watchdog treats as "restart silently".
 _has_no_new_privs() {
-    [ -r /proc/self/status ] && grep -q '^NoNewPrivs:[[:space:]]*1' /proc/self/status 2>/dev/null
+    # Primary: check /proc/self/status (kernel 4.10+)
+    if [ -r /proc/self/status ] && grep -q '^NoNewPrivs:[[:space:]]*1' /proc/self/status 2>/dev/null; then
+        return 0
+    fi
+    # Fallback for older kernels (e.g. SonicPad 4.9): if we know this is a
+    # self-update spawned from the running app, the service unit's
+    # NoNewPrivileges=true is inherited — sudo will fail.
+    _is_self_update
 }
 
 # _is_self_update() is defined in common.sh (sourced before this module)
