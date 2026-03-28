@@ -2,12 +2,6 @@
 <!-- SPDX-License-Identifier: GPL-3.0-or-later -->
 <!-- Unified temperature card: nozzle + bed + optional chamber rows -->
 <component>
-  <consts>
-    <px name="temp_row_height_small" value="28"/>
-    <px name="temp_row_height_medium" value="32"/>
-    <px name="temp_row_height_large" value="36"/>
-  </consts>
-
   <view name="temp_card_unified" extends="ui_card"
         width="100%" height="content" style_radius="#border_radius"
         flex_flow="column" style_pad_top="#space_sm" style_pad_bottom="#space_sm"
@@ -15,7 +9,7 @@
 
     <!-- Nozzle row -->
     <lv_obj name="nozzle_row"
-            width="100%" height="#temp_row_height" style_pad_all="0"
+            width="100%" height="content" style_pad_all="0"
             flex_flow="row" style_flex_cross_place="center" clickable="true">
       <event_cb trigger="clicked" callback="on_print_temp_nozzle_clicked"/>
       <text_small text="Nozzle" translation_tag="Nozzle" style_min_width="68"/>
@@ -27,7 +21,7 @@
 
     <!-- Bed row -->
     <lv_obj name="bed_row"
-            width="100%" height="#temp_row_height" style_pad_all="0"
+            width="100%" height="content" style_pad_all="0"
             flex_flow="row" style_flex_cross_place="center" clickable="true">
       <event_cb trigger="clicked" callback="on_print_temp_bed_clicked"/>
       <text_small text="Bed" translation_tag="Bed" style_min_width="68"/>
@@ -39,7 +33,7 @@
 
     <!-- Chamber row (hidden by default, C++ manages visibility) -->
     <lv_obj name="chamber_row"
-            width="100%" height="#temp_row_height" style_pad_all="0"
+            width="100%" height="content" style_pad_all="0"
             flex_flow="row" style_flex_cross_place="center" hidden="true">
       <text_small text="Chamber" style_min_width="68"/>
       <temp_display name="chamber_temp_display" size="md" show_target="false"
