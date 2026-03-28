@@ -83,7 +83,7 @@ void register_object_handlers(std::unordered_map<std::string, MethodHandler>& re
         }
 
         // Build the object list from the mock's discovered hardware
-        // This mirrors what rebuild_hardware() / populate_hardware() populates
+        // This mirrors what populate_capabilities() populates
         const auto& hw = self->hardware();
         json objects = json::array();
         for (const auto& obj : hw.printer_objects()) {

@@ -84,9 +84,6 @@ MoonrakerClientMock::MoonrakerClientMock(PrinterType type, double speedup_factor
     // Pre-populate so capabilities are available for UI tests that skip connect()
     populate_capabilities();
 
-    // Rebuild discovery hardware from mock data (ensures hardware() accessors return complete data)
-    rebuild_hardware();
-
     // Check HELIX_MOCK_SPOOLMAN env var for Spoolman availability
     const char* spoolman_env = std::getenv("HELIX_MOCK_SPOOLMAN");
     if (spoolman_env && (std::string(spoolman_env) == "0" || std::string(spoolman_env) == "off")) {
@@ -257,10 +254,21 @@ void MoonrakerClientMock::populate_capabilities() {
         mock_objects.push_back(fan);
     }
     for (const auto& sensor : discovery_.sensors()) {
-        mock_objects.push_back(sensor);
+        // Only include sensors with proper prefixes — skip bare heater names
+        // (e.g., "extruder", "heater_bed") which are already in heaters list
+        if (sensor.rfind("temperature_sensor ", 0) == 0 ||
+            sensor.rfind("temperature_fan ", 0) == 0 ||
+            sensor.rfind("tmc2240 ", 0) == 0 || sensor.rfind("tmc2209 ", 0) == 0 ||
+            sensor.rfind("tmc5160 ", 0) == 0) {
+            mock_objects.push_back(sensor);
+        }
     }
     for (const auto& led : discovery_.leds()) {
         mock_objects.push_back(led);
+    }
+    // Additional objects set via set_additional_objects() for capability testing
+    for (const auto& obj : additional_objects_) {
+        mock_objects.push_back(obj);
     }
 
     // Add printer-specific objects
@@ -305,6 +313,10 @@ void MoonrakerClientMock::populate_capabilities() {
     mock_objects.push_back("gcode_macro LIGHTS_TOGGLE");
     mock_objects.push_back("gcode_macro LED_PARTY");
     mock_objects.push_back("gcode_macro LED_NIGHTLIGHT");
+
+    // MCU objects for discovery
+    mock_objects.push_back("mcu");
+    mock_objects.push_back("mcu EBBCan");
 
     // Humidity sensors (BME280/HTU21D for enclosure monitoring)
     mock_objects.push_back("bme280 chamber");
@@ -426,6 +438,12 @@ void MoonrakerClientMock::populate_capabilities() {
     }
     discovery_.hardware().set_printer_objects(all_objects);
 
+    // Set mock MCU version data (after parse_objects which clears everything)
+    discovery_.hardware().set_mcu("stm32f446xx");
+    discovery_.hardware().set_mcu_list({"stm32f446xx", "stm32g0b1xx"});
+    discovery_.hardware().set_mcu_versions(
+        {{"mcu", "v0.12.0-155-g4cfa273e"}, {"mcu EBBCan", "v0.12.0-155-g4cfa273e"}});
+
     // Also populate filament_sensors vector for subscription (same as real parse_objects)
     discovery_.filament_sensors().clear();
     for (const auto& obj : mock_objects) {
@@ -440,10 +458,12 @@ void MoonrakerClientMock::populate_capabilities() {
                   discovery_.hardware().macros().size(), discovery_.filament_sensors().size());
 }
 
-void MoonrakerClientMock::rebuild_hardware() {
+void MoonrakerClientMock::rebuild_hardware_from_lists() {
+    // Lightweight re-parse: build objects array from current discovery lists only.
+    // Used by test helpers (set_heaters, set_fans, etc.) that need to update hardware()
+    // without adding hardcoded common objects from populate_capabilities().
     json objects = json::array();
 
-    // Add hardware components
     for (const auto& h : discovery_.heaters()) {
         objects.push_back(h);
     }
@@ -451,11 +471,10 @@ void MoonrakerClientMock::rebuild_hardware() {
         objects.push_back(f);
     }
     for (const auto& s : discovery_.sensors()) {
-        // Only include sensors that have proper sensor prefixes (temperature_sensor, etc.)
-        // Skip bare heater names like "extruder", "heater_bed" - those are handled via heaters
-        // In Klipper's object list, heaters appear once (as "extruder" or "heater_bed"),
-        // and their thermistors are accessed via the heater's temperature property.
-        if (s.rfind("temperature_sensor ", 0) == 0 || s.rfind("temperature_fan ", 0) == 0) {
+        // Skip bare heater names — already in heaters list
+        if (s.rfind("temperature_sensor ", 0) == 0 || s.rfind("temperature_fan ", 0) == 0 ||
+            s.rfind("tmc2240 ", 0) == 0 || s.rfind("tmc2209 ", 0) == 0 ||
+            s.rfind("tmc5160 ", 0) == 0) {
             objects.push_back(s);
         }
     }
@@ -465,79 +484,13 @@ void MoonrakerClientMock::rebuild_hardware() {
     for (const auto& fs : discovery_.filament_sensors()) {
         objects.push_back(fs);
     }
-    // Include additional objects set via set_additional_objects() for capability testing
-    // (e.g., "mmu", "AFC", "toolchanger" for MMU/tool changer detection)
     for (const auto& obj : additional_objects_) {
         objects.push_back(obj);
     }
 
-    // Add capability objects (must be included since parse_objects clears everything)
-    objects.push_back("bed_mesh");
-    objects.push_back("probe");
-    objects.push_back("output_pin beeper");
-    objects.push_back("firmware_retraction");
-    if (mmu_enabled_) {
-        objects.push_back("mmu");
-    }
-    objects.push_back("timelapse");
-
-    // Add printer-specific capability objects
-    switch (printer_type_) {
-    case PrinterType::VORON_24:
-        objects.push_back("quad_gantry_level");
-        objects.push_back("gcode_macro CLEAN_NOZZLE");
-        objects.push_back("gcode_macro PRINT_START");
-        break;
-    case PrinterType::VORON_TRIDENT:
-        objects.push_back("z_tilt");
-        objects.push_back("gcode_macro CLEAN_NOZZLE");
-        objects.push_back("gcode_macro PRINT_START");
-        break;
-    default:
-        break;
-    }
-
-    // Add LED effects (klipper-led_effect plugin objects)
-    objects.push_back("led_effect breathing");
-    objects.push_back("led_effect fire_comet");
-    objects.push_back("led_effect rainbow");
-    objects.push_back("led_effect static_white");
-
-    // Add common macros
-    objects.push_back("gcode_macro START_PRINT");
-    objects.push_back("gcode_macro END_PRINT");
-    objects.push_back("gcode_macro PAUSE");
-    objects.push_back("gcode_macro RESUME");
-    objects.push_back("gcode_macro CANCEL_PRINT");
-    objects.push_back("gcode_macro LOAD_FILAMENT");
-    objects.push_back("gcode_macro UNLOAD_FILAMENT");
-    objects.push_back("gcode_macro BED_MESH_CALIBRATE");
-    objects.push_back("gcode_macro G28");
-    objects.push_back("gcode_macro M600");
-    objects.push_back("gcode_macro _SYSTEM_MACRO");
-
-    // Add LED-related macros (auto-detected by printer_discovery via LED keywords)
-    objects.push_back("gcode_macro LIGHTS_ON");
-    objects.push_back("gcode_macro LIGHTS_OFF");
-    objects.push_back("gcode_macro LIGHTS_TOGGLE");
-    objects.push_back("gcode_macro LED_PARTY");
-    objects.push_back("gcode_macro LED_NIGHTLIGHT");
-
-    // Add default filament sensor
-    objects.push_back("filament_switch_sensor runout_sensor");
-
-    // Add MCU objects for discovery
-    objects.push_back("mcu");
-    objects.push_back("mcu EBBCan");
-
     discovery_.hardware().parse_objects(objects);
-
-    // Set mock MCU version data (after parse_objects which clears everything)
-    discovery_.hardware().set_mcu("stm32f446xx");
-    discovery_.hardware().set_mcu_list({"stm32f446xx", "stm32g0b1xx"});
-    discovery_.hardware().set_mcu_versions(
-        {{"mcu", "v0.12.0-155-g4cfa273e"}, {"mcu EBBCan", "v0.12.0-155-g4cfa273e"}});
 }
+
 
 void MoonrakerClientMock::discover_printer(
     std::function<void()> on_complete, std::function<void(const std::string& reason)> on_error) {

@@ -420,7 +420,7 @@ class MoonrakerClientMock : public helix::MoonrakerClient {
      */
     void set_heaters(std::vector<std::string> heaters) {
         discovery_.heaters() = std::move(heaters);
-        rebuild_hardware();
+        rebuild_hardware_from_lists();
     }
 
     /**
@@ -429,7 +429,7 @@ class MoonrakerClientMock : public helix::MoonrakerClient {
      */
     void set_fans(std::vector<std::string> fans) {
         discovery_.fans() = std::move(fans);
-        rebuild_hardware();
+        rebuild_hardware_from_lists();
     }
 
     /**
@@ -438,7 +438,7 @@ class MoonrakerClientMock : public helix::MoonrakerClient {
      */
     void set_leds(std::vector<std::string> leds) {
         discovery_.leds() = std::move(leds);
-        rebuild_hardware();
+        rebuild_hardware_from_lists();
     }
 
     /**
@@ -447,7 +447,7 @@ class MoonrakerClientMock : public helix::MoonrakerClient {
      */
     void set_sensors(std::vector<std::string> sensors) {
         discovery_.sensors() = std::move(sensors);
-        rebuild_hardware();
+        rebuild_hardware_from_lists();
     }
 
     /**
@@ -456,20 +456,20 @@ class MoonrakerClientMock : public helix::MoonrakerClient {
      */
     void set_filament_sensors(std::vector<std::string> sensors) {
         discovery_.filament_sensors() = std::move(sensors);
-        rebuild_hardware();
+        rebuild_hardware_from_lists();
     }
 
     /**
      * @brief Set additional printer objects for testing (e.g., "mmu", "AFC", "toolchanger")
      *
-     * These objects are included when rebuild_hardware() is called, allowing
+     * These objects are included when populate_capabilities() is called, allowing
      * tests to configure capability flags like has_mmu() and has_tool_changer().
      *
      * @param objects List of additional Klipper object names to include
      */
     void set_additional_objects(std::vector<std::string> objects) {
         additional_objects_ = std::move(objects);
-        rebuild_hardware();
+        rebuild_hardware_from_lists();
     }
 
     /**
@@ -482,7 +482,7 @@ class MoonrakerClientMock : public helix::MoonrakerClient {
      */
     void set_mmu_enabled(bool enabled) {
         mmu_enabled_ = enabled;
-        rebuild_hardware();
+        rebuild_hardware_from_lists();
     }
 
     /**
@@ -667,12 +667,13 @@ class MoonrakerClientMock : public helix::MoonrakerClient {
     void populate_capabilities();
 
     /**
-     * @brief Rebuild discovery hardware object from current hardware vectors
+     * @brief Rebuild hardware from current discovery lists (heaters, fans, sensors, etc.)
      *
-     * Called by set_heaters/set_fans/set_leds/set_sensors/set_filament_sensors
-     * to keep the discovery hardware object in sync with the vectors.
+     * Lightweight re-parse used by test helpers (set_heaters, set_fans, etc.)
+     * to update hardware() after modifying discovery lists. Unlike populate_capabilities(),
+     * this does NOT add hardcoded common objects — it only uses what's in the lists.
      */
-    void rebuild_hardware();
+    void rebuild_hardware_from_lists();
 
     /**
      * @brief Generate synthetic bed mesh data for testing
