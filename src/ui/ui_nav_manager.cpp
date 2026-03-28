@@ -10,6 +10,7 @@
 #include "ui_panel_base.h"
 #include "ui_panel_home.h"
 #include "ui_update_queue.h"
+#include "ui_utils.h"
 
 #include "app_globals.h"
 #include "display_settings_manager.h"
@@ -796,10 +797,12 @@ void NavigationManager::switch_to_panel_impl(int panel_id) {
             callback();
         }
 
-        // Clean up dynamic backdrop for this overlay (if one was created)
+        // Clean up dynamic backdrop for this overlay (if one was created).
+        // Must use safe_delete_deferred — we're inside a queue_update() callback
+        // and synchronous deletion corrupts LVGL's event list (#620).
         auto backdrop_it = overlay_backdrops_.find(panel);
         if (backdrop_it != overlay_backdrops_.end()) {
-            lv_obj_del(backdrop_it->second);
+            helix::ui::safe_delete_deferred(backdrop_it->second);
             overlay_backdrops_.erase(backdrop_it);
         }
     }
@@ -815,7 +818,7 @@ void NavigationManager::switch_to_panel_impl(int panel_id) {
     // Delete any remaining dynamic backdrops the loop above didn't reach
     // (orphaned entries not in panel_stack_), then clear the map.
     for (auto& [_, backdrop] : overlay_backdrops_) {
-        lv_obj_del(backdrop);
+        helix::ui::safe_delete_deferred(backdrop);
     }
     overlay_backdrops_.clear();
     spdlog::trace("[NavigationManager] Panel stack and overlay maps cleared (nav button clicked)");

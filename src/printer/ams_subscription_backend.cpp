@@ -47,7 +47,10 @@ AmsError AmsSubscriptionBackend::start() {
         }
 
         helix::SubscriptionId id = client_->register_notify_update(
-            [this](const nlohmann::json& notification) { handle_status_update(notification); });
+            [this, token = lifetime_.token()](const nlohmann::json& notification) {
+                if (token.expired()) return;  // Backend destroyed, skip (#621)
+                handle_status_update(notification);
+            });
 
         if (id == helix::INVALID_SUBSCRIPTION_ID) {
             spdlog::error("{} Failed to register for status updates", backend_log_tag());

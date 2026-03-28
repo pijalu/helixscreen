@@ -6,6 +6,7 @@
 #include "ui_subscription_guard.h"
 
 #include "ams_backend.h"
+#include "async_lifetime_guard.h"
 #include "moonraker_api.h"
 #include "moonraker_client.h"
 
@@ -82,6 +83,11 @@ class AmsSubscriptionBackend : public AmsBackend {
     mutable std::mutex mutex_;
     AmsSystemInfo system_info_;
     std::atomic<bool> running_{false};
+
+    /// Lifetime guard for async callback safety. Tokens captured in the
+    /// subscription lambda are expired when the backend is destroyed, preventing
+    /// use-after-free when WebSocket dispatch races with clear_backends() (#621).
+    helix::AsyncLifetimeGuard lifetime_;
 
   private:
     EventCallback event_callback_;
