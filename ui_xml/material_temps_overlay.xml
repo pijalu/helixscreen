@@ -29,7 +29,7 @@
       <!-- ================================================================== -->
       <!-- EDIT VIEW (shown when editing a material) -->
       <!-- ================================================================== -->
-      <lv_obj name="material_edit_view" width="100%" flex_grow="1" scrollable="false" flex_flow="column" style_pad_all="0">
+      <lv_obj name="material_edit_view" width="100%" flex_grow="1" scrollable="true" flex_flow="column" style_pad_all="0">
         <bind_flag_if_eq subject="material_editing" flag="hidden" ref_value="0"/>
         <!-- Material name + defaults hint row -->
         <lv_obj width="100%" flex_flow="row" style_pad_all="0" style_pad_bottom="#space_lg" scrollable="false"
@@ -65,12 +65,13 @@
                       text="Run a Klipper macro when preheating this material" text_tag="Run a Klipper macro when preheating this material"/>
         </lv_obj>
         <!-- Macro handles heating toggle (hidden when no macro assigned) -->
-        <lv_obj name="macro_heating_row" width="100%" flex_flow="row" style_pad_all="0" style_pad_top="#space_md" scrollable="false"
-                style_flex_cross_place="center">
+        <lv_obj name="macro_heating_row" width="100%" flex_flow="column" style_pad_all="0" style_pad_top="#space_md" scrollable="false">
           <bind_flag_if_eq subject="material_has_macro" flag="hidden" ref_value="0"/>
-          <lv_switch name="macro_heating_switch" style_pad_right="#space_md"/>
-          <text_body text="Macro handles heating" text_tag="Macro handles heating" flex_grow="1"/>
-          <text_small style_text_color="#text_muted" style_pad_top="#space_xs" width="100%"
+          <lv_obj width="100%" flex_flow="row" style_pad_all="0" scrollable="false" style_flex_cross_place="center">
+            <lv_switch name="macro_heating_switch" style_pad_right="#space_md"/>
+            <text_body text="Macro handles heating" text_tag="Macro handles heating" flex_grow="1"/>
+          </lv_obj>
+          <text_small style_text_color="#text_muted" style_pad_top="#space_xs"
                       text="When enabled, only the macro runs. When disabled, temperatures are set first, then the macro runs."
                       text_tag="When enabled, only the macro runs. When disabled, temperatures are set first, then the macro runs."/>
         </lv_obj>
