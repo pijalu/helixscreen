@@ -105,6 +105,22 @@ PrintStatusPanel::PrintStatusPanel(PrinterState& printer_state, MoonrakerAPI* ap
         helix::ToolState::instance().get_active_tool_subject(), this,
         [](PrintStatusPanel* self, int) { self->on_temperature_changed(); });
 
+    // Chamber visibility: show row when sensor or heater exists (and not TINY breakpoint)
+    auto* chamber_sensor_subj = lv_xml_get_subject(nullptr, "printer_has_chamber_sensor");
+    if (chamber_sensor_subj) {
+        chamber_sensor_observer_ = observe_int_sync<PrintStatusPanel>(
+            chamber_sensor_subj, this,
+            [](PrintStatusPanel* self, int) { self->update_chamber_visibility(); });
+    }
+    chamber_heater_observer_ = observe_int_sync<PrintStatusPanel>(
+        printer_state_.get_printer_has_chamber_heater_subject(), this,
+        [](PrintStatusPanel* self, int) { self->update_chamber_visibility(); });
+
+    // Chamber status text: observe chamber temp to compute Heating/Cooling/Holding status
+    chamber_temp_observer_ = observe_int_sync<PrintStatusPanel>(
+        printer_state_.get_chamber_temp_subject(), this,
+        [](PrintStatusPanel* self, int) { self->update_chamber_status(); });
+
     // Subscribe to print progress and state
     print_progress_observer_ = observe_int_sync<PrintStatusPanel>(
         printer_state_.get_print_progress_subject(), this,
@@ -294,6 +310,8 @@ void PrintStatusPanel::init_subjects() {
                               "print_nozzle_status", subjects_);
     UI_MANAGED_SUBJECT_STRING(bed_status_subject_, bed_status_buf_, "Off", "print_bed_status",
                               subjects_);
+    UI_MANAGED_SUBJECT_STRING(chamber_status_subject_, chamber_status_buf_, "",
+                              "print_chamber_status", subjects_);
     UI_MANAGED_SUBJECT_STRING(speed_subject_, speed_buf_, "100%", "print_speed_text", subjects_);
     UI_MANAGED_SUBJECT_STRING(flow_subject_, flow_buf_, "100%", "print_flow_text", subjects_);
     // Pause button icon - MDI icons (pause=F03E4, play=F040A)
@@ -338,8 +356,9 @@ void PrintStatusPanel::init_subjects() {
         {"on_print_status_tune", on_tune_clicked},
         {"on_print_status_cancel", on_cancel_clicked},
         {"on_print_status_reprint", on_reprint_clicked},
-        {"on_print_status_nozzle_clicked", on_nozzle_card_clicked},
-        {"on_print_status_bed_clicked", on_bed_card_clicked},
+        {"on_print_temp_nozzle_clicked", on_nozzle_card_clicked},
+        {"on_print_temp_bed_clicked", on_bed_card_clicked},
+        {"on_print_temp_chamber_clicked", on_chamber_card_clicked},
         {"on_print_status_objects", on_objects_clicked},
         {"on_print_status_dismiss_overlay", on_dismiss_overlay_clicked},
     });
@@ -1115,6 +1134,11 @@ void PrintStatusPanel::handle_bed_card_click() {
     get_global_temp_graph_overlay().open(TempGraphOverlay::Mode::Bed, parent_screen_);
 }
 
+void PrintStatusPanel::handle_chamber_card_click() {
+    spdlog::debug("[{}] Chamber temp card clicked - opening temperature graph", get_name());
+    get_global_temp_graph_overlay().open(TempGraphOverlay::Mode::Chamber, parent_screen_);
+}
+
 void PrintStatusPanel::handle_pause_button() {
     if (lifecycle_.state() == PrintState::Printing) {
         spdlog::info("[{}] Pausing print...", get_name());
@@ -1290,6 +1314,13 @@ void PrintStatusPanel::on_bed_card_clicked(lv_event_t* e) {
     LVGL_SAFE_EVENT_CB_END();
 }
 
+void PrintStatusPanel::on_chamber_card_clicked(lv_event_t* e) {
+    LVGL_SAFE_EVENT_CB_BEGIN("[PrintStatusPanel] on_chamber_card_clicked");
+    (void)e;
+    get_global_print_status_panel().handle_chamber_card_click();
+    LVGL_SAFE_EVENT_CB_END();
+}
+
 void PrintStatusPanel::on_dismiss_overlay_clicked(lv_event_t* e) {
     LVGL_SAFE_EVENT_CB_BEGIN("[PrintStatusPanel] on_dismiss_overlay_clicked");
     auto* overlay = static_cast<lv_obj_t*>(lv_event_get_current_target(e));
@@ -1412,6 +1443,60 @@ void PrintStatusPanel::on_temperature_changed() {
     spdlog::trace("[{}] Temperatures updated: nozzle {}/{}°C, bed {}/{}°C", get_name(),
                   lifecycle_.nozzle_current(), lifecycle_.nozzle_target(), lifecycle_.bed_current(),
                   lifecycle_.bed_target());
+}
+
+void PrintStatusPanel::update_chamber_visibility() {
+    if (!overlay_root_)
+        return;
+
+    auto* sensor_subj = lv_xml_get_subject(nullptr, "printer_has_chamber_sensor");
+    bool has_sensor = sensor_subj && lv_subject_get_int(sensor_subj) != 0;
+    bool has_heater =
+        lv_subject_get_int(printer_state_.get_printer_has_chamber_heater_subject()) != 0;
+    bool is_tiny = lv_subject_get_int(theme_manager_get_breakpoint_subject()) == UI_BP_TINY;
+
+    auto* chamber_row = lv_obj_find_by_name(overlay_root_, "chamber_row");
+    if (!chamber_row)
+        return;
+
+    bool show = (has_sensor || has_heater) && !is_tiny;
+    if (show) {
+        lv_obj_remove_flag(chamber_row, LV_OBJ_FLAG_HIDDEN);
+    } else {
+        lv_obj_add_flag(chamber_row, LV_OBJ_FLAG_HIDDEN);
+    }
+
+    // Make chamber row clickable and show status label when a heater exists
+    if (has_heater) {
+        lv_obj_add_flag(chamber_row, LV_OBJ_FLAG_CLICKABLE);
+        auto* status_label = lv_obj_find_by_name(chamber_row, "chamber_status");
+        if (status_label) {
+            lv_obj_remove_flag(status_label, LV_OBJ_FLAG_HIDDEN);
+        }
+    }
+
+    // Update status text now that visibility may have changed
+    update_chamber_status();
+}
+
+void PrintStatusPanel::update_chamber_status() {
+    if (!subjects_initialized_)
+        return;
+
+    bool has_heater =
+        lv_subject_get_int(printer_state_.get_printer_has_chamber_heater_subject()) != 0;
+    int current = lv_subject_get_int(printer_state_.get_chamber_temp_subject());
+    int target = lv_subject_get_int(printer_state_.get_chamber_target_subject());
+
+    if (!has_heater || target == 0) {
+        // Sensor-only or heater off: no status text
+        chamber_status_buf_[0] = '\0';
+    } else {
+        auto chamber_heater = helix::ui::temperature::heater_display(current, target);
+        std::snprintf(chamber_status_buf_, sizeof(chamber_status_buf_), "%s",
+                      chamber_heater.status.c_str());
+    }
+    lv_subject_copy_string(&chamber_status_subject_, chamber_status_buf_);
 }
 
 void PrintStatusPanel::on_print_progress_changed(int progress) {

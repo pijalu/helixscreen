@@ -212,37 +212,8 @@
               height="100%" flex_grow="4" style_pad_all="0" scrollable="false" flex_flow="column"
               style_pad_gap="#space_lg">
 
-        <!-- Nozzle Temperature Card -->
-        <ui_card name="nozzle_temp_card"
-                 width="100%" height="#temp_card_height" style_radius="#border_radius" flex_flow="column"
-                 style_flex_main_place="center" style_flex_cross_place="start" style_pad_left="#space_md"
-                 style_pad_gap="#space_xxs">
-          <event_cb trigger="clicked" callback="on_print_status_nozzle_clicked"/>
-          <lv_obj width="100%"
-                  height="content" flex_flow="row" style_flex_cross_place="center" style_pad_right="#space_md">
-            <text_small text="Nozzle" translation_tag="Nozzle"/>
-            <text_small name="nozzle_heater_status"
-                        bind_text="print_nozzle_status" flex_grow="1" style_text_align="right" variant="muted"/>
-          </lv_obj>
-          <temp_display name="nozzle_temp_display"
-                        size="lg" show_target="true" bind_current="extruder_temp" bind_target="extruder_target"/>
-        </ui_card>
-
-        <!-- Bed Temperature Card -->
-        <ui_card name="bed_temp_card"
-                 width="100%" height="#temp_card_height" style_radius="#border_radius" flex_flow="column"
-                 style_flex_main_place="center" style_flex_cross_place="start" style_pad_left="#space_md"
-                 style_pad_gap="#space_xxs">
-          <event_cb trigger="clicked" callback="on_print_status_bed_clicked"/>
-          <lv_obj width="100%"
-                  height="content" flex_flow="row" style_flex_cross_place="center" style_pad_right="#space_md">
-            <text_small text="Bed" translation_tag="Bed"/>
-            <text_small name="bed_heater_status"
-                        bind_text="print_bed_status" flex_grow="1" style_text_align="right" variant="muted"/>
-          </lv_obj>
-          <temp_display name="bed_temp_display"
-                        size="lg" show_target="true" bind_current="bed_temp" bind_target="bed_target"/>
-        </ui_card>
+        <!-- Unified Temperature Card (nozzle + bed + optional chamber) -->
+        <temp_card_unified name="temp_card"/>
 
         <!-- Filament & AMS Status Row (side-by-side) -->
         <lv_obj name="filament_ams_status_row"
