@@ -339,6 +339,45 @@ TEST_CASE_METHOD(HistoryManagerTestFixture, "PrintHistoryManager can re-fetch af
 }
 
 // ============================================================================
+// Pagination Tests
+// ============================================================================
+
+TEST_CASE_METHOD(HistoryManagerTestFixture,
+                 "PrintHistoryManager paginates to fetch all jobs (#619)",
+                 "[history_manager]") {
+    // When: fetch with a tiny page size (forces multiple pages)
+    manager_->fetch(5);
+    REQUIRE(wait_for_loaded());
+
+    // Then: all jobs are fetched (mock generates one per gcode file in test dir)
+    const auto& jobs = manager_->get_jobs();
+    REQUIRE(jobs.size() > 5); // Must have fetched beyond the first page
+
+    // And: filename stats cover all jobs
+    const auto& stats = manager_->get_filename_stats();
+    REQUIRE_FALSE(stats.empty());
+}
+
+TEST_CASE_METHOD(HistoryManagerTestFixture,
+                 "PrintHistoryManager single page when all jobs fit",
+                 "[history_manager]") {
+    // When: page size is larger than total jobs (no pagination needed)
+    manager_->fetch(10000);
+    REQUIRE(wait_for_loaded());
+
+    const auto& all_jobs = manager_->get_jobs();
+    size_t total_count = all_jobs.size();
+
+    // And: re-fetch with small page size
+    manager_->invalidate();
+    manager_->fetch(3);
+    REQUIRE(wait_for_loaded());
+
+    // Then: same total jobs regardless of page size
+    REQUIRE(manager_->get_jobs().size() == total_count);
+}
+
+// ============================================================================
 // Edge Case Tests
 // ============================================================================
 
