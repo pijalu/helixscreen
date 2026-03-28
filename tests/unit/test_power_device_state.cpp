@@ -11,9 +11,6 @@
 using namespace helix;
 
 TEST_CASE_METHOD(LVGLTestFixture, "PowerDeviceState tracks device state", "[power_device_state]") {
-    // Ensure PrinterState subjects are initialized — a prior test may have
-    // called deinit_subjects() on global singletons
-    get_printer_state().init_subjects(false);
     auto& state = PowerDeviceState::instance();
 
     std::vector<PowerDevice> devices = {

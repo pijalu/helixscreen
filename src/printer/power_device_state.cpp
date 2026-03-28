@@ -75,12 +75,19 @@ void PowerDeviceState::set_devices(const std::vector<PowerDevice>& devices) {
         StaticSubjectRegistry::instance().register_deinit(
             "PowerDeviceState", []() { PowerDeviceState::instance().deinit_subjects(); });
 
-        // Observe print state to reevaluate lock states
-        auto* print_subj = get_printer_state().get_print_state_enum_subject();
-        if (print_subj) {
-            print_state_observer_ = ui::observe_int_sync<PowerDeviceState>(
-                print_subj, this,
-                [](PowerDeviceState* self, int /*state*/) { self->reevaluate_lock_states(); });
+        // Observe print state to reevaluate lock states.
+        // Guard: PrinterState subjects may not be initialized (e.g., during unit tests
+        // where a prior test called deinit_subjects on the global singleton).
+        auto& ps = get_printer_state();
+        if (ps.are_subjects_initialized()) {
+            auto* print_subj = ps.get_print_state_enum_subject();
+            if (print_subj) {
+                print_state_observer_ = ui::observe_int_sync<PowerDeviceState>(
+                    print_subj, this,
+                    [](PowerDeviceState* self, int /*state*/) {
+                        self->reevaluate_lock_states();
+                    });
+            }
         }
     }
 

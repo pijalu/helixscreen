@@ -205,6 +205,13 @@ class PrinterState {
     void init_subjects(bool register_xml = true);
 
     /**
+     * @brief Check if subjects have been initialized
+     */
+    bool are_subjects_initialized() const {
+        return subjects_initialized_;
+    }
+
+    /**
      * @brief Deinitialize all subjects across all state components
      *
      * Cascades to all 13 sub-component deinit_subjects() methods and
