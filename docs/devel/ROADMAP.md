@@ -108,7 +108,7 @@ The plugin system launched with version checking, UI injection points, and async
 
 ### 2. Production Hardening
 
-**1.0 hardening audit completed 2026-03-28.** 21 items fixed across crash safety, network resilience, config robustness, UI consistency, i18n, and test quality. See git history for details.
+**1.0 hardening audit completed 2026-03-28.** 22 items fixed across crash safety, network resilience, config robustness, SHA256 update verification, comprehensive i18n (218 strings wrapped in lv_tr()), UI consistency, and test quality. See git history for details.
 
 Remaining items for production readiness:
 - [ ] Structured logging with log rotation
@@ -248,7 +248,7 @@ Remaining items for production readiness:
 | **Camera/Webcam** | Low | Lower priority for local touchscreen use case |
 | **Belt tension visualization** | Future | Accelerometer-based CoreXY belt comparison; reuses frequency chart |
 | **OTA updates** | Future | UpdateChecker downloads + installs; needs auto-apply without user interaction |
-| ~~**Update hash verification**~~ | ~~Low~~ | ✅ Done — SHA256 verified from R2 manifest before install, graceful skip on GitHub fallback |
+| ~~Update hash verification~~ | ~~Low~~ | ✅ Done — SHA256 verified from R2 manifest before install, graceful skip on GitHub fallback |
 | **Pre-migration config backup** | Low | Snapshot config before running versioned migrations, cleanup on success |
 | **Printer DB schema validation** | Low | Validate required fields in printer_database.json entries, detect duplicate IDs |
 | **Text overflow audit** | Medium | 226/282 XML files lack truncation/wrapping for long translated strings |
