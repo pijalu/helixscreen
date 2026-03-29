@@ -5,6 +5,8 @@
 
 #include "panel_widget.h"
 
+#include <string>
+
 namespace helix {
 
 class PrinterImageWidget : public PanelWidget {
@@ -34,12 +36,12 @@ class PrinterImageWidget : public PanelWidget {
     lv_obj_t* widget_obj_ = nullptr;
     lv_obj_t* parent_screen_ = nullptr;
 
-    // Pre-scaled printer image snapshot — eliminates per-frame bilinear scaling
-    lv_draw_buf_t* cached_printer_snapshot_ = nullptr;
-    lv_timer_t* snapshot_timer_ = nullptr;
+    // Persistent disk cache for exact-size printer image
+    lv_timer_t* cache_timer_ = nullptr;
+    std::string current_source_path_; // Resolved source image (LVGL path)
 
-    void schedule_printer_image_snapshot();
-    void take_printer_image_snapshot();
+    void schedule_cache_check();
+    void check_or_generate_cache();
 
     void handle_printer_manager_clicked();
 };

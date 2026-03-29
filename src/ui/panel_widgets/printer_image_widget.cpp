@@ -10,6 +10,7 @@
 #include "app_globals.h"
 #include "config.h"
 #include "panel_widget_registry.h"
+#include "prerendered_images.h"
 #include "printer_detector.h"
 #include "printer_image_manager.h"
 #include "printer_images.h"
@@ -21,6 +22,7 @@
 #include <spdlog/spdlog.h>
 
 #include <cstring>
+#include <filesystem>
 
 // Subjects owned by PrinterImageWidget module — created before XML bindings resolve
 static lv_subject_t s_printer_type_subject;
@@ -80,6 +82,9 @@ void register_printer_image_widget() {
     // Register XML event callbacks at startup (before any XML is parsed)
     lv_xml_register_event_cb(nullptr, "printer_manager_clicked_cb",
                              PrinterImageWidget::printer_manager_clicked_cb);
+
+    // Prune old cached printer images on startup
+    prune_printer_image_cache();
 }
 } // namespace helix
 
@@ -114,22 +119,10 @@ void PrinterImageWidget::attach(lv_obj_t* widget_obj, lv_obj_t* parent_screen) {
 }
 
 void PrinterImageWidget::detach() {
-    // Cancel any pending snapshot timer
-    if (lv_is_initialized() && snapshot_timer_) {
-        lv_timer_delete(snapshot_timer_);
-        snapshot_timer_ = nullptr;
-    }
-
-    // Destroy cached snapshot
-    if (cached_printer_snapshot_) {
-        if (lv_is_initialized() && widget_obj_ && lv_obj_is_valid(widget_obj_)) {
-            lv_obj_t* img = lv_obj_find_by_name(widget_obj_, "printer_image");
-            if (img) {
-                lv_image_set_src(img, nullptr);
-            }
-        }
-        lv_draw_buf_destroy(cached_printer_snapshot_);
-        cached_printer_snapshot_ = nullptr;
+    // Cancel any pending cache timer
+    if (lv_is_initialized() && cache_timer_) {
+        lv_timer_delete(cache_timer_);
+        cache_timer_ = nullptr;
     }
 
     if (widget_obj_) {
@@ -141,6 +134,7 @@ void PrinterImageWidget::detach() {
         widget_obj_ = nullptr;
     }
     parent_screen_ = nullptr;
+    current_source_path_.clear();
 
     spdlog::debug("[PrinterImageWidget] Detached");
 }
@@ -186,117 +180,98 @@ void PrinterImageWidget::refresh_printer_image() {
     if (!widget_obj_)
         return;
 
-    // Free old snapshot — image source is about to change
-    if (cached_printer_snapshot_) {
-        lv_obj_t* img = lv_obj_find_by_name(widget_obj_, "printer_image");
-        if (img) {
-            // Clear source before destroying buffer it points to
-            // Note: must use NULL, not "" — empty string byte 0x00 gets misclassified
-            // as LV_IMAGE_SRC_VARIABLE by lv_image_src_get_type
-            lv_image_set_src(img, nullptr);
-            // Restore contain alignment so the original image scales correctly
-            // during the ~50ms gap before the new snapshot is taken
-            lv_image_set_inner_align(img, LV_IMAGE_ALIGN_CONTAIN);
-        }
-        lv_draw_buf_destroy(cached_printer_snapshot_);
-        cached_printer_snapshot_ = nullptr;
-    }
-
     lv_display_t* disp = lv_display_get_default();
     int screen_width = disp ? lv_display_get_horizontal_resolution(disp) : 800;
 
+    // Resolve source image path
+    std::string source_path;
+
     // Check for user-selected printer image (custom or shipped override)
     auto& pim = helix::PrinterImageManager::instance();
-    std::string custom_path = pim.get_active_image_path(screen_width);
-    if (!custom_path.empty()) {
-        lv_obj_t* img = lv_obj_find_by_name(widget_obj_, "printer_image");
-        if (img) {
-            lv_image_set_src(img, custom_path.c_str());
-            spdlog::debug("[PrinterImageWidget] User-selected printer image: '{}'", custom_path);
-        }
-        schedule_printer_image_snapshot();
-        return;
+    source_path = pim.get_active_image_path(screen_width);
+
+    if (source_path.empty()) {
+        // Auto-detect from printer type
+        Config* config = Config::get_instance();
+        std::string printer_type =
+            config ? config->get<std::string>(config->df() + helix::wizard::PRINTER_TYPE, "") : "";
+        source_path = PrinterImages::get_best_printer_image(printer_type);
     }
 
-    // Auto-detect from printer type using PrinterImages
-    Config* config = Config::get_instance();
-    std::string printer_type =
-        config ? config->get<std::string>(config->df() + helix::wizard::PRINTER_TYPE, "") : "";
-    std::string image_path = PrinterImages::get_best_printer_image(printer_type);
+    current_source_path_ = source_path;
+
+    // Set source with CONTAIN alignment — displays immediately (with runtime scaling)
     lv_obj_t* img = lv_obj_find_by_name(widget_obj_, "printer_image");
     if (img) {
-        lv_image_set_src(img, image_path.c_str());
-        spdlog::debug("[PrinterImageWidget] Printer image: '{}' for '{}'", image_path,
-                      printer_type);
+        lv_image_set_src(img, source_path.c_str());
+        lv_image_set_inner_align(img, LV_IMAGE_ALIGN_CONTAIN);
+        spdlog::debug("[PrinterImageWidget] Source image: '{}'", source_path);
     }
-    schedule_printer_image_snapshot();
+
+    // Schedule cache check after layout resolves
+    schedule_cache_check();
 }
 
-void PrinterImageWidget::schedule_printer_image_snapshot() {
-    // Cancel any pending snapshot timer
-    if (snapshot_timer_) {
-        lv_timer_delete(snapshot_timer_);
-        snapshot_timer_ = nullptr;
+void PrinterImageWidget::schedule_cache_check() {
+    if (cache_timer_) {
+        lv_timer_delete(cache_timer_);
+        cache_timer_ = nullptr;
     }
 
-    // Defer snapshot until after layout resolves (~50ms)
-    snapshot_timer_ = lv_timer_create(
+    cache_timer_ = lv_timer_create(
         [](lv_timer_t* timer) {
             auto* self = static_cast<PrinterImageWidget*>(lv_timer_get_user_data(timer));
             if (self) {
-                self->snapshot_timer_ = nullptr; // Timer is one-shot, about to be deleted
-                self->take_printer_image_snapshot();
+                self->cache_timer_ = nullptr;
+                self->check_or_generate_cache();
             }
             lv_timer_delete(timer);
         },
         50, this);
-    lv_timer_set_repeat_count(snapshot_timer_, 1);
+    lv_timer_set_repeat_count(cache_timer_, 1);
 }
 
-void PrinterImageWidget::take_printer_image_snapshot() {
-    if (!widget_obj_)
+void PrinterImageWidget::check_or_generate_cache() {
+    if (!widget_obj_ || current_source_path_.empty())
         return;
 
     lv_obj_t* img = lv_obj_find_by_name(widget_obj_, "printer_image");
     if (!img)
         return;
 
-    // Only snapshot if the widget has resolved to a non-zero size
     int32_t w = lv_obj_get_width(img);
     int32_t h = lv_obj_get_height(img);
     if (w <= 0 || h <= 0) {
-        spdlog::debug("[PrinterImageWidget] Printer image not laid out yet ({}x{}), skipping "
-                      "snapshot",
-                      w, h);
+        spdlog::debug("[PrinterImageWidget] Not laid out yet ({}x{}), skipping cache", w, h);
         return;
     }
 
-    lv_draw_buf_t* snapshot = lv_snapshot_take(img, LV_COLOR_FORMAT_ARGB8888);
-    if (!snapshot) {
-        spdlog::warn("[PrinterImageWidget] Failed to take printer image snapshot");
+    // Check if a cached .bin exists at exact widget dimensions
+    std::string cache_path =
+        helix::get_cached_printer_image_path(current_source_path_, w, h);
+
+    if (std::filesystem::exists(cache_path)) {
+        // Cache hit — load directly, no scaling needed
+        std::string lvgl_path = "A:" + cache_path;
+        lv_image_set_src(img, lvgl_path.c_str());
+        lv_image_set_inner_align(img, LV_IMAGE_ALIGN_CENTER);
+        spdlog::debug("[PrinterImageWidget] Cache hit: {} ({}x{})", cache_path, w, h);
         return;
     }
 
-    // Free previous snapshot if any
-    if (cached_printer_snapshot_) {
-        lv_draw_buf_destroy(cached_printer_snapshot_);
+    // Cache miss — generate at exact dimensions
+    spdlog::debug("[PrinterImageWidget] Cache miss, generating {}x{} from '{}'", w, h,
+                  current_source_path_);
+
+    if (helix::generate_cached_printer_image(current_source_path_, w, h, cache_path)) {
+        std::string lvgl_path = "A:" + cache_path;
+        lv_image_set_src(img, lvgl_path.c_str());
+        lv_image_set_inner_align(img, LV_IMAGE_ALIGN_CENTER);
+        spdlog::debug("[PrinterImageWidget] Cached and loaded: {} ({}x{})", cache_path, w, h);
+    } else {
+        // Generation failed — keep displaying with CONTAIN scaling (already set)
+        spdlog::warn("[PrinterImageWidget] Cache generation failed, using scaled source");
     }
-    cached_printer_snapshot_ = snapshot;
-
-    // Diagnostic: verify snapshot header before setting as source
-    uint32_t snap_w = snapshot->header.w;
-    uint32_t snap_h = snapshot->header.h;
-    uint32_t snap_magic = snapshot->header.magic;
-    uint32_t snap_cf = snapshot->header.cf;
-    spdlog::debug("[PrinterImageWidget] Snapshot header: magic=0x{:02x} cf={} {}x{} data={}",
-                  snap_magic, snap_cf, snap_w, snap_h, fmt::ptr(snapshot->data));
-
-    // Swap image source to the pre-scaled snapshot buffer — LVGL blits 1:1, no scaling
-    lv_image_set_src(img, cached_printer_snapshot_);
-    lv_image_set_inner_align(img, LV_IMAGE_ALIGN_CENTER);
-
-    spdlog::debug("[PrinterImageWidget] Printer image snapshot cached ({}x{}, {} bytes)", snap_w,
-                  snap_h, snap_w * snap_h * 4);
 }
 
 void PrinterImageWidget::handle_printer_manager_clicked() {

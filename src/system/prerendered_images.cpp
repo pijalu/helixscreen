@@ -3,10 +3,19 @@
 
 #include "prerendered_images.h"
 
+#include "app_globals.h"
+#include "lvgl_image_writer.h"
+
+#include "stb_image.h"
+#include "stb_image_resize.h"
+
 #include <spdlog/spdlog.h>
 
+#include <algorithm>
 #include <cstring>
 #include <filesystem>
+#include <fstream>
+#include <vector>
 
 namespace helix {
 
@@ -163,6 +172,168 @@ std::string get_prerendered_placeholder_path(const std::string& placeholder_name
     std::string png_path = "assets/images/" + placeholder_name + ".png";
     spdlog::trace("[Prerendered] Placeholder fallback to PNG: {}", png_path);
     return "A:" + png_path;
+}
+
+// =========================================================================
+// Persistent printer image cache (exact widget dimensions)
+// =========================================================================
+
+static constexpr const char* PRINTER_CACHE_SUBDIR = "printer_images";
+
+std::string get_printer_image_cache_dir() {
+    return get_helix_cache_dir(PRINTER_CACHE_SUBDIR);
+}
+
+/// Extract a basename from an LVGL image path for use as cache key prefix.
+/// "A:assets/images/printers/prerendered/creality-k1c-150.bin" -> "creality-k1c-150"
+/// "A:assets/images/printers/creality-k1c.png" -> "creality-k1c"
+static std::string extract_source_basename(const std::string& source_image_path) {
+    std::string path = source_image_path;
+
+    // Strip LVGL "A:" prefix
+    if (path.size() >= 2 && path[0] == 'A' && path[1] == ':') {
+        path = path.substr(2);
+    }
+
+    // Extract filename and strip extension
+    std::filesystem::path p(path);
+    return p.stem().string();
+}
+
+std::string get_cached_printer_image_path(const std::string& source_image_path, int width,
+                                           int height) {
+    std::string cache_dir = get_printer_image_cache_dir();
+    std::string basename = extract_source_basename(source_image_path);
+    return cache_dir + "/" + basename + "-" + std::to_string(width) + "x" +
+           std::to_string(height) + ".bin";
+}
+
+bool generate_cached_printer_image(const std::string& source_image_path, int width, int height,
+                                   const std::string& output_path) {
+    // Strip LVGL "A:" prefix for filesystem access
+    std::string fs_path = source_image_path;
+    if (fs_path.size() >= 2 && fs_path[0] == 'A' && fs_path[1] == ':') {
+        fs_path = fs_path.substr(2);
+    }
+
+    // Determine source format from extension
+    std::filesystem::path src(fs_path);
+    std::string ext = src.extension().string();
+
+    int src_w = 0, src_h = 0;
+    std::vector<uint8_t> rgba_pixels;
+
+    if (ext == ".bin") {
+        // Source is LVGL binary — read header + BGRA pixel data, convert back to RGBA for resize
+        std::ifstream file(fs_path, std::ios::binary);
+        if (!file) {
+            spdlog::warn("[PrinterCache] Cannot open source .bin: {}", fs_path);
+            return false;
+        }
+
+        lv_image_header_t header{};
+        file.read(reinterpret_cast<char*>(&header), sizeof(header));
+        if (!file.good() || header.magic != LV_IMAGE_HEADER_MAGIC) {
+            spdlog::warn("[PrinterCache] Invalid .bin header: {}", fs_path);
+            return false;
+        }
+
+        src_w = header.w;
+        src_h = header.h;
+        size_t pixel_bytes = static_cast<size_t>(src_w) * src_h * 4;
+        rgba_pixels.resize(pixel_bytes);
+        file.read(reinterpret_cast<char*>(rgba_pixels.data()), pixel_bytes);
+        if (!file.good()) {
+            spdlog::warn("[PrinterCache] Short read from .bin: {}", fs_path);
+            return false;
+        }
+
+        // Convert BGRA (LVGL) → RGBA (stb) for resize
+        for (size_t i = 0; i < rgba_pixels.size(); i += 4) {
+            std::swap(rgba_pixels[i], rgba_pixels[i + 2]); // B ↔ R
+        }
+    } else {
+        // Source is PNG/JPG — decode with stb_image
+        int channels = 0;
+        uint8_t* pixels = stbi_load(fs_path.c_str(), &src_w, &src_h, &channels, 4);
+        if (!pixels) {
+            spdlog::warn("[PrinterCache] Cannot decode source image: {}", fs_path);
+            return false;
+        }
+        size_t pixel_bytes = static_cast<size_t>(src_w) * src_h * 4;
+        rgba_pixels.assign(pixels, pixels + pixel_bytes);
+        stbi_image_free(pixels);
+    }
+
+    // Resize to exact target dimensions (aspect ratio is caller's responsibility —
+    // we trust the layout engine's dimensions)
+    std::vector<uint8_t> resized(static_cast<size_t>(width) * height * 4);
+    int ok = stbir_resize_uint8(rgba_pixels.data(), src_w, src_h, 0, resized.data(), width, height,
+                                0, 4);
+    if (!ok) {
+        spdlog::error("[PrinterCache] Resize failed: {}x{} -> {}x{}", src_w, src_h, width, height);
+        return false;
+    }
+
+    // Convert RGBA → BGRA (LVGL ARGB8888 in little-endian)
+    for (size_t i = 0; i < resized.size(); i += 4) {
+        std::swap(resized[i], resized[i + 2]); // R ↔ B
+    }
+
+    // Ensure output directory exists
+    std::filesystem::path out_dir = std::filesystem::path(output_path).parent_path();
+    std::error_code ec;
+    std::filesystem::create_directories(out_dir, ec);
+
+    // Write LVGL binary (atomic via write_lvgl_bin)
+    bool result = write_lvgl_bin(output_path, width, height,
+                                 static_cast<uint8_t>(LV_COLOR_FORMAT_ARGB8888), resized.data(),
+                                 resized.size());
+
+    if (result) {
+        spdlog::info("[PrinterCache] Generated {}x{} cache: {}", width, height, output_path);
+    }
+    return result;
+}
+
+void prune_printer_image_cache(int max_files, int max_keep) {
+    std::string cache_dir = get_printer_image_cache_dir();
+
+    struct CacheEntry {
+        std::filesystem::path path;
+        std::filesystem::file_time_type mtime;
+    };
+    std::vector<CacheEntry> entries;
+
+    try {
+        for (const auto& entry : std::filesystem::directory_iterator(cache_dir)) {
+            if (std::filesystem::is_regular_file(entry.path())) {
+                entries.push_back({entry.path(), std::filesystem::last_write_time(entry.path())});
+            }
+        }
+    } catch (const std::filesystem::filesystem_error&) {
+        return; // Directory doesn't exist or can't be read
+    }
+
+    if (static_cast<int>(entries.size()) <= max_files) {
+        return;
+    }
+
+    // Sort oldest first
+    std::sort(entries.begin(), entries.end(),
+              [](const CacheEntry& a, const CacheEntry& b) { return a.mtime < b.mtime; });
+
+    int to_remove = static_cast<int>(entries.size()) - max_keep;
+    for (int i = 0; i < to_remove; ++i) {
+        std::error_code ec;
+        std::filesystem::remove(entries[i].path, ec);
+        if (!ec) {
+            spdlog::debug("[PrinterCache] Pruned old cache entry: {}",
+                          entries[i].path.filename().string());
+        }
+    }
+
+    spdlog::info("[PrinterCache] Pruned {} old cache entries", to_remove);
 }
 
 } // namespace helix

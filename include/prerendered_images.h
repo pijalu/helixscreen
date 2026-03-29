@@ -132,6 +132,57 @@ namespace helix {
  */
 [[nodiscard]] bool prerendered_exists(const std::string& path);
 
+// =========================================================================
+// Persistent printer image cache (exact widget dimensions)
+// =========================================================================
+
+/**
+ * @brief Get the directory for cached printer images at exact widget sizes
+ *
+ * Returns a dedicated cache directory (e.g., ~/.cache/helix/printer_images/).
+ * Creates the directory if it doesn't exist.
+ *
+ * @return Filesystem path to the cache directory (no trailing slash)
+ */
+[[nodiscard]] std::string get_printer_image_cache_dir();
+
+/**
+ * @brief Get the cache file path for a printer image at exact dimensions
+ *
+ * @param source_image_path The resolved source image path (LVGL path with A: prefix)
+ * @param width Exact widget width in pixels
+ * @param height Exact widget height in pixels
+ * @return Filesystem path to the cache .bin file
+ */
+[[nodiscard]] std::string get_cached_printer_image_path(const std::string& source_image_path,
+                                                         int width, int height);
+
+/**
+ * @brief Generate a cached printer image at exact dimensions
+ *
+ * Loads the source image, resizes to exact width x height, converts to LVGL
+ * ARGB8888 binary format, and writes atomically to the cache path.
+ *
+ * @param source_image_path The resolved source image path (LVGL path with A: prefix)
+ * @param width Target width in pixels
+ * @param height Target height in pixels
+ * @param output_path Filesystem path for the output .bin file
+ * @return true on success
+ */
+bool generate_cached_printer_image(const std::string& source_image_path, int width, int height,
+                                   const std::string& output_path);
+
+/**
+ * @brief Prune old cached printer images
+ *
+ * If the cache directory has more than max_files entries, deletes the oldest
+ * by modification time until max_keep remain.
+ *
+ * @param max_files Trigger pruning when file count exceeds this (default: 10)
+ * @param max_keep Keep this many files after pruning (default: 5)
+ */
+void prune_printer_image_cache(int max_files = 10, int max_keep = 5);
+
 /**
  * @brief Get path to pre-rendered placeholder thumbnail
  *
