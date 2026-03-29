@@ -1382,7 +1382,11 @@ void AmsPanel::show_context_menu(int slot_index, lv_obj_t* near_widget, lv_point
 
                         SlotInfo info = be->get_slot_info(slot);
                         apply_spool_to_slot(info, spool);
-                        be->set_slot_info(slot, info);
+                        AmsError err = be->set_slot_info(slot, info);
+                        if (!err.success()) {
+                            NOTIFY_ERROR("{}", err.user_msg);
+                            return;
+                        }
                         AmsState::instance().sync_from_backend();
                         spdlog::info("[AmsPanel] QR scan assigned spool #{} to slot {}",
                                      spool.id, slot);
@@ -1484,7 +1488,11 @@ void AmsPanel::show_edit_modal(int slot_index) {
             // Apply the edited slot info to the backend
             AmsBackend* backend = AmsState::instance().get_backend();
             if (backend) {
-                backend->set_slot_info(result.slot_index, result.slot_info);
+                AmsError err = backend->set_slot_info(result.slot_index, result.slot_info);
+                if (!err.success()) {
+                    NOTIFY_ERROR("{}", err.user_msg);
+                    return;
+                }
 
                 // Sync Spoolman active spool if edited slot is currently loaded.
                 // Backends like AFC only sync on physical load/unload, not UI edits.

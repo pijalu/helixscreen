@@ -11,6 +11,7 @@
 #include <condition_variable>
 #include <mutex>
 #include <thread>
+#include <unordered_map>
 
 /**
  * @file ams_backend_ace.h
@@ -216,4 +217,31 @@ class AmsBackendAce : public AmsSubscriptionBackend {
 
     // Configuration
     static constexpr int POLL_INTERVAL_MS = 500;
+
+    // User slot overrides: ACE hardware doesn't support set_slot_info via gcode,
+    // so user edits (color, material, weight) are stored in-memory and merged
+    // over hardware-reported values during parse. Cleared when slot status changes
+    // (e.g., spool physically swapped).
+    struct SlotOverride {
+        uint32_t color_rgb = 0;
+        std::string material;
+        std::string color_name;
+        std::string brand;
+        std::string spool_name;
+        int spoolman_id = 0;
+        float remaining_weight_g = -1;
+        float total_weight_g = -1;
+    };
+    std::unordered_map<int, SlotOverride> slot_overrides_;
+    std::unordered_map<int, SlotStatus> prev_slot_status_;
+
+    // Slot override persistence (Moonraker DB + local JSON fallback)
+    void save_slot_overrides();
+    void load_slot_overrides();
+    void save_slot_overrides_json() const;
+    bool load_slot_overrides_json();
+    nlohmann::json slot_overrides_to_json() const;
+    void apply_slot_overrides_json(const nlohmann::json& data);
+
+    std::string config_dir_ = "config";
 };

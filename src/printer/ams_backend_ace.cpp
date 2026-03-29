@@ -19,12 +19,18 @@
 #include "spdlog/spdlog.h"
 
 #include <chrono>
+#include <filesystem>
+#include <fstream>
 
 using json = nlohmann::json;
 using namespace helix;
 
 /// Max consecutive /server/ace/info failures before giving up on REST fallback
 static constexpr int MAX_INFO_FETCH_FAILURES = 3;
+
+static constexpr const char* SLOT_OVERRIDES_JSON = "ace_slot_overrides.json";
+static constexpr const char* MOONRAKER_DB_KEY_SLOTS = "ace_slot_overrides";
+static constexpr const char* MOONRAKER_DB_NAMESPACE = "helix-screen";
 
 // ============================================================================
 // Construction / Destruction
@@ -58,6 +64,9 @@ AmsBackendAce::~AmsBackendAce() {
 
 void AmsBackendAce::on_started() {
     spdlog::info("[ACE] Backend started — querying initial ace state via WebSocket");
+
+    // Restore persisted slot overrides (Moonraker DB → local JSON fallback)
+    load_slot_overrides();
 
     auto token = lifetime_.token();
 
@@ -384,9 +393,47 @@ AmsError AmsBackendAce::cancel() {
 // ============================================================================
 
 AmsError AmsBackendAce::set_slot_info(int slot_index, const SlotInfo& info, bool /*persist*/) {
-    (void)slot_index;
-    (void)info;
-    return AmsErrorHelper::not_supported("Slot configuration");
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+
+        // Validate slot index
+        if (system_info_.units.empty() ||
+            slot_index < 0 ||
+            slot_index >= static_cast<int>(system_info_.units[0].slots.size())) {
+            return AmsErrorHelper::invalid_slot(slot_index, 0);
+        }
+
+        // Update in-memory slot state
+        auto& slot = system_info_.units[0].slots[slot_index];
+        slot.color_rgb = info.color_rgb;
+        slot.color_name = info.color_name;
+        slot.material = info.material;
+        slot.brand = info.brand;
+        slot.spool_name = info.spool_name;
+        slot.spoolman_id = info.spoolman_id;
+        slot.remaining_weight_g = info.remaining_weight_g;
+        slot.total_weight_g = info.total_weight_g;
+
+        // Store override so parse doesn't clobber user edits
+        SlotOverride& ovr = slot_overrides_[slot_index];
+        ovr.color_rgb = info.color_rgb;
+        ovr.color_name = info.color_name;
+        ovr.material = info.material;
+        ovr.brand = info.brand;
+        ovr.spool_name = info.spool_name;
+        ovr.spoolman_id = info.spoolman_id;
+        ovr.remaining_weight_g = info.remaining_weight_g;
+        ovr.total_weight_g = info.total_weight_g;
+    }
+
+    spdlog::info("[ACE] Updated slot {} info (local override): {} {}",
+                 slot_index, info.material, info.color_name);
+
+    // Persist overrides to Moonraker DB + local JSON
+    save_slot_overrides();
+
+    emit_event(EVENT_SLOT_CHANGED, std::to_string(slot_index));
+    return AmsErrorHelper::success();
 }
 
 AmsError AmsBackendAce::set_tool_mapping(int tool_number, int slot_index) {
@@ -605,6 +652,30 @@ void AmsBackendAce::parse_ace_object(const json& data) {
                 // Parse SKU if present
                 if (slot_json.contains("sku") && slot_json["sku"].is_string()) {
                     // SKU is available but not mapped to SlotInfo currently
+                }
+
+                // Clear user override if slot status changed (spool physically swapped)
+                int idx = static_cast<int>(i);
+                auto prev_it = prev_slot_status_.find(idx);
+                if (prev_it != prev_slot_status_.end() && prev_it->second != slot.status) {
+                    if (slot_overrides_.erase(idx) > 0) {
+                        spdlog::info("[ACE] Slot {} status changed, clearing user override", idx);
+                    }
+                }
+                prev_slot_status_[idx] = slot.status;
+
+                // Apply user overrides (from set_slot_info) over hardware data
+                auto ovr_it = slot_overrides_.find(idx);
+                if (ovr_it != slot_overrides_.end()) {
+                    const auto& ovr = ovr_it->second;
+                    slot.color_rgb = ovr.color_rgb;
+                    slot.color_name = ovr.color_name;
+                    slot.material = ovr.material;
+                    slot.brand = ovr.brand;
+                    slot.spool_name = ovr.spool_name;
+                    slot.spoolman_id = ovr.spoolman_id;
+                    slot.remaining_weight_g = ovr.remaining_weight_g;
+                    slot.total_weight_g = ovr.total_weight_g;
                 }
             }
         }
@@ -1197,4 +1268,179 @@ AmsError AmsBackendAce::execute_device_action(const std::string& action_id,
     }
 
     return AmsErrorHelper::not_supported("Unknown ACE action: " + action_id);
+}
+
+// ============================================================================
+// Slot Override Persistence
+// ============================================================================
+
+json AmsBackendAce::slot_overrides_to_json() const {
+    json result = json::object();
+
+    for (const auto& [idx, ovr] : slot_overrides_) {
+        json entry;
+        entry["color_rgb"] = ovr.color_rgb;
+        entry["material"] = ovr.material;
+        entry["color_name"] = ovr.color_name;
+        entry["brand"] = ovr.brand;
+        entry["spool_name"] = ovr.spool_name;
+        entry["spoolman_id"] = ovr.spoolman_id;
+        if (std::isfinite(ovr.remaining_weight_g) && ovr.remaining_weight_g >= 0)
+            entry["remaining_weight_g"] = ovr.remaining_weight_g;
+        if (std::isfinite(ovr.total_weight_g) && ovr.total_weight_g >= 0)
+            entry["total_weight_g"] = ovr.total_weight_g;
+
+        result[std::to_string(idx)] = entry;
+    }
+
+    return result;
+}
+
+void AmsBackendAce::apply_slot_overrides_json(const json& data) {
+    if (!data.is_object()) {
+        spdlog::warn("[ACE] apply_slot_overrides_json: expected JSON object");
+        return;
+    }
+
+    std::lock_guard<std::mutex> lock(mutex_);
+    slot_overrides_.clear();
+
+    for (auto& [key, entry] : data.items()) {
+        if (!entry.is_object()) continue;
+
+        int idx = 0;
+        try {
+            idx = std::stoi(key);
+        } catch (const std::exception&) {
+            spdlog::warn("[ACE] Skipping invalid slot override key: {}", key);
+            continue;
+        }
+
+        SlotOverride ovr;
+        ovr.color_rgb = entry.value("color_rgb", static_cast<uint32_t>(0));
+        ovr.material = entry.value("material", std::string{});
+        ovr.color_name = entry.value("color_name", std::string{});
+        ovr.brand = entry.value("brand", std::string{});
+        ovr.spool_name = entry.value("spool_name", std::string{});
+        ovr.spoolman_id = entry.value("spoolman_id", 0);
+        ovr.remaining_weight_g = entry.value("remaining_weight_g", -1.0f);
+        ovr.total_weight_g = entry.value("total_weight_g", -1.0f);
+
+        slot_overrides_[idx] = std::move(ovr);
+
+        spdlog::debug("[ACE] Loaded slot override for slot {}: {} {}",
+                      idx, slot_overrides_[idx].material, slot_overrides_[idx].color_name);
+    }
+
+    spdlog::info("[ACE] Applied {} slot override(s) from persistent storage",
+                 slot_overrides_.size());
+}
+
+void AmsBackendAce::save_slot_overrides_json() const {
+    namespace fs = std::filesystem;
+
+    json json_data;
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        json_data = slot_overrides_to_json();
+    }
+
+    auto path = fs::path(config_dir_) / SLOT_OVERRIDES_JSON;
+
+    try {
+        fs::create_directories(config_dir_);
+
+        std::ofstream ofs(path);
+        if (!ofs.is_open()) {
+            spdlog::warn("[ACE] Failed to open {} for writing", path.string());
+            return;
+        }
+        ofs << json_data.dump(2);
+        spdlog::debug("[ACE] Saved slot overrides to {}", path.string());
+    } catch (const std::exception& e) {
+        spdlog::warn("[ACE] Error saving slot overrides JSON: {}", e.what());
+    }
+}
+
+bool AmsBackendAce::load_slot_overrides_json() {
+    namespace fs = std::filesystem;
+
+    auto path = fs::path(config_dir_) / SLOT_OVERRIDES_JSON;
+
+    if (!fs::exists(path)) {
+        spdlog::debug("[ACE] No slot overrides JSON file at {}", path.string());
+        return false;
+    }
+
+    try {
+        std::ifstream ifs(path);
+        if (!ifs.is_open()) {
+            spdlog::warn("[ACE] Failed to open {}", path.string());
+            return false;
+        }
+
+        auto data = json::parse(ifs);
+        apply_slot_overrides_json(data);
+        spdlog::info("[ACE] Loaded slot overrides from {}", path.string());
+        return true;
+    } catch (const std::exception& e) {
+        spdlog::warn("[ACE] Error loading slot overrides JSON: {}", e.what());
+        return false;
+    }
+}
+
+void AmsBackendAce::save_slot_overrides() {
+    // Always save to local JSON (fast, reliable)
+    save_slot_overrides_json();
+
+    // Fire-and-forget to Moonraker DB (async, best-effort)
+    if (api_) {
+        json json_data;
+        {
+            std::lock_guard<std::mutex> lock(mutex_);
+            json_data = slot_overrides_to_json();
+        }
+        api_->database_post_item(
+            MOONRAKER_DB_NAMESPACE, MOONRAKER_DB_KEY_SLOTS, json_data,
+            []() { spdlog::debug("[ACE] Slot overrides saved to Moonraker DB"); },
+            [](const MoonrakerError& err) {
+                spdlog::warn("[ACE] Failed to save slot overrides to Moonraker DB: {}",
+                             err.user_message());
+            });
+    }
+}
+
+void AmsBackendAce::load_slot_overrides() {
+    if (!api_) {
+        // No API — try local JSON only
+        load_slot_overrides_json();
+        return;
+    }
+
+    // Try Moonraker DB first. Callbacks fire from WebSocket thread,
+    // so we marshal back to UI thread via queue_update().
+    auto token = lifetime_.token();
+
+    api_->database_get_item(
+        MOONRAKER_DB_NAMESPACE, MOONRAKER_DB_KEY_SLOTS,
+        [this, token](const json& data) {
+            if (token.expired()) return;
+            auto data_copy = std::make_unique<json>(data);
+            helix::ui::queue_update<json>(
+                std::move(data_copy), [this](json* d) {
+                    apply_slot_overrides_json(*d);
+                    save_slot_overrides_json();
+                    emit_event(EVENT_SLOT_CHANGED);
+                    spdlog::info("[ACE] Loaded slot overrides from Moonraker DB");
+                });
+        },
+        [this, token](const MoonrakerError& err) {
+            if (token.expired()) return;
+            spdlog::debug("[ACE] Moonraker DB load failed ({}), trying local JSON",
+                          err.user_message());
+            helix::ui::queue_update<int>(std::make_unique<int>(0), [this](int*) {
+                load_slot_overrides_json();
+                emit_event(EVENT_SLOT_CHANGED);
+            });
+        });
 }
