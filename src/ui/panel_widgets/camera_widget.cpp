@@ -349,7 +349,16 @@ void CameraWidget::stop_stream() {
     }
 
     stream_->stop();
-    stream_.reset();
+
+    if (stream_->was_detached()) {
+        // Thread still running with a captured `this` — destroying the object
+        // would be use-after-free (#624).  Intentionally leak; the detached
+        // thread will wind down on its own once the HTTP request completes.
+        spdlog::warn("[CameraWidget] Stream thread was detached, leaking CameraStream to avoid UAF");
+        (void)stream_.release();
+    } else {
+        stream_.reset();
+    }
 
     // No action needed — lifetime_ auto-recovers (new tokens from token() are valid)
 

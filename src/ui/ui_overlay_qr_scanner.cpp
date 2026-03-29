@@ -267,6 +267,12 @@ void QrScannerOverlay::stop_scanning() {
     if (camera_ && camera_->is_running()) {
         camera_->stop();
     }
+    // If the stream thread was detached, leaking the CameraStream is safer
+    // than destroying it while the thread still holds `this` (#624).
+    if (camera_ && camera_->was_detached()) {
+        spdlog::warn("[QR Scanner] Stream thread was detached, leaking CameraStream to avoid UAF");
+        (void)camera_.release();
+    }
 
     // Wait for any in-flight detached QR decode thread to finish before
     // we return — the decode thread accesses qr_decoder_ which the

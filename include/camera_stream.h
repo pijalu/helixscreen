@@ -124,6 +124,12 @@ class CameraStream {
     void stop();
     bool is_running() const;
 
+    /// True if stop() timed out joining the stream thread and detached it.
+    /// Callers must NOT destroy the CameraStream in this case — the detached
+    /// thread still holds `this`.  Use unique_ptr::release() to intentionally
+    /// leak and prevent use-after-free.
+    bool was_detached() const { return thread_detached_; }
+
     /// Called by widget when it has consumed the current frame
     void frame_consumed();
 
