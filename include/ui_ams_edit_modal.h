@@ -193,6 +193,7 @@ class AmsEditModal : public Modal {
     void handle_print_label();
 #endif
     void handle_scan_qr();
+    void handle_tool_changed(int index);
 
     // === Static Callback Registration ===
     static void register_callbacks();
@@ -219,6 +220,7 @@ class AmsEditModal : public Modal {
     static void on_picker_search_cb(lv_event_t* e);
     static void on_picker_retry_cb(lv_event_t* e);
     static void on_spool_item_cb(lv_event_t* e);
+    static void on_tool_changed_cb(lv_event_t* e);
 
     /**
      * @brief Find AmsEditModal instance from event target

@@ -963,6 +963,23 @@ void AmsEditModal::update_ui() {
 
     // Update temperature display based on material
     update_temp_display();
+
+    // Populate tool dropdown with available tools
+    lv_obj_t* tool_dropdown = find_widget("tool_dropdown");
+    if (tool_dropdown) {
+        int tool_count = ToolState::instance().tool_count();
+        std::string tool_options = "None";
+        for (int i = 0; i < tool_count; i++) {
+            tool_options += '\n';
+            tool_options += "T" + std::to_string(i);
+        }
+        lv_dropdown_set_options(tool_dropdown, tool_options.c_str());
+
+        // Set initial selection: mapped_tool -1 → index 0 (None), T0 → index 1, etc.
+        int tool_idx = working_info_.mapped_tool + 1;
+        tool_idx = std::max(0, std::min(tool_idx, tool_count));
+        lv_dropdown_set_selected(tool_dropdown, tool_idx);
+    }
 }
 
 void AmsEditModal::update_temp_display() {
@@ -1032,6 +1049,7 @@ bool AmsEditModal::is_dirty() const {
            working_info_.material != original_info_.material ||
            working_info_.brand != original_info_.brand ||
            working_info_.spoolman_id != original_info_.spoolman_id ||
+           working_info_.mapped_tool != original_info_.mapped_tool ||
            std::abs(working_info_.remaining_weight_g - original_info_.remaining_weight_g) > 0.1f;
 }
 
@@ -1222,6 +1240,16 @@ void AmsEditModal::handle_remaining_cancel() {
                   remaining_pre_edit_pct_);
 }
 
+void AmsEditModal::handle_tool_changed(int index) {
+    // Index 0 = "None" (-1), index 1 = T0 (0), index 2 = T1 (1), etc.
+    int new_tool = index - 1;
+    working_info_.mapped_tool = new_tool;
+    working_info_.tool_mapping_override = (new_tool != original_info_.mapped_tool);
+    spdlog::debug("[AmsEditModal] Tool changed to: {} (override={})",
+                  new_tool, working_info_.tool_mapping_override);
+    update_sync_button_state();
+}
+
 void AmsEditModal::handle_reset() {
     spdlog::debug("[AmsEditModal] Cancelling - discarding changes");
 
@@ -1321,6 +1349,7 @@ void AmsEditModal::register_callbacks() {
         {"ams_edit_picker_retry_cb", on_picker_retry_cb},
         // Register handler for spool_item clicks (shared component uses this callback name)
         {"spoolman_spool_item_clicked_cb", on_spool_item_cb},
+        {"ams_edit_tool_changed_cb", on_tool_changed_cb},
     });
 
     callbacks_registered_ = true;
@@ -1470,6 +1499,15 @@ void AmsEditModal::on_picker_retry_cb(lv_event_t* e) {
     if (self) {
         spdlog::info("[AmsEditModal] Picker retry requested by user");
         self->populate_picker();
+    }
+}
+
+void AmsEditModal::on_tool_changed_cb(lv_event_t* e) {
+    auto* self = get_instance_from_event(e);
+    if (self) {
+        auto* dropdown = static_cast<lv_obj_t*>(lv_event_get_target(e));
+        int index = lv_dropdown_get_selected(dropdown);
+        self->handle_tool_changed(index);
     }
 }
 
