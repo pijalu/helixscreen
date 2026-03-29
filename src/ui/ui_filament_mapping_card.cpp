@@ -151,11 +151,12 @@ void FilamentMappingCard::rebuild_compact_view() {
     lv_obj_set_style_pad_gap(rows_container_, pair_gap, 0);
 
     size_t count = std::min(mappings_.size(), tool_info_.size());
+    bool multi_tool = count > 1;
     for (size_t i = 0; i < count; ++i) {
         const auto& mapping = mappings_[i];
         const auto& tool = tool_info_[i];
 
-        // Create a pill container: [gcode_color] → [slot_color]
+        // Create a pill container: [Tx] [gcode_color] → [slot_color]
         lv_obj_t* pair = lv_obj_create(rows_container_);
         lv_obj_remove_style_all(pair);
         lv_obj_set_size(pair, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
@@ -172,6 +173,16 @@ void FilamentMappingCard::rebuild_compact_view() {
         lv_obj_remove_flag(pair, LV_OBJ_FLAG_SCROLLABLE);
         lv_obj_remove_flag(pair, LV_OBJ_FLAG_CLICKABLE);
         lv_obj_add_flag(pair, LV_OBJ_FLAG_EVENT_BUBBLE);
+
+        // Tool label (e.g. "T0", "T1") — only for multi-tool files
+        if (multi_tool) {
+            lv_obj_t* tool_lbl = lv_label_create(pair);
+            lv_label_set_text_fmt(tool_lbl, "T%d", tool.tool_index);
+            lv_obj_set_style_text_font(tool_lbl, theme_manager_get_font("font_xs"), 0);
+            lv_obj_set_style_text_color(tool_lbl, theme_manager_get_color("text_muted"), 0);
+            lv_obj_remove_flag(tool_lbl, LV_OBJ_FLAG_CLICKABLE);
+            lv_obj_add_flag(tool_lbl, LV_OBJ_FLAG_EVENT_BUBBLE);
+        }
 
         // G-code color swatch
         lv_obj_t* gcode_sw = lv_obj_create(pair);
