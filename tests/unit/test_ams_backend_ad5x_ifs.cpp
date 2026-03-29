@@ -54,6 +54,13 @@ class Ad5xIfsTestAccess {
         b.action_start_time_ = std::chrono::steady_clock::now() - elapsed;
         b.check_action_timeout();
     }
+    static std::string var_prefix(const AmsBackendAd5xIfs& b) {
+        std::lock_guard<std::mutex> lock(b.mutex_);
+        return b.var_prefix_;
+    }
+    static bool has_per_port_sensors(const AmsBackendAd5xIfs& b) {
+        return b.has_per_port_sensors_;
+    }
 };
 
 // Helper to build a full save_variables JSON payload
@@ -728,5 +735,105 @@ TEST_CASE("AD5X IFS action timeout resets stuck operations", "[ams][ad5x_ifs]") 
         Ad5xIfsTestAccess::check_action_timeout(backend, std::chrono::seconds(30));
         REQUIRE(Ad5xIfsTestAccess::action(backend) == AmsAction::LOADING);
     }
+
+    SECTION("get_system_info checks timeout on UI poll") {
+        Ad5xIfsTestAccess::set_action(backend, AmsAction::LOADING);
+        Ad5xIfsTestAccess::check_action_timeout(backend, std::chrono::seconds(120));
+
+        auto sys = backend.get_system_info();
+        REQUIRE(sys.action == AmsAction::IDLE);
+    }
+}
+
+// ==========================================================================
+// 19. Variable prefix auto-detection (lessWaste vs bambufy)
+// ==========================================================================
+
+TEST_CASE("AD5X IFS variable prefix auto-detection", "[ams][ad5x_ifs]") {
+    AmsBackendAd5xIfs backend(nullptr, nullptr);
+
+    SECTION("defaults to less_waste prefix") {
+        REQUIRE(Ad5xIfsTestAccess::var_prefix(backend) == "less_waste");
+    }
+
+    SECTION("detects bambufy prefix from colors") {
+        json vars;
+        vars["bambufy_colors"] = json::array({"FF0000", "00FF00", "0000FF", "FFFFFF"});
+        vars["bambufy_types"] = json::array({"PLA", "PETG", "ABS", "TPU"});
+        vars["bambufy_tools"] =
+            json::array({1, 2, 3, 4, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5});
+        vars["bambufy_current_tool"] = 0;
+        vars["bambufy_external"] = 0;
+
+        Ad5xIfsTestAccess::handle_status(backend, make_save_variables(vars));
+
+        REQUIRE(Ad5xIfsTestAccess::var_prefix(backend) == "bambufy");
+        REQUIRE(Ad5xIfsTestAccess::active_tool(backend) == 0);
+
+        auto info = backend.get_slot_info(0);
+        REQUIRE(info.color_rgb == 0xFF0000);
+        REQUIRE(info.material == "PLA");
+    }
+
+    SECTION("detects bambufy prefix from tools alone") {
+        json vars;
+        vars["bambufy_tools"] =
+            json::array({1, 2, 3, 4, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5});
+
+        Ad5xIfsTestAccess::handle_status(backend, make_save_variables(vars));
+
+        REQUIRE(Ad5xIfsTestAccess::var_prefix(backend) == "bambufy");
+    }
+}
+
+// ==========================================================================
+// 20. Motion sensor triggers load/unload completion (native ZMOD)
+// ==========================================================================
+
+TEST_CASE("AD5X IFS motion sensor completes load/unload", "[ams][ad5x_ifs]") {
+    AmsBackendAd5xIfs backend(nullptr, nullptr);
+
+    SECTION("LOADING + motion sensor detected → IDLE") {
+        Ad5xIfsTestAccess::set_action(backend, AmsAction::LOADING);
+        Ad5xIfsTestAccess::handle_status(backend, make_motion_sensor(true));
+        REQUIRE(Ad5xIfsTestAccess::action(backend) == AmsAction::IDLE);
+    }
+
+    SECTION("UNLOADING + motion sensor cleared → IDLE") {
+        Ad5xIfsTestAccess::set_action(backend, AmsAction::UNLOADING);
+        Ad5xIfsTestAccess::handle_status(backend, make_motion_sensor(false));
+        REQUIRE(Ad5xIfsTestAccess::action(backend) == AmsAction::IDLE);
+    }
+
+    SECTION("LOADING + motion sensor NOT detected → stays LOADING") {
+        Ad5xIfsTestAccess::set_action(backend, AmsAction::LOADING);
+        Ad5xIfsTestAccess::handle_status(backend, make_motion_sensor(false));
+        REQUIRE(Ad5xIfsTestAccess::action(backend) == AmsAction::LOADING);
+    }
+}
+
+// ==========================================================================
+// 21. Native ZMOD IFS active slot inferred from head sensor
+// ==========================================================================
+
+TEST_CASE("AD5X IFS native ZMOD infers active slot from head sensor", "[ams][ad5x_ifs]") {
+    AmsBackendAd5xIfs backend(nullptr, nullptr);
+
+    // No per-port sensors — only motion sensor and save_variables
+    json notification;
+    notification["save_variables"] = json{{"variables", standard_variables()}};
+    notification["filament_motion_sensor ifs_motion_sensor"] =
+        json{{"filament_detected", true}};
+
+    Ad5xIfsTestAccess::handle_status(backend, notification);
+
+    // Active tool is T0 → port 1 → slot 0. With head filament detected and no
+    // per-port sensors, the active slot should be inferred as LOADED.
+    auto info = backend.get_slot_info(0);
+    REQUIRE(info.status == SlotStatus::LOADED);
+
+    // Non-active slots remain EMPTY (no per-port sensor data to infer from)
+    auto info1 = backend.get_slot_info(1);
+    REQUIRE(info1.status == SlotStatus::EMPTY);
 }
 

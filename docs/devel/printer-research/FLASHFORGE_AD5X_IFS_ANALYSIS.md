@@ -126,11 +126,13 @@ ifs_motion_sensor = 0
 ## 5. Key G-Code Commands
 
 ### Tool Change Flow
-1. `_A_CHANGE_FILAMENT CHANNEL={n}` — orchestrates full tool change (save position, retract old, load new, purge, restore)
+1. `A_CHANGE_FILAMENT CHANNEL={n}` — orchestrates full tool change (save position, retract old, load new, purge, restore)
 2. `END_CHANGE_FILAMENT` — restores temperature, fan speed, position after change
-3. `_INSERT_PRUTOK_IFS PRUTOK={n}` — load filament from specific port (full sequence with purge)
-4. `_REMOVE_PRUTOK_IFS PRUTOK={n}` — unload filament to specific port
-5. `_IFS_REMOVE_PRUTOK` — retract currently loaded filament from extruder
+3. `INSERT_PRUTOK_IFS PRUTOK={n}` — load filament from specific port (looks up temp from config)
+4. `REMOVE_PRUTOK_IFS PRUTOK={n}` — unload filament to specific port
+5. `IFS_REMOVE_PRUTOK` — retract currently loaded filament from extruder
+
+**Note on underscore variants**: `_INSERT_PRUTOK_IFS`, `_REMOVE_PRUTOK_IFS`, `_IFS_REMOVE_PRUTOK` are internal macros that expect an explicit `TEMP` parameter (default fallback: 220). The no-underscore public versions look up temperature from the config automatically. Always use the no-underscore versions.
 6. `SET_EXTRUDER_SLOT SLOT={n}` → `_SET_EXTRUDER_SLOT SLOT={n}` — tell firmware which slot is active
 7. `SET_CURRENT_PRUTOK` — detect and set active filament based on sensor state
 
@@ -192,9 +194,9 @@ ifs_motion_sensor = 0
 ### How to Control
 
 All operations via G-code commands:
-- Tool change: `_A_CHANGE_FILAMENT CHANNEL={n}`
+- Tool change: `A_CHANGE_FILAMENT CHANNEL={n}`
 - Load: `INSERT_PRUTOK_IFS PRUTOK={n}`
-- Unload: `REMOVE_PRUTOK_IFS PRUTOK={n}`
+- Unload: `REMOVE_PRUTOK_IFS PRUTOK={n}` or `IFS_REMOVE_PRUTOK` (current)
 - Unlock: `IFS_UNLOCK`
 
 ---

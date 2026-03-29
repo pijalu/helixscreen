@@ -803,15 +803,17 @@ Tool mapping: array index = tool number (T0-T15), value = physical port (1-4, 5=
 
 | Command | Action |
 |---------|--------|
-| `_INSERT_PRUTOK_IFS PRUTOK={port}` | Load filament from port |
-| `_IFS_REMOVE_PRUTOK` | Unload current filament |
-| `_REMOVE_PRUTOK_IFS PRUTOK={port}` | Unload specific port |
-| `_A_CHANGE_FILAMENT CHANNEL={port}` | Full tool change |
+| `INSERT_PRUTOK_IFS PRUTOK={port}` | Load filament from port (looks up temp from config) |
+| `IFS_REMOVE_PRUTOK` | Unload current filament |
+| `REMOVE_PRUTOK_IFS PRUTOK={port}` | Unload specific port |
+| `A_CHANGE_FILAMENT CHANNEL={port}` | Full tool change |
 | `SET_EXTRUDER_SLOT SLOT={port}` | Select slot without loading |
 | `IFS_UNLOCK` | Reset IFS driver state machine |
-| `SAVE_VARIABLE VARIABLE=name VALUE=value` | Persist color/type/tool changes |
+| `_IFS_VARS key=value SHOW=0` | Persist color/type/tool/external changes |
 
-**SAVE_VARIABLE quoting**: Outer double quotes = G-code parameter delimiters (Klipper strips). Inner content = Python `ast.literal_eval()`. Strings use single quotes: `SAVE_VARIABLE VARIABLE=less_waste_colors VALUE="['FF0000', '00FF00']"`.
+**Variable persistence**: Use `_IFS_VARS` macro (not raw `SAVE_VARIABLE`) to persist slot data. `_IFS_VARS` updates both in-memory gcode variables AND `save_variables` with the correct prefix (`less_waste_*` for lessWaste/zmod, `bambufy_*` for bambufy). `SHOW=0` suppresses the interactive dialog. Example: `_IFS_VARS colors="['FF0000', '00FF00']" SHOW=0`.
+
+**Plugin compatibility**: HelixScreen auto-detects the variable prefix from whichever `save_variables` are present on the printer. Both lessWaste and bambufy use the same schema, just different prefixes.
 
 ### Path Topology
 

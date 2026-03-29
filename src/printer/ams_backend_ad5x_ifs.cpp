@@ -37,9 +37,7 @@ AmsBackendAd5xIfs::AmsBackendAd5xIfs(MoonrakerAPI* api, helix::MoonrakerClient* 
     system_info_.supports_purge = false;
 }
 
-AmsBackendAd5xIfs::~AmsBackendAd5xIfs() {
-    // lifetime_ destructor calls invalidate() automatically
-}
+AmsBackendAd5xIfs::~AmsBackendAd5xIfs() = default;
 
 // --- Lifecycle ---
 
@@ -88,8 +86,6 @@ void AmsBackendAd5xIfs::handle_status_update(const json& notification) {
     std::unique_lock<std::mutex> lock(mutex_);
 
     bool state_changed = false;
-    bool was_loading = (system_info_.action == AmsAction::LOADING);
-    bool was_unloading = (system_info_.action == AmsAction::UNLOADING);
 
     // Parse save_variables if present
     if (status->contains("save_variables")) {
@@ -120,6 +116,7 @@ void AmsBackendAd5xIfs::handle_status_update(const json& notification) {
         if (motion.contains("filament_detected") && motion["filament_detected"].is_boolean()) {
             bool detected = motion["filament_detected"].get<bool>();
             parse_head_sensor(detected);
+            detect_load_unload_completion(detected);
             state_changed = true;
         }
     }
@@ -130,16 +127,8 @@ void AmsBackendAd5xIfs::handle_status_update(const json& notification) {
         if (head.contains("filament_detected") && head["filament_detected"].is_boolean()) {
             bool detected = head["filament_detected"].get<bool>();
             parse_head_sensor(detected);
+            detect_load_unload_completion(detected);
             state_changed = true;
-
-            // Detect operation completion based on head sensor state transitions
-            if (was_loading && detected) {
-                system_info_.action = AmsAction::IDLE;
-                spdlog::info("{} Load complete (head sensor triggered)", backend_log_tag());
-            } else if (was_unloading && !detected) {
-                system_info_.action = AmsAction::IDLE;
-                spdlog::info("{} Unload complete (head sensor cleared)", backend_log_tag());
-            }
         }
     }
 
@@ -177,9 +166,26 @@ void AmsBackendAd5xIfs::handle_status_update(const json& notification) {
 }
 
 void AmsBackendAd5xIfs::parse_save_variables(const json& vars) {
+    // Auto-detect variable prefix: lessWaste/zmod uses "less_waste_*", bambufy uses "bambufy_*".
+    // Check once per status update — the prefix can't change at runtime, but we may not
+    // see both sets of variables in the initial query.
+    if (vars.contains("bambufy_colors") || vars.contains("bambufy_tools")) {
+        if (var_prefix_ != "bambufy") {
+            var_prefix_ = "bambufy";
+            spdlog::info("{} Detected bambufy variable prefix", backend_log_tag());
+        }
+    } else if (vars.contains("less_waste_colors") || vars.contains("less_waste_tools")) {
+        if (var_prefix_ != "less_waste") {
+            var_prefix_ = "less_waste";
+            spdlog::info("{} Detected lessWaste variable prefix", backend_log_tag());
+        }
+    }
+
+    const std::string p = var_prefix_;
+
     // Colors: array of hex strings ["FF0000", "00FF00", ...]
-    if (vars.contains("less_waste_colors") && vars["less_waste_colors"].is_array()) {
-        const auto& colors = vars["less_waste_colors"];
+    if (vars.contains(p + "_colors") && vars[p + "_colors"].is_array()) {
+        const auto& colors = vars[p + "_colors"];
         for (size_t i = 0; i < std::min(colors.size(), static_cast<size_t>(NUM_PORTS)); ++i) {
             if (colors[i].is_string()) {
                 colors_[i] = colors[i].get<std::string>();
@@ -188,8 +194,8 @@ void AmsBackendAd5xIfs::parse_save_variables(const json& vars) {
     }
 
     // Materials: array of type strings ["PLA", "PETG", ...]
-    if (vars.contains("less_waste_types") && vars["less_waste_types"].is_array()) {
-        const auto& types = vars["less_waste_types"];
+    if (vars.contains(p + "_types") && vars[p + "_types"].is_array()) {
+        const auto& types = vars[p + "_types"];
         for (size_t i = 0; i < std::min(types.size(), static_cast<size_t>(NUM_PORTS)); ++i) {
             if (types[i].is_string()) {
                 materials_[i] = types[i].get<std::string>();
@@ -198,8 +204,8 @@ void AmsBackendAd5xIfs::parse_save_variables(const json& vars) {
     }
 
     // Tool mapping: 16-element array, index=tool, value=port (1-4, 5=unmapped)
-    if (vars.contains("less_waste_tools") && vars["less_waste_tools"].is_array()) {
-        const auto& tools = vars["less_waste_tools"];
+    if (vars.contains(p + "_tools") && vars[p + "_tools"].is_array()) {
+        const auto& tools = vars[p + "_tools"];
         for (size_t i = 0; i < std::min(tools.size(), static_cast<size_t>(TOOL_MAP_SIZE)); ++i) {
             if (tools[i].is_number_integer()) {
                 tool_map_[i] = tools[i].get<int>();
@@ -208,14 +214,14 @@ void AmsBackendAd5xIfs::parse_save_variables(const json& vars) {
     }
 
     // Current tool (-1 = none, 0-15 = tool number)
-    if (vars.contains("less_waste_current_tool") &&
-        vars["less_waste_current_tool"].is_number_integer()) {
-        active_tool_ = vars["less_waste_current_tool"].get<int>();
+    if (vars.contains(p + "_current_tool") &&
+        vars[p + "_current_tool"].is_number_integer()) {
+        active_tool_ = vars[p + "_current_tool"].get<int>();
     }
 
     // External/bypass mode (0 or 1)
-    if (vars.contains("less_waste_external") && vars["less_waste_external"].is_number_integer()) {
-        external_mode_ = (vars["less_waste_external"].get<int>() != 0);
+    if (vars.contains(p + "_external") && vars[p + "_external"].is_number_integer()) {
+        external_mode_ = (vars[p + "_external"].get<int>() != 0);
     }
 
     // Rebuild SlotRegistry tool mapping from IFS tool_map_
@@ -233,6 +239,7 @@ void AmsBackendAd5xIfs::parse_save_variables(const json& vars) {
 void AmsBackendAd5xIfs::parse_port_sensor(int port_1based, bool detected) {
     int slot = port_1based - 1;
     if (slot >= 0 && slot < NUM_PORTS) {
+        has_per_port_sensors_ = true;
         port_presence_[static_cast<size_t>(slot)] = detected;
     }
 }
@@ -263,8 +270,14 @@ void AmsBackendAd5xIfs::update_slot_from_state(int slot_index) {
     entry->info.material = materials_[idx];
 
     // Status based on sensor and active state
-    bool has_filament = port_presence_[idx];
     bool is_active_slot = (system_info_.current_slot == slot_index);
+    bool has_filament = port_presence_[idx];
+
+    // Native ZMOD IFS has no per-port sensors. For the active slot, infer
+    // presence from the head sensor so the UI doesn't show all slots as EMPTY.
+    if (!has_per_port_sensors_ && is_active_slot && head_filament_) {
+        has_filament = true;
+    }
 
     if (has_filament && is_active_slot && head_filament_) {
         entry->info.status = SlotStatus::LOADED;
@@ -282,6 +295,11 @@ void AmsBackendAd5xIfs::update_slot_from_state(int slot_index) {
 
 AmsSystemInfo AmsBackendAd5xIfs::get_system_info() const {
     std::lock_guard<std::mutex> lock(mutex_);
+
+    // Check for stuck operations on every UI poll, not just status updates.
+    // This catches cases where the printer goes silent (network drop, Klipper crash).
+    const_cast<AmsBackendAd5xIfs*>(this)->check_action_timeout();
+
     auto info = slots_.build_system_info();
 
     // Overlay our cached system info
@@ -389,7 +407,7 @@ AmsError AmsBackendAd5xIfs::load_filament(int slot_index) {
     // NOTE: load may also need ensure_homed_then() if users report "must home first"
     // errors on load. Unload confirmed to need it — load not yet reported as an issue.
     spdlog::info("{} Loading filament from port {}", backend_log_tag(), port);
-    return execute_gcode("_INSERT_PRUTOK_IFS PRUTOK=" + std::to_string(port));
+    return execute_gcode("INSERT_PRUTOK_IFS PRUTOK=" + std::to_string(port));
 }
 
 AmsError AmsBackendAd5xIfs::unload_filament(int slot_index) {
@@ -406,10 +424,10 @@ AmsError AmsBackendAd5xIfs::unload_filament(int slot_index) {
     if (slot_index >= 0 && slot_index < NUM_PORTS) {
         int port = slot_index + 1;
         spdlog::info("{} Unloading filament from port {}", backend_log_tag(), port);
-        unload_cmd = "_REMOVE_PRUTOK_IFS PRUTOK=" + std::to_string(port);
+        unload_cmd = "REMOVE_PRUTOK_IFS PRUTOK=" + std::to_string(port);
     } else {
         spdlog::info("{} Unloading current filament", backend_log_tag());
-        unload_cmd = "_IFS_REMOVE_PRUTOK";
+        unload_cmd = "IFS_REMOVE_PRUTOK";
     }
 
     return ensure_homed_then(std::move(unload_cmd));
@@ -451,7 +469,7 @@ AmsError AmsBackendAd5xIfs::change_tool(int tool_number) {
         action_start_time_ = std::chrono::steady_clock::now();
     }
     spdlog::info("{} Changing to tool T{} (port {})", backend_log_tag(), tool_number, port);
-    return execute_gcode("_A_CHANGE_FILAMENT CHANNEL=" + std::to_string(port));
+    return execute_gcode("A_CHANGE_FILAMENT CHANNEL=" + std::to_string(port));
 }
 
 // --- Recovery ---
@@ -521,7 +539,8 @@ AmsError AmsBackendAd5xIfs::set_slot_info(int slot_index, const SlotInfo& info, 
     }
 
     if (persist) {
-        // Persist colors and types to save_variables
+        // Persist via _IFS_VARS macro — handles both lessWaste and bambufy prefixes
+        // and updates in-memory gcode variables + save_variables in one call.
         std::string color_val, type_val;
         {
             std::lock_guard<std::mutex> lock(mutex_);
@@ -529,10 +548,10 @@ AmsError AmsBackendAd5xIfs::set_slot_info(int slot_index, const SlotInfo& info, 
             type_val = build_type_list_value();
         }
 
-        auto err = write_save_variable("less_waste_colors", color_val);
+        auto err = write_ifs_var("colors", color_val);
         if (!err.success()) return err;
 
-        err = write_save_variable("less_waste_types", type_val);
+        err = write_ifs_var("types", type_val);
         if (!err.success()) return err;
     }
 
@@ -565,7 +584,7 @@ AmsError AmsBackendAd5xIfs::set_tool_mapping(int tool_number, int slot_index) {
         tools_val = build_tool_map_value();
     }
 
-    return write_save_variable("less_waste_tools", tools_val);
+    return write_ifs_var("tools", tools_val);
 }
 
 // --- Bypass ---
@@ -575,7 +594,7 @@ AmsError AmsBackendAd5xIfs::enable_bypass() {
     if (!err.success()) return err;
 
     spdlog::info("{} Enabling bypass (external) mode", backend_log_tag());
-    return write_save_variable("less_waste_external", "1");
+    return write_ifs_var("external", "1");
 }
 
 AmsError AmsBackendAd5xIfs::disable_bypass() {
@@ -583,15 +602,15 @@ AmsError AmsBackendAd5xIfs::disable_bypass() {
     if (!err.success()) return err;
 
     spdlog::info("{} Disabling bypass (external) mode", backend_log_tag());
-    return write_save_variable("less_waste_external", "0");
+    return write_ifs_var("external", "0");
 }
 
 // --- Private helpers ---
 
 std::string AmsBackendAd5xIfs::build_color_list_value() const {
-    // Build Python list literal for SAVE_VARIABLE.
-    // G-code quoting: outer double quotes are G-code parameter delimiters (Klipper strips them).
-    // Inner content is evaluated by Python's ast.literal_eval().
+    // Build Python list literal for _IFS_VARS macro.
+    // Outer double quotes delimit the G-code parameter value (Klipper strips them).
+    // _IFS_VARS passes the inner content to SAVE_VARIABLE, adding its own quoting.
     // Single quotes for string elements inside the list.
     // Example: "['FF0000', '00FF00', '0000FF', 'FFFFFF']"
     std::ostringstream ss;
@@ -605,7 +624,6 @@ std::string AmsBackendAd5xIfs::build_color_list_value() const {
 }
 
 std::string AmsBackendAd5xIfs::build_type_list_value() const {
-    // Same quoting convention as build_color_list_value()
     std::ostringstream ss;
     ss << "\"[";
     for (int i = 0; i < NUM_PORTS; ++i) {
@@ -629,18 +647,28 @@ std::string AmsBackendAd5xIfs::build_tool_map_value() const {
     return ss.str();
 }
 
-AmsError AmsBackendAd5xIfs::write_save_variable(const std::string& name,
-                                                  const std::string& value) {
+AmsError AmsBackendAd5xIfs::write_ifs_var(const std::string& key,
+                                            const std::string& value) {
     if (!api_) {
         return AmsErrorHelper::invalid_parameter("No API connection");
     }
 
-    // SAVE_VARIABLE G-code command writes to Klipper's save_variables file.
-    // VALUE= parameter: Klipper strips outer double quotes, then ast.literal_eval()
-    // parses the inner content. For strings/lists, the inner content must be valid Python.
-    std::string gcode = "SAVE_VARIABLE VARIABLE=" + name + " VALUE=" + value;
-    spdlog::debug("{} Writing save_variable: {} = {}", backend_log_tag(), name, value);
+    // Use _IFS_VARS macro to persist state — works for both lessWaste and bambufy.
+    // The macro updates in-memory gcode variables AND writes SAVE_VARIABLE with the
+    // correct prefix automatically. SHOW=0 suppresses the interactive dialog.
+    std::string gcode = "_IFS_VARS " + key + "=" + value + " SHOW=0";
+    spdlog::debug("{} Writing IFS var: {} = {}", backend_log_tag(), key, value);
     return execute_gcode(gcode);
+}
+
+void AmsBackendAd5xIfs::detect_load_unload_completion(bool head_detected) {
+    if (system_info_.action == AmsAction::LOADING && head_detected) {
+        system_info_.action = AmsAction::IDLE;
+        spdlog::info("{} Load complete (head sensor triggered)", backend_log_tag());
+    } else if (system_info_.action == AmsAction::UNLOADING && !head_detected) {
+        system_info_.action = AmsAction::IDLE;
+        spdlog::info("{} Unload complete (head sensor cleared)", backend_log_tag());
+    }
 }
 
 int AmsBackendAd5xIfs::find_first_tool_for_port(int port_1based) const {
@@ -700,6 +728,12 @@ AmsError AmsBackendAd5xIfs::ensure_homed_then(std::string gcode) {
             } else {
                 execute_gcode(gcode_copy);
             }
+        },
+        [this, token](const MoonrakerError& err) {
+            if (token.expired()) return;
+            spdlog::error("{} Homed axes query failed: {}", backend_log_tag(), err.message);
+            std::lock_guard<std::mutex> lock(mutex_);
+            system_info_.action = AmsAction::IDLE;
         });
 
     return AmsErrorHelper::success();

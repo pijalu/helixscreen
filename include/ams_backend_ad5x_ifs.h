@@ -5,7 +5,6 @@
 #if HELIX_HAS_IFS
 
 #include "ams_subscription_backend.h"
-#include "async_lifetime_guard.h"
 #include "slot_registry.h"
 
 #include <array>
@@ -84,7 +83,8 @@ class AmsBackendAd5xIfs : public AmsSubscriptionBackend {
     std::string build_color_list_value() const;
     std::string build_type_list_value() const;
     std::string build_tool_map_value() const;
-    AmsError write_save_variable(const std::string& name, const std::string& value);
+    AmsError write_ifs_var(const std::string& key, const std::string& value);
+    void detect_load_unload_completion(bool head_detected);
 
     int find_first_tool_for_port(int port_1based) const;
     bool validate_slot_index(int slot_index) const;
@@ -92,6 +92,9 @@ class AmsBackendAd5xIfs : public AmsSubscriptionBackend {
     AmsError ensure_homed_then(std::string gcode);
 
     // Cached state from save_variables
+    // Variable prefix: "less_waste" (lessWaste/zmod) or "bambufy" — auto-detected from
+    // whichever save_variables are present on the printer.
+    std::string var_prefix_ = "less_waste";
     std::array<std::string, NUM_PORTS> colors_;    // Hex strings: "FF0000"
     std::array<std::string, NUM_PORTS> materials_; // Material names: "PLA"
     std::array<int, TOOL_MAP_SIZE> tool_map_;      // tool_map_[tool] = port (1-4, 5=unmapped)
@@ -102,12 +105,15 @@ class AmsBackendAd5xIfs : public AmsSubscriptionBackend {
 
     helix::printer::SlotRegistry slots_;
 
+    // Native ZMOD IFS has no per-port sensors — infer port presence from active
+    // tool + head sensor state so the UI doesn't show all slots as EMPTY.
+    bool has_per_port_sensors_ = false;
+
     // Action timeout tracking
     static constexpr int ACTION_TIMEOUT_SECONDS = 90;
     std::chrono::steady_clock::time_point action_start_time_;
 
-    // Async callback safety guard
-    helix::AsyncLifetimeGuard lifetime_;
+    // Note: uses inherited lifetime_ from AmsSubscriptionBackend (not shadowed).
 };
 
 #endif // HELIX_HAS_IFS
