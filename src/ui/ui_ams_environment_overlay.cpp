@@ -129,6 +129,7 @@ lv_obj_t* AmsEnvironmentOverlay::create(lv_obj_t* parent) {
     preset_dropdown_ = lv_obj_find_by_name(overlay_, "preset_dropdown");
     temp_input_ = lv_obj_find_by_name(overlay_, "temp_input");
     duration_input_ = lv_obj_find_by_name(overlay_, "duration_input");
+    temp_range_label_ = lv_obj_find_by_name(overlay_, "temp_range_label");
 
     // Register textareas with keyboard manager for on-screen numeric input
     if (temp_input_) {
@@ -292,6 +293,14 @@ void AmsEnvironmentOverlay::update_from_backend() {
 
     // Material comfort ranges
     update_comfort_text(humidity_pct);
+
+    // Update temp range label with backend limits (e.g., "Temp °C (35-55)")
+    if (temp_range_label_ && dryer.supported) {
+        char range_buf[32];
+        snprintf(range_buf, sizeof(range_buf), "Temp \xC2\xB0""C (%d\xe2\x80\x93%d)",
+                 static_cast<int>(dryer.min_temp_c), static_cast<int>(dryer.max_temp_c));
+        lv_label_set_text(temp_range_label_, range_buf);
+    }
 
     // Populate dryer presets and auto-select based on loaded materials
     if (dryer.supported) {
@@ -519,7 +528,7 @@ void AmsEnvironmentOverlay::on_start_stop_clicked(lv_event_t* e) {
                 NOTIFY_ERROR("{}: {}", lv_tr("Stop failed"), result.user_msg);
             }
         } else {
-            // Start drying with textarea values
+            // Start drying with textarea values, clamped to backend limits
             float temp_c = 55.0f;
             int duration_hours = 4;
 
@@ -532,7 +541,16 @@ void AmsEnvironmentOverlay::on_start_stop_clicked(lv_event_t* e) {
                 if (text && text[0]) duration_hours = atoi(text);
             }
 
+            // Clamp temperature to backend-reported limits
+            if (temp_c < dryer.min_temp_c) temp_c = dryer.min_temp_c;
+            if (temp_c > dryer.max_temp_c) temp_c = dryer.max_temp_c;
+
+            // Clamp duration to backend limit
             int duration_min = duration_hours * 60;
+            if (duration_min > dryer.max_duration_min)
+                duration_min = dryer.max_duration_min;
+            if (duration_min <= 0) duration_min = 60;
+
             spdlog::info("[AmsEnvironmentOverlay] Starting drying: {}°C for {}min",
                          temp_c, duration_min);
 

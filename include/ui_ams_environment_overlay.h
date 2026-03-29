@@ -108,6 +108,7 @@ class AmsEnvironmentOverlay : public OverlayBase {
     lv_obj_t* preset_dropdown_ = nullptr;
     lv_obj_t* temp_input_ = nullptr;
     lv_obj_t* duration_input_ = nullptr;
+    lv_obj_t* temp_range_label_ = nullptr;
 
     // === Subjects (managed by SubjectManager) ===
 

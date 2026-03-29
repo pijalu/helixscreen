@@ -42,7 +42,7 @@ AmsBackendAce::AmsBackendAce(MoonrakerAPI* api, MoonrakerClient* client)
     dryer_info_.active = false;
     dryer_info_.allows_during_print = false;
     dryer_info_.min_temp_c = 35.0f;
-    dryer_info_.max_temp_c = 70.0f;
+    dryer_info_.max_temp_c = 55.0f;
     dryer_info_.max_duration_min = 720;       // 12 hours
     dryer_info_.supports_fan_control = false;
 }
