@@ -5,6 +5,7 @@
 #if HELIX_HAS_CFS
 
 #include "ams_subscription_backend.h"
+#include "async_lifetime_guard.h"
 
 #include <optional>
 #include <string>
@@ -86,7 +87,7 @@ class AmsBackendCfs : public AmsSubscriptionBackend {
     AmsError recover() override;
     AmsError cancel() override;
 
-    // Slot management (not supported — RFID manages slot info)
+    // Slot management (user overrides persisted locally + Moonraker DB)
     AmsError set_slot_info(int slot_index, const SlotInfo& info, bool persist = true) override;
     AmsError set_tool_mapping(int tool_number, int slot_index) override;
 
@@ -125,6 +126,36 @@ class AmsBackendCfs : public AmsSubscriptionBackend {
   private:
     std::string current_tnn_;
     bool motor_ready_ = true;
+
+    // Callback lifetime management
+    helix::AsyncLifetimeGuard lifetime_;
+
+    // User slot overrides: CFS hardware manages slot info via RFID,
+    // so user edits (color, material, weight) are stored in-memory and merged
+    // over hardware-reported values during parse. Cleared when slot status changes
+    // (e.g., spool physically swapped). Uses GLOBAL slot indices.
+    struct SlotOverride {
+        uint32_t color_rgb = 0;
+        std::string material;
+        std::string color_name;
+        std::string brand;
+        std::string spool_name;
+        int spoolman_id = 0;
+        float remaining_weight_g = -1;
+        float total_weight_g = -1;
+    };
+    std::unordered_map<int, SlotOverride> slot_overrides_;
+    std::unordered_map<int, SlotStatus> prev_slot_status_;
+
+    // Slot override persistence (Moonraker DB + local JSON fallback)
+    void save_slot_overrides();
+    void load_slot_overrides();
+    void save_slot_overrides_json() const;
+    bool load_slot_overrides_json();
+    nlohmann::json slot_overrides_to_json() const;
+    void apply_slot_overrides_json(const nlohmann::json& data);
+
+    std::string config_dir_ = "config";
 };
 
 } // namespace helix::printer
