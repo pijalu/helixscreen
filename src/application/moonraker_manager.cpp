@@ -6,7 +6,7 @@
  *
  * @pattern Manager with shared_ptr<atomic<bool>> alive flag for callback safety
  * @threading Queues notifications from WebSocket thread to main thread
- * @gotchas Set m_alive flag FIRST in shutdown before waiting on callbacks
+ * @gotchas Destroy m_client FIRST in shutdown — it waits for in-flight callbacks
  *
  * @see moonraker_client.cpp, printer_state.cpp
  */
@@ -97,9 +97,6 @@ void MoonrakerManager::shutdown() {
         m_print_start_collector.reset();
     }
 
-    // Clean up macro analysis manager
-    m_macro_analysis.reset();
-
     // Release observer guards without calling lv_observer_remove().
     // During shutdown, subjects may already be deinitialized (which frees observers).
     // Using release() avoids double-free of already-removed observers.
@@ -108,9 +105,16 @@ void MoonrakerManager::shutdown() {
     m_print_layer_fallback_observer.release();
     m_print_progress_fallback_observer.release();
 
-    // Clear API before client (API uses client)
-    m_api.reset();
+    // Destroy client FIRST: its destructor waits for in-flight libhv callbacks
+    // to finish. connect() lambdas hold raw pointers to m_api and m_macro_analysis,
+    // so those must outlive the client to avoid use-after-free (#628).
     m_client.reset();
+
+    // Safe now — no callbacks can fire after client destruction.
+    // Note: m_api holds a MoonrakerClient& that is now dangling, but
+    // ~MoonrakerAPI() only joins HTTP threads and deinits subjects.
+    m_macro_analysis.reset();
+    m_api.reset();
 
     // Clear notification queue
     {
@@ -143,9 +147,9 @@ int MoonrakerManager::connect(const std::string& websocket_url, const std::strin
     MoonrakerClient* client = m_client.get();
     MoonrakerAPI* api = m_api.get();
     helix::MacroModificationManager* macro_mgr = m_macro_analysis.get();
-    // Capture alive flag so callbacks can detect shutdown. Raw pointers (client,
-    // api, macro_mgr) become dangling after shutdown() destroys the unique_ptrs.
-    // The alive flag is set to false FIRST in shutdown() before any cleanup (#435).
+    // Raw pointers remain valid because shutdown() destroys client first,
+    // waiting for in-flight callbacks before destroying api/macro_analysis.
+    // The alive flag provides early-out for callbacks queued during shutdown (#435, #628).
     auto alive = m_alive;
     return m_client->connect(
         websocket_url.c_str(),
