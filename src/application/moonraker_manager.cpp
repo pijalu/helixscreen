@@ -36,6 +36,7 @@
 #include "printer_detector.h"
 #include "printer_state.h"
 #include "sound_manager.h"
+#include "spoolman_manager.h"
 #include "tool_state.h"
 
 #include <spdlog/spdlog.h>
@@ -424,6 +425,9 @@ void MoonrakerManager::create_api(const RuntimeConfig& runtime_config) {
 
     // Set API for AmsState Spoolman integration
     AmsState::instance().set_moonraker_api(m_api.get());
+
+    // Set API for SpoolmanManager weight polling
+    SpoolmanManager::instance().set_api(m_api.get());
 
     // Note: EmergencyStopOverlay::init() and create() are called from Application
     // after both MoonrakerManager and SubjectInitializer are ready

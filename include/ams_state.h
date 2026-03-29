@@ -909,36 +909,6 @@ class AmsState {
      */
     bool is_filament_operation_active();
 
-    // ========================================================================
-    // Spoolman Weight Polling
-    // ========================================================================
-
-    /**
-     * @brief Refresh weights from Spoolman for all linked slots
-     *
-     * Queries Spoolman for updated weight info for each slot that has a
-     * spoolman_id > 0. Updates remaining_weight_g and total_weight_g in
-     * the backend's slot data.
-     */
-    void refresh_spoolman_weights();
-
-    /**
-     * @brief Start periodic Spoolman weight polling
-     *
-     * Uses a reference count pattern - multiple panels can call start_spoolman_polling()
-     * and the timer is only created on the first call. The timer will refresh weights
-     * every 30 seconds.
-     */
-    void start_spoolman_polling();
-
-    /**
-     * @brief Stop periodic Spoolman weight polling
-     *
-     * Decrements the reference count. The timer is only deleted when the count
-     * reaches zero (all panels that started polling have stopped).
-     */
-    void stop_spoolman_polling();
-
     /**
      * @brief Bump the slots version counter to trigger UI refresh
      *
@@ -946,14 +916,6 @@ class AmsState {
      * to notify observers and redraw the AMS panel.
      */
     void bump_slots_version();
-
-    /**
-     * @brief Reset Spoolman circuit breaker state (for testing only)
-     *
-     * Clears failure counters, debounce timestamps, and notification flags
-     * so each test starts from a clean state.
-     */
-    void reset_spoolman_circuit_breaker();
 
   private:
     friend class AmsStateTestAccess;
@@ -1016,20 +978,6 @@ class AmsState {
     // Moonraker API for Spoolman integration
     MoonrakerAPI* api_ = nullptr;
     int last_synced_spoolman_id_ = 0; ///< Track to avoid duplicate set_active_spool calls
-
-    // Spoolman weight polling
-    lv_timer_t* spoolman_poll_timer_ = nullptr;
-    int spoolman_poll_refcount_ = 0;
-
-    // Spoolman circuit breaker / debounce state
-    static constexpr int SPOOLMAN_CB_FAILURE_THRESHOLD = 3;   ///< Consecutive failures to trip
-    static constexpr uint32_t SPOOLMAN_CB_BACKOFF_MS = 30000; ///< Backoff when tripped (30s)
-    static constexpr uint32_t SPOOLMAN_DEBOUNCE_MS = 5000;    ///< Min interval between refreshes
-    uint32_t spoolman_last_refresh_ms_ = 0;                   ///< Tick of last actual refresh
-    int spoolman_consecutive_failures_ = 0;      ///< Failure counter for circuit breaker
-    uint32_t spoolman_cb_tripped_at_ms_ = 0;     ///< Tick when circuit breaker tripped
-    bool spoolman_cb_open_ = false;              ///< True = circuit breaker is open (blocking)
-    bool spoolman_unavailable_notified_ = false; ///< True = toast already shown this outage
 
     // Subject manager for automatic cleanup
     SubjectManager subjects_;
@@ -1158,9 +1106,6 @@ class AmsState {
     lv_subject_t env_ind_drying_active_[MAX_UNITS];
     lv_subject_t env_ind_drying_text_[MAX_UNITS];
     char env_ind_drying_text_buf_[MAX_UNITS][ENV_IND_DRYING_BUF_SIZE]{};
-
-    // Observer for print state changes to auto-refresh Spoolman weights
-    ObserverGuard print_state_observer_;
 
     // Stored callback for mock gcode response injection
     std::function<void(const std::string&)> gcode_response_callback_;

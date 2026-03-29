@@ -37,6 +37,7 @@
 #include "observer_factory.h"
 #include "printer_detector.h"
 #include "printer_state.h"
+#include "spoolman_manager.h"
 #include "static_panel_registry.h"
 #include "theme_manager.h"
 #include "ui/ams_drawing_utils.h"
@@ -415,7 +416,7 @@ void AmsPanel::on_activate() {
     sync_spoolman_active_spool();
 
     // Start Spoolman polling for slot weight updates
-    AmsState::instance().start_spoolman_polling();
+    SpoolmanManager::instance().start_spoolman_polling();
 }
 
 void AmsPanel::sync_spoolman_active_spool() {
@@ -446,7 +447,7 @@ void AmsPanel::sync_spoolman_active_spool() {
 }
 
 void AmsPanel::on_deactivate() {
-    AmsState::instance().stop_spoolman_polling();
+    SpoolmanManager::instance().stop_spoolman_polling();
 
     // Stop filament path animations to avoid burning CPU in the background
     if (path_canvas_) {

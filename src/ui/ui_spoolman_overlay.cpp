@@ -24,6 +24,7 @@
 #include "moonraker_api.h"
 #include "moonraker_config_manager.h"
 #include "runtime_config.h"
+#include "spoolman_manager.h"
 #include "static_panel_registry.h"
 #include "theme_manager.h"
 
@@ -223,9 +224,9 @@ void SpoolmanOverlay::load_from_database() {
         lv_subject_set_int(&sync_enabled_subject_, enabled ? 1 : 0);
         spdlog::debug("[{}] Loaded sync_enabled={} from database", get_name(), enabled);
         if (enabled) {
-            AmsState::instance().start_spoolman_polling();
+            SpoolmanManager::instance().start_spoolman_polling();
         } else {
-            AmsState::instance().stop_spoolman_polling();
+            SpoolmanManager::instance().stop_spoolman_polling();
         }
     };
 
@@ -405,11 +406,11 @@ void SpoolmanOverlay::on_sync_toggled(lv_event_t* e) {
         // Save to database
         overlay.save_sync_enabled(is_checked);
 
-        // Update AmsState polling
+        // Update Spoolman polling
         if (is_checked) {
-            AmsState::instance().start_spoolman_polling();
+            SpoolmanManager::instance().start_spoolman_polling();
         } else {
-            AmsState::instance().stop_spoolman_polling();
+            SpoolmanManager::instance().stop_spoolman_polling();
         }
     }
 

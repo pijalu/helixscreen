@@ -24,6 +24,7 @@
 #include "printer_image_manager.h"
 #include "printer_state.h"
 #include "runtime_config.h"
+#include "spoolman_manager.h"
 #include "static_panel_registry.h"
 #include "theme_manager.h"
 
@@ -691,7 +692,7 @@ void HomePanel::on_activate() {
     }
 
     // Start Spoolman polling for AMS mini status updates
-    AmsState::instance().start_spoolman_polling();
+    SpoolmanManager::instance().start_spoolman_polling();
 }
 
 void HomePanel::on_deactivate() {
@@ -710,7 +711,7 @@ void HomePanel::on_deactivate() {
         }
     }
 
-    AmsState::instance().stop_spoolman_polling();
+    SpoolmanManager::instance().stop_spoolman_polling();
 }
 
 void HomePanel::apply_printer_config() {

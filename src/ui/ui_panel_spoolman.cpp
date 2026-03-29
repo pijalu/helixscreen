@@ -24,6 +24,7 @@
 #include "lvgl/src/others/translation/lv_translation.h"
 #include "moonraker_api.h"
 #include "printer_state.h"
+#include "spoolman_manager.h"
 #include "theme_manager.h"
 #include "ui/ui_lazy_panel_helper.h"
 
@@ -172,12 +173,12 @@ void SpoolmanPanel::on_activate() {
     refresh_spools();
 
     // Start Spoolman polling for weight updates
-    AmsState::instance().start_spoolman_polling();
+    SpoolmanManager::instance().start_spoolman_polling();
 }
 
 void SpoolmanPanel::on_deactivate() {
 
-    AmsState::instance().stop_spoolman_polling();
+    SpoolmanManager::instance().stop_spoolman_polling();
 
     // Clean up debounce timer
     if (search_debounce_timer_) {

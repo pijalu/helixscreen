@@ -56,6 +56,7 @@
 #include "printer_state.h"
 #include "probe_sensor_manager.h"
 #include "settings_manager.h"
+#include "spoolman_manager.h"
 #include "system/telemetry_manager.h"
 #include "temperature_sensor_manager.h"
 #include "timelapse_state.h"
@@ -144,6 +145,9 @@ void SubjectInitializer::init_ams_subjects() {
     // Initialize AmsState subjects BEFORE panels so XML bindings can find ams_gate_count
     // Note: In mock mode, init_subjects() also creates the mock backend internally
     AmsState::instance().init_subjects(true);
+
+    // Initialize SpoolmanManager AFTER AmsState (it reads slot data from AmsState)
+    SpoolmanManager::instance().init_subjects();
 
     // Initialize ToolState subjects (tool changer state tracking)
     helix::ToolState::instance().init_subjects();
