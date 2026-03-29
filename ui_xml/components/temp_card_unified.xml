@@ -12,11 +12,18 @@
             width="100%" height="content" style_pad_all="0"
             flex_flow="row" style_flex_cross_place="center" clickable="true">
       <event_cb trigger="clicked" callback="on_print_temp_nozzle_clicked"/>
-      <text_small text="Nozzle" translation_tag="Nozzle" style_min_width="68"/>
+      <!-- Icon label for TINY/SMALL breakpoints -->
+      <icon src="heater" size="sm" variant="muted">
+        <bind_flag_if_gt subject="ui_breakpoint" flag="hidden" ref_value="1"/>
+      </icon>
+      <!-- Text label for MEDIUM+ breakpoints -->
+      <text_small text="Nozzle" translation_tag="Nozzle">
+        <bind_flag_if_lt subject="ui_breakpoint" flag="hidden" ref_value="2"/>
+      </text_small>
       <temp_display name="nozzle_temp" size="md" show_target="true"
                     bind_current="extruder_temp" bind_target="extruder_target" flex_grow="1"/>
       <text_small name="nozzle_status" bind_text="print_nozzle_status"
-                  style_text_align="right" variant="muted" style_min_width="60"/>
+                  style_text_align="right" variant="muted"/>
     </lv_obj>
 
     <!-- Bed row -->
@@ -24,22 +31,36 @@
             width="100%" height="content" style_pad_all="0"
             flex_flow="row" style_flex_cross_place="center" clickable="true">
       <event_cb trigger="clicked" callback="on_print_temp_bed_clicked"/>
-      <text_small text="Bed" translation_tag="Bed" style_min_width="68"/>
+      <!-- Icon label for TINY/SMALL breakpoints -->
+      <icon src="radiator" size="sm" variant="muted">
+        <bind_flag_if_gt subject="ui_breakpoint" flag="hidden" ref_value="1"/>
+      </icon>
+      <!-- Text label for MEDIUM+ breakpoints -->
+      <text_small text="Bed" translation_tag="Bed">
+        <bind_flag_if_lt subject="ui_breakpoint" flag="hidden" ref_value="2"/>
+      </text_small>
       <temp_display name="bed_temp" size="md" show_target="true"
                     bind_current="bed_temp" bind_target="bed_target" flex_grow="1"/>
       <text_small name="bed_status" bind_text="print_bed_status"
-                  style_text_align="right" variant="muted" style_min_width="60"/>
+                  style_text_align="right" variant="muted"/>
     </lv_obj>
 
     <!-- Chamber row (hidden by default, C++ manages visibility) -->
     <lv_obj name="chamber_row"
             width="100%" height="content" style_pad_all="0"
             flex_flow="row" style_flex_cross_place="center" hidden="true">
-      <text_small text="Chamber" style_min_width="68"/>
+      <!-- Icon label for TINY/SMALL breakpoints -->
+      <icon src="heat_wave" size="sm" variant="muted">
+        <bind_flag_if_gt subject="ui_breakpoint" flag="hidden" ref_value="1"/>
+      </icon>
+      <!-- Text label for MEDIUM+ breakpoints -->
+      <text_small text="Chamber">
+        <bind_flag_if_lt subject="ui_breakpoint" flag="hidden" ref_value="2"/>
+      </text_small>
       <temp_display name="chamber_temp_display" size="md" show_target="false"
                     bind_current="chamber_temp" flex_grow="1"/>
       <text_small name="chamber_status" bind_text="print_chamber_status"
-                  style_text_align="right" variant="muted" style_min_width="60"
+                  style_text_align="right" variant="muted"
                   hidden="true"/>
     </lv_obj>
 
