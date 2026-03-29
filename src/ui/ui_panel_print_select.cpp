@@ -1387,7 +1387,7 @@ void PrintSelectPanel::check_moonraker_usb_symlink() {
                 }
             }
 
-            if (has_usb_files || files.empty()) {
+            if (has_usb_files) {
                 spdlog::info("[{}] Moonraker has USB symlink access ({} files) - hiding USB tab",
                              self->get_name(), files.size());
                 if (self->usb_source_) {
