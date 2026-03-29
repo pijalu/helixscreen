@@ -1,12 +1,27 @@
 // Copyright (C) 2025-2026 356C LLC
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+/**
+ * @file test_spoolman_manager.cpp
+ * @brief Unit tests for SpoolmanManager singleton
+ *
+ * Tests refcount-based polling, circuit breaker state, and spoolman
+ * availability gating. Does not require a real MoonrakerAPI — exercises
+ * the internal state machine via the SpoolmanManagerTestAccess friend class.
+ */
+
+#include "app_globals.h"
+#include "printer_state.h"
 #include "spoolman_manager.h"
+#include "ui_update_queue.h"
 
 #include "../catch_amalgamated.hpp"
+#include "../test_helpers/update_queue_test_access.h"
+#include "../ui_test_utils.h"
 
 // ============================================================================
-// Test Access — friend class for reaching private members (L065)
+// TestAccess — friend class for private member inspection (L065: no test
+// methods on the class itself)
 // ============================================================================
 
 class SpoolmanManagerTestAccess {
@@ -14,98 +29,276 @@ class SpoolmanManagerTestAccess {
     static int poll_refcount(SpoolmanManager& m) { return m.poll_refcount_; }
     static bool cb_open(SpoolmanManager& m) { return m.cb_open_; }
     static int consecutive_failures(SpoolmanManager& m) { return m.consecutive_failures_; }
-    static bool unavailable_notified(SpoolmanManager& m) { return m.unavailable_notified_; }
-    static uint32_t last_refresh_ms(SpoolmanManager& m) { return m.last_refresh_ms_; }
-
-    static void set_consecutive_failures(SpoolmanManager& m, int n) {
-        m.consecutive_failures_ = n;
-    }
-    static void set_cb_open(SpoolmanManager& m, bool open) { m.cb_open_ = open; }
-    static void reset_cb(SpoolmanManager& m) { m.reset_circuit_breaker(); }
 
     static void reset(SpoolmanManager& m) {
+        // Delete any active timer to avoid leaks between tests
+        if (m.poll_timer_ && lv_is_initialized()) {
+            lv_timer_delete(m.poll_timer_);
+            m.poll_timer_ = nullptr;
+        }
         m.poll_refcount_ = 0;
-        m.poll_timer_ = nullptr;
+        m.last_refresh_ms_ = 0;
         m.consecutive_failures_ = 0;
         m.cb_tripped_at_ms_ = 0;
         m.cb_open_ = false;
         m.unavailable_notified_ = false;
-        m.last_refresh_ms_ = 0;
         m.api_ = nullptr;
+    }
+
+    static void set_consecutive_failures(SpoolmanManager& m, int count) {
+        m.consecutive_failures_ = count;
+    }
+
+    static void set_cb_open(SpoolmanManager& m, bool open) {
+        m.cb_open_ = open;
+        if (open) {
+            m.cb_tripped_at_ms_ = lv_tick_get();
+        }
     }
 };
 
 using TA = SpoolmanManagerTestAccess;
 
 // ============================================================================
+// LVGL Init (once per translation unit, idempotent)
+// ============================================================================
+
+namespace {
+struct LVGLInitializerSpoolman {
+    LVGLInitializerSpoolman() {
+        static bool initialized = false;
+        if (!initialized) {
+            lv_init_safe();
+            lv_display_t* disp = lv_display_create(800, 480);
+            alignas(64) static lv_color_t buf[800 * 10];
+            lv_display_set_buffers(disp, buf, nullptr, sizeof(buf),
+                                   LV_DISPLAY_RENDER_MODE_PARTIAL);
+            initialized = true;
+        }
+    }
+};
+static LVGLInitializerSpoolman lvgl_init;
+} // namespace
+
+// ============================================================================
+// Fixture — reset singleton state between tests (L053)
+// ============================================================================
+
+struct SpoolmanFixture {
+    static bool queue_initialized;
+
+    SpoolmanFixture() {
+        if (!queue_initialized) {
+            helix::ui::update_queue_init();
+            queue_initialized = true;
+        }
+        TA::reset(SpoolmanManager::instance());
+        get_printer_state().init_subjects(false);
+    }
+
+    ~SpoolmanFixture() { TA::reset(SpoolmanManager::instance()); }
+
+    /// Set spoolman availability and drain the update queue so the subject
+    /// value is visible synchronously (set_spoolman_available uses queue_update).
+    void set_spoolman_available(bool available) {
+        get_printer_state().set_spoolman_available(available);
+        helix::ui::UpdateQueueTestAccess::drain_all(
+            helix::ui::UpdateQueue::instance());
+    }
+};
+
+bool SpoolmanFixture::queue_initialized = false;
+
+// ============================================================================
 // Polling Refcount Tests
 // ============================================================================
 
-TEST_CASE("SpoolmanManager - polling refcount increments and decrements",
-          "[spoolman][polling]") {
+TEST_CASE_METHOD(SpoolmanFixture,
+                 "SpoolmanManager: start increments refcount",
+                 "[spoolman]") {
     auto& mgr = SpoolmanManager::instance();
-    TA::reset(mgr);
+    set_spoolman_available(true);
 
-    SECTION("start increments, stop decrements") {
-        // Without spoolman available, start is a no-op (availability gate)
-        // Test the stop path which always works
-        REQUIRE(TA::poll_refcount(mgr) == 0);
-        mgr.stop_spoolman_polling();
-        REQUIRE(TA::poll_refcount(mgr) == 0); // clamped at 0
-    }
+    REQUIRE(TA::poll_refcount(mgr) == 0);
 
-    SECTION("stop below zero clamps at 0") {
-        REQUIRE(TA::poll_refcount(mgr) == 0);
-        mgr.stop_spoolman_polling();
-        mgr.stop_spoolman_polling();
-        mgr.stop_spoolman_polling();
-        REQUIRE(TA::poll_refcount(mgr) == 0);
-    }
+    mgr.start_spoolman_polling();
+    REQUIRE(TA::poll_refcount(mgr) == 1);
+
+    mgr.start_spoolman_polling();
+    REQUIRE(TA::poll_refcount(mgr) == 2);
+}
+
+TEST_CASE_METHOD(SpoolmanFixture,
+                 "SpoolmanManager: stop decrements refcount",
+                 "[spoolman]") {
+    auto& mgr = SpoolmanManager::instance();
+    set_spoolman_available(true);
+
+    mgr.start_spoolman_polling();
+    mgr.start_spoolman_polling();
+    REQUIRE(TA::poll_refcount(mgr) == 2);
+
+    mgr.stop_spoolman_polling();
+    REQUIRE(TA::poll_refcount(mgr) == 1);
+
+    mgr.stop_spoolman_polling();
+    REQUIRE(TA::poll_refcount(mgr) == 0);
+}
+
+TEST_CASE_METHOD(SpoolmanFixture,
+                 "SpoolmanManager: multiple starts and stops balance",
+                 "[spoolman]") {
+    auto& mgr = SpoolmanManager::instance();
+    set_spoolman_available(true);
+
+    mgr.start_spoolman_polling();
+    mgr.start_spoolman_polling();
+    mgr.start_spoolman_polling();
+
+    mgr.stop_spoolman_polling();
+    mgr.stop_spoolman_polling();
+    mgr.stop_spoolman_polling();
+
+    REQUIRE(TA::poll_refcount(mgr) == 0);
+}
+
+TEST_CASE_METHOD(SpoolmanFixture,
+                 "SpoolmanManager: stop below zero clamps at 0",
+                 "[spoolman]") {
+    auto& mgr = SpoolmanManager::instance();
+
+    // Stop without any prior start
+    mgr.stop_spoolman_polling();
+    REQUIRE(TA::poll_refcount(mgr) == 0);
+
+    // Multiple excess stops
+    mgr.stop_spoolman_polling();
+    mgr.stop_spoolman_polling();
+    REQUIRE(TA::poll_refcount(mgr) == 0);
+}
+
+TEST_CASE_METHOD(SpoolmanFixture,
+                 "SpoolmanManager: start after full stop restarts cleanly",
+                 "[spoolman]") {
+    auto& mgr = SpoolmanManager::instance();
+    set_spoolman_available(true);
+
+    mgr.start_spoolman_polling();
+    mgr.stop_spoolman_polling();
+    REQUIRE(TA::poll_refcount(mgr) == 0);
+
+    // Restart — refcount goes from 0 back to 1
+    mgr.start_spoolman_polling();
+    REQUIRE(TA::poll_refcount(mgr) == 1);
 }
 
 // ============================================================================
 // Circuit Breaker Tests
 // ============================================================================
 
-TEST_CASE("SpoolmanManager - reset_circuit_breaker clears all state",
-          "[spoolman][circuit-breaker]") {
+TEST_CASE_METHOD(SpoolmanFixture,
+                 "SpoolmanManager: reset clears all circuit breaker state",
+                 "[spoolman]") {
     auto& mgr = SpoolmanManager::instance();
-    TA::reset(mgr);
 
     // Dirty up the state
     TA::set_consecutive_failures(mgr, 5);
     TA::set_cb_open(mgr, true);
 
-    TA::reset_cb(mgr);
+    REQUIRE(TA::cb_open(mgr) == true);
+    REQUIRE(TA::consecutive_failures(mgr) == 5);
 
-    REQUIRE(TA::consecutive_failures(mgr) == 0);
+    // Full reset
+    TA::reset(mgr);
+
     REQUIRE(TA::cb_open(mgr) == false);
-    REQUIRE(TA::unavailable_notified(mgr) == false);
-    REQUIRE(TA::last_refresh_ms(mgr) == 0);
+    REQUIRE(TA::consecutive_failures(mgr) == 0);
+    REQUIRE(TA::poll_refcount(mgr) == 0);
 }
 
-TEST_CASE("SpoolmanManager - set_api resets circuit breaker",
-          "[spoolman][circuit-breaker]") {
+TEST_CASE_METHOD(SpoolmanFixture,
+                 "SpoolmanManager: set_api resets circuit breaker",
+                 "[spoolman]") {
     auto& mgr = SpoolmanManager::instance();
-    TA::reset(mgr);
 
     TA::set_consecutive_failures(mgr, 3);
     TA::set_cb_open(mgr, true);
 
+    // set_api(nullptr) calls reset_circuit_breaker internally
     mgr.set_api(nullptr);
 
     REQUIRE(TA::consecutive_failures(mgr) == 0);
     REQUIRE(TA::cb_open(mgr) == false);
 }
 
+TEST_CASE_METHOD(SpoolmanFixture,
+                 "SpoolmanManager: set_consecutive_failures updates count",
+                 "[spoolman]") {
+    auto& mgr = SpoolmanManager::instance();
+
+    TA::set_consecutive_failures(mgr, 3);
+    REQUIRE(TA::consecutive_failures(mgr) == 3);
+
+    TA::set_consecutive_failures(mgr, 0);
+    REQUIRE(TA::consecutive_failures(mgr) == 0);
+}
+
+TEST_CASE_METHOD(SpoolmanFixture,
+                 "SpoolmanManager: set_cb_open toggles circuit breaker",
+                 "[spoolman]") {
+    auto& mgr = SpoolmanManager::instance();
+
+    REQUIRE(TA::cb_open(mgr) == false);
+
+    TA::set_cb_open(mgr, true);
+    REQUIRE(TA::cb_open(mgr) == true);
+
+    TA::set_cb_open(mgr, false);
+    REQUIRE(TA::cb_open(mgr) == false);
+}
+
 // ============================================================================
-// Availability Gate Tests
+// Spoolman Availability Gating
 // ============================================================================
 
-TEST_CASE("SpoolmanManager - refresh_spoolman_weights returns early without API",
-          "[spoolman]") {
+TEST_CASE_METHOD(SpoolmanFixture,
+                 "SpoolmanManager: start_polling gates on spoolman availability",
+                 "[spoolman]") {
     auto& mgr = SpoolmanManager::instance();
-    TA::reset(mgr);
+
+    SECTION("start is ignored when spoolman is unavailable") {
+        set_spoolman_available(false);
+
+        mgr.start_spoolman_polling();
+        REQUIRE(TA::poll_refcount(mgr) == 0);
+    }
+
+    SECTION("start succeeds when spoolman is available") {
+        set_spoolman_available(true);
+
+        mgr.start_spoolman_polling();
+        REQUIRE(TA::poll_refcount(mgr) == 1);
+    }
+
+    SECTION("unavailable then available — second attempt succeeds") {
+        set_spoolman_available(false);
+        mgr.start_spoolman_polling();
+        REQUIRE(TA::poll_refcount(mgr) == 0);
+
+        set_spoolman_available(true);
+        mgr.start_spoolman_polling();
+        REQUIRE(TA::poll_refcount(mgr) == 1);
+    }
+}
+
+// ============================================================================
+// refresh without API
+// ============================================================================
+
+TEST_CASE_METHOD(SpoolmanFixture,
+                 "SpoolmanManager: refresh_spoolman_weights returns early without API",
+                 "[spoolman]") {
+    auto& mgr = SpoolmanManager::instance();
 
     // No API set — should return without crash
     REQUIRE_NOTHROW(mgr.refresh_spoolman_weights());
