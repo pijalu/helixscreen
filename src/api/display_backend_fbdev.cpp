@@ -944,6 +944,27 @@ bool DisplayBackendFbdev::set_calibration(const helix::TouchCalibration& cal) {
     return true;
 }
 
+void DisplayBackendFbdev::disable_affine_calibration() {
+    if (touch_) {
+        auto* ctx = static_cast<CalibrationContext*>(lv_indev_get_user_data(touch_));
+        if (ctx) {
+            ctx->calibration.valid = false;
+            spdlog::debug("[Fbdev Backend] Affine calibration disabled for recalibration");
+        }
+    }
+}
+
+void DisplayBackendFbdev::enable_affine_calibration() {
+    if (touch_) {
+        auto* ctx = static_cast<CalibrationContext*>(lv_indev_get_user_data(touch_));
+        if (ctx) {
+            ctx->calibration = calibration_;
+            spdlog::debug("[Fbdev Backend] Affine calibration re-enabled (valid={})",
+                         calibration_.valid);
+        }
+    }
+}
+
 void DisplayBackendFbdev::set_display_rotation(lv_display_rotation_t rot, int phys_w, int phys_h) {
     // No-op for fbdev — LVGL's indev_pointer_proc() already calls
     // lv_display_rotate_point() to transform touch coordinates for

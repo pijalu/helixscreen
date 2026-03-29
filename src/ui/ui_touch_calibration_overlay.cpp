@@ -119,11 +119,15 @@ TouchCalibrationOverlay::TouchCalibrationOverlay() {
     panel_->set_timeout_callback([this]() {
         spdlog::info("[{}] Calibration timeout - reverting to previous", get_name());
 
-        // Restore backup calibration
-        if (has_backup_) {
-            DisplayManager::instance()->apply_touch_calibration(backup_calibration_);
-            has_backup_ = false;
+        // Restore backup calibration and disable affine for next capture attempt
+        DisplayManager* dm = DisplayManager::instance();
+        if (dm) {
+            if (has_backup_) {
+                dm->apply_touch_calibration(backup_calibration_);
+            }
+            dm->disable_affine_calibration();
         }
+        has_backup_ = false;
 
         // Reset accept button text
         snprintf(accept_text_buffer_, sizeof(accept_text_buffer_), "Accept");
@@ -135,6 +139,7 @@ TouchCalibrationOverlay::TouchCalibrationOverlay() {
 
         // Restart calibration from POINT_1
         panel_->start();
+
         update_state_subject();
         update_crosshair_position();
     });
@@ -146,16 +151,18 @@ TouchCalibrationOverlay::TouchCalibrationOverlay() {
     panel_->set_fast_revert_callback([this]() {
         spdlog::warn("[{}] Fast-revert: broken matrix detected, reverting", get_name());
 
-        // Restore backup calibration
-        if (has_backup_) {
-            DisplayManager* dm = DisplayManager::instance();
-            if (dm) {
+        // Restore backup calibration and disable affine for retry
+        DisplayManager* dm = DisplayManager::instance();
+        if (dm) {
+            if (has_backup_) {
                 dm->apply_touch_calibration(backup_calibration_);
             }
-            has_backup_ = false;
+            dm->disable_affine_calibration();
         }
+        has_backup_ = false;
 
         panel_->retry();
+
         update_state_subject();
         update_instruction_text();
         update_crosshair_position();
@@ -282,6 +289,13 @@ void TouchCalibrationOverlay::show(CompletionCallback callback) {
     if (panel_) {
         panel_->cancel(); // Reset to IDLE
     }
+
+    // Disable affine calibration so we capture raw coordinates
+    DisplayManager* dm = DisplayManager::instance();
+    if (dm) {
+        dm->disable_affine_calibration();
+    }
+
     lv_subject_set_int(&state_subject_, STATE_IDLE);
     update_instruction_text();
     update_crosshair_position();
@@ -362,7 +376,14 @@ void TouchCalibrationOverlay::cleanup() {
     completion_callback_ = nullptr;
     callback_invoked_ = false;
 
-    // Clear backup state
+    // Restore backup calibration and re-enable affine transform
+    DisplayManager* dm = DisplayManager::instance();
+    if (dm) {
+        if (has_backup_) {
+            dm->apply_touch_calibration(backup_calibration_);
+        }
+        dm->enable_affine_calibration();
+    }
     has_backup_ = false;
 
     spdlog::debug("[{}] Cleanup complete", get_name());
@@ -443,17 +464,19 @@ void TouchCalibrationOverlay::handle_retry_clicked() {
         return;
     }
 
-    // Restore previous calibration before retrying
-    if (has_backup_) {
-        DisplayManager* dm = DisplayManager::instance();
-        if (dm) {
+    // Restore previous calibration and disable affine for raw capture
+    DisplayManager* dm = DisplayManager::instance();
+    if (dm) {
+        if (has_backup_) {
             dm->apply_touch_calibration(backup_calibration_);
             spdlog::info("[{}] Restored previous calibration for retry", get_name());
         }
-        has_backup_ = false;
+        dm->disable_affine_calibration();
     }
+    has_backup_ = false;
 
     panel_->retry();
+
     lv_subject_set_int(&state_subject_, STATE_POINT_1);
     update_instruction_text();
     update_crosshair_position();

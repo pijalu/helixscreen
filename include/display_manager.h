@@ -304,6 +304,22 @@ class DisplayManager {
     bool needs_touch_calibration() const;
 
     /**
+     * @brief Temporarily disable affine calibration for recalibration
+     *
+     * During recalibration, touch coordinates must be raw (pre-affine) to avoid
+     * the feedback loop where transformed coordinates are fed back into calibration.
+     * Safe no-op on non-fbdev backends.
+     */
+    void disable_affine_calibration();
+
+    /**
+     * @brief Re-enable affine calibration after recalibration
+     *
+     * Restores the stored calibration transform. Safe no-op on non-fbdev backends.
+     */
+    void enable_affine_calibration();
+
+    /**
      * @brief Run rotation probe on first boot (fbdev only)
      *
      * Cycles through 0°, 90°, 180°, 270° rotations showing "Tap anywhere

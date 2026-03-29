@@ -248,6 +248,14 @@ lv_obj_t* WizardTouchCalibrationStep::create(lv_obj_t* parent) {
         panel_->cancel(); // Reset to IDLE
     }
 
+    // Disable affine calibration so we capture raw (post-LVGL-linear) coordinates.
+    // Without this, existing bad calibration transforms the coordinates, making
+    // recalibration produce garbage (feedback loop).
+    DisplayManager* dm = DisplayManager::instance();
+    if (dm) {
+        dm->disable_affine_calibration();
+    }
+
     // Enable Next button and set initial text to "Skip"
     lv_subject_set_int(&connection_test_passed, 1);
     lv_subject_set_int(&wizard_show_skip, 1);
@@ -300,6 +308,16 @@ void WizardTouchCalibrationStep::cleanup() {
     test_touch_area_ = nullptr;
     screen_root_ = nullptr;
 
+    // Restore backup calibration and re-enable affine transform
+    DisplayManager* dm = DisplayManager::instance();
+    if (dm) {
+        if (has_backup_) {
+            dm->apply_touch_calibration(backup_calibration_);
+        }
+        dm->enable_affine_calibration();
+    }
+    has_backup_ = false;
+
     // Reset panel state - clear callback before cancel to prevent updates to
     // destroyed UI widgets (callback would call update_instruction_text() etc.)
     if (panel_) {
@@ -309,7 +327,6 @@ void WizardTouchCalibrationStep::cleanup() {
 
     // Clear pending calibration (user skipped or went back)
     has_pending_calibration_ = false;
-    has_backup_ = false;
 }
 
 // ============================================================================
@@ -557,15 +574,17 @@ void WizardTouchCalibrationStep::on_calibration_complete(const helix::TouchCalib
 
         // Backup current calibration before applying new one
         DisplayManager* dm = DisplayManager::instance();
-        backup_calibration_ = dm->get_current_calibration();
-        has_backup_ = true;
+        if (dm) {
+            backup_calibration_ = dm->get_current_calibration();
+            has_backup_ = true;
 
-        // Apply calibration immediately (no restart required)
-        if (dm && dm->apply_touch_calibration(*cal)) {
-            spdlog::info("[{}] Calibration applied to touch input", get_name());
-        } else {
-            spdlog::debug("[{}] Could not apply calibration immediately (may require restart)",
-                          get_name());
+            // Apply calibration immediately (no restart required)
+            if (dm->apply_touch_calibration(*cal)) {
+                spdlog::info("[{}] Calibration applied to touch input", get_name());
+            } else {
+                spdlog::debug("[{}] Could not apply calibration immediately (may require restart)",
+                              get_name());
+            }
         }
 
         lv_subject_set_int(&calibration_valid_, 1);

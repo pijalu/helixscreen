@@ -1316,3 +1316,82 @@ TEST_CASE("TouchCalibration: axis swap detection does not trigger on slight rota
     bool swapped = detect_and_correct_axis_swap(cal, screen_points, touch_points);
     REQUIRE(swapped == false);
 }
+
+TEST_CASE("TouchCalibration: NS2009 recognized as known touchscreen",
+          "[touch-calibration][resistive-detection]") {
+    REQUIRE(is_known_touchscreen_name("ns2009") == true);
+    REQUIRE(is_known_touchscreen_name("NS2009") == true);
+    REQUIRE(is_known_touchscreen_name("ns2016") == true);
+}
+
+TEST_CASE("TouchCalibration: detect axis swap on 480x272 with swapped ADC and diagonal leak",
+          "[touch-calibration][axis-swap]") {
+    // 480x272 screen — NS2009 resistive ADC with hardware X/Y swap
+    // plus slight diagonal leakage from cross-talk in the ADC channels.
+    // The cross-coupling ratio lands above 1.0 (off-diagonal dominates),
+    // confirming axes are swapped. After correction, the ratio drops below 0.5.
+    Point screen_points[3] = {
+        {72, 54},   // 15% of 480, 20% of 272
+        {240, 212}, // 50%, 78%
+        {408, 54},  // 85%, 20%
+    };
+
+    // Raw ADC values: primarily swapped (physical X -> ABS_Y, physical Y -> ABS_X)
+    // with small additive perturbation from diagonal cross-talk
+    Point touch_points[3] = {
+        {728, 830},
+        {2693, 2896},
+        {2072, 3698},
+    };
+
+    TouchCalibration cal;
+    REQUIRE(compute_calibration(screen_points, touch_points, cal));
+
+    // Verify the cross-coupling ratio indicates swapped axes (ratio > 1.0)
+    float diag = std::abs(cal.a) + std::abs(cal.e);
+    float off_diag = std::abs(cal.b) + std::abs(cal.d);
+    float ratio = off_diag / std::max(diag, 0.001f);
+    INFO("Cross-coupling ratio: " << ratio);
+    REQUIRE(ratio > 0.3f);
+    REQUIRE(ratio < 3.0f);
+
+    // Swap should be detected and corrected
+    bool swapped = detect_and_correct_axis_swap(cal, screen_points, touch_points);
+    REQUIRE(swapped == true);
+    REQUIRE(cal.axes_swapped == true);
+
+    // After correction, transform should produce correct screen coordinates
+    Point p0 = transform_point(cal, touch_points[0]);
+    REQUIRE(p0.x == Approx(screen_points[0].x).margin(2));
+    REQUIRE(p0.y == Approx(screen_points[0].y).margin(2));
+}
+
+TEST_CASE("TouchCalibration: no false axis swap on well-aligned 480x272 screen",
+          "[touch-calibration][axis-swap]") {
+    // 480x272 screen, non-swapped — touch axes are correct
+    Point screen_points[3] = {
+        {72, 54},
+        {240, 212},
+        {408, 54},
+    };
+
+    // Non-swapped ADC values (normal orientation, proportional to screen coords)
+    Point touch_points[3] = {
+        {776, 632},
+        {2120, 1896},
+        {3464, 632},
+    };
+
+    TouchCalibration cal;
+    REQUIRE(compute_calibration(screen_points, touch_points, cal));
+
+    // Should NOT detect swap — diagonal dominates completely
+    float diag = std::abs(cal.a) + std::abs(cal.e);
+    float off_diag = std::abs(cal.b) + std::abs(cal.d);
+    float ratio = off_diag / std::max(diag, 0.001f);
+    INFO("Cross-coupling ratio: " << ratio);
+    REQUIRE(ratio < 0.3f);
+
+    bool swapped = detect_and_correct_axis_swap(cal, screen_points, touch_points);
+    REQUIRE(swapped == false);
+}

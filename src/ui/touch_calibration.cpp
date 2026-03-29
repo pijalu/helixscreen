@@ -136,7 +136,7 @@ bool detect_and_correct_axis_swap(TouchCalibration& cal, const Point screen_poin
     float cross_coupling_ratio = off_diagonal / diagonal;
 
     // Only consider swap if cross-coupling is significant
-    if (cross_coupling_ratio <= 0.5f) {
+    if (cross_coupling_ratio <= 0.3f) {
         return false;
     }
 

@@ -247,6 +247,7 @@ inline bool is_known_touchscreen_name(const std::string& name) {
                                      "atmel",  // Atmel touch controllers
                                      "edt-ft", // EDT FocalTech displays
                                      "tsc",    // Touch screen controller
+                                     "ns20",   // NS2009/NS2016 I2C resistive ADC
                                      nullptr};
     return matches_any_pattern(name, patterns);
 }

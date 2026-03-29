@@ -937,6 +937,24 @@ bool DisplayManager::needs_touch_calibration() const {
     return false;
 }
 
+void DisplayManager::disable_affine_calibration() {
+#ifdef HELIX_DISPLAY_FBDEV
+    if (m_backend && m_backend->type() == DisplayBackendType::FBDEV) {
+        auto* fbdev = static_cast<DisplayBackendFbdev*>(m_backend.get());
+        fbdev->disable_affine_calibration();
+    }
+#endif
+}
+
+void DisplayManager::enable_affine_calibration() {
+#ifdef HELIX_DISPLAY_FBDEV
+    if (m_backend && m_backend->type() == DisplayBackendType::FBDEV) {
+        auto* fbdev = static_cast<DisplayBackendFbdev*>(m_backend.get());
+        fbdev->enable_affine_calibration();
+    }
+#endif
+}
+
 // ============================================================================
 // Input Gating (Wake-Only First Touch)
 // ============================================================================

@@ -108,6 +108,21 @@ class DisplayBackendFbdev : public DisplayBackend {
     bool set_calibration(const helix::TouchCalibration& cal);
 
     /**
+     * @brief Temporarily disable affine calibration for recalibration
+     *
+     * Sets ctx->calibration.valid = false so calibrated_read_cb passes through
+     * raw coordinates. The stored calibration_ member is preserved for restore.
+     */
+    void disable_affine_calibration();
+
+    /**
+     * @brief Re-enable affine calibration after recalibration
+     *
+     * Restores ctx->calibration from stored calibration_ member.
+     */
+    void enable_affine_calibration();
+
+    /**
      * @brief Get current touch calibration
      * @return Current calibration coefficients (may be invalid if not calibrated)
      */
