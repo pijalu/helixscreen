@@ -35,7 +35,7 @@
       <!-- Source selector (left side) - Segmented tab control -->
       <lv_obj name="source_selector"
               width="content" height="content" style_radius="#space_sm" style_pad_all="#space_xxs" flex_flow="row"
-              style_pad_gap="0" scrollable="false">
+              style_pad_gap="#space_md" scrollable="false">
 
         <!-- Printer tab: filled (active) when source=printer -->
         <ui_button name="source_printer_active" width="content" height="#button_height_sm" text="Printer" translation_tag="Printer" hidden="true">
