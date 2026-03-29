@@ -75,11 +75,14 @@ translations:
   ALL DEVICES: ALLE GERÄTE
   AMS: AMS
   AMS Management: AMS-Verwaltung
+  'AMS is busy: {}': 'AMS ist beschäftigt: {}'
+  AMS not available: AMS nicht verfügbar
   API not available: API nicht verfügbar
   APPEARANCE: ERSCHEINUNGSBILD
   AUTO STATE: AUTO-STATUS
   AUTOMATION: AUTOMATISIERUNG
   Abort: Abbrechen
+  Abort already in progress: Abbruch läuft bereits
   Abort failed: Abbruch fehlgeschlagen
   Aborting AFC operation...: AFC-Vorgang wird abgebrochen...
   About: Info
@@ -108,6 +111,7 @@ translations:
   Alert: Alarm
   Alerts: Alarme
   All: Alle
+  All axes homed: Alle Achsen referenziert
   Allow display to sleep during active prints: Display-Ruhemodus während aktiver Drucke erlauben
   Allwinner: Allwinner
   Ambient Transfer: Umgebungswärmeübertragung
@@ -135,6 +139,7 @@ translations:
   Auto Cal: Auto-Kal.
   Auto-Detect: Auto-Erkennung
   Auto-Heat on Load: Automatisches Heizen beim Laden
+  Auto-detect: Auto-Erkennung
   Auto-lock: Auto-Sperre
   Auto-poll for weight updates: Automatisch auf Gewichtsaktualisierungen prüfen
   Auto-probe or manually check screw heights: Automatisches Abtasten oder manuelle Prüfung der Schraubenhöhen
@@ -162,7 +167,11 @@ translations:
   Bed Screws: Bettschrauben
   Bed Temp: Betttemperatur
   Bed Temp (°C): Betttemperatur (°C)
+  Bed heater turned off: Bettheizung ausgeschaltet
   Bed is Level!: Bett ist nivelliert!
+  Bed mesh operation timed out: Bettnetz-Vorgang Zeitüberschreitung
+  Bed target set to {}°C: 'Bett-Zieltemperatur auf {}°C gesetzt'
+  Bed warming timed out: Bettaufheizung Zeitüberschreitung
   Bed °C: Bett °C
   'Bed:': 'Bett:'
   Belt Tension: 'Riemenspannung'
@@ -198,6 +207,11 @@ translations:
   Bypass: Bypass
   Bypass Mode: Bypass-Modus
   Bypass controlled by hardware sensor: Bypass wird durch Hardware-Sensor gesteuert
+  Bypass controlled by sensor: Bypass durch Sensor gesteuert
+  Bypass disabled: Bypass deaktiviert
+  Bypass enabled: Bypass aktiviert
+  'Bypass failed: {}': 'Bypass fehlgeschlagen: {}'
+  'Bypass toggle failed: {}': 'Bypass-Umschaltung fehlgeschlagen: {}'
   C: K
   CALIBRATION: KALIBRIERUNG
   CAPABILITIES: FÄHIGKEITEN
@@ -222,16 +236,31 @@ translations:
   Calibration complete!: Kalibrierung abgeschlossen!
   Calibration complete! Press 'Next' to continue.: "Kalibrierung abgeschlossen! Drücken Sie 'Weiter' um fortzufahren."
   Calibration failed - touch targets more precisely.: Kalibrierung fehlgeschlagen – Ziele präziser berühren.
+  Calibration may still be running — response timed out: Kalibrierung läuft möglicherweise noch — Zeitüberschreitung
+  Calibration move may still be running — response timed out: Kalibrierungsbewegung läuft möglicherweise noch — Zeitüberschreitung
   Calibration saved but cannot apply on SDL display: Kalibrierung gespeichert, kann aber auf SDL-Display nicht angewendet werden
+  Calibration started: Kalibrierung gestartet
   Calibration timed out. Please try again.: Zeitüberschreitung. Bitte erneut versuchen.
   Camera: Kamera
   Cancel: Abbrechen
   Cancel Escalation: Eskalation abbrechen
   Cancel Print: Druck abbrechen
+  Cancel macro not configured: Abbruch-Makro nicht konfiguriert
   Cancelled: Abgebrochen
+  'Cannot control timelapse: printer not connected': 'Timelapse nicht steuerbar: Drucker nicht verbunden'
+  'Cannot delete file: printer not connected': 'Datei kann nicht gelöscht werden: Drucker nicht verbunden'
+  'Cannot modify G-code: no temp directory available': 'G-Code kann nicht geändert werden: kein temporäres Verzeichnis verfügbar'
+  'Cannot modify G-code: scan result not available': 'G-Code kann nicht geändert werden: Scan-Ergebnis nicht verfügbar'
+  'Cannot modify G-code: {}. Printing original file.': 'G-Code kann nicht geändert werden: {}. Originaldatei wird gedruckt.'
+  'Cannot reprint: not connected to printer': 'Nachdruck nicht möglich: nicht mit Drucker verbunden'
+  'Cannot start print: internal error': 'Druck kann nicht gestartet werden: interner Fehler'
+  'Cannot start print: not connected to printer': 'Druck kann nicht gestartet werden: nicht mit Drucker verbunden'
+  'Cannot start print: printer is {}': 'Druck kann nicht gestartet werden: Drucker ist {}'
   Center QR code in frame: QR-Code im Rahmen zentrieren
   Chamber: Kammer
   Chamber Fan: Kammerlüfter
+  Chamber Heater: Kammerheizung
+  Chamber Sensor: Kammersensor
   Chamber Temperature: Kammertemperatur
   Chamber and dryer humidity monitoring: Kammer- und Trockner-Feuchtigkeitsüberwachung
   'Chamber:': 'Kammer:'
@@ -267,6 +296,7 @@ translations:
   Clear All Events: Alle Ereignisse löschen
   Clear Console?: 'Konsole leeren?'
   Clear Spool: Spule entfernen
+  'Clear failed: {}': 'Löschen fehlgeschlagen: {}'
   Clipboard unavailable - use SSH: Zwischenablage nicht verfügbar - verwenden Sie SSH
   Clog Detection: Verstopfungserkennung
   Clog detection: Verstopfungserkennung
@@ -289,6 +319,7 @@ translations:
   Config-defined (read-only): Konfigurationsdefiniert (schreibgeschützt)
   Configuration added successfully.: Konfiguration erfolgreich hinzugefügt.
   Configuration already present.: Konfiguration bereits vorhanden.
+  Configuration saved - restarting: Konfiguration gespeichert – Neustart
   Configure: Konfigurieren
   Configure Fan Widget: Lüfter-Widget konfigurieren
   Configure G10/G11 firmware retraction: G10/G11 Firmware-Retraktion konfigurieren
@@ -335,6 +366,7 @@ translations:
   Copy failed - use SSH manually: Kopieren fehlgeschlagen – SSH verwenden
   Corner roundness (0 = sharp, 40 = very round): Eckenrundung (0 = scharf, 40 = sehr rund)
   Correction (Ki): Korrektur (Ki)
+  'Could not analyze PRINT_START macro. Some print options may be ': 'PRINT_START-Makro konnte nicht analysiert werden. Einige Druckoptionen sind möglicherweise '
   Could not check webcam status.\nCheck printer connection.: Webcam-Status konnte nicht geprüft werden.\nDruckerverbindung prüfen.
   Could not reach Spoolman at: 'Spoolman nicht erreichbar unter:'
   Could not verify Spoolman status. Moonraker may still be restarting.: Spoolman-Status konnte nicht überprüft werden. Moonraker startet möglicherweise noch neu.
@@ -397,6 +429,7 @@ translations:
   Disable: Deaktivieren
   Disable Motors?: Motoren deaktivieren?
   Disable the security PIN: Sicherheits-PIN deaktivieren
+  Disabling motors...: Motoren werden deaktiviert...
   Discard: Verwerfen
   Discard Changes?: Änderungen verwerfen?
   Disconnected: Getrennt
@@ -438,6 +471,7 @@ translations:
   Edit Theme Colors (Modified): Themenfarben bearbeiten (Geändert)
   Effects: Effekte
   Eject: Auswerfen
+  'Eject failed: {}': 'Auswerfen fehlgeschlagen: {}'
   Emergency Stop: Notaus
   Emergency Stop?: Notaus?
   Emergency stop activated: Notaus aktiviert
@@ -468,6 +502,8 @@ translations:
   Enter printer IP address first: 'Zuerst Drucker-IP-Adresse eingeben'
   Enter the IP address and port of your Spoolman server.: Geben Sie die IP-Adresse und den Port Ihres Spoolman-Servers ein.
   Error: Fehler
+  Error loading file: Fehler beim Laden der Datei
+  'Error saving printer settings: {}': 'Fehler beim Speichern der Druckereinstellungen: {}'
   Error state: Fehlerzustand
   Escalate to emergency stop if cancel doesn't respond: Auf Not-Stopp eskalieren, falls Abbruch nicht reagiert
   Escalation Timeout: Eskalations-Zeitüberschreitung
@@ -482,14 +518,20 @@ translations:
   Explore palette and preview: Palette erkunden und Vorschau
   External: Extern
   External Spool: Externe Spule
+  External spool cleared: Externe Spule gelöscht
+  External spool updated: Externe Spule aktualisiert
   Extra prime to compensate ooze: Zusätzliches Primen zum Ausgleich von Auslaufen
   Extrude: Extrudieren
   Extrude Speed: Extrusionsgeschwindigkeit
+  Extrude complete ({}mm): 'Extrusion abgeschlossen ({}mm)'
+  'Extrude failed: {}': 'Extrusion fehlgeschlagen: {}'
+  Extrude may still be running — response timed out: Extrusion läuft möglicherweise noch — Zeitüberschreitung
   Extrude/retract feedrate (Saved): Extrusions-/Rückzugsgeschwindigkeit (Gespeichert)
   Extruder: Extruder
   Extruder MPC Calibration: Extruder MPC-Kalibrierung
   Extruder PID Tuning: Extruder PID-Abstimmung
   Extruder heats automatically based on material: Extruder heizt automatisch basierend auf dem Material
+  Extruding {}mm...: Extrudiere {}mm...
   FAILED: FEHLGESCHLAGEN
   FILAMENT MAPPING: 'FILAMENTZUORDNUNG'
   Factory Reset: Werkseinstellungen
@@ -497,36 +539,79 @@ translations:
   Failed to analyze PRINT_START macro: PRINT_START-Makro konnte nicht analysiert werden
   Failed to apply limits: Limits konnten nicht angewendet werden
   Failed to apply settings: Einstellungen konnten nicht angewendet werden
+  'Failed to cancel: {}': 'Abbrechen fehlgeschlagen: {}'
+  "Failed to connect to '{}': {}": "Verbindung zu ''{}'' fehlgeschlagen: {}"
   'Failed to connect: %s': 'Verbindung fehlgeschlagen: %s'
+  'Failed to cool down: {}': 'Abkühlung fehlgeschlagen: {}'
+  Failed to delete file: Datei löschen fehlgeschlagen
+  Failed to delete profile: Profil löschen fehlgeschlagen
   Failed to delete spool: Spule konnte nicht gelöscht werden
+  'Failed to download G-code for modification: {}': 'G-Code-Download zur Änderung fehlgeschlagen: {}'
   Failed to download helixscreen.conf.\nCheck printer connection.: helixscreen.conf konnte nicht heruntergeladen werden.\nDruckerverbindung prüfen.
   Failed to download moonraker.conf.\nCheck printer connection.: moonraker.conf konnte nicht heruntergeladen werden.\nDruckerverbindung prüfen.
   Failed to duplicate spool: Spule konnte nicht dupliziert werden
   Failed to enable tuning tower: Tuning-Tower konnte nicht aktiviert werden
+  "Failed to exclude '{}': {}": "Ausschluss von ''{}'' fehlgeschlagen: {}"
   Failed to get limits: Limits konnten nicht abgerufen werden
+  Failed to load fan configuration screen: Lüfterkonfiguration konnte nicht geladen werden
+  Failed to load fan control overlay: Lüftersteuerung konnte nicht geladen werden
+  Failed to load file details: Dateidetails konnten nicht geladen werden
   Failed to load history: 'Verlauf konnte nicht geladen werden'
   Failed to load overlay: Overlay konnte nicht geladen werden
+  Failed to load print tune panel: Druck-Tuning-Panel konnte nicht geladen werden
+  Failed to load profile: Profil konnte nicht geladen werden
   Failed to load spools: Spulen konnten nicht geladen werden
+  'Failed to modify G-code: {}': 'G-Code-Änderung fehlgeschlagen: {}'
   Failed to open history: Verlauf konnte nicht geöffnet werden
   Failed to open history list: Verlaufsliste konnte nicht geöffnet werden
+  Failed to open temperature graph: Temperaturgraph konnte nicht geöffnet werden
   Failed to open wizard: Assistent konnte nicht geöffnet werden
+  'Failed to pause print: {}': 'Druck pausieren fehlgeschlagen: {}'
+  'Failed to purge: {}': 'Purge fehlgeschlagen: {}'
   Failed to read config.: Konfiguration konnte nicht gelesen werden.
   Failed to read config. Check connection.: Konfiguration konnte nicht gelesen werden. Verbindung prüfen.
   Failed to read moonraker.conf.: moonraker.conf konnte nicht gelesen werden.
+  Failed to refresh file list: Dateiliste aktualisieren fehlgeschlagen
+  'Failed to reprint: {}': 'Nachdruck fehlgeschlagen: {}'
+  'Failed to reset flow: {}': 'Flussrate zurücksetzen fehlgeschlagen: {}'
+  'Failed to reset speed: {}': 'Geschwindigkeit zurücksetzen fehlgeschlagen: {}'
   Failed to reset theme: Thema zurücksetzen fehlgeschlagen
   Failed to restart Moonraker.: Moonraker konnte nicht neu gestartet werden.
+  'Failed to resume print: {}': 'Druck fortsetzen fehlgeschlagen: {}'
+  'Failed to resume: {}': 'Fortsetzen fehlgeschlagen: {}'
+  Failed to save LED configuration: LED-Konfiguration speichern fehlgeschlagen
   Failed to save changes to Spoolman: 'Änderungen konnten nicht in Spoolman gespeichert werden'
   Failed to save config.: Konfiguration konnte nicht gespeichert werden.
   Failed to save configuration: Konfiguration konnte nicht gespeichert werden
+  Failed to save fan configuration: Lüfterkonfiguration speichern fehlgeschlagen
+  Failed to save heater configuration: Heizungskonfiguration speichern fehlgeschlagen
+  Failed to save printer configuration: Druckerkonfiguration speichern fehlgeschlagen
+  Failed to save profile: Profil speichern fehlgeschlagen
+  Failed to save setup completion: Setup-Abschluss speichern fehlgeschlagen
   Failed to save spool: Spule konnte nicht gespeichert werden
   Failed to save theme file: Fehler beim Speichern der Thema-Datei
+  'Failed to send command: {}': 'Befehl senden fehlgeschlagen: {}'
   Failed to set active spool: Aktive Spule konnte nicht gesetzt werden
+  'Failed to set bed temp: {}': 'Betttemperatur setzen fehlgeschlagen: {}'
+  'Failed to set flow rate: {}': 'Flussrate setzen fehlgeschlagen: {}'
+  'Failed to set nozzle temp: {}': 'Düsentemperatur setzen fehlgeschlagen: {}'
+  'Failed to set print speed: {}': 'Druckgeschwindigkeit setzen fehlgeschlagen: {}'
+  'Failed to set temperature: {}': 'Temperatur setzen fehlgeschlagen: {}'
+  'Failed to set {} temp: {}': '{}-Temperatur setzen fehlgeschlagen: {}'
+  Failed to show confirmation dialog: Bestätigungsdialog konnte nicht angezeigt werden
+  Failed to start calibration: Kalibrierung starten fehlgeschlagen
+  'Failed to start print: {}': 'Druck starten fehlgeschlagen: {}'
+  'Failed to toggle timelapse: {}': 'Timelapse umschalten fehlgeschlagen: {}'
+  'Failed to turn off heaters: {}': 'Heizungen ausschalten fehlgeschlagen: {}'
+  'Failed to unload: {}': 'Entladen fehlgeschlagen: {}'
   Failed to update configuration.\nCheck printer connection.: Konfiguration konnte nicht aktualisiert werden.\nDruckerverbindung prüfen.
   Failed to update moonraker.conf.: moonraker.conf konnte nicht aktualisiert werden.
   Failed to update moonraker.conf.\nCheck printer connection.: moonraker.conf konnte nicht aktualisiert werden.\nDruckerverbindung prüfen.
   Failed to update phase tracking: Phasenverfolgung konnte nicht aktualisiert werden
+  'Failed to upload modified G-code: {}': 'Geänderten G-Code hochladen fehlgeschlagen: {}'
   Fan Calibration: Lüfter-Kalibrierung
   Fan Transfer: Lüfterwärmeübertragung
+  'Fan control failed: {}': 'Lüftersteuerung fehlgeschlagen: {}'
   Fans: Lüfter
   Farther: Weiter
   Feed filament directly to extruder: Filament direkt zum Extruder führen
@@ -542,10 +627,15 @@ translations:
   Filament diameter sensors for flow compensation: Filamentdurchmessersensoren für Flusskompensation
   Filament is loose: Filament ist locker
   Filament is pulling tight: Filament zieht straff
+  'Filament load failed: {}': 'Filament laden fehlgeschlagen: {}'
+  Filament loaded: Filament geladen
+  Filament operation timed out: Filament-Vorgang Zeitüberschreitung
   Filament runout and motion detection sensors: Filament-Auslauf- und Bewegungserkennungssensoren
   Filament tension is balanced: Filamentspannung ist ausgeglichen
   Filament tracking & label printing: Filamentverfolgung & Etikettendruck
   Filament tracking and inventory: Filamentverfolgung und Inventar
+  'Filament unload failed: {}': 'Filament entladen fehlgeschlagen: {}'
+  Filament unloaded: Filament entladen
   File: Datei
   File Info: Dateiinfo
   Filename: Dateiname
@@ -559,6 +649,7 @@ translations:
   Flip: Spiegeln
   Flow: Fluss
   Flow Rate: Flussrate
+  'Flow change failed: {}': 'Flussänderung fehlgeschlagen: {}'
   Flowguard: Flowguard
   Flying Toasters: Flying Toasters
   Forming tip...: Spitze wird geformt...
@@ -603,6 +694,7 @@ translations:
   Heated Bed PID Tuning: Heizbett PID-Abstimmung
   Heater: Heizung
   Heater Power: Heizleistung
+  Heaters off: Heizungen aus
   Heating (%d°C below minimum): "Aufheizen (%d°C unter Minimum)"
   Heating Bed...: Bett aufheizen...
   Heating Nozzle...: Düse aufheizen...
@@ -619,6 +711,14 @@ translations:
   Home: Home
   Home failed: Referenzfahrt fehlgeschlagen
   Homing AFC system...: AFC-Referenzfahrt...
+  Homing X...: Referenzfahrt X...
+  Homing XY...: Referenzfahrt XY...
+  Homing Y...: Referenzfahrt Y...
+  Homing Z...: Referenzfahrt Z...
+  Homing all axes...: Referenzfahrt alle Achsen...
+  'Homing failed: {}': 'Referenzfahrt fehlgeschlagen: {}'
+  Homing may still be running — response timed out: Referenzfahrt läuft möglicherweise noch — Zeitüberschreitung
+  Homing timed out: Referenzfahrt Zeitüberschreitung
   Homing...: Referenzfahrt...
   Horizontal: Horizontal
   Horizontal Progress (Leveling Wizard): Horizontaler Fortschritt (Nivellierungs-Assistent)
@@ -638,6 +738,8 @@ translations:
   Icon: 'Symbol'
   Idle: Leerlauf
   Ignore: Ignorieren
+  'Import failed: {}': 'Import fehlgeschlagen: {}'
+  Imported {}: '{} importiert'
   In Progress: In Bearbeitung
   Inactive: Inaktiv
   Include Klipper/Moonraker logs: Klipper/Moonraker-Protokolle einschließen
@@ -651,6 +753,7 @@ translations:
   Input shaper settings applied!: Input-Shaper-Einstellungen angewendet!
   Input shaping reduces ringing and ghosting artifacts caused by printer vibrations during fast movements.: Input Shaping reduziert Klingel- und Geisterartefakte, die durch Druckervibrationen bei schnellen Bewegungen verursacht werden.
   Input shaping reduces vibration artifacts (ringing) in your prints.: Input Shaping reduziert Vibrationsartefakte (Klingeln) in Ihren Drucken.
+  Insert filament before resuming: Filament einlegen vor dem Fortsetzen
   Install: Installieren
   Install HelixPrint Plugin: HelixPrint-Plugin installieren
   Install Plugin: Plugin installieren
@@ -664,6 +767,7 @@ translations:
   Intensity: Intensität
   Interactive probe calibration: Interaktive Sondenkalibrierung
   Interactive probe offset adjustment: Interaktive Taster-Offset-Anpassung
+  'Internal error: no scan result': 'Interner Fehler: kein Scan-Ergebnis'
   Invalid port number: 'Ungültige Portnummer'
   Issue description: Problembeschreibung
   Job Queue: Auftragswarteschlange
@@ -713,6 +817,8 @@ translations:
   Light: Hell
   Load: Laden
   Load Filament: Filament laden
+  'Load failed: {}': 'Laden fehlgeschlagen: {}'
+  Load filament macro not configured: Filament-Lade-Makro nicht konfiguriert
   Load the required filaments or start anyway?: Benötigte Filamente laden oder trotzdem starten?
   Loaded: Geladen
   Loading Bed Mesh...: Bett-Mesh laden...
@@ -749,6 +855,7 @@ translations:
   Macro Browser: Makro-Browser
   Macro Buttons: Makro-Tasten
   Macro analysis not initialized: Makro-Analyse nicht initialisiert
+  'Macro failed: {}': 'Makro fehlgeschlagen: {}'
   Macro for bed mesh calibration: Makro für Bettnetz-Kalibrierung
   Macro for chamber/bed heat soak: Makro für Kammer/Bett-Aufwärmen
   Macro for physical bed leveling (QGL/Z-Tilt): Makro für physische Bettnivellierung (QGL/Z-Tilt)
@@ -798,6 +905,7 @@ translations:
   Median: Median
   Memory (MB): Speicher (MB)
   Mesh Complete: Netz abgeschlossen
+  Mesh saved as '{}': 'Netz gespeichert als ''{}'''
   Method: Methode
   Min: Min
   Minimum: Minimum
@@ -811,6 +919,8 @@ translations:
   Motion: Bewegung
   'Motion: XYZ': 'Bewegung: XYZ'
   Motors Off: Motoren aus
+  'Motors disable failed: {}': 'Motoren deaktivieren fehlgeschlagen: {}'
+  Motors disabled: Motoren deaktiviert
   Move paper back and forth while adjusting. Stop when paper catches slightly but still slides.: Bewegen Sie das Papier während der Einstellung hin und her. Stoppen Sie, wenn das Papier leicht greift, aber noch gleitet.
   ? Moves the print head to measure vibration frequencies on each axis. Takes 2-3 minutes. The printer will make noise — this is normal.
   : Bewegt den Druckkopf, um Vibrationsfrequenzen auf jeder Achse zu messen. Dauert 2-3 Minuten. Der Drucker wird Geräusche machen — das ist normal.
@@ -818,6 +928,7 @@ translations:
   Multi-Filament Overview: 'Multi-Filament-Übersicht'
   'Multi-Filament:': 'Multi-Filament:'
   Multi-Material: Multi-Material
+  Must home axes first: Achsen müssen zuerst referenziert werden
   My Custom Theme: Mein benutzerdefiniertes Thema
   My Panel: Mein Panel
   NEWLY DISCOVERED: NEU ENTDECKT
@@ -838,6 +949,7 @@ translations:
   'New Spool: Step ': 'Neue Spule: Schritt '
   'New Spool: Step 1 of 3': 'Neue Spule: Schritt 1 von 3'
   New Version Available: Neue Version verfügbar
+  New printer successfully added: Neuer Drucker erfolgreich hinzugefügt
   New profile name: Neuer Profilname
   Next: Weiter
   Niimbot (Bluetooth): Niimbot (Bluetooth)
@@ -861,11 +973,14 @@ translations:
   No dryer available. Store filament in a sealed dry box with desiccant for best results.: 'Kein Trockner verfügbar. Filament in einer versiegelten Trockenbox mit Trockenmittel lagern.'
   No effects available: Keine Effekte verfügbar
   No events queued: Keine Ereignisse in Warteschlange
+  No filament loaded to unload: Kein Filament zum Entladen geladen
   No filaments found: Keine Filamente gefunden
   No file loaded: Keine Datei geladen
+  No file to reprint: Keine Datei zum Nachdrucken
   No files available for printing: Keine Dateien zum Drucken verfügbar
   No images found on USB drive: Keine Bilder auf USB-Laufwerk gefunden
   No jobs in queue: Keine Aufträge in der Warteschlange
+  No light configured. Set up in Settings > LED Settings.: 'Kein Licht konfiguriert. Einrichten unter Einstellungen > LED-Einstellungen.'
   No macros available: Keine Makros verfügbar
   No macros found: 'Keine Makros gefunden'
   No matching prints: Keine passenden Drucke
@@ -880,6 +995,7 @@ translations:
   No print history found: Kein Druckverlauf gefunden
   No print history yet: Noch kein Druckverlauf
   No print start macro found: Kein Druckstart-Makro gefunden
+  No printer connection: Keine Druckerverbindung
   No printers found: Keine Drucker gefunden
   No prints yet: 'Noch keine Drucke'
   No profiles available: Keine Profile verfügbar
@@ -911,6 +1027,13 @@ translations:
   Nozzle Temp: Düsentemperatur
   Nozzle Temperature: Düsentemperatur
   Nozzle Temps: 'Düsentemperaturen'
+  Nozzle heater turned off: Düsenheizung ausgeschaltet
+  Nozzle target set to {}°C: 'Düsen-Zieltemperatur auf {}°C gesetzt'
+  'Nozzle too cold for extrude ({}°C, min: {}°C)': 'Düse zu kalt zum Extrudieren ({}°C, min: {}°C)'
+  'Nozzle too cold for filament load ({}°C, min: {}°C)': 'Düse zu kalt zum Filament laden ({}°C, min: {}°C)'
+  'Nozzle too cold for filament unload ({}°C, min: {}°C)': 'Düse zu kalt zum Filament entladen ({}°C, min: {}°C)'
+  'Nozzle too cold for purge ({}°C, min: {}°C)': 'Düse zu kalt zum Purgen ({}°C, min: {}°C)'
+  'Nozzle too cold for retract ({}°C, min: {}°C)': 'Düse zu kalt zum Einziehen ({}°C, min: {}°C)'
   Nozzle °C: Düse °C
   'Nozzle:': 'Düse:'
   OD: OD
@@ -925,6 +1048,7 @@ translations:
   On/Off (state-aware): Ein/Aus (zustandsbewusst)
   Open: Öffnen
   Open Source Licenses: 'Open-Source-Lizenzen'
+  Operation already in progress: Vorgang läuft bereits
   Operations: Operationen
   Optimize Your Printing: Optimieren Sie Ihren Druck
   Optimizes temperature control for stable, consistent heating.: Optimiert die Temperaturregelung für stabiles, gleichmäßiges Heizen.
@@ -933,6 +1057,7 @@ translations:
   Out of range: 'Außerhalb des Bereichs'
   Output Mode: Ausgabemodus
   Overheating: 'Überhitzung'
+  Override auto-detection if your chamber sensor or heater isn't named 'chamber'.: 'Auto-Erkennung überschreiben, wenn Kammersensor oder -heizung nicht ''chamber'' heißt.'
   P: B
   PA: PA
   PETG: PETG
@@ -963,6 +1088,7 @@ translations:
   Path B: 'Pfad B'
   Path Similarity: 'Pfadähnlichkeit'
   Pause: Pause
+  Pause macro not configured: Pause-Makro nicht konfiguriert
   Paused: Pausiert
   Paused (attention needed): Pausiert (Aufmerksamkeit erforderlich)
   Peak Freq: Spitzenfreq.
@@ -978,6 +1104,7 @@ translations:
   'Place image files (PNG, JPEG, BMP, GIF) in config/custom_images/. Max size: 2048×2048 pixels.': 'Bilddateien (PNG, JPEG, BMP, GIF) in config/custom_images/ ablegen. Max. Größe: 2048×2048 Pixel.'
   Place plugins in the plugins directory to extend HelixScreen: Platzieren Sie Plugins im Plugin-Verzeichnis, um HelixScreen zu erweitern
   Placed: Platziert
+  Play / stop Crockett's Theme: 'Crockett''s Theme abspielen / stoppen'
   Play a test beep: Testton abspielen
   Please enter a theme name: Bitte geben Sie einen Themennamen ein
   Please enter a valid port (1-65535).: Bitte geben Sie einen gültigen Port ein (1-65535).
@@ -997,13 +1124,17 @@ translations:
   Power: Strom
   Power Control: Stromsteuerung
   Power Devices: Stromgeräte
+  'Pre-print command failed: {}': 'Vor-Druck-Befehl fehlgeschlagen: {}'
   Preheat Macro: Vorheiz-Makro
   Preheat PLA: PLA vorheizen
+  'Preheat: T{} + bed set': 'Vorheizen: T{} + Bett gesetzt'
+  'Preheat: all {} tools + bed set': 'Vorheizen: alle {} Werkzeuge + Bett gesetzt'
   Preparing: Vorbereitung
   Preparing Print: Druck wird vorbereitet
   Preparing Print...: Druck vorbereiten...
   Preparing...: Vorbereiten...
   Preset: Voreinstellung
+  'Preset ID: {}': 'Voreinstellungs-ID: {}'
   Presets: Voreinstellungen
   Press Scan to search: Scannen drücken zum Suchen
   'Pressure:': 'Druck:'
@@ -1029,6 +1160,7 @@ translations:
   Print Time: Druckzeit
   Print Tuning: Druck-Feinabstimmung
   Print failed: 'Druck fehlgeschlagen'
+  'Print preparation failed: {}': 'Druckvorbereitung fehlgeschlagen: {}'
   Printer: Drucker
   Printer Error: Druckerfehler
   Printer Firmware Disconnected: Drucker-Firmware getrennt
@@ -1037,6 +1169,7 @@ translations:
   Printer Name: Druckername
   Printer Shutdown: Drucker-Abschaltung
   Printer Type: Druckertyp
+  Printer image set to auto-detect: Druckerbild auf Auto-Erkennung gesetzt
   Printer name: Druckername
   Printer ready: Drucker bereit
   Printers: Drucker
@@ -1058,18 +1191,31 @@ translations:
   Probing Bed...: Bett wird abgetastet...
   Probing Failed: Abtasten fehlgeschlagen
   Proceed: Fortfahren
+  Profile deleted: Profil gelöscht
   Profile name (e.g., default): Profilname (z.B. Standard)
+  Profile renamed: Profil umbenannt
   Profiles: Profile
   Progress Bar Tests: Fortschrittsbalken-Tests
   Pulling filament back: Filament wird zurückgezogen
   Purge: Entlüften
+  Purge complete: Purge abgeschlossen
+  'Purge failed: {}': 'Purge fehlgeschlagen: {}'
+  Purge macro not configured: Purge-Makro nicht konfiguriert
+  Purge may still be running — response timed out: Purge läuft möglicherweise noch — Zeitüberschreitung
   Purging nozzle: Düse wird gespült
+  Purging nozzle...: Düse wird gereinigt...
+  Purging {}mm...: Purge {}mm...
   Purging...: Entlüften...
   QGL: QGL
+  'QGL failed: {}': 'QGL fehlgeschlagen: {}'
+  QGL may still be running — response timed out: QGL läuft möglicherweise noch — Zeitüberschreitung
+  QGL timed out: QGL Zeitüberschreitung
   QR Only: Nur QR
   QUEUED EVENTS: WARTESCHLANGE
   QUICK BUTTONS: SCHNELLTASTEN
   Quad Gantry Level: Quad Gantry Level
+  Quad Gantry Level complete: Quad Gantry Level abgeschlossen
+  Quad Gantry Level started...: Quad Gantry Level gestartet...
   'Queue: Ready': 'Warteschlange: Bereit'
   Quick: Schnell
   Quick Actions: Schnellaktionen
@@ -1109,6 +1255,9 @@ translations:
   Remove plugin from printer: Plugin vom Drucker entfernen
   Rename: Umbenennen
   Rename Mesh Profile: Netzprofil umbenennen
+  Rename failed at load step: Umbenennung beim Laden fehlgeschlagen
+  Rename failed at remove step: Umbenennung beim Entfernen fehlgeschlagen
+  Rename failed at save step: Umbenennung beim Speichern fehlgeschlagen
   Render Now: Jetzt rendern
   Rendering timelapse...: 'Zeitraffer wird gerendert...'
   Report saved to crash_report.txt: Bericht in crash_report.txt gespeichert
@@ -1119,6 +1268,7 @@ translations:
   Reset: Zurücksetzen
   Reset Speed & Flow to 100%: Geschwindigkeit & Fluss auf 100% zurücksetzen
   Reset all settings and restart wizard: Alle Einstellungen zurücksetzen und Assistenten neu starten
+  'Reset failed: {}': 'Zurücksetzen fehlgeschlagen: {}'
   Reset to Default: Auf Standard zurücksetzen
   Reset to original values: Auf Originalwerte zurücksetzen
   Resetting...: Wird zurückgesetzt...
@@ -1137,10 +1287,15 @@ translations:
   Restarting with the new version...: Neustart mit der neuen Version...
   Resume: Fortsetzen
   Resume Print: Druck fortsetzen
+  Resume macro not configured: Fortsetzen-Makro nicht konfiguriert
   Retract: Einziehen
   Retract Distance: Rückzugsabstand
   Retract Length: Rückzugslänge
   Retract Speed: Rückzugsgeschwindigkeit
+  Retract complete ({}mm): 'Einzug abgeschlossen ({}mm)'
+  'Retract failed: {}': 'Einzug fehlgeschlagen: {}'
+  Retract may still be running — response timed out: Einzug läuft möglicherweise noch — Zeitüberschreitung
+  Retracting {}mm...: Einziehen {}mm...
   Retraction: Retraktion
   Retraction Settings: Rückzugseinstellungen
   Retry: Wiederholen
@@ -1154,6 +1309,7 @@ translations:
   Run Dangerous Macro?: 'Gefährliches Makro ausführen?'
   Run Macro: Makro ausführen
   Run a Klipper macro when preheating this material: Klipper-Makro beim Vorheizen dieses Materials ausführen
+  Running {}...: '{} wird ausgeführt...'
   Runout Sensor: Auslaufsensor
   SHIPPED IMAGES: MITGELIEFERTE BILDER
   SOFTWARE: SOFTWARE
@@ -1176,11 +1332,13 @@ translations:
   Save Z-Offset: Z-Offset speichern
   Save Z-Offset?: Z-Offset speichern?
   Save changes to persist them across restarts?: Änderungen speichern, um sie über Neustarts hinweg zu erhalten?
+  'Save failed: {}': 'Speichern fehlgeschlagen: {}'
   Saved Z-Offset: Gespeicherter Z-Offset
   Saved to crash_report.txt (QR not available): In crash_report.txt gespeichert (QR nicht verfügbar)
   Saved to printer configuration.: In Druckerkonfiguration gespeichert.
   Saves to Klipper config and restarts firmware.: Speichert in Klipper-Konfiguration und startet Firmware neu.
   Saving Configuration...: Konfiguration wird gespeichert...
+  Saving Z-offset...: Z-Offset wird gespeichert...
   Saving config... Klipper will restart.: Konfiguration wird gespeichert... Klipper wird neu starten.
   Saving will restart Klipper and CANCEL any active print!: Speichern startet Klipper neu und BRICHT jeden aktiven Druck ab!
   Scan Cal: Scan-Kal.
@@ -1215,6 +1373,7 @@ translations:
   Select Sensors: 'Sensoren auswählen'
   Select Slot: 'Slot auswählen'
   Select Spool: Spule auswählen
+  Select a filament slot to load: Filament-Slot zum Laden auswählen
   Select fan: Lüfter auswählen
   Select macro for first button: Makro für erste Taste auswählen
   Select macro for fourth button: Makro für vierte Taste auswählen
@@ -1265,6 +1424,8 @@ translations:
   Sleep adjusted to match dim timeout: Ruhemodus-Zeitlimit angepasst
   Slot: Slot
   Slot 1: Slot 1
+  Slot {} spool cleared: 'Slot {} Spule gelöscht'
+  Slot {} updated: 'Slot {} aktualisiert'
   Small labels help keep controls calm and focused.: Kleine Beschriftungen helfen, Steuerelemente ruhig und fokussiert zu halten.
   Some settings will take effect after restart.: Einige Einstellungen werden nach dem Neustart wirksam.
   Sound Settings: Toneinstellungen
@@ -1273,6 +1434,8 @@ translations:
   Source: Quelle
   Speaker: Lautsprecher
   'Specular:': 'Spiegelung:'
+  Speed: Geschwindigkeit
+  'Speed change failed: {}': 'Geschwindigkeitsänderung fehlgeschlagen: {}'
   Speed of prime movement: Geschwindigkeit der Prime-Bewegung
   Speed of retraction movement: Geschwindigkeit der Rückzugsbewegung
   Spool: Spule
@@ -1290,6 +1453,7 @@ translations:
   Spoolman found! Configuring...: Spoolman gefunden! Wird konfiguriert...
   Spoolman has no spools configured: Spoolman hat keine Spulen konfiguriert
   Spoolman removed.: Spoolman entfernt.
+  'Spoolman unavailable — filament weights ': 'Spoolman nicht verfügbar — Filamentgewichte '
   Spoolman unavailable — filament weights may be stale: Spoolman nicht verfügbar — Filamentgewichte können veraltet sein
   Square Corner Velocity: Eckgeschwindigkeit
   Stable: Stabil
@@ -1331,6 +1495,7 @@ translations:
   Switch Printer: Drucker wechseln
   Switch Tests: Schalter-Tests
   Switch between light and dark themes: Zwischen Hell- und Dunkelthemen wechseln
+  Switched to T{}: 'Gewechselt zu T{}'
   Switching heater control to MPC. Klipper will restart.: Heizungsregelung wird auf MPC umgestellt. Klipper wird neu starten.
   Switching to MPC requires a config change and Klipper restart.: Wechsel zu MPC erfordert eine Konfigurationsänderung und Klipper-Neustart.
   Sync with Spoolman: Mit Spoolman synchronisieren
@@ -1366,6 +1531,7 @@ translations:
   Test Network: Netzwerk testen
   Test Print: 'Testdruck'
   Test Sound: Testton
+  Test Tracker: Test-Tracker
   Test label printed: 'Testetikett gedruckt'
   'Testing rotation: %d\xc2\xb0 (%d/%d) - %ds remaining': 'Drehung testen: %d\xc2\xb0 (%d/%d) - %ds verbleibend'
   Thanks! Anonymous usage data helps improve HelixScreen.: Danke! Anonyme Nutzungsdaten helfen, HelixScreen zu verbessern.
@@ -1424,6 +1590,7 @@ translations:
   Too humid: 'Zu feucht'
   Tool: Werkzeug
   Tool Changer: Werkzeugwechsler
+  'Tool change failed: {}': 'Werkzeugwechsel fehlgeschlagen: {}'
   Toolhead Style: Toolhead-Stil
   Top: Oben
   Total Prints: Gesamte Drucke
@@ -1458,7 +1625,12 @@ translations:
   Unlink: Verknüpfung lösen
   Unload: Entladen
   Unload Filament: Filament entladen
+  'Unload failed: {}': 'Entladen fehlgeschlagen: {}'
+  Unload filament macro not configured: Filament-Entlade-Makro nicht konfiguriert
+  Unload macro not configured: Entlade-Makro nicht konfiguriert
+  Unloading before bypass...: Entladen vor Bypass...
   Unloading filament...: Filament wird entladen...
+  Unloading... click again to load slot {}: 'Entladen... erneut tippen, um Slot {} zu laden'
   Unmapped: Nicht zugeordnet
   Unretract Extra: Zusätzliches Primen
   Unretract Speed: Prime-Geschwindigkeit
@@ -1474,6 +1646,7 @@ translations:
   Upload gcode files to get started: Laden Sie G-Code-Dateien hoch, um zu beginnen
   Use G10/G11 firmware retraction: G10/G11-Firmware-Retraktion verwenden
   Use printer type to select image: Druckertyp zur Bildauswahl verwenden
+  Value must be between {:.0f} and {:.0f}: 'Wert muss zwischen {:.0f} und {:.0f} liegen'
   Velocity and acceleration limits: Geschwindigkeits- und Beschleunigungslimits
   Vendor: Hersteller
   Vendor Name: Herstellername
@@ -1522,6 +1695,7 @@ translations:
   WiFi and Ethernet configuration: WiFi- und Ethernet-Konfiguration
   WiFi control unavailable: WiFi-Steuerung nicht verfügbar
   WiFi hardware unavailable: WiFi-Hardware nicht verfügbar
+  WiFi unavailable: WiFi nicht verfügbar
   Widget Labels: Widget-Beschriftungen
   Width: Breite
   Wrong PIN: Falsche PIN
@@ -1530,11 +1704,13 @@ translations:
   X Axis: X-Achse
   X Offset: X-Offset
   X axis applied, but Y axis failed: X-Achse angewendet, aber Y-Achse fehlgeschlagen
+  'X jog failed: {}': 'X-Bewegung fehlgeschlagen: {}'
   'X:': 'X:'
   XY: XY
   Y: Y
   Y Axis: Y-Achse
   Y Offset: Y-Offset
+  'Y jog failed: {}': 'Y-Bewegung fehlgeschlagen: {}'
   'Y:': 'Y:'
   Year: Jahr
   You can now skip these operations when starting prints.\n\n: Sie können diese Vorgänge beim Starten von Drucken jetzt überspringen.\n\n
@@ -1549,13 +1725,22 @@ translations:
   Z Offset: Z Offset
   Z Range: Z-Bereich
   Z Tilt Adjust...: Z-Neigung anpassen...
+  'Z jog failed: {}': 'Z-Bewegung fehlgeschlagen: {}'
   Z probes for bed leveling and mesh generation: Z-Sonden für Bettnivellierung und Netzerzeugung
   Z-Offset: Z-Offset
   Z-Offset Calibration: Z-Offset-Kalibrierung
   'Z-Offset:': 'Z-Offset:'
   Z-Tilt: Z-Tilt
   Z-Tilt Adjust: Z-Tilt-Anpassung
+  Z-Tilt Adjust complete: Z-Tilt Adjust abgeschlossen
+  Z-Tilt Adjust started...: Z-Tilt Adjust gestartet...
+  'Z-Tilt failed: {}': 'Z-Tilt fehlgeschlagen: {}'
+  Z-Tilt may still be running — response timed out: Z-Tilt läuft möglicherweise noch — Zeitüberschreitung
+  Z-Tilt timed out: Z-Tilt Zeitüberschreitung
+  Z-offset calibration timed out: Z-Offset-Kalibrierung Zeitüberschreitung
+  'Z-offset failed: {}': 'Z-Offset fehlgeschlagen: {}'
   Z-offset is auto-saved by firmware: Z-Offset wird automatisch von Firmware gespeichert
+  Z-offset saved ({:+.3f}mm). Klipper restarting...: 'Z-Offset gespeichert ({:+.3f}mm). Klipper startet neu...'
   Z-offset saved - Klipper restarting...: Z-Offset gespeichert - Klipper wird neu gestartet...
   'Z:': 'Z:'
   'Z: 0.000': 'Z: 0.000'
@@ -1581,4 +1766,9 @@ translations:
   tall: hoch
   used: verbraucht
   v{} is available. Tap to update.: v{} ist verfügbar. Tippen zum Aktualisieren.
+  '{} axis homed': '{}-Achse referenziert'
+  '{} complete': '{} abgeschlossen'
+  '{} heater turned off': '{}-Heizung ausgeschaltet'
+  '{} macro not configured': '{}-Makro nicht konfiguriert'
   '{} more taps to {} beta features': '{} weitere Male tippen, um Beta-Funktionen zu {}'
+  '{} target set to {}°C': '{}-Zieltemperatur auf {}°C gesetzt'

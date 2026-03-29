@@ -75,11 +75,14 @@ translations:
   ALL DEVICES: ВСЕ УСТРОЙСТВА
   AMS: AMS
   AMS Management: Управление AMS
+  'AMS is busy: {}': 'AMS занят: {}'
+  AMS not available: AMS недоступен
   API not available: API недоступен
   APPEARANCE: ВНЕШНИЙ ВИД
   AUTO STATE: АВТО СОСТОЯНИЕ
   AUTOMATION: АВТОМАТИЗАЦИЯ
   Abort: Прервать
+  Abort already in progress: Прерывание уже выполняется
   Abort failed: Ошибка прерывания
   Aborting AFC operation...: Прерывание операции AFC...
   About: О программе
@@ -108,6 +111,7 @@ translations:
   Alert: Оповещение
   Alerts: Оповещения
   All: Все
+  All axes homed: Все оси запаркованы
   Allow display to sleep during active prints: Разрешить спящий режим дисплея во время печати
   Allwinner: Allwinner
   Ambient Transfer: Теплообмен с окружающей средой
@@ -135,6 +139,7 @@ translations:
   Auto Cal: Авто кал.
   Auto-Detect: Автоопределение
   Auto-Heat on Load: Автонагрев при загрузке
+  Auto-detect: Автоопределение
   Auto-lock: Автоблокировка
   Auto-poll for weight updates: Автоопрос обновлений веса
   Auto-probe or manually check screw heights: Автозондирование или ручная проверка высоты винтов
@@ -162,7 +167,11 @@ translations:
   Bed Screws: Винты стола
   Bed Temp: Темп. стола
   Bed Temp (°C): Температура стола (°C)
+  Bed heater turned off: Нагреватель стола выключен
   Bed is Level!: Стол выровнен!
+  Bed mesh operation timed out: Сетка стола — время ожидания истекло
+  Bed target set to {}°C: Целевая температура стола {}°C
+  Bed warming timed out: Нагрев стола — время ожидания истекло
   Bed °C: Стол °C
   'Bed:': 'Стол:'
   Belt Tension: 'Натяжение ремня'
@@ -198,6 +207,11 @@ translations:
   Bypass: Обход
   Bypass Mode: Режим обхода
   Bypass controlled by hardware sensor: Обход управляется аппаратным датчиком
+  Bypass controlled by sensor: Байпас управляется датчиком
+  Bypass disabled: Байпас отключён
+  Bypass enabled: Байпас включён
+  'Bypass failed: {}': 'Ошибка байпаса: {}'
+  'Bypass toggle failed: {}': 'Не удалось переключить байпас: {}'
   C: К
   CALIBRATION: КАЛИБРОВКА
   CAPABILITIES: ВОЗМОЖНОСТИ
@@ -222,16 +236,31 @@ translations:
   Calibration complete!: Калибровка завершена!
   Calibration complete! Press 'Next' to continue.: "Калибровка завершена! Нажмите «Далее» для продолжения."
   Calibration failed - touch targets more precisely.: Калибровка не удалась – нажимайте на цели точнее.
+  Calibration may still be running — response timed out: Калибровка может ещё выполняться — время ожидания истекло
+  Calibration move may still be running — response timed out: Движение калибровки может ещё выполняться — время ожидания истекло
   Calibration saved but cannot apply on SDL display: Калибровка сохранена, но не может быть применена на SDL дисплее
+  Calibration started: Калибровка запущена
   Calibration timed out. Please try again.: Время истекло. Попробуйте снова.
   Camera: Камера
   Cancel: Отмена
   Cancel Escalation: Отменить эскалацию
   Cancel Print: Отменить печать
+  Cancel macro not configured: Макрос отмены не настроен
   Cancelled: Отменено
+  'Cannot control timelapse: printer not connected': 'Невозможно управлять таймлапсом: принтер не подключён'
+  'Cannot delete file: printer not connected': 'Невозможно удалить файл: принтер не подключён'
+  'Cannot modify G-code: no temp directory available': 'Невозможно изменить G-code: временная директория недоступна'
+  'Cannot modify G-code: scan result not available': 'Невозможно изменить G-code: результат сканирования недоступен'
+  'Cannot modify G-code: {}. Printing original file.': 'Невозможно изменить G-code: {}. Печать оригинального файла.'
+  'Cannot reprint: not connected to printer': 'Невозможно перепечатать: не подключено к принтеру'
+  'Cannot start print: internal error': 'Невозможно начать печать: внутренняя ошибка'
+  'Cannot start print: not connected to printer': 'Невозможно начать печать: не подключено к принтеру'
+  'Cannot start print: printer is {}': 'Невозможно начать печать: принтер {}'
   Center QR code in frame: Расположите QR-код в центре кадра
   Chamber: Камера
   Chamber Fan: Вентилятор камеры
+  Chamber Heater: Нагреватель камеры
+  Chamber Sensor: Датчик камеры
   Chamber Temperature: Температура камеры
   Chamber and dryer humidity monitoring: Мониторинг влажности камеры и сушилки
   'Chamber:': 'Камера:'
@@ -267,6 +296,7 @@ translations:
   Clear All Events: Очистить все события
   Clear Console?: 'Очистить консоль?'
   Clear Spool: Убрать катушку
+  'Clear failed: {}': 'Ошибка очистки: {}'
   Clipboard unavailable - use SSH: Буфер обмена недоступен - используйте SSH
   Clog Detection: 'Обнаружение засора'
   Clog detection: Обнаружение засора
@@ -289,6 +319,7 @@ translations:
   Config-defined (read-only): Определено в конфигурации (только чтение)
   Configuration added successfully.: Конфигурация успешно добавлена.
   Configuration already present.: Конфигурация уже присутствует.
+  Configuration saved - restarting: Конфигурация сохранена - перезапуск
   Configure: Настроить
   Configure Fan Widget: Настроить виджет вентилятора
   Configure G10/G11 firmware retraction: Настроить аппаратный ретракт G10/G11
@@ -335,6 +366,7 @@ translations:
   Copy failed - use SSH manually: Ошибка копирования - используйте SSH вручную
   Corner roundness (0 = sharp, 40 = very round): Скругление углов (0 = острые, 40 = очень круглые)
   Correction (Ki): Коррекция (Ki)
+  'Could not analyze PRINT_START macro. Some print options may be ': 'Не удалось проанализировать макрос PRINT_START. Некоторые параметры печати могут быть '
   Could not check webcam status.\nCheck printer connection.: Не удалось проверить статус веб-камеры.\nПроверьте подключение принтера.
   Could not reach Spoolman at: 'Не удалось связаться со Spoolman по адресу'
   Could not verify Spoolman status. Moonraker may still be restarting.: Не удалось проверить статус Spoolman. Moonraker может ещё перезапускаться.
@@ -397,6 +429,7 @@ translations:
   Disable: Отключить
   Disable Motors?: Отключить моторы?
   Disable the security PIN: Отключить PIN-код
+  Disabling motors...: Отключение моторов...
   Discard: Отменить
   Discard Changes?: Отменить изменения?
   Disconnected: Отключено
@@ -438,6 +471,7 @@ translations:
   Edit Theme Colors (Modified): Редактировать цвета темы (изменено)
   Effects: Эффекты
   Eject: Извлечь
+  'Eject failed: {}': 'Ошибка извлечения: {}'
   Emergency Stop: Аварийная остановка
   Emergency Stop?: Аварийная остановка?
   Emergency stop activated: Аварийная остановка активирована
@@ -468,6 +502,8 @@ translations:
   Enter printer IP address first: 'Сначала введите IP-адрес принтера'
   Enter the IP address and port of your Spoolman server.: Введите IP-адрес и порт вашего сервера Spoolman.
   Error: Ошибка
+  Error loading file: Ошибка загрузки файла
+  'Error saving printer settings: {}': 'Ошибка сохранения настроек принтера: {}'
   Error state: Состояние ошибки
   Escalate to emergency stop if cancel doesn't respond: Эскалация до аварийной остановки, если отмена не отвечает
   Escalation Timeout: Тайм-аут эскалации
@@ -482,14 +518,20 @@ translations:
   Explore palette and preview: Изучить палитру и предпросмотр
   External: Внешний
   External Spool: Внешняя катушка
+  External spool cleared: Внешняя катушка удалена
+  External spool updated: Внешняя катушка обновлена
   Extra prime to compensate ooze: Дополнительная подача для компенсации вытекания
   Extrude: Экструзия
   Extrude Speed: Скорость экструзии
+  Extrude complete ({}mm): Экструзия завершена ({}мм)
+  'Extrude failed: {}': 'Ошибка экструзии: {}'
+  Extrude may still be running — response timed out: Экструзия может ещё выполняться — время ожидания истекло
   Extrude/retract feedrate (Saved): Скорость экструзии/ретракции (Сохранено)
   Extruder: Экструдер
   Extruder MPC Calibration: Калибровка MPC экструдера
   Extruder PID Tuning: Настройка PID экструдера
   Extruder heats automatically based on material: Экструдер нагревается автоматически в зависимости от материала
+  Extruding {}mm...: Экструзия {}мм...
   FAILED: ОШИБКА
   FILAMENT MAPPING: 'НАЗНАЧЕНИЕ ФИЛАМЕНТА'
   Factory Reset: Сброс к заводским настройкам
@@ -497,36 +539,79 @@ translations:
   Failed to analyze PRINT_START macro: Не удалось проанализировать макрос PRINT_START
   Failed to apply limits: Не удалось применить ограничения
   Failed to apply settings: Не удалось применить настройки
+  'Failed to cancel: {}': 'Не удалось отменить: {}'
+  "Failed to connect to '{}': {}": "Не удалось подключиться к '{}': {}"
   'Failed to connect: %s': 'Не удалось подключиться: %s'
+  'Failed to cool down: {}': 'Не удалось охладить: {}'
+  Failed to delete file: Не удалось удалить файл
+  Failed to delete profile: Не удалось удалить профиль
   Failed to delete spool: Не удалось удалить катушку
+  'Failed to download G-code for modification: {}': 'Не удалось скачать G-code для изменения: {}'
   Failed to download helixscreen.conf.\nCheck printer connection.: Не удалось скачать helixscreen.conf.\nПроверьте подключение принтера.
   Failed to download moonraker.conf.\nCheck printer connection.: Не удалось скачать moonraker.conf.\nПроверьте подключение принтера.
   Failed to duplicate spool: Не удалось дублировать катушку
   Failed to enable tuning tower: Не удалось включить башню настройки
+  "Failed to exclude '{}': {}": "Не удалось исключить '{}': {}"
   Failed to get limits: Не удалось получить ограничения
+  Failed to load fan configuration screen: Не удалось загрузить экран настройки вентилятора
+  Failed to load fan control overlay: Не удалось загрузить управление вентилятором
+  Failed to load file details: Не удалось загрузить данные файла
   Failed to load history: 'Не удалось загрузить историю'
   Failed to load overlay: Не удалось загрузить оверлей
+  Failed to load print tune panel: Не удалось загрузить панель настройки печати
+  Failed to load profile: Не удалось загрузить профиль
   Failed to load spools: Не удалось загрузить катушки
+  'Failed to modify G-code: {}': 'Не удалось изменить G-code: {}'
   Failed to open history: Не удалось открыть историю
   Failed to open history list: Не удалось открыть список истории
+  Failed to open temperature graph: Не удалось открыть график температуры
   Failed to open wizard: Не удалось открыть мастер
+  'Failed to pause print: {}': 'Не удалось приостановить печать: {}'
+  'Failed to purge: {}': 'Не удалось прочистить: {}'
   Failed to read config.: Не удалось прочитать конфигурацию.
   Failed to read config. Check connection.: Не удалось прочитать конфигурацию. Проверьте подключение.
   Failed to read moonraker.conf.: Не удалось прочитать moonraker.conf.
+  Failed to refresh file list: Не удалось обновить список файлов
+  'Failed to reprint: {}': 'Не удалось перепечатать: {}'
+  'Failed to reset flow: {}': 'Не удалось сбросить поток: {}'
+  'Failed to reset speed: {}': 'Не удалось сбросить скорость: {}'
   Failed to reset theme: Не удалось сбросить тему
   Failed to restart Moonraker.: Не удалось перезапустить Moonraker.
+  'Failed to resume print: {}': 'Не удалось возобновить печать: {}'
+  'Failed to resume: {}': 'Не удалось возобновить: {}'
+  Failed to save LED configuration: Не удалось сохранить настройки LED
   Failed to save changes to Spoolman: 'Не удалось сохранить изменения в Spoolman'
   Failed to save config.: Не удалось сохранить конфигурацию.
   Failed to save configuration: Не удалось сохранить конфигурацию
+  Failed to save fan configuration: Не удалось сохранить настройки вентилятора
+  Failed to save heater configuration: Не удалось сохранить настройки нагревателя
+  Failed to save printer configuration: Не удалось сохранить настройки принтера
+  Failed to save profile: Не удалось сохранить профиль
+  Failed to save setup completion: Не удалось сохранить завершение настройки
   Failed to save spool: Не удалось сохранить катушку
   Failed to save theme file: Не удалось сохранить файл темы
+  'Failed to send command: {}': 'Не удалось отправить команду: {}'
   Failed to set active spool: Не удалось установить активную катушку
+  'Failed to set bed temp: {}': 'Не удалось задать темп. стола: {}'
+  'Failed to set flow rate: {}': 'Не удалось задать поток: {}'
+  'Failed to set nozzle temp: {}': 'Не удалось задать темп. сопла: {}'
+  'Failed to set print speed: {}': 'Не удалось задать скорость печати: {}'
+  'Failed to set temperature: {}': 'Не удалось задать температуру: {}'
+  'Failed to set {} temp: {}': 'Не удалось задать темп. {}: {}'
+  Failed to show confirmation dialog: Не удалось показать диалог подтверждения
+  Failed to start calibration: Не удалось запустить калибровку
+  'Failed to start print: {}': 'Не удалось начать печать: {}'
+  'Failed to toggle timelapse: {}': 'Не удалось переключить таймлапс: {}'
+  'Failed to turn off heaters: {}': 'Не удалось выключить нагреватели: {}'
+  'Failed to unload: {}': 'Не удалось выгрузить: {}'
   Failed to update configuration.\nCheck printer connection.: Не удалось обновить конфигурацию.\nПроверьте подключение принтера.
   Failed to update moonraker.conf.: Не удалось обновить moonraker.conf.
   Failed to update moonraker.conf.\nCheck printer connection.: Не удалось обновить moonraker.conf.\nПроверьте подключение принтера.
   Failed to update phase tracking: Не удалось обновить отслеживание фазы
+  'Failed to upload modified G-code: {}': 'Не удалось загрузить изменённый G-code: {}'
   Fan Calibration: Калибровка вентилятора
   Fan Transfer: Теплообмен с вентилятором
+  'Fan control failed: {}': 'Ошибка управления вентилятором: {}'
   Fans: Вентиляторы
   Farther: Дальше
   Feed filament directly to extruder: Подать филамент напрямую в экструдер
@@ -542,10 +627,15 @@ translations:
   Filament diameter sensors for flow compensation: Датчики диаметра филамента для компенсации потока
   Filament is loose: Филамент ослаблен
   Filament is pulling tight: Филамент натянут
+  'Filament load failed: {}': 'Ошибка загрузки филамента: {}'
+  Filament loaded: Филамент загружен
+  Filament operation timed out: Операция с филаментом — время ожидания истекло
   Filament runout and motion detection sensors: Датчики окончания и движения филамента
   Filament tension is balanced: Натяжение филамента сбалансировано
   Filament tracking & label printing: Учёт филамента и печать этикеток
   Filament tracking and inventory: Отслеживание и учёт филамента
+  'Filament unload failed: {}': 'Ошибка выгрузки филамента: {}'
+  Filament unloaded: Филамент выгружен
   File: Файл
   File Info: Информация о файле
   Filename: Имя файла
@@ -559,6 +649,7 @@ translations:
   Flip: Отразить
   Flow: Поток
   Flow Rate: Множитель потока
+  'Flow change failed: {}': 'Ошибка изменения потока: {}'
   Flowguard: 'Flowguard'
   Flying Toasters: 'Летающие тостеры'
   Forming tip...: Формирование кончика...
@@ -603,6 +694,7 @@ translations:
   Heated Bed PID Tuning: Настройка PID стола
   Heater: Нагреватель
   Heater Power: Мощность нагревателя
+  Heaters off: Нагреватели выключены
   Heating (%d°C below minimum): "Нагрев (%d°C ниже минимума)"
   Heating Bed...: Нагрев стола...
   Heating Nozzle...: Нагрев сопла...
@@ -619,6 +711,14 @@ translations:
   Home: Главная
   Home failed: Парковка не удалась
   Homing AFC system...: Парковка системы AFC...
+  Homing X...: Парковка X...
+  Homing XY...: Парковка XY...
+  Homing Y...: Парковка Y...
+  Homing Z...: Парковка Z...
+  Homing all axes...: Парковка всех осей...
+  'Homing failed: {}': 'Ошибка парковки: {}'
+  Homing may still be running — response timed out: Парковка может ещё выполняться — время ожидания истекло
+  Homing timed out: Парковка — время ожидания истекло
   Homing...: Парковка...
   Horizontal: Горизонтально
   Horizontal Progress (Leveling Wizard): Горизонтальный прогресс (мастер выравнивания)
@@ -638,6 +738,8 @@ translations:
   Icon: 'Иконка'
   Idle: Ожидание
   Ignore: Игнорировать
+  'Import failed: {}': 'Ошибка импорта: {}'
+  Imported {}: Импортировано {}
   In Progress: В процессе
   Inactive: Неактивно
   Include Klipper/Moonraker logs: Включить логи Klipper/Moonraker
@@ -651,6 +753,7 @@ translations:
   Input shaper settings applied!: Настройки компенсатора вибраций применены!
   Input shaping reduces ringing and ghosting artifacts caused by printer vibrations during fast movements.: Компенсация вибраций уменьшает артефакты звона и двоения, вызванные вибрациями принтера при быстрых перемещениях.
   Input shaping reduces vibration artifacts (ringing) in your prints.: Input Shaper уменьшает артефакты вибрации (эхо) в ваших отпечатках.
+  Insert filament before resuming: Вставьте филамент перед возобновлением
   Install: Установить
   Install HelixPrint Plugin: Установить плагин HelixPrint
   Install Plugin: Установить плагин
@@ -664,6 +767,7 @@ translations:
   Intensity: Интенсивность
   Interactive probe calibration: Интерактивная калибровка зонда
   Interactive probe offset adjustment: Интерактивная настройка смещения датчика
+  'Internal error: no scan result': 'Внутренняя ошибка: нет результата сканирования'
   Invalid port number: 'Неверный номер порта'
   Issue description: Описание проблемы
   Job Queue: Очередь заданий
@@ -713,6 +817,8 @@ translations:
   Light: Подсветка
   Load: Загрузить
   Load Filament: Загрузить филамент
+  'Load failed: {}': 'Ошибка загрузки: {}'
+  Load filament macro not configured: Макрос загрузки филамента не настроен
   Load the required filaments or start anyway?: Загрузить нужные филаменты или начать без них?
   Loaded: Загружен
   Loading Bed Mesh...: Загрузка сетки стола...
@@ -749,6 +855,7 @@ translations:
   Macro Browser: Обзор макросов
   Macro Buttons: Кнопки макросов
   Macro analysis not initialized: Анализ макросов не инициализирован
+  'Macro failed: {}': 'Ошибка макроса: {}'
   Macro for bed mesh calibration: Макрос для калибровки сетки стола
   Macro for chamber/bed heat soak: Макрос для прогрева камеры/стола
   Macro for physical bed leveling (QGL/Z-Tilt): Макрос для механического выравнивания стола (QGL/Z-Tilt)
@@ -798,6 +905,7 @@ translations:
   Median: Медиана
   Memory (MB): Память (МБ)
   Mesh Complete: Сетка завершена
+  Mesh saved as '{}': "Сетка сохранена как '{}'"
   Method: Метод
   Min: Мин
   Minimum: Минимум
@@ -811,6 +919,8 @@ translations:
   Motion: Движение
   'Motion: XYZ': 'Движение: XYZ'
   Motors Off: Отключить моторы
+  'Motors disable failed: {}': 'Ошибка отключения моторов: {}'
+  Motors disabled: Моторы отключены
   Move paper back and forth while adjusting. Stop when paper catches slightly but still slides.: Перемещайте бумагу вперёд-назад во время регулировки. Остановитесь, когда бумага слегка цепляется, но ещё скользит.
   ? Moves the print head to measure vibration frequencies on each axis. Takes 2-3 minutes. The printer will make noise — this is normal.
   : Перемещает печатающую головку для измерения частот вибрации по каждой оси. Занимает 2-3 минуты. Принтер будет шуметь — это нормально.
@@ -818,6 +928,7 @@ translations:
   Multi-Filament Overview: 'Обзор мульти-филамента'
   'Multi-Filament:': 'Мульти-филамент:'
   Multi-Material: Мульти-материал
+  Must home axes first: Сначала необходимо запарковать оси
   My Custom Theme: Моя тема
   My Panel: Моя панель
   NEWLY DISCOVERED: НЕДАВНО ОБНАРУЖЕНО
@@ -838,6 +949,7 @@ translations:
   'New Spool: Step ': 'Новая катушка: Шаг '
   'New Spool: Step 1 of 3': 'Новая катушка: Шаг 1 из 3'
   New Version Available: Доступна новая версия
+  New printer successfully added: Новый принтер успешно добавлен
   New profile name: Новое имя профиля
   Next: Далее
   Niimbot (Bluetooth): Niimbot (Bluetooth)
@@ -861,11 +973,14 @@ translations:
   No dryer available. Store filament in a sealed dry box with desiccant for best results.: 'Сушилка недоступна. Храните филамент в герметичном контейнере с влагопоглотителем для лучших результатов.'
   No effects available: Нет доступных эффектов
   No events queued: Нет событий в очереди
+  No filament loaded to unload: Нет загруженного филамента для выгрузки
   No filaments found: Филаменты не найдены
   No file loaded: Файл не загружен
+  No file to reprint: Нет файла для повторной печати
   No files available for printing: Нет файлов для печати
   No images found on USB drive: Изображения на USB-накопителе не найдены
   No jobs in queue: Очередь пуста
+  No light configured. Set up in Settings > LED Settings.: Освещение не настроено. Настройте в Настройки > Настройки LED.
   No macros available: Нет доступных макросов
   No macros found: 'Макросы не найдены'
   No matching prints: Нет совпадающих печатей
@@ -880,6 +995,7 @@ translations:
   No print history found: История печати не найдена
   No print history yet: Истории печати пока нет
   No print start macro found: Макрос старта печати не найден
+  No printer connection: Нет подключения к принтеру
   No printers found: Принтеры не найдены
   No prints yet: 'Нет печатей'
   No profiles available: Профили недоступны
@@ -911,6 +1027,13 @@ translations:
   Nozzle Temp: Темп. сопла
   Nozzle Temperature: Температура сопла
   Nozzle Temps: 'Темп. сопел'
+  Nozzle heater turned off: Нагреватель сопла выключен
+  Nozzle target set to {}°C: Целевая температура сопла {}°C
+  'Nozzle too cold for extrude ({}°C, min: {}°C)': 'Сопло слишком холодное для экструзии ({}°C, мин: {}°C)'
+  'Nozzle too cold for filament load ({}°C, min: {}°C)': 'Сопло слишком холодное для загрузки филамента ({}°C, мин: {}°C)'
+  'Nozzle too cold for filament unload ({}°C, min: {}°C)': 'Сопло слишком холодное для выгрузки филамента ({}°C, мин: {}°C)'
+  'Nozzle too cold for purge ({}°C, min: {}°C)': 'Сопло слишком холодное для прочистки ({}°C, мин: {}°C)'
+  'Nozzle too cold for retract ({}°C, min: {}°C)': 'Сопло слишком холодное для ретракта ({}°C, мин: {}°C)'
   Nozzle °C: Сопло °C
   'Nozzle:': 'Сопло:'
   OD: OD
@@ -925,6 +1048,7 @@ translations:
   On/Off (state-aware): Вкл/Выкл (с отслеживанием)
   Open: Открыть
   Open Source Licenses: 'Лицензии с открытым кодом'
+  Operation already in progress: Операция уже выполняется
   Operations: Операции
   Optimize Your Printing: Оптимизируйте вашу печать
   Optimizes temperature control for stable, consistent heating.: Оптимизирует контроль температуры для стабильного и равномерного нагрева.
@@ -933,6 +1057,7 @@ translations:
   Out of range: 'Вне диапазона'
   Output Mode: Режим вывода
   Overheating: 'Перегрев'
+  Override auto-detection if your chamber sensor or heater isn't named 'chamber'.: "Переопределите автоопределение, если датчик или нагреватель камеры не называется 'chamber'."
   P: Д
   PA: PA
   PETG: PETG
@@ -963,6 +1088,7 @@ translations:
   Path B: 'Путь B'
   Path Similarity: 'Сходство путей'
   Pause: Пауза
+  Pause macro not configured: Макрос паузы не настроен
   Paused: Приостановлено
   Paused (attention needed): Приостановлено (требует внимания)
   Peak Freq: Пиковая частота
@@ -978,6 +1104,7 @@ translations:
   'Place image files (PNG, JPEG, BMP, GIF) in config/custom_images/. Max size: 2048×2048 pixels.': 'Поместите файлы изображений (PNG, JPEG, BMP, GIF) в config/custom_images/. Макс. размер: 2048×2048 пикселей.'
   Place plugins in the plugins directory to extend HelixScreen: Поместите плагины в директорию plugins для расширения HelixScreen
   Placed: Добавлено
+  Play / stop Crockett's Theme: Play / stop Crockett's Theme
   Play a test beep: Воспроизвести тестовый сигнал
   Please enter a theme name: Введите название темы
   Please enter a valid port (1-65535).: Введите корректный порт (1-65535).
@@ -997,13 +1124,17 @@ translations:
   Power: Питание
   Power Control: Управление питанием
   Power Devices: Устройства питания
+  'Pre-print command failed: {}': 'Ошибка команды перед печатью: {}'
   Preheat Macro: Макрос преднагрева
   Preheat PLA: Преднагрев PLA
+  'Preheat: T{} + bed set': 'Преднагрев: T{} + стол заданы'
+  'Preheat: all {} tools + bed set': 'Преднагрев: все {} инструменты + стол заданы'
   Preparing: Подготовка
   Preparing Print: Подготовка печати
   Preparing Print...: Подготовка печати...
   Preparing...: Подготовка...
   Preset: Пресет
+  'Preset ID: {}': 'ID пресета: {}'
   Presets: Пресеты
   Press Scan to search: Нажмите «Поиск» для сканирования
   'Pressure:': 'Давление:'
@@ -1029,6 +1160,7 @@ translations:
   Print Time: Время печати
   Print Tuning: Настройка печати
   Print failed: 'Печать не удалась'
+  'Print preparation failed: {}': 'Ошибка подготовки печати: {}'
   Printer: Принтер
   Printer Error: Ошибка принтера
   Printer Firmware Disconnected: Прошивка принтера отключена
@@ -1037,6 +1169,7 @@ translations:
   Printer Name: Название принтера
   Printer Shutdown: Остановка принтера
   Printer Type: Тип принтера
+  Printer image set to auto-detect: Изображение принтера — автоопределение
   Printer name: Название принтера
   Printer ready: Принтер готов
   Printers: Принтеры
@@ -1058,18 +1191,31 @@ translations:
   Probing Bed...: Зондирование стола...
   Probing Failed: Ошибка зондирования
   Proceed: Продолжить
+  Profile deleted: Профиль удалён
   Profile name (e.g., default): Имя профиля (например, default)
+  Profile renamed: Профиль переименован
   Profiles: Профили
   Progress Bar Tests: Тесты прогресс-бара
   Pulling filament back: Откат филамента
   Purge: Продуть
+  Purge complete: Прочистка завершена
+  'Purge failed: {}': 'Ошибка прочистки: {}'
+  Purge macro not configured: Макрос прочистки не настроен
+  Purge may still be running — response timed out: Прочистка может ещё выполняться — время ожидания истекло
   Purging nozzle: Продувка сопла
+  Purging nozzle...: Прочистка сопла...
+  Purging {}mm...: Прочистка {}мм...
   Purging...: Продувка...
   QGL: QGL
+  'QGL failed: {}': 'Ошибка QGL: {}'
+  QGL may still be running — response timed out: QGL может ещё выполняться — время ожидания истекло
+  QGL timed out: QGL — время ожидания истекло
   QR Only: Только QR
   QUEUED EVENTS: ОЧЕРЕДЬ СОБЫТИЙ
   QUICK BUTTONS: БЫСТРЫЕ КНОПКИ
   Quad Gantry Level: Выравнивание портала
+  Quad Gantry Level complete: QGL завершён
+  Quad Gantry Level started...: QGL запущен...
   'Queue: Ready': 'Очередь: Готово'
   Quick: Быстро
   Quick Actions: Быстрые действия
@@ -1109,6 +1255,9 @@ translations:
   Remove plugin from printer: Удалить плагин с принтера
   Rename: Переименовать
   Rename Mesh Profile: Переименовать профиль сетки
+  Rename failed at load step: Ошибка переименования при загрузке
+  Rename failed at remove step: Ошибка переименования при удалении
+  Rename failed at save step: Ошибка переименования при сохранении
   Render Now: Отрендерить сейчас
   Rendering timelapse...: 'Рендеринг таймлапса...'
   Report saved to crash_report.txt: Отчёт сохранён в crash_report.txt
@@ -1119,6 +1268,7 @@ translations:
   Reset: Сброс
   Reset Speed & Flow to 100%: Сбросить скорость и поток на 100%
   Reset all settings and restart wizard: Сбросить все настройки и перезапустить мастер
+  'Reset failed: {}': 'Ошибка сброса: {}'
   Reset to Default: Сбросить до умолчания
   Reset to original values: Сбросить к исходным значениям
   Resetting...: Сброс...
@@ -1137,10 +1287,15 @@ translations:
   Restarting with the new version...: Перезапуск с новой версией...
   Resume: Продолжить
   Resume Print: Продолжить печать
+  Resume macro not configured: Макрос возобновления не настроен
   Retract: Ретракция
   Retract Distance: Расстояние ретракта
   Retract Length: Длина ретракта
   Retract Speed: Скорость ретракта
+  Retract complete ({}mm): Ретракт завершён ({}мм)
+  'Retract failed: {}': 'Ошибка ретракта: {}'
+  Retract may still be running — response timed out: Ретракт может ещё выполняться — время ожидания истекло
+  Retracting {}mm...: Ретракт {}мм...
   Retraction: Ретракт
   Retraction Settings: Настройки ретракта
   Retry: Повторить
@@ -1154,6 +1309,7 @@ translations:
   Run Dangerous Macro?: 'Запустить опасный макрос?'
   Run Macro: Запустить макрос
   Run a Klipper macro when preheating this material: Запускать макрос Klipper при преднагреве этого материала
+  Running {}...: Выполнение {}...
   Runout Sensor: Датчик окончания
   SHIPPED IMAGES: ВСТРОЕННЫЕ ИЗОБРАЖЕНИЯ
   SOFTWARE: ПО
@@ -1176,11 +1332,13 @@ translations:
   Save Z-Offset: Сохранить Z-Offset
   Save Z-Offset?: Сохранить Z-Offset?
   Save changes to persist them across restarts?: Сохранить изменения, чтобы они сохранились после перезапуска?
+  'Save failed: {}': 'Ошибка сохранения: {}'
   Saved Z-Offset: Сохранённый Z-Offset
   Saved to crash_report.txt (QR not available): Сохранено в crash_report.txt (QR недоступен)
   Saved to printer configuration.: Сохранено в конфигурацию принтера.
   Saves to Klipper config and restarts firmware.: Сохраняет в конфигурацию Klipper и перезапускает прошивку.
   Saving Configuration...: Сохранение конфигурации...
+  Saving Z-offset...: Сохранение Z-offset...
   Saving config... Klipper will restart.: Сохранение конфигурации... Klipper перезапустится.
   Saving will restart Klipper and CANCEL any active print!: Сохранение перезапустит Klipper и ОТМЕНИТ любую активную печать!
   Scan Cal: Кал. скана
@@ -1215,6 +1373,7 @@ translations:
   Select Sensors: 'Выбрать датчики'
   Select Slot: 'Выбрать слот'
   Select Spool: Выбрать катушку
+  Select a filament slot to load: Выберите слот филамента для загрузки
   Select fan: Выберите вентилятор
   Select macro for first button: Выберите макрос для первой кнопки
   Select macro for fourth button: Выберите макрос для четвёртой кнопки
@@ -1265,6 +1424,8 @@ translations:
   Sleep adjusted to match dim timeout: Таймаут сна изменён
   Slot: Слот
   Slot 1: Слот 1
+  Slot {} spool cleared: Катушка слота {} удалена
+  Slot {} updated: Слот {} обновлён
   Small labels help keep controls calm and focused.: Мелкие надписи помогают сохранять элементы управления аккуратными.
   Some settings will take effect after restart.: Некоторые настройки вступят в силу после перезапуска.
   Sound Settings: Настройки звука
@@ -1273,6 +1434,8 @@ translations:
   Source: 'Источник'
   Speaker: Динамик
   'Specular:': 'Отражение:'
+  Speed: Скорость
+  'Speed change failed: {}': 'Ошибка изменения скорости: {}'
   Speed of prime movement: Скорость движения подачи
   Speed of retraction movement: Скорость ретракта
   Spool: Катушка
@@ -1290,6 +1453,7 @@ translations:
   Spoolman found! Configuring...: Spoolman найден! Настройка...
   Spoolman has no spools configured: В Spoolman нет настроенных катушек
   Spoolman removed.: Spoolman удалён.
+  'Spoolman unavailable — filament weights ': 'Spoolman недоступен — вес филамента '
   Spoolman unavailable — filament weights may be stale: Spoolman недоступен — вес филамента может быть устаревшим
   Square Corner Velocity: Square Corner Velocity
   Stable: Стабильная
@@ -1331,6 +1495,7 @@ translations:
   Switch Printer: Переключить принтер
   Switch Tests: Тесты переключателей
   Switch between light and dark themes: Переключение между светлой и тёмной темами
+  Switched to T{}: Переключено на T{}
   Switching heater control to MPC. Klipper will restart.: Переключение управления нагревом на MPC. Klipper перезапустится.
   Switching to MPC requires a config change and Klipper restart.: Переход на MPC требует изменения конфига и перезапуска Klipper.
   Sync with Spoolman: Синхронизация со Spoolman
@@ -1366,6 +1531,7 @@ translations:
   Test Network: Тест сети
   Test Print: 'Тестовая печать'
   Test Sound: Тестовый звук
+  Test Tracker: Test Tracker
   Test label printed: 'Тестовая этикетка напечатана'
   'Testing rotation: %d\xc2\xb0 (%d/%d) - %ds remaining': 'Тест поворота: %d\xc2\xb0 (%d/%d) - осталось %ds'
   Thanks! Anonymous usage data helps improve HelixScreen.: Спасибо! Анонимные данные использования помогают улучшить HelixScreen.
@@ -1424,6 +1590,7 @@ translations:
   Too humid: 'Слишком влажно'
   Tool: Инструмент
   Tool Changer: Сменщик инструментов
+  'Tool change failed: {}': 'Ошибка смены инструмента: {}'
   Toolhead Style: Стиль печатающей головки
   Top: Сверху
   Total Prints: Всего печатей
@@ -1458,7 +1625,12 @@ translations:
   Unlink: Отвязать
   Unload: Выгрузить
   Unload Filament: Выгрузить филамент
+  'Unload failed: {}': 'Ошибка выгрузки: {}'
+  Unload filament macro not configured: Макрос выгрузки филамента не настроен
+  Unload macro not configured: Макрос выгрузки не настроен
+  Unloading before bypass...: Выгрузка перед байпасом...
   Unloading filament...: Выгрузка филамента...
+  Unloading... click again to load slot {}: Выгрузка... нажмите ещё раз для загрузки слота {}
   Unmapped: Не назначен
   Unretract Extra: Дополнительная подача
   Unretract Speed: Скорость возврата
@@ -1474,6 +1646,7 @@ translations:
   Upload gcode files to get started: Загрузите gcode-файлы для начала
   Use G10/G11 firmware retraction: Использовать аппаратный ретракт G10/G11
   Use printer type to select image: Использовать тип принтера для выбора изображения
+  Value must be between {:.0f} and {:.0f}: Значение должно быть от {:.0f} до {:.0f}
   Velocity and acceleration limits: Ограничения скорости и ускорения
   Vendor: Производитель
   Vendor Name: Название производителя
@@ -1522,6 +1695,7 @@ translations:
   WiFi and Ethernet configuration: Настройка WiFi и Ethernet
   WiFi control unavailable: Управление WiFi недоступно
   WiFi hardware unavailable: Оборудование WiFi недоступно
+  WiFi unavailable: WiFi недоступен
   Widget Labels: Подписи виджетов
   Width: Ширина
   Wrong PIN: Неверный PIN
@@ -1530,11 +1704,13 @@ translations:
   X Axis: Ось X
   X Offset: Смещение X
   X axis applied, but Y axis failed: Ось X применена, но ось Y не удалась
+  'X jog failed: {}': 'Ошибка перемещения X: {}'
   'X:': 'X:'
   XY: XY
   Y: Y
   Y Axis: Ось Y
   Y Offset: Смещение Y
+  'Y jog failed: {}': 'Ошибка перемещения Y: {}'
   'Y:': 'Y:'
   Year: Год
   You can now skip these operations when starting prints.\n\n: Теперь вы можете пропускать эти операции при запуске печати.\n\n
@@ -1549,13 +1725,22 @@ translations:
   Z Offset: Z Offset
   Z Range: Диапазон Z
   Z Tilt Adjust...: Регулировка наклона Z...
+  'Z jog failed: {}': 'Ошибка перемещения Z: {}'
   Z probes for bed leveling and mesh generation: Z-зонды для выравнивания стола и создания сетки
   Z-Offset: Z-Offset
   Z-Offset Calibration: Калибровка Z-смещения
   'Z-Offset:': 'Z-Offset:'
   Z-Tilt: Z-наклон
   Z-Tilt Adjust: Регулировка Z-наклона
+  Z-Tilt Adjust complete: Z-Tilt завершён
+  Z-Tilt Adjust started...: Z-Tilt запущен...
+  'Z-Tilt failed: {}': 'Ошибка Z-Tilt: {}'
+  Z-Tilt may still be running — response timed out: Z-Tilt может ещё выполняться — время ожидания истекло
+  Z-Tilt timed out: Z-Tilt — время ожидания истекло
+  Z-offset calibration timed out: Калибровка Z-offset — время ожидания истекло
+  'Z-offset failed: {}': 'Ошибка Z-offset: {}'
   Z-offset is auto-saved by firmware: Z-смещение автосохраняется прошивкой
+  Z-offset saved ({:+.3f}mm). Klipper restarting...: Z-offset сохранён ({:+.3f}мм). Перезапуск Klipper...
   Z-offset saved - Klipper restarting...: Z-смещение сохранено — Klipper перезапускается...
   'Z:': 'Z:'
   'Z: 0.000': 'Z: 0.000'
@@ -1581,4 +1766,9 @@ translations:
   tall: высотой
   used: использ.
   v{} is available. Tap to update.: v{} доступна. Нажмите для обновления.
+  '{} axis homed': 'Ось {} запаркована'
+  '{} complete': '{} завершено'
+  '{} heater turned off': 'Нагреватель {} выключен'
+  '{} macro not configured': 'Макрос {} не настроен'
   '{} more taps to {} beta features': '{} нажатий до {} бета-функций'
+  '{} target set to {}°C': 'Целевая температура {} — {}°C'
