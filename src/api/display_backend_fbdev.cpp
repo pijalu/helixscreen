@@ -165,6 +165,12 @@ helix::TouchCalibration load_touch_calibration() {
     cal.d = static_cast<float>(cfg->get<double>("/input/calibration/d", 0.0));
     cal.e = static_cast<float>(cfg->get<double>("/input/calibration/e", 1.0));
     cal.f = static_cast<float>(cfg->get<double>("/input/calibration/f", 0.0));
+    if (helix::is_touch_debug_enabled()) {
+        spdlog::warn("[TouchDebug] load_touch_calibration from config: "
+                     "a={:.6f} b={:.6f} c={:.6f} d={:.6f} e={:.6f} f={:.6f}",
+                     cal.a, cal.b, cal.c, cal.d, cal.e, cal.f);
+    }
+
     if (!helix::is_calibration_valid(cal)) {
         spdlog::warn("[Fbdev Backend] Stored calibration failed validation");
         cal.valid = false;
@@ -201,6 +207,14 @@ void calibrated_read_cb(lv_indev_t* indev, lv_indev_data_t* data) {
             ctx->calibration, raw, ctx->screen_width - 1, ctx->screen_height - 1);
         data->point.x = transformed.x;
         data->point.y = transformed.y;
+
+        if (helix::is_touch_debug_enabled() && data->state == LV_INDEV_STATE_PRESSED) {
+            static int touch_debug_counter = 0;
+            if (++touch_debug_counter % 50 == 1) {
+                spdlog::warn("[TouchDebug] calibrated_read: raw=({},{}) -> screen=({},{}) [sample #{}]",
+                             raw.x, raw.y, transformed.x, transformed.y, touch_debug_counter);
+            }
+        }
     }
 
     // Note: jitter filtering is now applied generically in lvgl_init.cpp
@@ -390,6 +404,12 @@ lv_indev_t* DisplayBackendFbdev::create_input_pointer() {
         "[Fbdev Backend] Input device '{}' phys='{}' abs={} (st={} mt={}) → calibration {} [{}]",
         dev_name, dev_phys, has_abs, abs_caps.has_single_touch, abs_caps.has_multitouch,
         needs_calibration_ ? "needed" : "not needed", cal_reason);
+
+    if (helix::is_touch_debug_enabled()) {
+        spdlog::warn("[TouchDebug] device detection: name='{}' phys='{}' event={}", dev_name, dev_phys, event_num);
+        spdlog::warn("[TouchDebug]   abs={} single_touch={} multitouch={}", has_abs, abs_caps.has_single_touch, abs_caps.has_multitouch);
+        spdlog::warn("[TouchDebug]   needs_calibration={} reason='{}'", needs_calibration_, cal_reason);
+    }
 
     // Read and log ABS ranges for diagnostic purposes, and check for mismatch
     // on capacitive screens that may report coordinates for a different resolution

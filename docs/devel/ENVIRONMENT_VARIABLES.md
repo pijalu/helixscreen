@@ -14,7 +14,7 @@ This document provides a comprehensive reference for all environment variables u
 | [UI Automation](#ui-automation) | 3 | `HELIX_AUTO_*` |
 | [Calibration](#calibration-auto-start) | 2 | `*_AUTO_START` |
 | [Development](#development) | 1 | `HELIX_` |
-| [Debugging](#debugging) | 2 | `HELIX_DEBUG_*` |
+| [Debugging](#debugging) | 3 | `HELIX_DEBUG_*` |
 | [Deployment](#deployment) | 1 | `HELIX_` |
 | [Logging & Startup](#logging--startup) | 2 | `HELIX_` |
 | [Data Paths](#data-paths) | 3 | `HELIX_` / Standard Unix |
@@ -940,6 +940,42 @@ HELIX_DEBUG_TOUCHES=1 ./build/bin/helix-screen -vv
 - Diagnosing buttons or UI elements that don't respond to taps
 - Identifying overlapping UI elements that absorb click events
 - Confirming extended click areas are working correctly
+
+### `HELIX_DEBUG_TOUCH`
+
+Enable detailed touch calibration debug logging. When set, forces comprehensive logging of the entire calibration pipeline at WARN level, making it visible regardless of the configured log level. Logs include: raw touch samples, median computation, affine matrix calculation, axis swap detection, validation checks with residuals, and runtime coordinate transforms (throttled).
+
+| Property | Value |
+|----------|-------|
+| **Values** | `1` = enable, unset = disable |
+| **Default** | Disabled |
+| **Files** | `include/touch_calibration.h`, `src/ui/touch_calibration.cpp`, `src/ui/touch_calibration_panel.cpp`, `src/api/display_backend_fbdev.cpp` |
+
+```bash
+# Enable detailed touch calibration logging
+HELIX_DEBUG_TOUCH=1 ./build/bin/helix-screen --test
+
+# On device: add to helixscreen.env
+HELIX_DEBUG_TOUCH=1
+```
+
+**Log prefix:** All messages use `[TouchDebug]` prefix for easy filtering:
+```bash
+# Filter touch debug messages from log
+grep '\[TouchDebug\]' /tmp/helixscreen.log
+```
+
+**What it logs:**
+- Each raw touch sample with saturation detection
+- Median point computation (all valid samples, selected median)
+- Affine matrix computation (all input points, determinant, coefficients)
+- Axis swap detection (cross-coupling ratios, swap decision)
+- Validation checks (coefficient bounds, back-transform residuals, center mapping)
+- Runtime coordinate transforms (throttled: first touch, then every 50th)
+- Calibration loaded from config at startup
+- Device detection details (name, phys, capabilities, calibration decision)
+
+**When to use:** Ask users with calibration issues to add `HELIX_DEBUG_TOUCH=1` to their `helixscreen.env` file and reproduce the issue. The `[TouchDebug]` messages in syslog/log will show exactly what the calibration pipeline sees.
 
 ---
 

@@ -52,6 +52,14 @@ bool compute_calibration(const Point screen_points[3], const Point touch_points[
                                                std::abs(Yt2), std::abs(Xt3), std::abs(Yt3)}));
     float epsilon = std::max(1.0f, max_coord * 0.0001f);
     if (std::abs(div) < epsilon) {
+        if (is_touch_debug_enabled()) {
+            spdlog::warn("[TouchDebug] compute_calibration FAILED — degenerate points");
+            spdlog::warn("[TouchDebug]   touch[0]=({},{}) touch[1]=({},{}) touch[2]=({},{})",
+                         touch_points[0].x, touch_points[0].y,
+                         touch_points[1].x, touch_points[1].y,
+                         touch_points[2].x, touch_points[2].y);
+            spdlog::warn("[TouchDebug]   determinant={:.6f} epsilon={:.6f} (too small)", div, epsilon);
+        }
         return false;
     }
 
@@ -67,6 +75,26 @@ bool compute_calibration(const Point screen_points[3], const Point touch_points[
     out.f = Ys1 - out.d * Xt1 - out.e * Yt1;
 
     out.valid = true;
+
+    if (is_touch_debug_enabled()) {
+        spdlog::warn("[TouchDebug] compute_calibration inputs:");
+        spdlog::warn("[TouchDebug]   screen[0]=({},{}) screen[1]=({},{}) screen[2]=({},{})",
+                     screen_points[0].x, screen_points[0].y,
+                     screen_points[1].x, screen_points[1].y,
+                     screen_points[2].x, screen_points[2].y);
+        spdlog::warn("[TouchDebug]   touch[0]=({},{}) touch[1]=({},{}) touch[2]=({},{})",
+                     touch_points[0].x, touch_points[0].y,
+                     touch_points[1].x, touch_points[1].y,
+                     touch_points[2].x, touch_points[2].y);
+        spdlog::warn("[TouchDebug]   determinant={:.6f} epsilon={:.6f}", div, epsilon);
+        spdlog::warn("[TouchDebug]   coefficients: a={:.6f} b={:.6f} c={:.6f} d={:.6f} e={:.6f} f={:.6f}",
+                     out.a, out.b, out.c, out.d, out.e, out.f);
+        spdlog::warn("[TouchDebug]   transform: screen_x = {:.6f}*touch_x + {:.6f}*touch_y + {:.6f}",
+                     out.a, out.b, out.c);
+        spdlog::warn("[TouchDebug]   transform: screen_y = {:.6f}*touch_x + {:.6f}*touch_y + {:.6f}",
+                     out.d, out.e, out.f);
+    }
+
     return true;
 }
 
@@ -135,6 +163,11 @@ bool detect_and_correct_axis_swap(TouchCalibration& cal, const Point screen_poin
 
     float cross_coupling_ratio = off_diagonal / diagonal;
 
+    if (is_touch_debug_enabled()) {
+        spdlog::warn("[TouchDebug] axis_swap check: diagonal={:.4f} off_diagonal={:.4f} ratio={:.4f} (threshold=0.3)",
+                     diagonal, off_diagonal, cross_coupling_ratio);
+    }
+
     // Only consider swap if cross-coupling is significant
     if (cross_coupling_ratio <= 0.3f) {
         return false;
@@ -164,6 +197,11 @@ bool detect_and_correct_axis_swap(TouchCalibration& cal, const Point screen_poin
     }
     float swapped_ratio = swapped_off_diagonal / swapped_diagonal;
 
+    if (is_touch_debug_enabled()) {
+        spdlog::warn("[TouchDebug] axis_swap test: swapped_diagonal={:.4f} swapped_off_diagonal={:.4f} swapped_ratio={:.4f}",
+                     swapped_diagonal, swapped_off_diagonal, swapped_ratio);
+    }
+
     if (swapped_ratio >= cross_coupling_ratio) {
         spdlog::debug("[TouchCalibration] Swap did not improve cross-coupling "
                       "(original={:.2f}, swapped={:.2f}), keeping original",
@@ -190,6 +228,13 @@ bool validate_calibration_result(const TouchCalibration& cal, const Point screen
                                  float max_residual) {
     if (!cal.valid) {
         return false;
+    }
+
+    if (is_touch_debug_enabled()) {
+        spdlog::warn("[TouchDebug] validate_calibration_result:");
+        spdlog::warn("[TouchDebug]   coefficients: a={:.6f} b={:.6f} c={:.6f} d={:.6f} e={:.6f} f={:.6f}",
+                     cal.a, cal.b, cal.c, cal.d, cal.e, cal.f);
+        spdlog::warn("[TouchDebug]   screen {}x{}, max_residual={:.1f}px", screen_width, screen_height, max_residual);
     }
 
     // Check 1: Coefficient sanity — scaling factors beyond 10x indicate bad input
@@ -221,6 +266,14 @@ bool validate_calibration_result(const TouchCalibration& cal, const Point screen
         float dy = static_cast<float>(transformed.y - screen_points[i].y);
         float residual = std::sqrt(dx * dx + dy * dy);
 
+        if (is_touch_debug_enabled()) {
+            spdlog::warn("[TouchDebug]   back-transform[{}]: touch({},{}) -> ({},{}) expected({},{}) residual={:.2f}px {}",
+                         i, touch_points[i].x, touch_points[i].y,
+                         transformed.x, transformed.y,
+                         screen_points[i].x, screen_points[i].y,
+                         residual, residual > max_residual ? "FAIL" : "OK");
+        }
+
         if (residual > max_residual) {
             spdlog::warn("[TouchCalibration] Back-transform residual {:.1f}px at point {} "
                          "(expected ({},{}), got ({},{}))",
@@ -235,6 +288,13 @@ bool validate_calibration_result(const TouchCalibration& cal, const Point screen
     int center_y = (touch_points[0].y + touch_points[1].y + touch_points[2].y) / 3;
     Point center_transformed = transform_point(cal, {center_x, center_y});
 
+    if (is_touch_debug_enabled()) {
+        spdlog::warn("[TouchDebug]   center: touch_avg({},{}) -> screen({},{}) bounds=[{},{}]-[{},{}]",
+                     center_x, center_y, center_transformed.x, center_transformed.y,
+                     -screen_width / 2, -screen_height / 2,
+                     screen_width + screen_width / 2, screen_height + screen_height / 2);
+    }
+
     int margin_x = screen_width / 2;
     int margin_y = screen_height / 2;
     if (center_transformed.x < -margin_x || center_transformed.x > screen_width + margin_x ||
@@ -244,6 +304,10 @@ bool validate_calibration_result(const TouchCalibration& cal, const Point screen
                      center_x, center_y, center_transformed.x, center_transformed.y, screen_width,
                      screen_height);
         return false;
+    }
+
+    if (is_touch_debug_enabled()) {
+        spdlog::warn("[TouchDebug] validation PASSED");
     }
 
     return true;

@@ -95,6 +95,10 @@ void TouchCalibrationPanel::start() {
 }
 
 void TouchCalibrationPanel::capture_point(Point raw) {
+    if (is_touch_debug_enabled()) {
+        spdlog::warn("[TouchDebug] capture_point: state={} raw=({},{})", static_cast<int>(state_), raw.x, raw.y);
+    }
+
     switch (state_) {
     case State::POINT_1:
         touch_points_[0] = raw;
@@ -121,6 +125,18 @@ void TouchCalibrationPanel::capture_point(Point raw) {
         // Detect and correct swapped touch axes (e.g., Ender 5 Max screens)
         // This swaps touch_points_ in-place and recomputes calibration_ if needed
         detect_and_correct_axis_swap(calibration_, screen_points_, touch_points_);
+
+        if (is_touch_debug_enabled()) {
+            spdlog::warn("[TouchDebug] calibration computed for all 3 points:");
+            for (int i = 0; i < 3; i++) {
+                spdlog::warn("[TouchDebug]   point[{}]: screen=({},{}) touch=({},{})",
+                             i, screen_points_[i].x, screen_points_[i].y,
+                             touch_points_[i].x, touch_points_[i].y);
+            }
+            if (calibration_.axes_swapped) {
+                spdlog::warn("[TouchDebug]   axes were auto-swapped");
+            }
+        }
 
         // Validate the matrix produces reasonable results
         if (!validate_calibration_result(calibration_, screen_points_, touch_points_, screen_width_,
@@ -175,6 +191,14 @@ bool TouchCalibrationPanel::compute_median_point(Point& out) {
     out.x = valid_x[mid];
     out.y = valid_y[mid];
 
+    if (is_touch_debug_enabled()) {
+        spdlog::warn("[TouchDebug] median computation: {}/{} valid samples", valid_x.size(), sample_count_);
+        for (size_t i = 0; i < valid_x.size(); i++) {
+            spdlog::warn("[TouchDebug]   valid[{}]: ({},{})", i, valid_x[i], valid_y[i]);
+        }
+        spdlog::warn("[TouchDebug]   median: ({},{}) (index {})", out.x, out.y, mid);
+    }
+
     spdlog::debug("[TouchCalibrationPanel] Median from {}/{} valid samples: ({}, {})",
                   valid_x.size(), sample_count_, out.x, out.y);
     return true;
@@ -218,6 +242,14 @@ void TouchCalibrationPanel::add_sample(Point raw) {
     if (sample_count_ < SAMPLES_REQUIRED) {
         sample_buffer_[sample_count_] = {raw.x, raw.y};
         sample_count_++;
+
+        if (is_touch_debug_enabled()) {
+            auto p = get_progress();
+            spdlog::warn("[TouchDebug] sample {}/{} for point {}: raw=({},{}){}",
+                         sample_count_, SAMPLES_REQUIRED, p.point_num,
+                         raw.x, raw.y,
+                         is_saturated_sample(raw) ? " SATURATED" : "");
+        }
 
         // Only fire progress callback for intermediate samples, not the final
         // one that triggers state transition (avoids showing "touch 6 of 5")

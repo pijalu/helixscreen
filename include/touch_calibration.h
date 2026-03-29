@@ -6,11 +6,27 @@
 #include <algorithm>
 #include <climits>
 #include <cstdlib>
+#include <cstring>
 #include <sstream>
 #include <string>
 #include <vector>
 
 namespace helix {
+
+/**
+ * @brief Check if detailed touch calibration debug logging is enabled
+ *
+ * When HELIX_DEBUG_TOUCH=1 is set, forces detailed calibration logging
+ * at WARN level so it appears regardless of the configured log level.
+ * Useful for diagnosing resistive touchscreen calibration issues.
+ */
+inline bool is_touch_debug_enabled() {
+    static const bool enabled = [] {
+        const char* val = std::getenv("HELIX_DEBUG_TOUCH");
+        return val != nullptr && std::strcmp(val, "1") == 0;
+    }();
+    return enabled;
+}
 
 /**
  * @brief Parsed ABS capabilities from sysfs capabilities/abs hex string
