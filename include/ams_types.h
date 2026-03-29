@@ -633,6 +633,7 @@ struct SlotInfo {
 
     // Tool mapping
     int mapped_tool = -1; ///< Which tool this slot maps to (-1=none)
+    bool tool_mapping_override = false; ///< True if user manually remapped this slot's tool
     std::string extruder_name; ///< Physical extruder name (e.g., "extruder2") for shared-extruder dedup
 
     // Spoolman integration
