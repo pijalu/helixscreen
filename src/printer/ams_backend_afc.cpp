@@ -1076,41 +1076,47 @@ void AmsBackendAfc::parse_afc_stepper(const std::string& lane_name, const nlohma
         slot.remaining_weight_g = data["weight"].get<float>();
     }
 
-    // Derive slot status from sensors and status string
-    bool tool_loaded = false;
-    if (data.contains("tool_loaded") && data["tool_loaded"].is_boolean()) {
-        tool_loaded = data["tool_loaded"].get<bool>();
-    }
+    // Derive slot status from sensors and status string.
+    // Only recompute status when at least one status-related field is present
+    // in the update. Partial updates (e.g., weight-only) must not regress the
+    // slot from LOADED to AVAILABLE by defaulting tool_loaded to false.
+    bool has_tool_loaded = data.contains("tool_loaded") && data["tool_loaded"].is_boolean();
+    bool has_status = data.contains("status") && data["status"].is_string();
 
-    std::string status_str;
-    if (data.contains("status") && data["status"].is_string()) {
-        status_str = data["status"].get<std::string>();
-    }
+    if (has_tool_loaded || has_status || data.contains("prep") || data.contains("load")) {
+        bool tool_loaded = has_tool_loaded && data["tool_loaded"].get<bool>();
+        std::string status_str = has_status ? data["status"].get<std::string>() : "";
 
-    // AFC "Loaded" status means hub-loaded, not toolhead-loaded.
-    // Only tool_loaded == true means filament is at the extruder.
-    if (tool_loaded || status_str == "Tooled") {
-        slot.status = SlotStatus::LOADED;
-    } else if (status_str == "Loaded" || status_str == "Ready" || sensors.prep || sensors.load) {
-        slot.status = SlotStatus::AVAILABLE;
-    } else if (status_str == "None" || status_str.empty()) {
-        slot.status = SlotStatus::EMPTY;
-    } else {
-        slot.status = SlotStatus::AVAILABLE; // Default for other states
+        // AFC "Loaded" status means hub-loaded, not toolhead-loaded.
+        // Only tool_loaded == true means filament is at the extruder.
+        if (tool_loaded || status_str == "Tooled") {
+            slot.status = SlotStatus::LOADED;
+        } else if (status_str == "Loaded" || status_str == "Ready" || sensors.prep ||
+                   sensors.load) {
+            slot.status = SlotStatus::AVAILABLE;
+        } else if (status_str == "None" || status_str.empty()) {
+            slot.status = SlotStatus::EMPTY;
+        } else {
+            slot.status = SlotStatus::AVAILABLE; // Default for other states
+        }
     }
 
     // Populate or clear per-slot error based on lane status
-    if (status_str == "Error") {
-        SlotError err;
-        err.message = last_seen_message_.empty() ? "Lane error" : last_seen_message_;
-        err.severity = (last_message_type_ == "warning") ? SlotError::WARNING : SlotError::ERROR;
-        slot.error = err;
-        spdlog::debug("[AMS AFC] Lane {} (slot {}): error state - {}", lane_name, slot_index,
-                      err.message);
-    } else if (slot.error.has_value()) {
-        // Lane exited error state - clear the error
-        spdlog::debug("[AMS AFC] Lane {} (slot {}): error cleared", lane_name, slot_index);
-        slot.error.reset();
+    if (has_status) {
+        std::string status_str = data["status"].get<std::string>();
+        if (status_str == "Error") {
+            SlotError err;
+            err.message = last_seen_message_.empty() ? "Lane error" : last_seen_message_;
+            err.severity =
+                (last_message_type_ == "warning") ? SlotError::WARNING : SlotError::ERROR;
+            slot.error = err;
+            spdlog::debug("[AMS AFC] Lane {} (slot {}): error state - {}", lane_name, slot_index,
+                          err.message);
+        } else if (slot.error.has_value()) {
+            // Lane exited error state - clear the error
+            spdlog::debug("[AMS AFC] Lane {} (slot {}): error cleared", lane_name, slot_index);
+            slot.error.reset();
+        }
     }
 
     spdlog::trace("[AMS AFC] Lane {} (slot {}): prep={} load={} hub={} status={}", lane_name,
