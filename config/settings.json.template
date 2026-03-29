@@ -156,7 +156,7 @@
   },
   "display": {
     "animations_enabled": true,
-    "_animations_enabled_comment": "Enable UI animations and transitions. Disable for better performance on slow devices. Default: true.",
+    "_animations_enabled_comment": "Enable UI animations and transitions. Default: auto-detected from platform capabilities (off on embedded/basic hardware, on for standard).",
     "time_format": 0,
     "_time_format_comment": "Time display format. 0 = 12-hour (2:30 PM), 1 = 24-hour (14:30). Default is 12-hour.",
     "rotate": 0,

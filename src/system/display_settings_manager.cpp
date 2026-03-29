@@ -7,6 +7,7 @@
 
 #include "config.h"
 #include "display_manager.h"
+#include "platform_capabilities.h"
 #include "spdlog/spdlog.h"
 #include "static_subject_registry.h"
 #include "theme_loader.h"
@@ -154,8 +155,9 @@ void DisplaySettingsManager::init_subjects() {
     UI_MANAGED_SUBJECT_INT(sleep_while_printing_subject_, sleep_while_printing ? 1 : 0,
                            "settings_sleep_while_printing", subjects_);
 
-    // Animations enabled (default: true)
-    bool animations = config->get<bool>("/display/animations_enabled", true);
+    // Animations enabled (default: based on platform capability)
+    bool anim_default = PlatformCapabilities::detect().supports_animations;
+    bool animations = config->get<bool>("/display/animations_enabled", anim_default);
     UI_MANAGED_SUBJECT_INT(animations_enabled_subject_, animations ? 1 : 0,
                            "settings_animations_enabled", subjects_);
 
