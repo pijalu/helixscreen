@@ -564,9 +564,10 @@ ifneq ($(CROSS_COMPILE)$(filter x86 x86-fbdev x86-both,$(PLATFORM_TARGET)),)
         endif
     endif
     ifeq ($(ENABLE_SSL),yes)
-        ifneq (,$(filter pi pi-fbdev pi-both pi32 pi32-fbdev pi32-both x86 x86-fbdev x86-both,$(PLATFORM_TARGET)))
-            # Pi/x86: static-link OpenSSL to avoid libssl soname mismatch across Debian versions
-            # (Bullseye has libssl.so.1.1, Bookworm has libssl.so.3)
+        ifneq (,$(filter pi pi-fbdev pi-both pi32 pi32-fbdev pi32-both x86 x86-fbdev x86-both k1-dynamic,$(PLATFORM_TARGET)))
+            # Static-link OpenSSL to avoid soname mismatch across OS versions
+            # Pi: Bullseye has libssl.so.1.1, Bookworm has libssl.so.3
+            # K1-dynamic: K1 firmware may not have OpenSSL shared libs
             LDFLAGS += -Wl,-Bstatic -lssl -lcrypto -Wl,-Bdynamic
         else
             LDFLAGS += -lssl -lcrypto

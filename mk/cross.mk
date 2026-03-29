@@ -389,7 +389,7 @@ else ifeq ($(PLATFORM_TARGET),k1-dynamic)
     # NO -static flag! System libs resolved at runtime on the K1.
     TARGET_LDFLAGS := -Wl,--gc-sections -Wl,-O2 -Wl,--as-needed \
         -Wl,--dynamic-linker=/lib/ld-linux-mipsn8.so.1
-    ENABLE_SSL := no
+    ENABLE_SSL := yes
     DISPLAY_BACKEND := fbdev
     ENABLE_SDL := no
     ENABLE_GLES_3D := no
