@@ -1524,6 +1524,19 @@ void FilamentPanel::set_limits(int min_temp, int max_temp, int min_extrude_temp)
 // ============================================================================
 
 void FilamentPanel::execute_load() {
+    // When an AMS backend is active (ACE, AFC, etc.), the generic LOAD_FILAMENT
+    // macro is wrong — it just runs the extruder motor endlessly without going
+    // through the backend's tool change sequence (which includes cut/purge).
+    // Redirect the user to the AMS panel where they can select a specific slot.
+    AmsBackend* backend = AmsState::instance().get_backend();
+    if (backend) {
+        spdlog::info("[{}] AMS backend active ({}), redirecting to AMS panel for slot selection",
+                     get_name(), ams_type_to_string(backend->get_type()));
+        NOTIFY_INFO("Select a filament slot to load");
+        navigate_to_ams_panel();
+        return;
+    }
+
     const auto& info = StandardMacros::instance().get(StandardMacroSlot::LoadFilament);
     if (info.is_empty()) {
         spdlog::warn("[{}] Load filament slot is empty", get_name());
@@ -1552,6 +1565,30 @@ void FilamentPanel::execute_load() {
 }
 
 void FilamentPanel::execute_unload() {
+    // When an AMS backend is active, route unload through it so the backend's
+    // tool change sequence runs (retract, cut, purge) instead of raw extrusion.
+    AmsBackend* backend = AmsState::instance().get_backend();
+    if (backend) {
+        AmsSystemInfo sys_info = backend->get_system_info();
+        if (!sys_info.filament_loaded && sys_info.current_slot < 0) {
+            NOTIFY_WARNING("No filament loaded to unload");
+            return;
+        }
+
+        operation_guard_.begin(OPERATION_TIMEOUT_MS,
+                               [] { NOTIFY_WARNING("Filament operation timed out"); });
+        spdlog::info("[{}] Unloading filament via AMS backend ({})", get_name(),
+                     ams_type_to_string(backend->get_type()));
+        NOTIFY_INFO("Unloading filament...");
+        AmsError err = backend->unload_filament();
+        if (!err.success()) {
+            operation_guard_.end();
+            NOTIFY_ERROR("Unload failed: {}", err.user_msg);
+        }
+        // Guard ends via timeout — backend tracks completion via state observer
+        return;
+    }
+
     const auto& info = StandardMacros::instance().get(StandardMacroSlot::UnloadFilament);
     if (info.is_empty()) {
         spdlog::warn("[{}] Unload filament slot is empty", get_name());
