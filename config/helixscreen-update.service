@@ -32,6 +32,17 @@ ExecStartPre=/bin/sh -c '\
 
 ExecStartPre=/bin/sleep 10
 
+# Skip restart if helix-screen is handling the update itself (self-update).
+# The app writes /tmp/helixscreen_self_restart before _exit(0), and the
+# watchdog restarts the child internally.  Without this check, both the
+# watchdog and this service race to restart, causing a double-start.
+ExecStartPre=/bin/sh -c '\
+  if [ -f /tmp/helixscreen_self_restart ]; then \
+    rm -f /tmp/helixscreen_self_restart; \
+    echo "Skipping: self-update restart already handled by watchdog"; \
+    exit 1; \
+  fi'
+
 # Refresh systemd units from the newly extracted install dir.
 # The template logic lives in a script so Moonraker's extraction
 # updates it — avoids the chicken-and-egg where the installer's

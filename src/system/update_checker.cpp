@@ -15,6 +15,7 @@
 
 #include "system/update_checker.h"
 
+#include "system/sha256_util.h"
 #include "ui_event_safety.h"
 #include "ui_modal.h"
 #include "ui_notification.h"
@@ -990,6 +991,46 @@ void UpdateChecker::do_download() {
         return;
     }
 
+    // Verify SHA256 hash if available (R2 manifest provides this; GitHub fallback does not)
+    {
+        std::string expected_sha256;
+        {
+            std::lock_guard<std::mutex> lock(mutex_);
+            if (cached_info_)
+                expected_sha256 = cached_info_->sha256;
+        }
+
+        if (expected_sha256.empty()) {
+            spdlog::info("[UpdateChecker] No SHA256 hash available, skipping verification");
+        } else {
+            report_download_status(DownloadStatus::Verifying, 100,
+                                   "Verifying SHA256 checksum...");
+            auto actual_sha256 = helix::compute_file_sha256(download_path);
+            if (actual_sha256.empty()) {
+                spdlog::error("[UpdateChecker] Failed to compute SHA256 of {}", download_path);
+                std::remove(download_path.c_str());
+                report_download_status(DownloadStatus::Error, 0, "Error: Verification failed",
+                                       "Could not compute checksum of downloaded file");
+                TelemetryManager::instance().record_update_failure("sha256_compute_failed",
+                                                                   version, get_platform_key());
+                return;
+            }
+
+            if (actual_sha256 != expected_sha256) {
+                spdlog::error("[UpdateChecker] SHA256 mismatch! expected={} actual={}",
+                              expected_sha256, actual_sha256);
+                std::remove(download_path.c_str());
+                report_download_status(DownloadStatus::Error, 0, "Error: Checksum mismatch",
+                                       "Downloaded file does not match expected checksum");
+                TelemetryManager::instance().record_update_failure("sha256_mismatch", version,
+                                                                   get_platform_key());
+                return;
+            }
+
+            spdlog::info("[UpdateChecker] SHA256 verified OK: {}", actual_sha256);
+        }
+    }
+
     do_install(download_path);
 }
 
@@ -1412,6 +1453,18 @@ void UpdateChecker::do_install(const std::string& tarball_path) {
             spdlog::info("[UpdateChecker] Wrote update restart marker: {}", marker);
         } else {
             spdlog::warn("[UpdateChecker] Failed to write update restart marker: {}", marker);
+        }
+    }
+
+    // Write sentinel so helixscreen-update.service (triggered by release_info.json
+    // change) knows the watchdog is already handling the restart.  Without this,
+    // both the watchdog and the path-watcher race to restart, causing a double-start.
+    // The sentinel lives in /tmp (auto-cleaned on reboot) and is removed by the
+    // update service when it checks, regardless of whether it skips.
+    {
+        std::ofstream ofs("/tmp/helixscreen_self_restart");
+        if (ofs) {
+            spdlog::info("[UpdateChecker] Wrote self-restart sentinel for update.service");
         }
     }
 
