@@ -26,7 +26,7 @@ Fast, beautiful, and built for every Klipper printer — from a Creality K1 to a
 >
 > On the doorstep of 1.0 (targeting early April 2026). Multi-page home screen, exclude object map, temperature graph, Creality K2/CFS support, tool changer widgets, and preheat macros — plus dozens of crash fixes.
 >
-> **Tested on:** Voron 2.4 (Raspberry Pi 5), Voron 0.2, Doron Velta, RatRig V-Core, Flashforge AD5M Pro ([Forge-X](https://github.com/DrA1ex/ff5m) firmware), Sovol SV06, Sovol SV08, Creality K1C, Creality K2 Max, x86 Mini ITX PC (Debian Bookworm, 7" HDMI touchscreen)
+> **Tested on:** Voron 2.4 (Raspberry Pi 5), Voron 0.2, Doron Velta, RatRig V-Core, Flashforge AD5M Pro ([Forge-X](https://github.com/DrA1ex/ff5m) firmware), Sovol SV06, Sovol SV08, BTT CB2, Creality K1C, Creality K2 Max, x86 Mini ITX PC (Debian Bookworm, 7" HDMI touchscreen)
 >
 > **Raspberry Pi:** Both 64-bit and 32-bit Raspberry Pi OS are supported (Pi 4, Pi 5, CM4, Zero 2 W).
 >
@@ -135,7 +135,7 @@ See [docs/devel/GALLERY.md](docs/devel/GALLERY.md) for the full gallery.
 |----------|-------------|--------|
 | Raspberry Pi 4/5 (64-bit) | aarch64 | Tested |
 | Raspberry Pi (32-bit) | armhf | Tested |
-| BTT Pad / CB1 / Manta | aarch64 | Supported |
+| BTT Pad / CB1 / CB2 / Manta | aarch64 | Tested |
 | Flashforge AD5M/Pro | armv7-a | Tested |
 | Flashforge AD5X | MIPS32 | Supported |
 | QIDI (Q2, Max 4) | aarch64 | Untested¹ |
@@ -153,7 +153,7 @@ See [docs/devel/GALLERY.md](docs/devel/GALLERY.md) for the full gallery.
 
 > **Run these commands on your printer's host computer, not your local machine.**
 >
-> SSH into your Raspberry Pi, BTT CB1/Manta, or similar host. For all-in-one printers (Creality K1, K2 series, Flashforge AD5M/Pro), SSH directly into the printer itself.
+> SSH into your Raspberry Pi, BTT CB1/CB2/Manta, or similar host. For all-in-one printers (Creality K1, K2 series, Flashforge AD5M/Pro), SSH directly into the printer itself.
 
 **One-line install (Raspberry Pi, Creality, QIDI, Sovol, and more):**
 ```bash

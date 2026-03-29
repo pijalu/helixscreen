@@ -30,7 +30,7 @@ This guide walks you through installing HelixScreen on your 3D printer's touchsc
 
 > **⚠️ Run these commands on your printer's host, not your local computer.**
 >
-> SSH into your Raspberry Pi, BTT CB1/Manta, or similar host. For all-in-one printers (Creality K1, K2 series, Flashforge Adventurer 5M/Pro), SSH directly into the printer itself as root.
+> SSH into your Raspberry Pi, BTT CB1/CB2/Manta, or similar host. For all-in-one printers (Creality K1, K2 series, Flashforge Adventurer 5M/Pro), SSH directly into the printer itself as root.
 
 **Raspberry Pi (MainsailOS):**
 ```bash
@@ -585,9 +585,9 @@ For SPI displays (like many small LCDs):
 
 See the [MainsailOS display documentation](https://docs.mainsail.xyz/) for specific display setup.
 
-### BTT Pad 7 and Similar
+### BTT Pad 7, CB2, and Similar
 
-The BTT Pad 7 and similar "Klipper Pad" devices typically include:
+The BTT Pad 7, CB2, and similar "Klipper Pad" devices typically include:
 - Pre-configured display output
 - Touch input via USB
 
@@ -621,7 +621,7 @@ By default, HelixScreen uses GPU-accelerated rendering via DRM/KMS when availabl
 
 **Supported DRM hardware:**
 - Raspberry Pi 3B+, Pi 4, Pi 5
-- BTT CB1 (and other Allwinner H616 boards)
+- BTT CB1, CB2 (and other Allwinner H616/H618 boards)
 - Display must be connected via HDMI or DSI (SPI displays are not supported)
 
 **To force a specific backend:**
