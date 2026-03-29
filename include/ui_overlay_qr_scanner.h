@@ -18,6 +18,7 @@
 
 #include "overlay_base.h"
 #include "qr_decoder.h"
+#include "snapshot_qr_scanner.h"
 #include "spoolman_types.h"
 #include "subject_managed_panel.h"
 #include "usb_scanner_monitor.h"
@@ -100,6 +101,7 @@ class QrScannerOverlay : public OverlayBase {
 #if HELIX_HAS_CAMERA
     void on_camera_frame(lv_draw_buf_t* frame);
 #endif
+    void on_snapshot_frame(lv_draw_buf_t* frame);
 
     // State
     int slot_index_ = -1;
@@ -121,6 +123,7 @@ class QrScannerOverlay : public OverlayBase {
     // resolution, so we subsample to avoid burning CPU on full-res frames.
     static constexpr int kQrMaxDimension = 480;
 #endif
+    std::unique_ptr<helix::SnapshotQrScanner> snapshot_scanner_;
     helix::UsbScannerMonitor usb_monitor_;
 
     // LVGL subjects for XML binding

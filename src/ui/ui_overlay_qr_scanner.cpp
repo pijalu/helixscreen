@@ -200,6 +200,7 @@ void QrScannerOverlay::on_deactivate() {
     lifetime_.invalidate();
 
     stop_scanning();
+    snapshot_scanner_.reset();
 
     // Clear image source to release dangling frame ref, then null the pointer
     // so any in-flight lambda that slips past the token check hits the null guard.
@@ -241,6 +242,14 @@ void QrScannerOverlay::start_scanning() {
     std::string stream_url, snapshot_url;
     if (camera_->configure_from_printer(stream_url, snapshot_url)) {
         decode_busy_ = false;
+
+        // Decode at display resolution — the QR scanner is fullscreen
+        auto* disp = lv_display_get_default();
+        if (disp) {
+            camera_->set_target_size(lv_display_get_horizontal_resolution(disp),
+                                     lv_display_get_vertical_resolution(disp));
+        }
+
         auto tok = lifetime_.token();
         camera_->start(stream_url, snapshot_url,
             [this, tok](lv_draw_buf_t* frame) {
@@ -255,12 +264,70 @@ void QrScannerOverlay::start_scanning() {
             });
         spdlog::info("[{}] Camera started: stream={}", get_name(), stream_url);
     } else {
-        update_status("No camera \xe2\x80\x94 use USB barcode scanner");
-        spdlog::info("[{}] No webcam URL, USB scanner only", get_name());
+        // Camera stream not available — try snapshot fallback
+        if (!snapshot_url.empty()) {
+            snapshot_scanner_ = std::make_unique<helix::SnapshotQrScanner>();
+            auto snap_tok = lifetime_.token();
+            snapshot_scanner_->start(
+                snapshot_url,
+                [this, snap_tok](lv_draw_buf_t* frame) {
+                    if (snap_tok.expired()) return;
+                    on_snapshot_frame(frame);
+                },
+                [this, snap_tok](int spool_id) {
+                    if (snap_tok.expired()) return;
+                    lifetime_.defer([this, spool_id]() {
+                        on_spool_id_detected(spool_id);
+                    });
+                },
+                [snap_tok](const char* msg) {
+                    if (!snap_tok.expired()) {
+                        spdlog::warn("[QR Scanner] Snapshot error: {}", msg);
+                    }
+                });
+            spdlog::info("[{}] Snapshot QR scanner started (no stream): {}", get_name(),
+                         snapshot_url);
+        } else {
+            update_status("No camera \xe2\x80\x94 use USB barcode scanner");
+            spdlog::info("[{}] No webcam URL, USB scanner only", get_name());
+        }
     }
 #else
-    update_status("No camera \xe2\x80\x94 use USB barcode scanner");
-    spdlog::info("[{}] Camera support not compiled in, USB scanner only", get_name());
+    // No compiled camera support — try snapshot polling as fallback
+    {
+        auto& state = get_printer_state();
+        std::string snapshot_url = state.get_webcam_snapshot_url();
+        auto* api = get_moonraker_api();
+        if (api && !snapshot_url.empty()) {
+            api->resolve_webcam_url(snapshot_url);
+        }
+
+        if (!snapshot_url.empty()) {
+            snapshot_scanner_ = std::make_unique<helix::SnapshotQrScanner>();
+            auto tok = lifetime_.token();
+            snapshot_scanner_->start(
+                snapshot_url,
+                [this, tok](lv_draw_buf_t* frame) {
+                    if (tok.expired()) return;
+                    on_snapshot_frame(frame);
+                },
+                [this, tok](int spool_id) {
+                    if (tok.expired()) return;
+                    lifetime_.defer([this, spool_id]() {
+                        on_spool_id_detected(spool_id);
+                    });
+                },
+                [tok](const char* msg) {
+                    if (!tok.expired()) {
+                        spdlog::warn("[QR Scanner] Snapshot error: {}", msg);
+                    }
+                });
+            spdlog::info("[{}] Snapshot QR scanner started: {}", get_name(), snapshot_url);
+        } else {
+            update_status("No camera \xe2\x80\x94 use USB barcode scanner");
+            spdlog::info("[{}] No webcam URL available, USB scanner only", get_name());
+        }
+    }
 #endif
 
     // Start USB barcode scanner monitor
@@ -298,6 +365,11 @@ void QrScannerOverlay::stop_scanning() {
     }
 #endif
 
+    if (snapshot_scanner_) {
+        snapshot_scanner_->stop();
+        snapshot_scanner_.reset();
+    }
+
     if (usb_monitor_.is_running()) {
         usb_monitor_.stop();
     }
@@ -315,7 +387,6 @@ void QrScannerOverlay::on_camera_frame(lv_draw_buf_t* frame) {
     // the MJPEG stream flowing at full frame rate.
 
     if (!scan_active_.load() || !frame) {
-        camera_->frame_consumed();
         return;
     }
 
@@ -324,7 +395,6 @@ void QrScannerOverlay::on_camera_frame(lv_draw_buf_t* frame) {
     const auto* pixels = static_cast<const uint8_t*>(frame->data);
 
     if (!pixels || width <= 0 || height <= 0) {
-        camera_->frame_consumed();
         return;
     }
 
@@ -348,18 +418,12 @@ void QrScannerOverlay::on_camera_frame(lv_draw_buf_t* frame) {
         }
     }
 
-    // Display the frame on the UI thread, then release it.
-    // frame pointer stays valid until frame_consumed() is called.
+    // Display the frame on the UI thread.
     auto tok = lifetime_.token();
     helix::ui::queue_update([this, tok, frame]() {
         if (!tok.expired() && scan_active_.load() && viewfinder_
             && lv_obj_is_valid(viewfinder_)) {
             lv_image_set_src(viewfinder_, frame);
-        }
-        if (camera_) {
-            camera_->frame_consumed();
-        } else {
-            spdlog::warn("[QrScanner] frame_consumed skipped: camera already torn down");
         }
     });
 
@@ -388,6 +452,23 @@ void QrScannerOverlay::on_camera_frame(lv_draw_buf_t* frame) {
     }
 }
 #endif
+
+void QrScannerOverlay::on_snapshot_frame(lv_draw_buf_t* frame) {
+    if (!scan_active_.load() || !frame) {
+        if (snapshot_scanner_) snapshot_scanner_->frame_consumed();
+        return;
+    }
+
+    auto tok = lifetime_.token();
+    helix::ui::queue_update([this, tok, frame]() {
+        if (!tok.expired() && scan_active_.load() && viewfinder_) {
+            lv_image_set_src(viewfinder_, frame);
+        }
+        if (snapshot_scanner_) {
+            snapshot_scanner_->frame_consumed();
+        }
+    });
+}
 
 // ============================================================================
 // SPOOL LOOKUP
