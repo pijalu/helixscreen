@@ -951,9 +951,8 @@ void AmsEditModal::update_ui() {
         lv_slider_set_value(remaining_slider, remaining_pct, LV_ANIM_OFF);
     }
 
-    // Update remaining percentage label via subject
-    helix::format::format_percent(remaining_pct, remaining_pct_buf_, sizeof(remaining_pct_buf_));
-    lv_subject_copy_string(&remaining_pct_subject_, remaining_pct_buf_);
+    // Update remaining label: "750g / 1000g (75%)" or "75%" if no weight data
+    format_remaining_label(remaining_pct);
 
     // Update progress bar fill width (shown in view mode)
     // Use percentage width to avoid layout timing issues
@@ -1011,6 +1010,20 @@ void AmsEditModal::update_temp_display() {
     // Update bed temp label via subject
     snprintf(temp_bed_buf_, sizeof(temp_bed_buf_), "%d°C", bed_temp);
     lv_subject_copy_string(&temp_bed_subject_, temp_bed_buf_);
+}
+
+void AmsEditModal::format_remaining_label(int pct) {
+    // Show grams only when we have real weight data (not synthetic 1000g).
+    // Check original_info_ because update_ui() sets synthetic 1000g on working_info_ first.
+    if (original_info_.total_weight_g > 0) {
+        int remaining_g = static_cast<int>(working_info_.remaining_weight_g);
+        int total_g = static_cast<int>(working_info_.total_weight_g);
+        snprintf(remaining_pct_buf_, sizeof(remaining_pct_buf_), "%dg / %dg (%d%%)",
+                 remaining_g, total_g, pct);
+    } else {
+        helix::format::format_percent(pct, remaining_pct_buf_, sizeof(remaining_pct_buf_));
+    }
+    lv_subject_copy_string(&remaining_pct_subject_, remaining_pct_buf_);
 }
 
 bool AmsEditModal::is_dirty() const {
@@ -1131,9 +1144,8 @@ void AmsEditModal::handle_remaining_changed(int percent) {
         return;
     }
 
-    // Update the percentage label via subject
-    helix::format::format_percent(percent, remaining_pct_buf_, sizeof(remaining_pct_buf_));
-    lv_subject_copy_string(&remaining_pct_subject_, remaining_pct_buf_);
+    // Update the remaining label via format_remaining_label
+    format_remaining_label(percent);
 
     // Update slot info remaining weight based on percentage
     // Use synthetic 1000g total if no weight data (manual spool without Spoolman)
@@ -1194,16 +1206,14 @@ void AmsEditModal::handle_remaining_cancel() {
         lv_slider_set_value(slider, remaining_pre_edit_pct_, LV_ANIM_OFF);
     }
 
-    // Revert the percentage label via subject
-    helix::format::format_percent(remaining_pre_edit_pct_, remaining_pct_buf_,
-                                  sizeof(remaining_pct_buf_));
-    lv_subject_copy_string(&remaining_pct_subject_, remaining_pct_buf_);
-
-    // Revert the remaining weight in working_info_
+    // Revert the remaining weight in working_info_ before updating label
     if (working_info_.total_weight_g > 0) {
         working_info_.remaining_weight_g =
             working_info_.total_weight_g * static_cast<float>(remaining_pre_edit_pct_) / 100.0f;
     }
+
+    // Revert the remaining label via subject
+    format_remaining_label(remaining_pre_edit_pct_);
 
     // Exit edit mode
     lv_subject_set_int(&remaining_mode_subject_, 0);

@@ -123,7 +123,7 @@ class AmsEditModal : public Modal {
     char color_name_buf_[32] = {0};
     char temp_nozzle_buf_[16] = {0};
     char temp_bed_buf_[16] = {0};
-    char remaining_pct_buf_[16] = {0};
+    char remaining_pct_buf_[48] = {0};  // "1000g / 1000g (100%)" needs ~22 chars
     char save_btn_text_buf_[16] = {0};
     bool subjects_initialized_ = false;
 
@@ -158,6 +158,7 @@ class AmsEditModal : public Modal {
     void deinit_subjects();
     void update_ui();
     void update_temp_display();
+    void format_remaining_label(int pct);
     bool is_dirty() const;
     void update_sync_button_state();
     void show_color_picker();
