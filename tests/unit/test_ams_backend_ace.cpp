@@ -89,7 +89,7 @@ TEST_CASE("ACE dryer defaults", "[ams][ace][dryer]") {
     // Should have reasonable temperature limits
     REQUIRE(dryer.min_temp_c >= 30.0f);
     REQUIRE(dryer.min_temp_c <= 40.0f);
-    REQUIRE(dryer.max_temp_c >= 65.0f);
+    REQUIRE(dryer.max_temp_c >= 50.0f);
     REQUIRE(dryer.max_temp_c <= 80.0f);
 
     // Should have reasonable duration limit

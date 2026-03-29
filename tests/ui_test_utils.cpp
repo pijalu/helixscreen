@@ -77,6 +77,20 @@ uint32_t lv_timer_handler_safe() {
             break; // No more ready one-shot timers
     }
 
+    // Re-pause ALL timers before calling lv_timer_handler().
+    //
+    // One-shot callbacks above may have indirectly unpaused timers.
+    // Example: lv_obj_delete_async fires → lv_obj_delete → lv_obj_destructor
+    // → lv_anim_delete(obj, NULL) → anim_mark_list_change() →
+    // lv_timer_resume(animation_timer).  If the animation timer enters
+    // lv_timer_handler() unpaused with a stale last_run timestamp, its
+    // do-while loop restarts on every timer create/delete and never terminates.
+    t = lv_timer_get_next(nullptr);
+    while (t) {
+        lv_timer_pause(t);
+        t = lv_timer_get_next(t);
+    }
+
     // Call lv_timer_handler() with all timers paused (no-op, just updates state)
     uint32_t result = lv_timer_handler();
 

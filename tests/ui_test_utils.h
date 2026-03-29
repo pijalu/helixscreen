@@ -172,16 +172,21 @@ int count_children_with_marker(lv_obj_t* parent, const char* marker);
 /**
  * @brief Safe wrapper around lv_timer_handler() for tests
  *
- * Drains the UpdateQueue manually, then calls lv_timer_handler() with
- * stale timers reset to prevent the infinite loop in LVGL's internal
- * do-while that restarts when timers are created/deleted.
+ * Drains the UpdateQueue, then processes LVGL timers without triggering the
+ * infinite do-while loop in lv_timer_handler().
  *
- * The root cause: LVGL timers created during initialization may have
- * stale last_run timestamps, making them all "ready" simultaneously.
- * Each timer that fires can trigger timer creation/deletion, causing
- * the do-while loop to restart from the head indefinitely.
+ * Strategy:
+ *   1. Drain UpdateQueue (executes pending callbacks, subject observers fire)
+ *   2. Pause ALL timers
+ *   3. Manually fire ready one-shot timers (lv_async_call, retry timers)
+ *   4. Re-pause ALL timers (one-shot callbacks may have unpaused timers,
+ *      e.g. lv_obj_delete → lv_anim_delete → anim_mark_list_change resumes
+ *      the animation timer)
+ *   5. Call lv_timer_handler() with everything paused (updates internal state)
+ *   6. Resume all timers
  *
- * This function resets all timer last_run values to the current tick
- * on first call, ensuring timers fire at their normal pace.
+ * Without step 4, unpaused timers with stale last_run timestamps enter
+ * lv_timer_handler()'s do-while loop and never terminate because every fire
+ * creates/deletes timers, restarting iteration from the head indefinitely.
  */
 uint32_t lv_timer_handler_safe();
