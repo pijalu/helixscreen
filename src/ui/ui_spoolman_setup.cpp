@@ -12,7 +12,7 @@
 namespace helix::ui {
 
 bool SpoolmanSetup::validate_port(const std::string& port) {
-    if (port.empty()) {
+    if (port.empty() || std::isspace(static_cast<unsigned char>(port.front()))) {
         return false;
     }
     char* end = nullptr;
