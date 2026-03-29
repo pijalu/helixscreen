@@ -60,6 +60,9 @@
         </ui_button>
       </lv_obj>
 
+      <!-- Spacer pushes toggle to the right when source selector is hidden -->
+      <lv_obj width="0" height="0" flex_grow="1" scrollable="false"/>
+
       <!-- View toggle button (icon-only, compact) -->
       <ui_button name="view_toggle_btn" height="#button_height_sm" icon="list" variant="ghost">
         <event_cb trigger="clicked" callback="on_print_select_view_toggle"/>

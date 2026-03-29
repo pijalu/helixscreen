@@ -240,17 +240,66 @@ bool generate_cached_printer_image(const std::string& source_image_path, int wid
 
         src_w = header.w;
         src_h = header.h;
-        size_t pixel_bytes = static_cast<size_t>(src_w) * src_h * 4;
-        rgba_pixels.resize(pixel_bytes);
-        file.read(reinterpret_cast<char*>(rgba_pixels.data()), pixel_bytes);
-        if (!file.good()) {
-            spdlog::warn("[PrinterCache] Short read from .bin: {}", fs_path);
-            return false;
-        }
+        size_t stride = header.stride;
+        size_t expected_bytes = stride * src_h;
 
-        // Convert BGRA (LVGL) → RGBA (stb) for resize
-        for (size_t i = 0; i < rgba_pixels.size(); i += 4) {
-            std::swap(rgba_pixels[i], rgba_pixels[i + 2]); // B ↔ R
+        // Check file has enough data (handles compressed/RLE .bin files gracefully)
+        auto file_pos = file.tellg();
+        file.seekg(0, std::ios::end);
+        size_t file_size = static_cast<size_t>(file.tellg()) - static_cast<size_t>(file_pos);
+        file.seekg(file_pos);
+
+        if (file_size < expected_bytes) {
+            // File is smaller than expected — likely compressed (RLE/LZ4).
+            // Fall back to original PNG if available.
+            std::string png_fallback = fs_path;
+            // Convert prerendered path to PNG: printers/prerendered/name-300.bin → printers/name.png
+            auto prerendered_pos = png_fallback.find("/prerendered/");
+            if (prerendered_pos != std::string::npos) {
+                std::string dir = png_fallback.substr(0, prerendered_pos + 1);
+                std::string name = std::filesystem::path(fs_path).stem().string();
+                // Strip size suffix: "creality-k1c-300" → "creality-k1c"
+                auto dash = name.rfind('-');
+                if (dash != std::string::npos) {
+                    name = name.substr(0, dash);
+                }
+                png_fallback = dir + name + ".png";
+            }
+
+            spdlog::debug("[PrinterCache] .bin may be compressed ({}B < {}B expected), "
+                          "trying PNG fallback: {}",
+                          file_size, expected_bytes, png_fallback);
+
+            int channels = 0;
+            uint8_t* pixels = stbi_load(png_fallback.c_str(), &src_w, &src_h, &channels, 4);
+            if (pixels) {
+                size_t pixel_bytes = static_cast<size_t>(src_w) * src_h * 4;
+                rgba_pixels.assign(pixels, pixels + pixel_bytes);
+                stbi_image_free(pixels);
+            } else {
+                spdlog::warn("[PrinterCache] Cannot decode PNG fallback: {}", png_fallback);
+                return false;
+            }
+        } else {
+            // Uncompressed — read pixel data using stride
+            rgba_pixels.resize(static_cast<size_t>(src_w) * src_h * 4);
+            for (int row = 0; row < src_h; ++row) {
+                file.read(reinterpret_cast<char*>(rgba_pixels.data() + row * src_w * 4),
+                          src_w * 4);
+                // Skip stride padding if any
+                if (stride > static_cast<size_t>(src_w * 4)) {
+                    file.seekg(stride - src_w * 4, std::ios::cur);
+                }
+            }
+            if (!file.good()) {
+                spdlog::warn("[PrinterCache] Read error from .bin: {}", fs_path);
+                return false;
+            }
+
+            // Convert BGRA (LVGL) → RGBA (stb) for resize
+            for (size_t i = 0; i < rgba_pixels.size(); i += 4) {
+                std::swap(rgba_pixels[i], rgba_pixels[i + 2]); // B ↔ R
+            }
         }
     } else {
         // Source is PNG/JPG — decode with stb_image
