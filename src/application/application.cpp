@@ -17,6 +17,7 @@
 #include "ui_overlay_timelapse_videos.h"
 #include "ui_update_queue.h"
 
+#include "app_constants.h"
 #include "asset_manager.h"
 #include "cjk_font_manager.h"
 #include "config.h"
@@ -1925,6 +1926,20 @@ void Application::setup_discovery_callbacks() {
             // Mark discovery complete so splash can exit
             c->app->m_splash_manager.on_discovery_complete();
             spdlog::info("[Application] Moonraker discovery complete, splash can exit");
+
+            // Clean up self-update sentinel — the app started successfully,
+            // so helixscreen-update.service no longer needs to be suppressed.
+            {
+                namespace fs = std::filesystem;
+                std::error_code ec;
+                std::string sentinel = AppConstants::Update::backup_fallback_dir() + "/self_restart_sentinel";
+                if (fs::remove(sentinel, ec)) {
+                    spdlog::info("[Application] Cleaned up self-restart sentinel");
+                }
+                // Legacy: best-effort under PrivateTmp (sees private /tmp,
+                // not real /tmp — stale real sentinels cleaned on reboot)
+                fs::remove("/tmp/helixscreen_self_restart", ec);
+            }
 
             get_printer_state().set_hardware(c->hardware);
             get_printer_state().init_fans(

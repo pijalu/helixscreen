@@ -3106,39 +3106,56 @@ install_service_systemd() {
 # a direct fix here and fall back to a warning if permissions block it.
 update_watcher_if_stale() {
     local path_dest="/etc/systemd/system/helixscreen-update.path"
+    local svc_dest="/etc/systemd/system/helixscreen-update.service"
 
     # Only relevant on systemd with the watcher installed
     [ "$INIT_SYSTEM" = "systemd" ] || return 0
     [ -f "$path_dest" ] || return 0
 
-    # Check for the buggy PathExists directive
-    if ! grep -q '^PathExists=' "$path_dest" 2>/dev/null; then
-        log_info "Update watcher path unit is current"
+    # Detect staleness: PathExists bug (restart loop), missing sentinel check
+    # (self-update double-trigger #536), or missing refresh-service-units.sh.
+    local stale=false reason=""
+    if grep -q '^PathExists=' "$path_dest" 2>/dev/null; then
+        stale=true reason="PathExists bug (restart loop)"
+    elif [ -f "$svc_dest" ] && ! grep -q 'self_restart_sentinel' "$svc_dest" 2>/dev/null; then
+        stale=true reason="missing self-update sentinel check (#536)"
+    elif [ -f "$svc_dest" ] && ! grep -q 'refresh-service-units' "$svc_dest" 2>/dev/null; then
+        stale=true reason="missing service file refresh"
+    fi
+
+    if ! $stale; then
+        log_info "Update watcher units are current"
         return 0
     fi
 
-    log_warn "Detected stale helixscreen-update.path with PathExists (causes restart loops)"
+    log_warn "Stale update watcher units: $reason"
 
     local path_src="${INSTALL_DIR}/config/helixscreen-update.path"
     local svc_src="${INSTALL_DIR}/config/helixscreen-update.service"
-    local svc_dest="/etc/systemd/system/helixscreen-update.service"
     local install_dir="${INSTALL_DIR:-/opt/helixscreen}"
+    local install_parent
+    install_parent="$(dirname "$install_dir")"
 
     if _has_no_new_privs; then
-        # Can't write to /etc/systemd/system/ — try sed in-place as a
-        # minimal fix (changes PathExists → PathChanged).  This may fail
-        # under ProtectSystem=strict but is worth attempting.
-        if sed -i 's/^PathExists=/PathChanged=/' "$path_dest" 2>/dev/null; then
-            log_success "Fixed PathExists → PathChanged in deployed path unit"
-            # Also update the service unit if available
-            if [ -f "$svc_src" ] && [ -f "$svc_dest" ]; then
-                cp "$svc_src" "$svc_dest" 2>/dev/null && \
-                    sed -i "s|@@INSTALL_DIR@@|${install_dir}|g" "$svc_dest" 2>/dev/null || true
+        # Can't write to /etc/systemd/system/ under NoNewPrivileges.
+        # Attempt in-place fixes — may fail under ProtectSystem=strict.
+        local fixed=false
+        if grep -q '^PathExists=' "$path_dest" 2>/dev/null; then
+            sed -i 's/^PathExists=/PathChanged=/' "$path_dest" 2>/dev/null && fixed=true
+        fi
+        if [ -f "$svc_src" ] && [ -f "$svc_dest" ]; then
+            if cp "$svc_src" "$svc_dest" 2>/dev/null; then
+                sed -i -e "s|@@INSTALL_DIR@@|${install_dir}|g" \
+                       -e "s|@@INSTALL_PARENT@@|${install_parent}|g" \
+                    "$svc_dest" 2>/dev/null
+                fixed=true
             fi
+        fi
+        if $fixed; then
+            log_success "Updated watcher units (best-effort under NoNewPrivileges)"
         else
-            log_warn "Cannot fix path unit under NoNewPrivileges."
-            log_warn "The update watcher may cause restart loops after Moonraker updates."
-            log_warn "Fix manually: sudo cp ${path_src} ${path_dest} && sudo systemctl daemon-reload"
+            log_warn "Cannot update watcher units under NoNewPrivileges."
+            log_warn "Fix: sudo ${install_dir}/config/refresh-service-units.sh"
         fi
         return 0
     fi
@@ -3149,9 +3166,11 @@ update_watcher_if_stale() {
         $SUDO cp "$svc_src" "$svc_dest"
         _sed_inplace "s|@@INSTALL_DIR@@|${install_dir}|g" "$path_dest"
         _sed_inplace "s|@@INSTALL_DIR@@|${install_dir}|g" "$svc_dest"
+        _sed_inplace "s|@@INSTALL_PARENT@@|${install_parent}|g" "$path_dest"
+        _sed_inplace "s|@@INSTALL_PARENT@@|${install_parent}|g" "$svc_dest"
         $SUDO systemctl daemon-reload 2>/dev/null || true
         $SUDO systemctl restart helixscreen-update.path 2>/dev/null || true
-        log_success "Updated watcher units (fixed PathExists restart loop)"
+        log_success "Updated watcher units ($reason)"
     fi
 }
 

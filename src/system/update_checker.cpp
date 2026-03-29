@@ -1459,13 +1459,21 @@ void UpdateChecker::do_install(const std::string& tarball_path) {
     // Write sentinel so helixscreen-update.service (triggered by release_info.json
     // change) knows the watchdog is already handling the restart.  Without this,
     // both the watchdog and the path-watcher race to restart, causing a double-start.
-    // The sentinel lives in /tmp (auto-cleaned on reboot) and is removed by the
-    // update service when it checks, regardless of whether it skips.
+    // The sentinel is NOT deleted by the update service — the path watcher can fire
+    // multiple times after an atomic swap.  Cleaned up on next successful startup.
+    //
+    // Write to ~/.helixscreen/ (survives PrivateTmp, accessible from update.service).
+    // Also write legacy /tmp sentinel for backward compat with old service files.
     {
-        std::ofstream ofs("/tmp/helixscreen_self_restart");
+        std::string sentinel = AppConstants::Update::backup_fallback_dir() + "/self_restart_sentinel";
+        std::ofstream ofs(sentinel);
         if (ofs) {
-            spdlog::info("[UpdateChecker] Wrote self-restart sentinel for update.service");
+            spdlog::info("[UpdateChecker] Wrote self-restart sentinel: {}", sentinel);
+        } else {
+            spdlog::warn("[UpdateChecker] Failed to write sentinel: {}", sentinel);
         }
+        // Legacy location (may not work with PrivateTmp=true)
+        std::ofstream ofs_legacy("/tmp/helixscreen_self_restart");
     }
 
     report_download_status(DownloadStatus::Complete, 100,
