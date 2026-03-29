@@ -47,28 +47,27 @@
       <!-- ============================================================ -->
       <setting_section_header title="ACTIONS" title_tag="ACTIONS" icon="wrench"/>
 
-      <!-- Probe Accuracy Test -->
-      <ui_button name="btn_probe_accuracy"
-                 width="100%" height="#button_height" variant="secondary"
-                 text="Probe Accuracy Test" translation_tag="Probe Accuracy Test" icon="target">
-        <event_cb trigger="clicked" callback="on_probe_accuracy"/>
-      </ui_button>
+      <!-- Action buttons — 3 equal-width in a row -->
+      <lv_obj width="100%" height="content" style_pad_all="0" flex_flow="row"
+              style_pad_gap="#space_sm" scrollable="false">
+        <ui_button name="btn_probe_accuracy"
+                   width="1" flex_grow="1" height="#button_height" variant="secondary"
+                   text="Accuracy" translation_tag="Accuracy" icon="target">
+          <event_cb trigger="clicked" callback="on_probe_accuracy"/>
+        </ui_button>
 
-      <!-- Z-Offset Calibration -->
-      <setting_action_row name="btn_zoffset"
-                          label="Z-Offset Calibration" label_tag="Z-Offset Calibration" icon="z_closer"
-                          description="Interactive probe offset adjustment"
-                          description_tag="Interactive probe offset adjustment">
-        <event_cb trigger="clicked" callback="on_zoffset_cal"/>
-      </setting_action_row>
+        <ui_button name="btn_zoffset"
+                   width="1" flex_grow="1" height="#button_height" variant="secondary"
+                   text="Z-Offset" translation_tag="Z-Offset" icon="z_closer">
+          <event_cb trigger="clicked" callback="on_zoffset_cal"/>
+        </ui_button>
 
-      <!-- Bed Mesh -->
-      <setting_action_row name="btn_bedmesh"
-                          label="Bed Mesh" label_tag="Bed Mesh" icon="grid_large"
-                          description="Probe bed surface for compensation"
-                          description_tag="Probe bed surface for compensation">
-        <event_cb trigger="clicked" callback="on_bed_mesh"/>
-      </setting_action_row>
+        <ui_button name="btn_bedmesh"
+                   width="1" flex_grow="1" height="#button_height" variant="secondary"
+                   text="Bed Mesh" translation_tag="Bed Mesh" icon="grid_large">
+          <event_cb trigger="clicked" callback="on_bed_mesh"/>
+        </ui_button>
+      </lv_obj>
 
       <!-- ============================================================ -->
       <!-- PROBE CONFIGURATION (hidden until config loaded) -->
