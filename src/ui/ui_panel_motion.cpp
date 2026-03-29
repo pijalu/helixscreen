@@ -523,7 +523,7 @@ void MotionPanel::handle_z_button(const char* name) {
         api->motion().move_axis(
             'Z', distance, Z_FEEDRATE, []() { spdlog::debug("[MotionPanel] Z jog complete"); },
             [](const MoonrakerError& err) {
-                NOTIFY_ERROR("Z jog failed: {}", clean_gcode_error(err.user_message()));
+                NOTIFY_ERROR(lv_tr("Z jog failed: {}"), clean_gcode_error(err.user_message()));
             });
     }
 }
@@ -624,7 +624,7 @@ void MotionPanel::jog(JogDirection direction, float distance_mm) {
                 'X', static_cast<double>(dx), JOG_FEEDRATE,
                 []() { spdlog::debug("[MotionPanel] X jog complete"); },
                 [](const MoonrakerError& err) {
-                    NOTIFY_ERROR("X jog failed: {}", clean_gcode_error(err.user_message()));
+                    NOTIFY_ERROR(lv_tr("X jog failed: {}"), clean_gcode_error(err.user_message()));
                 });
         }
         if (dy != 0.0f) {
@@ -632,7 +632,7 @@ void MotionPanel::jog(JogDirection direction, float distance_mm) {
                 'Y', static_cast<double>(dy), JOG_FEEDRATE,
                 []() { spdlog::debug("[MotionPanel] Y jog complete"); },
                 [](const MoonrakerError& err) {
-                    NOTIFY_ERROR("Y jog failed: {}", clean_gcode_error(err.user_message()));
+                    NOTIFY_ERROR(lv_tr("Y jog failed: {}"), clean_gcode_error(err.user_message()));
                 });
         }
     }
@@ -661,7 +661,7 @@ void MotionPanel::home(char axis) {
                 }
             },
             [](const MoonrakerError& err) {
-                NOTIFY_ERROR("Homing failed: {}", clean_gcode_error(err.user_message()));
+                NOTIFY_ERROR(lv_tr("Homing failed: {}"), clean_gcode_error(err.user_message()));
             });
     }
 }

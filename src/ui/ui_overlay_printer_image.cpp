@@ -451,11 +451,11 @@ void PrinterImageOverlay::handle_usb_import(const std::string& source_path) {
                     lv_subject_copy_string(&overlay.usb_status_subject_, "");
                     overlay.refresh_custom_images();
                     overlay.handle_image_selected(result.id);
-                    NOTIFY_SUCCESS("Imported {}", filename);
+                    NOTIFY_SUCCESS(lv_tr("Imported {}"), filename);
                 } else {
                     spdlog::warn("[Printer Image] USB import failed: {}", result.error);
                     lv_subject_copy_string(&overlay.usb_status_subject_, result.error.c_str());
-                    NOTIFY_WARNING("Import failed: {}", result.error);
+                    NOTIFY_WARNING(lv_tr("Import failed: {}"), result.error);
                 }
             });
         });

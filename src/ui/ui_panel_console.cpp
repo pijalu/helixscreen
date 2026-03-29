@@ -18,6 +18,8 @@
 #include "moonraker_api.h"
 #include "theme_manager.h"
 
+#include "lvgl/src/others/translation/lv_translation.h"
+
 #include <spdlog/spdlog.h>
 
 #include <algorithm>
@@ -831,7 +833,7 @@ void ConsolePanel::send_gcode_command() {
             command, nullptr, // success: no-op, response comes via WS subscription
             [token = lifetime_.token()](const MoonrakerError& err) {
                 if (token.expired()) return;
-                NOTIFY_ERROR("Failed to send command: {}", err.message);
+                NOTIFY_ERROR(lv_tr("Failed to send command: {}"), err.message);
             });
     } else {
         spdlog::warn("[{}] No MoonrakerAPI available", get_name());

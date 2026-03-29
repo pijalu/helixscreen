@@ -13,6 +13,8 @@
 #include "tool_state.h"
 #include "ui_overlay_temp_graph.h"
 
+#include "lvgl/src/others/translation/lv_translation.h"
+
 #include <spdlog/spdlog.h>
 
 #include <algorithm>
@@ -305,6 +307,6 @@ void NozzleTempsWidget::update_row_display(lv_obj_t* temp_label, lv_obj_t* targe
     if (target_centi > 0) {
         lv_label_set_text_fmt(target_label, "/ %d\xC2\xB0", target_centi / 10);
     } else {
-        lv_label_set_text(target_label, "off");
+        lv_label_set_text(target_label, lv_tr("off"));
     }
 }

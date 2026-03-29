@@ -170,7 +170,7 @@ lv_obj_t* PrintSelectDetailView::create(lv_obj_t* parent_screen) {
 
     if (!overlay_root_) {
         LOG_ERROR_INTERNAL("[DetailView] Failed to create detail view from XML");
-        NOTIFY_ERROR("Failed to load file details");
+        NOTIFY_ERROR(lv_tr("Failed to load file details"));
         return nullptr;
     }
 

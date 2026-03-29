@@ -269,8 +269,8 @@ void PrintPreparationManager::analyze_print_start_macro_internal() {
                     spdlog::error(
                         "[PrintPreparationManager] PRINT_START analysis failed after {} attempts",
                         MAX_MACRO_ANALYSIS_RETRIES + 1);
-                    NOTIFY_ERROR("Could not analyze PRINT_START macro. Some print options may be "
-                                 "unavailable.");
+                    NOTIFY_ERROR(lv_tr("Could not analyze PRINT_START macro. Some print options may be "
+                                      "unavailable."));
 
                     // Set empty result
                     macro_analysis_in_progress_ = false;
@@ -848,7 +848,7 @@ void PrintPreparationManager::start_print(const std::string& filename,
                 lifetime_.defer("PrintPreparationManager::pre_start_gcode_error",
                                 [wrapped_completion, msg = err.message]() {
                     spdlog::error("[PrintPreparationManager] Pre-start gcode failed: {}", msg);
-                    NOTIFY_ERROR("Pre-print command failed: {}", msg);
+                    NOTIFY_ERROR(lv_tr("Pre-print command failed: {}"), msg);
                     if (wrapped_completion)
                         wrapped_completion(false, msg);
                 });
@@ -876,7 +876,7 @@ void PrintPreparationManager::start_print(const std::string& filename,
             ops_to_disable.clear();
             macro_skip_params.clear();
             // Show user notification about skipped modification
-            NOTIFY_WARNING("Cannot modify G-code: {}. Printing original file.", capability.reason);
+            NOTIFY_WARNING(lv_tr("Cannot modify G-code: {}. Printing original file."), capability.reason);
         } else {
             spdlog::info("[PrintPreparationManager] Modifying G-code: {} file ops, {} macro params "
                          "(method: {})",
@@ -1344,7 +1344,7 @@ void PrintPreparationManager::modify_and_print_streaming(
             }
 
             if (!result.success) {
-                NOTIFY_ERROR("Failed to modify G-code: {}", result.error_message);
+                NOTIFY_ERROR(lv_tr("Failed to modify G-code: {}"), result.error_message);
                 if (printer_state_)
                     printer_state_->set_print_in_progress(false);
                 return;
@@ -1433,7 +1433,7 @@ void PrintPreparationManager::modify_and_print_streaming(
                         // Hide overlay on error (defer to main thread)
                         helix::ui::async_call([](void*) { BusyOverlay::hide(); }, nullptr);
 
-                        NOTIFY_ERROR("Failed to start print: {}", error.message);
+                        NOTIFY_ERROR(lv_tr("Failed to start print: {}"), error.message);
                         LOG_ERROR_INTERNAL(
                             "[PrintPreparationManager] Print start failed for {}: {}",
                             remote_temp_path, error.message);
@@ -1495,7 +1495,7 @@ void PrintPreparationManager::modify_and_print_streaming(
                     std::error_code ec;
                     std::filesystem::remove(modified_path, ec);
 
-                    NOTIFY_ERROR("Failed to upload modified G-code: {}", error.message);
+                    NOTIFY_ERROR(lv_tr("Failed to upload modified G-code: {}"), error.message);
                     LOG_ERROR_INTERNAL("[PrintPreparationManager] Upload failed: {}",
                                        error.message);
                     if (printer_state_)
@@ -1525,7 +1525,7 @@ void PrintPreparationManager::modify_and_print_streaming(
             std::error_code ec;
             std::filesystem::remove(local_download_path, ec);
 
-            NOTIFY_ERROR("Failed to download G-code for modification: {}", error.message);
+            NOTIFY_ERROR(lv_tr("Failed to download G-code for modification: {}"), error.message);
             LOG_ERROR_INTERNAL("[PrintPreparationManager] Download failed for {}: {}", file_path,
                                error.message);
             if (printer_state_)
@@ -1554,7 +1554,7 @@ void PrintPreparationManager::start_print_directly(const std::string& filename,
         },
         // Error callback
         [filename, on_completion](const MoonrakerError& error) {
-            NOTIFY_ERROR("Failed to start print: {}", error.message);
+            NOTIFY_ERROR(lv_tr("Failed to start print: {}"), error.message);
             LOG_ERROR_INTERNAL("[PrintPreparationManager] Print start failed for {}: {} ({})",
                                filename, error.message, error.get_type_string());
 

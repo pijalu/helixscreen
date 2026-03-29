@@ -139,7 +139,7 @@ void PrintTuneOverlay::show(lv_obj_t* parent_screen, MoonrakerAPI* api,
             static_cast<lv_obj_t*>(lv_xml_create(parent_screen_, "print_tune_panel", nullptr));
         if (!tune_panel_) {
             spdlog::error("[PrintTuneOverlay] Failed to create panel from XML");
-            NOTIFY_ERROR("Failed to load print tune panel");
+            NOTIFY_ERROR(lv_tr("Failed to load print tune panel"));
             return;
         }
 
@@ -423,7 +423,7 @@ void PrintTuneOverlay::handle_speed_adjust(int delta) {
             gcode, [value]() { spdlog::debug("[PrintTuneOverlay] Speed set to {}%", value); },
             [](const MoonrakerError& err) {
                 spdlog::error("[PrintTuneOverlay] Failed to set speed: {}", err.message);
-                NOTIFY_ERROR("Failed to set print speed: {}", err.user_message());
+                NOTIFY_ERROR(lv_tr("Failed to set print speed: {}"), err.user_message());
             });
     }
 }
@@ -439,7 +439,7 @@ void PrintTuneOverlay::handle_flow_adjust(int delta) {
             gcode, [value]() { spdlog::debug("[PrintTuneOverlay] Flow set to {}%", value); },
             [](const MoonrakerError& err) {
                 spdlog::error("[PrintTuneOverlay] Failed to set flow: {}", err.message);
-                NOTIFY_ERROR("Failed to set flow rate: {}", err.user_message());
+                NOTIFY_ERROR(lv_tr("Failed to set flow rate: {}"), err.user_message());
             });
     }
 }
@@ -453,12 +453,12 @@ void PrintTuneOverlay::handle_reset() {
         api_->execute_gcode(
             "M220 S100", []() { spdlog::debug("[PrintTuneOverlay] Speed reset to 100%"); },
             [](const MoonrakerError& err) {
-                NOTIFY_ERROR("Failed to reset speed: {}", err.user_message());
+                NOTIFY_ERROR(lv_tr("Failed to reset speed: {}"), err.user_message());
             });
         api_->execute_gcode(
             "M221 S100", []() { spdlog::debug("[PrintTuneOverlay] Flow reset to 100%"); },
             [](const MoonrakerError& err) {
-                NOTIFY_ERROR("Failed to reset flow: {}", err.user_message());
+                NOTIFY_ERROR(lv_tr("Failed to reset flow: {}"), err.user_message());
             });
     }
 }
@@ -518,7 +518,7 @@ void PrintTuneOverlay::handle_z_offset_changed(double delta) {
             gcode, [delta]() { spdlog::debug("[PrintTuneOverlay] Z adjusted {:+.3f}mm", delta); },
             [](const MoonrakerError& err) {
                 spdlog::error("[PrintTuneOverlay] Z-offset adjust failed: {}", err.message);
-                NOTIFY_ERROR("Z-offset failed: {}", err.user_message());
+                NOTIFY_ERROR(lv_tr("Z-offset failed: {}"), err.user_message());
             });
     }
 }
@@ -564,7 +564,7 @@ void PrintTuneOverlay::handle_save_z_offset() {
             },
             [](const std::string& error) {
                 spdlog::error("[PrintTuneOverlay] Save failed: {}", error);
-                NOTIFY_ERROR("Save failed: {}", error);
+                NOTIFY_ERROR(lv_tr("Save failed: {}"), error);
             });
     });
     save_z_offset_modal_.show(lv_screen_active());

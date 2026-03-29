@@ -1191,7 +1191,7 @@ void PrintStatusPanel::handle_pause_button() {
                 },
                 [](const MoonrakerError& err) {
                     spdlog::error("[Print Status] Failed to pause print: {}", err.message);
-                    NOTIFY_ERROR("Failed to pause print: {}", err.user_message());
+                    NOTIFY_ERROR(lv_tr("Failed to pause print: {}"), err.user_message());
                 });
         } else {
             // Fall back to local state change for mock mode
@@ -1221,7 +1221,7 @@ void PrintStatusPanel::handle_pause_button() {
                 },
                 [](const MoonrakerError& err) {
                     spdlog::error("[Print Status] Failed to resume print: {}", err.message);
-                    NOTIFY_ERROR("Failed to resume print: {}", err.user_message());
+                    NOTIFY_ERROR(lv_tr("Failed to resume print: {}"), err.user_message());
                 });
         } else {
             // Fall back to local state change for mock mode
@@ -1281,7 +1281,7 @@ void PrintStatusPanel::handle_reprint_button() {
 
     if (!api_) {
         spdlog::error("[{}] Cannot reprint: API not available", get_name());
-        NOTIFY_ERROR("Cannot reprint: not connected to printer");
+        NOTIFY_ERROR(lv_tr("Cannot reprint: not connected to printer"));
         return;
     }
 
@@ -1302,7 +1302,7 @@ void PrintStatusPanel::handle_reprint_button() {
         },
         [this, token = lifetime_.token()](const MoonrakerError& err) {
             spdlog::error("[{}] Failed to reprint: {}", get_name(), err.message);
-            NOTIFY_ERROR("Failed to reprint: {}", err.user_message());
+            NOTIFY_ERROR(lv_tr("Failed to reprint: {}"), err.user_message());
             // Re-enable button on failure (with lifetime guard)
             if (token.expired())
                 return;

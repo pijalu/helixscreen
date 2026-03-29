@@ -19,6 +19,8 @@
 #include "printer_state.h"
 #include "tool_state.h"
 
+#include "lvgl/src/others/translation/lv_translation.h"
+
 #include <spdlog/spdlog.h>
 
 #include <cstdio>
@@ -234,15 +236,15 @@ void PreheatWidget::handle_selection_changed() {
 void PreheatWidget::set_temperatures(MoonrakerAPI* api, int nozzle, int bed) {
     api->set_temperature(
         printer_state_.active_extruder_name(), static_cast<double>(nozzle),
-        [nozzle]() { NOTIFY_SUCCESS("Nozzle target set to {}°C", nozzle); },
+        [nozzle]() { NOTIFY_SUCCESS(lv_tr("Nozzle target set to {}°C"), nozzle); },
         [](const MoonrakerError& error) {
-            NOTIFY_ERROR("Failed to set nozzle temp: {}", error.user_message());
+            NOTIFY_ERROR(lv_tr("Failed to set nozzle temp: {}"), error.user_message());
         });
     api->set_temperature(
         "heater_bed", static_cast<double>(bed),
-        [bed]() { NOTIFY_SUCCESS("Bed target set to {}°C", bed); },
+        [bed]() { NOTIFY_SUCCESS(lv_tr("Bed target set to {}°C"), bed); },
         [](const MoonrakerError& error) {
-            NOTIFY_ERROR("Failed to set bed temp: {}", error.user_message());
+            NOTIFY_ERROR(lv_tr("Failed to set bed temp: {}"), error.user_message());
         });
 }
 
@@ -315,9 +317,9 @@ void PreheatWidget::handle_cooldown() {
     spdlog::info("[PreheatWidget] Cooldown requested - executing: {}", cooldown.gcode);
     api->execute_gcode(
         cooldown.gcode,
-        []() { NOTIFY_SUCCESS("Heaters off"); },
+        []() { NOTIFY_SUCCESS(lv_tr("Heaters off")); },
         [](const MoonrakerError& error) {
-            NOTIFY_ERROR("Failed to cool down: {}", error.user_message());
+            NOTIFY_ERROR(lv_tr("Failed to cool down: {}"), error.user_message());
         });
 }
 
@@ -369,23 +371,23 @@ void PreheatWidget::set_temperatures_multi(MoonrakerAPI* api, int nozzle, int be
                 spdlog::info("[PreheatWidget] {} target set to {}°C", heater, nozzle);
             },
             [heater](const MoonrakerError& error) {
-                NOTIFY_ERROR("Failed to set {} temp: {}", heater, error.user_message());
+                NOTIFY_ERROR(lv_tr("Failed to set {} temp: {}"), heater, error.user_message());
             });
     }
 
     // Always set bed temperature once
     api->set_temperature(
         "heater_bed", static_cast<double>(bed),
-        [bed]() { NOTIFY_SUCCESS("Bed target set to {}°C", bed); },
+        [bed]() { NOTIFY_SUCCESS(lv_tr("Bed target set to {}°C"), bed); },
         [](const MoonrakerError& error) {
-            NOTIFY_ERROR("Failed to set bed temp: {}", error.user_message());
+            NOTIFY_ERROR(lv_tr("Failed to set bed temp: {}"), error.user_message());
         });
 
     int tool_count = static_cast<int>(heaters.size());
     if (tool_target_ == -1) {
-        NOTIFY_SUCCESS("Preheat: all {} tools + bed set", tool_count);
+        NOTIFY_SUCCESS(lv_tr("Preheat: all {} tools + bed set"), tool_count);
     } else {
-        NOTIFY_SUCCESS("Preheat: T{} + bed set", tool_target_);
+        NOTIFY_SUCCESS(lv_tr("Preheat: T{} + bed set"), tool_target_);
     }
 }
 

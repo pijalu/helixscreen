@@ -267,7 +267,7 @@ void PrintStartController::execute_print_start() {
                     spdlog::debug("[PrintStartController] Print started successfully");
                     status_panel.end_preparing(true);
                 } else if (!error.empty()) {
-                    NOTIFY_ERROR("Print preparation failed: {}", error);
+                    NOTIFY_ERROR(lv_tr("Print preparation failed: {}"), error);
                     LOG_ERROR_INTERNAL("[PrintStartController] Print preparation failed: {}",
                                        error);
                     status_panel.end_preparing(false);

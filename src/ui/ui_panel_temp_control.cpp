@@ -348,7 +348,7 @@ void TempControlPanel::send_temperature(HeaterType type, int target) {
             // No toast on success - immediate visual feedback is sufficient
         },
         [label](const MoonrakerError& error) {
-            NOTIFY_ERROR("Failed to set {} temp: {}", label, error.user_message());
+            NOTIFY_ERROR(lv_tr("Failed to set {} temp: {}"), label, error.user_message());
         });
 }
 
@@ -781,13 +781,13 @@ void TempControlPanel::on_heater_confirm_clicked(lv_event_t* e) {
             klipper_name, static_cast<double>(temp_target),
             [label, temp_target]() {
                 if (temp_target == 0) {
-                    NOTIFY_SUCCESS("{} heater turned off", label);
+                    NOTIFY_SUCCESS(lv_tr("{} heater turned off"), label);
                 } else {
-                    NOTIFY_SUCCESS("{} target set to {}°C", label, temp_target);
+                    NOTIFY_SUCCESS(lv_tr("{} target set to {}°C"), label, temp_target);
                 }
             },
             [label](const MoonrakerError& error) {
-                NOTIFY_ERROR("Failed to set {} temp: {}", label, error.user_message());
+                NOTIFY_ERROR(lv_tr("Failed to set {} temp: {}"), label, error.user_message());
             });
     }
 
@@ -873,13 +873,13 @@ void TempControlPanel::on_nozzle_confirm_clicked(lv_event_t* e) {
             self->active_extruder_name_, static_cast<double>(target),
             [target]() {
                 if (target == 0) {
-                    NOTIFY_SUCCESS("Nozzle heater turned off");
+                    NOTIFY_SUCCESS(lv_tr("Nozzle heater turned off"));
                 } else {
-                    NOTIFY_SUCCESS("Nozzle target set to {}°C", target);
+                    NOTIFY_SUCCESS(lv_tr("Nozzle target set to {}°C"), target);
                 }
             },
             [](const MoonrakerError& error) {
-                NOTIFY_ERROR("Failed to set nozzle temp: {}", error.user_message());
+                NOTIFY_ERROR(lv_tr("Failed to set nozzle temp: {}"), error.user_message());
             });
     }
 
@@ -902,13 +902,13 @@ void TempControlPanel::on_bed_confirm_clicked(lv_event_t* e) {
             "heater_bed", static_cast<double>(target),
             [target]() {
                 if (target == 0) {
-                    NOTIFY_SUCCESS("Bed heater turned off");
+                    NOTIFY_SUCCESS(lv_tr("Bed heater turned off"));
                 } else {
-                    NOTIFY_SUCCESS("Bed target set to {}°C", target);
+                    NOTIFY_SUCCESS(lv_tr("Bed target set to {}°C"), target);
                 }
             },
             [](const MoonrakerError& error) {
-                NOTIFY_ERROR("Failed to set bed temp: {}", error.user_message());
+                NOTIFY_ERROR(lv_tr("Failed to set bed temp: {}"), error.user_message());
             });
     }
 

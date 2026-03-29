@@ -350,7 +350,7 @@ void FanControlOverlay::send_fan_speed(const std::string& object_name, int speed
             // Silent success
         },
         [object_name](const MoonrakerError& err) {
-            NOTIFY_ERROR("Fan control failed: {}", err.user_message());
+            NOTIFY_ERROR(lv_tr("Fan control failed: {}"), err.user_message());
         });
 }
 

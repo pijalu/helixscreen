@@ -303,7 +303,7 @@ void PrintExcludeObjectManager::exclude_undo_timer_cb(lv_timer_t* timer) {
                 self->lifetime_.defer(
                     "PrintExcludeObjectManager::exclude_error",
                     [self, object_name, user_msg = err.user_message()]() {
-                        NOTIFY_ERROR("Failed to exclude '{}': {}", object_name, user_msg);
+                        NOTIFY_ERROR(lv_tr("Failed to exclude '{}': {}"), object_name, user_msg);
 
                         // Revert visual state - refresh viewer with only confirmed exclusions
                         if (self->gcode_viewer_) {

@@ -132,7 +132,7 @@ void FilamentRunoutHandler::show_runout_guidance_modal() {
                 [](const MoonrakerError& err) {
                     spdlog::error("[FilamentRunoutHandler] Failed to resume print: {}",
                                   err.message);
-                    NOTIFY_ERROR("Failed to resume: {}", err.user_message());
+                    NOTIFY_ERROR(lv_tr("Failed to resume: {}"), err.user_message());
                 });
         }
     });
@@ -160,7 +160,7 @@ void FilamentRunoutHandler::show_runout_guidance_modal() {
                 [](const MoonrakerError& err) {
                     spdlog::error("[FilamentRunoutHandler] Failed to cancel print: {}",
                                   err.message);
-                    NOTIFY_ERROR("Failed to cancel: {}", err.user_message());
+                    NOTIFY_ERROR(lv_tr("Failed to cancel: {}"), err.user_message());
                 });
         }
     });
@@ -186,7 +186,7 @@ void FilamentRunoutHandler::show_runout_guidance_modal() {
                 [](const MoonrakerError& err) {
                     spdlog::error("[FilamentRunoutHandler] Failed to unload filament: {}",
                                   err.message);
-                    NOTIFY_ERROR("Failed to unload: {}", err.user_message());
+                    NOTIFY_ERROR(lv_tr("Failed to unload: {}"), err.user_message());
                 });
         }
     });
@@ -211,7 +211,7 @@ void FilamentRunoutHandler::show_runout_guidance_modal() {
                 []() { spdlog::info("[FilamentRunoutHandler] Purge started"); },
                 [](const MoonrakerError& err) {
                     spdlog::error("[FilamentRunoutHandler] Failed to purge: {}", err.message);
-                    NOTIFY_ERROR("Failed to purge: {}", err.user_message());
+                    NOTIFY_ERROR(lv_tr("Failed to purge: {}"), err.user_message());
                 });
         }
     });

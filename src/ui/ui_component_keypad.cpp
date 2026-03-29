@@ -17,6 +17,8 @@
 #include "ui_event_safety.h"
 #include "ui_nav_manager.h"
 
+#include "lvgl/src/others/translation/lv_translation.h"
+
 #include "helix-xml/src/xml/lv_xml.h"
 #include "lvgl/lvgl.h"
 #include "static_panel_registry.h"
@@ -173,7 +175,7 @@ static void handle_confirm() {
 
     // Validate range - show error if out of bounds
     if (value < current_config.min_value || value > current_config.max_value) {
-        NOTIFY_ERROR("Value must be between {:.0f} and {:.0f}", current_config.min_value,
+        NOTIFY_ERROR(lv_tr("Value must be between {:.0f} and {:.0f}"), current_config.min_value,
                      current_config.max_value);
         return; // Don't close keypad, let user correct the value
     }

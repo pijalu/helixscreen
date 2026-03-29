@@ -752,7 +752,7 @@ void TempGraphOverlay::on_temp_graph_preset_clicked(lv_event_t* e) {
             klipper_name, static_cast<double>(data.preset_value),
             []() {},
             [](const MoonrakerError& error) {
-                NOTIFY_ERROR("Failed to set temperature: {}", error.user_message());
+                NOTIFY_ERROR(lv_tr("Failed to set temperature: {}"), error.user_message());
             });
     }
 }
@@ -814,7 +814,7 @@ void TempGraphOverlay::keypad_value_cb(float value, void* user_data) {
         klipper_name, static_cast<double>(temp),
         []() {},
         [](const MoonrakerError& error) {
-            NOTIFY_ERROR("Failed to set temperature: {}", error.user_message());
+            NOTIFY_ERROR(lv_tr("Failed to set temperature: {}"), error.user_message());
         });
 }
 

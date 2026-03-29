@@ -981,7 +981,7 @@ void ui_wizard_complete() {
         }
 
         if (!config->save()) {
-            NOTIFY_ERROR("Failed to save setup completion");
+            NOTIFY_ERROR(lv_tr("Failed to save setup completion"));
         }
     } else {
         LOG_ERROR_INTERNAL("[Wizard] Failed to get config instance to mark wizard complete");
