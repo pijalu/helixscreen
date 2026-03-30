@@ -13,7 +13,7 @@
 #include "ui_overlay_temp_graph.h"
 #include "ui_panel_ams.h"
 #include "ui_panel_ams_overview.h"
-#include "ui_panel_temp_control.h"
+#include "temperature_service.h"
 #include "ui_spool_canvas.h"
 #include "ui_subject_registry.h"
 #include "ui_temperature_utils.h"
@@ -347,7 +347,7 @@ void FilamentPanel::setup(lv_obj_t* panel, lv_obj_t* parent_screen) {
     // Trigger initial purge button selection (notifies bind_style observers)
     handle_purge_amount_select(purge_amount_);
 
-    // Setup combined temperature graph if TempControlPanel is available
+    // Setup combined temperature graph if TemperatureService is available
     if (temp_control_panel_) {
         lv_obj_t* graph_container = lv_obj_find_by_name(panel_, "temp_graph_container");
         if (graph_container) {

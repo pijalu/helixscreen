@@ -2508,9 +2508,9 @@ bool PrintStatusPanel::build_and_apply_tool_colors() {
 // PUBLIC API
 // ============================================================================
 
-void PrintStatusPanel::set_temp_control_panel(TempControlPanel* temp_panel) {
+void PrintStatusPanel::set_temp_control_panel(TemperatureService* temp_panel) {
     temp_control_panel_ = temp_panel;
-    spdlog::trace("[{}] TempControlPanel reference set", get_name());
+    spdlog::trace("[{}] TemperatureService reference set", get_name());
 }
 
 void PrintStatusPanel::schedule_deferred_gcode_load() {

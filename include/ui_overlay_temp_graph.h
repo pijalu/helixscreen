@@ -17,7 +17,7 @@ namespace helix {
 class PrinterState;
 } // namespace helix
 class MoonrakerAPI;
-class TempControlPanel;
+class TemperatureService;
 
 /**
  * @brief Unified temperature graph overlay
@@ -130,7 +130,7 @@ class TempGraphOverlay : public OverlayBase {
     // Dependencies (resolved on open)
     helix::PrinterState* printer_state_ = nullptr;
     MoonrakerAPI* api_ = nullptr;
-    TempControlPanel* temp_control_panel_ = nullptr;
+    TemperatureService* temp_control_panel_ = nullptr;
 
     // Active extruder name (for nozzle mode)
     std::string active_extruder_name_ = "extruder";

@@ -33,7 +33,7 @@
 #include "ui_panel_screws_tilt.h"
 #include "ui_panel_settings.h"
 #include "ui_panel_spoolman.h"
-#include "ui_panel_temp_control.h"
+#include "temperature_service.h"
 #include "ui_printer_status_icon.h"
 #include "ui_probe_overlay.h"
 #include "ui_update_queue.h"
@@ -261,19 +261,19 @@ void SubjectInitializer::init_panel_subjects(MoonrakerAPI* api) {
 
     get_global_zoffset_cal_panel().init_subjects();
 
-    // TempControlPanel (owned by SubjectInitializer - destructor handles deinit_subjects)
-    m_temp_control_panel = std::make_unique<TempControlPanel>(get_printer_state(), api);
+    // TemperatureService (owned by SubjectInitializer - destructor handles deinit_subjects)
+    m_temp_control_panel = std::make_unique<TemperatureService>(get_printer_state(), api);
     m_temp_control_panel->init_subjects();
 
-    // Inject TempControlPanel into dependent panels
-    // (HomePanel widgets get it via PanelWidgetManager::shared_resource<TempControlPanel>())
+    // Inject TemperatureService into dependent panels
+    // (HomePanel widgets get it via PanelWidgetManager::shared_resource<TemperatureService>())
     get_global_controls_panel().set_temp_control_panel(m_temp_control_panel.get());
     get_global_print_status_panel().set_temp_control_panel(m_temp_control_panel.get());
     get_global_filament_panel().set_temp_control_panel(m_temp_control_panel.get());
     get_global_pid_cal_panel().set_temp_control_panel(m_temp_control_panel.get());
 
     // Register shared resources on PanelWidgetManager for self-registered widget factories
-    helix::PanelWidgetManager::instance().register_shared_resource<TempControlPanel>(
+    helix::PanelWidgetManager::instance().register_shared_resource<TemperatureService>(
         m_temp_control_panel.get());
     if (api) {
         helix::PanelWidgetManager::instance().register_shared_resource<MoonrakerAPI>(api);

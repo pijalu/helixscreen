@@ -72,7 +72,7 @@ class MoonrakerAPI;
  * in the destructor. This prevents use-after-free crashes when panels are
  * destroyed while subjects still exist.
  *
- * @see TempControlPanel for a complete implementation example
+ * @see TemperatureService for a complete implementation example
  */
 class PanelBase : public IPanelLifecycle {
   public:

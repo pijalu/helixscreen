@@ -20,7 +20,7 @@
 #include <optional>
 
 // Forward declaration
-class TempControlPanel;
+class TemperatureService;
 
 /**
  * @file ui_panel_controls.h
@@ -60,12 +60,12 @@ class ControlsPanel : public PanelBase {
     ~ControlsPanel() override;
 
     /**
-     * @brief Set reference to TempControlPanel for temperature sub-screens
+     * @brief Set reference to TemperatureService for temperature sub-screens
      *
      * Must be called before setup() if temperature panels should work.
-     * @param temp_panel Pointer to TempControlPanel instance
+     * @param temp_panel Pointer to TemperatureService instance
      */
-    void set_temp_control_panel(TempControlPanel* temp_panel);
+    void set_temp_control_panel(TemperatureService* temp_panel);
 
     //
     // === PanelBase Implementation ===
@@ -128,7 +128,7 @@ class ControlsPanel : public PanelBase {
     // === Dependencies ===
     //
 
-    TempControlPanel* temp_control_panel_ = nullptr;
+    TemperatureService* temp_control_panel_ = nullptr;
 
     //
     // === Configurable Macro Buttons (StandardMacros integration) ===

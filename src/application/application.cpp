@@ -87,7 +87,7 @@
 #include "ui_panel_settings.h"
 #include "ui_panel_spoolman.h"
 #include "ui_panel_step_test.h"
-#include "ui_panel_temp_control.h"
+#include "temperature_service.h"
 #include "ui_panel_test.h"
 #include "ui_print_tune_overlay.h"
 #include "ui_printer_status_icon.h"

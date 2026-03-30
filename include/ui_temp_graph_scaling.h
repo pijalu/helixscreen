@@ -11,7 +11,7 @@
  * @brief Dynamic Y-axis scaling for temperature graphs
  *
  * Single auto-range implementation used by all temperature graph contexts:
- * TempControlPanel (mini graph), TempGraphWidget (dashboard), TempGraphOverlay (full-screen).
+ * TemperatureService (mini graph), TempGraphWidget (dashboard), TempGraphOverlay (full-screen).
  */
 
 /// Default auto-range parameters (overridable per-context)
@@ -61,7 +61,7 @@ inline float calculate_temp_graph_y_max(float current_max, float max_temp, float
 }
 
 /**
- * @brief Legacy wrapper for TempControlPanel mini graph
+ * @brief Legacy wrapper for TemperatureService mini graph
  *
  * Converts the old (current_max, nozzle, bed) signature to the unified function.
  * Uses slightly different defaults: Y_MIN=150, Y_MAX=300, expand=0.80, shrink=0.60.

@@ -90,9 +90,9 @@ ControlsPanel::~ControlsPanel() {
 // DEPENDENCY INJECTION
 // ============================================================================
 
-void ControlsPanel::set_temp_control_panel(TempControlPanel* temp_panel) {
+void ControlsPanel::set_temp_control_panel(TemperatureService* temp_panel) {
     temp_control_panel_ = temp_panel;
-    spdlog::trace("[{}] TempControlPanel reference set", get_name());
+    spdlog::trace("[{}] TemperatureService reference set", get_name());
 }
 
 // ============================================================================

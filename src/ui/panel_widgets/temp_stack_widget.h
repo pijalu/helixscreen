@@ -11,14 +11,14 @@
 
 #include <memory>
 
-class TempControlPanel;
+class TemperatureService;
 
 namespace helix {
 class PrinterState;
 
 class TempStackWidget : public PanelWidget {
   public:
-    TempStackWidget(PrinterState& printer_state, TempControlPanel* temp_panel);
+    TempStackWidget(PrinterState& printer_state, TemperatureService* temp_panel);
     ~TempStackWidget() override;
 
     void set_config(const nlohmann::json& config) override;
@@ -34,7 +34,7 @@ class TempStackWidget : public PanelWidget {
 
   private:
     PrinterState& printer_state_;
-    TempControlPanel* temp_control_panel_;
+    TemperatureService* temp_control_panel_;
     nlohmann::json config_;
 
     lv_obj_t* widget_obj_ = nullptr;

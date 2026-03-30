@@ -7,7 +7,7 @@
 #include "ui_event_safety.h"
 #include "ui_nav_manager.h"
 #include "ui_overlay_temp_graph.h"
-#include "ui_panel_temp_control.h"
+#include "temperature_service.h"
 #include "ui_temperature_utils.h"
 #include "ui_utils.h"
 
@@ -23,7 +23,7 @@ namespace helix {
 void register_bed_temperature_widget() {
     register_widget_factory("bed_temperature", [](const std::string&) {
         auto& ps = get_printer_state();
-        auto* tcp = PanelWidgetManager::instance().shared_resource<TempControlPanel>();
+        auto* tcp = PanelWidgetManager::instance().shared_resource<TemperatureService>();
         return std::make_unique<BedTemperatureWidget>(ps, tcp);
     });
 
@@ -37,7 +37,7 @@ using namespace helix;
 using helix::ui::temperature::centi_to_degrees;
 
 BedTemperatureWidget::BedTemperatureWidget(PrinterState& printer_state,
-                                           TempControlPanel* temp_panel)
+                                           TemperatureService* temp_panel)
     : printer_state_(printer_state), temp_control_panel_(temp_panel) {}
 
 BedTemperatureWidget::~BedTemperatureWidget() {

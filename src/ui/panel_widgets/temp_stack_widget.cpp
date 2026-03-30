@@ -9,7 +9,7 @@
 #include "ui_fonts.h"
 #include "ui_nav_manager.h"
 #include "ui_overlay_temp_graph.h"
-#include "ui_panel_temp_control.h"
+#include "temperature_service.h"
 #include "ui_temp_display.h"
 #include "ui_update_queue.h"
 #include "ui_utils.h"
@@ -27,7 +27,7 @@ namespace helix {
 void register_temp_stack_widget() {
     register_widget_factory("temp_stack", [](const std::string&) {
         auto& ps = get_printer_state();
-        auto* tcp = PanelWidgetManager::instance().shared_resource<TempControlPanel>();
+        auto* tcp = PanelWidgetManager::instance().shared_resource<TemperatureService>();
         return std::make_unique<TempStackWidget>(ps, tcp);
     });
 
@@ -64,7 +64,7 @@ using namespace helix;
 // Static instance pointer for callback dispatch (only one temp_stack widget at a time)
 static TempStackWidget* s_active_instance = nullptr;
 
-TempStackWidget::TempStackWidget(PrinterState& printer_state, TempControlPanel* temp_panel)
+TempStackWidget::TempStackWidget(PrinterState& printer_state, TemperatureService* temp_panel)
     : printer_state_(printer_state), temp_control_panel_(temp_panel) {}
 
 TempStackWidget::~TempStackWidget() {

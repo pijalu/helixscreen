@@ -15,7 +15,7 @@
 
 class MoonrakerAPI;
 class MoonrakerAdvancedAPI;
-class TempControlPanel;
+class TemperatureService;
 
 /**
  * @file ui_panel_calibration_pid.h
@@ -167,11 +167,11 @@ class PIDCalibrationPanel : public OverlayBase {
     void inject_demo_results();
 
     /**
-     * @brief Set TempControlPanel for graph registration
+     * @brief Set TemperatureService for graph registration
      *
-     * @param tcp TempControlPanel that manages temperature graph updates
+     * @param tcp TemperatureService that manages temperature graph updates
      */
-    void set_temp_control_panel(TempControlPanel* tcp);
+    void set_temp_control_panel(TemperatureService* tcp);
 
     /**
      * @brief Called when calibration completes with results
@@ -329,7 +329,7 @@ class PIDCalibrationPanel : public OverlayBase {
     lv_obj_t* fan_slider_ = nullptr;
 
     // Temperature graph for calibrating state
-    TempControlPanel* temp_control_panel_ = nullptr;
+    TemperatureService* temp_control_panel_ = nullptr;
     ui_temp_graph_t* pid_graph_ = nullptr;
     int pid_graph_series_id_ = -1;
 

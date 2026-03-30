@@ -1,7 +1,7 @@
 // Copyright (C) 2025-2026 356C LLC
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-#include "ui_panel_temp_control.h"
+#include "temperature_service.h"
 
 #include "../lvgl_test_fixture.h"
 #include "lvgl/lvgl.h"
@@ -48,10 +48,10 @@ static lv_obj_t* create_mock_temperature_widget(lv_obj_t* parent) {
 TEST_CASE_METHOD(TempWidgetFixture,
                  "TemperatureWidget: user_data on container, per-callback user_data on button",
                  "[temperature_widget][regression]") {
-    // Simulate TempControlPanel shared resource
-    auto tcp = std::make_shared<TempControlPanel>(state(), nullptr);
+    // Simulate TemperatureService shared resource
+    auto tcp = std::make_shared<TemperatureService>(state(), nullptr);
     auto& mgr = PanelWidgetManager::instance();
-    mgr.register_shared_resource<TempControlPanel>(tcp.get());
+    mgr.register_shared_resource<TemperatureService>(tcp.get());
 
     // Build mock widget tree
     lv_obj_t* container = create_mock_temperature_widget(test_screen());
@@ -87,9 +87,9 @@ TEST_CASE_METHOD(TempWidgetFixture,
 TEST_CASE_METHOD(TempWidgetFixture,
                  "TemperatureWidget: click callback recovers widget via per-callback user_data",
                  "[temperature_widget][regression]") {
-    auto tcp = std::make_shared<TempControlPanel>(state(), nullptr);
+    auto tcp = std::make_shared<TemperatureService>(state(), nullptr);
     auto& mgr = PanelWidgetManager::instance();
-    mgr.register_shared_resource<TempControlPanel>(tcp.get());
+    mgr.register_shared_resource<TemperatureService>(tcp.get());
 
     lv_obj_t* container = create_mock_temperature_widget(test_screen());
     lv_obj_t* btn = lv_obj_find_by_name(container, "temp_btn");

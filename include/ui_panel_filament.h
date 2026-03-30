@@ -14,7 +14,7 @@
 #include "ui/temperature_observer_bundle.h"
 
 // Forward declarations
-class TempControlPanel;
+class TemperatureService;
 
 /**
  * @file ui_panel_filament.h
@@ -158,11 +158,11 @@ class FilamentPanel : public PanelBase {
     void set_limits(int min_temp, int max_temp, int min_extrude_temp = 170);
 
     /**
-     * @brief Set TempControlPanel for combined temperature graph
+     * @brief Set TemperatureService for combined temperature graph
      *
-     * @param tcp Pointer to TempControlPanel (for mini combined graph)
+     * @param tcp Pointer to TemperatureService (for mini combined graph)
      */
-    void set_temp_control_panel(TempControlPanel* tcp) {
+    void set_temp_control_panel(TemperatureService* tcp) {
         temp_control_panel_ = tcp;
     }
 
@@ -265,8 +265,8 @@ class FilamentPanel : public PanelBase {
     lv_obj_t* load_warning_dialog_ = nullptr;
     lv_obj_t* unload_warning_dialog_ = nullptr;
 
-    // Temperature graph (managed by TempControlPanel)
-    TempControlPanel* temp_control_panel_ = nullptr;
+    // Temperature graph (managed by TemperatureService)
+    TemperatureService* temp_control_panel_ = nullptr;
 
     // Temperature graph (for dynamic sizing when bottom card changes)
     lv_obj_t* temp_graph_card_ = nullptr;

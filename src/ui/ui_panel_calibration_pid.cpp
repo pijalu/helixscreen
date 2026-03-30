@@ -7,7 +7,7 @@
 #include "ui_emergency_stop.h"
 #include "ui_event_safety.h"
 #include "ui_nav_manager.h"
-#include "ui_panel_temp_control.h"
+#include "temperature_service.h"
 
 #include "app_globals.h"
 #include "filament_database.h"
@@ -502,9 +502,9 @@ void PIDCalibrationPanel::update_temp_hint() {
 // TEMPERATURE GRAPH
 // ============================================================================
 
-void PIDCalibrationPanel::set_temp_control_panel(TempControlPanel* tcp) {
+void PIDCalibrationPanel::set_temp_control_panel(TemperatureService* tcp) {
     temp_control_panel_ = tcp;
-    spdlog::trace("[{}] TempControlPanel set", get_name());
+    spdlog::trace("[{}] TemperatureService set", get_name());
 }
 
 void PIDCalibrationPanel::setup_pid_graph() {
@@ -545,7 +545,7 @@ void PIDCalibrationPanel::setup_pid_graph() {
         ui_temp_graph_set_series_target(pid_graph_, pid_graph_series_id_,
                                         static_cast<float>(target_temp_), true);
 
-        // Register with TempControlPanel for live updates
+        // Register with TemperatureService for live updates
         if (temp_control_panel_) {
             std::string klipper_heater = is_extruder ? "extruder" : "heater_bed";
             temp_control_panel_->register_heater_graph(pid_graph_, pid_graph_series_id_,
@@ -560,7 +560,7 @@ void PIDCalibrationPanel::teardown_pid_graph() {
     if (!pid_graph_)
         return;
 
-    // Unregister from TempControlPanel first
+    // Unregister from TemperatureService first
     if (temp_control_panel_) {
         temp_control_panel_->unregister_heater_graph(pid_graph_);
     }

@@ -27,7 +27,7 @@ class MoonrakerAPI;
 #include <string>
 
 // Forward declarations
-class TempControlPanel;
+class TemperatureService;
 class PrintStatusPanel;
 
 /**
@@ -255,12 +255,12 @@ class PrintStatusPanel : public OverlayBase {
     }
 
     /**
-     * @brief Set reference to TempControlPanel for temperature overlays
+     * @brief Set reference to TemperatureService for temperature overlays
      *
      * Must be called before temp card click handlers can work.
-     * @param temp_panel Pointer to shared TempControlPanel instance
+     * @param temp_panel Pointer to shared TemperatureService instance
      */
-    void set_temp_control_panel(TempControlPanel* temp_panel);
+    void set_temp_control_panel(TemperatureService* temp_panel);
 
     // Tune panel handlers delegated to PrintTuneOverlay (tune_overlay_ member)
 
@@ -406,7 +406,7 @@ class PrintStatusPanel : public OverlayBase {
     // === Temperature & Tuning Overlays ===
     //
 
-    TempControlPanel* temp_control_panel_ = nullptr;
+    TemperatureService* temp_control_panel_ = nullptr;
 
     // Light/timelapse controls (extracted Phase 2 functionality)
     PrintLightTimelapseControls light_timelapse_controls_;

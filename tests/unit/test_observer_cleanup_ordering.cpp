@@ -616,14 +616,14 @@ TEST_CASE_METHOD(LVGLTestFixture,
 }
 
 // ============================================================================
-// TempControlPanel-style deinit ordering pattern
+// TemperatureService-style deinit ordering pattern
 //
-// TempControlPanel sets subjects_initialized_ = false FIRST in deinit_subjects(),
+// TemperatureService sets subjects_initialized_ = false FIRST in deinit_subjects(),
 // BEFORE calling subjects_.deinit_all(). This prevents deferred callbacks from
 // accessing torn-down subjects during cleanup.
 // ============================================================================
 
-class MockTempControlPanel {
+class MockTemperatureService {
   public:
     bool subjects_initialized_ = false;
     lv_obj_t* panel_ = nullptr;
@@ -651,24 +651,24 @@ class MockTempControlPanel {
 
     void init_observers() {
         // on_temp_changed pattern — guards after throttle logic
-        temp_observer_ = observe_int_sync<MockTempControlPanel>(
-            &temp_subject_, this, [](MockTempControlPanel* self, int /*val*/) {
+        temp_observer_ = observe_int_sync<MockTemperatureService>(
+            &temp_subject_, this, [](MockTemperatureService* self, int /*val*/) {
                 if (!self->subjects_initialized_)
                     return;
                 self->on_temp_count_++;
             });
 
         // on_target_changed pattern
-        target_observer_ = observe_int_sync<MockTempControlPanel>(
-            &target_subject_, this, [](MockTempControlPanel* self, int /*val*/) {
+        target_observer_ = observe_int_sync<MockTemperatureService>(
+            &target_subject_, this, [](MockTemperatureService* self, int /*val*/) {
                 if (!self->subjects_initialized_)
                     return;
                 self->on_target_count_++;
             });
 
         // rebuild_extruder_segments_impl / select_extruder pattern
-        extruder_observer_ = observe_int_sync<MockTempControlPanel>(
-            &extruder_subject_, this, [](MockTempControlPanel* self, int /*val*/) {
+        extruder_observer_ = observe_int_sync<MockTemperatureService>(
+            &extruder_subject_, this, [](MockTemperatureService* self, int /*val*/) {
                 if (!self->subjects_initialized_)
                     return;
                 self->rebuild_segments_count_++;
@@ -709,9 +709,9 @@ class MockTempControlPanel {
 };
 
 TEST_CASE_METHOD(LVGLTestFixture,
-                 "TempControlPanel pattern: correct deinit sets flag before observer reset",
+                 "TemperatureService pattern: correct deinit sets flag before observer reset",
                  "[observer_cleanup][crash_hardening][temp_panel]") {
-    MockTempControlPanel panel;
+    MockTemperatureService panel;
     panel.init(test_screen());
     panel.init_observers();
     drain();
@@ -743,9 +743,9 @@ TEST_CASE_METHOD(LVGLTestFixture,
     panel.deinit();
 }
 
-TEST_CASE_METHOD(LVGLTestFixture, "TempControlPanel pattern: double deinit_subjects is safe",
+TEST_CASE_METHOD(LVGLTestFixture, "TemperatureService pattern: double deinit_subjects is safe",
                  "[observer_cleanup][crash_hardening][temp_panel]") {
-    MockTempControlPanel panel;
+    MockTemperatureService panel;
     panel.init(test_screen());
     panel.init_observers();
     drain();
@@ -759,11 +759,11 @@ TEST_CASE_METHOD(LVGLTestFixture, "TempControlPanel pattern: double deinit_subje
 }
 
 TEST_CASE_METHOD(LVGLTestFixture,
-                 "TempControlPanel pattern: update_display guard prevents access to freed subjects",
+                 "TemperatureService pattern: update_display guard prevents access to freed subjects",
                  "[observer_cleanup][crash_hardening][temp_panel]") {
-    // Simulates TempControlPanel::update_display() which checks
+    // Simulates TemperatureService::update_display() which checks
     // subjects_initialized_ before accessing subject buffers
-    MockTempControlPanel panel;
+    MockTemperatureService panel;
     panel.init(test_screen());
     panel.init_observers();
     drain();

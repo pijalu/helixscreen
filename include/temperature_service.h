@@ -23,7 +23,7 @@ namespace helix {
 class PrinterState;
 }
 class MoonrakerAPI;
-class TempControlPanel;
+class TemperatureService;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Per-heater state (replaces duplicated nozzle_*/bed_* fields)
@@ -93,12 +93,12 @@ struct HeaterState {
 /**
  * @brief Generic lifecycle wrapper for heater temperature panels
  *
- * Thin wrapper that implements IPanelLifecycle and delegates to TempControlPanel
+ * Thin wrapper that implements IPanelLifecycle and delegates to TemperatureService
  * for the specified heater type. One instance per heater type.
  */
 class HeaterTempPanelLifecycle : public IPanelLifecycle {
   public:
-    HeaterTempPanelLifecycle(TempControlPanel* panel, helix::HeaterType type, const char* name)
+    HeaterTempPanelLifecycle(TemperatureService* panel, helix::HeaterType type, const char* name)
         : panel_(panel), type_(type), name_(name) {}
 
     const char* get_name() const override {
@@ -112,7 +112,7 @@ class HeaterTempPanelLifecycle : public IPanelLifecycle {
     }
 
   private:
-    TempControlPanel* panel_;
+    TemperatureService* panel_;
     helix::HeaterType type_;
     const char* name_;
 };
@@ -126,13 +126,13 @@ using BedTempPanelLifecycle = HeaterTempPanelLifecycle;
 // ─────────────────────────────────────────────────────────────────────────────
 
 struct PresetButtonData {
-    TempControlPanel* panel;
+    TemperatureService* panel;
     helix::HeaterType heater_type;
     int preset_value; ///< Target temperature in degrees (0 = off)
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
-// TempControlPanel
+// TemperatureService
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
@@ -141,16 +141,16 @@ struct PresetButtonData {
  * Unified panel that handles all heater types through a HeaterState array.
  * Each heater has its own overlay panel, graph, presets, and lifecycle.
  */
-class TempControlPanel {
+class TemperatureService {
   public:
-    TempControlPanel(helix::PrinterState& printer_state, MoonrakerAPI* api);
-    ~TempControlPanel();
+    TemperatureService(helix::PrinterState& printer_state, MoonrakerAPI* api);
+    ~TemperatureService();
 
     // Non-copyable, non-movable (has reference member and LVGL subject state)
-    TempControlPanel(const TempControlPanel&) = delete;
-    TempControlPanel& operator=(const TempControlPanel&) = delete;
-    TempControlPanel(TempControlPanel&&) = delete;
-    TempControlPanel& operator=(TempControlPanel&&) = delete;
+    TemperatureService(const TemperatureService&) = delete;
+    TemperatureService& operator=(const TemperatureService&) = delete;
+    TemperatureService(TemperatureService&&) = delete;
+    TemperatureService& operator=(TemperatureService&&) = delete;
 
     // ── Generic heater API ──────────────────────────────────────────────
     void setup_panel(helix::HeaterType type, lv_obj_t* panel, lv_obj_t* parent_screen);

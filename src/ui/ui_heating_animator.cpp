@@ -64,7 +64,7 @@ void HeatingIconAnimator::attach(lv_obj_t* icon) {
     apply_color();
 
     // Auto-detach when the icon widget is destroyed — prevents dangling pointer
-    // when a shared TempControlPanel outlives the overlay panel (issue #177)
+    // when a shared TemperatureService outlives the overlay panel (issue #177)
     lv_obj_add_event_cb(icon_, icon_delete_cb, LV_EVENT_DELETE, this);
 
     // Subscribe to theme changes — ObserverGuard handles cleanup on detach/destroy

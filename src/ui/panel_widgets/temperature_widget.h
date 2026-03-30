@@ -11,7 +11,7 @@
 
 #include <memory>
 
-class TempControlPanel;
+class TemperatureService;
 
 namespace helix {
 class PrinterState;
@@ -21,7 +21,7 @@ namespace helix {
 
 class TemperatureWidget : public PanelWidget {
   public:
-    TemperatureWidget(PrinterState& printer_state, TempControlPanel* temp_panel);
+    TemperatureWidget(PrinterState& printer_state, TemperatureService* temp_panel);
     ~TemperatureWidget() override;
 
     void attach(lv_obj_t* widget_obj, lv_obj_t* parent_screen) override;
@@ -35,7 +35,7 @@ class TemperatureWidget : public PanelWidget {
 
   private:
     PrinterState& printer_state_;
-    TempControlPanel* temp_control_panel_;
+    TemperatureService* temp_control_panel_;
 
     lv_obj_t* widget_obj_ = nullptr;
     lv_obj_t* temp_btn_ = nullptr;

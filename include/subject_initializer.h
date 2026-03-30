@@ -17,7 +17,7 @@ class PrintSelectPanel;
 class PrintStatusPanel;
 class MotionPanel;
 class BedMeshPanel;
-class TempControlPanel;
+class TemperatureService;
 class UsbManager;
 
 /**
@@ -100,9 +100,9 @@ class SubjectInitializer {
     }
 
     /**
-     * @brief Get the TempControlPanel (owned by SubjectInitializer)
+     * @brief Get the TemperatureService (owned by SubjectInitializer)
      */
-    TempControlPanel* temp_control_panel() const {
+    TemperatureService* temp_control_panel() const {
         return m_temp_control_panel.get();
     }
 
@@ -135,7 +135,7 @@ class SubjectInitializer {
 
     // Owned resources
     std::unique_ptr<UsbManager> m_usb_manager;
-    std::unique_ptr<TempControlPanel> m_temp_control_panel;
+    std::unique_ptr<TemperatureService> m_temp_control_panel;
 
     // Alive guard for USB callback — invalidated on destruction to prevent
     // use-after-free when queued callbacks fire after panel destruction

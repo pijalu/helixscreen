@@ -16,7 +16,7 @@
 #include "ui_heater_config.h"
 #include "ui_component_keypad.h"
 #include "ui_nav_manager.h"
-#include "ui_panel_temp_control.h"
+#include "temperature_service.h"
 #include "ui_utils.h"
 
 #include "lvgl/src/others/translation/lv_translation.h"
@@ -125,7 +125,7 @@ void TempGraphOverlay::on_activate() {
     printer_state_ = &get_printer_state();
     api_ = get_moonraker_api();
     temp_control_panel_ =
-        helix::PanelWidgetManager::instance().shared_resource<TempControlPanel>();
+        helix::PanelWidgetManager::instance().shared_resource<TemperatureService>();
 
     // Discover series metadata (populates series_ with display info)
     discover_series();
@@ -485,7 +485,7 @@ void TempGraphOverlay::configure_control_strip() {
     if (!active_strip) return;
     lv_obj_remove_flag(active_strip, LV_OBJ_FLAG_HIDDEN);
 
-    // Get preset config from TempControlPanel
+    // Get preset config from TemperatureService
     if (!temp_control_panel_) return;
     auto& heater = temp_control_panel_->heater(heater_type);
 

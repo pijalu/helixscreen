@@ -5,7 +5,7 @@
  * @brief Shared temperature graph lifecycle controller
  *
  * Consolidates the duplicated graph lifecycle pattern used by TempGraphWidget,
- * TempGraphOverlay, and TempControlPanel's mini graph:
+ * TempGraphOverlay, and TemperatureService's mini graph:
  *   create graph -> add series -> setup observers -> backfill history -> auto-range
  *
  * Consumers provide a TempGraphControllerConfig describing which series to display,

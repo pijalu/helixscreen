@@ -175,7 +175,7 @@ class HeatingIconAnimator {
     /**
      * @brief LV_EVENT_DELETE callback — auto-detaches when the icon widget is destroyed
      *
-     * This prevents use-after-free when a shared TempControlPanel outlives the
+     * This prevents use-after-free when a shared TemperatureService outlives the
      * overlay panel whose children include the attached icon (issue #177).
      */
     static void icon_delete_cb(lv_event_t* e);

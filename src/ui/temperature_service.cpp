@@ -1,7 +1,7 @@
 // Copyright (C) 2025-2026 356C LLC
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-#include "ui_panel_temp_control.h"
+#include "temperature_service.h"
 
 #include "ui_callback_helpers.h"
 #include "ui_component_keypad.h"
@@ -60,7 +60,7 @@ static const char* heater_label(HeaterType type) {
 // Constructor
 // ============================================================================
 
-TempControlPanel::TempControlPanel(PrinterState& printer_state, MoonrakerAPI* api)
+TemperatureService::TemperatureService(PrinterState& printer_state, MoonrakerAPI* api)
     : printer_state_(printer_state), api_(api) {
     // Get recommended temperatures from filament database
     auto pla_info = filament::find_material("PLA");
@@ -132,26 +132,26 @@ TempControlPanel::TempControlPanel(PrinterState& printer_state, MoonrakerAPI* ap
     // Subscribe to temperature subjects with individual ObserverGuards.
     // Nozzle observers are separate so they can be rebound when switching
     // extruders in multi-extruder setups (bed/chamber observers stay constant).
-    nozzle.temp_observer = observe_int_sync<TempControlPanel>(
+    nozzle.temp_observer = observe_int_sync<TemperatureService>(
         printer_state_.get_active_extruder_temp_subject(), this,
-        [](TempControlPanel* self, int temp) { self->on_temp_changed(HeaterType::Nozzle, temp); });
+        [](TemperatureService* self, int temp) { self->on_temp_changed(HeaterType::Nozzle, temp); });
     nozzle.target_observer =
-        observe_int_sync<TempControlPanel>(printer_state_.get_active_extruder_target_subject(),
-                                           this, [](TempControlPanel* self, int target) {
+        observe_int_sync<TemperatureService>(printer_state_.get_active_extruder_target_subject(),
+                                           this, [](TemperatureService* self, int target) {
                                                self->on_target_changed(HeaterType::Nozzle, target);
                                            });
-    bed.temp_observer = observe_int_sync<TempControlPanel>(
+    bed.temp_observer = observe_int_sync<TemperatureService>(
         printer_state_.get_bed_temp_subject(), this,
-        [](TempControlPanel* self, int temp) { self->on_temp_changed(HeaterType::Bed, temp); });
-    bed.target_observer = observe_int_sync<TempControlPanel>(
-        printer_state_.get_bed_target_subject(), this, [](TempControlPanel* self, int target) {
+        [](TemperatureService* self, int temp) { self->on_temp_changed(HeaterType::Bed, temp); });
+    bed.target_observer = observe_int_sync<TemperatureService>(
+        printer_state_.get_bed_target_subject(), this, [](TemperatureService* self, int target) {
             self->on_target_changed(HeaterType::Bed, target);
         });
-    chamber.temp_observer = observe_int_sync<TempControlPanel>(
+    chamber.temp_observer = observe_int_sync<TemperatureService>(
         printer_state_.get_chamber_temp_subject(), this,
-        [](TempControlPanel* self, int temp) { self->on_temp_changed(HeaterType::Chamber, temp); });
-    chamber.target_observer = observe_int_sync<TempControlPanel>(
-        printer_state_.get_chamber_target_subject(), this, [](TempControlPanel* self, int target) {
+        [](TemperatureService* self, int temp) { self->on_temp_changed(HeaterType::Chamber, temp); });
+    chamber.target_observer = observe_int_sync<TemperatureService>(
+        printer_state_.get_chamber_target_subject(), this, [](TemperatureService* self, int target) {
             self->on_target_changed(HeaterType::Chamber, target);
         });
 
@@ -182,7 +182,7 @@ TempControlPanel::TempControlPanel(PrinterState& printer_state, MoonrakerAPI* ap
     spdlog::debug("[TempPanel] Constructed - subscribed to PrinterState temperature subjects");
 }
 
-TempControlPanel::~TempControlPanel() {
+TemperatureService::~TemperatureService() {
     deinit_subjects();
 }
 
@@ -190,7 +190,7 @@ TempControlPanel::~TempControlPanel() {
 // Generic temperature/target change handlers
 // ============================================================================
 
-void TempControlPanel::on_temp_changed(HeaterType type, int temp_centi) {
+void TemperatureService::on_temp_changed(HeaterType type, int temp_centi) {
     auto& h = heaters_[idx(type)];
 
     // Filter garbage data at the source
@@ -221,7 +221,7 @@ void TempControlPanel::on_temp_changed(HeaterType type, int temp_centi) {
     update_graphs(type, temp_deg, now_ms);
 }
 
-void TempControlPanel::on_target_changed(HeaterType type, int target_centi) {
+void TemperatureService::on_target_changed(HeaterType type, int target_centi) {
     auto& h = heaters_[idx(type)];
     h.target = target_centi;
     update_display(type);
@@ -245,7 +245,7 @@ void TempControlPanel::on_target_changed(HeaterType type, int target_centi) {
 // Display + Status updates (generic)
 // ============================================================================
 
-void TempControlPanel::update_display(HeaterType type) {
+void TemperatureService::update_display(HeaterType type) {
     if (!subjects_initialized_) {
         return;
     }
@@ -271,7 +271,7 @@ void TempControlPanel::update_display(HeaterType type) {
     lv_subject_copy_string(&h.display_subject, h.display_buf.data());
 }
 
-void TempControlPanel::update_status(HeaterType type) {
+void TemperatureService::update_status(HeaterType type) {
     if (!subjects_initialized_) {
         return;
     }
@@ -309,7 +309,7 @@ void TempControlPanel::update_status(HeaterType type) {
 // Send temperature command (generic)
 // ============================================================================
 
-void TempControlPanel::send_temperature(HeaterType type, int target) {
+void TemperatureService::send_temperature(HeaterType type, int target) {
     auto& h = heaters_[idx(type)];
     const char* label = heater_label(type);
 
@@ -338,7 +338,7 @@ void TempControlPanel::send_temperature(HeaterType type, int target) {
 // Graph updates (generic)
 // ============================================================================
 
-void TempControlPanel::update_graphs(HeaterType type, float temp_deg, int64_t now_ms) {
+void TemperatureService::update_graphs(HeaterType type, float temp_deg, int64_t now_ms) {
     auto& h = heaters_[idx(type)];
 
     for (const auto& reg : h.temp_graphs) {
@@ -348,7 +348,7 @@ void TempControlPanel::update_graphs(HeaterType type, float temp_deg, int64_t no
     }
 }
 
-void TempControlPanel::replay_history_to_graph(HeaterType type) {
+void TemperatureService::replay_history_to_graph(HeaterType type) {
     auto& h = heaters_[idx(type)];
     if (!h.graph || h.series_id < 0) {
         return;
@@ -364,7 +364,7 @@ void TempControlPanel::replay_history_to_graph(HeaterType type) {
 // Subject init/deinit
 // ============================================================================
 
-void TempControlPanel::init_subjects() {
+void TemperatureService::init_subjects() {
     if (subjects_initialized_) {
         spdlog::warn("[TempPanel] init_subjects() called twice - ignoring");
         return;
@@ -396,7 +396,7 @@ void TempControlPanel::init_subjects() {
     spdlog::debug("[TempPanel] Subjects initialized for {} heater types", helix::HEATER_TYPE_COUNT);
 }
 
-void TempControlPanel::deinit_subjects() {
+void TemperatureService::deinit_subjects() {
     if (!subjects_initialized_) {
         return;
     }
@@ -423,7 +423,7 @@ void HeaterTempPanelLifecycle::on_deactivate() {
     }
 }
 
-HeaterTempPanelLifecycle* TempControlPanel::get_lifecycle(HeaterType type) {
+HeaterTempPanelLifecycle* TemperatureService::get_lifecycle(HeaterType type) {
     switch (type) {
     case HeaterType::Nozzle:
         return &nozzle_lifecycle_;
@@ -435,7 +435,7 @@ HeaterTempPanelLifecycle* TempControlPanel::get_lifecycle(HeaterType type) {
     return nullptr;
 }
 
-void TempControlPanel::on_panel_activate(HeaterType type) {
+void TemperatureService::on_panel_activate(HeaterType type) {
     auto& h = heaters_[idx(type)];
     spdlog::debug("[TempPanel] {} panel activated", heater_label(type));
 
@@ -447,7 +447,7 @@ void TempControlPanel::on_panel_activate(HeaterType type) {
     }
 }
 
-void TempControlPanel::on_panel_deactivate(HeaterType type) {
+void TemperatureService::on_panel_deactivate(HeaterType type) {
     auto& h = heaters_[idx(type)];
     spdlog::debug("[TempPanel] {} panel deactivated", heater_label(type));
     h.pending = -1;
@@ -457,7 +457,7 @@ void TempControlPanel::on_panel_deactivate(HeaterType type) {
 // XML component name mapping
 // ============================================================================
 
-const char* TempControlPanel::xml_component_name(HeaterType type) const {
+const char* TemperatureService::xml_component_name(HeaterType type) const {
     switch (type) {
     case HeaterType::Nozzle:
         return "nozzle_temp_panel";
@@ -473,7 +473,7 @@ const char* TempControlPanel::xml_component_name(HeaterType type) const {
 // Graph creation helper
 // ============================================================================
 
-ui_temp_graph_t* TempControlPanel::create_temp_graph(lv_obj_t* chart_area,
+ui_temp_graph_t* TemperatureService::create_temp_graph(lv_obj_t* chart_area,
                                                      const heater_config_t* config, int target_temp,
                                                      int* series_id_out) {
     if (!chart_area)
@@ -506,7 +506,7 @@ ui_temp_graph_t* TempControlPanel::create_temp_graph(lv_obj_t* chart_area,
 // Generic panel setup
 // ============================================================================
 
-void TempControlPanel::setup_panel(HeaterType type, lv_obj_t* panel, lv_obj_t* parent_screen) {
+void TemperatureService::setup_panel(HeaterType type, lv_obj_t* panel, lv_obj_t* parent_screen) {
     auto& h = heaters_[idx(type)];
     h.panel = panel;
 
@@ -666,18 +666,18 @@ void TempControlPanel::setup_panel(HeaterType type, lv_obj_t* panel, lv_obj_t* p
             rebuild_extruder_segments();
         }
 
-        extruder_version_observer_ = observe_int_sync<TempControlPanel>(
+        extruder_version_observer_ = observe_int_sync<TemperatureService>(
             printer_state_.get_extruder_version_subject(), this,
-            [](TempControlPanel* self, int /*version*/) {
+            [](TemperatureService* self, int /*version*/) {
                 spdlog::debug("[TempPanel] Extruder list changed, rebuilding selector");
                 self->rebuild_extruder_segments();
             });
 
         auto& tool_state = helix::ToolState::instance();
         if (tool_state.is_multi_tool()) {
-            active_tool_observer_ = observe_int_sync<TempControlPanel>(
+            active_tool_observer_ = observe_int_sync<TemperatureService>(
                 tool_state.get_active_tool_subject(), this,
-                [](TempControlPanel* self, int /*tool_idx*/) {
+                [](TemperatureService* self, int /*tool_idx*/) {
                     auto& ts = helix::ToolState::instance();
                     const auto* tool = ts.active_tool();
                     if (tool && tool->extruder_name) {
@@ -694,7 +694,7 @@ void TempControlPanel::setup_panel(HeaterType type, lv_obj_t* panel, lv_obj_t* p
 // Setters (backward-compat)
 // ============================================================================
 
-void TempControlPanel::set_heater(HeaterType type, int current, int target) {
+void TemperatureService::set_heater(HeaterType type, int current, int target) {
     auto& h = heaters_[idx(type)];
     helix::ui::temperature::validate_and_clamp_pair(current, target, h.min_temp * 10,
                                                     h.max_temp * 10, heater_label(type));
@@ -703,7 +703,7 @@ void TempControlPanel::set_heater(HeaterType type, int current, int target) {
     update_display(type);
 }
 
-void TempControlPanel::set_heater_limits(HeaterType type, int min_temp, int max_temp) {
+void TemperatureService::set_heater_limits(HeaterType type, int min_temp, int max_temp) {
     auto& h = heaters_[idx(type)];
     h.min_temp = min_temp;
     h.max_temp = max_temp;
@@ -714,7 +714,7 @@ void TempControlPanel::set_heater_limits(HeaterType type, int min_temp, int max_
 // XML event callbacks — GENERIC
 // ============================================================================
 
-void TempControlPanel::on_heater_preset_clicked(lv_event_t* e) {
+void TemperatureService::on_heater_preset_clicked(lv_event_t* e) {
     auto* data = static_cast<PresetButtonData*>(lv_event_get_user_data(e));
     if (!data || !data->panel)
         return;
@@ -724,8 +724,8 @@ void TempControlPanel::on_heater_preset_clicked(lv_event_t* e) {
     data->panel->send_temperature(data->heater_type, data->preset_value);
 }
 
-void TempControlPanel::on_heater_confirm_clicked(lv_event_t* e) {
-    auto* self = static_cast<TempControlPanel*>(lv_event_get_user_data(e));
+void TemperatureService::on_heater_confirm_clicked(lv_event_t* e) {
+    auto* self = static_cast<TemperatureService*>(lv_event_get_user_data(e));
     if (!self)
         return;
 
@@ -778,11 +778,11 @@ void TempControlPanel::on_heater_confirm_clicked(lv_event_t* e) {
 
 // Struct for keypad callback
 struct KeypadCallbackData {
-    TempControlPanel* panel;
+    TemperatureService* panel;
     helix::HeaterType type;
 };
 
-void TempControlPanel::keypad_value_cb(float value, void* user_data) {
+void TemperatureService::keypad_value_cb(float value, void* user_data) {
     auto* data = static_cast<KeypadCallbackData*>(user_data);
     if (!data || !data->panel)
         return;
@@ -796,8 +796,8 @@ void TempControlPanel::keypad_value_cb(float value, void* user_data) {
 // Static storage for keypad callback data (needed because LVGL holds raw pointers)
 static KeypadCallbackData s_keypad_data[helix::HEATER_TYPE_COUNT];
 
-void TempControlPanel::on_heater_custom_clicked(lv_event_t* e) {
-    auto* self = static_cast<TempControlPanel*>(lv_event_get_user_data(e));
+void TemperatureService::on_heater_custom_clicked(lv_event_t* e) {
+    auto* self = static_cast<TemperatureService*>(lv_event_get_user_data(e));
     if (!self)
         return;
 
@@ -839,8 +839,8 @@ void TempControlPanel::on_heater_custom_clicked(lv_event_t* e) {
 // ============================================================================
 
 // Legacy nozzle callbacks: still use old user_data pattern (this pointer on button)
-void TempControlPanel::on_nozzle_confirm_clicked(lv_event_t* e) {
-    auto* self = static_cast<TempControlPanel*>(lv_event_get_user_data(e));
+void TemperatureService::on_nozzle_confirm_clicked(lv_event_t* e) {
+    auto* self = static_cast<TemperatureService*>(lv_event_get_user_data(e));
     if (!self)
         return;
 
@@ -868,8 +868,8 @@ void TempControlPanel::on_nozzle_confirm_clicked(lv_event_t* e) {
     NavigationManager::instance().go_back();
 }
 
-void TempControlPanel::on_bed_confirm_clicked(lv_event_t* e) {
-    auto* self = static_cast<TempControlPanel*>(lv_event_get_user_data(e));
+void TemperatureService::on_bed_confirm_clicked(lv_event_t* e) {
+    auto* self = static_cast<TemperatureService*>(lv_event_get_user_data(e));
     if (!self)
         return;
 
@@ -900,56 +900,56 @@ void TempControlPanel::on_bed_confirm_clicked(lv_event_t* e) {
 // Legacy preset callbacks: delegate to generic handler via lv_event_get_user_data(e).
 // XML event_cb passes NULL user_data, so these return early. The actual work is done
 // by the C++ lv_obj_add_event_cb handler registered in setup_panel().
-void TempControlPanel::on_nozzle_preset_off_clicked(lv_event_t* e) {
+void TemperatureService::on_nozzle_preset_off_clicked(lv_event_t* e) {
     auto* data = static_cast<PresetButtonData*>(lv_event_get_user_data(e));
     if (data && data->panel) {
         data->panel->send_temperature(HeaterType::Nozzle, data->preset_value);
     }
 }
 
-void TempControlPanel::on_nozzle_preset_pla_clicked(lv_event_t* e) {
+void TemperatureService::on_nozzle_preset_pla_clicked(lv_event_t* e) {
     auto* data = static_cast<PresetButtonData*>(lv_event_get_user_data(e));
     if (data && data->panel) {
         data->panel->send_temperature(HeaterType::Nozzle, data->preset_value);
     }
 }
 
-void TempControlPanel::on_nozzle_preset_petg_clicked(lv_event_t* e) {
+void TemperatureService::on_nozzle_preset_petg_clicked(lv_event_t* e) {
     auto* data = static_cast<PresetButtonData*>(lv_event_get_user_data(e));
     if (data && data->panel) {
         data->panel->send_temperature(HeaterType::Nozzle, data->preset_value);
     }
 }
 
-void TempControlPanel::on_nozzle_preset_abs_clicked(lv_event_t* e) {
+void TemperatureService::on_nozzle_preset_abs_clicked(lv_event_t* e) {
     auto* data = static_cast<PresetButtonData*>(lv_event_get_user_data(e));
     if (data && data->panel) {
         data->panel->send_temperature(HeaterType::Nozzle, data->preset_value);
     }
 }
 
-void TempControlPanel::on_bed_preset_off_clicked(lv_event_t* e) {
+void TemperatureService::on_bed_preset_off_clicked(lv_event_t* e) {
     auto* data = static_cast<PresetButtonData*>(lv_event_get_user_data(e));
     if (data && data->panel) {
         data->panel->send_temperature(HeaterType::Bed, data->preset_value);
     }
 }
 
-void TempControlPanel::on_bed_preset_pla_clicked(lv_event_t* e) {
+void TemperatureService::on_bed_preset_pla_clicked(lv_event_t* e) {
     auto* data = static_cast<PresetButtonData*>(lv_event_get_user_data(e));
     if (data && data->panel) {
         data->panel->send_temperature(HeaterType::Bed, data->preset_value);
     }
 }
 
-void TempControlPanel::on_bed_preset_petg_clicked(lv_event_t* e) {
+void TemperatureService::on_bed_preset_petg_clicked(lv_event_t* e) {
     auto* data = static_cast<PresetButtonData*>(lv_event_get_user_data(e));
     if (data && data->panel) {
         data->panel->send_temperature(HeaterType::Bed, data->preset_value);
     }
 }
 
-void TempControlPanel::on_bed_preset_abs_clicked(lv_event_t* e) {
+void TemperatureService::on_bed_preset_abs_clicked(lv_event_t* e) {
     auto* data = static_cast<PresetButtonData*>(lv_event_get_user_data(e));
     if (data && data->panel) {
         data->panel->send_temperature(HeaterType::Bed, data->preset_value);
@@ -960,7 +960,7 @@ void TempControlPanel::on_bed_preset_abs_clicked(lv_event_t* e) {
 // Spool preset (dynamic button for active spool material)
 // ============================================================================
 
-void TempControlPanel::setup_spool_preset(helix::HeaterType type, lv_obj_t* overlay_content) {
+void TemperatureService::setup_spool_preset(helix::HeaterType type, lv_obj_t* overlay_content) {
     // Only nozzle and bed get spool presets (chamber doesn't make sense)
     if (type != HeaterType::Nozzle && type != HeaterType::Bed)
         return;
@@ -1021,8 +1021,8 @@ void TempControlPanel::setup_spool_preset(helix::HeaterType type, lv_obj_t* over
                   active->display_name, temp);
 }
 
-void TempControlPanel::on_nozzle_custom_clicked(lv_event_t* e) {
-    auto* self = static_cast<TempControlPanel*>(lv_event_get_user_data(e));
+void TemperatureService::on_nozzle_custom_clicked(lv_event_t* e) {
+    auto* self = static_cast<TemperatureService*>(lv_event_get_user_data(e));
     if (!self)
         return;
 
@@ -1042,8 +1042,8 @@ void TempControlPanel::on_nozzle_custom_clicked(lv_event_t* e) {
     ui_keypad_show(&keypad_config);
 }
 
-void TempControlPanel::on_bed_custom_clicked(lv_event_t* e) {
-    auto* self = static_cast<TempControlPanel*>(lv_event_get_user_data(e));
+void TemperatureService::on_bed_custom_clicked(lv_event_t* e) {
+    auto* self = static_cast<TemperatureService*>(lv_event_get_user_data(e));
     if (!self)
         return;
 
@@ -1067,7 +1067,7 @@ void TempControlPanel::on_bed_custom_clicked(lv_event_t* e) {
 // MULTI-EXTRUDER SUPPORT
 // ============================================================================
 
-void TempControlPanel::select_extruder(const std::string& name) {
+void TemperatureService::select_extruder(const std::string& name) {
     if (name == active_extruder_name_) {
         return;
     }
@@ -1091,18 +1091,18 @@ void TempControlPanel::select_extruder(const std::string& name) {
     auto* target_subj = printer_state_.get_extruder_target_subject(name, target_lt);
 
     if (temp_subj) {
-        nozzle.temp_observer = observe_int_sync<TempControlPanel>(
+        nozzle.temp_observer = observe_int_sync<TemperatureService>(
             temp_subj, this,
-            [](TempControlPanel* self, int temp) {
+            [](TemperatureService* self, int temp) {
                 self->on_temp_changed(HeaterType::Nozzle, temp);
             },
             temp_lt);
         nozzle.current = lv_subject_get_int(temp_subj);
     }
     if (target_subj) {
-        nozzle.target_observer = observe_int_sync<TempControlPanel>(
+        nozzle.target_observer = observe_int_sync<TemperatureService>(
             target_subj, this,
-            [](TempControlPanel* self, int target) {
+            [](TemperatureService* self, int target) {
                 self->on_target_changed(HeaterType::Nozzle, target);
             },
             target_lt);
@@ -1122,14 +1122,14 @@ void TempControlPanel::select_extruder(const std::string& name) {
     rebuild_extruder_segments();
 }
 
-void TempControlPanel::rebuild_extruder_segments() {
+void TemperatureService::rebuild_extruder_segments() {
     helix::ui::queue_update([this]() {
         if (!subjects_initialized_) return;
         rebuild_extruder_segments_impl();
     });
 }
 
-void TempControlPanel::rebuild_extruder_segments_impl() {
+void TemperatureService::rebuild_extruder_segments_impl() {
     if (!subjects_initialized_) {
         return;
     }
@@ -1199,7 +1199,7 @@ void TempControlPanel::rebuild_extruder_segments_impl() {
         lv_obj_add_event_cb(
             btn,
             [](lv_event_t* ev) {
-                auto* self = static_cast<TempControlPanel*>(lv_event_get_user_data(ev));
+                auto* self = static_cast<TemperatureService*>(lv_event_get_user_data(ev));
                 if (!self)
                     return;
                 lv_obj_t* clicked_btn = static_cast<lv_obj_t*>(lv_event_get_target(ev));
@@ -1234,7 +1234,7 @@ void TempControlPanel::rebuild_extruder_segments_impl() {
 // Graph history replay helpers
 // ============================================================================
 
-void TempControlPanel::replay_history_from_manager(ui_temp_graph_t* graph, int series_id,
+void TemperatureService::replay_history_from_manager(ui_temp_graph_t* graph, int series_id,
                                                    const std::string& heater_name) {
     auto* mgr = get_temperature_history_manager();
     if (mgr == nullptr || graph == nullptr || series_id < 0) {
@@ -1261,7 +1261,7 @@ void TempControlPanel::replay_history_from_manager(ui_temp_graph_t* graph, int s
 // Mini Combined Graph (for FilamentPanel)
 // ─────────────────────────────────────────────────────────────────────────────
 
-void TempControlPanel::setup_mini_combined_graph(lv_obj_t* container) {
+void TemperatureService::setup_mini_combined_graph(lv_obj_t* container) {
     if (!container) {
         spdlog::warn("[TempPanel] setup_mini_combined_graph: null container");
         return;
@@ -1284,7 +1284,7 @@ void TempControlPanel::setup_mini_combined_graph(lv_obj_t* container) {
     spdlog::debug("[TempPanel] Mini combined graph created with {} point capacity", MINI_GRAPH_POINTS);
 }
 
-void TempControlPanel::register_heater_graph(ui_temp_graph_t* graph, int series_id,
+void TemperatureService::register_heater_graph(ui_temp_graph_t* graph, int series_id,
                                              const std::string& heater) {
     if (heater.rfind("extruder", 0) == 0) {
         heaters_[idx(HeaterType::Nozzle)].temp_graphs.push_back({graph, series_id});
@@ -1296,7 +1296,7 @@ void TempControlPanel::register_heater_graph(ui_temp_graph_t* graph, int series_
     spdlog::debug("[TempPanel] Registered external graph for {}", heater);
 }
 
-void TempControlPanel::unregister_heater_graph(ui_temp_graph_t* graph) {
+void TemperatureService::unregister_heater_graph(ui_temp_graph_t* graph) {
     auto remove_from = [graph](std::vector<HeaterState::RegisteredGraph>& vec) {
         vec.erase(std::remove_if(vec.begin(), vec.end(),
                                  [graph](const HeaterState::RegisteredGraph& rg) {
