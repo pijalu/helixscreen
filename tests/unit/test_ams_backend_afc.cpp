@@ -891,6 +891,38 @@ TEST_CASE("AFC persistence: SET_SPOOL_ID clear with empty string", "[ams][afc][p
     REQUIRE(helper.has_gcode("SET_SPOOL_ID LANE=lane1 SPOOL_ID="));
 }
 
+TEST_CASE("AFC persistence: sends gcode even with unknown version", "[ams][afc][persistence]") {
+    AmsBackendAfcTestHelper helper;
+
+    helper.set_afc_version("unknown");
+    helper.initialize_test_lanes_with_slots(4);
+
+    SlotInfo info;
+    info.spoolman_id = 42;
+    info.material = "PLA";
+    info.color_rgb = 0xFF0000;
+    info.remaining_weight_g = 800.0f;
+
+    helper.set_slot_info(0, info);
+
+    // Unknown version should still attempt gcode (SET_SPOOL_ID existed before 1.0.20)
+    REQUIRE(helper.has_gcode("SET_SPOOL_ID LANE=lane1 SPOOL_ID=42"));
+}
+
+TEST_CASE("AFC persistence: sends gcode with empty version", "[ams][afc][persistence]") {
+    AmsBackendAfcTestHelper helper;
+
+    helper.set_afc_version("");
+    helper.initialize_test_lanes_with_slots(4);
+
+    SlotInfo info;
+    info.spoolman_id = 42;
+
+    helper.set_slot_info(0, info);
+
+    REQUIRE(helper.has_gcode("SET_SPOOL_ID LANE=lane1 SPOOL_ID=42"));
+}
+
 TEST_CASE("AFC persistence: skips SET_COLOR for default grey", "[ams][afc][persistence]") {
     AmsBackendAfcTestHelper helper;
 

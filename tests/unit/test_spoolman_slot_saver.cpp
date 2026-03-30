@@ -121,6 +121,32 @@ TEST_CASE("SpoolmanSlotSaver detect_changes: both filament and weight changed se
     REQUIRE(changes.any());
 }
 
+TEST_CASE("SpoolmanSlotSaver detect_changes: spoolman_id changed sets spool_level",
+          "[spoolman][slot_saver]") {
+    SlotInfo original = make_test_slot();
+    SlotInfo edited = original;
+    edited.spoolman_id = 99; // Different spool, same material/brand/color/weight
+
+    auto changes = SpoolmanSlotSaver::detect_changes(original, edited);
+
+    REQUIRE_FALSE(changes.filament_level);
+    REQUIRE(changes.spool_level);
+    REQUIRE(changes.any());
+}
+
+TEST_CASE("SpoolmanSlotSaver detect_changes: spoolman_id cleared sets spool_level",
+          "[spoolman][slot_saver]") {
+    SlotInfo original = make_test_slot();
+    SlotInfo edited = original;
+    edited.spoolman_id = 0; // Unlinked from Spoolman
+
+    auto changes = SpoolmanSlotSaver::detect_changes(original, edited);
+
+    REQUIRE_FALSE(changes.filament_level);
+    REQUIRE(changes.spool_level);
+    REQUIRE(changes.any());
+}
+
 // ============================================================================
 // save() Tests
 // ============================================================================

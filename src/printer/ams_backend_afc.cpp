@@ -2326,7 +2326,7 @@ AmsError AmsBackendAfc::set_slot_info(int slot_index, const SlotInfo& info, bool
                          info.color_name);
         }
 
-        // Persist via G-code commands if AFC version supports it (v1.0.20+).
+        // Persist via G-code commands when persist=true.
         // Skip persistence when persist=false — this is used by Spoolman weight
         // polling (refresh_spoolman_weights) to update in-memory state without
         // sending G-code back to AFC firmware. Without this guard, each weight
@@ -2334,7 +2334,15 @@ AmsError AmsBackendAfc::set_slot_info(int slot_index, const SlotInfo& info, bool
         // which trigger AFC status_update WebSocket events, which call
         // sync_from_backend → refresh_spoolman_weights → set_slot_info again,
         // creating an infinite feedback loop that saturates the CPU.
-        if (persist && version_at_least("1.0.20")) {
+        //
+        // Send gcode even when version is unknown — SET_SPOOL_ID has existed
+        // since well before v1.0.20. Silently skipping gcode for unknown
+        // versions caused issue #644 (spool assignment bypassed AFC).
+        if (persist && (version_at_least("1.0.20") || afc_version_ == "unknown" ||
+                        afc_version_.empty())) {
+            if (afc_version_ == "unknown" || afc_version_.empty()) {
+                spdlog::debug("[AMS AFC] Version unknown, attempting gcode persistence anyway");
+            }
             std::string lane_name = slots_.name_of(slot_index);
             if (!lane_name.empty()) {
                 // Color (only if changed and valid - not 0 or default grey)

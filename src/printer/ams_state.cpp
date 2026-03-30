@@ -1695,6 +1695,19 @@ void AmsState::sync_active_spool_after_edit(int slot_index, int spoolman_id) {
     if (slot_index != current_slot)
         return;
 
+    // Skip direct Spoolman API call when the backend manages active spool
+    // natively (e.g., AFC sends SET_SPOOL_ID gcode which triggers AFC to call
+    // spoolman_set_active_spool on its own). Calling Spoolman directly here
+    // would bypass AFC, causing the Spoolman widget to update but not AFC's
+    // internal state (issue #644).
+    AmsBackend* backend = get_backend();
+    if (backend && backend->manages_active_spool()) {
+        spdlog::debug("[AmsState] Skipping direct Spoolman sync for slot {} — backend manages "
+                      "active spool natively",
+                      slot_index);
+        return;
+    }
+
     spdlog::info("[AmsState] Edited slot {} is loaded, syncing active Spoolman spool to {}",
                  slot_index, spoolman_id);
     api_->spoolman().set_active_spool(
