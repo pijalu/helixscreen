@@ -296,27 +296,31 @@ void TempGraphController::setup_observers() {
         }
     }
 
-    // Observe printer connection state to clear/rebuild on disconnect/reconnect.
-    // Track previous state to skip the initial notification (we just constructed).
+    // Observe printer connection state to clear chart on disconnect and rebuild on
+    // REconnect. Only react to actual state changes, and only rebuild after a real
+    // disconnect (not the initial connect at startup which would wipe backfilled history).
     auto* conn_subj = ps.get_printer_connection_state_subject();
     if (conn_subj) {
         auto conn_token = lifetime_.token();
         uint32_t conn_gen = generation_;
         auto prev_state = std::make_shared<int>(lv_subject_get_int(conn_subj));
+        auto was_disconnected = std::make_shared<bool>(false);
         connection_observer_ = observe_int_sync<TempGraphController>(
             conn_subj, this,
-            [conn_token, conn_gen, prev_state](TempGraphController* self, int state) {
+            [conn_token, conn_gen, prev_state, was_disconnected](
+                TempGraphController* self, int state) {
                 if (conn_token.expired() || conn_gen != self->generation_) return;
                 if (state == *prev_state) return;
                 *prev_state = state;
-                if (state == 2) { // Connected
-                    spdlog::debug("[TempGraphController] Reconnected, rebuilding");
-                    self->rebuild();
-                } else if (state == 0) { // Disconnected
+                if (state == 0) { // Disconnected
+                    *was_disconnected = true;
                     spdlog::debug("[TempGraphController] Disconnected, clearing chart");
                     if (self->graph_) {
                         ui_temp_graph_clear(self->graph_);
                     }
+                } else if (state == 2 && *was_disconnected) { // Reconnected
+                    spdlog::debug("[TempGraphController] Reconnected, rebuilding");
+                    self->rebuild();
                 }
             });
     }
