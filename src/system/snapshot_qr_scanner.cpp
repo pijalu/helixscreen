@@ -47,7 +47,7 @@ void SnapshotQrScanner::stop() {
         poll_thread_.join();
     }
 
-    free_frame_buf();
+    free_frame_bufs();
     grayscale_buf_.clear();
     grayscale_buf_.shrink_to_fit();
 
@@ -100,7 +100,7 @@ bool SnapshotQrScanner::fetch_and_decode() {
     auto req = std::make_shared<HttpRequest>();
     req->method = HTTP_GET;
     req->url = snapshot_url_;
-    req->timeout = 10;
+    req->timeout = kHttpTimeoutSec;
 
     auto resp = requests::request(req);
 
@@ -136,13 +136,15 @@ bool SnapshotQrScanner::fetch_and_decode() {
         return false;
     }
 
-    // Ensure frame buffer is allocated/correct size
-    if (!frame_buf_ || frame_width_ != width || frame_height_ != height) {
-        free_frame_buf();
-        frame_buf_ = create_draw_buf(static_cast<uint32_t>(width),
-                                      static_cast<uint32_t>(height));
-        if (!frame_buf_) {
-            spdlog::error("[SnapshotQR] Failed to allocate frame buffer {}x{}", width, height);
+    // Ensure double buffers are allocated at correct size
+    if (!decode_buf_ || frame_width_ != width || frame_height_ != height) {
+        free_frame_bufs();
+        decode_buf_ = create_draw_buf(static_cast<uint32_t>(width),
+                                       static_cast<uint32_t>(height));
+        display_buf_ = create_draw_buf(static_cast<uint32_t>(width),
+                                        static_cast<uint32_t>(height));
+        if (!decode_buf_ || !display_buf_) {
+            spdlog::error("[SnapshotQR] Failed to allocate frame buffers {}x{}", width, height);
             stbi_image_free(pixels);
             return false;
         }
@@ -150,10 +152,10 @@ bool SnapshotQrScanner::fetch_and_decode() {
         frame_height_ = height;
     }
 
-    // Copy RGB pixels to frame buffer with R<->B swap (stb_image=RGB, LVGL=BGR)
-    auto* dst = static_cast<uint8_t*>(frame_buf_->data);
+    // Decode into decode_buf_ (poll thread owns this buffer, LVGL never reads it)
+    auto* dst = static_cast<uint8_t*>(decode_buf_->data);
     int src_stride = width * 3;
-    int dst_stride = static_cast<int>(frame_buf_->header.stride);
+    int dst_stride = static_cast<int>(decode_buf_->header.stride);
 
     for (int y = 0; y < height; y++) {
         const uint8_t* src_row = pixels + y * src_stride;
@@ -182,10 +184,14 @@ bool SnapshotQrScanner::fetch_and_decode() {
         }
     }
 
-    // Deliver frame to UI
+    // Swap buffers: decode_buf_ becomes display_buf_ (LVGL reads this),
+    // old display_buf_ becomes decode_buf_ (poll thread writes next frame here)
+    std::swap(decode_buf_, display_buf_);
+
+    // Deliver the now-stable display buffer to UI
     frame_pending_ = true;
     if (on_frame_) {
-        on_frame_(frame_buf_);
+        on_frame_(display_buf_);
     }
 
     // Run QR decode
@@ -201,10 +207,14 @@ bool SnapshotQrScanner::fetch_and_decode() {
     return true;
 }
 
-void SnapshotQrScanner::free_frame_buf() {
-    if (frame_buf_) {
-        destroy_draw_buf(frame_buf_);
-        frame_buf_ = nullptr;
+void SnapshotQrScanner::free_frame_bufs() {
+    if (display_buf_) {
+        destroy_draw_buf(display_buf_);
+        display_buf_ = nullptr;
+    }
+    if (decode_buf_) {
+        destroy_draw_buf(decode_buf_);
+        decode_buf_ = nullptr;
     }
     frame_width_ = 0;
     frame_height_ = 0;

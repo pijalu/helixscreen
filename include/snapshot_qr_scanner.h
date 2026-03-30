@@ -54,7 +54,7 @@ class SnapshotQrScanner {
   private:
     void poll_loop();
     bool fetch_and_decode();
-    void free_frame_buf();
+    void free_frame_bufs();
 
     static lv_draw_buf_t* create_draw_buf(uint32_t w, uint32_t h);
     static void destroy_draw_buf(lv_draw_buf_t* buf);
@@ -69,7 +69,9 @@ class SnapshotQrScanner {
     std::atomic<bool> running_{false};
     std::atomic<bool> frame_pending_{false};
 
-    lv_draw_buf_t* frame_buf_ = nullptr;
+    // Double-buffered: decode_buf_ is written by poll thread, display_buf_ is read by LVGL
+    lv_draw_buf_t* display_buf_ = nullptr;
+    lv_draw_buf_t* decode_buf_ = nullptr;
     int frame_width_ = 0;
     int frame_height_ = 0;
 
@@ -79,6 +81,7 @@ class SnapshotQrScanner {
     static constexpr int kPollIntervalMs = 1500;
     static constexpr int kPollStepMs = 100;
     static constexpr int kMaxBackoffMs = 5000;
+    static constexpr int kHttpTimeoutSec = 10;
     static constexpr int kQrMaxDimension = 480;
     static constexpr int kMaxImageDimension = 4096;
     static constexpr size_t kMaxResponseBytes = 8 * 1024 * 1024;

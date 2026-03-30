@@ -13,7 +13,10 @@
 #include "power_device_state.h"
 #include "printer_state.h"
 
+#include "hv/requests.h"
+
 #include <algorithm>
+#include <thread>
 
 namespace helix {
 
@@ -316,14 +319,41 @@ void MoonrakerDiscoverySequence::continue_discovery_objects() {
                                 }
                             }
                         }
-                        spdlog::info("[Moonraker Client] Webcam detection: {}{}",
-                                     has_webcam ? "found" : "none",
-                                     has_webcam ? " stream=" + stream_url : "");
-                        get_printer_state().set_webcam_available(has_webcam, stream_url,
-                                                                 snapshot_url, flip_h, flip_v);
+                        if (has_webcam) {
+                            spdlog::info("[Discovery] Webcam found via Moonraker: stream={}",
+                                         stream_url);
+                            get_printer_state().set_webcam_available(true, stream_url,
+                                                                     snapshot_url, flip_h, flip_v);
+                        } else {
+                            // No Moonraker webcam config — probe local camera endpoints
+                            spdlog::info("[Discovery] No Moonraker webcam, probing local camera...");
+                            std::thread([]() {
+                                static const char* probe_urls[] = {
+                                    "http://127.0.0.1:8080/?action=snapshot",
+                                    "http://127.0.0.1:8081/?action=snapshot",
+                                    "http://127.0.0.1:4408/webcam/?action=snapshot",
+                                };
+                                for (const char* url : probe_urls) {
+                                    auto req = std::make_shared<HttpRequest>();
+                                    req->method = HTTP_HEAD;
+                                    req->url = url;
+                                    req->timeout = 2;
+                                    auto resp = requests::request(req);
+                                    if (resp && resp->status_code == 200) {
+                                        spdlog::info("[Discovery] Local camera found at {}", url);
+                                        // Empty stream URL → snapshot scanner path only
+                                        get_printer_state().set_webcam_available(true, "", url,
+                                                                                 false, false);
+                                        return;
+                                    }
+                                }
+                                spdlog::info("[Discovery] No local camera found");
+                                get_printer_state().set_webcam_available(false);
+                            }).detach();
+                        }
                     },
                     [](const MoonrakerError& err) {
-                        spdlog::debug("[Moonraker Client] Webcam detection failed: {}", err.message);
+                        spdlog::debug("[Discovery] Webcam detection failed: {}", err.message);
                         get_printer_state().set_webcam_available(false);
                     },
                     0,     // default timeout
