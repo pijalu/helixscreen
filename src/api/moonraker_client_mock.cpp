@@ -2982,12 +2982,16 @@ void MoonrakerClientMock::dispatch_historical_temperatures() {
         "[MoonrakerClientMock] Dispatching {} historical temperature samples ({} seconds)",
         HISTORY_SAMPLES, HISTORY_DURATION_MS / 1000);
 
-    // Simulate tail end of cooldown from a recent print.
-    // Gentle slope — nozzle from ~120°C to ~90°C, bed from ~50°C to ~38°C over 2.5 min.
-    constexpr double START_EXTRUDER_TEMP = 120.0;
-    constexpr double END_EXTRUDER_TEMP = 90.0;
-    constexpr double START_BED_TEMP = 50.0;
-    constexpr double END_BED_TEMP = 38.0;
+    // Simulate a realistic temperature profile: heating up to ~60°C then partial cooldown
+    // This creates an interesting curve for debugging/visualization
+    //
+    // Profile: Start at room temp -> heat to 60°C (extruder) / 40°C (bed) -> partial cooldown
+    // Timing: ~50s heating, ~30s hold, ~70s cooling (ends at ~35°C extruder, ~30°C bed)
+    constexpr double PEAK_EXTRUDER_TEMP = 60.0;
+    constexpr double PEAK_BED_TEMP = 40.0;
+    constexpr int HEAT_PHASE_SAMPLES = 200; // ~50 seconds at 250ms = 200 samples
+    constexpr int HOLD_PHASE_SAMPLES = 120; // ~30 seconds hold at peak
+    // Cooling phase = remaining samples (~70s, cools extruder ~20°C to ~40°C)
 
     // Copy callbacks to avoid holding lock during dispatch
     std::vector<std::function<void(const json&)>> callbacks_copy;
@@ -3007,22 +3011,54 @@ void MoonrakerClientMock::dispatch_historical_temperatures() {
     }
 
     // Generate and dispatch historical samples with realistic noise
+    double ext_temp_hist = ROOM_TEMP;
+    double bed_temp_hist = ROOM_TEMP;
     const double dt_sec = SAMPLE_INTERVAL_MS / 1000.0;
 
     // Simple pseudo-random number generator for deterministic noise
+    // (Avoids std::random_device which could affect startup time)
     auto pseudo_random = [](int seed) -> double {
+        // Linear congruential generator with normalized output [-1, 1]
         static uint32_t state = 12345;
         state = (state * 1103515245 + seed + 12345) & 0x7fffffff;
         return (static_cast<double>(state) / 0x3fffffff) - 1.0;
     };
 
     for (int i = 0; i < HISTORY_SAMPLES; i++) {
+        // Calculate simulated timestamp (negative = in the past)
         double timestamp_sec = -((HISTORY_SAMPLES - i) * dt_sec);
 
-        // Linear ramp from start to end temp over the history window
-        double progress = static_cast<double>(i) / HISTORY_SAMPLES;
-        double ext_temp_hist = START_EXTRUDER_TEMP + (END_EXTRUDER_TEMP - START_EXTRUDER_TEMP) * progress;
-        double bed_temp_hist = START_BED_TEMP + (END_BED_TEMP - START_BED_TEMP) * progress;
+        // Update base temperatures based on phase
+        if (i < HEAT_PHASE_SAMPLES) {
+            // Heating phase: ramp up to peak (slightly faster at start, slower near target)
+            double progress = static_cast<double>(i) / HEAT_PHASE_SAMPLES;
+            double rate_multiplier = 1.0 + 0.3 * (1.0 - progress); // Faster early, slower late
+            ext_temp_hist += EXTRUDER_HEAT_RATE * dt_sec * rate_multiplier;
+            if (ext_temp_hist > PEAK_EXTRUDER_TEMP)
+                ext_temp_hist = PEAK_EXTRUDER_TEMP;
+
+            bed_temp_hist += BED_HEAT_RATE * dt_sec * rate_multiplier;
+            if (bed_temp_hist > PEAK_BED_TEMP)
+                bed_temp_hist = PEAK_BED_TEMP;
+        } else if (i < HEAT_PHASE_SAMPLES + HOLD_PHASE_SAMPLES) {
+            // Hold phase: PID oscillation around target (realistic behavior)
+            double offset = i - HEAT_PHASE_SAMPLES;
+            ext_temp_hist =
+                PEAK_EXTRUDER_TEMP + 0.8 * std::sin(offset * 0.15) + 0.3 * std::cos(offset * 0.31);
+            bed_temp_hist =
+                PEAK_BED_TEMP + 0.4 * std::sin(offset * 0.12) + 0.15 * std::cos(offset * 0.27);
+        } else {
+            // Cooling phase: exponential decay (more realistic than linear)
+            int cool_sample = i - HEAT_PHASE_SAMPLES - HOLD_PHASE_SAMPLES;
+            double cool_time = cool_sample * dt_sec;
+            // Exponential decay: T(t) = T_ambient + (T_0 - T_ambient) * e^(-t/tau)
+            double ext_tau = 40.0; // Extruder thermal time constant (seconds)
+            double bed_tau = 80.0; // Bed thermal time constant (slower)
+            ext_temp_hist =
+                ROOM_TEMP + (PEAK_EXTRUDER_TEMP - ROOM_TEMP) * std::exp(-cool_time / ext_tau);
+            bed_temp_hist =
+                ROOM_TEMP + (PEAK_BED_TEMP - ROOM_TEMP) * std::exp(-cool_time / bed_tau);
+        }
 
         // Add realistic sensor noise (±0.3°C for extruder, ±0.2°C for bed)
         double ext_noise = pseudo_random(i * 2) * 0.3;
@@ -3072,18 +3108,17 @@ void MoonrakerClientMock::dispatch_historical_temperatures() {
         }
     }
 
-    // Store final temps as current
-    double final_ext = END_EXTRUDER_TEMP;
-    double final_bed = END_BED_TEMP;
-    extruder_temp_.store(final_ext);
-    bed_temp_.store(final_bed);
+    // Store final historical values as current temps
+    extruder_temp_.store(ext_temp_hist);
+    bed_temp_.store(bed_temp_hist);
+    // Store chamber temp at midpoint for initial state
     if (has_chamber_sensor()) {
         chamber_temp_.store(35.0);
     }
 
     spdlog::debug("[MoonrakerClientMock] Historical temps dispatched: final extruder={:.1f}°C, "
                   "bed={:.1f}°C",
-                  final_ext, final_bed);
+                  ext_temp_hist, bed_temp_hist);
 }
 
 void MoonrakerClientMock::set_extruder_target(double target) {
