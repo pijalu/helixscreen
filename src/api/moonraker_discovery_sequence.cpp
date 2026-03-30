@@ -764,6 +764,13 @@ void MoonrakerDiscoverySequence::complete_discovery_subscription() {
         spdlog::info("[Moonraker Client] Subscribing to save_variables (AD5X IFS)");
     }
 
+    // ACE (Anycubic ACE Pro — ValgACE/BunnyACE/DuckACE Klipper drivers)
+    // The ace object provides slot colors, materials, status, dryer state via get_status()
+    if (hardware_.mmu_type() == AmsType::ACE) {
+        subscription_objects["ace"] = nullptr;
+        spdlog::info("[Moonraker Client] Subscribing to ace object (Anycubic ACE)");
+    }
+
     // CFS (Creality Filament System) — K2 series with RS-485 CFS units
     if (hardware_.mmu_type() == AmsType::CFS) {
         subscription_objects["box"] = nullptr;
