@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include "temp_graph_controller.h"
 #include "ui_heater_config.h"
 #include "ui_heating_animator.h"
 #include "ui_observer_guard.h"
@@ -261,8 +262,6 @@ class TempControlPanel {
     // ── Graph helpers ───────────────────────────────────────────────────
     ui_temp_graph_t* create_temp_graph(lv_obj_t* chart_area, const heater_config_t* config,
                                        int target_temp, int* series_id_out);
-    void update_mini_graph_y_axis(float nozzle_deg, float bed_deg);
-    void replay_history_to_mini_graph();
     void replay_history_from_manager(ui_temp_graph_t* graph, int series_id,
                                      const std::string& heater_name);
 
@@ -285,10 +284,7 @@ class TempControlPanel {
     void rebuild_extruder_segments_impl();
 
     // ── Mini combined graph (filament panel) ────────────────────────────
-    ui_temp_graph_t* mini_graph_ = nullptr;
-    int mini_nozzle_series_id_ = -1;
-    int mini_bed_series_id_ = -1;
-    float mini_graph_y_max_ = 150.0f;
+    std::unique_ptr<helix::TempGraphController> mini_graph_controller_;
 
     // ── Graph update throttling ─────────────────────────────────────────
     static constexpr int64_t GRAPH_SAMPLE_INTERVAL_MS = 1000;

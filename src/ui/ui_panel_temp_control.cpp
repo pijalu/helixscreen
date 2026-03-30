@@ -9,7 +9,6 @@
 #include "ui_nav_manager.h"
 #include "ui_panel_common.h"
 #include "ui_subject_registry.h"
-#include "ui_temp_graph_scaling.h"
 #include "ui_temperature_utils.h"
 #include "ui_update_queue.h"
 #include "ui_utils.h"
@@ -220,13 +219,6 @@ void TempControlPanel::on_temp_changed(HeaterType type, int temp_centi) {
 
     float temp_deg = centi_to_degrees_f(temp_centi);
     update_graphs(type, temp_deg, now_ms);
-
-    // Update mini graph Y-axis scaling (only for nozzle/bed)
-    if (type == HeaterType::Nozzle || type == HeaterType::Bed) {
-        float nozzle_deg = centi_to_degrees_f(heaters_[idx(HeaterType::Nozzle)].current);
-        float bed_deg = centi_to_degrees_f(heaters_[idx(HeaterType::Bed)].current);
-        update_mini_graph_y_axis(nozzle_deg, bed_deg);
-    }
 }
 
 void TempControlPanel::on_target_changed(HeaterType type, int target_centi) {
@@ -246,16 +238,6 @@ void TempControlPanel::on_target_changed(HeaterType type, int target_centi) {
         ui_temp_graph_set_series_target(h.graph, h.series_id, target_deg, show_target);
         spdlog::trace("[TempPanel] {} target line: {:.1f}°C (visible={})", heater_label(type),
                       target_deg, show_target);
-    }
-
-    // Also update mini combined graph target line (nozzle/bed only)
-    if (type == HeaterType::Nozzle && ui_temp_graph_is_valid(mini_graph_) &&
-        mini_nozzle_series_id_ >= 0) {
-        ui_temp_graph_set_series_target(mini_graph_, mini_nozzle_series_id_, target_deg,
-                                        show_target);
-    } else if (type == HeaterType::Bed && ui_temp_graph_is_valid(mini_graph_) &&
-               mini_bed_series_id_ >= 0) {
-        ui_temp_graph_set_series_target(mini_graph_, mini_bed_series_id_, target_deg, show_target);
     }
 }
 
@@ -1279,64 +1261,27 @@ void TempControlPanel::replay_history_from_manager(ui_temp_graph_t* graph, int s
 // Mini Combined Graph (for FilamentPanel)
 // ─────────────────────────────────────────────────────────────────────────────
 
-static constexpr int MINI_GRAPH_POINTS = 300; // 5-minute window at 1Hz
-
 void TempControlPanel::setup_mini_combined_graph(lv_obj_t* container) {
     if (!container) {
         spdlog::warn("[TempPanel] setup_mini_combined_graph: null container");
         return;
     }
 
-    mini_graph_ = ui_temp_graph_create(container);
-    if (!mini_graph_) {
-        spdlog::error("[TempPanel] Failed to create mini combined graph");
-        return;
-    }
+    static constexpr int MINI_GRAPH_POINTS = 300;
 
-    lv_obj_t* chart = ui_temp_graph_get_chart(mini_graph_);
-    lv_obj_set_size(chart, lv_pct(100), lv_pct(100));
-    // Match overlay: set chart background to card_bg for proper contrast
-    lv_color_t card_bg = theme_manager_get_color("card_bg");
-    lv_obj_set_style_bg_color(chart, card_bg, LV_PART_MAIN);
-    mini_graph_->cached_graph_bg = card_bg;
-    // Allow taps to bubble up to the parent card's click handler
-    lv_obj_remove_flag(chart, LV_OBJ_FLAG_CLICKABLE);
-    lv_obj_add_flag(chart, LV_OBJ_FLAG_EVENT_BUBBLE);
-    ui_temp_graph_set_temp_range(mini_graph_, 0.0f, 150.0f);
-    ui_temp_graph_set_point_count(mini_graph_, MINI_GRAPH_POINTS);
-    ui_temp_graph_set_y_axis(mini_graph_, 50.0f, true);
-    ui_temp_graph_set_axis_size(mini_graph_, "xs");
+    helix::TempGraphControllerConfig config;
+    config.point_count = MINI_GRAPH_POINTS;
+    config.axis_size = "xs";
+    config.initial_features = TEMP_GRAPH_FEATURE_LINES | TEMP_GRAPH_FEATURE_Y_AXIS
+                            | TEMP_GRAPH_FEATURE_X_AXIS | TEMP_GRAPH_FEATURE_GRADIENTS;
+    config.series = {
+        {active_extruder_name_, heaters_[idx(HeaterType::Nozzle)].config.color, true},
+        {"heater_bed", heaters_[idx(HeaterType::Bed)].config.color, true},
+    };
 
-    auto& bed = heaters_[idx(HeaterType::Bed)];
-    auto& nozzle = heaters_[idx(HeaterType::Nozzle)];
+    mini_graph_controller_ = std::make_unique<helix::TempGraphController>(container, std::move(config));
 
-    // Add bed series FIRST (renders underneath)
-    mini_bed_series_id_ = ui_temp_graph_add_series(mini_graph_, "Bed", bed.config.color);
-    if (mini_bed_series_id_ >= 0) {
-        ui_temp_graph_set_series_gradient(mini_graph_, mini_bed_series_id_, LV_OPA_0, LV_OPA_10);
-        bed.temp_graphs.push_back({mini_graph_, mini_bed_series_id_});
-    }
-
-    // Add nozzle series SECOND (renders on top)
-    mini_nozzle_series_id_ = ui_temp_graph_add_series(mini_graph_, "Nozzle", nozzle.config.color);
-    if (mini_nozzle_series_id_ >= 0) {
-        ui_temp_graph_set_series_gradient(mini_graph_, mini_nozzle_series_id_, LV_OPA_0, LV_OPA_20);
-        nozzle.temp_graphs.push_back({mini_graph_, mini_nozzle_series_id_});
-    }
-
-    replay_history_to_mini_graph();
-
-    if (mini_nozzle_series_id_ >= 0 && nozzle.target > 0) {
-        float target_deg = static_cast<float>(nozzle.target) / 10.0f;
-        ui_temp_graph_set_series_target(mini_graph_, mini_nozzle_series_id_, target_deg, true);
-    }
-    if (mini_bed_series_id_ >= 0 && bed.target > 0) {
-        float target_deg = static_cast<float>(bed.target) / 10.0f;
-        ui_temp_graph_set_series_target(mini_graph_, mini_bed_series_id_, target_deg, true);
-    }
-
-    spdlog::debug("[TempPanel] Mini combined graph created with {} point capacity",
-                  MINI_GRAPH_POINTS);
+    spdlog::debug("[TempPanel] Mini combined graph created with {} point capacity", MINI_GRAPH_POINTS);
 }
 
 void TempControlPanel::register_heater_graph(ui_temp_graph_t* graph, int series_id,
@@ -1365,66 +1310,3 @@ void TempControlPanel::unregister_heater_graph(ui_temp_graph_t* graph) {
     spdlog::debug("[TempPanel] Unregistered external graph");
 }
 
-void TempControlPanel::update_mini_graph_y_axis(float nozzle_deg, float bed_deg) {
-    if (!mini_graph_) {
-        return;
-    }
-
-    float new_y_max = calculate_mini_graph_y_max(
-        mini_graph_y_max_, nozzle_deg, bed_deg, mini_graph_->max_visible_temp);
-
-    if (new_y_max != mini_graph_y_max_) {
-        spdlog::debug("[TempPanel] Mini graph Y-axis {} to {}°C",
-                      new_y_max > mini_graph_y_max_ ? "expanded" : "shrunk", new_y_max);
-        mini_graph_y_max_ = new_y_max;
-        ui_temp_graph_set_temp_range(mini_graph_, 0.0f, mini_graph_y_max_);
-    }
-}
-
-void TempControlPanel::replay_history_to_mini_graph() {
-    if (!mini_graph_) {
-        return;
-    }
-
-    auto* mgr = get_temperature_history_manager();
-    if (mgr == nullptr) {
-        spdlog::debug("[TempPanel] Mini graph: no history manager available");
-        return;
-    }
-
-    int64_t now_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
-                         std::chrono::system_clock::now().time_since_epoch())
-                         .count();
-    int64_t cutoff_ms = now_ms - (MINI_GRAPH_POINTS * 1000);
-
-    auto replay_heater = [&](const std::string& heater_name, int series_id) {
-        if (series_id < 0)
-            return;
-
-        auto samples = mgr->get_samples_since(heater_name, cutoff_ms);
-        if (samples.empty())
-            return;
-
-        int64_t last_graphed_time = 0;
-        int replayed = 0;
-
-        for (const auto& sample : samples) {
-            if (last_graphed_time > 0 &&
-                (sample.timestamp_ms - last_graphed_time) < GRAPH_SAMPLE_INTERVAL_MS) {
-                continue;
-            }
-            float temp_deg = centi_to_degrees_f(sample.temp_centi);
-            ui_temp_graph_update_series_with_time(mini_graph_, series_id, temp_deg,
-                                                  sample.timestamp_ms);
-            last_graphed_time = sample.timestamp_ms;
-            replayed++;
-        }
-
-        if (replayed > 0) {
-            spdlog::debug("[TempPanel] Mini graph: replayed {} {} samples", replayed, heater_name);
-        }
-    };
-
-    replay_heater(active_extruder_name_, mini_nozzle_series_id_);
-    replay_heater("heater_bed", mini_bed_series_id_);
-}
