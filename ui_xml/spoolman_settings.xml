@@ -23,20 +23,22 @@
         <text_small text="Enter the IP address and port of your Spoolman server."
                     translation_tag="Enter the IP address and port of your Spoolman server."
                     style_text_color="#text_muted"/>
-        <!-- Host input -->
-        <lv_obj width="100%" height="content" style_pad_all="0" flex_flow="column"
-                style_pad_gap="#space_xs" scrollable="false">
-          <text_small text="IP Address / Hostname" translation_tag="IP Address / Hostname"/>
-          <text_input name="spoolman_host_input"
-                      width="100%" placeholder_text="192.168.1.100" max_length="64"/>
-        </lv_obj>
-        <!-- Port input -->
-        <lv_obj width="100%" height="content" style_pad_all="0" flex_flow="column"
-                style_pad_gap="#space_xs" scrollable="false">
-          <text_small text="Port" translation_tag="Port"/>
-          <text_input name="spoolman_port_input"
-                      width="100%" placeholder_text="7912" max_length="5"
-                      input_mode="number" keyboard_hint="numeric" text="7912"/>
+        <!-- Host + Port inputs side by side -->
+        <lv_obj width="100%" height="content" style_pad_all="0" flex_flow="row"
+                style_pad_gap="#space_sm" scrollable="false">
+          <lv_obj height="content" flex_grow="1" style_pad_all="0" flex_flow="column"
+                  style_pad_gap="#space_xs" scrollable="false">
+            <text_small text="IP Address / Hostname" translation_tag="IP Address / Hostname"/>
+            <text_input name="spoolman_host_input"
+                        width="100%" placeholder_text="192.168.1.100" max_length="64"/>
+          </lv_obj>
+          <lv_obj width="80" height="content" style_pad_all="0" flex_flow="column"
+                  style_pad_gap="#space_xs" scrollable="false">
+            <text_small text="Port" translation_tag="Port"/>
+            <text_input name="spoolman_port_input"
+                        width="100%" placeholder_text="7912" max_length="5"
+                        input_mode="number" keyboard_hint="numeric" text="7912"/>
+          </lv_obj>
         </lv_obj>
         <!-- Status text (for errors/progress) -->
         <text_small name="setup_status_text" width="100%" text=""

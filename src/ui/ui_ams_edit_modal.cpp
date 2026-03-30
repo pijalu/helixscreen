@@ -698,7 +698,7 @@ void AmsEditModal::handle_scan_qr() {
 
     auto token = lifetime_.token();
     auto& scanner = helix::ui::get_qr_scanner_overlay();
-    scanner.show(dialog(), slot_index_,
+    scanner.show(lv_obj_get_screen(dialog()), slot_index_,
         [this, token](const SpoolInfo& spool) {
             if (token.expired()) return;
 
