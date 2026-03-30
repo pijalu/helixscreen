@@ -96,7 +96,7 @@ void StepTestPanel::create_progress_widgets() {
         return;
     }
 
-    // Create vertical progress widget with theme colors from step_progress_test scope
+    // Create vertical progress widget with theme colors from step_test_panel scope
     vertical_widget_ = ui_step_progress_create(vertical_container, VERTICAL_STEPS,
                                                VERTICAL_STEP_COUNT, false, "step_test_panel");
     if (!vertical_widget_) {
@@ -104,7 +104,7 @@ void StepTestPanel::create_progress_widgets() {
         return;
     }
 
-    // Create horizontal progress widget with theme colors from step_progress_test scope
+    // Create horizontal progress widget with theme colors from step_test_panel scope
     horizontal_widget_ = ui_step_progress_create(horizontal_container, HORIZONTAL_STEPS,
                                                  HORIZONTAL_STEP_COUNT, true, "step_test_panel");
     if (!horizontal_widget_) {
