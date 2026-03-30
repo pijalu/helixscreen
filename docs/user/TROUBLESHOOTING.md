@@ -726,7 +726,7 @@ Enable `--debug-touches` to see exactly where touches register, then compare wit
 ```bash
 helix-screen --debug-touches
 ```
-Or set `HELIX_DEBUG_TOUCHES=1` in your environment for persistent debugging.
+Or set `HELIX_DEBUG_TOUCH=1` in your environment for persistent debugging.
 
 **4. If calibration doesn't help:**
 

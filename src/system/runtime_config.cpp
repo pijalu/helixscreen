@@ -42,7 +42,8 @@ bool RuntimeConfig::debug_touches() {
     static bool env_checked = false;
     if (!env_checked) {
         env_checked = true;
-        if (std::getenv("HELIX_DEBUG_TOUCHES") != nullptr) {
+        if (std::getenv("HELIX_DEBUG_TOUCH") != nullptr ||
+            std::getenv("HELIX_DEBUG_TOUCHES") != nullptr) {
             g_debug_touches = true;
         }
     }

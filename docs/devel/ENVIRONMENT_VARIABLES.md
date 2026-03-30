@@ -913,59 +913,43 @@ HELIX_DEBUG_SUBJECTS=1 ./build/bin/helix-screen -vv
 - Finding subject initialization order problems
 - Tracing observer callbacks that fire before subjects are ready
 
-### `HELIX_DEBUG_TOUCHES`
+### `HELIX_DEBUG_TOUCH`
 
-Enable touch point visualization. When enabled, a ripple effect is drawn at each touch point, showing exactly where the system registers touches. Useful for diagnosing touch accuracy issues, verifying calibration, and identifying UI elements that absorb click events.
+Unified touch debugging variable that enables both touch point visualization and detailed calibration logging.
+
+**Touch visualization:** A ripple effect is drawn at each touch point, showing exactly where the system registers touches. Useful for diagnosing touch accuracy issues, verifying calibration, and identifying UI elements that absorb click events.
+
+**Calibration logging:** Forces comprehensive logging of the entire calibration pipeline at WARN level, making it visible regardless of the configured log level. Logs include: raw touch samples, median computation, affine matrix calculation, axis swap detection, validation checks with residuals, and runtime coordinate transforms (throttled).
 
 | Property | Value |
 |----------|-------|
 | **Values** | `1` (enable), unset (disable) |
 | **Default** | Disabled |
 | **CLI equivalent** | `--debug-touches` |
-| **File** | `src/system/runtime_config.cpp` |
+| **Files** | `src/system/runtime_config.cpp`, `include/touch_calibration.h`, `src/ui/touch_calibration.cpp`, `src/ui/touch_calibration_panel.cpp`, `src/api/display_backend_fbdev.cpp` |
+| **Legacy alias** | `HELIX_DEBUG_TOUCHES` (still accepted) |
 
 ```bash
 # Enable via environment variable
-HELIX_DEBUG_TOUCHES=1 ./build/bin/helix-screen -vv
+HELIX_DEBUG_TOUCH=1 ./build/bin/helix-screen -vv
 
 # Or via command-line flag (equivalent)
 ./build/bin/helix-screen --debug-touches -vv
 
 # Combine with test mode for desktop debugging
 ./build/bin/helix-screen --test --debug-touches -vv
-```
-
-**Use cases:**
-- Verifying touch calibration accuracy
-- Diagnosing buttons or UI elements that don't respond to taps
-- Identifying overlapping UI elements that absorb click events
-- Confirming extended click areas are working correctly
-
-### `HELIX_DEBUG_TOUCH`
-
-Enable detailed touch calibration debug logging. When set, forces comprehensive logging of the entire calibration pipeline at WARN level, making it visible regardless of the configured log level. Logs include: raw touch samples, median computation, affine matrix calculation, axis swap detection, validation checks with residuals, and runtime coordinate transforms (throttled).
-
-| Property | Value |
-|----------|-------|
-| **Values** | `1` = enable, unset = disable |
-| **Default** | Disabled |
-| **Files** | `include/touch_calibration.h`, `src/ui/touch_calibration.cpp`, `src/ui/touch_calibration_panel.cpp`, `src/api/display_backend_fbdev.cpp` |
-
-```bash
-# Enable detailed touch calibration logging
-HELIX_DEBUG_TOUCH=1 ./build/bin/helix-screen --test
 
 # On device: add to helixscreen.env
 HELIX_DEBUG_TOUCH=1
 ```
 
-**Log prefix:** All messages use `[TouchDebug]` prefix for easy filtering:
+**Log prefix:** Calibration messages use `[TouchDebug]` prefix for easy filtering:
 ```bash
 # Filter touch debug messages from log
 grep '\[TouchDebug\]' /tmp/helixscreen.log
 ```
 
-**What it logs:**
+**What calibration logging shows:**
 - Each raw touch sample with saturation detection
 - Median point computation (all valid samples, selected median)
 - Affine matrix computation (all input points, determinant, coefficients)
@@ -975,7 +959,13 @@ grep '\[TouchDebug\]' /tmp/helixscreen.log
 - Calibration loaded from config at startup
 - Device detection details (name, phys, capabilities, calibration decision)
 
-**When to use:** Ask users with calibration issues to add `HELIX_DEBUG_TOUCH=1` to their `helixscreen.env` file and reproduce the issue. The `[TouchDebug]` messages in syslog/log will show exactly what the calibration pipeline sees.
+**Use cases:**
+- Verifying touch calibration accuracy
+- Diagnosing buttons or UI elements that don't respond to taps
+- Identifying overlapping UI elements that absorb click events
+- Confirming extended click areas are working correctly
+
+**When to use:** Ask users with calibration issues to add `HELIX_DEBUG_TOUCH=1` to their `helixscreen.env` file and reproduce the issue. The `[TouchDebug]` messages in syslog/log will show exactly what the calibration pipeline sees, and the ripple visualization confirms where touches land visually.
 
 ---
 

@@ -208,7 +208,7 @@ If touch is inaccurate or buttons aren't responding, enable touch point visualiz
 helix-screen --debug-touches
 ```
 
-This draws a ripple effect at each touch point on the screen, making it easy to see if touches are offset, if a button's hit area is too small, or if another UI element is absorbing taps. You can also enable this persistently with the environment variable `HELIX_DEBUG_TOUCHES=1`.
+This draws a ripple effect at each touch point on the screen, making it easy to see if touches are offset, if a button's hit area is too small, or if another UI element is absorbing taps. You can also enable this persistently with the environment variable `HELIX_DEBUG_TOUCH=1`.
 
 ---
 
@@ -225,7 +225,7 @@ For power users and developers. These override config file settings and are usef
 | `HELIX_TOUCH_MAX_Y` | Maximum raw Y value (linear calibration) | `900` |
 | `HELIX_TOUCH_SWAP_AXES` | Swap X and Y axes (auto-detected during calibration; use this to force it) | `1` |
 | `HELIX_DISPLAY_ROTATION` | Display rotation (touch auto-adjusts) | `90`, `180`, `270` |
-| `HELIX_DEBUG_TOUCHES` | Draw ripple at each touch point | `1` |
+| `HELIX_DEBUG_TOUCH` | Draw ripple at each touch point + calibration logging | `1` |
 | `HELIX_TOUCH_JITTER` | Touch jitter filter dead zone (pixels) | `15` |
 
 > **Note:** The MIN/MAX variables provide a simple linear calibration that bypasses the 3-point system. Most users should use the built-in calibration instead.

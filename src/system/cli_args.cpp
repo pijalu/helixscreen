@@ -686,7 +686,8 @@ bool parse_cli_args(int argc, char** argv, CliArgs& args, int& screen_width, int
             args.overlays.release_notes = true;
         } else if (strcmp(argv[i], "--debug-subjects") == 0) {
             RuntimeConfig::set_debug_subjects(true);
-        } else if (strcmp(argv[i], "--debug-touches") == 0) {
+        } else if (strcmp(argv[i], "--debug-touches") == 0 ||
+                   strcmp(argv[i], "--debug-touch") == 0) {
             RuntimeConfig::set_debug_touches(true);
         }
         // Moonraker URL override
