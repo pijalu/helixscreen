@@ -44,8 +44,8 @@ void PrinterNetworkState::init_subjects(bool register_xml) {
     INIT_SUBJECT_INT(network_status, 2, subjects_,
                      register_xml); // 0=DISCONNECTED, 1=CONNECTING, 2=CONNECTED
 
-    // Klipper firmware state subject (default to READY)
-    INIT_SUBJECT_INT(klippy_state, static_cast<int>(KlippyState::READY), subjects_, register_xml);
+    // Klipper firmware state subject (default to SHUTDOWN until confirmed ready)
+    INIT_SUBJECT_INT(klippy_state, static_cast<int>(KlippyState::SHUTDOWN), subjects_, register_xml);
 
     // Combined nav button enabled subject (connected AND klippy ready)
     // Starts disabled (0) - will be updated when connection/klippy state changes

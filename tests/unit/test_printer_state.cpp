@@ -1024,16 +1024,16 @@ TEST_CASE("PrinterState: Enum subject value reflects all state transitions", "[s
 // KlippyState Tests
 // ============================================================================
 
-TEST_CASE("PrinterState: Klippy state initialization defaults to READY", "[state][klippy]") {
+TEST_CASE("PrinterState: Klippy state initialization defaults to SHUTDOWN", "[state][klippy]") {
     lv_init_safe();
 
     PrinterState& state = get_printer_state();
     PrinterStateTestAccess::reset(state);
     state.init_subjects(false);
 
-    // Default should be READY (0)
+    // Default should be SHUTDOWN (2) - assume disconnected until confirmed ready
     REQUIRE(lv_subject_get_int(state.get_klippy_state_subject()) ==
-            static_cast<int>(KlippyState::READY));
+            static_cast<int>(KlippyState::SHUTDOWN));
 }
 
 TEST_CASE("PrinterState: set_klippy_state_sync changes subject value", "[state][klippy]") {
@@ -1043,9 +1043,9 @@ TEST_CASE("PrinterState: set_klippy_state_sync changes subject value", "[state][
     PrinterStateTestAccess::reset(state);
     state.init_subjects(false);
 
-    // Default should be READY
+    // Default should be SHUTDOWN (assume disconnected until confirmed)
     REQUIRE(lv_subject_get_int(state.get_klippy_state_subject()) ==
-            static_cast<int>(KlippyState::READY));
+            static_cast<int>(KlippyState::SHUTDOWN));
 
     // Call set_klippy_state_sync (direct call, no async)
     state.set_klippy_state_sync(KlippyState::SHUTDOWN);
@@ -1091,7 +1091,7 @@ TEST_CASE("PrinterState: Observer fires when klippy state changes", "[state][kli
 
     // LVGL auto-notifies observers when first added (fires immediately with current value)
     REQUIRE(user_data[0] == 1);
-    REQUIRE(user_data[1] == static_cast<int>(KlippyState::READY));
+    REQUIRE(user_data[1] == static_cast<int>(KlippyState::SHUTDOWN));
 
     // Change state via sync call (direct, no async)
     state.set_klippy_state_sync(KlippyState::SHUTDOWN);
@@ -1161,12 +1161,12 @@ TEST_CASE("PrinterState: Unknown webhooks state defaults to READY", "[state][kli
     PrinterStateTestAccess::reset(state);
     state.init_subjects(false);
 
-    // Can't pre-set klippy state (async), so just verify unknown -> READY
-    // The subject starts at READY (0), so we verify the parse logic works
+    // Set to a known state first, then verify unknown doesn't change it
+    state.set_klippy_state_sync(KlippyState::READY);
     nlohmann::json notification = {{"method", "notify_status_update"},
                                    {"params", {{{"webhooks", {{"state", "unknown_state"}}}}, 0.0}}};
     state.update_from_status(notification["params"][0]);
-    // Unknown state should remain READY (no change from default)
+    // Unknown state should remain READY (no change from previous value)
     REQUIRE(lv_subject_get_int(state.get_klippy_state_subject()) ==
             static_cast<int>(KlippyState::READY));
 }

@@ -397,9 +397,9 @@ void MoonrakerDiscoverySequence::continue_discovery_objects() {
 
                         // Set klippy state based on printer.info response
                         // This ensures we recognize shutdown/error states at startup
-                        if (state == "shutdown") {
+                        if (state == "shutdown" || state == "disconnected") {
                             spdlog::warn(
-                                "[Moonraker Client] Printer is in SHUTDOWN state at startup");
+                                "[Moonraker Client] Printer is in {} state at startup", state);
                             get_printer_state().set_klippy_state(KlippyState::SHUTDOWN);
                         } else if (state == "error") {
                             spdlog::warn("[Moonraker Client] Printer is in ERROR state at startup");

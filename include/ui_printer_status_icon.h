@@ -96,7 +96,7 @@ class PrinterStatusIcon {
 
     // Cached state for combined printer icon logic
     int32_t cached_connection_state_ = 0;
-    int32_t cached_klippy_state_ = 0; // 0=READY, 1=STARTUP, 2=SHUTDOWN, 3=ERROR
+    int32_t cached_klippy_state_ = 2; // 0=READY, 1=STARTUP, 2=SHUTDOWN, 3=ERROR
 
     bool subjects_initialized_ = false;
     bool initialized_ = false;
