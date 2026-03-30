@@ -100,7 +100,9 @@ class MotionPanel : public OverlayBase {
 
     lv_subject_t pos_x_subject_;
     lv_subject_t pos_y_subject_;
-    lv_subject_t pos_z_subject_;
+    lv_subject_t pos_z_subject_;         // Commanded Z position
+    lv_subject_t pos_z_actual_subject_;  // Actual Z position (with mesh compensation)
+    lv_subject_t motion_z_actual_visible_; // 1 when actual differs from commanded
     lv_subject_t z_axis_label_subject_; // "Bed" or "Print Head"
     lv_subject_t z_up_icon_subject_;    // "arrow_expand_up" or "arrow_up"
     lv_subject_t z_down_icon_subject_;  // "arrow_expand_down" or "arrow_down"
@@ -112,6 +114,7 @@ class MotionPanel : public OverlayBase {
     char pos_x_buf_[32];
     char pos_y_buf_[32];
     char pos_z_buf_[32];
+    char pos_z_actual_buf_[32];
     char z_axis_label_buf_[16];
     char z_up_icon_buf_[24];
     char z_down_icon_buf_[24];

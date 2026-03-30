@@ -128,6 +128,9 @@ void MotionPanel::init_subjects() {
     UI_MANAGED_SUBJECT_STRING(pos_x_subject_, pos_x_buf_, "— mm", "motion_pos_x", subjects_);
     UI_MANAGED_SUBJECT_STRING(pos_y_subject_, pos_y_buf_, "— mm", "motion_pos_y", subjects_);
     UI_MANAGED_SUBJECT_STRING(pos_z_subject_, pos_z_buf_, "— mm", "motion_pos_z", subjects_);
+    UI_MANAGED_SUBJECT_STRING(pos_z_actual_subject_, pos_z_actual_buf_, "", "motion_pos_z_actual",
+                              subjects_);
+    UI_MANAGED_SUBJECT_INT(motion_z_actual_visible_, 0, "motion_z_actual_visible", subjects_);
 
     // Z-axis label: "Bed" (corexy/corexz) or "Print Head" (cartesian/delta)
     UI_MANAGED_SUBJECT_STRING(z_axis_label_subject_, z_axis_label_buf_, "Z Axis",
@@ -462,15 +465,21 @@ void MotionPanel::update_z_display() {
     float gcode_z = static_cast<float>(helix::units::from_centimm(gcode_z_centimm_));
     float actual_z = static_cast<float>(helix::units::from_centimm(actual_z_centimm_));
 
-    // Show actual in brackets only when it differs from commanded (e.g., mesh compensation)
-    // Use 1 centimm (0.01mm) threshold to avoid floating point noise
-    if (std::abs(gcode_z_centimm_ - actual_z_centimm_) > 1) {
-        // Special case: compound format not covered by formatter
-        snprintf(pos_z_buf_, sizeof(pos_z_buf_), "%.2f [%.2f] mm", gcode_z, actual_z);
-    } else {
-        helix::format::format_distance_mm(gcode_z, 2, pos_z_buf_, sizeof(pos_z_buf_));
-    }
+    // Commanded Z is always shown
+    helix::format::format_distance_mm(gcode_z, 2, pos_z_buf_, sizeof(pos_z_buf_));
     lv_subject_copy_string(&pos_z_subject_, pos_z_buf_);
+
+    // Actual Z row shown only when it differs from commanded (e.g., mesh compensation)
+    // Use 1 centimm (0.01mm) threshold to avoid floating point noise
+    bool differs = std::abs(gcode_z_centimm_ - actual_z_centimm_) > 1;
+    if (differs) {
+        helix::format::format_distance_mm(actual_z, 2, pos_z_actual_buf_,
+                                          sizeof(pos_z_actual_buf_));
+    } else {
+        pos_z_actual_buf_[0] = '\0';
+    }
+    lv_subject_copy_string(&pos_z_actual_subject_, pos_z_actual_buf_);
+    lv_subject_set_int(&motion_z_actual_visible_, differs ? 1 : 0);
 }
 
 // ============================================================================
