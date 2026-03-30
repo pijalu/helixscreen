@@ -102,18 +102,32 @@ void NavigationManager::clear_overlay_stack() {
             inst_it->second->on_deactivate();
         }
 
-        // Invoke close callback if registered (e.g., destroy-on-close)
+        // Defer close callback via lv_async_call so any object deletion happens
+        // OUTSIDE process_pending(). clear_overlay_stack() is called from subject
+        // observers (connection loss, klippy shutdown) which fire inside
+        // process_pending() — synchronous lv_obj_delete there corrupts LVGL's
+        // event linked list (prestonbrown/helixscreen#637).
         auto close_it = overlay_close_callbacks_.find(overlay);
         if (close_it != overlay_close_callbacks_.end()) {
-            auto callback = std::move(close_it->second);
+            auto* deferred = new OverlayCloseCallback(std::move(close_it->second));
             overlay_close_callbacks_.erase(close_it);
-            callback();
+            lv_async_call(
+                [](void* data) {
+                    auto* cb = static_cast<OverlayCloseCallback*>(data);
+                    if (!NavigationManager::is_destroyed()) {
+                        (*cb)();
+                    }
+                    delete cb;
+                },
+                deferred);
         }
 
-        // Clean up dynamic backdrop for this overlay (if one was created)
+        // Clean up dynamic backdrop for this overlay (if one was created).
+        // Must use safe_delete_deferred — we may be inside process_pending()
+        // and synchronous deletion corrupts LVGL's event list (#637).
         auto backdrop_it = overlay_backdrops_.find(overlay);
         if (backdrop_it != overlay_backdrops_.end()) {
-            lv_obj_del(backdrop_it->second);
+            helix::ui::safe_delete_deferred(backdrop_it->second);
             overlay_backdrops_.erase(backdrop_it);
         }
 
@@ -814,14 +828,24 @@ void NavigationManager::switch_to_panel_impl(int panel_id) {
                 (void*)panel);
         }
 
-        // Invoke close callback if registered (persistent overlays don't have one)
+        // Defer close callback via lv_async_call — switch_to_panel_impl() can be
+        // called from subject observers inside process_pending(), and synchronous
+        // lv_obj_delete in close callbacks corrupts LVGL's event list (#637).
         auto it = overlay_close_callbacks_.find(panel);
         if (it != overlay_close_callbacks_.end()) {
-            auto callback = std::move(it->second);
-            overlay_close_callbacks_.erase(it);
-            spdlog::trace("[NavigationManager] Invoking close callback for panel {} (navbar)",
+            spdlog::trace("[NavigationManager] Deferring close callback for panel {} (navbar)",
                           (void*)panel);
-            callback();
+            auto* deferred = new OverlayCloseCallback(std::move(it->second));
+            overlay_close_callbacks_.erase(it);
+            lv_async_call(
+                [](void* data) {
+                    auto* cb = static_cast<OverlayCloseCallback*>(data);
+                    if (!NavigationManager::is_destroyed()) {
+                        (*cb)();
+                    }
+                    delete cb;
+                },
+                deferred);
         }
 
         // Clean up dynamic backdrop for this overlay (if one was created).
