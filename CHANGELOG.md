@@ -7,6 +7,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.99.11] - 2026-03-30
+
+This release adds QR scanner improvements and probe accuracy UX, alongside performance enhancements for Spoolman and camera handling, plus fixes for modal stale callbacks, temperature graph rendering, and multiple crash fixes.
+
+### Added
+- QR scanner snapshot fallback with local camera auto-discovery at startup
+- Auto-lower bed to 150mm on moving-bed printers when opening QR scanner
+- Probe accuracy test progress UX with live sample readout and quality assessment
+- Color picker for spool edit modal
+- Spoolman spool details bridge button in AMS edit modal
+- Commanded and actual Z position stacking on position card
+- Persistent disk cache for printer image at exact widget dimensions
+
+### Fixed
+- QR scanner overlay now renders above modals instead of beneath them
+- QR scanner crash on overlay teardown and use-after-free from frame buffer cleanup
+- QR decode crash and incorrect callback ordering during result handling
+- Auto-save spool data directly from QR scan to prevent data loss
+- Stale on_hide callbacks clearing active modal instance after re-show
+- Overlay stack close callbacks causing SIGSEGV from synchronous subject observer invocation
+- Temperature graph gradient rendering: uniform opacity, correct orientation, proper clipping
+- Temperature graph background color mismatch on filament panel mini graph
+- JSON error object parsing in motion panel; duplicate raw error toasts suppressed
+- Spoolman 'method not found' toast when Spoolman not configured
+- Spoolman list performance regression from repeated widget lookups on scroll
+- Camera probe using HTTP GET instead of HEAD (mjpg_streamer rejects HEAD)
+- Display animations defaulting to enabled on platforms without support
+- Compressed .bin source images not detected by cache handler
+- USB source tab button styling with proper contrast via declarative XML bindings
+- USB button incorrectly hidden when Moonraker returns empty file list
+- Filament spool click target dead zones eliminated
+- Spoolman settings row always visible so users can configure it
+
+### Changed
+- Camera decoding at display resolution instead of full frame for better performance
+
 ## [0.99.10] - 2026-03-29
 
 This release adds spool management enhancements — direct weight editing, tool remapping with dropdown, and remaining filament display — alongside fixes for print status not refreshing after navigation, multiple crash fixes, and expanded platform and internationalization support.
@@ -2338,6 +2374,7 @@ Initial tagged release. Foundation for all subsequent development.
 - Automated GitHub Actions release pipeline
 - One-liner installation script with platform auto-detection
 
+[0.99.11]: https://github.com/prestonbrown/helixscreen/compare/v0.99.10...v0.99.11
 [0.99.10]: https://github.com/prestonbrown/helixscreen/compare/v0.99.9...v0.99.10
 [0.99.9]: https://github.com/prestonbrown/helixscreen/compare/v0.99.8...v0.99.9
 [0.99.8]: https://github.com/prestonbrown/helixscreen/compare/v0.99.7...v0.99.8
