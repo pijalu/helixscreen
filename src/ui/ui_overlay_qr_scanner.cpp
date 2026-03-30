@@ -142,11 +142,19 @@ void QrScannerOverlay::show(lv_obj_t* parent, int slot_index,
     spdlog::debug("[{}] show() called, parent={}, cached_overlay_={}",
                   get_name(), fmt::ptr(parent), fmt::ptr(cached_overlay_));
 
+    // Always use the active screen so the overlay renders above modals
+    lv_obj_t* screen = lv_screen_active();
+
     bool ok = lazy_create_and_push_overlay<QrScannerOverlay>(
-        get_qr_scanner_overlay, cached_overlay_, parent,
+        get_qr_scanner_overlay, cached_overlay_, screen ? screen : parent,
         "QR Scanner", "QrScannerOverlay", true /* destroy_on_close */);
     if (!ok) {
         spdlog::error("[{}] Failed to show overlay", get_name());
+    }
+
+    // Move to front so it renders above any open modals
+    if (cached_overlay_) {
+        lv_obj_move_foreground(cached_overlay_);
     }
 }
 
