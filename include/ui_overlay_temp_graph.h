@@ -4,10 +4,11 @@
 #pragma once
 
 #include "overlay_base.h"
+#include "temp_graph_controller.h"
 #include "ui_heater_config.h"
-#include "ui_observer_guard.h"
 #include "ui_temp_graph.h"
 
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -17,17 +18,16 @@ class PrinterState;
 } // namespace helix
 class MoonrakerAPI;
 class TempControlPanel;
-class TemperatureHistoryManager;
-
-namespace helix::sensors {
-class TemperatureSensorManager;
-} // namespace helix::sensors
 
 /**
  * @brief Unified temperature graph overlay
  *
  * Replaces the 3 separate nozzle/bed/chamber overlays with a single overlay
  * that graphs ALL temperature sensors with toggle chips and optional controls.
+ *
+ * Graph lifecycle (creation, observers, history backfill, auto-range) is
+ * delegated to TempGraphController. The overlay owns UI-specific concerns:
+ * toggle chips, mode system, control strips, keypad, extruder selector.
  *
  * ## Modes
  * - GraphOnly: Full-height graph, no heater controls (opened from mini graph tap)
@@ -70,35 +70,27 @@ class TempGraphOverlay : public OverlayBase {
 
   private:
     /**
-     * @brief Per-series metadata for the unified graph
+     * @brief Per-series display metadata for chips and UI
+     *
+     * Observer/lifetime state lives in the TempGraphController. This struct
+     * only tracks what the overlay needs for chip toggles and control strips.
      */
     struct SeriesInfo {
         std::string display_name;  ///< UI label (e.g., "Nozzle", "Bed", "MCU")
         std::string heater_name;   ///< History manager key (e.g., "extruder", "heater_bed")
         std::string klipper_name;  ///< Full Klipper object name for API calls
-        int series_id = -1;        ///< Graph series ID
         lv_color_t color{};        ///< Series line color
-        lv_obj_t* chip = nullptr;  ///< Toggle chip widget
+        int series_id = -1;        ///< Graph series ID (mapped from controller)
         bool visible = true;       ///< Current visibility state
         bool has_target = false;   ///< Whether this heater has a controllable target
         bool is_dynamic = false;   ///< Dynamic sensor (needs SubjectLifetime)
-        ObserverGuard temp_observer;
-        ObserverGuard target_observer;
-        SubjectLifetime lifetime;
+        lv_obj_t* chip = nullptr;  ///< Toggle chip widget
     };
 
     // Series management
     void discover_series();
     void apply_default_visibility();
     void create_chips();
-    void setup_observers();
-    void teardown_observers();
-    void replay_history();
-
-    // Graph updates
-    void on_series_temp_changed(size_t series_idx, int temp_centi);
-    void on_series_target_changed(size_t series_idx, int target_centi);
-    void update_y_axis_range();
 
     // Chip interaction
     void toggle_series_visibility(size_t series_idx);
@@ -125,7 +117,7 @@ class TempGraphOverlay : public OverlayBase {
 
     // State
     Mode mode_ = Mode::GraphOnly;
-    ui_temp_graph_t* graph_ = nullptr;
+    std::unique_ptr<helix::TempGraphController> controller_;
     lv_obj_t* chip_row_ = nullptr;
     lv_obj_t* graph_container_ = nullptr;
     lv_obj_t* graph_outer_ = nullptr;
@@ -134,15 +126,6 @@ class TempGraphOverlay : public OverlayBase {
     lv_obj_t* chamber_strip_ = nullptr;
     lv_obj_t* extruder_selector_row_ = nullptr;
     std::vector<SeriesInfo> series_;
-
-    // Y-axis auto-scaling state
-    float y_axis_max_ = 100.0f;
-    static constexpr float Y_AXIS_MIN = 0.0f;
-    static constexpr float Y_AXIS_STEP = 50.0f;
-    static constexpr float Y_AXIS_FLOOR = 100.0f;
-    static constexpr float Y_AXIS_CEILING = 400.0f;
-    static constexpr float Y_EXPAND_THRESHOLD = 0.85f;
-    static constexpr float Y_SHRINK_THRESHOLD = 0.55f;
 
     // Dependencies (resolved on open)
     helix::PrinterState* printer_state_ = nullptr;
@@ -154,8 +137,6 @@ class TempGraphOverlay : public OverlayBase {
 
     // Subject management
     SubjectManager subjects_;
-
-
 
     // Cached panel for lazy creation
     lv_obj_t* cached_overlay_ = nullptr;

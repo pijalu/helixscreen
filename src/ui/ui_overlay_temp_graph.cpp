@@ -4,14 +4,11 @@
 #include "ui_overlay_temp_graph.h"
 
 #include "app_globals.h"
-#include "ui_temp_graph_scaling.h"
 #include "moonraker_api.h"
-#include "observer_factory.h"
 #include "panel_widget_manager.h"
 #include "printer_state.h"
 #include "printer_temperature_state.h"
 #include "static_panel_registry.h"
-#include "temperature_history_manager.h"
 #include "temperature_sensor_manager.h"
 #include "temperature_sensor_types.h"
 #include "theme_manager.h"
@@ -20,7 +17,6 @@
 #include "ui_component_keypad.h"
 #include "ui_nav_manager.h"
 #include "ui_panel_temp_control.h"
-#include "ui_temperature_utils.h"
 #include "ui_utils.h"
 
 #include "lvgl/src/others/translation/lv_translation.h"
@@ -28,11 +24,7 @@
 #include <spdlog/spdlog.h>
 
 #include <algorithm>
-#include <chrono>
 #include <optional>
-
-using helix::ui::observe_int_sync;
-using helix::ui::temperature::centi_to_degrees_f;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Helpers
@@ -95,11 +87,7 @@ TempGraphOverlay& get_global_temp_graph_overlay() {
 TempGraphOverlay::TempGraphOverlay() = default;
 
 TempGraphOverlay::~TempGraphOverlay() {
-    teardown_observers();
-    if (graph_) {
-        ui_temp_graph_destroy(graph_);
-        graph_ = nullptr;
-    }
+    controller_.reset();
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -139,64 +127,56 @@ void TempGraphOverlay::on_activate() {
     temp_control_panel_ =
         helix::PanelWidgetManager::instance().shared_resource<TempControlPanel>();
 
-    bool first_activation = !graph_;
+    // Discover series metadata (populates series_ with display info)
+    discover_series();
 
-    if (first_activation) {
-        // First time: discover series, create graph, add series, replay history
-        discover_series();
+    // Build TempGraphSeriesSpec vector from discovered series
+    std::vector<helix::TempGraphSeriesSpec> specs;
+    specs.reserve(series_.size());
+    for (const auto& s : series_) {
+        specs.push_back({s.klipper_name, s.color, s.has_target});
+    }
 
-        if (graph_container_) {
-            graph_ = ui_temp_graph_create(graph_container_);
-            if (graph_) {
-                // Explicitly size chart to fill container (default height is
-                // LV_DPI_DEF*2 which may not fill the flex_grow container)
-                lv_obj_t* chart = ui_temp_graph_get_chart(graph_);
-                if (chart) {
-                    lv_obj_set_size(chart, lv_pct(100), lv_pct(100));
-                    lv_color_t card_bg = theme_manager_get_color("card_bg");
-                    lv_obj_set_style_bg_color(chart, card_bg, LV_PART_MAIN);
-                    graph_->cached_graph_bg = card_bg;
-                }
-                ui_temp_graph_set_temp_range(graph_, Y_AXIS_MIN, y_axis_max_);
-                ui_temp_graph_set_y_axis(graph_, Y_AXIS_STEP, true);
-                ui_temp_graph_set_axis_size(graph_, "sm");
+    // Create controller (handles graph creation, observers, history, auto-range)
+    if (graph_container_) {
+        helix::TempGraphControllerConfig cfg;
+        cfg.axis_size = "sm";
+        cfg.series = std::move(specs);
+        controller_ = std::make_unique<helix::TempGraphController>(graph_container_, cfg);
+
+        // Size chart to fill container (default height is LV_DPI_DEF*2)
+        if (controller_->is_valid()) {
+            lv_obj_t* chart = ui_temp_graph_get_chart(controller_->graph());
+            if (chart) {
+                lv_obj_set_size(chart, lv_pct(100), lv_pct(100));
+                lv_color_t card_bg = theme_manager_get_color("card_bg");
+                lv_obj_set_style_bg_color(chart, card_bg, LV_PART_MAIN);
+                controller_->graph()->cached_graph_bg = card_bg;
             }
         }
+    }
 
-        if (graph_) {
-            for (size_t i = 0; i < series_.size(); ++i) {
-                auto& s = series_[i];
-                s.series_id = ui_temp_graph_add_series(graph_, s.display_name.c_str(), s.color);
-                if (s.series_id >= 0) {
-                    ui_temp_graph_set_series_gradient(graph_, s.series_id,
-                                                      UI_TEMP_GRAPH_GRADIENT_TOP_OPA,
-                                                      UI_TEMP_GRAPH_GRADIENT_BOTTOM_OPA);
-                }
-            }
+    // Map series IDs back from controller
+    if (controller_ && controller_->is_valid()) {
+        for (auto& s : series_) {
+            s.series_id = controller_->series_id_for(s.klipper_name);
         }
-
-        replay_history();
     }
 
     // Apply mode-specific visibility and chips (every activation)
     apply_default_visibility();
     create_chips();
-    setup_observers();
     configure_control_strip();
 
-    spdlog::debug("[TempGraphOverlay] Activated with {} series, mode={}, first={}",
-                  series_.size(), static_cast<int>(mode_), first_activation);
+    spdlog::debug("[TempGraphOverlay] Activated with {} series, mode={}",
+                  series_.size(), static_cast<int>(mode_));
 }
 
 void TempGraphOverlay::on_deactivate() {
     OverlayBase::on_deactivate();
-    teardown_observers();
 
-    // Destroy graph (will be recreated on next activate)
-    if (graph_) {
-        ui_temp_graph_destroy(graph_);
-        graph_ = nullptr;
-    }
+    // Destroy controller (tears down observers, destroys graph)
+    controller_.reset();
 
     // Clear series
     series_.clear();
@@ -210,11 +190,7 @@ void TempGraphOverlay::on_deactivate() {
 }
 
 void TempGraphOverlay::cleanup() {
-    teardown_observers();
-    if (graph_) {
-        ui_temp_graph_destroy(graph_);
-        graph_ = nullptr;
-    }
+    controller_.reset();
     series_.clear();
     OverlayBase::cleanup();
 }
@@ -429,8 +405,8 @@ void TempGraphOverlay::create_chips() {
 
         // Apply initial visibility state (set by apply_default_visibility)
         update_chip_style(i);
-        if (graph_ && s.series_id >= 0) {
-            ui_temp_graph_show_series(graph_, s.series_id, s.visible);
+        if (controller_ && controller_->is_valid() && s.series_id >= 0) {
+            ui_temp_graph_show_series(controller_->graph(), s.series_id, s.visible);
         }
     }
 }
@@ -451,16 +427,16 @@ void TempGraphOverlay::toggle_series_visibility(size_t series_idx) {
     auto& s = series_[series_idx];
 
     s.visible = !s.visible;
-    if (graph_ && s.series_id >= 0) {
-        ui_temp_graph_show_series(graph_, s.series_id, s.visible);
+    if (controller_ && controller_->is_valid() && s.series_id >= 0) {
+        auto* graph = controller_->graph();
+        ui_temp_graph_show_series(graph, s.series_id, s.visible);
         if (s.has_target) {
             // Only show target line if series is visible AND target is non-zero
-            bool show = s.visible && graph_->series_meta[s.series_id].target_temp > 0.0f;
-            ui_temp_graph_show_target(graph_, s.series_id, show);
+            bool show = s.visible && graph->series_meta[s.series_id].target_temp > 0.0f;
+            ui_temp_graph_show_target(graph, s.series_id, show);
         }
     }
     update_chip_style(series_idx);
-    update_y_axis_range();
 
     spdlog::debug("[TempGraphOverlay] {} series '{}' (idx={})",
                   s.visible ? "Showed" : "Hid", s.display_name, series_idx);
@@ -473,177 +449,6 @@ void TempGraphOverlay::update_chip_style(size_t series_idx) {
 
     lv_opa_t opa = s.visible ? LV_OPA_COVER : LV_OPA_40;
     lv_obj_set_style_opa(s.chip, opa, 0);
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Observer setup/teardown
-// ─────────────────────────────────────────────────────────────────────────────
-
-void TempGraphOverlay::setup_observers() {
-    if (!printer_state_) return;
-
-    auto token = lifetime_.token();
-
-    for (size_t i = 0; i < series_.size(); ++i) {
-        auto& s = series_[i];
-
-        // Determine temperature subject
-        lv_subject_t* temp_subj = nullptr;
-        lv_subject_t* target_subj = nullptr;
-
-        if (s.heater_name == "heater_bed") {
-            temp_subj = printer_state_->get_bed_temp_subject();
-            target_subj = printer_state_->get_bed_target_subject();
-        } else if (s.heater_name == "chamber") {
-            temp_subj = printer_state_->get_chamber_temp_subject();
-            target_subj = printer_state_->get_chamber_target_subject();
-        } else if (s.heater_name.find("extruder") == 0) {
-            // Per-extruder subject
-            if (printer_state_->extruder_count() <= 1) {
-                // Single extruder: use active extruder subjects (static)
-                temp_subj = printer_state_->get_active_extruder_temp_subject();
-                target_subj = printer_state_->get_active_extruder_target_subject();
-            } else {
-                // Multi-extruder: use per-extruder subjects (dynamic)
-                temp_subj = printer_state_->get_extruder_temp_subject(s.heater_name, s.lifetime);
-                target_subj = printer_state_->get_extruder_target_subject(s.heater_name, s.lifetime);
-            }
-        } else {
-            // Custom sensor from TemperatureSensorManager
-            auto& sensor_mgr = helix::sensors::TemperatureSensorManager::instance();
-            temp_subj = sensor_mgr.get_temp_subject(s.klipper_name, s.lifetime);
-        }
-
-        if (temp_subj) {
-            size_t idx = i; // Capture by value
-            s.temp_observer = observe_int_sync<TempGraphOverlay>(
-                temp_subj, this,
-                [token, idx](TempGraphOverlay* self, int temp) {
-                    if (token.expired()) return;
-                    self->on_series_temp_changed(idx, temp);
-                },
-                s.lifetime);
-        }
-
-        if (target_subj && s.has_target) {
-            size_t idx = i;
-            s.target_observer = observe_int_sync<TempGraphOverlay>(
-                target_subj, this,
-                [token, idx](TempGraphOverlay* self, int target) {
-                    if (token.expired()) return;
-                    self->on_series_target_changed(idx, target);
-                },
-                s.lifetime);
-        }
-    }
-}
-
-void TempGraphOverlay::teardown_observers() {
-    for (auto& s : series_) {
-        s.temp_observer.reset();
-        s.target_observer.reset();
-    }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// History replay
-// ─────────────────────────────────────────────────────────────────────────────
-
-void TempGraphOverlay::replay_history() {
-    auto* history_mgr = get_temperature_history_manager();
-    if (!graph_ || !history_mgr) return;
-
-    for (auto& s : series_) {
-        if (s.series_id < 0) continue;
-
-        auto samples = history_mgr->get_samples(s.heater_name);
-        spdlog::debug("[TempGraphOverlay] History for '{}' (key='{}'): {} samples",
-                      s.display_name, s.heater_name, samples.size());
-        if (samples.empty()) continue;
-
-        for (const auto& sample : samples) {
-            float temp_deg = centi_to_degrees_f(sample.temp_centi);
-            ui_temp_graph_update_series_with_time(graph_, s.series_id,
-                                                  temp_deg, sample.timestamp_ms);
-        }
-
-        // Set initial target if available
-        if (s.has_target && !samples.empty()) {
-            float target_deg = centi_to_degrees_f(samples.back().target_centi);
-            if (target_deg > 0.0f) {
-                ui_temp_graph_set_series_target(graph_, s.series_id, target_deg, true);
-            }
-        }
-    }
-
-    update_y_axis_range();
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Graph updates
-// ─────────────────────────────────────────────────────────────────────────────
-
-void TempGraphOverlay::on_series_temp_changed(size_t series_idx, int temp_centi) {
-    if (series_idx >= series_.size()) return;
-    auto& s = series_[series_idx];
-
-    if (graph_ && s.series_id >= 0) {
-        float temp_deg = centi_to_degrees_f(temp_centi);
-        auto now_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
-                          std::chrono::system_clock::now().time_since_epoch())
-                          .count();
-        ui_temp_graph_update_series_with_time(graph_, s.series_id, temp_deg, now_ms);
-        update_y_axis_range();
-
-        spdlog::trace("[TempGraphOverlay] Series '{}' temp={:.1f}°C (series_id={})",
-                      s.display_name, temp_deg, s.series_id);
-    }
-}
-
-void TempGraphOverlay::on_series_target_changed(size_t series_idx, int target_centi) {
-    if (series_idx >= series_.size()) return;
-    auto& s = series_[series_idx];
-
-    if (graph_ && s.series_id >= 0) {
-        float target_deg = centi_to_degrees_f(target_centi);
-        bool show = target_deg > 0.0f;
-        ui_temp_graph_set_series_target(graph_, s.series_id, target_deg, show);
-    }
-}
-
-void TempGraphOverlay::update_y_axis_range() {
-    if (!graph_) return;
-
-    // Find max temperature across visible series
-    float max_temp = 0.0f;
-    for (const auto& s : series_) {
-        if (!s.visible || s.series_id < 0) continue;
-        // Use the graph's internal tracking
-        for (int j = 0; j < graph_->series_count; ++j) {
-            auto& meta = graph_->series_meta[j];
-            if (meta.id == s.series_id && meta.visible) {
-                if (meta.target_temp > max_temp) max_temp = meta.target_temp;
-            }
-        }
-    }
-
-    // Also consider graph's max_visible_temp
-    if (graph_->max_visible_temp > max_temp) {
-        max_temp = graph_->max_visible_temp;
-    }
-
-    static constexpr TempGraphScaleParams SCALE{
-        .step = Y_AXIS_STEP, .floor = Y_AXIS_FLOOR, .ceiling = Y_AXIS_CEILING,
-        .expand_threshold = Y_EXPAND_THRESHOLD, .shrink_threshold = Y_SHRINK_THRESHOLD};
-
-    float new_max = calculate_temp_graph_y_max(
-        y_axis_max_, max_temp, graph_->max_visible_temp, SCALE);
-
-    if (new_max != y_axis_max_) {
-        y_axis_max_ = new_max;
-        ui_temp_graph_set_temp_range(graph_, Y_AXIS_MIN, y_axis_max_);
-        spdlog::debug("[TempGraphOverlay] Y-axis range: {}-{}°C", Y_AXIS_MIN, y_axis_max_);
-    }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
