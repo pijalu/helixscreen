@@ -357,14 +357,6 @@ lv_indev_t* DisplayBackendFbdev::create_input_pointer() {
 
     // Load affine calibration from config (saved by calibration wizard)
     calibration_ = helix::load_touch_calibration();
-    if (calibration_.valid) {
-        spdlog::info("[Fbdev Backend] Affine calibration loaded: "
-                     "a={:.4f} b={:.4f} c={:.4f} d={:.4f} e={:.4f} f={:.4f}",
-                     calibration_.a, calibration_.b, calibration_.c, calibration_.d, calibration_.e,
-                     calibration_.f);
-    } else {
-        spdlog::info("[Fbdev Backend] No stored affine calibration found");
-    }
 
     // Always install the calibrated read callback — it handles both rotation
     // transform and affine calibration independently. Without this, rotation

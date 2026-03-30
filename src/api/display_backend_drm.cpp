@@ -435,6 +435,10 @@ lv_indev_t* DisplayBackendDRM::create_input_pointer() {
         }
     }
 
+    if (touch_path) {
+        lv_free(touch_path);
+    }
+
     // If no touch was found, try evdev fallback on common device paths
     if (!pointer_) {
         // Try pointer devices via libinput (mouse, trackpad)
@@ -448,6 +452,7 @@ lv_indev_t* DisplayBackendDRM::create_input_pointer() {
                 spdlog::warn("[DRM Backend] Failed to create libinput device for: {}",
                              pointer_path);
             }
+            lv_free(pointer_path);
         }
     }
 
@@ -541,9 +546,11 @@ lv_indev_t* DisplayBackendDRM::create_input_keyboard() {
         keyboard_ = lv_libinput_create(LV_INDEV_TYPE_KEYPAD, kb_path);
         if (keyboard_) {
             spdlog::info("[DRM Backend] Keyboard created on {}", kb_path);
+            lv_free(kb_path);
             return keyboard_;
         }
         spdlog::warn("[DRM Backend] Failed to create keyboard device on {}", kb_path);
+        lv_free(kb_path);
     }
 
     // Priority 3: Fall back to sysfs evdev scanning
