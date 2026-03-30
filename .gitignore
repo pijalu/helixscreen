@@ -132,3 +132,4 @@ config/.crash_restart_count
 config/.helix-screen.lock
 .superpowers/
 docs/superpowers/
+.claude/scratchpad/
