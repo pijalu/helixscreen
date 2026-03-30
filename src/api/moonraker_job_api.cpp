@@ -71,7 +71,7 @@ void MoonrakerJobAPI::cancel_print(SuccessCallback on_success, ErrorCallback on_
             spdlog::info("[Moonraker API] Print canceled successfully");
             on_success();
         },
-        on_error);
+        on_error, CANCEL_TIMEOUT_MS);
 }
 
 // ============================================================================

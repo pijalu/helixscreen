@@ -323,9 +323,9 @@ void AbortManager::send_cancel_print() {
         spdlog::info("[AbortManager] Cancel escalation enabled, timeout: {}ms", timeout_ms);
     } else {
         // Escalation disabled — still create a nudge timer so user gets feedback
-        timeout_ms = CANCEL_TIMEOUT_MS;
+        timeout_ms = CANCEL_NUDGE_MS;
         spdlog::info("[AbortManager] Cancel escalation disabled, nudge timer at {}ms",
-                     CANCEL_TIMEOUT_MS);
+                     CANCEL_NUDGE_MS);
     }
     auto* ct = lv_timer_create(cancel_timer_cb, timeout_ms, this);
     lv_timer_set_repeat_count(ct, 1);

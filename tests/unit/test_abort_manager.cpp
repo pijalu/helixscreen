@@ -606,7 +606,9 @@ TEST_CASE_METHOD(AbortManagerTestFixture, "AbortManager: Timeout constants are c
                  "[abort][timeout][constants]") {
     REQUIRE(AbortManager::HEATER_INTERRUPT_TIMEOUT_MS == 1000);
     REQUIRE(AbortManager::PROBE_TIMEOUT_MS == 2000);
-    REQUIRE(AbortManager::CANCEL_TIMEOUT_MS == 15000);
+    REQUIRE(AbortManager::CANCEL_TIMEOUT_MS == 300000);
+    REQUIRE(AbortManager::CANCEL_NUDGE_MS == 15000);
+    REQUIRE(AbortManager::CANCEL_NUDGE_MS < AbortManager::CANCEL_TIMEOUT_MS);
     REQUIRE(AbortManager::RECONNECT_TIMEOUT_MS == 15000);
 }
 

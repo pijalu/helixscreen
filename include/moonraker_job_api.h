@@ -45,6 +45,8 @@ class MoonrakerJobAPI {
     using BoolCallback = std::function<void(bool)>;
     using ModifiedPrintCallback = std::function<void(const ModifiedPrintResult&)>;
 
+    static constexpr uint32_t CANCEL_TIMEOUT_MS = 300000; // 5 min — CANCEL_PRINT macros can be slow
+
     /**
      * @brief Constructor
      *
