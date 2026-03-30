@@ -46,7 +46,9 @@ FBDEV_DISPLAY_CXXFLAGS := $(filter-out -DHELIX_DISPLAY_DRM -DHELIX_ENABLE_OPENGL
 # Fbdev display sources — same as DRM but we exclude display_backend_drm.cpp
 FBDEV_DISPLAY_API_SRCS := \
     src/api/display_backend.cpp \
-    src/api/display_backend_fbdev.cpp
+    src/api/display_backend_fbdev.cpp \
+    src/api/touch_calibration_wrapper.cpp \
+    src/api/input_device_scanner.cpp
 
 FBDEV_DISPLAY_UI_SRCS := \
     src/ui/touch_calibration.cpp
@@ -163,6 +165,8 @@ DRM_DISPLAY_APP_OBJS := \
     $(OBJ_DIR)/api/display_backend_drm.o \
     $(OBJ_DIR)/api/drm_rotation_strategy.o \
     $(OBJ_DIR)/api/display_backend_fbdev.o \
+    $(OBJ_DIR)/api/touch_calibration_wrapper.o \
+    $(OBJ_DIR)/api/input_device_scanner.o \
     $(OBJ_DIR)/ui/touch_calibration.o
 
 # All common app objects (swap out DRM-specific and GLES-specific objects)

@@ -11,6 +11,7 @@
 #ifdef HELIX_DISPLAY_DRM
 
 #include "display_backend.h"
+#include "touch_calibration_wrapper.h"
 
 #include <string>
 
@@ -92,6 +93,13 @@ class DisplayBackendDRM : public DisplayBackend {
         return using_egl_;
     }
 
+    // Touch calibration
+    bool set_calibration(const helix::TouchCalibration& cal) override;
+    helix::TouchCalibration get_calibration() const override { return calibration_; }
+    bool needs_touch_calibration() const override { return needs_calibration_; }
+    void disable_affine_calibration() override;
+    void enable_affine_calibration() override;
+
   private:
     /// Switch VT to KD_GRAPHICS so fbcon stops painting over DRM output.
     /// Required on kernel 6.x where sun4i-drm registers DRM fbdev emulation.
@@ -105,6 +113,11 @@ class DisplayBackendDRM : public DisplayBackend {
     lv_indev_t* keyboard_ = nullptr;
     int tty_fd_ = -1;           ///< TTY fd for KD_GRAPHICS console suppression
     bool using_egl_ = false;    ///< Track if GPU-accelerated path is active
+    helix::TouchCalibration calibration_;
+    helix::CalibrationContext calibration_context_;
+    bool needs_calibration_ = false;
+    int screen_width_ = 0;
+    int screen_height_ = 0;
 
 };
 

@@ -5,6 +5,10 @@
 #include <optional>
 #include <string>
 
+namespace helix {
+struct AbsCapabilities;
+}  // namespace helix
+
 namespace helix::input {
 
 struct ScannedDevice {
@@ -29,5 +33,17 @@ std::optional<ScannedDevice> find_mouse_device(const std::string& dev_base,
 std::optional<ScannedDevice> find_keyboard_device();
 std::optional<ScannedDevice> find_keyboard_device(const std::string& dev_base,
                                                    const std::string& sysfs_base);
+
+/// Read a single line from a sysfs file (returns empty string on failure)
+std::string read_sysfs_line(const std::string& path);
+
+/// Get device name from /sys/class/input/eventN/device/name
+std::string get_input_device_name(int event_num);
+
+/// Get device phys from /sys/class/input/eventN/device/phys
+std::string get_input_device_phys(int event_num);
+
+/// Check if input device has touch ABS capabilities, optionally fill AbsCapabilities
+bool get_input_touch_capabilities(int event_num, helix::AbsCapabilities* caps_out = nullptr);
 
 }  // namespace helix::input

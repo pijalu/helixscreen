@@ -903,56 +903,36 @@ bool DisplayManager::apply_touch_calibration(const helix::TouchCalibration& cal)
         spdlog::debug("[DisplayManager] Invalid calibration");
         return false;
     }
-
-#ifdef HELIX_DISPLAY_FBDEV
-    if (m_backend && m_backend->type() == DisplayBackendType::FBDEV) {
-        auto* fbdev = static_cast<DisplayBackendFbdev*>(m_backend.get());
-        return fbdev->set_calibration(cal);
+    if (!m_backend) {
+        return false;
     }
-#endif
-
-    spdlog::debug("[DisplayManager] Touch calibration not applicable to current backend");
-    return false;
+    return m_backend->set_calibration(cal);
 }
 
 helix::TouchCalibration DisplayManager::get_current_calibration() const {
-#ifdef HELIX_DISPLAY_FBDEV
-    if (m_backend && m_backend->type() == DisplayBackendType::FBDEV) {
-        auto* fbdev = static_cast<DisplayBackendFbdev*>(m_backend.get());
-        return fbdev->get_calibration();
+    if (!m_backend) {
+        return {};
     }
-#endif
-
-    // Return invalid calibration for non-fbdev backends
-    return helix::TouchCalibration{};
+    return m_backend->get_calibration();
 }
 
 bool DisplayManager::needs_touch_calibration() const {
-#ifdef HELIX_DISPLAY_FBDEV
-    if (m_backend && m_backend->type() == DisplayBackendType::FBDEV) {
-        auto* fbdev = static_cast<DisplayBackendFbdev*>(m_backend.get());
-        return fbdev->needs_touch_calibration();
+    if (!m_backend) {
+        return false;
     }
-#endif
-    return false;
+    return m_backend->needs_touch_calibration();
 }
 
 void DisplayManager::disable_affine_calibration() {
-#ifdef HELIX_DISPLAY_FBDEV
-    if (m_backend && m_backend->type() == DisplayBackendType::FBDEV) {
-        auto* fbdev = static_cast<DisplayBackendFbdev*>(m_backend.get());
-        fbdev->disable_affine_calibration();
+    if (m_backend) {
+        m_backend->disable_affine_calibration();
     }
-#endif
 }
 
 void DisplayManager::enable_affine_calibration() {
-#ifdef HELIX_DISPLAY_FBDEV
-    if (m_backend && m_backend->type() == DisplayBackendType::FBDEV) {
-        auto* fbdev = static_cast<DisplayBackendFbdev*>(m_backend.get());
-        fbdev->enable_affine_calibration();
+    if (m_backend) {
+        m_backend->enable_affine_calibration();
     }
-#endif
 }
 
 // ============================================================================

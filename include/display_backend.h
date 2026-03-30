@@ -19,6 +19,8 @@
 #include <regex>
 #include <string>
 
+#include "touch_calibration.h"
+
 /**
  * @brief Display backend types supported by HelixScreen
  */
@@ -378,6 +380,45 @@ class DisplayBackend {
     virtual bool blank_display() {
         return false; // Not supported by default
     }
+
+    // ========================================================================
+    // Touch Calibration
+    // ========================================================================
+
+    /**
+     * @brief Apply new touch calibration coefficients
+     * @return true if calibration was applied
+     */
+    virtual bool set_calibration(const helix::TouchCalibration& cal) {
+        (void)cal;
+        return false;
+    }
+
+    /**
+     * @brief Get current touch calibration
+     * @return Current calibration (valid=false if none)
+     */
+    virtual helix::TouchCalibration get_calibration() const {
+        return helix::TouchCalibration{};
+    }
+
+    /**
+     * @brief Check if the detected touch device needs calibration
+     * @return true if calibration wizard should be offered
+     */
+    virtual bool needs_touch_calibration() const {
+        return false;
+    }
+
+    /**
+     * @brief Temporarily disable affine calibration for recalibration
+     */
+    virtual void disable_affine_calibration() {}
+
+    /**
+     * @brief Re-enable affine calibration after recalibration
+     */
+    virtual void enable_affine_calibration() {}
 
     // ========================================================================
     // Factory Methods

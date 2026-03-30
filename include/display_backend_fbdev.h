@@ -12,21 +12,9 @@
 
 #include "display_backend.h"
 #include "touch_calibration.h"
+#include "touch_calibration_wrapper.h"
 
 #include <string>
-
-/**
- * @brief Calibration context stored in indev user_data
- *
- * Contains both the calibration coefficients and the original read callback
- * so we can chain to it after applying our transform.
- */
-struct CalibrationContext {
-    helix::TouchCalibration calibration;
-    lv_indev_read_cb_t original_read_cb = nullptr;
-    int screen_width = 800;
-    int screen_height = 480;
-};
 
 /**
  * @brief Linux framebuffer display backend for embedded systems
@@ -105,7 +93,7 @@ class DisplayBackendFbdev : public DisplayBackend {
      * @param cal Valid calibration coefficients
      * @return true if applied successfully, false if validation failed
      */
-    bool set_calibration(const helix::TouchCalibration& cal);
+    bool set_calibration(const helix::TouchCalibration& cal) override;
 
     /**
      * @brief Temporarily disable affine calibration for recalibration
@@ -113,20 +101,20 @@ class DisplayBackendFbdev : public DisplayBackend {
      * Sets ctx->calibration.valid = false so calibrated_read_cb passes through
      * raw coordinates. The stored calibration_ member is preserved for restore.
      */
-    void disable_affine_calibration();
+    void disable_affine_calibration() override;
 
     /**
      * @brief Re-enable affine calibration after recalibration
      *
      * Restores ctx->calibration from stored calibration_ member.
      */
-    void enable_affine_calibration();
+    void enable_affine_calibration() override;
 
     /**
      * @brief Get current touch calibration
      * @return Current calibration coefficients (may be invalid if not calibrated)
      */
-    const helix::TouchCalibration& get_calibration() const {
+    helix::TouchCalibration get_calibration() const override {
         return calibration_;
     }
 
@@ -139,7 +127,7 @@ class DisplayBackendFbdev : public DisplayBackend {
      *
      * @return true if calibration is needed, false for USB HID devices
      */
-    bool needs_touch_calibration() const {
+    bool needs_touch_calibration() const override {
         return needs_calibration_;
     }
 
@@ -173,7 +161,7 @@ class DisplayBackendFbdev : public DisplayBackend {
     int screen_height_ = 480;
 
     /// Calibration context for touch input (member to avoid memory leak)
-    CalibrationContext calibration_context_;
+    helix::CalibrationContext calibration_context_;
 
     /// Whether the detected touch device needs calibration (false for USB HID)
     bool needs_calibration_ = false;

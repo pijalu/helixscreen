@@ -10,6 +10,7 @@
 #include "config.h"
 #include "drm_rotation_strategy.h"
 #include "input_device_scanner.h"
+#include "touch_calibration_wrapper.h"
 
 #include <spdlog/spdlog.h>
 
@@ -22,6 +23,7 @@
 #include <dirent.h>
 #include <fcntl.h>
 #include <linux/fb.h>
+#include <linux/input.h>
 #include <linux/kd.h>
 #include <sys/ioctl.h>
 #include <sys/mman.h>
@@ -298,6 +300,9 @@ lv_display_t* DisplayBackendDRM::create_display(int width, int height) {
 
     suppress_console();
 
+    screen_width_ = lv_display_get_horizontal_resolution(display_);
+    screen_height_ = lv_display_get_vertical_resolution(display_);
+
     return display_;
 }
 
@@ -367,6 +372,66 @@ lv_indev_t* DisplayBackendDRM::create_input_pointer() {
             } else {
                 spdlog::warn("[DRM Backend] Failed to create input device for: {}", touch_path);
             }
+        }
+    }
+
+    // --- Touch calibration detection ---
+    if (pointer_ && touch_path) {
+        // Parse event number from path like "/dev/input/event0"
+        int event_num = -1;
+        const char* event_pos = strstr(touch_path, "event");
+        if (event_pos) {
+            sscanf(event_pos, "event%d", &event_num);
+        }
+
+        if (event_num >= 0) {
+            std::string dev_name = helix::input::get_input_device_name(event_num);
+            std::string dev_phys = helix::input::get_input_device_phys(event_num);
+            helix::AbsCapabilities abs_caps;
+            bool has_abs = helix::input::get_input_touch_capabilities(event_num, &abs_caps);
+
+            needs_calibration_ = helix::device_needs_calibration(dev_name, dev_phys, has_abs);
+
+            // Check for ABS range / display resolution mismatch on capacitive screens
+            if (!needs_calibration_ && has_abs && screen_width_ > 0 && screen_height_ > 0) {
+                struct input_absinfo abs_x = {}, abs_y = {};
+                int fd = open(touch_path, O_RDONLY | O_NONBLOCK);
+                if (fd >= 0) {
+                    bool got_x = (ioctl(fd, EVIOCGABS(ABS_X), &abs_x) == 0);
+                    bool got_y = (ioctl(fd, EVIOCGABS(ABS_Y), &abs_y) == 0);
+                    if (!got_x || abs_x.maximum <= 0) {
+                        got_x = (ioctl(fd, EVIOCGABS(ABS_MT_POSITION_X), &abs_x) == 0);
+                    }
+                    if (!got_y || abs_y.maximum <= 0) {
+                        got_y = (ioctl(fd, EVIOCGABS(ABS_MT_POSITION_Y), &abs_y) == 0);
+                    }
+                    close(fd);
+
+                    if (got_x && got_y) {
+                        spdlog::info("[DRM Backend] Touch ABS range: X({}..{}), Y({}..{}) — display: {}x{}",
+                                     abs_x.minimum, abs_x.maximum, abs_y.minimum, abs_y.maximum,
+                                     screen_width_, screen_height_);
+
+                        if (abs_x.maximum <= 0 && abs_y.maximum <= 0) {
+                            needs_calibration_ = true;
+                            spdlog::warn("[DRM Backend] ABS range is zero — forcing calibration");
+                        } else if (helix::has_abs_display_mismatch(abs_x.maximum, abs_y.maximum,
+                                                                    screen_width_, screen_height_)) {
+                            needs_calibration_ = true;
+                            spdlog::warn("[DRM Backend] ABS range ({},{}) mismatches display ({}x{}) — forcing calibration",
+                                         abs_x.maximum, abs_y.maximum, screen_width_, screen_height_);
+                        }
+                    }
+                }
+            }
+
+            spdlog::info("[DRM Backend] Touch device '{}' phys='{}' — calibration {}",
+                         dev_name, dev_phys, needs_calibration_ ? "needed" : "not needed");
+
+            // Load stored calibration and install wrapper
+            calibration_ = helix::load_touch_calibration();
+            helix::install_calibration_wrapper(pointer_, calibration_context_, calibration_,
+                                               screen_width_, screen_height_);
         }
     }
 
@@ -779,6 +844,51 @@ void DisplayBackendDRM::restore_console() {
         close(tty_fd_);
         tty_fd_ = -1;
         spdlog::debug("[DRM Backend] Console restored to KD_TEXT mode");
+    }
+}
+
+bool DisplayBackendDRM::set_calibration(const helix::TouchCalibration& cal) {
+    if (!helix::is_calibration_valid(cal)) {
+        spdlog::warn("[DRM Backend] Invalid calibration rejected");
+        return false;
+    }
+
+    calibration_ = cal;
+
+    if (pointer_) {
+        auto* ctx = static_cast<helix::CalibrationContext*>(lv_indev_get_user_data(pointer_));
+        if (ctx) {
+            ctx->calibration = cal;
+            spdlog::info("[DRM Backend] Calibration updated: a={:.4f} b={:.4f} c={:.4f} d={:.4f} e={:.4f} f={:.4f}",
+                         cal.a, cal.b, cal.c, cal.d, cal.e, cal.f);
+        } else {
+            // Wrapper not yet installed — install it now
+            helix::install_calibration_wrapper(pointer_, calibration_context_, calibration_,
+                                               screen_width_, screen_height_);
+            spdlog::info("[DRM Backend] Calibration callback installed at runtime");
+        }
+    }
+
+    return true;
+}
+
+void DisplayBackendDRM::disable_affine_calibration() {
+    if (pointer_) {
+        auto* ctx = static_cast<helix::CalibrationContext*>(lv_indev_get_user_data(pointer_));
+        if (ctx) {
+            ctx->calibration.valid = false;
+            spdlog::debug("[DRM Backend] Affine calibration disabled for recalibration");
+        }
+    }
+}
+
+void DisplayBackendDRM::enable_affine_calibration() {
+    if (pointer_) {
+        auto* ctx = static_cast<helix::CalibrationContext*>(lv_indev_get_user_data(pointer_));
+        if (ctx) {
+            ctx->calibration = calibration_;
+            spdlog::debug("[DRM Backend] Affine calibration re-enabled (valid={})", calibration_.valid);
+        }
     }
 }
 

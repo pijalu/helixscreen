@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include "input_device_scanner.h"
+#include "touch_calibration.h"
 
 #include <cstdlib>
 #include <cstring>
@@ -15,40 +16,29 @@
 
 namespace {
 
+// Build sysfs path: /sys/class/input/eventN/device/<subpath>
+std::string sysfs_device_path(const std::string& sysfs_base, int event_num,
+                               const std::string& subpath) {
+    return sysfs_base + "/event" + std::to_string(event_num) + "/device/" + subpath;
+}
+
 std::string read_sysfs_capability(const std::string& sysfs_base, int event_num,
                                    const std::string& cap_name) {
-    std::string path = sysfs_base + "/event" + std::to_string(event_num) +
-                       "/device/capabilities/" + cap_name;
-    std::ifstream file(path);
-    std::string line;
-    if (file.good() && std::getline(file, line)) {
-        return line;
-    }
-    return "";
+    return helix::input::read_sysfs_line(
+        sysfs_device_path(sysfs_base, event_num, "capabilities/" + cap_name));
 }
 
 std::string read_device_name(const std::string& sysfs_base, int event_num) {
-    std::string path =
-        sysfs_base + "/event" + std::to_string(event_num) + "/device/name";
-    std::ifstream file(path);
-    std::string line;
-    if (file.good() && std::getline(file, line)) {
-        return line;
-    }
-    return "";
+    return helix::input::read_sysfs_line(sysfs_device_path(sysfs_base, event_num, "name"));
 }
 
 // Read /sys/class/input/eventN/device/id/bustype — returns bus type as integer.
 // BUS_USB=3, BUS_BLUETOOTH=5. Returns 0 on failure.
 int read_bus_type(const std::string& sysfs_base, int event_num) {
-    std::string path =
-        sysfs_base + "/event" + std::to_string(event_num) + "/device/id/bustype";
-    std::ifstream file(path);
-    std::string line;
-    if (file.good() && std::getline(file, line)) {
-        return static_cast<int>(std::strtol(line.c_str(), nullptr, 16));
-    }
-    return 0;
+    std::string line = helix::input::read_sysfs_line(
+        sysfs_device_path(sysfs_base, event_num, "id/bustype"));
+    if (line.empty()) return 0;
+    return static_cast<int>(std::strtol(line.c_str(), nullptr, 16));
 }
 
 constexpr int BUS_USB = 0x03;
@@ -231,6 +221,42 @@ std::optional<ScannedDevice> find_keyboard_device(const std::string& dev_base,
 
 std::optional<ScannedDevice> find_keyboard_device() {
     return find_keyboard_device("/dev/input", "/sys/class/input");
+}
+
+std::string read_sysfs_line(const std::string& path) {
+    std::ifstream file(path);
+    if (!file.is_open()) return "";
+    std::string line;
+    std::getline(file, line);
+    return line;
+}
+
+std::string get_input_device_name(int event_num) {
+    std::string path = "/sys/class/input/event" + std::to_string(event_num) + "/device/name";
+    return read_sysfs_line(path);
+}
+
+std::string get_input_device_phys(int event_num) {
+    std::string path = "/sys/class/input/event" + std::to_string(event_num) + "/device/phys";
+    return read_sysfs_line(path);
+}
+
+bool get_input_touch_capabilities(int event_num, helix::AbsCapabilities* caps_out) {
+    std::string path =
+        "/sys/class/input/event" + std::to_string(event_num) + "/device/capabilities/abs";
+    std::string caps = read_sysfs_line(path);
+    if (caps.empty()) return false;
+
+    auto result = helix::parse_abs_capabilities(caps);
+    if (caps_out) *caps_out = result;
+
+    if (result.has_multitouch && !result.has_single_touch) {
+        spdlog::debug("[InputScanner] event{}: MT-only touchscreen detected "
+                      "(no legacy ABS_X/ABS_Y)",
+                      event_num);
+    }
+
+    return result.has_single_touch || result.has_multitouch;
 }
 
 }  // namespace helix::input

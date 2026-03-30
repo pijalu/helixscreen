@@ -10,6 +10,7 @@
 #include "config.h"
 #include "input_device_scanner.h"
 #include "touch_calibration.h"
+#include "touch_calibration_wrapper.h"
 
 #include <spdlog/spdlog.h>
 
@@ -21,7 +22,6 @@
 #include <cstring>
 #include <dirent.h>
 #include <fcntl.h>
-#include <fstream>
 #include <linux/fb.h>
 #include <linux/input.h>
 #include <linux/kd.h>
@@ -35,66 +35,6 @@ extern "C" void lv_linux_fbdev_set_skip_unblank(lv_display_t* disp, bool enabled
     __attribute__((weak));
 
 namespace {
-
-/**
- * @brief Read a line from a sysfs file
- * @param path Path to the sysfs file
- * @return File contents (first line) or empty string on error
- */
-std::string read_sysfs_file(const std::string& path) {
-    std::ifstream file(path);
-    if (!file.is_open()) {
-        return "";
-    }
-    std::string line;
-    std::getline(file, line);
-    return line;
-}
-
-/**
- * @brief Get the device name from sysfs
- * @param event_num Event device number (e.g., 0 for event0)
- * @return Device name or empty string on error
- */
-std::string get_device_name(int event_num) {
-    std::string path = "/sys/class/input/event" + std::to_string(event_num) + "/device/name";
-    return read_sysfs_file(path);
-}
-
-/**
- * @brief Check if an event device has touch/absolute input capabilities
- *
- * Reads /sys/class/input/eventN/device/capabilities/abs and checks for
- * ABS_X/ABS_Y (single-touch) or ABS_MT_POSITION_X/ABS_MT_POSITION_Y
- * (multitouch) capabilities. Some touchscreens (e.g., Goodix gt9xxnew_ts)
- * only report MT axes without legacy single-touch axes.
- *
- * @param event_num Event device number
- * @param[out] caps_out If non-null, populated with parsed capabilities
- * @return true if device has single-touch or multitouch ABS capabilities
- */
-bool has_touch_capabilities(int event_num, helix::AbsCapabilities* caps_out = nullptr) {
-    std::string path =
-        "/sys/class/input/event" + std::to_string(event_num) + "/device/capabilities/abs";
-    std::string caps = read_sysfs_file(path);
-
-    if (caps.empty()) {
-        return false;
-    }
-
-    auto result = helix::parse_abs_capabilities(caps);
-    if (caps_out) {
-        *caps_out = result;
-    }
-
-    if (result.has_multitouch && !result.has_single_touch) {
-        spdlog::debug(
-            "[Fbdev Backend] event{}: MT-only touchscreen detected (no legacy ABS_X/ABS_Y)",
-            event_num);
-    }
-
-    return result.has_single_touch || result.has_multitouch;
-}
 
 using helix::is_known_touchscreen_name;
 
@@ -110,7 +50,7 @@ using helix::is_known_touchscreen_name;
  */
 bool has_direct_input_prop(int event_num) {
     std::string path = "/sys/class/input/event" + std::to_string(event_num) + "/device/properties";
-    std::string props_str = read_sysfs_file(path);
+    std::string props_str = helix::input::read_sysfs_line(path);
     if (props_str.empty())
         return false;
 
@@ -124,101 +64,6 @@ bool has_direct_input_prop(int event_num) {
     } catch (...) {
         return false;
     }
-}
-
-/**
- * @brief Get the phys path for an input device from sysfs
- * @param event_num Event device number
- * @return Physical path string or empty string on error
- */
-std::string get_device_phys(int event_num) {
-    std::string path = "/sys/class/input/event" + std::to_string(event_num) + "/device/phys";
-    return read_sysfs_file(path);
-}
-
-/**
- * @brief Load affine touch calibration coefficients from config
- *
- * Reads the calibration data saved by the touch calibration wizard.
- * Returns an invalid calibration if no valid data is stored.
- *
- * @return Calibration coefficients (check .valid before use)
- */
-helix::TouchCalibration load_touch_calibration() {
-    helix::Config* cfg = helix::Config::get_instance();
-    helix::TouchCalibration cal;
-
-    if (!cfg) {
-        spdlog::debug("[Fbdev Backend] Config not available for calibration load");
-        return cal;
-    }
-
-    cal.valid = cfg->get<bool>("/input/calibration/valid", false);
-    if (!cal.valid) {
-        spdlog::debug("[Fbdev Backend] No valid calibration in config");
-        return cal;
-    }
-
-    cal.a = static_cast<float>(cfg->get<double>("/input/calibration/a", 1.0));
-    cal.b = static_cast<float>(cfg->get<double>("/input/calibration/b", 0.0));
-    cal.c = static_cast<float>(cfg->get<double>("/input/calibration/c", 0.0));
-    cal.d = static_cast<float>(cfg->get<double>("/input/calibration/d", 0.0));
-    cal.e = static_cast<float>(cfg->get<double>("/input/calibration/e", 1.0));
-    cal.f = static_cast<float>(cfg->get<double>("/input/calibration/f", 0.0));
-    if (helix::is_touch_debug_enabled()) {
-        spdlog::warn("[TouchDebug] load_touch_calibration from config: "
-                     "a={:.6f} b={:.6f} c={:.6f} d={:.6f} e={:.6f} f={:.6f}",
-                     cal.a, cal.b, cal.c, cal.d, cal.e, cal.f);
-    }
-
-    if (!helix::is_calibration_valid(cal)) {
-        spdlog::warn("[Fbdev Backend] Stored calibration failed validation");
-        cal.valid = false;
-    }
-
-    return cal;
-}
-
-/**
- * @brief Custom read callback that applies affine calibration
- *
- * Wraps the original evdev read callback, applying the affine transform
- * to touch coordinates after the linear calibration is done.
- *
- * Note: display rotation is handled by LVGL's indev_pointer_proc() which
- * calls lv_display_rotate_point() automatically — no manual rotation
- * transform is needed here.
- */
-void calibrated_read_cb(lv_indev_t* indev, lv_indev_data_t* data) {
-    auto* ctx = static_cast<CalibrationContext*>(lv_indev_get_user_data(indev));
-    if (!ctx) {
-        return;
-    }
-
-    // Call the original evdev read callback first
-    if (ctx->original_read_cb) {
-        ctx->original_read_cb(indev, data);
-    }
-
-    // Apply affine calibration if valid (for both PRESSED and RELEASED states)
-    if (ctx->calibration.valid) {
-        helix::Point raw{static_cast<int>(data->point.x), static_cast<int>(data->point.y)};
-        helix::Point transformed = helix::transform_point(
-            ctx->calibration, raw, ctx->screen_width - 1, ctx->screen_height - 1);
-        data->point.x = transformed.x;
-        data->point.y = transformed.y;
-
-        if (helix::is_touch_debug_enabled() && data->state == LV_INDEV_STATE_PRESSED) {
-            static int touch_debug_counter = 0;
-            if (++touch_debug_counter % 50 == 1) {
-                spdlog::warn("[TouchDebug] calibrated_read: raw=({},{}) -> screen=({},{}) [sample #{}]",
-                             raw.x, raw.y, transformed.x, transformed.y, touch_debug_counter);
-            }
-        }
-    }
-
-    // Note: jitter filtering is now applied generically in lvgl_init.cpp
-    // AFTER this backend-specific callback, so it works on all backends.
 }
 
 } // anonymous namespace
@@ -375,14 +220,13 @@ lv_indev_t* DisplayBackendFbdev::create_input_pointer() {
     // Reads device name, phys, and capabilities from sysfs.
     int event_num = -1;
     sscanf(touch_path.c_str() + touch_path.rfind("event"), "event%d", &event_num);
-    std::string dev_name = (event_num >= 0) ? get_device_name(event_num) : "";
+    std::string dev_name = (event_num >= 0) ? helix::input::get_input_device_name(event_num) : "";
     std::string dev_phys;
     if (event_num >= 0) {
-        dev_phys =
-            read_sysfs_file("/sys/class/input/event" + std::to_string(event_num) + "/device/phys");
+        dev_phys = helix::input::get_input_device_phys(event_num);
     }
     helix::AbsCapabilities abs_caps;
-    bool has_abs = (event_num >= 0) && has_touch_capabilities(event_num, &abs_caps);
+    bool has_abs = (event_num >= 0) && helix::input::get_input_touch_capabilities(event_num, &abs_caps);
 
     needs_calibration_ = helix::device_needs_calibration(dev_name, dev_phys, has_abs);
 
@@ -512,7 +356,7 @@ lv_indev_t* DisplayBackendFbdev::create_input_pointer() {
     }
 
     // Load affine calibration from config (saved by calibration wizard)
-    calibration_ = load_touch_calibration();
+    calibration_ = helix::load_touch_calibration();
     if (calibration_.valid) {
         spdlog::info("[Fbdev Backend] Affine calibration loaded: "
                      "a={:.4f} b={:.4f} c={:.4f} d={:.4f} e={:.4f} f={:.4f}",
@@ -526,13 +370,7 @@ lv_indev_t* DisplayBackendFbdev::create_input_pointer() {
     // transform and affine calibration independently. Without this, rotation
     // transform wouldn't be applied on devices that don't need affine cal.
     // Note: jitter filtering is applied generically in lvgl_init.cpp after this.
-    calibration_context_.calibration = calibration_;
-    calibration_context_.original_read_cb = lv_indev_get_read_cb(touch_);
-    calibration_context_.screen_width = screen_width_;
-    calibration_context_.screen_height = screen_height_;
-
-    lv_indev_set_user_data(touch_, &calibration_context_);
-    lv_indev_set_read_cb(touch_, calibrated_read_cb);
+    helix::install_calibration_wrapper(touch_, calibration_context_, calibration_, screen_width_, screen_height_);
 
     spdlog::info("[Fbdev Backend] Evdev touch input created on {}", touch_path);
 
@@ -662,11 +500,11 @@ std::string DisplayBackendFbdev::auto_detect_touch_device() const {
         }
 
         // Get device name from sysfs (do this once, before capability check)
-        std::string name = get_device_name(event_num);
+        std::string name = helix::input::get_input_device_name(event_num);
 
         // Check for ABS capabilities (single-touch or multitouch)
         helix::AbsCapabilities dev_abs_caps;
-        if (!has_touch_capabilities(event_num, &dev_abs_caps)) {
+        if (!helix::input::get_input_touch_capabilities(event_num, &dev_abs_caps)) {
             spdlog::trace("[Fbdev Backend] {} ({}) - no touch capabilities", device_path, name);
             continue;
         }
@@ -682,7 +520,7 @@ std::string DisplayBackendFbdev::auto_detect_touch_device() const {
         if (is_direct)
             score += 2;
 
-        std::string phys = get_device_phys(event_num);
+        std::string phys = helix::input::get_input_device_phys(event_num);
         bool is_usb = helix::is_usb_input_phys(phys);
         if (is_usb)
             score += 1;
@@ -712,7 +550,7 @@ std::string DisplayBackendFbdev::auto_detect_touch_device() const {
                     continue;
                 std::string fallback_path = std::string(input_dir) + "/" + fb_entry->d_name;
                 if (access(fallback_path.c_str(), R_OK) == 0) {
-                    std::string fb_name = get_device_name(atoi(fb_entry->d_name + 5));
+                    std::string fb_name = helix::input::get_input_device_name(atoi(fb_entry->d_name + 5));
                     spdlog::info(
                         "[Fbdev Backend] No touchscreen found, using fallback input: {} ({})",
                         fallback_path, fb_name);
@@ -928,7 +766,7 @@ bool DisplayBackendFbdev::set_calibration(const helix::TouchCalibration& cal) {
 
     // If touch input exists with our custom callback, update the context
     if (touch_) {
-        auto* ctx = static_cast<CalibrationContext*>(lv_indev_get_user_data(touch_));
+        auto* ctx = static_cast<helix::CalibrationContext*>(lv_indev_get_user_data(touch_));
         if (ctx) {
             // Update existing context (points to our member variable)
             ctx->calibration = cal;
@@ -947,13 +785,7 @@ bool DisplayBackendFbdev::set_calibration(const helix::TouchCalibration& cal) {
             spdlog::warn("[Fbdev Backend] Calibrated callback was not pre-installed — "
                          "installing at runtime (unexpected code path)");
 
-            calibration_context_.calibration = cal;
-            calibration_context_.original_read_cb = lv_indev_get_read_cb(touch_);
-            calibration_context_.screen_width = screen_width_;
-            calibration_context_.screen_height = screen_height_;
-
-            lv_indev_set_user_data(touch_, &calibration_context_);
-            lv_indev_set_read_cb(touch_, calibrated_read_cb);
+            helix::install_calibration_wrapper(touch_, calibration_context_, cal, screen_width_, screen_height_);
 
             spdlog::info("[Fbdev Backend] Calibration callback installed at runtime: "
                          "a={:.4f} b={:.4f} c={:.4f} d={:.4f} e={:.4f} f={:.4f}",
@@ -966,7 +798,7 @@ bool DisplayBackendFbdev::set_calibration(const helix::TouchCalibration& cal) {
 
 void DisplayBackendFbdev::disable_affine_calibration() {
     if (touch_) {
-        auto* ctx = static_cast<CalibrationContext*>(lv_indev_get_user_data(touch_));
+        auto* ctx = static_cast<helix::CalibrationContext*>(lv_indev_get_user_data(touch_));
         if (ctx) {
             ctx->calibration.valid = false;
             spdlog::debug("[Fbdev Backend] Affine calibration disabled for recalibration");
@@ -976,7 +808,7 @@ void DisplayBackendFbdev::disable_affine_calibration() {
 
 void DisplayBackendFbdev::enable_affine_calibration() {
     if (touch_) {
-        auto* ctx = static_cast<CalibrationContext*>(lv_indev_get_user_data(touch_));
+        auto* ctx = static_cast<helix::CalibrationContext*>(lv_indev_get_user_data(touch_));
         if (ctx) {
             ctx->calibration = calibration_;
             spdlog::debug("[Fbdev Backend] Affine calibration re-enabled (valid={})",

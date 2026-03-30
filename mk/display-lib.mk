@@ -15,7 +15,7 @@ DISPLAY_LIB := $(BUILD_DIR)/lib/libhelix-display.a
 DISPLAY_API_SRCS := \
     src/api/display_backend.cpp
 
-# Touch calibration is needed by display_backend_fbdev.cpp
+# Touch calibration and shared calibration wrapper
 DISPLAY_UI_SRCS := \
     src/ui/touch_calibration.cpp
 
@@ -29,6 +29,7 @@ else
     DISPLAY_API_SRCS += src/api/display_backend_drm.cpp
     DISPLAY_API_SRCS += src/api/drm_rotation_strategy.cpp
     DISPLAY_API_SRCS += src/api/input_device_scanner.cpp
+    DISPLAY_API_SRCS += src/api/touch_calibration_wrapper.cpp
     ifeq ($(ENABLE_SDL),yes)
         # Native Linux desktop also gets SDL
         DISPLAY_API_SRCS += src/api/display_backend_sdl.cpp
