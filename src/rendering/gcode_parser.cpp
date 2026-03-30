@@ -973,12 +973,16 @@ void GCodeParser::add_segment(const glm::vec3& start, const glm::vec3& end, bool
 
     if (!is_first_segment) {
         current_layer.bounding_box.expand(start);
-        global_bounds_.expand(start);
     }
     current_layer.bounding_box.expand(end);
-    global_bounds_.expand(end);
 
+    // Global bounds only include extrusion moves — travel moves to homing/probing/
+    // parking positions would inflate the viewport and make the model appear tiny.
     if (is_extrusion) {
+        if (!is_first_segment) {
+            global_bounds_.expand(start);
+        }
+        global_bounds_.expand(end);
         current_layer.segment_count_extrusion++;
     } else {
         current_layer.segment_count_travel++;

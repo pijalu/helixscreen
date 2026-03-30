@@ -168,9 +168,9 @@ TEST_CASE("GCodeParser - EXCLUDE_OBJECT commands", "[gcode][parser]") {
 TEST_CASE("GCodeParser - Bounding box calculation", "[gcode][parser]") {
     GCodeParser parser;
 
-    SECTION("Calculate global bounding box") {
-        parser.parse_line("G1 X-10 Y-10 Z0.2");
-        parser.parse_line("G1 X100 Y50 Z10.5");
+    SECTION("Calculate global bounding box from extrusion moves") {
+        parser.parse_line("G1 X-10 Y-10 Z0.2 E1");
+        parser.parse_line("G1 X100 Y50 Z10.5 E2");
 
         auto file = parser.finalize();
 

@@ -287,6 +287,7 @@ void GCodeLayerRenderer::auto_fit() {
             auto segments = streaming_controller_->get_layer_segments(layer_idx);
             if (segments && !segments->empty()) {
                 for (const auto& seg : *segments) {
+                    if (!seg.is_extrusion) continue;
                     bb.min.x = std::min(bb.min.x, std::min(seg.start.x, seg.end.x));
                     bb.max.x = std::max(bb.max.x, std::max(seg.start.x, seg.end.x));
                     bb.min.y = std::min(bb.min.y, std::min(seg.start.y, seg.end.y));
