@@ -353,7 +353,7 @@ void PrintStartCollector::check_fallback_completion() {
     // layer count from Klipper's print_stats.info.current_layer can't be trusted
     // during the first seconds (Klipper may report stale/non-zero values from the
     // START_PRINT macro before actual layer 1 begins).
-    if (!profile_ || profile_->name().find("Generic") != std::string::npos) {
+    if (!profile_ || profile_->is_default()) {
         int layer = lv_subject_get_int(state_.get_print_layer_current_subject());
         if (layer >= 1 && layer != baseline_layer_) {
             spdlog::info("[PrintStartCollector] Fallback: layer {} detected (baseline={})", layer,
@@ -386,7 +386,7 @@ void PrintStartCollector::check_fallback_completion() {
     // gcode response patterns have matched yet. On printers like the K1C, the
     // websocket delivers almost no gcode responses, so detected_phases_ stays
     // empty — but we still know the pre-print takes 200+ seconds.
-    bool has_profile = profile_ && profile_->name().find("Generic") == std::string::npos;
+    bool has_profile = profile_ && !profile_->is_default();
     auto timeout = has_profile ? std::chrono::seconds(300) : FALLBACK_TIMEOUT;
     if (elapsed > timeout && temps_near) {
         auto elapsed_sec = std::chrono::duration_cast<std::chrono::seconds>(elapsed).count();
@@ -712,6 +712,10 @@ bool PrintStartCollector::is_completion_marker(const std::string& line) const {
 
 std::set<int> PrintStartCollector::get_completed_phase_ints() const {
     std::lock_guard<std::mutex> lock(state_mutex_);
+    return get_completed_phase_ints_locked();
+}
+
+std::set<int> PrintStartCollector::get_completed_phase_ints_locked() const {
     std::set<int> result;
     for (const auto& phase : detected_phases_) {
         int p = static_cast<int>(phase);
@@ -773,23 +777,33 @@ void PrintStartCollector::update_eta_display() {
         }
     }
 
-    if (!predictor_.has_predictions()) {
-        return;
+    // Snapshot predictor data under lock — save_prediction_entry() can call
+    // predictor_.add_entry() from the background thread (via update_phase).
+    int remaining;
+    int predicted_total;
+    {
+        std::lock_guard<std::mutex> lock(state_mutex_);
+        if (!predictor_.has_predictions()) {
+            return;
+        }
+
+        auto completed = get_completed_phase_ints_locked();
+        int current = static_cast<int>(current_phase_);
+        int phase_elapsed = 0;
+        auto it = phase_enter_times_.find(current);
+        if (it != phase_enter_times_.end()) {
+            phase_elapsed = static_cast<int>(
+                std::chrono::duration_cast<std::chrono::seconds>(
+                    std::chrono::steady_clock::now() - it->second)
+                    .count());
+        }
+
+        remaining = predictor_.remaining_seconds(completed, current, phase_elapsed);
+        predicted_total = predictor_.predicted_total();
     }
-
-    auto completed = get_completed_phase_ints();
-    int current = get_current_phase_int();
-    int elapsed = get_current_phase_elapsed_seconds();
-
-    int remaining = predictor_.remaining_seconds(completed, current, elapsed);
 
     // Always update the int subject for print time integration
     state_.set_preprint_remaining_seconds(remaining);
-
-    // Smooth time-based progress: interpolate based on elapsed vs predicted total.
-    // This gives a steadily advancing progress bar even when gcode responses are
-    // sparse (K1C delivers very few notify_gcode_response messages).
-    int predicted_total = predictor_.predicted_total();
     if (predicted_total > 0) {
         int time_progress = std::min(95, total_elapsed * 95 / predicted_total);
         int phase_progress = calculate_progress();
@@ -809,8 +823,8 @@ void PrintStartCollector::update_eta_display() {
     std::string text = "~" + helix::format::duration_remaining(remaining);
     state_.set_print_start_time_left(text.c_str());
 
-    spdlog::trace("[PrintStartCollector] ETA: {}s remaining (phase={}, elapsed={}s)", remaining,
-                  current, elapsed);
+    spdlog::trace("[PrintStartCollector] ETA: {}s remaining, predicted_total={}s", remaining,
+                  predicted_total);
 }
 
 // ============================================================================

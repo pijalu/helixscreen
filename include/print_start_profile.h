@@ -144,9 +144,15 @@ class PrintStartProfile {
         return !signal_formats_.empty();
     }
 
+    /// True if this is the default/generic fallback profile, not printer-specific
+    bool is_default() const {
+        return is_default_;
+    }
+
   private:
     std::string name_;
     std::string description_;
+    bool is_default_{false};
     ProgressMode progress_mode_ = ProgressMode::WEIGHTED;
     std::vector<SignalFormat> signal_formats_;
     std::vector<ResponsePattern> response_patterns_;

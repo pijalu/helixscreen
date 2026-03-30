@@ -182,6 +182,11 @@ class PrintStartCollector : public std::enable_shared_from_this<PrintStartCollec
     int calculate_progress_locked() const;
 
     /**
+     * @brief Get completed phases (must be called with state_mutex_ held)
+     */
+    [[nodiscard]] std::set<int> get_completed_phase_ints_locked() const;
+
+    /**
      * @brief Check for PRINT_START start marker
      */
     bool is_print_start_marker(const std::string& line) const;

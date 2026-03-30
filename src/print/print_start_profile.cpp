@@ -79,6 +79,7 @@ std::shared_ptr<PrintStartProfile> PrintStartProfile::load_default() {
 
         auto profile = std::make_shared<PrintStartProfile>();
         if (profile->parse_json(j, path)) {
+            profile->is_default_ = true;
             spdlog::debug("[PrintStartProfile] Loaded default profile from JSON");
             return profile;
         }
@@ -87,6 +88,7 @@ std::shared_ptr<PrintStartProfile> PrintStartProfile::load_default() {
     // Built-in fallback: same patterns as currently hardcoded in PrintStartCollector
     auto profile = std::make_shared<PrintStartProfile>();
     profile->name_ = "Generic (built-in)";
+    profile->is_default_ = true;
     profile->description_ = "Built-in fallback patterns matching PrintStartCollector defaults";
     profile->progress_mode_ = ProgressMode::WEIGHTED;
 
