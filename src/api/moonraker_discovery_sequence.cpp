@@ -334,14 +334,20 @@ void MoonrakerDiscoverySequence::continue_discovery_objects() {
                                     "http://127.0.0.1:4408/webcam/?action=snapshot",
                                 };
                                 for (const char* url : probe_urls) {
+                                    spdlog::info("[Discovery] Probing camera at {}", url);
                                     auto req = std::make_shared<HttpRequest>();
-                                    req->method = HTTP_HEAD;
+                                    req->method = HTTP_GET;
                                     req->url = url;
                                     req->timeout = 2;
                                     auto resp = requests::request(req);
+                                    if (resp) {
+                                        spdlog::info("[Discovery] Probe {} → status {}",
+                                                     url, static_cast<int>(resp->status_code));
+                                    } else {
+                                        spdlog::info("[Discovery] Probe {} → no response", url);
+                                    }
                                     if (resp && resp->status_code == 200) {
                                         spdlog::info("[Discovery] Local camera found at {}", url);
-                                        // Empty stream URL → snapshot scanner path only
                                         get_printer_state().set_webcam_available(true, "", url,
                                                                                  false, false);
                                         return;
