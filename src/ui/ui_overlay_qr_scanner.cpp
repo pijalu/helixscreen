@@ -207,15 +207,15 @@ void QrScannerOverlay::on_deactivate() {
     // early ensures queued lambdas are skipped. (#632)
     lifetime_.invalidate();
 
-    stop_scanning();
-    snapshot_scanner_.reset();
-
-    // Clear image source to release dangling frame ref, then null the pointer
-    // so any in-flight lambda that slips past the token check hits the null guard.
+    // Clear image source BEFORE stopping scanner — scanner's stop() frees the
+    // frame buffers, and LVGL must not hold a dangling pointer to them.
     if (viewfinder_ && lv_is_initialized()) {
         lv_image_set_src(viewfinder_, nullptr);
     }
     viewfinder_ = nullptr;
+
+    stop_scanning();
+    snapshot_scanner_.reset();
 
     // Cancel pending timers
     if (success_timer_) {
@@ -537,6 +537,11 @@ void QrScannerOverlay::on_spool_found(const SpoolInfo& spool) {
     spdlog::info("[{}] Spool found: #{} {} {}", get_name(),
                  spool.id, spool.vendor, spool.material);
 
+    // Clear viewfinder image BEFORE stopping — stop frees the frame buffers
+    if (viewfinder_ && lv_is_initialized()) {
+        lv_image_set_src(viewfinder_, nullptr);
+    }
+
     // Stop scanning immediately
     stop_scanning();
 
@@ -560,10 +565,12 @@ void QrScannerOverlay::on_spool_found(const SpoolInfo& spool) {
             if (!d->token.expired()) {
                 // Null member before delete to prevent double-free in on_deactivate()
                 get_qr_scanner_overlay().success_timer_ = nullptr;
+                // Close the QR overlay FIRST, then fire callback — so the
+                // caller's UI (e.g., edit modal) is back in front when populated
+                NavigationManager::instance().go_back();
                 if (d->callback) {
                     d->callback(d->spool);
                 }
-                NavigationManager::instance().go_back();
             }
             delete d;
             lv_timer_delete(timer);

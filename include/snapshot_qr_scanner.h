@@ -78,11 +78,11 @@ class SnapshotQrScanner {
     QrDecoder qr_decoder_;
     std::vector<uint8_t> grayscale_buf_;
 
-    static constexpr int kPollIntervalMs = 1500;
+    static constexpr int kPollIntervalMs = 1000;
     static constexpr int kPollStepMs = 100;
     static constexpr int kMaxBackoffMs = 5000;
     static constexpr int kHttpTimeoutSec = 10;
-    static constexpr int kQrMaxDimension = 480;
+    static constexpr int kQrMaxDimension = 1280;
     static constexpr int kMaxImageDimension = 4096;
     static constexpr size_t kMaxResponseBytes = 8 * 1024 * 1024;
 };

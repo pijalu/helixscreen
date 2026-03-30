@@ -39,23 +39,26 @@ void SnapshotQrScanner::start(const std::string& snapshot_url,
 }
 
 void SnapshotQrScanner::stop() {
-    if (!running_.exchange(false)) return;
-
+    bool was_running = running_.exchange(false);
     lifetime_.invalidate();
 
+    // Always join if the thread is joinable (even if running_ was already false —
+    // the poll thread may have self-stopped after a successful QR decode)
     if (poll_thread_.joinable()) {
         poll_thread_.join();
     }
 
-    free_frame_bufs();
-    grayscale_buf_.clear();
-    grayscale_buf_.shrink_to_fit();
+    if (was_running || display_buf_ || decode_buf_) {
+        free_frame_bufs();
+        grayscale_buf_.clear();
+        grayscale_buf_.shrink_to_fit();
 
-    on_frame_ = nullptr;
-    on_qr_result_ = nullptr;
-    on_error_ = nullptr;
+        on_frame_ = nullptr;
+        on_qr_result_ = nullptr;
+        on_error_ = nullptr;
 
-    spdlog::info("[SnapshotQR] Stopped and freed all buffers");
+        spdlog::info("[SnapshotQR] Stopped and freed all buffers");
+    }
 }
 
 void SnapshotQrScanner::frame_consumed() {
@@ -94,7 +97,7 @@ bool SnapshotQrScanner::fetch_and_decode() {
 
     auto token = lifetime_.token();
 
-    spdlog::trace("[SnapshotQR] Fetching snapshot from {}", snapshot_url_);
+    spdlog::info("[SnapshotQR] Fetching snapshot from {}", snapshot_url_);
 
     // HTTP GET the snapshot JPEG
     auto req = std::make_shared<HttpRequest>();
@@ -195,9 +198,13 @@ bool SnapshotQrScanner::fetch_and_decode() {
     }
 
     // Run QR decode
+    spdlog::info("[SnapshotQR] Running QR decode on {}x{} grayscale", qr_w, qr_h);
     auto result = qr_decoder_.decode(grayscale_buf_.data(), qr_w, qr_h);
     if (result.success && result.spool_id >= 0) {
         spdlog::info("[SnapshotQR] QR decoded: spool_id={}", result.spool_id);
+        // Stop polling before firing callback — callback may trigger overlay close
+        // which calls stop() → join() while we're still on the poll thread
+        running_ = false;
         if (on_qr_result_) {
             on_qr_result_(result.spool_id);
         }
