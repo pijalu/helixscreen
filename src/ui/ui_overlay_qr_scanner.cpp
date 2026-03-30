@@ -245,6 +245,26 @@ void QrScannerOverlay::start_scanning() {
     lv_subject_set_int(&success_subject_, 0);
     update_status("Point camera at QR code on spool");
 
+    // On moving-bed printers, lower the bed to give room for QR scanning
+    auto& state = get_printer_state();
+    bool bed_moves = lv_subject_get_int(state.get_printer_bed_moves_subject()) != 0;
+    const char* homed = lv_subject_get_string(state.get_homed_axes_subject());
+    bool z_homed = homed && strchr(homed, 'z') != nullptr;
+
+    if (bed_moves && z_homed) {
+        int z_centimm = lv_subject_get_int(state.get_position_z_subject());
+        double z_mm = z_centimm / 100.0;
+        constexpr double kQrScanZ = 150.0;
+        if (z_mm < kQrScanZ) {
+            auto* api = get_moonraker_api();
+            if (api) {
+                spdlog::info("[QR Scanner] Lowering bed from {:.0f}mm to {:.0f}mm for scanning",
+                             z_mm, kQrScanZ);
+                api->motion().move_to_position('Z', kQrScanZ, 600.0, nullptr, nullptr);
+            }
+        }
+    }
+
 #if HELIX_HAS_CAMERA
     // Start camera if webcam URL is available
     std::string stream_url, snapshot_url;
