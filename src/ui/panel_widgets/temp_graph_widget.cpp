@@ -124,12 +124,10 @@ void TempGraphWidget::on_size_changed(int colspan, int rowspan, int /*width_px*/
 
 void TempGraphWidget::on_activate() {
     paused_ = false;
-    if (controller_) controller_->resume();
 }
 
 void TempGraphWidget::on_deactivate() {
     paused_ = true;
-    if (controller_) controller_->pause();
 }
 
 bool TempGraphWidget::on_edit_configure() {

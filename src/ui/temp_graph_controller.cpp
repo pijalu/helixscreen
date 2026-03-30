@@ -296,7 +296,11 @@ void TempGraphController::setup_observers() {
         }
     }
 
-    // Observe printer connection state to clear/rebuild on disconnect/reconnect
+    // Observe printer connection state to clear/rebuild on disconnect/reconnect.
+    // Set last_rebuild_time_ to now so the debounce skips the initial notification
+    // (observer fires immediately with current state, but we just constructed).
+    last_rebuild_time_ = std::chrono::steady_clock::now();
+
     auto* conn_subj = ps.get_printer_connection_state_subject();
     if (conn_subj) {
         auto conn_token = lifetime_.token();
