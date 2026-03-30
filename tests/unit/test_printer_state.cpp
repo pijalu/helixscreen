@@ -1094,17 +1094,17 @@ TEST_CASE("PrinterState: Observer fires when klippy state changes", "[state][kli
     REQUIRE(user_data[1] == static_cast<int>(KlippyState::SHUTDOWN));
 
     // Change state via sync call (direct, no async)
-    state.set_klippy_state_sync(KlippyState::SHUTDOWN);
-
-    // Observer should have fired with new value
-    REQUIRE(user_data[0] == 2);
-    REQUIRE(user_data[1] == static_cast<int>(KlippyState::SHUTDOWN));
-
-    // Change again
+    // Subject starts as SHUTDOWN, so set a different value to trigger notification
     state.set_klippy_state_sync(KlippyState::READY);
 
-    REQUIRE(user_data[0] == 3);
+    REQUIRE(user_data[0] == 2);
     REQUIRE(user_data[1] == static_cast<int>(KlippyState::READY));
+
+    // Change again
+    state.set_klippy_state_sync(KlippyState::ERROR);
+
+    REQUIRE(user_data[0] == 3);
+    REQUIRE(user_data[1] == static_cast<int>(KlippyState::ERROR));
 
     lv_observer_remove(observer);
 }
