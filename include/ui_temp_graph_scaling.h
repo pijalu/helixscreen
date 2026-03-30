@@ -16,7 +16,7 @@
  * @brief Calculate the optimal Y-axis maximum for a temperature graph
  *
  * Implements dynamic scaling with hysteresis:
- * - Expands when nozzle_temp > 90% of current_max (in 50°C steps up to 300°C)
+ * - Expands when nozzle_temp > 80% of current_max (in 50°C steps up to 300°C)
  * - Shrinks when max(nozzle, bed) < 60% of (current_max - 50) (down to 150°C minimum)
  *
  * @param current_max Current Y-axis maximum (typically 150-300°C)
@@ -24,14 +24,14 @@
  * @param bed_temp Current bed temperature in °C
  * @return New Y-axis maximum (unchanged if no scaling needed)
  *
- * @note The asymmetric thresholds (90% expand, 60% shrink) create a dead zone
+ * @note The asymmetric thresholds (80% expand, 60% shrink) create a dead zone
  *       that prevents rapid oscillation when temps hover near a boundary.
  */
 inline float calculate_mini_graph_y_max(float current_max, float nozzle_temp, float bed_temp) {
     constexpr float Y_MAX_MIN = 150.0f;      // Minimum Y-axis max (good for room temp visibility)
     constexpr float Y_MAX_MAX = 300.0f;      // Maximum Y-axis max (covers highest nozzle temps)
     constexpr float Y_STEP = 50.0f;          // Step size for scaling
-    constexpr float EXPAND_THRESHOLD = 0.9f; // Expand at 90% of current max
+    constexpr float EXPAND_THRESHOLD = 0.8f; // Expand at 80% of current max (leaves ~20% headroom)
     constexpr float SHRINK_THRESHOLD = 0.6f; // Shrink at 60% of previous step
 
     float max_temp = (nozzle_temp > bed_temp) ? nozzle_temp : bed_temp;
