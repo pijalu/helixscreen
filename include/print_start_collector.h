@@ -233,6 +233,7 @@ class PrintStartCollector : public std::enable_shared_from_this<PrintStartCollec
     // Phase timing for duration prediction (protected by state_mutex_)
     std::map<int, std::chrono::steady_clock::time_point> phase_enter_times_;
     helix::PreprintPredictor predictor_;
+    int loaded_temp_bucket_{0};
 
     // LVGL timer for periodic ETA updates (main thread only)
     lv_timer_t* eta_timer_ = nullptr;

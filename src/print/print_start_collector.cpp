@@ -363,10 +363,12 @@ void PrintStartCollector::check_fallback_completion() {
         }
     }
 
-    // Fallback 2: Progress threshold with temps at target
-    // 2% progress means file has advanced past typical preamble/macros
+    // Fallback 2: Progress advancing with temps at target
+    // Any progress increase from baseline while temps are ready means actual printing
+    // has started. On K1C, progress stays at 0 during the entire pre-print macro then
+    // jumps once the first layer begins.
     int progress = lv_subject_get_int(state_.get_print_progress_subject());
-    if (progress >= 2 && progress != baseline_progress_ && temps_ready) {
+    if (progress > baseline_progress_ && progress >= 1 && temps_ready) {
         spdlog::info("[PrintStartCollector] Fallback: progress {}% with temps ready (baseline={})",
                      progress, baseline_progress_);
         update_phase(PrintStartPhase::COMPLETE, lv_tr("Starting Print..."));
@@ -380,12 +382,12 @@ void PrintStartCollector::check_fallback_completion() {
                       (bed_target <= 0 || bed_temp >= static_cast<int>(bed_target * 0.9));
 
     auto elapsed = std::chrono::steady_clock::now() - start_time;
-    bool has_profile_matches = false;
-    {
-        std::lock_guard<std::mutex> lock(state_mutex_);
-        has_profile_matches = !detected_phases_.empty();
-    }
-    auto timeout = has_profile_matches ? std::chrono::seconds(300) : FALLBACK_TIMEOUT;
+    // Use extended timeout when a printer-specific profile is loaded, even if no
+    // gcode response patterns have matched yet. On printers like the K1C, the
+    // websocket delivers almost no gcode responses, so detected_phases_ stays
+    // empty — but we still know the pre-print takes 200+ seconds.
+    bool has_profile = profile_ && profile_->name().find("Generic") == std::string::npos;
+    auto timeout = has_profile ? std::chrono::seconds(300) : FALLBACK_TIMEOUT;
     if (elapsed > timeout && temps_near) {
         auto elapsed_sec = std::chrono::duration_cast<std::chrono::seconds>(elapsed).count();
         spdlog::info("[PrintStartCollector] Fallback: timeout ({} sec)", elapsed_sec);
@@ -571,6 +573,7 @@ bool PrintStartCollector::check_helix_phase_signal(const std::string& line) {
 void PrintStartCollector::update_phase(PrintStartPhase phase, const char* message) {
     int progress;
     bool should_save = false;
+    bool has_predictions = false;
     {
         std::lock_guard<std::mutex> lock(state_mutex_);
         if (phase == PrintStartPhase::COMPLETE && current_phase_ == PrintStartPhase::COMPLETE)
@@ -591,7 +594,18 @@ void PrintStartCollector::update_phase(PrintStartPhase phase, const char* messag
         }
 
         progress = calculate_progress_locked();
+        has_predictions = predictor_.has_predictions();
     }
+
+    // When predictor has data, time-based progress in update_eta_display() is the
+    // sole progress source. Don't override it with phase-weight progress here.
+    if (has_predictions && phase != PrintStartPhase::COMPLETE) {
+        auto* subj = state_.get_print_start_progress_subject();
+        if (subj) {
+            progress = lv_subject_get_int(subj);
+        }
+    }
+
     // Call PrinterState outside the lock to avoid potential deadlocks
     state_.set_print_start_state(phase, message, progress);
 
@@ -745,6 +759,20 @@ void PrintStartCollector::update_eta_display() {
     }
     state_.set_preprint_elapsed_seconds(total_elapsed);
 
+    // Re-check temp bucket — on printers like K1C, nozzle target starts at an
+    // intermediate value (170°C during CX_ROUGH_G28) and only reaches the final
+    // target (e.g., 260°C for ASA) later. Reload predictions if bucket changed.
+    {
+        int ext_target = lv_subject_get_int(state_.get_active_extruder_target_subject()) / 10;
+        int current_bucket = (ext_target > 0) ? ((ext_target + 12) / 25) * 25 : 0;
+        if (current_bucket != loaded_temp_bucket_ && current_bucket > 0) {
+            spdlog::info("[PrintStartCollector] Temp bucket changed: {}°C → {}°C, reloading "
+                         "predictions",
+                         loaded_temp_bucket_, current_bucket);
+            load_prediction_history();
+        }
+    }
+
     if (!predictor_.has_predictions()) {
         return;
     }
@@ -798,6 +826,7 @@ void PrintStartCollector::load_prediction_history() {
 
     std::lock_guard<std::mutex> lock(state_mutex_);
     predictor_.load_entries(entries, temp_bucket);
+    loaded_temp_bucket_ = temp_bucket;
 
     if (!entries.empty()) {
         spdlog::debug("[PrintStartCollector] Loaded {} prediction entries for {}°C bucket "
