@@ -192,6 +192,11 @@ static void draw_gradient_cb(lv_event_t* e) {
         if (!y_data)
             continue;
 
+        // The chart uses a circular buffer — start_point is where the next value
+        // will be written, so it's also the index of the oldest visible point.
+        // LVGL's line renderer accounts for this offset; we must do the same.
+        uint32_t sp = lv_chart_get_x_start_point(graph->chart, meta->chart_series);
+
         // Per-segment gradient: draw a vertical gradient strip for each pair of adjacent points.
         // This ensures the gradient hugs the line shape instead of a single rectangle from peak.
         lv_draw_fill_dsc_t fill_dsc;
@@ -208,8 +213,8 @@ static void draw_gradient_cb(lv_event_t* e) {
         fill_dsc.grad.stops[1].frac = 255;
 
         for (int32_t i = 0; i < pc - 1; i++) {
-            int32_t v0 = y_data[i];
-            int32_t v1 = y_data[i + 1];
+            int32_t v0 = y_data[(sp + i) % pc];
+            int32_t v1 = y_data[(sp + i + 1) % pc];
 
             // Skip if both points have no data
             if (v0 == LV_CHART_POINT_NONE && v1 == LV_CHART_POINT_NONE)
