@@ -2982,10 +2982,12 @@ void MoonrakerClientMock::dispatch_historical_temperatures() {
         "[MoonrakerClientMock] Dispatching {} historical temperature samples ({} seconds)",
         HISTORY_SAMPLES, HISTORY_DURATION_MS / 1000);
 
-    // Simulate cooling from a recent print — much more useful for debugging temp graphs.
-    // Nozzle starts at ~200°C, bed at ~60°C, both cooling toward room temp.
-    constexpr double START_EXTRUDER_TEMP = 200.0;
-    constexpr double START_BED_TEMP = 60.0;
+    // Simulate tail end of cooldown from a recent print.
+    // Gentle slope — nozzle from ~120°C to ~90°C, bed from ~50°C to ~38°C over 2.5 min.
+    constexpr double START_EXTRUDER_TEMP = 120.0;
+    constexpr double END_EXTRUDER_TEMP = 90.0;
+    constexpr double START_BED_TEMP = 50.0;
+    constexpr double END_BED_TEMP = 38.0;
 
     // Copy callbacks to avoid holding lock during dispatch
     std::vector<std::function<void(const json&)>> callbacks_copy;
@@ -3014,20 +3016,13 @@ void MoonrakerClientMock::dispatch_historical_temperatures() {
         return (static_cast<double>(state) / 0x3fffffff) - 1.0;
     };
 
-    // Thermal time constants — sized so temps are still interesting at end of 2.5min window
-    // (nozzle ~100°C, bed ~40°C at t=150s, gradual ramp not cliff)
-    constexpr double ext_tau = 180.0;
-    constexpr double bed_tau = 350.0;
-
     for (int i = 0; i < HISTORY_SAMPLES; i++) {
         double timestamp_sec = -((HISTORY_SAMPLES - i) * dt_sec);
 
-        // Exponential cooldown from print temps toward room temp
-        double elapsed_sec = i * dt_sec;
-        double ext_temp_hist =
-            ROOM_TEMP + (START_EXTRUDER_TEMP - ROOM_TEMP) * std::exp(-elapsed_sec / ext_tau);
-        double bed_temp_hist =
-            ROOM_TEMP + (START_BED_TEMP - ROOM_TEMP) * std::exp(-elapsed_sec / bed_tau);
+        // Linear ramp from start to end temp over the history window
+        double progress = static_cast<double>(i) / HISTORY_SAMPLES;
+        double ext_temp_hist = START_EXTRUDER_TEMP + (END_EXTRUDER_TEMP - START_EXTRUDER_TEMP) * progress;
+        double bed_temp_hist = START_BED_TEMP + (END_BED_TEMP - START_BED_TEMP) * progress;
 
         // Add realistic sensor noise (±0.3°C for extruder, ±0.2°C for bed)
         double ext_noise = pseudo_random(i * 2) * 0.3;
@@ -3077,10 +3072,9 @@ void MoonrakerClientMock::dispatch_historical_temperatures() {
         }
     }
 
-    // Compute final temps (end of cooldown period) and store as current
-    double total_sec = HISTORY_SAMPLES * dt_sec;
-    double final_ext = ROOM_TEMP + (START_EXTRUDER_TEMP - ROOM_TEMP) * std::exp(-total_sec / ext_tau);
-    double final_bed = ROOM_TEMP + (START_BED_TEMP - ROOM_TEMP) * std::exp(-total_sec / bed_tau);
+    // Store final temps as current
+    double final_ext = END_EXTRUDER_TEMP;
+    double final_bed = END_BED_TEMP;
     extruder_temp_.store(final_ext);
     bed_temp_.store(final_bed);
     if (has_chamber_sensor()) {
