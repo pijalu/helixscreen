@@ -374,14 +374,16 @@ int MoonrakerClient::connect(const char* url, std::function<void()> on_connected
             reset_notification_flags();
 
             // Invoke user callback with exception safety
-            try {
-                on_connected();
-            } catch (const std::exception& e) {
-                LOG_ERROR_INTERNAL("[Moonraker Client] Connection callback threw exception: {}",
-                                   e.what());
-            } catch (...) {
-                LOG_ERROR_INTERNAL(
-                    "[Moonraker Client] Connection callback threw unknown exception");
+            if (on_connected) {
+                try {
+                    on_connected();
+                } catch (const std::exception& e) {
+                    LOG_ERROR_INTERNAL("[Moonraker Client] Connection callback threw exception: {}",
+                                       e.what());
+                } catch (...) {
+                    LOG_ERROR_INTERNAL(
+                        "[Moonraker Client] Connection callback threw unknown exception");
+                }
             }
         } catch (const std::exception& e) {
             LOG_ERROR_INTERNAL("[Moonraker Client] onopen callback threw unexpected exception: {}",
@@ -534,15 +536,17 @@ int MoonrakerClient::connect(const char* url, std::function<void()> on_connected
                                true);
 
                     // Invoke user callback with exception safety
-                    try {
-                        on_disconnected();
-                    } catch (const std::exception& e) {
-                        LOG_ERROR_INTERNAL(
-                            "[Moonraker Client] Disconnection callback threw exception: {}",
-                            e.what());
-                    } catch (...) {
-                        LOG_ERROR_INTERNAL(
-                            "[Moonraker Client] Disconnection callback threw unknown exception");
+                    if (on_disconnected) {
+                        try {
+                            on_disconnected();
+                        } catch (const std::exception& e) {
+                            LOG_ERROR_INTERNAL(
+                                "[Moonraker Client] Disconnection callback threw exception: {}",
+                                e.what());
+                        } catch (...) {
+                            LOG_ERROR_INTERNAL(
+                                "[Moonraker Client] Disconnection callback threw unknown exception");
+                        }
                     }
                 }
                 // Klippy reconnected to Moonraker
@@ -556,14 +560,17 @@ int MoonrakerClient::connect(const char* url, std::function<void()> on_connected
                     emit_event(MoonrakerEventType::KLIPPY_READY, "Klipper ready", false);
 
                     // Invoke user callback with exception safety
-                    try {
-                        on_connected();
-                    } catch (const std::exception& e) {
-                        LOG_ERROR_INTERNAL(
-                            "[Moonraker Client] Connection callback threw exception: {}", e.what());
-                    } catch (...) {
-                        LOG_ERROR_INTERNAL(
-                            "[Moonraker Client] Connection callback threw unknown exception");
+                    if (on_connected) {
+                        try {
+                            on_connected();
+                        } catch (const std::exception& e) {
+                            LOG_ERROR_INTERNAL(
+                                "[Moonraker Client] Connection callback threw exception: {}",
+                                e.what());
+                        } catch (...) {
+                            LOG_ERROR_INTERNAL(
+                                "[Moonraker Client] Connection callback threw unknown exception");
+                        }
                     }
                 }
             }
@@ -625,14 +632,17 @@ int MoonrakerClient::connect(const char* url, std::function<void()> on_connected
                 }
 
                 // Invoke user callback with exception safety
-                try {
-                    on_disconnected();
-                } catch (const std::exception& e) {
-                    LOG_ERROR_INTERNAL(
-                        "[Moonraker Client] Disconnection callback threw exception: {}", e.what());
-                } catch (...) {
-                    LOG_ERROR_INTERNAL(
-                        "[Moonraker Client] Disconnection callback threw unknown exception");
+                if (on_disconnected) {
+                    try {
+                        on_disconnected();
+                    } catch (const std::exception& e) {
+                        LOG_ERROR_INTERNAL(
+                            "[Moonraker Client] Disconnection callback threw exception: {}",
+                            e.what());
+                    } catch (...) {
+                        LOG_ERROR_INTERNAL(
+                            "[Moonraker Client] Disconnection callback threw unknown exception");
+                    }
                 }
             } else {
                 spdlog::debug(
@@ -646,14 +656,17 @@ int MoonrakerClient::connect(const char* url, std::function<void()> on_connected
                 // Call on_disconnected() to notify about connection failure
                 // Callers can use their own state tracking (e.g. connection_testing flag)
                 // to distinguish initial connection failures from reconnection scenarios
-                try {
-                    on_disconnected();
-                } catch (const std::exception& e) {
-                    LOG_ERROR_INTERNAL(
-                        "[Moonraker Client] Disconnection callback threw exception: {}", e.what());
-                } catch (...) {
-                    LOG_ERROR_INTERNAL(
-                        "[Moonraker Client] Disconnection callback threw unknown exception");
+                if (on_disconnected) {
+                    try {
+                        on_disconnected();
+                    } catch (const std::exception& e) {
+                        LOG_ERROR_INTERNAL(
+                            "[Moonraker Client] Disconnection callback threw exception: {}",
+                            e.what());
+                    } catch (...) {
+                        LOG_ERROR_INTERNAL(
+                            "[Moonraker Client] Disconnection callback threw unknown exception");
+                    }
                 }
             }
         } catch (const std::exception& e) {
