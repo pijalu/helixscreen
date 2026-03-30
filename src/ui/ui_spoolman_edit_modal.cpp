@@ -356,7 +356,8 @@ bool SpoolEditModal::is_dirty() const {
            std::abs(working_spool_.price - original_spool_.price) > 0.001 ||
            working_spool_.lot_nr != original_spool_.lot_nr ||
            working_spool_.location != original_spool_.location ||
-           working_spool_.comment != original_spool_.comment;
+           working_spool_.comment != original_spool_.comment ||
+           working_spool_.color_hex != original_spool_.color_hex;
 }
 
 bool SpoolEditModal::validate_fields() {
@@ -497,6 +498,9 @@ void SpoolEditModal::handle_save() {
     if (std::abs(working_spool_.spool_weight_g - original_spool_.spool_weight_g) > 0.1) {
         filament_patch["spool_weight"] = working_spool_.spool_weight_g;
     }
+    if (working_spool_.color_hex != original_spool_.color_hex) {
+        filament_patch["color_hex"] = working_spool_.color_hex;
+    }
 
     int spool_id = working_spool_.id;
     int filament_id = working_spool_.filament_id;
@@ -552,6 +556,40 @@ void SpoolEditModal::handle_save() {
     }
 }
 
+void SpoolEditModal::handle_color_clicked() {
+    // Parse current color_hex to get initial RGB
+    uint32_t initial_color = 0x808080;
+    if (!working_spool_.color_hex.empty()) {
+        const char* hex = working_spool_.color_hex.c_str();
+        if (hex[0] == '#')
+            hex++;
+        unsigned int val = 0;
+        if (sscanf(hex, "%x", &val) == 1) {
+            initial_color = val;
+        }
+    }
+
+    color_picker_.set_color_callback([this](uint32_t color_rgb, const std::string& color_name) {
+        // Update working spool with new color
+        char hex_buf[8];
+        snprintf(hex_buf, sizeof(hex_buf), "%06X", color_rgb);
+        working_spool_.color_hex = std::string("#") + hex_buf;
+        working_spool_.color_name = color_name;
+
+        // Update color label and spool preview
+        lv_obj_t* color_label = find_widget("color_label");
+        if (color_label) {
+            std::string display = color_name.empty() ? working_spool_.color_hex : color_name;
+            lv_label_set_text(color_label, display.c_str());
+        }
+        update_spool_preview();
+        update_save_button_text();
+    });
+
+    lv_obj_t* parent = dialog_ ? lv_obj_get_parent(dialog_) : lv_screen_active();
+    color_picker_.show_with_color(parent, initial_color);
+}
+
 #if HELIX_HAS_LABEL_PRINTER
 void SpoolEditModal::handle_print_label() {
     auto& settings = helix::LabelPrinterSettingsManager::instance();
@@ -591,6 +629,7 @@ void SpoolEditModal::register_callbacks() {
     lv_xml_register_event_cb(nullptr, "spoolman_edit_field_changed_cb", on_field_changed_cb);
     lv_xml_register_event_cb(nullptr, "spoolman_edit_reset_cb", on_reset_cb);
     lv_xml_register_event_cb(nullptr, "spoolman_edit_save_cb", on_save_cb);
+    lv_xml_register_event_cb(nullptr, "spoolman_edit_color_clicked_cb", on_color_clicked_cb);
 #if HELIX_HAS_LABEL_PRINTER
     lv_xml_register_event_cb(nullptr, "spoolman_edit_print_label_cb", on_print_label_cb);
 #endif
@@ -639,6 +678,13 @@ void SpoolEditModal::on_save_cb(lv_event_t* e) {
     auto* self = get_instance_from_event(e);
     if (self) {
         self->handle_save();
+    }
+}
+
+void SpoolEditModal::on_color_clicked_cb(lv_event_t* e) {
+    auto* self = get_instance_from_event(e);
+    if (self) {
+        self->handle_color_clicked();
     }
 }
 

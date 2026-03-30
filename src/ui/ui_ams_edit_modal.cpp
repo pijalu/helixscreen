@@ -217,6 +217,10 @@ bool AmsEditModal::show_for_slot(lv_obj_t* parent, int slot_index, const SlotInf
 // ============================================================================
 
 void AmsEditModal::on_show() {
+    // Re-set active instance here — if Modal::show() had to hide() a previous
+    // instance first, on_hide() would have cleared s_active_instance_
+    s_active_instance_ = this;
+
     // Fetch vendor list from Spoolman (async, will update dropdown when ready)
     fetch_vendors_from_spoolman();
 

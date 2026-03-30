@@ -32,6 +32,19 @@ class SpoolmanListView {
     static constexpr int POOL_SIZE = 20;  ///< Fixed pool of spool row widgets
     static constexpr int BUFFER_ROWS = 2; ///< Extra rows above/below viewport
 
+    /// Cached child widget pointers for a pool row (avoids lv_obj_find_by_name per scroll)
+    struct RowWidgets {
+        lv_obj_t* root = nullptr;
+        lv_obj_t* canvas = nullptr;
+        lv_obj_t* id_label = nullptr;
+        lv_obj_t* name_label = nullptr;
+        lv_obj_t* vendor_label = nullptr;
+        lv_obj_t* weight_label = nullptr;
+        lv_obj_t* percent_label = nullptr;
+        lv_obj_t* low_stock_icon = nullptr;
+        lv_obj_t* active_indicator = nullptr;
+    };
+
     SpoolmanListView() = default;
     ~SpoolmanListView();
 
@@ -109,7 +122,7 @@ class SpoolmanListView {
     lv_obj_t* trailing_spacer_ = nullptr;
 
     // === Pool State ===
-    std::vector<lv_obj_t*> pool_;
+    std::vector<RowWidgets> pool_;
     std::vector<ssize_t> pool_indices_; ///< Maps pool slot -> spool index in data vector
 
     // === Visible Range ===
@@ -128,7 +141,7 @@ class SpoolmanListView {
     // === Internal Methods ===
     void init_pool();
     void create_spacers();
-    void configure_row(lv_obj_t* row, const SpoolInfo& spool, int active_spool_id);
+    void configure_row(RowWidgets& rw, const SpoolInfo& spool, int active_spool_id);
 };
 
 } // namespace helix::ui

@@ -79,9 +79,23 @@ void SpoolmanListView::cleanup() {
     spdlog::debug("[SpoolmanListView] cleanup()");
 }
 
+static SpoolmanListView::RowWidgets cache_row_widgets(lv_obj_t* row) {
+    SpoolmanListView::RowWidgets rw;
+    rw.root = row;
+    rw.canvas = lv_obj_find_by_name(row, "spool_canvas");
+    rw.id_label = lv_obj_find_by_name(row, "spool_id_label");
+    rw.name_label = lv_obj_find_by_name(row, "spool_name");
+    rw.vendor_label = lv_obj_find_by_name(row, "spool_vendor");
+    rw.weight_label = lv_obj_find_by_name(row, "weight_text");
+    rw.percent_label = lv_obj_find_by_name(row, "percent_text");
+    rw.low_stock_icon = lv_obj_find_by_name(row, "low_stock_indicator");
+    rw.active_indicator = lv_obj_find_by_name(row, "active_indicator");
+    return rw;
+}
+
 void SpoolmanListView::reset() {
-    for (auto* row : pool_) {
-        lv_obj_add_flag(row, LV_OBJ_FLAG_HIDDEN);
+    for (auto& rw : pool_) {
+        lv_obj_add_flag(rw.root, LV_OBJ_FLAG_HIDDEN);
     }
     std::fill(pool_indices_.begin(), pool_indices_.end(), static_cast<ssize_t>(-1));
     if (leading_spacer_) {
@@ -118,7 +132,7 @@ void SpoolmanListView::init_pool() {
 
         if (row) {
             lv_obj_add_flag(row, LV_OBJ_FLAG_HIDDEN);
-            pool_.push_back(row);
+            pool_.push_back(cache_row_widgets(row));
         }
     }
 
@@ -151,83 +165,76 @@ void SpoolmanListView::create_spacers() {
 // Row Configuration
 // ============================================================================
 
-void SpoolmanListView::configure_row(lv_obj_t* row, const SpoolInfo& spool, int active_spool_id) {
-    if (!row) {
+void SpoolmanListView::configure_row(RowWidgets& rw, const SpoolInfo& spool,
+                                     int active_spool_id) {
+    if (!rw.root) {
         return;
     }
 
     // Store spool ID in user_data for click handling
-    lv_obj_set_user_data(row, reinterpret_cast<void*>(static_cast<intptr_t>(spool.id)));
+    lv_obj_set_user_data(rw.root, reinterpret_cast<void*>(static_cast<intptr_t>(spool.id)));
 
     // Update 3D spool canvas
-    lv_obj_t* canvas = lv_obj_find_by_name(row, "spool_canvas");
-    if (canvas) {
+    if (rw.canvas) {
         lv_color_t color =
             parse_spool_color(spool.color_hex, theme_manager_get_color("text_muted"));
-        ui_spool_canvas_set_color(canvas, color);
+        ui_spool_canvas_set_color(rw.canvas, color);
 
         float fill_level = static_cast<float>(spool.remaining_percent()) / 100.0f;
-        ui_spool_canvas_set_fill_level(canvas, fill_level);
-        ui_spool_canvas_redraw(canvas);
+        ui_spool_canvas_set_fill_level(rw.canvas, fill_level);
+        ui_spool_canvas_redraw(rw.canvas);
     }
 
     // Update spool ID label
-    lv_obj_t* id_label = lv_obj_find_by_name(row, "spool_id_label");
-    if (id_label) {
+    if (rw.id_label) {
         char id_buf[16];
         snprintf(id_buf, sizeof(id_buf), "#%d", spool.id);
-        lv_label_set_text(id_label, id_buf);
+        lv_label_set_text(rw.id_label, id_buf);
     }
 
     // Update spool name (Material - Color)
-    lv_obj_t* name_label = lv_obj_find_by_name(row, "spool_name");
-    if (name_label) {
-        lv_label_set_text(name_label, spool.display_name().c_str());
+    if (rw.name_label) {
+        lv_label_set_text(rw.name_label, spool.display_name().c_str());
     }
 
     // Update vendor (with location if available)
-    lv_obj_t* vendor_label = lv_obj_find_by_name(row, "spool_vendor");
-    if (vendor_label) {
+    if (rw.vendor_label) {
         std::string vendor_text = spool.vendor.empty() ? "Unknown" : spool.vendor;
         if (!spool.location.empty()) {
             vendor_text += " \xC2\xB7 " + spool.location; // middle dot: U+00B7
         }
-        lv_label_set_text(vendor_label, vendor_text.c_str());
+        lv_label_set_text(rw.vendor_label, vendor_text.c_str());
     }
 
     // Update weight
-    lv_obj_t* weight_label = lv_obj_find_by_name(row, "weight_text");
-    if (weight_label) {
+    if (rw.weight_label) {
         char weight_buf[32];
         snprintf(weight_buf, sizeof(weight_buf), "%.0fg", spool.remaining_weight_g);
-        lv_label_set_text(weight_label, weight_buf);
+        lv_label_set_text(rw.weight_label, weight_buf);
     }
 
     // Update percentage
-    lv_obj_t* percent_label = lv_obj_find_by_name(row, "percent_text");
-    if (percent_label) {
+    if (rw.percent_label) {
         char percent_buf[16];
         helix::format::format_percent(static_cast<int>(spool.remaining_percent()), percent_buf,
                                       sizeof(percent_buf));
-        lv_label_set_text(percent_label, percent_buf);
+        lv_label_set_text(rw.percent_label, percent_buf);
     }
 
     // Low stock warning
-    lv_obj_t* low_stock_icon = lv_obj_find_by_name(row, "low_stock_indicator");
-    if (low_stock_icon) {
-        lv_obj_set_flag(low_stock_icon, LV_OBJ_FLAG_HIDDEN, !spool.is_low());
+    if (rw.low_stock_icon) {
+        lv_obj_set_flag(rw.low_stock_icon, LV_OBJ_FLAG_HIDDEN, !spool.is_low());
     }
 
     // Active spool: show checkmark + highlight row with checked state
     bool is_active = (spool.id == active_spool_id);
-    lv_obj_t* active_icon = lv_obj_find_by_name(row, "active_indicator");
-    if (active_icon) {
-        lv_obj_set_flag(active_icon, LV_OBJ_FLAG_HIDDEN, !is_active);
+    if (rw.active_indicator) {
+        lv_obj_set_flag(rw.active_indicator, LV_OBJ_FLAG_HIDDEN, !is_active);
     }
-    lv_obj_set_state(row, LV_STATE_CHECKED, is_active);
+    lv_obj_set_state(rw.root, LV_STATE_CHECKED, is_active);
 
     // Show the row
-    lv_obj_remove_flag(row, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_remove_flag(rw.root, LV_OBJ_FLAG_HIDDEN);
 }
 
 // ============================================================================
@@ -253,11 +260,10 @@ void SpoolmanListView::populate(const std::vector<SpoolInfo>& spools, int active
 
     // Cache row dimensions on first populate
     if (cached_row_height_ == 0 && !pool_.empty() && !spools.empty()) {
-        lv_obj_t* row = pool_[0];
-        configure_row(row, spools[0], active_spool_id);
+        configure_row(pool_[0], spools[0], active_spool_id);
         lv_obj_update_layout(container_);
 
-        cached_row_height_ = lv_obj_get_height(row);
+        cached_row_height_ = lv_obj_get_height(pool_[0].root);
         cached_row_gap_ = lv_obj_get_style_pad_row(container_, LV_PART_MAIN);
 
         spdlog::debug("[SpoolmanListView] Cached row dimensions: height={} gap={}",
@@ -286,8 +292,8 @@ void SpoolmanListView::populate(const std::vector<SpoolInfo>& spools, int active
 
 void SpoolmanListView::update_visible(const std::vector<SpoolInfo>& spools, int active_spool_id) {
     if (!container_ || pool_.empty() || spools.empty()) {
-        for (auto* row : pool_) {
-            lv_obj_add_flag(row, LV_OBJ_FLAG_HIDDEN);
+        for (auto& rw : pool_) {
+            lv_obj_add_flag(rw.root, LV_OBJ_FLAG_HIDDEN);
         }
         if (leading_spacer_) {
             lv_obj_set_height(leading_spacer_, 0);
@@ -355,23 +361,23 @@ void SpoolmanListView::update_visible(const std::vector<SpoolInfo>& spools, int 
     size_t pool_idx = 0;
     for (int spool_idx = first_visible; spool_idx < last_visible && pool_idx < pool_.size();
          spool_idx++, pool_idx++) {
-        lv_obj_t* row = pool_[pool_idx];
+        auto& rw = pool_[pool_idx];
 
         if (data_changed || pool_indices_[pool_idx] != spool_idx) {
-            configure_row(row, spools[spool_idx], active_spool_id);
+            configure_row(rw, spools[spool_idx], active_spool_id);
             pool_indices_[pool_idx] = spool_idx;
         }
 
         // Ensure row is in correct position (guard to avoid redundant relayout)
         int target_index = static_cast<int>(pool_idx) + 1;
-        if (lv_obj_get_index(row) != target_index) {
-            lv_obj_move_to_index(row, target_index);
+        if (lv_obj_get_index(rw.root) != target_index) {
+            lv_obj_move_to_index(rw.root, target_index);
         }
     }
 
     // Hide unused pool rows
     for (; pool_idx < pool_.size(); pool_idx++) {
-        lv_obj_add_flag(pool_[pool_idx], LV_OBJ_FLAG_HIDDEN);
+        lv_obj_add_flag(pool_[pool_idx].root, LV_OBJ_FLAG_HIDDEN);
         pool_indices_[pool_idx] = -1;
     }
 
@@ -417,14 +423,13 @@ void SpoolmanListView::update_active_indicators(const std::vector<SpoolInfo>& sp
             continue;
         }
 
-        lv_obj_t* row = pool_[i];
+        auto& rw = pool_[i];
         bool is_active = (spools[spool_idx].id == active_spool_id);
 
-        lv_obj_set_state(row, LV_STATE_CHECKED, is_active);
+        lv_obj_set_state(rw.root, LV_STATE_CHECKED, is_active);
 
-        lv_obj_t* active_icon = lv_obj_find_by_name(row, "active_indicator");
-        if (active_icon) {
-            lv_obj_set_flag(active_icon, LV_OBJ_FLAG_HIDDEN, !is_active);
+        if (rw.active_indicator) {
+            lv_obj_set_flag(rw.active_indicator, LV_OBJ_FLAG_HIDDEN, !is_active);
         }
     }
 

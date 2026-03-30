@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include "ui_color_picker.h"
 #include "ui_modal.h"
 
 #include "spoolman_types.h"
@@ -77,6 +78,7 @@ class SpoolEditModal : public Modal {
     SpoolInfo working_spool_;
     MoonrakerAPI* api_ = nullptr;
     CompletionCallback completion_callback_;
+    ColorPicker color_picker_;
 
     bool subjects_initialized_ = false;
     bool populating_ = false;
@@ -102,6 +104,7 @@ class SpoolEditModal : public Modal {
     void handle_field_changed();
     void handle_reset();
     void handle_save();
+    void handle_color_clicked();
 #if HELIX_HAS_LABEL_PRINTER
     void handle_print_label();
 #endif
@@ -117,6 +120,7 @@ class SpoolEditModal : public Modal {
     static void on_field_changed_cb(lv_event_t* e);
     static void on_reset_cb(lv_event_t* e);
     static void on_save_cb(lv_event_t* e);
+    static void on_color_clicked_cb(lv_event_t* e);
 #if HELIX_HAS_LABEL_PRINTER
     static void on_print_label_cb(lv_event_t* e);
 #endif

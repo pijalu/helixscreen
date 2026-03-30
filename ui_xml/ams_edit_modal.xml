@@ -195,6 +195,11 @@
                    icon="qrcode_scan">
           <event_cb trigger="clicked" callback="ams_edit_scan_qr_cb"/>
         </ui_button>
+        <ui_button name="btn_edit_spool_details"
+                   height="#button_height_sm" text="Spool Details" translation_tag="Spool Details"
+                   icon="pencil" variant="secondary" hidden="true">
+          <event_cb trigger="clicked" callback="ams_edit_spool_details_cb"/>
+        </ui_button>
         <ui_button name="btn_unlink_spool"
                    height="#button_height_sm" text="Unlink" translation_tag="Unlink" variant="secondary"
                    hidden="true">

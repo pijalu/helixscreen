@@ -5,6 +5,7 @@
 
 #include "ui_color_picker.h"
 #include "ui_modal.h"
+#include "ui_spoolman_edit_modal.h"
 
 #include "ams_types.h"
 #include "spoolman_types.h"
@@ -107,6 +108,9 @@ class AmsEditModal : public Modal {
     // === Owned color picker ===
     std::unique_ptr<ColorPicker> color_picker_;
 
+    // === Spoolman spool detail editor ===
+    SpoolEditModal spool_edit_modal_;
+
     // === Subjects for XML binding ===
     SubjectManager subjects_;
     lv_subject_t slot_indicator_subject_;
@@ -193,6 +197,7 @@ class AmsEditModal : public Modal {
     void handle_print_label();
 #endif
     void handle_scan_qr();
+    void handle_spool_details();
     void handle_tool_changed(int index);
     void handle_weight_input_changed();
 
@@ -218,6 +223,7 @@ class AmsEditModal : public Modal {
     static void on_print_label_cb(lv_event_t* e);
 #endif
     static void on_scan_qr_cb(lv_event_t* e);
+    static void on_spool_details_cb(lv_event_t* e);
     static void on_picker_search_cb(lv_event_t* e);
     static void on_picker_retry_cb(lv_event_t* e);
     static void on_spool_item_cb(lv_event_t* e);

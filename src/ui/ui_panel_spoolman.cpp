@@ -313,6 +313,14 @@ void SpoolmanPanel::populate_spool_list() {
         return;
     }
 
+    // Sync search_query_ from the actual search box text so the filter always
+    // matches what the user sees (handles refresh after wizard completion, etc.)
+    lv_obj_t* search_box = lv_obj_find_by_name(overlay_root_, "search_box");
+    if (search_box) {
+        const char* text = lv_textarea_get_text(search_box);
+        search_query_ = text ? text : "";
+    }
+
     // Apply current search filter
     apply_filter();
     update_location_filter_dropdown();
