@@ -453,10 +453,15 @@ void AmsEditModal::update_vendor_dropdown() {
 
     lv_dropdown_set_options(vendor_dropdown, vendor_options_.c_str());
 
-    // Set selection based on working_info_.brand, and populate vendor_id if missing
-    int vendor_idx = 0; // Default to first (Generic)
+    // Set selection based on working_info_.brand, and populate vendor_id if missing.
+    // Default to "Generic" (not necessarily index 0 since the list is alphabetical).
+    int vendor_idx = -1;
+    int generic_idx = 0;
     for (size_t i = 0; i < vendor_list_.size(); i++) {
-        if (working_info_.brand == vendor_list_[i].name) {
+        if (vendor_list_[i].name == "Generic") {
+            generic_idx = static_cast<int>(i);
+        }
+        if (!working_info_.brand.empty() && working_info_.brand == vendor_list_[i].name) {
             vendor_idx = static_cast<int>(i);
             if (working_info_.spoolman_vendor_id == 0 && vendor_list_[i].id > 0) {
                 working_info_.spoolman_vendor_id = vendor_list_[i].id;
@@ -466,6 +471,7 @@ void AmsEditModal::update_vendor_dropdown() {
             break;
         }
     }
+    if (vendor_idx < 0) vendor_idx = generic_idx;
     lv_dropdown_set_selected(vendor_dropdown, vendor_idx);
 }
 
