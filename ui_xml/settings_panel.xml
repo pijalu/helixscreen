@@ -73,6 +73,14 @@
                           description="Configure printer sensors"
                           description_tag="Configure printer sensors" callback="on_filament_sensors_clicked"/>
     </lv_obj>
+    <!-- Fans (hidden until fans are discovered) -->
+    <lv_obj name="container_fan_settings" width="100%" style_pad_all="0" scrollable="false">
+      <bind_flag_if_eq subject="fans_version" flag="hidden" ref_value="0"/>
+      <setting_action_row name="row_fan_settings"
+                          label="Fans" label_tag="Fans" icon="fan"
+                          description="View and rename fans"
+                          description_tag="View and rename fans" callback="on_fans_settings_clicked"/>
+    </lv_obj>
     <!-- Material Temperature Overrides -->
     <setting_action_row name="row_material_temps"
                         label="Material Temperatures" label_tag="Material Temperatures"

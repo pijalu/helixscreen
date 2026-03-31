@@ -488,6 +488,8 @@ void register_xml_components() {
     register_xml("theme_editor_overlay.xml");
     register_xml("theme_preview_overlay.xml");
     register_xml("theme_save_as_modal.xml");
+    register_xml("fan_settings_row.xml");
+    register_xml("fan_settings_overlay.xml");
     register_xml("sensors_overlay.xml");
     // Probe type-specific panels (registered before probe_overlay)
     register_xml("probe_bltouch_panel.xml");

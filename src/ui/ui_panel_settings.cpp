@@ -30,6 +30,7 @@
 #include "ui_settings_material_temps.h"
 #include "ui_settings_plugins.h"
 #include "ui_settings_security.h"
+#include "ui_settings_fans.h"
 #include "ui_settings_sensors.h"
 #include "ui_settings_sound.h"
 #include "ui_settings_telemetry_data.h"
@@ -331,12 +332,16 @@ void SettingsPanel::init_subjects() {
         {"on_printers_clicked", on_printers_clicked},
         // Note: on_printer_image_clicked moved to PrinterManagerOverlay
         {"on_filament_sensors_clicked", on_filament_sensors_clicked},
+        {"on_fans_settings_clicked", on_fans_settings_clicked},
         {"on_timelapse_settings_clicked", on_timelapse_settings_clicked},
     });
 
     // Note: Sensors overlay callbacks are now handled by SensorSettingsOverlay
     // See ui_settings_sensors.h
     helix::settings::get_sensor_settings_overlay().register_callbacks();
+
+    // Note: Fan Settings overlay callbacks are now handled by FanSettingsOverlay
+    helix::settings::get_fan_settings_overlay().register_callbacks();
 
     // Note: Display Settings overlay callbacks are now handled by DisplaySettingsOverlay
     // See ui_settings_display.h
@@ -833,6 +838,13 @@ void SettingsPanel::handle_filament_sensors_clicked() {
     overlay.show(parent_screen_);
 }
 
+void SettingsPanel::handle_fans_settings_clicked() {
+    spdlog::debug("[{}] Fans clicked - delegating to FanSettingsOverlay", get_name());
+
+    auto& overlay = helix::settings::get_fan_settings_overlay();
+    overlay.show(parent_screen_);
+}
+
 void SettingsPanel::handle_ams_settings_clicked() {
     spdlog::debug("[{}] AMS Settings clicked - opening Device Operations", get_name());
 
@@ -1227,6 +1239,12 @@ void SettingsPanel::on_filament_sensors_clicked(lv_event_t* /*e*/) {
     LVGL_SAFE_EVENT_CB_END();
 }
 
+void SettingsPanel::on_fans_settings_clicked(lv_event_t* /*e*/) {
+    LVGL_SAFE_EVENT_CB_BEGIN("[SettingsPanel] on_fans_settings_clicked");
+    get_global_settings_panel().handle_fans_settings_clicked();
+    LVGL_SAFE_EVENT_CB_END();
+}
+
 void SettingsPanel::on_ams_settings_clicked(lv_event_t* /*e*/) {
     LVGL_SAFE_EVENT_CB_BEGIN("[SettingsPanel] on_ams_settings_clicked");
     get_global_settings_panel().handle_ams_settings_clicked();
@@ -1389,6 +1407,7 @@ void register_settings_panel_callbacks() {
         {"on_printers_clicked", SettingsPanel::on_printers_clicked},
         {"on_display_settings_clicked", SettingsPanel::on_display_settings_clicked},
         {"on_filament_sensors_clicked", SettingsPanel::on_filament_sensors_clicked},
+        {"on_fans_settings_clicked", SettingsPanel::on_fans_settings_clicked},
         {"on_macro_buttons_clicked", SettingsPanel::on_macro_buttons_clicked},
         {"on_machine_limits_clicked", SettingsPanel::on_machine_limits_clicked},
         {"on_material_temps_clicked", SettingsPanel::on_material_temps_clicked},

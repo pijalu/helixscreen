@@ -1,0 +1,323 @@
+// Copyright (C) 2025-2026 356C LLC
+// SPDX-License-Identifier: GPL-3.0-or-later
+
+/**
+ * @file ui_settings_fans.cpp
+ * @brief Implementation of FanSettingsOverlay
+ */
+
+#include "ui_settings_fans.h"
+
+#include "ui_event_safety.h"
+#include "ui_nav_manager.h"
+#include "ui_utils.h"
+
+#include "app_globals.h"
+#include "config.h"
+#include "printer_state.h"
+#include "static_panel_registry.h"
+#include "ui_status_pill.h"
+
+#include <spdlog/spdlog.h>
+
+#include <memory>
+
+namespace helix::settings {
+
+// ============================================================================
+// SINGLETON ACCESSOR
+// ============================================================================
+
+static std::unique_ptr<FanSettingsOverlay> g_fan_settings_overlay;
+
+FanSettingsOverlay& get_fan_settings_overlay() {
+    if (!g_fan_settings_overlay) {
+        g_fan_settings_overlay = std::make_unique<FanSettingsOverlay>();
+        StaticPanelRegistry::instance().register_destroy(
+            "FanSettingsOverlay", []() { g_fan_settings_overlay.reset(); });
+    }
+    return *g_fan_settings_overlay;
+}
+
+// ============================================================================
+// CONSTRUCTOR / DESTRUCTOR
+// ============================================================================
+
+FanSettingsOverlay::FanSettingsOverlay() {
+    spdlog::debug("[{}] Created", get_name());
+}
+
+FanSettingsOverlay::~FanSettingsOverlay() {
+    spdlog::trace("[{}] Destroyed", get_name());
+}
+
+// ============================================================================
+// INITIALIZATION
+// ============================================================================
+
+void FanSettingsOverlay::register_callbacks() {
+    // No XML-registered callbacks needed — rows are created dynamically
+    spdlog::debug("[{}] Callbacks registered", get_name());
+}
+
+// ============================================================================
+// UI CREATION
+// ============================================================================
+
+lv_obj_t* FanSettingsOverlay::create(lv_obj_t* parent) {
+    if (overlay_root_) {
+        spdlog::warn("[{}] create() called but overlay already exists", get_name());
+        return overlay_root_;
+    }
+
+    spdlog::debug("[{}] Creating overlay...", get_name());
+
+    // Create from XML component
+    overlay_root_ = static_cast<lv_obj_t*>(lv_xml_create(parent, "fan_settings_overlay", nullptr));
+    if (!overlay_root_) {
+        spdlog::error("[{}] Failed to create overlay from XML", get_name());
+        return nullptr;
+    }
+
+    // Find containers for dynamic row population
+    controllable_list_ = lv_obj_find_by_name(overlay_root_, "controllable_fans_list");
+    auto_list_ = lv_obj_find_by_name(overlay_root_, "auto_fans_list");
+    no_fans_placeholder_ = lv_obj_find_by_name(overlay_root_, "no_fans_placeholder");
+
+    // Initially hidden until show() pushes it
+    lv_obj_add_flag(overlay_root_, LV_OBJ_FLAG_HIDDEN);
+
+    spdlog::info("[{}] Overlay created", get_name());
+    return overlay_root_;
+}
+
+void FanSettingsOverlay::show(lv_obj_t* parent_screen) {
+    spdlog::debug("[{}] show() called", get_name());
+
+    parent_screen_ = parent_screen;
+
+    // Lazy create overlay
+    if (!overlay_root_ && parent_screen_) {
+        create(parent_screen_);
+    }
+
+    if (!overlay_root_) {
+        spdlog::error("[{}] Cannot show - overlay not created", get_name());
+        return;
+    }
+
+    // Register with NavigationManager for lifecycle callbacks
+    NavigationManager::instance().register_overlay_instance(overlay_root_, this);
+
+    // Populate fan lists (also called on_activate for re-entry)
+    populate_fans();
+
+    // Push onto navigation stack
+    NavigationManager::instance().push_overlay(overlay_root_);
+}
+
+// ============================================================================
+// LIFECYCLE HOOKS
+// ============================================================================
+
+void FanSettingsOverlay::on_activate() {
+    OverlayBase::on_activate();
+    populate_fans();
+}
+
+void FanSettingsOverlay::on_deactivate() {
+    OverlayBase::on_deactivate();
+}
+
+// ============================================================================
+// FAN TYPE HELPERS
+// ============================================================================
+
+namespace {
+
+/// Convert FanType to a short display string for the type pill
+const char* fan_type_label(helix::FanType type) {
+    switch (type) {
+    case helix::FanType::PART_COOLING:
+        return "Part";
+    case helix::FanType::HEATER_FAN:
+        return "Heater";
+    case helix::FanType::CONTROLLER_FAN:
+        return "Controller";
+    case helix::FanType::TEMPERATURE_FAN:
+        return "Temp";
+    case helix::FanType::GENERIC_FAN:
+        return "Generic";
+    case helix::FanType::OUTPUT_PIN_FAN:
+        return "Output Pin";
+    }
+    return "Fan";
+}
+
+} // namespace
+
+// ============================================================================
+// FAN LIST POPULATION
+// ============================================================================
+
+void FanSettingsOverlay::update_section_count(const char* badge_name, size_t count) {
+    if (!overlay_root_)
+        return;
+
+    lv_obj_t* badge = lv_obj_find_by_name(overlay_root_, badge_name);
+    if (badge) {
+        char buf[16];
+        snprintf(buf, sizeof(buf), "%zu", count);
+        ui_status_pill_set_text(badge, buf);
+    }
+}
+
+void FanSettingsOverlay::populate_fan_list(lv_obj_t* list, bool controllable) {
+    if (!list)
+        return;
+
+    // Clear existing rows
+    uint32_t child_count = lv_obj_get_child_count(list);
+    for (int i = static_cast<int>(child_count) - 1; i >= 0; i--) {
+        lv_obj_t* child = lv_obj_get_child(list, i);
+        helix::ui::safe_delete(child);
+    }
+
+    auto& fans = get_printer_state().get_fans();
+    size_t count = 0;
+
+    for (const auto& fan : fans) {
+        if (fan.is_controllable != controllable) {
+            continue;
+        }
+
+        // Build speed string
+        char speed_buf[16];
+        snprintf(speed_buf, sizeof(speed_buf), "%d%%", fan.speed_percent);
+
+        // Create row from XML component
+        const char* type_label = fan_type_label(fan.type);
+        const char* attrs[] = {
+            "fan_name",   fan.display_name.c_str(),
+            "fan_type",   type_label,
+            "fan_object", fan.object_name.c_str(),
+            nullptr,
+        };
+        auto* row = static_cast<lv_obj_t*>(lv_xml_create(list, "fan_settings_row", attrs));
+        if (!row) {
+            spdlog::warn("[{}] Failed to create row for fan: {}", get_name(), fan.object_name);
+            continue;
+        }
+
+        // Update the speed label (not bound to a subject here — refreshed on populate)
+        lv_obj_t* speed_label = lv_obj_find_by_name(row, "speed_label");
+        if (speed_label) {
+            lv_label_set_text(speed_label, speed_buf);
+        }
+
+        // Wire click callback on the name label for rename
+        lv_obj_t* name_label = lv_obj_find_by_name(row, "name_label");
+        if (name_label) {
+            // Store object name as user data for the rename callback
+            auto* obj_name = new std::string(fan.object_name);
+            lv_obj_add_event_cb(
+                name_label,
+                [](lv_event_t* e) {
+                    LVGL_SAFE_EVENT_CB_BEGIN("[FanSettingsOverlay] name_label clicked");
+                    auto* name = static_cast<std::string*>(lv_event_get_user_data(e));
+                    if (name) {
+                        // Find current display name from the label text
+                        lv_obj_t* label = lv_event_get_target_obj(e);
+                        const char* current = lv_label_get_text(label);
+                        get_fan_settings_overlay().handle_fan_rename(
+                            *name, current ? current : "");
+                    }
+                    LVGL_SAFE_EVENT_CB_END();
+                },
+                LV_EVENT_CLICKED, obj_name);
+
+            // Clean up the allocated string when the label is deleted
+            lv_obj_add_event_cb(
+                name_label,
+                [](lv_event_t* e) {
+                    auto* name = static_cast<std::string*>(lv_event_get_user_data(e));
+                    delete name;
+                },
+                LV_EVENT_DELETE, obj_name);
+        }
+
+        ++count;
+    }
+
+    spdlog::debug("[{}] Populated {} {} fans", get_name(), count,
+                  controllable ? "controllable" : "auto");
+}
+
+void FanSettingsOverlay::populate_fans() {
+    if (!overlay_root_)
+        return;
+
+    auto& fans = get_printer_state().get_fans();
+
+    // Count fans by category
+    size_t controllable_count = 0;
+    size_t auto_count = 0;
+    for (const auto& fan : fans) {
+        if (fan.is_controllable) {
+            ++controllable_count;
+        } else {
+            ++auto_count;
+        }
+    }
+
+    // Update section badges
+    update_section_count("controllable_fan_count", controllable_count);
+    update_section_count("auto_fan_count", auto_count);
+
+    // Show/hide sections based on fan counts
+    lv_obj_t* controllable_section = lv_obj_find_by_name(overlay_root_, "controllable_section");
+    lv_obj_t* auto_section = lv_obj_find_by_name(overlay_root_, "auto_section");
+
+    if (controllable_section) {
+        if (controllable_count > 0)
+            lv_obj_remove_flag(controllable_section, LV_OBJ_FLAG_HIDDEN);
+        else
+            lv_obj_add_flag(controllable_section, LV_OBJ_FLAG_HIDDEN);
+    }
+    if (auto_section) {
+        if (auto_count > 0)
+            lv_obj_remove_flag(auto_section, LV_OBJ_FLAG_HIDDEN);
+        else
+            lv_obj_add_flag(auto_section, LV_OBJ_FLAG_HIDDEN);
+    }
+
+    // Show empty state if no fans at all
+    if (no_fans_placeholder_) {
+        if (fans.empty())
+            lv_obj_remove_flag(no_fans_placeholder_, LV_OBJ_FLAG_HIDDEN);
+        else
+            lv_obj_add_flag(no_fans_placeholder_, LV_OBJ_FLAG_HIDDEN);
+    }
+
+    // Populate row lists
+    populate_fan_list(controllable_list_, true);
+    populate_fan_list(auto_list_, false);
+}
+
+// ============================================================================
+// FAN RENAME
+// ============================================================================
+
+void FanSettingsOverlay::handle_fan_rename(const std::string& object_name,
+                                           const std::string& current_name) {
+    spdlog::debug("[{}] Rename requested for fan: {} (current: {})", get_name(), object_name,
+                  current_name);
+
+    // Use confirmation modal with text input for rename
+    // Task 10 will implement the full rename UI with keyboard modal.
+    // For now, log the intent — the plumbing is in place.
+    spdlog::info("[{}] Fan rename deferred to Task 10 (RPM display + long-press rename)",
+                 get_name());
+}
+
+} // namespace helix::settings

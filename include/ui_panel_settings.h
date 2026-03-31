@@ -189,6 +189,7 @@ class SettingsPanel : public PanelBase {
     void handle_printers_clicked();
     void handle_display_settings_clicked();
     void handle_filament_sensors_clicked();
+    void handle_fans_settings_clicked();
     void handle_ams_settings_clicked();
     void handle_spoolman_settings_clicked();
     void handle_macro_buttons_clicked();
@@ -244,6 +245,7 @@ class SettingsPanel : public PanelBase {
     static void on_printers_clicked(lv_event_t* e);
     static void on_display_settings_clicked(lv_event_t* e);
     static void on_filament_sensors_clicked(lv_event_t* e);
+    static void on_fans_settings_clicked(lv_event_t* e);
     static void on_ams_settings_clicked(lv_event_t* e);
     static void on_spoolman_settings_clicked(lv_event_t* e);
     static void on_macro_buttons_clicked(lv_event_t* e);
