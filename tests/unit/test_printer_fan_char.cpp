@@ -1162,3 +1162,58 @@ TEST_CASE("Fan characterization: FanInfo rpm field", "[characterization][fan][rp
         REQUIRE_FALSE(fans[0].rpm.has_value());
     }
 }
+
+TEST_CASE("Fan characterization: output_pin fan speed from value field",
+          "[characterization][fan][update][output_pin]") {
+    lv_init_safe();
+
+    PrinterState& state = get_printer_state();
+    PrinterStateTestAccess::reset(state);
+    state.init_subjects(false);
+
+    state.init_fans({"output_pin fan0", "output_pin fan1", "heater_fan hotend_fan"});
+
+    SECTION("output_pin value 1.0 -> 100%") {
+        json status = {{"output_pin fan0", {{"value", 1.0}}}};
+        state.update_from_status(status);
+
+        const auto& fans = state.get_fans();
+        REQUIRE(fans[0].speed_percent == 100);
+    }
+
+    SECTION("output_pin value 0.5 -> 50%") {
+        json status = {{"output_pin fan0", {{"value", 0.5}}}};
+        state.update_from_status(status);
+
+        const auto& fans = state.get_fans();
+        REQUIRE(fans[0].speed_percent == 50);
+    }
+
+    SECTION("output_pin value 0.0 -> 0%") {
+        json status = {{"output_pin fan0", {{"value", 0.0}}}};
+        state.update_from_status(status);
+
+        const auto& fans = state.get_fans();
+        REQUIRE(fans[0].speed_percent == 0);
+    }
+
+    SECTION("multiple output_pin updates in one status") {
+        json status = {{"output_pin fan0", {{"value", 0.75}}},
+                       {"output_pin fan1", {{"value", 0.25}}}};
+        state.update_from_status(status);
+
+        const auto& fans = state.get_fans();
+        REQUIRE(fans[0].speed_percent == 75);
+        REQUIRE(fans[1].speed_percent == 25);
+    }
+
+    SECTION("output_pin update does not affect heater_fan") {
+        json status = {{"output_pin fan0", {{"value", 1.0}}},
+                       {"heater_fan hotend_fan", {{"speed", 0.5}}}};
+        state.update_from_status(status);
+
+        const auto& fans = state.get_fans();
+        REQUIRE(fans[0].speed_percent == 100); // output_pin fan0
+        REQUIRE(fans[2].speed_percent == 50);  // heater_fan hotend_fan
+    }
+}

@@ -109,6 +109,23 @@ void PrinterFanState::update_from_status(const nlohmann::json& status) {
                 }
             }
         }
+
+        // Handle output_pin fan objects (Creality-style)
+        // These report {"value": 0.0-1.0} instead of {"speed": 0.0-1.0}
+        if (key.rfind("output_pin ", 0) == 0) {
+            if (value.is_object() && value.contains("value") && value["value"].is_number()) {
+                double speed = value["value"].get<double>();
+                update_fan_speed(key, speed);
+
+                // If this is the configured part fan, also update the main fan_speed_ subject
+                if (!roles_.part_fan.empty() && key == roles_.part_fan) {
+                    int speed_pct = units::to_percent(speed);
+                    if (lv_subject_get_int(&fan_speed_) != speed_pct) {
+                        lv_subject_set_int(&fan_speed_, speed_pct);
+                    }
+                }
+            }
+        }
     }
 }
 
