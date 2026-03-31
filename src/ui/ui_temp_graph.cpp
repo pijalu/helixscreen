@@ -390,12 +390,8 @@ static void draw_x_axis_labels_cb(lv_event_t* e) {
     ui_temp_graph_t* graph = static_cast<ui_temp_graph_t*>(lv_event_get_user_data(e));
 
     if (!layer || !graph || !graph->show_x_axis || graph->visible_point_count == 0) {
-        spdlog::trace("[TempGraph] X-axis skip: layer={}, graph={}, show={}, points={}",
-                      layer != nullptr, graph != nullptr, graph ? graph->show_x_axis : false,
-                      graph ? graph->visible_point_count : -1);
         return; // No data to label yet or X-axis disabled
     }
-
     spdlog::trace("[TempGraph] Drawing X-axis labels: {} points, first={}ms, latest={}ms",
                   graph->visible_point_count, graph->first_point_time_ms,
                   graph->latest_point_time_ms);
@@ -1267,25 +1263,11 @@ void ui_temp_graph_set_features(ui_temp_graph_t* graph, uint32_t features) {
     graph->show_y_axis = want_y;
 
     // Toggle X-axis
-    bool want_x = (features & TEMP_GRAPH_FEATURE_X_AXIS) != 0;
-    graph->show_x_axis = want_x;
+    graph->show_x_axis = (features & TEMP_GRAPH_FEATURE_X_AXIS) != 0;
 
-    // Update chart padding based on axis visibility
-    int32_t space_xs = theme_manager_get_spacing("space_xs");
-    int32_t space_sm = theme_manager_get_spacing("space_sm");
-    int32_t label_height = theme_manager_get_font_height(graph->axis_font);
-
-    // Left padding: reserve space for Y-axis labels, or use minimal padding
-    int32_t left_pad = want_y ? (graph->y_axis_width + space_sm) : space_xs;
-    lv_obj_set_style_pad_left(graph->chart, left_pad, LV_PART_MAIN);
-
-    // Bottom padding: reserve space for X-axis labels, or use minimal padding
-    int32_t bottom_pad = want_x ? (space_xs + label_height + space_xs) : space_xs;
-    lv_obj_set_style_pad_bottom(graph->chart, bottom_pad, LV_PART_MAIN);
-
-    // Top padding: reserve space for top Y-axis label, or use minimal padding
-    int32_t top_pad = want_y ? LV_MAX(space_sm, label_height) : space_xs;
-    lv_obj_set_style_pad_top(graph->chart, top_pad, LV_PART_MAIN);
+    // NOTE: Padding is managed by set_axis_size(), not here. Changing padding in
+    // set_features() caused X-axis labels to disappear on the overlay by overwriting
+    // the more generous padding that set_axis_size() calculated.
 
     // Toggle gradient opacity: zero out when disabled, restore defaults when enabled
     bool want_gradients = (features & TEMP_GRAPH_FEATURE_GRADIENTS) != 0;
