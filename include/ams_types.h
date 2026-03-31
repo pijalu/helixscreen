@@ -44,7 +44,8 @@ enum class AmsType {
     ACE = 3,     ///< AnyCubic ACE Pro (ValgACE/BunnyACE/DuckACE Klipper drivers)
     TOOL_CHANGER = 4, ///< Physical tool changer (viesturz/klipper-toolchanger)
     AD5X_IFS = 5,     ///< FlashForge AD5X IFS (Intelligent Filament Switching)
-    CFS = 6            ///< Creality Filament System (K2 series, RS-485)
+    CFS = 6,           ///< Creality Filament System (K2 series, RS-485)
+    SNAPMAKER = 7      ///< Snapmaker U1 SnapSwap toolchanger
 };
 
 /**
@@ -66,6 +67,8 @@ inline const char* ams_type_to_string(AmsType type) {
         return "AD5X IFS";
     case AmsType::CFS:
         return "CFS";
+    case AmsType::SNAPMAKER:
+        return "Snapmaker";
     default:
         return "None";
     }
@@ -97,6 +100,9 @@ inline AmsType ams_type_from_string(std::string_view str) {
     if (str == "cfs" || str == "CFS" || str == "box") {
         return AmsType::CFS;
     }
+    if (str == "snapmaker" || str == "Snapmaker" || str == "snapswap" || str == "SnapSwap") {
+        return AmsType::SNAPMAKER;
+    }
     return AmsType::NONE;
 }
 
@@ -112,7 +118,7 @@ inline AmsType ams_type_from_string(std::string_view str) {
  * @return true if this is a physical tool changer
  */
 inline bool is_tool_changer(AmsType type) {
-    return type == AmsType::TOOL_CHANGER;
+    return type == AmsType::TOOL_CHANGER || type == AmsType::SNAPMAKER;
 }
 
 /**
@@ -127,7 +133,7 @@ inline bool is_tool_changer(AmsType type) {
  */
 inline bool is_filament_system(AmsType type) {
     return type == AmsType::HAPPY_HARE || type == AmsType::AFC || type == AmsType::ACE ||
-           type == AmsType::AD5X_IFS || type == AmsType::CFS;
+           type == AmsType::AD5X_IFS || type == AmsType::CFS || type == AmsType::SNAPMAKER;
 }
 
 /**
