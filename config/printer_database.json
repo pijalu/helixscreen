@@ -3602,6 +3602,84 @@
       ]
     },
     {
+      "id": "artillery_sidewinder_x2",
+      "name": "Artillery Sidewinder X2",
+      "manufacturer": "Artillery",
+      "image": "artillery-sidewinder-x2.png",
+      "heuristics": [
+        {
+          "type": "kinematics_match",
+          "field": "kinematics",
+          "pattern": "cartesian",
+          "confidence": 40,
+          "reason": "Cartesian kinematics (bedslinger)"
+        },
+        {
+          "type": "build_volume_range",
+          "field": "bed_mesh",
+          "min_x": 300,
+          "max_x": 340,
+          "min_y": 300,
+          "max_y": 340,
+          "confidence": 60,
+          "reason": "Build volume ~320mm (Sidewinder X2 size)"
+        },
+        {
+          "type": "hostname_match",
+          "field": "hostname",
+          "pattern": "artillery",
+          "confidence": 85,
+          "reason": "Hostname contains 'artillery'"
+        },
+        {
+          "type": "hostname_match",
+          "field": "hostname",
+          "pattern": "sidewinder",
+          "confidence": 90,
+          "reason": "Hostname contains 'sidewinder'"
+        }
+      ]
+    },
+    {
+      "id": "artillery_genius_pro",
+      "name": "Artillery Genius Pro",
+      "manufacturer": "Artillery",
+      "image": "artillery-genius-pro.png",
+      "heuristics": [
+        {
+          "type": "kinematics_match",
+          "field": "kinematics",
+          "pattern": "cartesian",
+          "confidence": 40,
+          "reason": "Cartesian kinematics (bedslinger)"
+        },
+        {
+          "type": "build_volume_range",
+          "field": "bed_mesh",
+          "min_x": 215,
+          "max_x": 245,
+          "min_y": 215,
+          "max_y": 245,
+          "confidence": 50,
+          "reason": "Build volume ~230x230mm (Genius Pro size)"
+        },
+        {
+          "type": "hostname_match",
+          "field": "hostname",
+          "pattern": "artillery",
+          "confidence": 85,
+          "reason": "Hostname contains 'artillery'"
+        },
+        {
+          "type": "hostname_match",
+          "field": "hostname",
+          "pattern": "genius",
+          "confidence": 90,
+          "reason": "Hostname contains 'genius'"
+        }
+      ]
+    },
+    {
       "id": "artillery_m1_pro",
       "name": "Artillery M1 Pro",
       "manufacturer": "Artillery",
@@ -3623,6 +3701,13 @@
           "max_y": 275,
           "confidence": 40,
           "reason": "Build volume ~260x260mm (M1 Pro size)"
+        },
+        {
+          "type": "object_exists",
+          "field": "printer_objects",
+          "pattern": "adxl345",
+          "confidence": 50,
+          "reason": "ADXL345 accelerometer (input shaper support)"
         },
         {
           "type": "hostname_match",
