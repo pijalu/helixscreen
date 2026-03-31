@@ -15,7 +15,8 @@ platform_stop_competing_uis() {
         fi
         # Kill any remaining stock UI processes (full list from S99start_app)
         for proc in display-server Monitor master-server audio-server \
-                    wifi-server app-server upgrade-server web-server; do
+                    wifi-server app-server upgrade-server web-server \
+                    boot_display; do
             killall "$proc" 2>/dev/null || true
         done
     fi
