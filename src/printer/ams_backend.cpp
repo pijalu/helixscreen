@@ -14,6 +14,7 @@
 #if HELIX_HAS_CFS
 #include "ams_backend_cfs.h"
 #endif
+#include "ams_backend_snapmaker.h"
 #include "ams_backend_toolchanger.h"
 #include "ams_backend_ace.h"
 #include "moonraker_api.h"
@@ -202,6 +203,15 @@ std::unique_ptr<AmsBackend> AmsBackend::create(AmsType detected_type) {
         return nullptr;
 #endif
 
+    case AmsType::SNAPMAKER:
+#ifdef HELIX_ENABLE_MOCKS
+        spdlog::warn("[AMS Backend] Snapmaker detected but no API/client provided - using mock");
+        return std::make_unique<AmsBackendMock>(config->mock_ams_gate_count);
+#else
+        spdlog::warn("[AMS Backend] Snapmaker detected but no API/client provided");
+        return nullptr;
+#endif
+
     case AmsType::NONE:
     default:
         spdlog::debug("[AMS Backend] No AMS detected");
@@ -276,6 +286,14 @@ std::unique_ptr<AmsBackend> AmsBackend::create(AmsType detected_type, MoonrakerA
         spdlog::info("[AMS Backend] CFS support not compiled in");
         return nullptr;
 #endif
+
+    case AmsType::SNAPMAKER:
+        if (!api || !client) {
+            spdlog::error("[AMS Backend] Snapmaker requires MoonrakerAPI and MoonrakerClient");
+            return nullptr;
+        }
+        spdlog::debug("[AMS Backend] Creating Snapmaker SnapSwap backend");
+        return std::make_unique<AmsBackendSnapmaker>(api, client);
 
     case AmsType::NONE:
     default:

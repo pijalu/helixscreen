@@ -79,7 +79,23 @@ void ToolState::init_tools(const helix::PrinterDiscovery& hardware) {
     // Clear existing tools
     tools_.clear();
 
-    if (hardware.has_tool_changer() && !hardware.tool_names().empty()) {
+    if (hardware.has_snapmaker()) {
+        // Snapmaker U1: 4 fixed toolheads, not using viesturz tool objects
+        static const std::string extruder_names[] = {"extruder", "extruder1", "extruder2",
+                                                     "extruder3"};
+        for (int i = 0; i < 4; ++i) {
+            ToolInfo tool;
+            tool.index = i;
+            tool.name = fmt::format("T{}", i);
+            tool.extruder_name = extruder_names[i];
+            tool.heater_name = extruder_names[i];
+            tool.fan_name = (i == 0) ? std::optional<std::string>("fan")
+                                     : std::optional<std::string>(fmt::format("fan_generic e{}_fan", i));
+            spdlog::debug("[ToolState] Snapmaker tool {}: extruder={}, fan={}", i,
+                          tool.extruder_name.value_or("none"), tool.fan_name.value_or("none"));
+            tools_.push_back(std::move(tool));
+        }
+    } else if (hardware.has_tool_changer() && !hardware.tool_names().empty()) {
         // Tool changer: create N tools from discovered tool names
         const auto& tool_names = hardware.tool_names();
 
