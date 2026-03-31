@@ -145,7 +145,7 @@ bool MoonrakerRequestTracker::route_response(
 
     // Validate 'id' field type
     if (!msg["id"].is_number_integer()) {
-        spdlog::error("[INTERNAL] ""[Request Tracker] Invalid 'id' type in response: {}",
+        spdlog::error("[INTERNAL] [Request Tracker] Invalid 'id' type in response: {}",
                            msg["id"].type_name());
         return false;
     }
@@ -216,7 +216,7 @@ bool MoonrakerRequestTracker::route_response(
         try {
             success_cb(msg);
         } catch (const std::exception& e) {
-            spdlog::error("[INTERNAL] ""[Request Tracker] Success callback for '{}' threw exception: {}",
+            spdlog::error("[INTERNAL] [Request Tracker] Success callback for '{}' threw exception: {}",
                                method_name, e.what());
             // Do NOT re-throw: stack unwinding between here and the outer
             // handler can leave libhv's event loop in a corrupt state,
@@ -279,11 +279,11 @@ void MoonrakerRequestTracker::check_timeouts(
                         try {
                             cb(error);
                         } catch (const std::exception& e) {
-                            spdlog::error("[INTERNAL] ""[Request Tracker] Timeout error callback for {} "
+                            spdlog::error("[INTERNAL] [Request Tracker] Timeout error callback for {} "
                                                "threw exception: {}",
                                                method_name, e.what());
                         } catch (...) {
-                            spdlog::error("[INTERNAL] ""[Request Tracker] Timeout error callback for {} "
+                            spdlog::error("[INTERNAL] [Request Tracker] Timeout error callback for {} "
                                                "threw unknown exception",
                                                method_name);
                         }
@@ -338,11 +338,11 @@ void MoonrakerRequestTracker::cleanup_all() {
                         try {
                             cb(error);
                         } catch (const std::exception& e) {
-                            spdlog::error("[INTERNAL] ""[Request Tracker] Cleanup error callback for {} "
+                            spdlog::error("[INTERNAL] [Request Tracker] Cleanup error callback for {} "
                                                "threw exception: {}",
                                                method_name, e.what());
                         } catch (...) {
-                            spdlog::error("[INTERNAL] ""[Request Tracker] Cleanup error callback for {} "
+                            spdlog::error("[INTERNAL] [Request Tracker] Cleanup error callback for {} "
                                                "threw unknown exception",
                                                method_name);
                         }
