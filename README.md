@@ -46,7 +46,7 @@ Fast, beautiful, and built for every Klipper printer — from a Creality K1 to a
 | UI Framework | LVGL 9 XML | LVGL 8 C | GTK 3 (Python) |
 | Declarative UI | Full XML with reactive bindings | C only | Python only |
 | RAM Usage | ~15MB | ~15-20MB | ~50MB |
-| Disk Size | ~110-150MB | ~60-80MB | ~50MB |
+| Disk Size | ~75-115MB | ~60-80MB | ~50MB |
 | Multi-Material | 6 backends | Limited | Basic |
 | Printer Database | 70+ models | — | Manual config |
 | Display Layouts | Auto-detecting (tiny to ultrawide) | Fixed | Configurable |
