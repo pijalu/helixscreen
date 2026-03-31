@@ -6,8 +6,10 @@
 #include "ui_update_queue.h"
 
 #include "app_globals.h"
+#include "config.h"
 #include "helix_version.h"
 #include "led/led_controller.h"
+#include "macro_fan_analyzer.h"
 #include "macro_param_cache.h"
 #include "moonraker_client.h"
 #include "power_device_state.h"
@@ -412,14 +414,17 @@ void MoonrakerDiscoverySequence::continue_discovery_objects() {
                         }
                     }
 
-                    // Step 4: Query configfile for accelerometer detection
+                    // Step 4: Query configfile for accelerometer detection and macro fan analysis.
                     // Klipper's objects/list only returns objects with get_status() methods.
                     // Accelerometers (adxl345, lis2dw, mpu9250, resonance_tester) don't have
                     // get_status() since they're on-demand calibration tools.
                     // Must check configfile.config keys instead.
+                    // Also query configfile.settings for macro fan analysis (M106/M107/M141).
                     client_.send_jsonrpc(
                         "printer.objects.query",
-                        {{"objects", json::object({{"configfile", json::array({"config"})}})}},
+                        {{"objects",
+                          json::object(
+                              {{"configfile", json::array({"config", "settings"})}})}},
                         [this](json config_response) {
                             if (config_response.contains("result") &&
                                 config_response["result"].contains("status") &&
@@ -442,6 +447,34 @@ void MoonrakerDiscoverySequence::continue_discovery_objects() {
                                         led_ctrl.update_output_pin_config(cfg_copy);
                                     }
                                 });
+                            }
+
+                            // Analyze M106/M107/M141 macros from configfile.settings to detect
+                            // output_pin fan roles. Write role hints as default display names
+                            // (only when no custom name already exists).
+                            if (config_response.contains("result") &&
+                                config_response["result"].contains("status") &&
+                                config_response["result"]["status"].contains("configfile") &&
+                                config_response["result"]["status"]["configfile"].contains(
+                                    "settings")) {
+                                const auto& settings =
+                                    config_response["result"]["status"]["configfile"]["settings"];
+                                helix::MacroFanAnalyzer analyzer;
+                                auto macro_result = analyzer.analyze(settings);
+
+                                auto* config = Config::get_instance();
+                                if (config && !macro_result.role_hints.empty()) {
+                                    for (const auto& [obj_name, role] : macro_result.role_hints) {
+                                        std::string key =
+                                            config->df() + "fans/names/" + obj_name;
+                                        if (config->get<std::string>(key, "").empty()) {
+                                            config->set(key, role);
+                                            spdlog::debug(
+                                                "[Discovery] Wrote macro fan role hint: {} -> {}",
+                                                obj_name, role);
+                                        }
+                                    }
+                                }
                             }
                         },
                         [](const MoonrakerError& err) {

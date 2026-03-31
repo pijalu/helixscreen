@@ -230,10 +230,20 @@ void PrinterFanState::init_fans(const std::vector<std::string>& fan_objects,
         FanInfo info;
         info.object_name = obj_name;
 
-        // Use role-based display name if configured, otherwise auto-generate
-        std::string role_name = get_role_display_name(obj_name);
-        info.display_name =
-            role_name.empty() ? get_display_name(obj_name, DeviceType::FAN) : role_name;
+        // Name priority: custom name > role name > auto-generated
+        auto* config = Config::get_instance();
+        std::string custom_name;
+        if (config) {
+            custom_name = config->get<std::string>(
+                config->df() + "fans/names/" + obj_name, "");
+        }
+        if (!custom_name.empty()) {
+            info.display_name = custom_name;
+        } else {
+            std::string role_name = get_role_display_name(obj_name);
+            info.display_name =
+                role_name.empty() ? get_display_name(obj_name, DeviceType::FAN) : role_name;
+        }
 
         info.type = classify_fan_type(obj_name);
         info.is_controllable = is_fan_controllable(info.type);

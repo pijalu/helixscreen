@@ -28,6 +28,7 @@
 #include "../test_helpers/printer_state_test_access.h"
 #include "../ui_test_utils.h"
 #include "app_globals.h"
+#include "config.h"
 #include "printer_state.h"
 
 #include "../catch_amalgamated.hpp"
@@ -1258,4 +1259,36 @@ TEST_CASE("Fan characterization: fan_feedback RPM updates",
         const auto& fans = state.get_fans();
         REQUIRE_FALSE(fans[0].rpm.has_value());
     }
+}
+
+TEST_CASE("Fan characterization: custom display names from config",
+          "[characterization][fan][names]") {
+    lv_init_safe();
+
+    PrinterState& state = get_printer_state();
+    PrinterStateTestAccess::reset(state);
+    state.init_subjects(false);
+
+    // Simulate saved custom names in config
+    auto* config = Config::get_instance();
+    config->set(config->df() + "fans/names/output_pin fan0", std::string("Part Fan"));
+    config->set(config->df() + "fans/names/output_pin fan1", std::string("Electronics Fan"));
+
+    state.init_fans({"output_pin fan0", "output_pin fan1", "output_pin fan2"});
+
+    const auto& fans = state.get_fans();
+
+    SECTION("fan with custom name uses it") {
+        REQUIRE(fans[0].display_name == "Part Fan");
+        REQUIRE(fans[1].display_name == "Electronics Fan");
+    }
+
+    SECTION("fan without custom name gets auto-generated name") {
+        // fan2 has no custom name, should get default
+        REQUIRE_FALSE(fans[2].display_name.empty());
+    }
+
+    // Cleanup to avoid polluting other tests
+    config->set(config->df() + "fans/names/output_pin fan0", std::string(""));
+    config->set(config->df() + "fans/names/output_pin fan1", std::string(""));
 }
