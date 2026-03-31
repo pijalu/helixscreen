@@ -31,6 +31,8 @@
 #include "observer_factory.h"
 #include "printer_state.h"
 #include "settings_manager.h"
+#include "macro_executor.h"
+#include "macro_param_cache.h"
 #include "standard_macros.h"
 #include "static_panel_registry.h"
 #include "theme_manager.h"
@@ -58,6 +60,12 @@ using helix::ui::observe_int_sync;
 using helix::ui::temperature::centi_to_degrees;
 using helix::ui::temperature::format_target_or_off;
 using helix::ui::temperature::get_heating_state_color;
+
+// Shared MacroParamModal for filament operations that accept parameters
+helix::MacroParamModal& get_filament_param_modal() {
+    static helix::MacroParamModal modal;
+    return modal;
+}
 
 // ============================================================================
 // CONSTRUCTOR
@@ -329,6 +337,16 @@ void FilamentPanel::setup(lv_obj_t* panel, lv_obj_t* parent_screen) {
 
             // Update card row visibility (AMS state changed)
             self->update_multi_filament_card_visibility();
+        });
+
+    // End operation guard when AMS action returns to idle (load/unload complete)
+    ams_action_observer_ = observe_int_sync<FilamentPanel>(
+        AmsState::instance().get_ams_action_subject(), this, [](FilamentPanel* self, int action) {
+            if (action == static_cast<int>(AmsAction::IDLE) && self->operation_guard_.is_active()) {
+                spdlog::debug("[{}] AMS action returned to idle, ending operation guard",
+                              self->get_name());
+                self->operation_guard_.end();
+            }
         });
 
     // Populate preset button temperature labels from filament database
@@ -818,29 +836,59 @@ void FilamentPanel::handle_purge_button() {
     // Try StandardMacros Purge slot first (PURGE, PURGE_LINE, PRIME_LINE, etc.)
     const auto& info = StandardMacros::instance().get(StandardMacroSlot::Purge);
     if (!info.is_empty()) {
-        spdlog::info("[{}] Using StandardMacros purge: {}", get_name(), info.get_macro());
-        NOTIFY_INFO(lv_tr("Purging nozzle..."));
+        std::string macro_name = info.get_macro();
+        auto cached = MacroParamCache::instance().get(macro_name);
 
-        // Auto-pass PURGE_TEMP from active material if available.
-        // Safe even if the macro doesn't use this param — Klipper ignores unknown params.
-        std::map<std::string, std::string> params;
+        // Pre-fill PURGE_TEMP from active material if available
+        std::string purge_temp_default;
         auto active = helix::get_active_material();
         if (active) {
             int recommended = active->material_info.nozzle_recommended();
             if (recommended > 0) {
-                params["PURGE_TEMP"] = std::to_string(recommended);
-                spdlog::info("[{}] Passing PURGE_TEMP={} from active material: {}", get_name(),
-                             recommended, active->display_name);
+                purge_temp_default = std::to_string(recommended);
+                spdlog::info("[{}] Active material '{}' recommends PURGE_TEMP={}",
+                             get_name(), active->display_name, recommended);
             }
         }
 
-        StandardMacros::instance().execute(
-            StandardMacroSlot::Purge, api_, params,
-            []() { NOTIFY_SUCCESS(lv_tr("Purge complete")); },
-            [](const MoonrakerError& error) {
-                NOTIFY_ERROR(lv_tr("Purge failed: {}"), error.user_message());
-            },
-            MoonrakerAPI::EXTRUSION_TIMEOUT_MS);
+        if (cached.knowledge == MacroParamKnowledge::KNOWN_PARAMS) {
+            // Override PURGE_TEMP default with active material temp
+            auto params = cached.params;
+            if (!purge_temp_default.empty()) {
+                for (auto& p : params) {
+                    if (p.name == "PURGE_TEMP") {
+                        p.default_value = purge_temp_default;
+                        break;
+                    }
+                }
+            }
+            spdlog::info("[{}] Purge macro '{}' has params, showing modal", get_name(),
+                         macro_name);
+            get_filament_param_modal().show_for_macro(
+                lv_screen_active(), macro_name, params,
+                [this, macro_name](const MacroParamResult& result) {
+                    run_filament_macro(macro_name, "Purg", result);
+                });
+            return;
+        }
+
+        if (cached.knowledge == MacroParamKnowledge::UNKNOWN) {
+            spdlog::info("[{}] Purge macro '{}' params unknown, showing raw input", get_name(),
+                         macro_name);
+            get_filament_param_modal().show_for_unknown_params(
+                lv_screen_active(), macro_name,
+                [this, macro_name](const MacroParamResult& result) {
+                    run_filament_macro(macro_name, "Purg", result);
+                });
+            return;
+        }
+
+        // KNOWN_NO_PARAMS — auto-pass PURGE_TEMP and execute directly
+        MacroParamResult result;
+        if (!purge_temp_default.empty()) {
+            result.params["PURGE_TEMP"] = purge_temp_default;
+        }
+        run_filament_macro(macro_name, "Purg", result);
         return;
     }
 
@@ -1541,19 +1589,52 @@ void FilamentPanel::execute_load() {
     }
 
     const auto& info = StandardMacros::instance().get(StandardMacroSlot::LoadFilament);
-    if (info.is_empty()) {
-        spdlog::warn("[{}] Load filament slot is empty", get_name());
-        NOTIFY_WARNING(lv_tr("Load filament macro not configured"));
+    if (!info.is_empty()) {
+        std::string macro_name = info.get_macro();
+        auto cached = MacroParamCache::instance().get(macro_name);
+
+        if (cached.knowledge == MacroParamKnowledge::KNOWN_PARAMS) {
+            spdlog::info("[{}] Load macro '{}' has params, showing modal", get_name(), macro_name);
+            get_filament_param_modal().show_for_macro(
+                lv_screen_active(), macro_name, cached.params,
+                [this, macro_name](const MacroParamResult& result) {
+                    run_filament_macro(macro_name, "Load", result);
+                });
+            return;
+        }
+
+        if (cached.knowledge == MacroParamKnowledge::UNKNOWN) {
+            spdlog::info("[{}] Load macro '{}' params unknown, showing raw input", get_name(),
+                         macro_name);
+            get_filament_param_modal().show_for_unknown_params(
+                lv_screen_active(), macro_name,
+                [this, macro_name](const MacroParamResult& result) {
+                    run_filament_macro(macro_name, "Load", result);
+                });
+            return;
+        }
+
+        // KNOWN_NO_PARAMS — execute directly
+        run_filament_macro(macro_name, "Load", {});
         return;
     }
 
+    // Fallback: fast move through bowden (56mm at 20mm/s) then slow push into
+    // melt zone (24mm at 5mm/s). M83 = relative extrusion mode.
+    constexpr int LOAD_FAST_MM = 56;
+    constexpr int LOAD_FAST_SPEED = 20 * 60;  // 20 mm/s → 1200 mm/min
+    constexpr int LOAD_SLOW_MM = 24;
+    constexpr int LOAD_SLOW_SPEED = 5 * 60;   // 5 mm/s → 300 mm/min
     operation_guard_.begin(OPERATION_TIMEOUT_MS,
                            [] { NOTIFY_WARNING(lv_tr("Filament operation timed out")); });
-    spdlog::info("[{}] Loading filament via StandardMacros: {}", get_name(), info.get_macro());
-    NOTIFY_INFO(lv_tr("Loading filament..."));
-    // FilamentPanel is a global singleton, so `this` capture is safe [L012]
-    StandardMacros::instance().execute(
-        StandardMacroSlot::LoadFilament, api_,
+    spdlog::info("[{}] Load fallback: {}mm fast + {}mm slow", get_name(), LOAD_FAST_MM,
+                 LOAD_SLOW_MM);
+    std::string gcode = fmt::format("M83\nG1 E{} F{}\nG1 E{} F{}", LOAD_FAST_MM, LOAD_FAST_SPEED,
+                                    LOAD_SLOW_MM, LOAD_SLOW_SPEED);
+    NOTIFY_INFO(lv_tr("Loading filament ({}mm)..."), LOAD_FAST_MM + LOAD_SLOW_MM);
+
+    api_->execute_gcode(
+        gcode,
         [this]() {
             helix::ui::async_call(
                 [](void* ud) { static_cast<FilamentPanel*>(ud)->operation_guard_.end(); }, this);
@@ -1562,7 +1643,11 @@ void FilamentPanel::execute_load() {
         [this](const MoonrakerError& error) {
             helix::ui::async_call(
                 [](void* ud) { static_cast<FilamentPanel*>(ud)->operation_guard_.end(); }, this);
-            NOTIFY_ERROR(lv_tr("Filament load failed: {}"), error.user_message());
+            if (error.type == MoonrakerErrorType::TIMEOUT) {
+                NOTIFY_WARNING(lv_tr("Load may still be running — response timed out"));
+            } else {
+                NOTIFY_ERROR(lv_tr("Filament load failed: {}"), error.user_message());
+            }
         },
         MoonrakerAPI::EXTRUSION_TIMEOUT_MS);
 }
@@ -1593,19 +1678,52 @@ void FilamentPanel::execute_unload() {
     }
 
     const auto& info = StandardMacros::instance().get(StandardMacroSlot::UnloadFilament);
-    if (info.is_empty()) {
-        spdlog::warn("[{}] Unload filament slot is empty", get_name());
-        NOTIFY_WARNING(lv_tr("Unload filament macro not configured"));
+    if (!info.is_empty()) {
+        std::string macro_name = info.get_macro();
+        auto cached = MacroParamCache::instance().get(macro_name);
+
+        if (cached.knowledge == MacroParamKnowledge::KNOWN_PARAMS) {
+            spdlog::info("[{}] Unload macro '{}' has params, showing modal", get_name(),
+                         macro_name);
+            get_filament_param_modal().show_for_macro(
+                lv_screen_active(), macro_name, cached.params,
+                [this, macro_name](const MacroParamResult& result) {
+                    run_filament_macro(macro_name, "Unload", result);
+                });
+            return;
+        }
+
+        if (cached.knowledge == MacroParamKnowledge::UNKNOWN) {
+            spdlog::info("[{}] Unload macro '{}' params unknown, showing raw input", get_name(),
+                         macro_name);
+            get_filament_param_modal().show_for_unknown_params(
+                lv_screen_active(), macro_name,
+                [this, macro_name](const MacroParamResult& result) {
+                    run_filament_macro(macro_name, "Unload", result);
+                });
+            return;
+        }
+
+        // KNOWN_NO_PARAMS — execute directly
+        run_filament_macro(macro_name, "Unload", {});
         return;
     }
 
+    // Fallback: tip-shape (push 3mm, quick pull 5mm, dwell) then retract 80mm.
+    // M83 = relative extrusion mode.
+    constexpr int UNLOAD_MM = 80;
+    constexpr int UNLOAD_SPEED = 20 * 60;       // 20 mm/s → 1200 mm/min
+    constexpr int TIP_PUSH_SPEED = 5 * 60;      // 5 mm/s → 300 mm/min
+    constexpr int TIP_PULL_SPEED = 60 * 60;     // 60 mm/s → 3600 mm/min
     operation_guard_.begin(OPERATION_TIMEOUT_MS,
                            [] { NOTIFY_WARNING(lv_tr("Filament operation timed out")); });
-    spdlog::info("[{}] Unloading filament via StandardMacros: {}", get_name(), info.get_macro());
-    NOTIFY_INFO(lv_tr("Unloading filament..."));
-    // FilamentPanel is a global singleton, so `this` capture is safe [L012]
-    StandardMacros::instance().execute(
-        StandardMacroSlot::UnloadFilament, api_,
+    spdlog::info("[{}] Unload fallback: tip-shape + {}mm retract", get_name(), UNLOAD_MM);
+    std::string gcode = fmt::format("M83\nG1 E3 F{}\nG1 E-5 F{}\nG4 P500\nG1 E-{} F{}",
+                                    TIP_PUSH_SPEED, TIP_PULL_SPEED, UNLOAD_MM, UNLOAD_SPEED);
+    NOTIFY_INFO(lv_tr("Unloading filament ({}mm)..."), UNLOAD_MM);
+
+    api_->execute_gcode(
+        gcode,
         [this]() {
             helix::ui::async_call(
                 [](void* ud) { static_cast<FilamentPanel*>(ud)->operation_guard_.end(); }, this);
@@ -1614,7 +1732,43 @@ void FilamentPanel::execute_unload() {
         [this](const MoonrakerError& error) {
             helix::ui::async_call(
                 [](void* ud) { static_cast<FilamentPanel*>(ud)->operation_guard_.end(); }, this);
-            NOTIFY_ERROR(lv_tr("Filament unload failed: {}"), error.user_message());
+            if (error.type == MoonrakerErrorType::TIMEOUT) {
+                NOTIFY_WARNING(lv_tr("Unload may still be running — response timed out"));
+            } else {
+                NOTIFY_ERROR(lv_tr("Filament unload failed: {}"), error.user_message());
+            }
+        },
+        MoonrakerAPI::EXTRUSION_TIMEOUT_MS);
+}
+
+void FilamentPanel::run_filament_macro(const std::string& macro_name,
+                                       const std::string& op_label,
+                                       const MacroParamResult& params) {
+    if (!api_) {
+        return;
+    }
+
+    operation_guard_.begin(OPERATION_TIMEOUT_MS,
+                           [] { NOTIFY_WARNING(lv_tr("Filament operation timed out")); });
+    spdlog::info("[{}] Running '{}' ({})", get_name(), macro_name, op_label);
+
+    std::string gcode = helix::build_macro_gcode(macro_name, params);
+    // FilamentPanel is a global singleton, so `this` capture is safe [L012]
+    api_->execute_gcode(
+        gcode,
+        [this]() {
+            helix::ui::async_call(
+                [](void* ud) { static_cast<FilamentPanel*>(ud)->operation_guard_.end(); }, this);
+            NOTIFY_SUCCESS(lv_tr("Macro complete"));
+        },
+        [this](const MoonrakerError& error) {
+            helix::ui::async_call(
+                [](void* ud) { static_cast<FilamentPanel*>(ud)->operation_guard_.end(); }, this);
+            if (error.type == MoonrakerErrorType::TIMEOUT) {
+                NOTIFY_WARNING(lv_tr("Macro may still be running — response timed out"));
+            } else {
+                NOTIFY_ERROR(lv_tr("Macro failed: {}"), error.user_message());
+            }
         },
         MoonrakerAPI::EXTRUSION_TIMEOUT_MS);
 }

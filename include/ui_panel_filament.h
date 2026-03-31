@@ -4,6 +4,7 @@
 #pragma once
 
 #include "active_material_provider.h"
+#include "macro_param_modal.h"
 #include "ui_ams_edit_modal.h"
 #include "ui_observer_guard.h"
 #include "ui_panel_base.h"
@@ -303,7 +304,8 @@ class FilamentPanel : public PanelBase {
 
     // Temperature observer bundle (nozzle + bed current/target)
     helix::ui::TemperatureObserverBundle<FilamentPanel> temp_observers_;
-    ObserverGuard ams_type_observer_; ///< Adjusts temp card size when AMS hidden
+    ObserverGuard ams_type_observer_;   ///< Adjusts temp card size when AMS hidden
+    ObserverGuard ams_action_observer_; ///< Ends operation guard when AMS action returns to idle
 
     //
     // === Private Helpers ===
@@ -348,6 +350,8 @@ class FilamentPanel : public PanelBase {
     void show_unload_warning();
     void execute_load();
     void execute_unload();
+    void run_filament_macro(const std::string& macro_name, const std::string& op_label,
+                            const helix::MacroParamResult& params);
 
     //
     // === Static Trampolines ===

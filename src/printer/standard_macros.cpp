@@ -37,8 +37,8 @@ struct SlotPatterns {
 
 // clang-format off
 const std::vector<SlotPatterns> DETECTION_PATTERNS = {
-    {StandardMacroSlot::LoadFilament,   {"LOAD_FILAMENT", "M701"}},
-    {StandardMacroSlot::UnloadFilament, {"UNLOAD_FILAMENT", "M702"}},
+    {StandardMacroSlot::LoadFilament,   {"LOAD_FILAMENT", "LOAD_MATERIAL", "M701"}},
+    {StandardMacroSlot::UnloadFilament, {"UNLOAD_FILAMENT", "UNLOAD_MATERIAL", "QUIT_MATERIAL", "M702"}},
     {StandardMacroSlot::Purge,          {"PURGE", "PURGE_LINE", "PRIME_LINE", "PURGE_FILAMENT", "LINE_PURGE"}},
     {StandardMacroSlot::Pause,          {"PAUSE", "M601"}},
     {StandardMacroSlot::Resume,         {"RESUME", "M602"}},
