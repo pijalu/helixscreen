@@ -10,18 +10,33 @@
 
 #include "ui_event_safety.h"
 #include "ui_fan_control_overlay.h"
+#include "ui_modal.h"
 #include "ui_nav_manager.h"
 #include "ui_utils.h"
 
 #include "app_globals.h"
 #include "config.h"
+#include "helix-xml/src/xml/lv_xml.h"
 #include "printer_state.h"
 #include "static_panel_registry.h"
 #include "ui_status_pill.h"
 
 #include <spdlog/spdlog.h>
 
+#include <cstring>
 #include <memory>
+
+// ============================================================================
+// STATIC RENAME MODAL CALLBACKS
+// ============================================================================
+
+static void on_fan_rename_confirm(lv_event_t* /*e*/) {
+    helix::settings::get_fan_settings_overlay().confirm_rename();
+}
+
+static void on_fan_rename_cancel(lv_event_t* /*e*/) {
+    helix::settings::get_fan_settings_overlay().cancel_rename();
+}
 
 namespace helix::settings {
 
@@ -49,6 +64,9 @@ FanSettingsOverlay::FanSettingsOverlay() {
 }
 
 FanSettingsOverlay::~FanSettingsOverlay() {
+    if (rename_subject_initialized_ && lv_is_initialized()) {
+        lv_subject_deinit(&fan_rename_old_name_);
+    }
     spdlog::trace("[{}] Destroyed", get_name());
 }
 
@@ -57,7 +75,8 @@ FanSettingsOverlay::~FanSettingsOverlay() {
 // ============================================================================
 
 void FanSettingsOverlay::register_callbacks() {
-    // No XML-registered callbacks needed — rows are created dynamically
+    lv_xml_register_event_cb(nullptr, "on_fan_rename_confirm", on_fan_rename_confirm);
+    lv_xml_register_event_cb(nullptr, "on_fan_rename_cancel", on_fan_rename_cancel);
     spdlog::debug("[{}] Callbacks registered", get_name());
 }
 
@@ -128,6 +147,7 @@ void FanSettingsOverlay::on_activate() {
 
 void FanSettingsOverlay::on_deactivate() {
     OverlayBase::on_deactivate();
+    cancel_rename(); // Dismiss rename modal if open
 }
 
 // ============================================================================
@@ -311,8 +331,79 @@ void FanSettingsOverlay::populate_fans() {
 
 void FanSettingsOverlay::handle_fan_rename(const std::string& object_name,
                                            const std::string& current_name) {
-    spdlog::info("[{}] Fan rename not available (feature disabled): {} (current: {})", get_name(),
-                 object_name, current_name);
+    spdlog::info("[{}] Rename requested: '{}' (current: '{}')", get_name(), object_name,
+                 current_name);
+
+    // Lazy-init the subject on first use (avoids startup init order issues)
+    if (!rename_subject_initialized_) {
+        std::memset(rename_old_name_buf_, 0, sizeof(rename_old_name_buf_));
+        lv_subject_init_string(&fan_rename_old_name_, rename_old_name_buf_, nullptr,
+                               sizeof(rename_old_name_buf_), "");
+        lv_xml_register_subject(nullptr, "fan_rename_old_name", &fan_rename_old_name_);
+        rename_subject_initialized_ = true;
+    }
+
+    pending_rename_object_ = object_name;
+    lv_subject_copy_string(&fan_rename_old_name_, current_name.c_str());
+
+    rename_modal_ = helix::ui::modal_show("fan_rename_modal");
+    if (!rename_modal_) {
+        spdlog::error("[{}] Failed to show fan_rename_modal", get_name());
+        return;
+    }
+
+    // Pre-fill input with current name
+    lv_obj_t* input = lv_obj_find_by_name(rename_modal_, "fan_rename_new_name_input");
+    if (input) {
+        lv_textarea_set_text(input, current_name.c_str());
+    }
+}
+
+void FanSettingsOverlay::confirm_rename() {
+    if (pending_rename_object_.empty()) {
+        cancel_rename();
+        return;
+    }
+
+    // Find the text input in the modal
+    lv_obj_t* input = lv_obj_find_by_name(lv_layer_top(), "fan_rename_new_name_input");
+    if (!input) {
+        input = lv_obj_find_by_name(lv_screen_active(), "fan_rename_new_name_input");
+    }
+
+    std::string new_name;
+    if (input) {
+        const char* text = lv_textarea_get_text(input);
+        if (text && std::strlen(text) > 0) {
+            new_name = text;
+        }
+    }
+
+    if (!new_name.empty()) {
+        get_printer_state().rename_fan(pending_rename_object_, new_name);
+        spdlog::info("[{}] Renamed '{}' -> '{}'", get_name(), pending_rename_object_, new_name);
+    }
+
+    pending_rename_object_.clear();
+
+    if (rename_modal_) {
+        helix::ui::modal_hide(rename_modal_);
+        rename_modal_ = nullptr;
+    }
+
+    // Refresh settings list to show new name
+    if (overlay_root_) {
+        populate_fans();
+    }
+}
+
+void FanSettingsOverlay::cancel_rename() {
+    pending_rename_object_.clear();
+
+    if (rename_modal_) {
+        helix::ui::modal_hide(rename_modal_);
+        rename_modal_ = nullptr;
+    }
 }
 
 } // namespace helix::settings

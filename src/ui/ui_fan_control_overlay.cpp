@@ -9,6 +9,7 @@
 #include "ui_modal.h"
 #include "ui_nav_manager.h"
 #include "ui_notification.h"
+#include "ui_settings_fans.h"
 
 #include "app_globals.h"
 #include "config.h"
@@ -26,6 +27,39 @@
 #include <cstdio>
 
 using namespace helix;
+
+// ============================================================================
+// LONG-PRESS RENAME HELPERS
+// ============================================================================
+
+namespace {
+
+struct FanRenameData {
+    std::string object_name;
+    std::string display_name;
+};
+
+void on_fan_long_pressed(lv_event_t* e) {
+    auto* data = static_cast<FanRenameData*>(lv_event_get_user_data(e));
+    if (!data) return;
+    spdlog::debug("[FanControlOverlay] Long press on '{}'", data->object_name);
+    helix::settings::get_fan_settings_overlay().handle_fan_rename(data->object_name,
+                                                                   data->display_name);
+}
+
+void on_fan_rename_data_delete(lv_event_t* e) {
+    delete static_cast<FanRenameData*>(lv_event_get_user_data(e));
+}
+
+void attach_long_press_rename(lv_obj_t* widget, const std::string& object_name,
+                              const std::string& display_name) {
+    auto* data = new FanRenameData{object_name, display_name};
+    lv_obj_add_flag(widget, LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_add_event_cb(widget, on_fan_long_pressed, LV_EVENT_LONG_PRESSED, data);
+    lv_obj_add_event_cb(widget, on_fan_rename_data_delete, LV_EVENT_DELETE, data);
+}
+
+} // namespace
 
 // ============================================================================
 // GLOBAL INSTANCE
@@ -224,6 +258,9 @@ void FanControlOverlay::populate_fans() {
                 send_fan_speed(fan_id, speed_percent);
             });
 
+            // Long-press to rename
+            attach_long_press_rename(afd.dial->get_root(), fan.object_name, fan.display_name);
+
             animated_fan_dials_.push_back(std::move(afd));
 
             spdlog::trace("[{}] Created AnimatedFanDial for '{}' ({}%)", get_name(),
@@ -279,6 +316,9 @@ void FanControlOverlay::populate_fans() {
 
                 // Attach auto-resize for dynamic arc scaling
                 helix::ui::fan_arc_attach_auto_resize(card);
+
+                // Long-press to rename
+                attach_long_press_rename(card, fan.object_name, fan.display_name);
 
                 AutoFanCard afc;
                 afc.object_name = fan.object_name;

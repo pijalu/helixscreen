@@ -24,6 +24,7 @@
 
 #include "overlay_base.h"
 
+#include <lvgl.h>
 #include <string>
 
 namespace helix::settings {
@@ -68,6 +69,15 @@ class FanSettingsOverlay : public OverlayBase {
     /// Called when overlay is being hidden
     void on_deactivate() override;
 
+    /// Handle fan rename via keyboard modal (callable from any overlay)
+    void handle_fan_rename(const std::string& object_name, const std::string& current_name);
+
+    /// Confirm the rename (called from static callback)
+    void confirm_rename();
+
+    /// Cancel/hide the rename modal
+    void cancel_rename();
+
   private:
     /// Populate all fan sections from PrinterFanState
     void populate_fans();
@@ -78,12 +88,16 @@ class FanSettingsOverlay : public OverlayBase {
     /// Update badge count for a section
     void update_section_count(const char* badge_name, size_t count);
 
-    /// Handle fan rename via keyboard modal
-    void handle_fan_rename(const std::string& object_name, const std::string& current_name);
-
     lv_obj_t* controllable_list_ = nullptr;
     lv_obj_t* auto_list_ = nullptr;
     lv_obj_t* no_fans_placeholder_ = nullptr;
+
+    // Rename modal state
+    lv_obj_t* rename_modal_ = nullptr;
+    std::string pending_rename_object_;
+    char rename_old_name_buf_[64] = {};
+    lv_subject_t fan_rename_old_name_{}; ///< Subject for bind_text in modal
+    bool rename_subject_initialized_ = false;
 };
 
 /**

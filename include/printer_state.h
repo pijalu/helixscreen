@@ -759,6 +759,11 @@ class PrinterState {
         return fan_state_.get_fans();
     }
 
+    /// Rename a fan: saves to config, updates display name, bumps fans_version
+    void rename_fan(const std::string& object_name, const std::string& new_name) {
+        fan_state_.rename_fan(object_name, new_name);
+    }
+
     /**
      * @brief Get fans version subject for UI change notification
      *

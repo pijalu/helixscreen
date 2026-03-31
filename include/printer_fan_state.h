@@ -112,6 +112,9 @@ class PrinterFanState {
     /// Update RPM reading for a fan (from fan_feedback or Klipper rpm field)
     void update_fan_rpm(const std::string& object_name, int rpm);
 
+    /// Rename a fan: saves custom name to Config, updates display_name, bumps fans_version
+    void rename_fan(const std::string& object_name, const std::string& new_name);
+
     // Subject accessors
     lv_subject_t* get_fan_speed_subject() {
         return &fan_speed_;

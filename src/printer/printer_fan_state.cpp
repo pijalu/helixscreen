@@ -358,4 +358,34 @@ lv_subject_t* PrinterFanState::get_fan_speed_subject(const std::string& object_n
     return nullptr;
 }
 
+void PrinterFanState::rename_fan(const std::string& object_name, const std::string& new_name) {
+    // Save to config
+    auto* config = Config::get_instance();
+    if (config) {
+        std::string key = config->df() + "fans/names/" + object_name;
+        config->set<std::string>(key, new_name);
+
+        config->save();
+    }
+
+    // Update in-memory display name
+    for (auto& fan : fans_) {
+        if (fan.object_name == object_name) {
+            if (new_name.empty()) {
+                // Revert to role name or auto-generated name
+                std::string role_name = get_role_display_name(object_name);
+                fan.display_name =
+                    role_name.empty() ? get_display_name(object_name, DeviceType::FAN) : role_name;
+            } else {
+                fan.display_name = new_name;
+            }
+            spdlog::info("[PrinterFanState] Renamed '{}' -> '{}'", object_name, fan.display_name);
+            break;
+        }
+    }
+
+    // Bump version so UI rebuilds
+    lv_subject_set_int(&fans_version_, lv_subject_get_int(&fans_version_) + 1);
+}
+
 } // namespace helix
