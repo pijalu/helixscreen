@@ -35,6 +35,7 @@
       "Bash(time make:*)",
       "Bash(./build/bin/*)",
       "Bash(./build/tests/*)",
+      "Bash(./.worktrees/:*)",
       "Bash(./scripts/*)",
 
       "Bash(HELIX_*)",
