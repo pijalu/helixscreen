@@ -982,6 +982,9 @@ void FilamentPanel::setup_external_spool_display() {
         spdlog::warn("[{}] Failed to create external spool canvas", get_name());
         return;
     }
+    // L071: Canvas absorbs clicks — pass through to parent row's event_cb
+    lv_obj_remove_flag(external_spool_canvas_, LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_add_flag(external_spool_canvas_, LV_OBJ_FLAG_EVENT_BUBBLE);
 
     // Set initial state from AmsState
     update_external_spool_from_state();
