@@ -2046,8 +2046,8 @@ TEST_CASE("MoonrakerClientMock print progress increments during printing",
         // Start a print
         mock.gcode_script("SDCARD_PRINT_FILE FILENAME=3DBenchy.gcode");
 
-        // Let it run for a bit
-        REQUIRE(fixture.wait_for_callbacks(3, 5000));
+        // Let it run for a bit (notifications dispatch every ~2s at 1x speed)
+        REQUIRE(fixture.wait_for_callbacks(3, 8000));
 
         // Pause
         mock.gcode_script("PAUSE");
@@ -2078,8 +2078,8 @@ TEST_CASE("MoonrakerClientMock print progress increments during printing",
 
         fixture.reset();
 
-        // Wait for more ticks while paused
-        REQUIRE(fixture.wait_for_callbacks(3, 5000));
+        // Wait for more ticks while paused (notifications dispatch every ~2s at 1x speed)
+        REQUIRE(fixture.wait_for_callbacks(3, 8000));
         mock.stop_temperature_simulation();
 
         // Check progress hasn't increased (paused state doesn't advance progress)

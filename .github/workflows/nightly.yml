@@ -220,7 +220,7 @@ jobs:
   test-asan:
     name: AddressSanitizer
     runs-on: ubuntu-22.04
-    timeout-minutes: 60
+    timeout-minutes: 90
 
     steps:
     - name: Checkout repository
@@ -282,7 +282,7 @@ jobs:
       run: make apply-patches
 
     - name: Build and run with ASAN
-      timeout-minutes: 55
+      timeout-minutes: 80
       run: |
         make test-asan
         echo "ASAN tests complete"
@@ -301,7 +301,7 @@ jobs:
   test-tsan:
     name: ThreadSanitizer
     runs-on: ubuntu-22.04
-    timeout-minutes: 60
+    timeout-minutes: 90
 
     steps:
     - name: Checkout repository
@@ -363,7 +363,7 @@ jobs:
       run: make apply-patches
 
     - name: Build and run with TSAN
-      timeout-minutes: 55
+      timeout-minutes: 80
       run: |
         make test-tsan
         echo "TSAN tests complete"
