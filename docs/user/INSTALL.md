@@ -107,7 +107,7 @@ The installer automatically detects which firmware you're running and configures
 | **Forge-X** | GuppyScreen | `/opt/helixscreen/` | `S90helixscreen` |
 | **Klipper Mod** | KlipperScreen | `/root/printer_software/helixscreen/` | `S80helixscreen` |
 
-**Memory Savings:** On Klipper Mod, HelixScreen (~10MB) replaces KlipperScreen (~50MB), freeing ~40MB RAM on the memory-constrained AD5M.
+**Memory Savings:** On Klipper Mod, HelixScreen (~15MB) replaces KlipperScreen (~50MB), freeing ~35MB RAM on the memory-constrained AD5M.
 
 #### Forge-X Prerequisites
 
