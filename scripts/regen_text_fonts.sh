@@ -234,7 +234,7 @@ if [ -f "$FONT_MONO" ]; then
         lv_font_conv \
             --font "$FONT_MONO" --size "$SIZE" --bpp 4 --format lvgl \
             --range "$UNICODE_RANGES" \
-            --no-compress \
+            \
             -o "$OUTPUT"
     done
 else
@@ -257,7 +257,7 @@ if [ -n "$RUNTIME_CJKCHARS" ]; then
             --font "$FONT_CJK_SC" --size "$SIZE" --range "$RUNTIME_CJKCHARS" \
             --font "$FONT_CJK_JP" --size "$SIZE" --range "$RUNTIME_CJKCHARS" \
             --bpp 4 --format bin \
-            --no-compress \
+            \
             -o "$OUTPUT"
     done
 
@@ -269,7 +269,7 @@ if [ -n "$RUNTIME_CJKCHARS" ]; then
             --font "$FONT_CJK_SC" --size "$SIZE" --range "$RUNTIME_CJKCHARS" \
             --font "$FONT_CJK_JP" --size "$SIZE" --range "$RUNTIME_CJKCHARS" \
             --bpp 4 --format bin \
-            --no-compress \
+            \
             -o "$OUTPUT"
     done
 
@@ -281,7 +281,7 @@ if [ -n "$RUNTIME_CJKCHARS" ]; then
             --font "$FONT_CJK_SC" --size "$SIZE" --range "$RUNTIME_CJKCHARS" \
             --font "$FONT_CJK_JP" --size "$SIZE" --range "$RUNTIME_CJKCHARS" \
             --bpp 4 --format bin \
-            --no-compress \
+            \
             -o "$OUTPUT"
     done
 
