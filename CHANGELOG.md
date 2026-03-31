@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.99.13] - 2026-03-31
+
+### Added
+- Energy monitoring: power device widget with energy carousel, sensor picker, and mock data for testing
+- Moonraker sensor discovery and subscription with SensorState singleton
+- Fan rename via Settings panel and long-press on fan cards
+- USB HID barcode scanner detection for any keyboard-class device
+
+### Fixed
+- External spool weight not syncing from Spoolman when no AMS backend is active
+- Spoolman active spool notification handler parsing incomplete JSON-RPC messages
+- Filament edit modal defaulting vendor dropdown to empty instead of Generic
+- Double-free of libinput device paths on DRM teardown (#650)
+- Boot display process not killed on K1 startup, causing stale boot logo (#642)
+- libinput keyboard scan SIGABRT at startup on some devices (#648)
+- Crash reporter stack-scanned backtrace for ARM32/MIPS plus race condition fixes
+- Energy page layout tightened to avoid carousel dot overlap
+- Fan touch feedback, event bubble for rename, output_pin prefix stripping
+- WebSocket client missing close() call and missing ctime include
+
+### Changed
+- Power and power_device widgets consolidated into single two-column layout
+- Request tracker decoupled from AbortManager and UI dependencies
+- Inspector tool uses real request tracker, drops moonraker_client dependency
+
 ## [0.99.12] - 2026-03-30
 
 This release adds fan management with output_pin support and RPM display, temperature graph overhaul via TempGraphController, touch calibration for DRM displays, K1 pre-print phase detection, and flexible nozzle temp widget layouts — alongside crash fixes, graph rendering improvements, and printer database additions.
@@ -2414,6 +2439,7 @@ Initial tagged release. Foundation for all subsequent development.
 - Automated GitHub Actions release pipeline
 - One-liner installation script with platform auto-detection
 
+[0.99.13]: https://github.com/prestonbrown/helixscreen/compare/v0.99.12...v0.99.13
 [0.99.12]: https://github.com/prestonbrown/helixscreen/compare/v0.99.11...v0.99.12
 [0.99.11]: https://github.com/prestonbrown/helixscreen/compare/v0.99.10...v0.99.11
 [0.99.10]: https://github.com/prestonbrown/helixscreen/compare/v0.99.9...v0.99.10
