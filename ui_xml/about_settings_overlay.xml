@@ -114,6 +114,10 @@
                      text="HelixScreen — GPL-3.0&#10;LVGL — MIT License&#10;helix-xml — MIT License&#10;libhv — BSD 3-Clause License&#10;spdlog — MIT License&#10;nlohmann/json — MIT License&#10;SDL2 — zlib License&#10;Expat — MIT License&#10;md4c — MIT License&#10;ThorVG — MIT License&#10;GLM — MIT License&#10;quirc — ISC License&#10;lv_i18n — MIT License&#10;lv_markdown — MIT License&#10;stb — Public Domain&#10;mdns — Public Domain&#10;picosha2 — MIT License&#10;OpenVDB — Apache 2.0 License&#10;libnl — LGPL 2.1&#10;minilzo — GPL 2.0&#10;ftxui — MIT License&#10;cpp-terminal — MIT License&#10;wpa_supplicant — BSD 3-Clause License"/>
         </lv_obj>
       </lv_obj>
+      <!-- Credits -->
+      <text_tiny text="Space Debris mod by Markus 'Captain' Kaarlonen"
+                 style_text_color="#text_muted" style_text_align="center" width="100%"
+                 style_pad_top="#space_sm"/>
       <!-- Bottom padding for scroll -->
       <lv_obj width="100%" height="#space_lg" scrollable="false"/>
     </lv_obj>
