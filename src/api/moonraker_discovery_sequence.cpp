@@ -681,6 +681,12 @@ void MoonrakerDiscoverySequence::complete_discovery_subscription() {
         subscription_objects[fan] = nullptr;
     }
 
+    // Subscribe to fan_feedback if available (Creality tachometer module)
+    if (hardware_.has_fan_feedback()) {
+        subscription_objects["fan_feedback"] = nullptr;
+        spdlog::debug("[MoonrakerDiscoverySequence] Subscribing to fan_feedback for RPM data");
+    }
+
     // All discovered LEDs
     for (const auto& led : leds_) {
         subscription_objects[led] = nullptr;
