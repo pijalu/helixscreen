@@ -454,11 +454,13 @@ int MoonrakerClient::connect(const char* url, std::function<void()> on_connected
 
             // Route responses with request IDs through the tracker
             if (j.contains("id")) {
-                tracker_.route_response(j,
-                                        [this](MoonrakerEventType type, const std::string& msg_str,
-                                               bool is_error, const std::string& details) {
-                                            emit_event(type, msg_str, is_error, details);
-                                        });
+                tracker_.route_response(
+                    j,
+                    [this](MoonrakerEventType type, const std::string& msg_str, bool is_error,
+                           const std::string& details) {
+                        emit_event(type, msg_str, is_error, details);
+                    },
+                    []() { return AbortManager::instance().is_handling_shutdown(); });
             }
 
             // Handle notifications (no request ID)
