@@ -5,6 +5,7 @@
 #include "ui_notification.h"
 
 #include "app_globals.h"
+#include "fan_gcode.h"
 #include "hv/requests.h"
 #include "moonraker_api.h"
 #include "moonraker_api_internal.h"
@@ -106,27 +107,10 @@ void MoonrakerAPI::set_fan_speed(const std::string& fan, double speed, SuccessCa
         return;
     }
 
-    // Convert percentage to 0-255 range for M106 command
-    int fan_value = static_cast<int>(speed * 255.0 / 100.0);
+    std::string gcode = helix::fan_gcode(fan, speed);
+    spdlog::debug("[MoonrakerAPI] set_fan_speed('{}', {:.0f}%) -> {}", fan, speed, gcode);
 
-    std::ostringstream gcode;
-    if (fan == "fan") {
-        // Part cooling fan uses M106
-        gcode << "M106 S" << fan_value;
-    } else {
-        // Generic fans use SET_FAN_SPEED with just the fan name (strip Klipper type prefix)
-        // e.g., "fan_generic Fanm106" -> "Fanm106", "fan_generic chamber_fan" -> "chamber_fan"
-        std::string fan_name = fan;
-        size_t space_pos = fan_name.find(' ');
-        if (space_pos != std::string::npos) {
-            fan_name = fan_name.substr(space_pos + 1);
-        }
-        gcode << "SET_FAN_SPEED FAN=" << fan_name << " SPEED=" << (speed / 100.0);
-    }
-
-    spdlog::trace("[Moonraker API] Setting {} speed to {}%", fan, speed);
-
-    execute_gcode(gcode.str(), on_success, on_error);
+    execute_gcode(gcode, on_success, on_error);
 }
 
 // ============================================================================
