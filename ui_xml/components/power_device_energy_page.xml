@@ -9,16 +9,17 @@
   -->
   <view name="power_device_energy_page" extends="lv_obj"
         width="100%" height="100%"
-        style_pad_all="0" style_pad_row="#space_xxs"
+        style_pad_all="0" style_pad_row="0"
+        style_pad_bottom="#space_md"
         scrollable="false" flex_flow="column"
         style_flex_main_place="center" style_flex_cross_place="center"
         style_flex_track_place="center"
         clickable="false" event_bubble="true">
 
     <!-- Power (W) — prominent top value -->
-    <text_heading name="energy_power_label" text="-- W"
-                  style_text_align="center" width="100%"
-                  clickable="false" event_bubble="true"/>
+    <text_body name="energy_power_label" text="-- W"
+               style_text_align="center" width="100%"
+               clickable="false" event_bubble="true"/>
 
     <!-- Voltage (V) -->
     <text_tiny name="energy_voltage_label" text="-- V"
