@@ -881,6 +881,75 @@ TEST_CASE("filter_spools - empty location does not break search", "[filament][fi
     REQUIRE(result[0].id == 42);
 }
 
+// ============================================================================
+// Fuzzy search tests
+// ============================================================================
+
+TEST_CASE("filter_spools - fuzzy matches vendor with typo", "[filament][filter]") {
+    auto spools = make_filter_test_spools();
+    // "Polmaker" is 1 edit from "Polymaker" (missing 'y')
+    auto result = filter_spools(spools, "polmaker");
+    REQUIRE(result.size() == 2);
+    REQUIRE(result[0].id == 1);
+    REQUIRE(result[1].id == 3);
+}
+
+TEST_CASE("filter_spools - fuzzy matches material with typo", "[filament][filter]") {
+    auto spools = make_filter_test_spools();
+    // "PEYG" is 1 edit from "PETG" (Y instead of T)
+    auto result = filter_spools(spools, "peyg");
+    REQUIRE(result.size() == 1);
+    REQUIRE(result[0].id == 2);
+}
+
+TEST_CASE("filter_spools - fuzzy matches vendor with swapped chars", "[filament][filter]") {
+    auto spools = make_filter_test_spools();
+    // "htachbox" is 2 edits from "hatchbox" (transposition)
+    auto result = filter_spools(spools, "htachbox");
+    REQUIRE(result.size() == 1);
+    REQUIRE(result[0].id == 42);
+}
+
+TEST_CASE("filter_spools - fuzzy does not match wildly different terms", "[filament][filter]") {
+    auto spools = make_filter_test_spools();
+    // "xyz" is far from any word in the spool data
+    auto result = filter_spools(spools, "xyz");
+    REQUIRE(result.empty());
+}
+
+TEST_CASE("filter_spools - fuzzy AND still works with mixed exact and fuzzy", "[filament][filter]") {
+    auto spools = make_filter_test_spools();
+    // "polmaker" fuzzy-matches "polymaker", "pla" exact-matches
+    auto result = filter_spools(spools, "polmaker pla");
+    REQUIRE(result.size() == 1);
+    REQUIRE(result[0].id == 1);
+}
+
+TEST_CASE("filter_spools - fuzzy short term has tighter threshold", "[filament][filter]") {
+    auto spools = make_filter_test_spools();
+    // "PLS" is 1 edit from "PLA" — within threshold for 3-char terms
+    auto result = filter_spools(spools, "pls");
+    REQUIRE(result.size() == 2);
+    REQUIRE(result[0].id == 1);
+    REQUIRE(result[1].id == 42);
+}
+
+TEST_CASE("filter_spools - fuzzy rejects 2-edit on short term", "[filament][filter]") {
+    auto spools = make_filter_test_spools();
+    // "XYA" is 2 edits from "PLA" — exceeds threshold of 1 for 3-char terms
+    auto result = filter_spools(spools, "xya");
+    REQUIRE(result.empty());
+}
+
+TEST_CASE("filter_spools - exact substring still preferred over fuzzy", "[filament][filter]") {
+    auto spools = make_filter_test_spools();
+    // "poly" is an exact substring of "polymaker" — should match without needing fuzzy
+    auto result = filter_spools(spools, "poly");
+    REQUIRE(result.size() == 2);
+    REQUIRE(result[0].id == 1);
+    REQUIRE(result[1].id == 3);
+}
+
 TEST_CASE("SpoolInfo - location field parsed from JSON", "[filament][parsing]") {
     // This test uses the mock API which internally calls parse_spool_info()
     PrinterState state;
