@@ -254,6 +254,7 @@ Remaining items for production readiness:
 | **Text overflow audit** | Medium | 226/282 XML files lack truncation/wrapping for long translated strings |
 | **Breakpoint coverage** | Medium | Only ~10 XML files implement responsive breakpoints; expand to more panels |
 | **UI test coverage** | High | 13% coverage (34/257 src files tested); add panel interaction tests |
+| **Power consumption display** | Medium | Tasmota/Mainsail-style energy monitoring: voltage, current, power, energy usage for power devices |
 | **Plugin system tests** | Medium | Only mock tests exist; add real plugin load/unload/injection tests |
 | **Error-path integration tests** | High | Disconnect mid-print, settings corruption recovery, AMS hardware desync |
 | **Missing docs** | Medium | SENSOR_MANAGEMENT, GCODE_RENDERING_ARCHITECTURE, ACTION_PROMPTS, BLUETOOTH_SYSTEM, USB_MANAGEMENT |
