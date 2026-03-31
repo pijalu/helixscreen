@@ -54,3 +54,35 @@ TEST_CASE("Snapmaker detection via filament_detect", "[ams][snapmaker]") {
         REQUIRE(discovery.has_tool_changer());
     }
 }
+
+// ============================================================================
+// Backend Construction Tests
+// ============================================================================
+
+#include "ams_backend_snapmaker.h"
+
+TEST_CASE("AmsBackendSnapmaker construction", "[ams][snapmaker]") {
+    SECTION("type returns SNAPMAKER") {
+        AmsBackendSnapmaker backend(nullptr, nullptr);
+        REQUIRE(backend.get_type() == AmsType::SNAPMAKER);
+    }
+
+    SECTION("topology is PARALLEL") {
+        AmsBackendSnapmaker backend(nullptr, nullptr);
+        REQUIRE(backend.get_topology() == PathTopology::PARALLEL);
+    }
+
+    SECTION("name is Snapmaker SnapSwap") {
+        AmsBackendSnapmaker backend(nullptr, nullptr);
+        auto info = backend.get_system_info();
+        REQUIRE(info.type_name == "Snapmaker SnapSwap");
+    }
+
+    SECTION("has 4 slots in 1 unit") {
+        AmsBackendSnapmaker backend(nullptr, nullptr);
+        auto info = backend.get_system_info();
+        REQUIRE(info.total_slots == 4);
+        REQUIRE(info.units.size() == 1);
+        REQUIRE(info.units[0].slot_count == 4);
+    }
+}
