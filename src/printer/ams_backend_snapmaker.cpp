@@ -294,6 +294,34 @@ void AmsBackendSnapmaker::handle_status_update(const nlohmann::json& notificatio
         }
     }
 
+    // Detect active tool: whichever extruder has active_pin set (or state != "PARKED")
+    // Also check toolhead.extruder for cross-validation
+    int active = -1;
+    for (int i = 0; i < NUM_TOOLS; i++) {
+        if (extruder_states_[i].active_pin ||
+            (!extruder_states_[i].state.empty() && extruder_states_[i].state != "PARKED")) {
+            active = i;
+            break;
+        }
+    }
+    if (notification.contains("toolhead") && notification["toolhead"].is_object()) {
+        const auto& th = notification["toolhead"];
+        if (th.contains("extruder") && th["extruder"].is_string()) {
+            auto ext_name = th["extruder"].get<std::string>();
+            // "extruder" = 0, "extruder1" = 1, etc.
+            if (ext_name == "extruder") {
+                active = 0;
+            } else if (ext_name.size() > 8 && ext_name.rfind("extruder", 0) == 0) {
+                try { active = std::stoi(ext_name.substr(8)); } catch (...) {}
+            }
+        }
+    }
+    if (active != system_info_.current_tool) {
+        system_info_.current_tool = active;
+        system_info_.filament_loaded = (active >= 0);
+        changed = true;
+    }
+
     // Parse filament_detect info (RFID data per channel)
     if (notification.contains("filament_detect") && notification["filament_detect"].is_object()) {
         const auto& fd = notification["filament_detect"];
@@ -333,6 +361,30 @@ void AmsBackendSnapmaker::handle_status_update(const nlohmann::json& notificatio
                     slot->status = (state_val == 0) ? SlotStatus::AVAILABLE : SlotStatus::EMPTY;
                 }
                 changed = true;
+            }
+        }
+    }
+
+    // Parse filament_feed left/right — top-level Klipper objects (not nested in filament_detect)
+    // Each contains per-extruder state: filament_detected, channel_state, channel_error
+    for (const auto& feed_key : {"filament_feed left", "filament_feed right"}) {
+        if (notification.contains(feed_key) && notification[feed_key].is_object()) {
+            const auto& feed = notification[feed_key];
+            for (int i = 0; i < NUM_TOOLS; i++) {
+                std::string ext_key = (i == 0) ? "extruder0" : fmt::format("extruder{}", i);
+                if (feed.contains(ext_key) && feed[ext_key].is_object()) {
+                    bool detected = feed[ext_key].value("filament_detected", false);
+                    auto* slot = system_info_.units[0].get_slot(i);
+                    if (slot) {
+                        if (detected && slot->status == SlotStatus::EMPTY) {
+                            slot->status = SlotStatus::AVAILABLE;
+                            changed = true;
+                        } else if (!detected && slot->status == SlotStatus::AVAILABLE) {
+                            slot->status = SlotStatus::EMPTY;
+                            changed = true;
+                        }
+                    }
+                }
             }
         }
     }
