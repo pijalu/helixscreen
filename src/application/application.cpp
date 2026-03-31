@@ -2151,9 +2151,11 @@ void Application::setup_discovery_callbacks() {
                     "notify_active_spool_set", "external_spool_sync",
                     [api_for_notify,
                      sync_external_spool](const nlohmann::json& data) {
+                        // Callback receives full JSON-RPC message — extract params
+                        const auto& params_arr = data.contains("params") ? data["params"] : data;
                         int spool_id = 0;
-                        if (data.is_array() && !data.empty()) {
-                            const auto& params = data[0];
+                        if (params_arr.is_array() && !params_arr.empty()) {
+                            const auto& params = params_arr[0];
                             if (params.contains("spool_id") && !params["spool_id"].is_null()) {
                                 spool_id = params["spool_id"].get<int>();
                             }
