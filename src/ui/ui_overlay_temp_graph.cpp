@@ -125,6 +125,7 @@ void TempGraphOverlay::on_activate() {
     // Create controller (handles graph creation, observers, history, auto-range)
     if (graph_container_) {
         helix::TempGraphControllerConfig cfg;
+        // Default point_count (1200 = 20 min) — overlay is the detailed full-screen view
         cfg.axis_size = "sm";
         cfg.initial_features = TEMP_GRAPH_FEATURE_LINES | TEMP_GRAPH_FEATURE_TARGET_LINES
                              | TEMP_GRAPH_FEATURE_Y_AXIS | TEMP_GRAPH_FEATURE_X_AXIS
