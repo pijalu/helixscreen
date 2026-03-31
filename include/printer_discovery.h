@@ -295,6 +295,10 @@ class PrinterDiscovery {
                 has_mmu_ = true;
                 mmu_type_ = AmsType::AD5X_IFS;
             }
+            // Snapmaker U1 detection — filament_detect is unique to U1 firmware
+            else if (name == "filament_detect") {
+                has_snapmaker_ = true;
+            }
             // Tool changer detection
             else if (name == "toolchanger") {
                 has_tool_changer_ = true;
@@ -434,7 +438,10 @@ class PrinterDiscovery {
         // can be active at a time on Klipper. When a real MMU (AFC, Happy Hare)
         // is present alongside klipper-toolchanger, prefer the MMU — toolchanger
         // just handles tool switching, not filament management.
-        if (has_mmu_) {
+        if (has_snapmaker_) {
+            detected_ams_systems_.push_back({AmsType::SNAPMAKER, "Snapmaker"});
+            mmu_type_ = AmsType::SNAPMAKER;
+        } else if (has_mmu_) {
             if (mmu_type_ == AmsType::HAPPY_HARE) {
                 detected_ams_systems_.push_back({AmsType::HAPPY_HARE, "Happy Hare"});
             } else if (mmu_type_ == AmsType::AFC) {
@@ -564,6 +571,7 @@ class PrinterDiscovery {
         has_probe_ = false;
         has_heater_bed_ = false;
         has_mmu_ = false;
+        has_snapmaker_ = false;
         has_tool_changer_ = false;
         has_chamber_heater_ = false;
         has_chamber_sensor_ = false;
@@ -649,6 +657,10 @@ class PrinterDiscovery {
 
     [[nodiscard]] bool has_mmu() const {
         return has_mmu_;
+    }
+
+    [[nodiscard]] bool has_snapmaker() const {
+        return has_snapmaker_;
     }
 
     [[nodiscard]] bool has_tool_changer() const {
@@ -1129,6 +1141,7 @@ class PrinterDiscovery {
     bool has_probe_ = false;
     bool has_heater_bed_ = false;
     bool has_mmu_ = false;
+    bool has_snapmaker_ = false;
     bool has_tool_changer_ = false;
     bool has_chamber_heater_ = false;
     bool has_chamber_sensor_ = false;
