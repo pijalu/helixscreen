@@ -626,23 +626,7 @@ void MoonrakerClientMock::discover_printer(
                 {"mock_energy",
                  {{"power", 45.0}, {"voltage", 230.5}, {"current", 0.195}, {"energy", 123.4}}},
             };
-            helix::SensorState::instance().set_sensors(mock_sensors);
-            // Apply initial values
-            for (auto it = mock_sensor_values.begin(); it != mock_sensor_values.end(); ++it) {
-                const std::string& sensor_id = it.key();
-                for (auto vit = it.value().begin(); vit != it.value().end(); ++vit) {
-                    if (!vit.value().is_number())
-                        continue;
-                    int centi = helix::SensorState::to_centi_units(vit.key(),
-                                                                    vit.value().get<double>());
-                    SubjectLifetime lt;
-                    auto* subj =
-                        helix::SensorState::instance().get_value_subject(sensor_id, vit.key(), lt);
-                    if (subj) {
-                        lv_subject_set_int(subj, centi);
-                    }
-                }
-            }
+            helix::SensorState::instance().set_sensors(mock_sensors, mock_sensor_values);
             spdlog::debug("[MoonrakerClientMock] Sensors: {} (mock default)", mock_sensors.size());
 
             // Log discovered hardware

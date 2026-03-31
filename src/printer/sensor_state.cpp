@@ -81,8 +81,10 @@ bool SensorState::is_energy_sensor(const SensorInfo& info) {
 void SensorState::set_sensors(const std::vector<SensorInfo>& sensors) {
     std::lock_guard<std::recursive_mutex> lock(mutex_);
 
-    // Tear down existing subjects (expire lifetime tokens first)
+    // Tear down existing subjects (freeze queue to prevent new callbacks during teardown)
     if (subjects_initialized_) {
+        auto freeze = helix::ui::UpdateQueue::instance().scoped_freeze();
+        helix::ui::UpdateQueue::instance().drain();
         for (auto& [id, entry] : sensors_) {
             for (auto& [key, subj] : entry.value_subjects) {
                 subj->lifetime.reset();
@@ -281,6 +283,10 @@ void SensorState::deinit_subjects() {
     }
 
     spdlog::debug("[SensorState] Deinitializing subjects");
+
+    // Freeze queue to prevent new callbacks between drain and subject destruction
+    auto freeze = helix::ui::UpdateQueue::instance().scoped_freeze();
+    helix::ui::UpdateQueue::instance().drain();
 
     // Phase 1: expire lifetime tokens to invalidate ObserverGuard weak_ptrs
     for (auto& [id, entry] : sensors_) {
