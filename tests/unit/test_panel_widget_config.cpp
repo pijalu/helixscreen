@@ -375,7 +375,7 @@ TEST_CASE_METHOD(PanelWidgetConfigFixture,
                  "[panel_widget][widget_config]") {
     // Save config with only a subset of widgets (include grid coords to prevent pre-grid reset)
     json widgets = json::array({
-        {{"id", "power"}, {"enabled", true}, {"col", 0}, {"row", 0}},
+        {{"id", "shutdown"}, {"enabled", true}, {"col", 0}, {"row", 0}},
         {{"id", "network"}, {"enabled", false}, {"col", 1}, {"row", 0}},
     });
     setup_with_widgets(widgets);
@@ -387,7 +387,7 @@ TEST_CASE_METHOD(PanelWidgetConfigFixture,
     REQUIRE(wc.entries().size() == single_instance_def_count());
 
     // First two should match saved order/state
-    REQUIRE(wc.entries()[0].id == "power");
+    REQUIRE(wc.entries()[0].id == "shutdown");
     REQUIRE(wc.entries()[0].enabled == true);
     REQUIRE(wc.entries()[1].id == "network");
     REQUIRE(wc.entries()[1].enabled == false);
@@ -409,7 +409,7 @@ TEST_CASE_METHOD(PanelWidgetConfigFixture,
                  "[panel_widget][widget_config]") {
     // Include grid coords to prevent pre-grid migration reset
     json widgets = json::array({
-        {{"id", "power"}, {"enabled", true}, {"col", 0}, {"row", 0}},
+        {{"id", "shutdown"}, {"enabled", true}, {"col", 0}, {"row", 0}},
         {{"id", "bogus_widget"}, {"enabled", true}, {"col", 1}, {"row", 0}},
         {{"id", "network"}, {"enabled", false}, {"col", 2}, {"row", 0}},
     });
@@ -422,7 +422,7 @@ TEST_CASE_METHOD(PanelWidgetConfigFixture,
     REQUIRE(wc.entries().size() == single_instance_def_count());
 
     // First should be power, second should be network (bogus skipped)
-    REQUIRE(wc.entries()[0].id == "power");
+    REQUIRE(wc.entries()[0].id == "shutdown");
     REQUIRE(wc.entries()[1].id == "network");
 }
 
@@ -474,9 +474,9 @@ TEST_CASE_METHOD(PanelWidgetConfigFixture,
                  "[panel_widget][widget_config]") {
     // Include grid coords to prevent pre-grid migration reset
     json widgets = json::array({
-        {{"id", "power"}, {"enabled", true}, {"col", 0}, {"row", 0}},
+        {{"id", "shutdown"}, {"enabled", true}, {"col", 0}, {"row", 0}},
         {{"id", "network"}, {"enabled", true}, {"col", 1}, {"row", 0}},
-        {{"id", "power"}, {"enabled", false}, {"col", 2}, {"row", 0}}, // duplicate
+        {{"id", "shutdown"}, {"enabled", false}, {"col", 2}, {"row", 0}}, // duplicate
         {{"id", "temperature"}, {"enabled", true}, {"col", 3}, {"row", 0}},
     });
     setup_with_widgets(widgets);
@@ -487,13 +487,13 @@ TEST_CASE_METHOD(PanelWidgetConfigFixture,
     REQUIRE(wc.entries().size() == single_instance_def_count());
 
     // power should appear once, with enabled=true (first occurrence)
-    REQUIRE(wc.entries()[0].id == "power");
+    REQUIRE(wc.entries()[0].id == "shutdown");
     REQUIRE(wc.entries()[0].enabled == true);
 
     // Verify no duplicate power entries
     int power_count = 0;
     for (const auto& e : wc.entries()) {
-        if (e.id == "power") {
+        if (e.id == "shutdown") {
             ++power_count;
         }
     }
@@ -523,7 +523,7 @@ TEST_CASE_METHOD(PanelWidgetConfigFixture,
                  "[panel_widget][widget_config]") {
     // Include grid coords on valid entries to prevent pre-grid migration reset
     json widgets = json::array({
-        {{"id", "power"}, {"enabled", true}, {"col", 0}, {"row", 0}},
+        {{"id", "shutdown"}, {"enabled", true}, {"col", 0}, {"row", 0}},
         {{"id", 42}, {"enabled", true}},         // id is not string
         {{"id", "network"}, {"enabled", "yes"}}, // enabled is not bool
         {{"id", "temperature"}, {"enabled", false}, {"col", 1}, {"row", 0}},
@@ -535,7 +535,7 @@ TEST_CASE_METHOD(PanelWidgetConfigFixture,
 
     // Bad entries skipped, good entries kept, rest appended
     REQUIRE(wc.entries().size() == single_instance_def_count());
-    REQUIRE(wc.entries()[0].id == "power");
+    REQUIRE(wc.entries()[0].id == "shutdown");
     REQUIRE(wc.entries()[0].enabled == true);
     REQUIRE(wc.entries()[1].id == "temperature");
     REQUIRE(wc.entries()[1].enabled == false);
@@ -637,7 +637,7 @@ TEST_CASE("PanelWidgetRegistry: hardware_gate_hint consistent with hardware_gate
 TEST_CASE("PanelWidgetRegistry: known hardware-gated widgets have gate subjects",
           "[panel_widget][widget_config]") {
     // These widgets require specific hardware
-    const char* gated[] = {"power",        "ams",      "led",       "humidity",
+    const char* gated[] = {"power_device", "ams",      "led",       "humidity",
                            "width_sensor", "filament", "thermistor"};
     for (const auto* id : gated) {
         CAPTURE(id);
@@ -796,7 +796,7 @@ TEST_CASE_METHOD(PanelWidgetConfigFixture,
                  "[panel_widget][widget_config]") {
     // Include grid coords to prevent pre-grid migration reset
     json widgets = json::array({
-        {{"id", "power"}, {"enabled", true}, {"col", 0}, {"row", 0}},
+        {{"id", "shutdown"}, {"enabled", true}, {"col", 0}, {"row", 0}},
         {{"id", "network"}, {"enabled", false}, {"col", 1}, {"row", 0}},
     });
     setup_with_widgets(widgets, "home");
@@ -804,7 +804,7 @@ TEST_CASE_METHOD(PanelWidgetConfigFixture,
     PanelWidgetConfig wc("home", config);
     wc.load();
 
-    REQUIRE(wc.entries()[0].id == "power");
+    REQUIRE(wc.entries()[0].id == "shutdown");
     REQUIRE(wc.entries()[0].enabled == true);
     REQUIRE(wc.entries()[1].id == "network");
     REQUIRE(wc.entries()[1].enabled == false);
@@ -878,7 +878,7 @@ TEST_CASE_METHOD(PanelWidgetConfigFixture,
                  "[panel_widget][widget_config][migration]") {
     // Set up old-style flat config (no grid coords — triggers pre-grid reset)
     json legacy = json::array({
-        {{"id", "power"}, {"enabled", true}},
+        {{"id", "shutdown"}, {"enabled", true}},
         {{"id", "network"}, {"enabled", false}},
         {{"id", "temperature"}, {"enabled", true}},
     });
@@ -911,7 +911,7 @@ TEST_CASE_METHOD(PanelWidgetConfigFixture,
                  "[panel_widget][widget_config][migration]") {
     // Set up legacy home_widgets
     json legacy = json::array({
-        {{"id", "power"}, {"enabled", true}},
+        {{"id", "shutdown"}, {"enabled", true}},
     });
     setup_with_legacy_widgets(legacy);
 
@@ -932,7 +932,7 @@ TEST_CASE_METHOD(PanelWidgetConfigFixture,
                  "[panel_widget][widget_config][migration]") {
     // Set up both legacy and new-style config (include grid coords to prevent pre-grid reset)
     json legacy = json::array({
-        {{"id", "power"}, {"enabled", false}},
+        {{"id", "shutdown"}, {"enabled", false}},
     });
     json new_style = json::array({
         {{"id", "network"}, {"enabled", true}, {"col", 0}, {"row", 0}},
@@ -966,7 +966,7 @@ TEST_CASE_METHOD(PanelWidgetConfigFixture,
          {"config", {{"sensor", "extruder"}}},
          {"col", 0},
          {"row", 0}},
-        {{"id", "power"}, {"enabled", true}, {"col", 1}, {"row", 0}},
+        {{"id", "shutdown"}, {"enabled", true}, {"col", 1}, {"row", 0}},
     });
     setup_with_widgets(widgets);
 
@@ -986,7 +986,7 @@ TEST_CASE_METHOD(PanelWidgetConfigFixture,
 TEST_CASE_METHOD(PanelWidgetConfigFixture, "PanelWidgetConfig: grid coordinates load from JSON",
                  "[panel_widget][widget_config][grid]") {
     json widgets = json::array({
-        {{"id", "power"},
+        {{"id", "shutdown"},
          {"enabled", true},
          {"col", 0},
          {"row", 0},
@@ -1031,7 +1031,7 @@ TEST_CASE_METHOD(PanelWidgetConfigFixture, "PanelWidgetConfig: missing grid coor
          {"row", 0},
          {"colspan", 2},
          {"rowspan", 2}},
-        {{"id", "power"}, {"enabled", true}},
+        {{"id", "shutdown"}, {"enabled", true}},
     });
     setup_with_widgets(widgets);
 
@@ -1046,7 +1046,7 @@ TEST_CASE_METHOD(PanelWidgetConfigFixture, "PanelWidgetConfig: missing grid coor
         }
         return nullptr;
     };
-    auto* power = find_entry("power");
+    auto* power = find_entry("shutdown");
     REQUIRE(power);
     REQUIRE(power->col == -1);
     REQUIRE(power->row == -1);
@@ -1059,7 +1059,7 @@ TEST_CASE_METHOD(PanelWidgetConfigFixture,
                  "PanelWidgetConfig: grid coordinates round-trip save-load",
                  "[panel_widget][widget_config][grid]") {
     json widgets = json::array({
-        {{"id", "power"},
+        {{"id", "shutdown"},
          {"enabled", true},
          {"col", 2},
          {"row", 1},
@@ -1093,7 +1093,7 @@ TEST_CASE_METHOD(PanelWidgetConfigFixture,
          {"row", 0},
          {"colspan", 2},
          {"rowspan", 2}},
-        {{"id", "power"}, {"enabled", true}},
+        {{"id", "shutdown"}, {"enabled", true}},
     });
     setup_with_widgets(widgets);
 
@@ -1105,7 +1105,7 @@ TEST_CASE_METHOD(PanelWidgetConfigFixture,
     // Find the power entry in saved JSON
     json* power_saved = nullptr;
     for (auto& item : saved) {
-        if (item["id"] == "power") {
+        if (item["id"] == "shutdown") {
             power_saved = &item;
             break;
         }
@@ -1124,7 +1124,7 @@ TEST_CASE_METHOD(PanelWidgetConfigFixture,
                  "PanelWidgetConfig: has_grid_position returns true for placed widgets",
                  "[panel_widget][widget_config][grid]") {
     json widgets = json::array({
-        {{"id", "power"}, {"enabled", true}, {"col", 0}, {"row", 0}},
+        {{"id", "shutdown"}, {"enabled", true}, {"col", 0}, {"row", 0}},
         {{"id", "network"}, {"enabled", true}},
     });
     setup_with_widgets(widgets);
@@ -1248,7 +1248,7 @@ TEST_CASE_METHOD(PanelWidgetConfigFixture, "PanelWidgetConfig: is_grid_format de
                  "[panel_widget][widget_config][grid]") {
     // Config with grid coords
     json widgets_grid = json::array({
-        {{"id", "power"}, {"enabled", true}, {"col", 0}, {"row", 0}},
+        {{"id", "shutdown"}, {"enabled", true}, {"col", 0}, {"row", 0}},
     });
     setup_with_widgets(widgets_grid);
     PanelWidgetConfig wc1("home", config);
@@ -1257,7 +1257,7 @@ TEST_CASE_METHOD(PanelWidgetConfigFixture, "PanelWidgetConfig: is_grid_format de
 
     // Config without grid coords — gets migrated to grid format
     json widgets_flat = json::array({
-        {{"id", "power"}, {"enabled", true}},
+        {{"id", "shutdown"}, {"enabled", true}},
     });
     setup_with_widgets(widgets_flat);
     PanelWidgetConfig wc2("home", config);
@@ -1293,7 +1293,7 @@ TEST_CASE_METHOD(PanelWidgetConfigFixture,
                  "[panel_widget][widget_config][multipage][migration]") {
     json widgets = json::array({
         {{"id", "temperature"}, {"enabled", true}, {"col", 0}, {"row", 0}},
-        {{"id", "power"}, {"enabled", false}, {"col", 1}, {"row", 0}},
+        {{"id", "shutdown"}, {"enabled", false}, {"col", 1}, {"row", 0}},
     });
     setup_with_widgets(widgets);
 
@@ -1304,7 +1304,7 @@ TEST_CASE_METHOD(PanelWidgetConfigFixture,
     REQUIRE(wc.page_count() == 1);
     REQUIRE(wc.page_id(0) == "main");
     REQUIRE(wc.entries()[0].id == "temperature");
-    REQUIRE(wc.entries()[1].id == "power");
+    REQUIRE(wc.entries()[1].id == "shutdown");
 
     // Verify saved format is the new pages format
     auto root = get_saved_root();
@@ -1424,7 +1424,7 @@ TEST_CASE_METHOD(PanelWidgetConfigFixture,
     SECTION("removing page before main shifts main index down") {
         // Main is at index 2
         // We can set up with pages format
-        json w0 = json::array({{{"id", "power"}, {"enabled", true}, {"col", 0}, {"row", 0}}});
+        json w0 = json::array({{{"id", "shutdown"}, {"enabled", true}, {"col", 0}, {"row", 0}}});
         json w1 = json::array({{{"id", "network"}, {"enabled", true}, {"col", 0}, {"row", 0}}});
         json w2 = json::array(
             {{{"id", "temperature"}, {"enabled", true}, {"col", 0}, {"row", 0}}});
@@ -1440,7 +1440,7 @@ TEST_CASE_METHOD(PanelWidgetConfigFixture,
     }
 
     SECTION("removing the main page is a no-op") {
-        json w0 = json::array({{{"id", "power"}, {"enabled", true}, {"col", 0}, {"row", 0}}});
+        json w0 = json::array({{{"id", "shutdown"}, {"enabled", true}, {"col", 0}, {"row", 0}}});
         json w1 = json::array({{{"id", "network"}, {"enabled", true}, {"col", 0}, {"row", 0}}});
         setup_with_pages({{"p0", w0}, {"p1", w1}}, 1, 2);
 
@@ -1463,7 +1463,7 @@ TEST_CASE_METHOD(PanelWidgetConfigFixture,
                  "PanelWidgetConfig: delete_entry searches all pages",
                  "[panel_widget][widget_config][multipage]") {
     // Use multi-instance widget IDs on page 1 to avoid registry-default overlap with page 0
-    json w0 = json::array({{{"id", "power"}, {"enabled", true}, {"col", 0}, {"row", 0}}});
+    json w0 = json::array({{{"id", "shutdown"}, {"enabled", true}, {"col", 0}, {"row", 0}}});
     json w1 = json::array({
         {{"id", "thermistor:1"}, {"enabled", true}, {"col", 0}, {"row", 0}},
         {{"id", "thermistor:2"}, {"enabled", true}, {"col", 1}, {"row", 0}},
@@ -1483,7 +1483,7 @@ TEST_CASE_METHOD(PanelWidgetConfigFixture,
     REQUIRE(wc.page_entries(1)[0].id == "thermistor:2");
 
     // Page 0 unchanged
-    REQUIRE(wc.page_entries(0)[0].id == "power");
+    REQUIRE(wc.page_entries(0)[0].id == "shutdown");
 }
 
 TEST_CASE_METHOD(PanelWidgetConfigFixture,
@@ -1510,7 +1510,7 @@ TEST_CASE_METHOD(PanelWidgetConfigFixture,
                  "PanelWidgetConfig: is_enabled searches all pages",
                  "[panel_widget][widget_config][multipage]") {
     // Use multi-instance IDs on page 1 to avoid registry-default overlap with page 0
-    json w0 = json::array({{{"id", "power"}, {"enabled", false}, {"col", 0}, {"row", 0}}});
+    json w0 = json::array({{{"id", "shutdown"}, {"enabled", false}, {"col", 0}, {"row", 0}}});
     json w1 = json::array({
         {{"id", "thermistor:1"}, {"enabled", true}, {"col", 0}, {"row", 0}},
         {{"id", "thermistor:2"}, {"enabled", false}, {"col", 1}, {"row", 0}},
@@ -1521,7 +1521,7 @@ TEST_CASE_METHOD(PanelWidgetConfigFixture,
     wc.load();
 
     // power is on page 0 but disabled
-    REQUIRE_FALSE(wc.is_enabled("power"));
+    REQUIRE_FALSE(wc.is_enabled("shutdown"));
     // thermistor:1 is only on page 1, enabled
     REQUIRE(wc.is_enabled("thermistor:1"));
     // thermistor:2 is only on page 1, disabled
@@ -1533,7 +1533,7 @@ TEST_CASE_METHOD(PanelWidgetConfigFixture,
                  "PanelWidgetConfig: get/set_widget_config searches all pages",
                  "[panel_widget][widget_config][multipage]") {
     // Use multi-instance widget ID on page 1 to avoid registry-default overlap with page 0
-    json w0 = json::array({{{"id", "power"}, {"enabled", true}, {"col", 0}, {"row", 0}}});
+    json w0 = json::array({{{"id", "shutdown"}, {"enabled", true}, {"col", 0}, {"row", 0}}});
     json w1 = json::array({{{"id", "thermistor:1"},
                              {"enabled", true},
                              {"config", {{"sensor", "bed"}}},
@@ -1563,7 +1563,7 @@ TEST_CASE_METHOD(PanelWidgetConfigFixture,
                  "PanelWidgetConfig: reorder and set_enabled operate on page 0",
                  "[panel_widget][widget_config][multipage]") {
     json w0 = json::array({
-        {{"id", "power"}, {"enabled", true}, {"col", 0}, {"row", 0}},
+        {{"id", "shutdown"}, {"enabled", true}, {"col", 0}, {"row", 0}},
         {{"id", "network"}, {"enabled", true}, {"col", 1}, {"row", 0}},
         {{"id", "temperature"}, {"enabled", true}, {"col", 2}, {"row", 0}},
     });
@@ -1575,7 +1575,7 @@ TEST_CASE_METHOD(PanelWidgetConfigFixture,
 
     // Reorder on page 0
     wc.reorder(0, 2);
-    REQUIRE(wc.entries()[2].id == "power");
+    REQUIRE(wc.entries()[2].id == "shutdown");
 
     // set_enabled on page 0
     wc.set_enabled(0, false);
@@ -1593,7 +1593,7 @@ TEST_CASE_METHOD(PanelWidgetConfigFixture,
 TEST_CASE_METHOD(PanelWidgetConfigFixture,
                  "PanelWidgetConfig: reset_to_defaults removes extra pages",
                  "[panel_widget][widget_config][multipage]") {
-    json w0 = json::array({{{"id", "power"}, {"enabled", true}, {"col", 0}, {"row", 0}}});
+    json w0 = json::array({{{"id", "shutdown"}, {"enabled", true}, {"col", 0}, {"row", 0}}});
     json w1 = json::array({{{"id", "network"}, {"enabled", true}, {"col", 0}, {"row", 0}}});
     setup_with_pages({{"p0", w0}, {"p1", w1}}, 1, 2);
 
@@ -1625,7 +1625,7 @@ TEST_CASE_METHOD(PanelWidgetConfigFixture,
     int page_idx = wc1.add_page("second");
     REQUIRE(page_idx == 1);
     wc1.page_entries_mut(1).push_back(
-        {"power", true, {}, 0, 0, 1, 1});
+        {"shutdown", true, {}, 0, 0, 1, 1});
     wc1.page_entries_mut(1).push_back(
         {"network", false, {}, 1, 0, 1, 1});
     wc1.save();
@@ -1644,7 +1644,7 @@ TEST_CASE_METHOD(PanelWidgetConfigFixture,
 
     // Page 1 should have our two widgets
     REQUIRE(wc2.page_entries(1).size() == 2);
-    REQUIRE(wc2.page_entries(1)[0].id == "power");
+    REQUIRE(wc2.page_entries(1)[0].id == "shutdown");
     REQUIRE(wc2.page_entries(1)[0].enabled == true);
     REQUIRE(wc2.page_entries(1)[1].id == "network");
     REQUIRE(wc2.page_entries(1)[1].enabled == false);
@@ -1667,7 +1667,7 @@ TEST_CASE_METHOD(PanelWidgetConfigFixture,
 TEST_CASE_METHOD(PanelWidgetConfigFixture,
                  "PanelWidgetConfig: load multi-page format with main_page_index",
                  "[panel_widget][widget_config][multipage]") {
-    json w0 = json::array({{{"id", "power"}, {"enabled", true}, {"col", 0}, {"row", 0}}});
+    json w0 = json::array({{{"id", "shutdown"}, {"enabled", true}, {"col", 0}, {"row", 0}}});
     json w1 = json::array({{{"id", "network"}, {"enabled", true}, {"col", 0}, {"row", 0}}});
     json w2 = json::array(
         {{{"id", "temperature"}, {"enabled", true}, {"col", 0}, {"row", 0}}});

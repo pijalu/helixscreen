@@ -10,6 +10,7 @@
 #include "panel_widget.h"
 
 #include <string>
+#include <vector>
 
 class MoonrakerAPI;
 
@@ -78,6 +79,18 @@ class PowerDeviceWidget : public PanelWidget {
     SubjectLifetime voltage_lifetime_;
     SubjectLifetime current_lifetime_;
     SubjectLifetime energy_lifetime_;
+
+    bool is_all_devices() const {
+        return device_name_ == "__all__";
+    }
+
+    // __all__ mode: aggregate state tracking
+    bool all_power_on_ = false;
+    ObserverGuard power_count_observer_;
+
+    void refresh_all_devices_state();
+    void handle_all_devices_toggle();
+    void update_all_devices_display(bool any_on);
 
     MoonrakerAPI* get_api() const;
     void update_display(int status);

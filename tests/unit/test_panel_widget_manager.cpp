@@ -95,7 +95,7 @@ TEST_CASE("Widget factories are self-registered", "[panel_widget][self_registrat
     lv_init_safe(); // Widget registration requires LVGL for XML event callbacks
     helix::init_widget_registrations();
 
-    const char* expected[] = {"temperature", "temp_stack", "led",      "power",
+    const char* expected[] = {"temperature", "temp_stack", "led",      "power_device",
                               "network",     "thermistor", "fan_stack"};
     for (const auto* id : expected) {
         INFO("Checking widget factory: " << id);

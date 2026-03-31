@@ -63,7 +63,7 @@ TEST_CASE_METHOD(helix::ThermistorConfigFixture,
          {"config", {{"sensor", "temperature_sensor mcu_temp"}}},
          {"col", 0},
          {"row", 0}},
-        {{"id", "power"}, {"enabled", true}, {"col", 1}, {"row", 0}},
+        {{"id", "shutdown"}, {"enabled", true}, {"col", 1}, {"row", 0}},
     });
     setup_with_widgets(widgets);
 
@@ -94,7 +94,7 @@ TEST_CASE_METHOD(
     PanelWidgetConfig wc("home", config);
     wc.load();
 
-    auto cfg = wc.get_widget_config("power");
+    auto cfg = wc.get_widget_config("shutdown");
     REQUIRE(cfg.is_object());
     REQUIRE(cfg.empty());
 }

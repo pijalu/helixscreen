@@ -11,18 +11,18 @@ using namespace helix;
 
 TEST_CASE("find_widget_def resolves multi-instance IDs", "[panel_widget][multi_instance]") {
     SECTION("Exact match still works for single-instance") {
-        REQUIRE(find_widget_def("power") != nullptr);
-        REQUIRE(std::string(find_widget_def("power")->id) == "power");
+        REQUIRE(find_widget_def("shutdown") != nullptr);
+        REQUIRE(std::string(find_widget_def("shutdown")->id) == "shutdown");
     }
 
     SECTION("Colon on non-multi_instance def returns nullptr") {
-        // "power" exists but is not multi_instance, so "power:1" should fail
-        auto* power_def = find_widget_def("power");
-        REQUIRE(power_def != nullptr);
-        REQUIRE(power_def->multi_instance == false);
+        // "shutdown" exists but is not multi_instance, so "shutdown:1" should fail
+        auto* shutdown_def = find_widget_def("shutdown");
+        REQUIRE(shutdown_def != nullptr);
+        REQUIRE(shutdown_def->multi_instance == false);
 
-        REQUIRE(find_widget_def("power:1") == nullptr);
-        REQUIRE(find_widget_def("power:42") == nullptr);
+        REQUIRE(find_widget_def("shutdown:1") == nullptr);
+        REQUIRE(find_widget_def("shutdown:42") == nullptr);
     }
 
     SECTION("Non-existent base returns nullptr") {
@@ -186,7 +186,7 @@ TEST_CASE_METHOD(helix::MultiInstanceMigrationFixture,
     SECTION("Empty config mints :1") {
         json widgets = json::array();
         // Add a non-multi-instance widget so config isn't totally empty
-        widgets.push_back({{"id", "power"},
+        widgets.push_back({{"id", "shutdown"},
                            {"enabled", true},
                            {"col", 0},
                            {"row", 0},
@@ -251,7 +251,7 @@ TEST_CASE_METHOD(helix::MultiInstanceMigrationFixture, "delete_entry removes ent
                        {"row", 0},
                        {"colspan", 1},
                        {"rowspan", 1}});
-    widgets.push_back({{"id", "power"},
+    widgets.push_back({{"id", "shutdown"},
                        {"enabled", true},
                        {"col", 2},
                        {"row", 0},
@@ -272,7 +272,7 @@ TEST_CASE_METHOD(helix::MultiInstanceMigrationFixture, "delete_entry removes ent
     // Precondition: all three exist
     REQUIRE(find_entry("favorite_macro:1") != nullptr);
     REQUIRE(find_entry("favorite_macro:2") != nullptr);
-    REQUIRE(find_entry("power") != nullptr);
+    REQUIRE(find_entry("shutdown") != nullptr);
 
     pwc.delete_entry("favorite_macro:1");
 
@@ -280,5 +280,5 @@ TEST_CASE_METHOD(helix::MultiInstanceMigrationFixture, "delete_entry removes ent
     REQUIRE(find_entry("favorite_macro:1") == nullptr);
     // Others still present
     REQUIRE(find_entry("favorite_macro:2") != nullptr);
-    REQUIRE(find_entry("power") != nullptr);
+    REQUIRE(find_entry("shutdown") != nullptr);
 }

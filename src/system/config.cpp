@@ -429,6 +429,58 @@ static void migrate_v8_to_v9(json& config) {
     }
 }
 
+/// Consolidate "power" widget into "power_device" with __all__ sentinel.
+/// Scans all printers/panels/pages for widget entries with id=="power" and replaces
+/// them with "power_device:N" (using the next available instance number).
+static void migrate_v9_to_v10(json& config) {
+    if (!config.contains("printers"))
+        return;
+
+    for (auto& [printer_id, printer] : config["printers"].items()) {
+        if (!printer.is_object() || !printer.contains("panel_widgets"))
+            continue;
+
+        for (auto& [panel_id, panel] : printer["panel_widgets"].items()) {
+            if (!panel.is_object() || !panel.contains("pages") || !panel["pages"].is_array())
+                continue;
+
+            // Find max power_device instance number across all pages
+            int max_instance = 0;
+            for (auto& page : panel["pages"]) {
+                if (!page.contains("widgets") || !page["widgets"].is_array())
+                    continue;
+                for (auto& widget : page["widgets"]) {
+                    std::string id = widget.value("id", "");
+                    if (id.substr(0, 13) == "power_device:") {
+                        try {
+                            int n = std::stoi(id.substr(13));
+                            if (n > max_instance)
+                                max_instance = n;
+                        } catch (...) {
+                        }
+                    }
+                }
+            }
+
+            // Migrate "power" → "power_device:N+1"
+            for (auto& page : panel["pages"]) {
+                if (!page.contains("widgets") || !page["widgets"].is_array())
+                    continue;
+                for (auto& widget : page["widgets"]) {
+                    if (widget.value("id", "") == "power") {
+                        max_instance++;
+                        widget["id"] = "power_device:" + std::to_string(max_instance);
+                        widget["config"] = {{"device", "__all__"}, {"icon", "power_cycle"}};
+                        spdlog::info("[Config] Migrated power widget to power_device:{} for "
+                                     "printer '{}'",
+                                     max_instance, printer_id);
+                    }
+                }
+            }
+        }
+    }
+}
+
 /// Run all versioned migrations in sequence from current version to CURRENT_CONFIG_VERSION
 static void run_versioned_migrations(json& config) {
     int version = 0;
@@ -454,6 +506,8 @@ static void run_versioned_migrations(json& config) {
         migrate_v7_to_v8(config);
     if (version < 9)
         migrate_v8_to_v9(config);
+    if (version < 10)
+        migrate_v9_to_v10(config);
 
     config["config_version"] = CURRENT_CONFIG_VERSION;
 }

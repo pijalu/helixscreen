@@ -165,12 +165,12 @@ TEST_CASE("GridEditMode: clamp_span respects min/max from registry", "[grid_edit
 }
 
 TEST_CASE("GridEditMode: clamp_span non-scalable widget stays fixed", "[grid_edit][resize]") {
-    // "power" has no min/max overrides, so effective min == max == default (1x1)
-    const auto* def = find_widget_def("power");
+    // "shutdown" has no min/max overrides, so effective min == max == default (1x1)
+    const auto* def = find_widget_def("shutdown");
     REQUIRE(def != nullptr);
     REQUIRE_FALSE(def->is_scalable());
 
-    auto [c, r] = GridEditMode::clamp_span("power", 3, 3);
+    auto [c, r] = GridEditMode::clamp_span("shutdown", 3, 3);
     CHECK(c == def->effective_min_colspan());
     CHECK(r == def->effective_min_rowspan());
     // Both should equal the default colspan/rowspan (1x1)
@@ -1255,8 +1255,8 @@ TEST_CASE("clamp_span: clamps to widget min/max", "[grid_edit][sizing]") {
 }
 
 TEST_CASE("clamp_span: non-scalable widget stays fixed", "[grid_edit][sizing]") {
-    // "power" is 1x1, min 1x1, max 1x1
-    auto [c1, r1] = GridEditMode::clamp_span("power", 3, 3);
+    // "shutdown" is 1x1, min 1x1, max 1x1
+    auto [c1, r1] = GridEditMode::clamp_span("shutdown", 3, 3);
     CHECK(c1 == 1);
     CHECK(r1 == 1);
 }

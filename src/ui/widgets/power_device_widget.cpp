@@ -17,13 +17,17 @@
 #include "lvgl/src/others/translation/lv_translation.h"
 #include "moonraker_api.h"
 #include "observer_factory.h"
+#include "panel_widget_manager.h"
 #include "panel_widget_registry.h"
 #include "power_device_state.h"
+#include "printer_state.h"
 #include "theme_manager.h"
+#include "ui_panel_power.h"
 
 #include <spdlog/spdlog.h>
 
 #include <algorithm>
+#include <set>
 
 namespace helix {
 void register_power_device_widget() {
@@ -157,7 +161,22 @@ void PowerDeviceWidget::attach(lv_obj_t* widget_obj, lv_obj_t* parent_screen) {
     status_label_ = lv_obj_find_by_name(widget_obj_, "power_device_status");
     lock_icon_ = lv_obj_find_by_name(widget_obj_, "power_lock_icon");
 
-    if (!device_name_.empty()) {
+    if (is_all_devices()) {
+        // __all__ mode: aggregate toggle for all selected power panel devices.
+        // Observe power_device_count to refresh when devices are discovered.
+        auto token = lifetime_.token();
+        power_count_observer_ = helix::ui::observe_int_sync<PowerDeviceWidget>(
+            get_printer_state().get_power_device_count_subject(), this,
+            [token](PowerDeviceWidget* self, int /*count*/) {
+                if (token.expired())
+                    return;
+                self->refresh_all_devices_state();
+            });
+
+        if (name_label_) {
+            lv_label_set_text(name_label_, lv_tr("All Devices"));
+        }
+    } else if (!device_name_.empty()) {
         // Observe the device status subject. Use a LOCAL lifetime variable
         // so the ObserverGuard's weak_ptr expires when deinit_subjects()
         // destroys the PowerDeviceState's copy (shutdown safety).
@@ -209,6 +228,7 @@ void PowerDeviceWidget::detach() {
     dismiss_device_picker();
 
     status_observer_.reset();
+    power_count_observer_.reset();
 
     if (widget_obj_) {
         lv_obj_set_user_data(widget_obj_, nullptr);
@@ -303,6 +323,11 @@ void PowerDeviceWidget::handle_clicked() {
         spdlog::info("[PowerDeviceWidget] {} clicked (unconfigured) - showing picker",
                      instance_id_);
         show_device_picker();
+        return;
+    }
+
+    if (is_all_devices()) {
+        handle_all_devices_toggle();
         return;
     }
 
@@ -461,9 +486,9 @@ void PowerDeviceWidget::show_device_picker() {
     lv_obj_set_style_border_width(list, 0, 0);
     lv_obj_add_flag(list, LV_OBJ_FLAG_SCROLLABLE);
 
-    for (const auto& name : device_names) {
-        bool is_selected = (name == device_name_);
-        std::string display = helix::get_display_name(name, helix::DeviceType::POWER_DEVICE);
+    // Helper lambda to create a device row in the picker
+    auto create_device_row = [&](const std::string& device_id, const std::string& display,
+                                 bool is_selected) {
 
         lv_obj_t* row = lv_obj_create(list);
         lv_obj_set_width(row, LV_PCT(100));
@@ -498,7 +523,7 @@ void PowerDeviceWidget::show_device_picker() {
         lv_obj_add_flag(label, LV_OBJ_FLAG_EVENT_BUBBLE);
 
         // Store device name for click handler
-        auto* name_copy = new std::string(name);
+        auto* name_copy = new std::string(device_id);
         lv_obj_set_user_data(row, name_copy);
 
         // Free heap string when row is deleted
@@ -524,6 +549,15 @@ void PowerDeviceWidget::show_device_picker() {
                 LVGL_SAFE_EVENT_CB_END();
             },
             LV_EVENT_CLICKED, nullptr);
+    };
+
+    // "All Devices" option at top of list
+    create_device_row("__all__", lv_tr("All Devices"), device_name_ == "__all__");
+
+    // Individual device entries
+    for (const auto& name : device_names) {
+        std::string display = helix::get_display_name(name, helix::DeviceType::POWER_DEVICE);
+        create_device_row(name, display, name == device_name_);
     }
 
     // Icon section divider
@@ -789,30 +823,47 @@ void PowerDeviceWidget::select_device(const std::string& name) {
 
     // Re-attach to start observing the new device
     if (widget_obj_ && parent_screen_) {
-        // Reset observer before re-attaching
+        // Reset all observers before re-attaching
         status_observer_.reset();
+        power_count_observer_.reset();
 
-        // Observe the new device status (local lifetime — see attach() comment)
-        SubjectLifetime lifetime;
-        lv_subject_t* subj =
-            PowerDeviceState::instance().get_status_subject(device_name_, lifetime);
-        if (subj) {
+        if (is_all_devices()) {
+            // __all__ mode: observe device count for aggregate refresh
             auto token = lifetime_.token();
-            status_observer_ = helix::ui::observe_int_sync<PowerDeviceWidget>(
-                subj, this,
-                [token](PowerDeviceWidget* self, int status) {
+            power_count_observer_ = helix::ui::observe_int_sync<PowerDeviceWidget>(
+                get_printer_state().get_power_device_count_subject(), this,
+                [token](PowerDeviceWidget* self, int /*count*/) {
                     if (token.expired())
                         return;
-                    self->update_display(status);
-                },
-                lifetime);
-        }
+                    self->refresh_all_devices_state();
+                });
 
-        // Update display name
-        if (name_label_) {
-            std::string display =
-                helix::get_display_name(device_name_, helix::DeviceType::POWER_DEVICE);
-            lv_label_set_text(name_label_, display.c_str());
+            if (name_label_) {
+                lv_label_set_text(name_label_, lv_tr("All Devices"));
+            }
+        } else {
+            // Single device mode: observe the specific device status
+            SubjectLifetime lifetime;
+            lv_subject_t* subj =
+                PowerDeviceState::instance().get_status_subject(device_name_, lifetime);
+            if (subj) {
+                auto token = lifetime_.token();
+                status_observer_ = helix::ui::observe_int_sync<PowerDeviceWidget>(
+                    subj, this,
+                    [token](PowerDeviceWidget* self, int status) {
+                        if (token.expired())
+                            return;
+                        self->update_display(status);
+                    },
+                    lifetime);
+            }
+
+            // Update display name
+            if (name_label_) {
+                std::string display =
+                    helix::get_display_name(device_name_, helix::DeviceType::POWER_DEVICE);
+                lv_label_set_text(name_label_, display.c_str());
+            }
         }
     }
 
@@ -863,6 +914,119 @@ void PowerDeviceWidget::save_config() {
     spdlog::debug("[PowerDeviceWidget] Saved config: {}={} icon={} sensor={}", instance_id_,
                   device_name_, icon_name_.empty() ? kDefaultIcon : icon_name_,
                   sensor_id_.empty() ? "(none)" : sensor_id_);
+}
+
+void PowerDeviceWidget::refresh_all_devices_state() {
+    MoonrakerAPI* api = get_api();
+    if (!api)
+        return;
+
+    // Capture selected devices on UI thread before async API call
+    auto& power_panel = get_global_power_panel();
+    const auto& selected = power_panel.get_selected_devices();
+    if (selected.empty()) {
+        update_all_devices_display(false);
+        return;
+    }
+    std::set<std::string> selected_set(selected.begin(), selected.end());
+
+    auto token = lifetime_.token();
+    api->get_power_devices(
+        [this, token, selected_set](const std::vector<PowerDevice>& devices) {
+            if (token.expired())
+                return;
+            bool any_on = false;
+            for (const auto& dev : devices) {
+                if (selected_set.count(dev.device) > 0 && dev.status == "on") {
+                    any_on = true;
+                    break;
+                }
+            }
+
+            lifetime_.defer("PowerDeviceWidget::refresh_all", [this, any_on]() {
+                update_all_devices_display(any_on);
+            });
+        },
+        [](const MoonrakerError& err) {
+            spdlog::warn("[PowerDeviceWidget] Failed to refresh all-devices state: {}",
+                         err.message);
+        });
+}
+
+void PowerDeviceWidget::handle_all_devices_toggle() {
+    MoonrakerAPI* api = get_api();
+    if (!api) {
+        spdlog::warn("[PowerDeviceWidget] No API available for all-devices toggle");
+        return;
+    }
+
+    auto& power_panel = get_global_power_panel();
+    const auto& selected = power_panel.get_selected_devices();
+    if (selected.empty()) {
+        spdlog::warn("[PowerDeviceWidget] All-devices toggle: no devices selected");
+        return;
+    }
+
+    const char* action = all_power_on_ ? "off" : "on";
+    bool new_state = !all_power_on_;
+
+    // Suppress recovery dialog when turning off (devices may have bound_services: klipper)
+    if (!new_state) {
+        EmergencyStopOverlay::instance().suppress_recovery_dialog(RecoverySuppression::NORMAL);
+    }
+
+    spdlog::info("[PowerDeviceWidget] {} toggling all selected devices {}", instance_id_, action);
+    for (const auto& device : selected) {
+        api->set_device_power(
+            device, action,
+            [device]() {
+                spdlog::debug("[PowerDeviceWidget] Power device '{}' set successfully", device);
+            },
+            [device](const MoonrakerError& err) {
+                spdlog::error("[PowerDeviceWidget] Failed to set power device '{}': {}", device,
+                              err.message);
+            });
+    }
+
+    // Optimistically update display state
+    all_power_on_ = new_state;
+    update_all_devices_display(all_power_on_);
+}
+
+void PowerDeviceWidget::update_all_devices_display(bool any_on) {
+    all_power_on_ = any_on;
+
+    if (badge_obj_) {
+        if (any_on) {
+            lv_obj_set_style_bg_color(badge_obj_, theme_manager_get_color("danger"), 0);
+            lv_obj_set_style_bg_opa(badge_obj_, 40, 0);
+        } else {
+            lv_obj_set_style_bg_color(badge_obj_, theme_manager_get_color("text_muted"), 0);
+            lv_obj_set_style_bg_opa(badge_obj_, 20, 0);
+        }
+    }
+
+    if (icon_obj_) {
+        const char* base_icon = icon_name_.empty() ? kDefaultIcon : icon_name_.c_str();
+        const char* effective_icon = resolve_icon_for_state(base_icon, any_on ? 1 : 0);
+        ui_icon_set_source(icon_obj_, effective_icon);
+        ui_icon_set_variant(icon_obj_, any_on ? "danger" : "muted");
+    }
+
+    if (lock_icon_) {
+        lv_obj_add_flag(lock_icon_, LV_OBJ_FLAG_HIDDEN);
+    }
+
+    if (status_label_) {
+        lv_label_set_text(status_label_, any_on ? lv_tr("ON") : lv_tr("OFF"));
+        lv_obj_set_style_text_color(
+            status_label_,
+            theme_manager_get_color(any_on ? "danger" : "text_muted"), 0);
+    }
+
+    if (name_label_) {
+        lv_label_set_text(name_label_, lv_tr("All Devices"));
+    }
 }
 
 std::string PowerDeviceWidget::auto_match_sensor() const {
