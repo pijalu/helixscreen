@@ -107,13 +107,17 @@ VALIDATE_XML_OBJ := $(OBJ_DIR)/tools/validate_xml_constants.o
 # Validator reuses main app objects - filter out main.o to avoid duplicate main symbol
 VALIDATE_XML_APP_OBJS := $(filter-out $(OBJ_DIR)/main.o,$(APP_OBJS) $(APP_C_OBJS) $(OBJCPP_OBJS))
 
-# Full dependencies (app objects + LVGL + fonts)
+# Full dependencies (app objects + LVGL + fonts + lv_markdown + quirc + translations)
+# Note: lv_markdown, quirc, and translations are needed because app objects may reference them
 VALIDATE_XML_DEPS := \
 	$(VALIDATE_XML_APP_OBJS) \
 	$(LVGL_OBJS) \
 	$(HELIX_XML_OBJS) \
 	$(THORVG_OBJS) \
-	$(FONT_OBJS)
+	$(LV_MARKDOWN_OBJS) \
+	$(QUIRC_OBJS) \
+	$(FONT_OBJS) \
+	$(TRANS_OBJS)
 
 # Linker flags (same as main app for full compatibility)
 VALIDATE_XML_LDFLAGS := $(LDFLAGS)
