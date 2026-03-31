@@ -39,7 +39,8 @@ AmsBackendSnapmaker::AmsBackendSnapmaker(MoonrakerAPI* api, helix::MoonrakerClie
         slot.global_index = i;
         slot.status = SlotStatus::UNKNOWN;
         slot.mapped_tool = i;
-        slot.extruder_name = fmt::format("extruder{}", i);
+        // Klipper uses "extruder" for T0, "extruder1" for T1, etc.
+        slot.extruder_name = (i == 0) ? "extruder" : fmt::format("extruder{}", i);
         unit.slots.push_back(slot);
     }
 
@@ -271,8 +272,10 @@ void AmsBackendSnapmaker::handle_status_update(const nlohmann::json& notificatio
     bool changed = false;
 
     // Parse extruder0..3 state
+    // Klipper uses "extruder" for T0, "extruder1" for T1, etc.
+    static const std::string extruder_keys[] = {"extruder", "extruder1", "extruder2", "extruder3"};
     for (int i = 0; i < NUM_TOOLS; i++) {
-        std::string key = fmt::format("extruder{}", i);
+        const auto& key = extruder_keys[i];
         if (notification.contains(key) && notification[key].is_object()) {
             auto new_state = parse_extruder_state(notification[key]);
 
@@ -295,53 +298,42 @@ void AmsBackendSnapmaker::handle_status_update(const nlohmann::json& notificatio
     if (notification.contains("filament_detect") && notification["filament_detect"].is_object()) {
         const auto& fd = notification["filament_detect"];
 
-        // Parse RFID info per channel
-        if (fd.contains("info") && fd["info"].is_object()) {
-            const auto& info_obj = fd["info"];
-            for (int i = 0; i < NUM_TOOLS; i++) {
-                std::string ch_key = fmt::format("channel_{}", i);
-                if (info_obj.contains(ch_key) && info_obj[ch_key].is_object()) {
-                    auto rfid = parse_rfid_info(info_obj[ch_key]);
+        // Parse RFID info per channel — filament_detect.info is a JSON array [ch0, ch1, ch2, ch3]
+        if (fd.contains("info") && fd["info"].is_array()) {
+            const auto& info_arr = fd["info"];
+            for (int i = 0; i < NUM_TOOLS && i < static_cast<int>(info_arr.size()); i++) {
+                if (!info_arr[i].is_object()) continue;
+                auto rfid = parse_rfid_info(info_arr[i]);
 
-                    auto* slot = system_info_.units[0].get_slot(i);
-                    if (slot) {
-                        slot->material = rfid.main_type;
-                        // Prefer MANUFACTURER over VENDOR for brand
-                        slot->brand = !rfid.manufacturer.empty() ? rfid.manufacturer : rfid.vendor;
-                        slot->color_rgb = rfid.color_rgb;
-                        slot->color_name = rfid.sub_type;
-                        slot->nozzle_temp_min = rfid.hotend_min_temp;
-                        slot->nozzle_temp_max = rfid.hotend_max_temp;
-                        slot->bed_temp = rfid.bed_temp;
-                        slot->total_weight_g = static_cast<float>(rfid.weight_g);
-                    }
-                    changed = true;
+                auto* slot = system_info_.units[0].get_slot(i);
+                if (slot) {
+                    slot->material = rfid.main_type;
+                    // Prefer MANUFACTURER over VENDOR for brand
+                    slot->brand = !rfid.manufacturer.empty() ? rfid.manufacturer : rfid.vendor;
+                    slot->color_rgb = rfid.color_rgb;
+                    slot->color_name = rfid.sub_type;
+                    slot->nozzle_temp_min = rfid.hotend_min_temp;
+                    slot->nozzle_temp_max = rfid.hotend_max_temp;
+                    slot->bed_temp = rfid.bed_temp;
+                    slot->total_weight_g = static_cast<float>(rfid.weight_g);
                 }
+                changed = true;
             }
         }
 
-        // Parse filament state per channel
-        if (fd.contains("state") && fd["state"].is_object()) {
-            const auto& state_obj = fd["state"];
-            for (int i = 0; i < NUM_TOOLS; i++) {
-                std::string ch_key = fmt::format("channel_{}", i);
-                if (state_obj.contains(ch_key) && state_obj[ch_key].is_boolean()) {
-                    auto* slot = system_info_.units[0].get_slot(i);
-                    if (slot && slot->status == SlotStatus::UNKNOWN) {
-                        // Filament detected = available, not detected = empty
-                        slot->status = state_obj[ch_key].get<bool>()
-                                           ? SlotStatus::AVAILABLE
-                                           : SlotStatus::EMPTY;
-                    }
-                    changed = true;
+        // Parse filament state per channel — filament_detect.state is [int, int, int, int]
+        // 0 = tag present and read, non-zero = no tag / error
+        if (fd.contains("state") && fd["state"].is_array()) {
+            const auto& state_arr = fd["state"];
+            for (int i = 0; i < NUM_TOOLS && i < static_cast<int>(state_arr.size()); i++) {
+                if (!state_arr[i].is_number()) continue;
+                int state_val = state_arr[i].get<int>();
+                auto* slot = system_info_.units[0].get_slot(i);
+                if (slot && slot->status == SlotStatus::UNKNOWN) {
+                    slot->status = (state_val == 0) ? SlotStatus::AVAILABLE : SlotStatus::EMPTY;
                 }
+                changed = true;
             }
-        }
-
-        // Parse filament feed state (left/right indicators)
-        if (fd.contains("filament_feed") && fd["filament_feed"].is_object()) {
-            // Feed state tracked for future UI use
-            changed = true;
         }
     }
 
