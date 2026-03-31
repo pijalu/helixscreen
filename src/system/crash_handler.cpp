@@ -70,6 +70,10 @@ static uintptr_t s_load_base = 0;
 /// Whether load_base detection has run (distinguishes "detected 0" from "not yet detected")
 static bool s_load_base_detected = false;
 
+/// Text segment bounds (for stack-scanned synthetic backtrace)
+static uintptr_t s_text_start = 0;
+static uintptr_t s_text_end = 0;
+
 /// Pointer to the UpdateQueue's current callback tag (registered at init)
 static volatile const char* const* s_callback_tag_ptr = nullptr;
 
@@ -94,6 +98,7 @@ static struct sigaction s_old_sigfpe = {};
 #if defined(__linux__)
 extern "C" {
 extern char __executable_start[];
+extern char _etext[];
 }
 #endif
 
@@ -451,6 +456,15 @@ static void crash_signal_handler(int sig, siginfo_t* info, void* ucontext) {
         safe_write(fd, "\n");
     }
 
+    if (s_text_start != 0) {
+        safe_write(fd, "text_start:");
+        safe_write(fd, ptr_to_hex(hex_buf, sizeof(hex_buf), s_text_start));
+        safe_write(fd, "\n");
+        safe_write(fd, "text_end:");
+        safe_write(fd, ptr_to_hex(hex_buf, sizeof(hex_buf), s_text_end));
+        safe_write(fd, "\n");
+    }
+
     // Write UpdateQueue callback tag if a queued callback was executing.
     // The volatile qualifier ensures the signal handler reads the current value,
     // not a cached one. We cast away volatile for safe_write — the pointer
@@ -545,6 +559,20 @@ static void crash_signal_handler(int sig, siginfo_t* info, void* ucontext) {
                        ptr_to_hex(hex_buf, sizeof(hex_buf), static_cast<uintptr_t>(stack_ptr[i])));
             safe_write(fd, "\n");
         }
+
+        // Stack-scanned synthetic backtrace: re-read stack words and emit
+        // those falling within the binary text segment as bt: entries
+        if (s_text_start != 0 && s_text_end > s_text_start) {
+            safe_write(fd, "bt_source:stack_scan\n");
+            for (int i = 0; i < 128; ++i) {
+                auto word = static_cast<uintptr_t>(stack_ptr[i]);
+                if (word >= s_text_start && word < s_text_end) {
+                    safe_write(fd, "bt:");
+                    safe_write(fd, ptr_to_hex(hex_buf, sizeof(hex_buf), word));
+                    safe_write(fd, "\n");
+                }
+            }
+        }
     }
 #elif defined(__mips__) && defined(__linux__)
     if (ucontext) {
@@ -559,6 +587,20 @@ static void crash_signal_handler(int sig, siginfo_t* info, void* ucontext) {
             safe_write(fd,
                        ptr_to_hex(hex_buf, sizeof(hex_buf), static_cast<uintptr_t>(stack_ptr[i])));
             safe_write(fd, "\n");
+        }
+
+        // Stack-scanned synthetic backtrace: re-read stack words and emit
+        // those falling within the binary text segment as bt: entries
+        if (s_text_start != 0 && s_text_end > s_text_start) {
+            safe_write(fd, "bt_source:stack_scan\n");
+            for (int i = 0; i < 128; ++i) {
+                auto word = static_cast<uintptr_t>(stack_ptr[i]);
+                if (word >= s_text_start && word < s_text_end) {
+                    safe_write(fd, "bt:");
+                    safe_write(fd, ptr_to_hex(hex_buf, sizeof(hex_buf), word));
+                    safe_write(fd, "\n");
+                }
+            }
         }
     }
 #endif
@@ -666,11 +708,21 @@ void crash_handler::install(const std::string& crash_file_path) {
 #endif
 
     s_load_base_detected = true;
+
+    // Compute text segment bounds for stack-scanned synthetic backtrace.
+    // In the signal handler, stack words within [text_start, text_end) are
+    // likely return addresses into the binary.
+#if defined(__linux__)
+    s_text_start = reinterpret_cast<uintptr_t>(__executable_start);
+    s_text_end = reinterpret_cast<uintptr_t>(_etext);
+#endif
+
     if (s_load_base != 0) {
         spdlog::debug("[CrashHandler] ELF load base: 0x{:x} (ASLR active)", s_load_base);
     } else {
         spdlog::debug("[CrashHandler] ELF load base: 0 (non-PIE or static without ASLR)");
     }
+    spdlog::debug("[CrashHandler] Text segment: 0x{:x} - 0x{:x}", s_text_start, s_text_end);
 
     // Install signal handlers via sigaction (not signal())
     struct sigaction sa;
@@ -791,6 +843,12 @@ nlohmann::json crash_handler::read_crash_file(const std::string& crash_file_path
                 result["load_base"] = value;
             } else if (key == "queue_callback") {
                 result["queue_callback"] = value;
+            } else if (key == "text_start") {
+                result["text_start"] = value;
+            } else if (key == "text_end") {
+                result["text_end"] = value;
+            } else if (key == "bt_source") {
+                result["bt_source"] = value;
             } else if (key == "exception") {
                 result["exception"] = value;
             } else if (key == "bt") {

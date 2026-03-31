@@ -131,6 +131,14 @@ CrashReporter::CrashReport CrashReporter::collect_report() {
     if (crash_data.contains("queue_callback"))
         report.queue_callback = crash_data["queue_callback"];
 
+    // Stack-scanned backtrace metadata
+    if (crash_data.contains("bt_source"))
+        report.bt_source = crash_data["bt_source"];
+    if (crash_data.contains("text_start"))
+        report.text_start = crash_data["text_start"];
+    if (crash_data.contains("text_end"))
+        report.text_end = crash_data["text_end"];
+
     // Stack dump (ARM32/MIPS: raw stack words for offline analysis)
     if (crash_data.contains("stack_base"))
         report.stack_base = crash_data["stack_base"];
@@ -290,6 +298,14 @@ nlohmann::json CrashReporter::report_to_json(const CrashReport& report) {
         j["queue_callback"] = report.queue_callback;
     }
 
+    // Stack-scanned backtrace metadata
+    if (!report.bt_source.empty())
+        j["bt_source"] = report.bt_source;
+    if (!report.text_start.empty()) {
+        j["text_start"] = report.text_start;
+        j["text_end"] = report.text_end;
+    }
+
     // Memory map (all mappings — worker needs full map to identify crash address regions)
     if (!report.memory_map.empty()) {
         j["memory_map"] = report.memory_map;
@@ -435,6 +451,15 @@ std::string CrashReporter::generate_github_url(const CrashReport& report) {
     }
     if (!report.fault_code_name.empty()) {
         body << "- **Fault:** " << report.fault_code_name << " at " << report.fault_addr << "\n";
+    }
+    if (!report.reg_pc.empty()) {
+        body << "- **PC:** " << report.reg_pc;
+        if (!report.reg_lr.empty())
+            body << " **LR:** " << report.reg_lr;
+        body << "\n";
+    }
+    if (!report.queue_callback.empty()) {
+        body << "- **Active Callback:** " << report.queue_callback << "\n";
     }
     if (!report.load_base.empty()) {
         body << "- **Load Base:** " << report.load_base << "\n";

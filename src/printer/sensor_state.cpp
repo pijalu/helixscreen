@@ -83,6 +83,7 @@ void SensorState::set_sensors(const std::vector<SensorInfo>& sensors) {
 
     // Tear down existing subjects (freeze queue to prevent new callbacks during teardown)
     if (subjects_initialized_) {
+        lifetime_.invalidate();
         auto freeze = helix::ui::UpdateQueue::instance().scoped_freeze();
         helix::ui::UpdateQueue::instance().drain();
         for (auto& [id, entry] : sensors_) {
@@ -253,7 +254,7 @@ void SensorState::on_sensor_update(const nlohmann::json& msg) {
             double raw_value = vit.value().get<double>();
             int centi = to_centi_units(key, raw_value);
 
-            ui::queue_update([this, sensor_id, key, centi]() {
+            lifetime_.defer("SensorState::on_sensor_update", [this, sensor_id, key, centi]() {
                 std::lock_guard<std::recursive_mutex> lock(mutex_);
 
                 auto sit = sensors_.find(sensor_id);
@@ -283,6 +284,8 @@ void SensorState::deinit_subjects() {
     }
 
     spdlog::debug("[SensorState] Deinitializing subjects");
+
+    lifetime_.invalidate();
 
     // Freeze queue to prevent new callbacks between drain and subject destruction
     auto freeze = helix::ui::UpdateQueue::instance().scoped_freeze();

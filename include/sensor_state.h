@@ -2,6 +2,7 @@
 
 #pragma once
 
+#include "async_lifetime_guard.h"
 #include "moonraker_api.h"
 #include "static_subject_registry.h"
 #include "ui_observer_guard.h"
@@ -121,6 +122,8 @@ class SensorState {
     mutable std::recursive_mutex mutex_;
     std::unordered_map<std::string, SensorEntry> sensors_;
     bool subjects_initialized_ = false;
+    helix::AsyncLifetimeGuard lifetime_;
+
 };
 
 } // namespace helix

@@ -80,6 +80,11 @@ class CrashReporter {
         // Memory map (/proc/self/maps lines, for mapping addresses to libraries)
         std::vector<std::string> memory_map;
 
+        // Stack-scanned backtrace metadata
+        std::string bt_source;     // "stack_scan" if backtrace includes scanned entries
+        std::string text_start;    // Text segment start address
+        std::string text_end;      // Text segment end address
+
         // Stack dump (ARM32/MIPS: 128 raw stack words for return-address scanning)
         std::string stack_base;
         std::vector<std::string> stack_dump;

@@ -2,6 +2,7 @@
 
 #pragma once
 
+#include "async_lifetime_guard.h"
 #include "ui_observer_guard.h"
 
 #include "moonraker_types.h"
@@ -83,6 +84,7 @@ class PowerDeviceState {
     std::unordered_map<std::string, DeviceInfo> devices_;
     ObserverGuard print_state_observer_;
     bool subjects_initialized_ = false;
+    helix::AsyncLifetimeGuard lifetime_;
 };
 
 } // namespace helix

@@ -38,6 +38,7 @@ int PowerDeviceState::status_string_to_int(const std::string& status) {
 void PowerDeviceState::set_devices(const std::vector<PowerDevice>& devices) {
     // Tear down existing subjects (expire lifetime tokens first)
     if (subjects_initialized_) {
+        lifetime_.invalidate();
         // Destroy lifetime tokens FIRST to expire weak_ptrs in ObserverGuards
         for (auto& [name, info] : devices_) {
             info.lifetime.reset();
@@ -141,7 +142,7 @@ void PowerDeviceState::update_device_status(const std::string& device, const std
     int new_raw = status_string_to_int(status);
     spdlog::debug("[PowerDeviceState] update_device_status: device='{}' status='{}'", device,
                   status);
-    ui::queue_update([this, device, new_raw]() {
+    lifetime_.defer("PowerDeviceState::update_device_status", [this, device, new_raw]() {
         auto it = devices_.find(device);
         if (it == devices_.end())
             return;
@@ -191,7 +192,7 @@ void PowerDeviceState::on_power_changed(const nlohmann::json& msg) {
         }
 
         // Marshal to UI thread for subject updates
-        ui::queue_update([this, device_name, new_raw]() {
+        lifetime_.defer("PowerDeviceState::on_power_changed", [this, device_name, new_raw]() {
             auto it = devices_.find(device_name);
             if (it == devices_.end()) {
                 spdlog::trace("[PowerDeviceState] Ignoring update for unknown device '{}'",
@@ -256,6 +257,8 @@ void PowerDeviceState::deinit_subjects() {
     }
 
     spdlog::debug("[PowerDeviceState] Deinitializing subjects");
+
+    lifetime_.invalidate();
 
     // [L073] The observer watches PrinterState's print_state_enum_ subject —
     // an external subject whose lifecycle we don't control. During test runs,
