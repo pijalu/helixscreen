@@ -39,12 +39,11 @@ class ActivePrintMediaManagerTestFixture {
   public:
     ActivePrintMediaManagerTestFixture() {
         // Suppress spdlog output during tests
-        static bool logger_initialized = false;
-        if (!logger_initialized) {
+        if (!logger_initialized_) {
             auto null_sink = std::make_shared<spdlog::sinks::null_sink_mt>();
             auto null_logger = std::make_shared<spdlog::logger>("null", null_sink);
             spdlog::set_default_logger(null_logger);
-            logger_initialized = true;
+            logger_initialized_ = true;
         }
 
         // Initialize LVGL (safe version avoids "already initialized" warnings)
@@ -89,6 +88,16 @@ class ActivePrintMediaManagerTestFixture {
         helix::ui::update_queue_shutdown();
         queue_initialized = false; // Reset static flag for next test
 
+        // Destroy display to prevent cross-shard leaks
+        if (display_created_ && display_) {
+            lv_display_delete(display_);
+            display_ = nullptr;
+            display_created_ = false;
+        }
+
+        // Reset logger flag so next test/shard re-initializes
+        logger_initialized_ = false;
+
         // Reset after each test
         PrinterStateTestAccess::reset(state_);
     }
@@ -132,11 +141,13 @@ class ActivePrintMediaManagerTestFixture {
     static lv_display_t* display_;
     static bool display_created_;
     static bool queue_initialized;
+    static bool logger_initialized_;
 };
 
 lv_display_t* ActivePrintMediaManagerTestFixture::display_ = nullptr;
 bool ActivePrintMediaManagerTestFixture::display_created_ = false;
 bool ActivePrintMediaManagerTestFixture::queue_initialized = false;
+bool ActivePrintMediaManagerTestFixture::logger_initialized_ = false;
 
 // ============================================================================
 // Display Name Formatting Tests

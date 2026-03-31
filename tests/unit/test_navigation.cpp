@@ -30,7 +30,10 @@ class NavigationTestFixture {
     }
 
     ~NavigationTestFixture() {
-        // Cleanup is handled by LVGL
+        // Reset singleton state so it doesn't leak between test cases.
+        // deinit_subjects() clears observers, panel/overlay tracking,
+        // and resets subjects_initialized_ so init() works in the next fixture.
+        NavigationManager::instance().deinit_subjects();
     }
 };
 

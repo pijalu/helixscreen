@@ -15,16 +15,11 @@
 
 using namespace helix;
 
-// Ensure clock widget subjects are initialized once for the test suite
-static bool s_clock_registered = false;
-
 class ClockWidgetFixture : public LVGLTestFixture {
   public:
     ClockWidgetFixture() {
-        if (!s_clock_registered) {
-            PanelWidgetManager::instance().init_widget_subjects();
-            s_clock_registered = true;
-        }
+        // Idempotent — safe to call per test case, no static guard needed
+        PanelWidgetManager::instance().init_widget_subjects();
     }
 
     /// Create a minimal mock widget tree (no XML required)

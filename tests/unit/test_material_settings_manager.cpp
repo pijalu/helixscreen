@@ -11,11 +11,18 @@
 using namespace helix;
 using namespace filament;
 
+// Fixture that resets MaterialSettingsManager singleton between tests
+struct MaterialSettingsFixture : LVGLTestFixture {
+    ~MaterialSettingsFixture() override {
+        MaterialSettingsManager::instance().reset_for_testing();
+    }
+};
+
 // ============================================================================
 // MaterialSettingsManager Tests
 // ============================================================================
 
-TEST_CASE_METHOD(LVGLTestFixture, "MaterialSettingsManager init with no config",
+TEST_CASE_METHOD(MaterialSettingsFixture, "MaterialSettingsManager init with no config",
                  "[material_settings]") {
     Config::get_instance();
     MaterialSettingsManager::instance().init();
@@ -25,7 +32,7 @@ TEST_CASE_METHOD(LVGLTestFixture, "MaterialSettingsManager init with no config",
     CHECK(MaterialSettingsManager::instance().get_override("PLA") == nullptr);
 }
 
-TEST_CASE_METHOD(LVGLTestFixture, "MaterialSettingsManager set/get round trip",
+TEST_CASE_METHOD(MaterialSettingsFixture, "MaterialSettingsManager set/get round trip",
                  "[material_settings]") {
     Config::get_instance();
     MaterialSettingsManager::instance().init();
@@ -51,7 +58,7 @@ TEST_CASE_METHOD(LVGLTestFixture, "MaterialSettingsManager set/get round trip",
     MaterialSettingsManager::instance().clear_override("PLA");
 }
 
-TEST_CASE_METHOD(LVGLTestFixture, "MaterialSettingsManager sparse override",
+TEST_CASE_METHOD(MaterialSettingsFixture, "MaterialSettingsManager sparse override",
                  "[material_settings]") {
     Config::get_instance();
     MaterialSettingsManager::instance().init();
@@ -73,7 +80,7 @@ TEST_CASE_METHOD(LVGLTestFixture, "MaterialSettingsManager sparse override",
     MaterialSettingsManager::instance().clear_override("ABS");
 }
 
-TEST_CASE_METHOD(LVGLTestFixture, "MaterialSettingsManager clear_override",
+TEST_CASE_METHOD(MaterialSettingsFixture, "MaterialSettingsManager clear_override",
                  "[material_settings]") {
     Config::get_instance();
     MaterialSettingsManager::instance().init();
@@ -88,7 +95,7 @@ TEST_CASE_METHOD(LVGLTestFixture, "MaterialSettingsManager clear_override",
     CHECK(MaterialSettingsManager::instance().get_override("PETG") == nullptr);
 }
 
-TEST_CASE_METHOD(LVGLTestFixture, "MaterialSettingsManager clear nonexistent is safe",
+TEST_CASE_METHOD(MaterialSettingsFixture, "MaterialSettingsManager clear nonexistent is safe",
                  "[material_settings]") {
     Config::get_instance();
     MaterialSettingsManager::instance().init();
@@ -102,7 +109,7 @@ TEST_CASE_METHOD(LVGLTestFixture, "MaterialSettingsManager clear nonexistent is 
 // find_material override integration tests
 // ============================================================================
 
-TEST_CASE_METHOD(LVGLTestFixture, "find_material returns overridden nozzle temps",
+TEST_CASE_METHOD(MaterialSettingsFixture, "find_material returns overridden nozzle temps",
                  "[material_settings][filament]") {
     Config::get_instance();
     MaterialSettingsManager::instance().init();
@@ -123,7 +130,7 @@ TEST_CASE_METHOD(LVGLTestFixture, "find_material returns overridden nozzle temps
     MaterialSettingsManager::instance().clear_override("PLA");
 }
 
-TEST_CASE_METHOD(LVGLTestFixture, "find_material returns overridden bed temp only",
+TEST_CASE_METHOD(MaterialSettingsFixture, "find_material returns overridden bed temp only",
                  "[material_settings][filament]") {
     Config::get_instance();
     MaterialSettingsManager::instance().init();
@@ -142,7 +149,7 @@ TEST_CASE_METHOD(LVGLTestFixture, "find_material returns overridden bed temp onl
     MaterialSettingsManager::instance().clear_override("PLA");
 }
 
-TEST_CASE_METHOD(LVGLTestFixture, "find_material returns defaults after clear_override",
+TEST_CASE_METHOD(MaterialSettingsFixture, "find_material returns defaults after clear_override",
                  "[material_settings][filament]") {
     Config::get_instance();
     MaterialSettingsManager::instance().init();
@@ -161,7 +168,7 @@ TEST_CASE_METHOD(LVGLTestFixture, "find_material returns defaults after clear_ov
     CHECK(result->bed_temp == 60);
 }
 
-TEST_CASE_METHOD(LVGLTestFixture, "find_material with no override returns database values",
+TEST_CASE_METHOD(MaterialSettingsFixture, "find_material with no override returns database values",
                  "[material_settings][filament]") {
     Config::get_instance();
     MaterialSettingsManager::instance().init();
@@ -176,7 +183,7 @@ TEST_CASE_METHOD(LVGLTestFixture, "find_material with no override returns databa
     CHECK(result->bed_temp == 80);
 }
 
-TEST_CASE_METHOD(LVGLTestFixture, "find_material override preserves non-temp fields",
+TEST_CASE_METHOD(MaterialSettingsFixture, "find_material override preserves non-temp fields",
                  "[material_settings][filament]") {
     Config::get_instance();
     MaterialSettingsManager::instance().init();
@@ -199,7 +206,7 @@ TEST_CASE_METHOD(LVGLTestFixture, "find_material override preserves non-temp fie
     MaterialSettingsManager::instance().clear_override("PLA");
 }
 
-TEST_CASE_METHOD(LVGLTestFixture, "Multiple material overrides coexist",
+TEST_CASE_METHOD(MaterialSettingsFixture, "Multiple material overrides coexist",
                  "[material_settings][filament]") {
     Config::get_instance();
     MaterialSettingsManager::instance().init();
@@ -227,7 +234,7 @@ TEST_CASE_METHOD(LVGLTestFixture, "Multiple material overrides coexist",
     MaterialSettingsManager::instance().clear_override("ABS");
 }
 
-TEST_CASE_METHOD(LVGLTestFixture, "MaterialSettingsManager preheat_macro round trip",
+TEST_CASE_METHOD(MaterialSettingsFixture, "MaterialSettingsManager preheat_macro round trip",
                  "[material_settings]") {
     Config::get_instance();
     MaterialSettingsManager::instance().init();
@@ -251,7 +258,7 @@ TEST_CASE_METHOD(LVGLTestFixture, "MaterialSettingsManager preheat_macro round t
     MaterialSettingsManager::instance().clear_override("ABS");
 }
 
-TEST_CASE_METHOD(LVGLTestFixture, "MaterialSettingsManager macro with temp overrides",
+TEST_CASE_METHOD(MaterialSettingsFixture, "MaterialSettingsManager macro with temp overrides",
                  "[material_settings]") {
     Config::get_instance();
     MaterialSettingsManager::instance().init();
@@ -271,7 +278,7 @@ TEST_CASE_METHOD(LVGLTestFixture, "MaterialSettingsManager macro with temp overr
     MaterialSettingsManager::instance().clear_override("ABS");
 }
 
-TEST_CASE_METHOD(LVGLTestFixture, "MaterialSettingsManager absent macro_handles_heating defaults true",
+TEST_CASE_METHOD(MaterialSettingsFixture, "MaterialSettingsManager absent macro_handles_heating defaults true",
                  "[material_settings]") {
     Config::get_instance();
     MaterialSettingsManager::instance().init();
@@ -288,7 +295,7 @@ TEST_CASE_METHOD(LVGLTestFixture, "MaterialSettingsManager absent macro_handles_
     MaterialSettingsManager::instance().clear_override("TPU");
 }
 
-TEST_CASE_METHOD(LVGLTestFixture, "Preheat macro override: macro_handles_heating true skips temps",
+TEST_CASE_METHOD(MaterialSettingsFixture, "Preheat macro override: macro_handles_heating true skips temps",
                  "[material_settings][preheat]") {
     Config::get_instance();
     MaterialSettingsManager::instance().init();
@@ -309,7 +316,7 @@ TEST_CASE_METHOD(LVGLTestFixture, "Preheat macro override: macro_handles_heating
     MaterialSettingsManager::instance().clear_override("ABS");
 }
 
-TEST_CASE_METHOD(LVGLTestFixture, "Preheat macro override: macro_handles_heating false runs both",
+TEST_CASE_METHOD(MaterialSettingsFixture, "Preheat macro override: macro_handles_heating false runs both",
                  "[material_settings][preheat]") {
     Config::get_instance();
     MaterialSettingsManager::instance().init();
@@ -328,7 +335,7 @@ TEST_CASE_METHOD(LVGLTestFixture, "Preheat macro override: macro_handles_heating
     MaterialSettingsManager::instance().clear_override("ABS");
 }
 
-TEST_CASE_METHOD(LVGLTestFixture, "get_all_overrides returns all set overrides",
+TEST_CASE_METHOD(MaterialSettingsFixture, "get_all_overrides returns all set overrides",
                  "[material_settings]") {
     Config::get_instance();
     MaterialSettingsManager::instance().init();

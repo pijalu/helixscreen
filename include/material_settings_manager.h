@@ -47,6 +47,12 @@ class MaterialSettingsManager {
         return overrides_;
     }
 
+    /** @brief Reset all state (for testing only) */
+    void reset_for_testing() {
+        overrides_.clear();
+        initialized_ = false;
+    }
+
   private:
     MaterialSettingsManager() = default;
     ~MaterialSettingsManager() = default;
