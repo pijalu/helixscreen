@@ -10,12 +10,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.99.14] - 2026-03-31
 
 ### Added
+- Snapmaker U1 filament system support with RFID tag parsing and extruder state tracking
+- Snapmaker U1 automatic detection via filament_detect printer object
+- Filament macro detection with G-code fallbacks and parameter modal for manual load/unload
+- Artillery Sidewinder X2 and Genius Pro added to printer database
 - Spoolman fuzzy search with Levenshtein distance for typo-tolerant filament lookups
 - Manual barcode scanner selection via USB vendor:product ID for devices not auto-detected
 
 ### Fixed
+- Chamber heater UI not showing when heater exists without a dedicated temperature sensor
+- Snapmaker U1 platform hooks corrected to use SysV init scripts instead of systemd
 - Barcode scanners excluded from LVGL keyboard input to prevent ghost keypresses (#659)
 - AMS material label not refreshing when slot color changes
+- Docker cross-compilation portability for macOS/ARM (#649)
+- Build dependency fixes for tools (#670)
 
 ### Changed
 - CJK font files use RLE compression (~1MB savings)
