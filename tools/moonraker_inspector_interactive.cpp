@@ -952,6 +952,7 @@ int run_interactive(const std::string& ip, int port) {
         Term::cout << "\n" << Term::color_fg(Term::Color::Name::Green) << "Exited interactive mode."
                   << Term::color_fg(Term::Color::Name::Default) << std::endl;
 
+        ws_client.close();
         return 0;
     }
     catch (const Term::Exception& e) {

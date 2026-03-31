@@ -4,6 +4,7 @@
 #pragma once
 
 #include <cstddef>
+#include <ctime>
 #include <string>
 
 namespace helix::format {

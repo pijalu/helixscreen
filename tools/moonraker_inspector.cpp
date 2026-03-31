@@ -486,5 +486,6 @@ int main(int argc, char** argv) {
     std::cout << "\n";
     print_header("Inspection Complete");
 
+    ws_client.close();
     return 0;
 }
