@@ -440,51 +440,49 @@ void PowerDeviceWidget::show_device_picker() {
         },
         LV_EVENT_CLICKED, nullptr);
 
-    // Card container
+    // Card container — two-column layout
     lv_obj_t* card = lv_obj_create(picker_backdrop_);
-    int card_w = std::clamp(screen_w * 50 / 100, 200, 360);
-    lv_obj_set_width(card, card_w);
-    lv_obj_set_height(card, LV_SIZE_CONTENT);
-    lv_obj_set_style_max_height(card, screen_h * 70 / 100, 0);
+    int card_w = std::clamp(screen_w * 60 / 100, 260, 420);
+    int card_h = std::clamp(screen_h * 65 / 100, 200, 380);
+    lv_obj_set_size(card, card_w, card_h);
     lv_obj_set_style_bg_color(card, theme_manager_get_color("card_bg"), 0);
     lv_obj_set_style_bg_opa(card, LV_OPA_COVER, 0);
     lv_obj_set_style_radius(card, 12, 0);
     lv_obj_set_style_border_width(card, 1, 0);
     lv_obj_set_style_border_color(card, theme_manager_get_color("border"), 0);
     lv_obj_set_style_pad_all(card, space_md, 0);
-    lv_obj_set_style_pad_gap(card, space_xs, 0);
-    lv_obj_set_flex_flow(card, LV_FLEX_FLOW_COLUMN);
-    lv_obj_add_flag(card, LV_OBJ_FLAG_CLICKABLE); // Prevent clicks passing through
+    lv_obj_set_style_pad_gap(card, space_sm, 0);
+    lv_obj_set_flex_flow(card, LV_FLEX_FLOW_ROW);
+    lv_obj_add_flag(card, LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_remove_flag(card, LV_OBJ_FLAG_SCROLLABLE);
 
-    // Title
-    lv_obj_t* title = lv_label_create(card);
-    lv_label_set_text(title, lv_tr("Select Power Device"));
-    lv_obj_set_style_text_font(title, lv_font_get_default(), 0);
-    lv_obj_set_style_text_color(title, theme_manager_get_color("text"), 0);
-    lv_obj_set_width(title, LV_PCT(100));
+    // === Left column: Device list (scrollable) ===
+    lv_obj_t* left_col = lv_obj_create(card);
+    lv_obj_set_width(left_col, 1);
+    lv_obj_set_flex_grow(left_col, 2);
+    lv_obj_set_height(left_col, LV_PCT(100));
+    lv_obj_set_flex_flow(left_col, LV_FLEX_FLOW_COLUMN);
+    lv_obj_set_style_pad_all(left_col, 0, 0);
+    lv_obj_set_style_pad_gap(left_col, space_xs, 0);
+    lv_obj_set_style_bg_opa(left_col, 0, 0);
+    lv_obj_set_style_border_width(left_col, 0, 0);
 
-    // Divider below title
-    lv_obj_t* divider = lv_obj_create(card);
-    lv_obj_set_width(divider, LV_PCT(100));
-    lv_obj_set_height(divider, 1);
-    lv_obj_set_style_bg_color(divider, theme_manager_get_color("text_muted"), 0);
-    lv_obj_set_style_bg_opa(divider, 38, 0);
-    lv_obj_set_style_pad_all(divider, 0, 0);
-    lv_obj_set_style_border_width(divider, 0, 0);
-    lv_obj_remove_flag(divider, LV_OBJ_FLAG_SCROLLABLE);
-    lv_obj_remove_flag(divider, LV_OBJ_FLAG_CLICKABLE);
+    // "Device" header
+    lv_obj_t* dev_title = lv_label_create(left_col);
+    lv_label_set_text(dev_title, lv_tr("Device"));
+    lv_obj_set_style_text_font(dev_title, theme_manager_get_font("xs"), 0);
+    lv_obj_set_style_text_color(dev_title, theme_manager_get_color("text_muted"), 0);
+    lv_obj_set_width(dev_title, LV_PCT(100));
 
-    // Scrollable list
-    lv_obj_t* list = lv_obj_create(card);
+    // Scrollable device list
+    lv_obj_t* list = lv_obj_create(left_col);
     lv_obj_set_width(list, LV_PCT(100));
-    lv_obj_set_height(list, LV_SIZE_CONTENT);
-    lv_obj_set_style_max_height(list, screen_h * 35 / 100, 0);
+    lv_obj_set_flex_grow(list, 1);
     lv_obj_set_flex_flow(list, LV_FLEX_FLOW_COLUMN);
     lv_obj_set_style_pad_all(list, 0, 0);
     lv_obj_set_style_pad_gap(list, 2, 0);
     lv_obj_set_style_bg_opa(list, 0, 0);
     lv_obj_set_style_border_width(list, 0, 0);
-    lv_obj_add_flag(list, LV_OBJ_FLAG_SCROLLABLE);
 
     // Helper lambda to create a device row in the picker
     auto create_device_row = [&](const std::string& device_id, const std::string& display,
@@ -560,26 +558,37 @@ void PowerDeviceWidget::show_device_picker() {
         create_device_row(name, display, name == device_name_);
     }
 
-    // Icon section divider
-    lv_obj_t* icon_divider = lv_obj_create(card);
-    lv_obj_set_width(icon_divider, LV_PCT(100));
-    lv_obj_set_height(icon_divider, 1);
-    lv_obj_set_style_bg_color(icon_divider, theme_manager_get_color("text_muted"), 0);
-    lv_obj_set_style_bg_opa(icon_divider, 38, 0);
-    lv_obj_set_style_pad_all(icon_divider, 0, 0);
-    lv_obj_set_style_border_width(icon_divider, 0, 0);
-    lv_obj_remove_flag(icon_divider, LV_OBJ_FLAG_SCROLLABLE);
-    lv_obj_remove_flag(icon_divider, LV_OBJ_FLAG_CLICKABLE);
+    // Vertical divider between columns
+    lv_obj_t* v_divider = lv_obj_create(card);
+    lv_obj_set_width(v_divider, 1);
+    lv_obj_set_height(v_divider, LV_PCT(100));
+    lv_obj_set_style_bg_color(v_divider, theme_manager_get_color("text_muted"), 0);
+    lv_obj_set_style_bg_opa(v_divider, 38, 0);
+    lv_obj_set_style_pad_all(v_divider, 0, 0);
+    lv_obj_set_style_border_width(v_divider, 0, 0);
+    lv_obj_remove_flag(v_divider, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_remove_flag(v_divider, LV_OBJ_FLAG_CLICKABLE);
 
-    // Icon section title
-    lv_obj_t* icon_title = lv_label_create(card);
+    // === Right column: Icon grid + Sensor ===
+    lv_obj_t* right_col = lv_obj_create(card);
+    lv_obj_set_width(right_col, 1);
+    lv_obj_set_flex_grow(right_col, 4);
+    lv_obj_set_height(right_col, LV_PCT(100));
+    lv_obj_set_flex_flow(right_col, LV_FLEX_FLOW_COLUMN);
+    lv_obj_set_style_pad_all(right_col, 0, 0);
+    lv_obj_set_style_pad_gap(right_col, space_xs, 0);
+    lv_obj_set_style_bg_opa(right_col, 0, 0);
+    lv_obj_set_style_border_width(right_col, 0, 0);
+
+    // "Icon" header
+    lv_obj_t* icon_title = lv_label_create(right_col);
     lv_label_set_text(icon_title, lv_tr("Icon"));
-    lv_obj_set_style_text_font(icon_title, lv_font_get_default(), 0);
-    lv_obj_set_style_text_color(icon_title, theme_manager_get_color("text"), 0);
+    lv_obj_set_style_text_font(icon_title, theme_manager_get_font("xs"), 0);
+    lv_obj_set_style_text_color(icon_title, theme_manager_get_color("text_muted"), 0);
     lv_obj_set_width(icon_title, LV_PCT(100));
 
     // Icon grid (wrap flow)
-    lv_obj_t* icon_grid = lv_obj_create(card);
+    lv_obj_t* icon_grid = lv_obj_create(right_col);
     lv_obj_set_name(icon_grid, "picker_icon_grid");
     lv_obj_set_width(icon_grid, LV_PCT(100));
     lv_obj_set_height(icon_grid, LV_SIZE_CONTENT);
@@ -639,31 +648,20 @@ void PowerDeviceWidget::show_device_picker() {
             LV_EVENT_CLICKED, nullptr);
     }
 
-    // Sensor picker section — only show if energy sensors exist
+    // === Sensor section (in right column, below icon grid) ===
     auto energy_ids = SensorState::instance().energy_sensor_ids();
     if (!energy_ids.empty()) {
         std::sort(energy_ids.begin(), energy_ids.end());
 
-        // Divider
-        lv_obj_t* sensor_divider = lv_obj_create(card);
-        lv_obj_set_width(sensor_divider, LV_PCT(100));
-        lv_obj_set_height(sensor_divider, 1);
-        lv_obj_set_style_bg_color(sensor_divider, theme_manager_get_color("text_muted"), 0);
-        lv_obj_set_style_bg_opa(sensor_divider, 38, 0);
-        lv_obj_set_style_pad_all(sensor_divider, 0, 0);
-        lv_obj_set_style_border_width(sensor_divider, 0, 0);
-        lv_obj_remove_flag(sensor_divider, LV_OBJ_FLAG_SCROLLABLE);
-        lv_obj_remove_flag(sensor_divider, LV_OBJ_FLAG_CLICKABLE);
-
-        // Section title
-        lv_obj_t* sensor_title = lv_label_create(card);
-        lv_label_set_text(sensor_title, lv_tr("Energy Sensor"));
-        lv_obj_set_style_text_font(sensor_title, lv_font_get_default(), 0);
-        lv_obj_set_style_text_color(sensor_title, theme_manager_get_color("text"), 0);
+        // "Sensor" header
+        lv_obj_t* sensor_title = lv_label_create(right_col);
+        lv_label_set_text(sensor_title, lv_tr("Sensor"));
+        lv_obj_set_style_text_font(sensor_title, theme_manager_get_font("xs"), 0);
+        lv_obj_set_style_text_color(sensor_title, theme_manager_get_color("text_muted"), 0);
         lv_obj_set_width(sensor_title, LV_PCT(100));
 
         // Sensor chip container (wrap flow)
-        lv_obj_t* sensor_grid = lv_obj_create(card);
+        lv_obj_t* sensor_grid = lv_obj_create(right_col);
         lv_obj_set_width(sensor_grid, LV_PCT(100));
         lv_obj_set_height(sensor_grid, LV_SIZE_CONTENT);
         lv_obj_set_flex_flow(sensor_grid, LV_FLEX_FLOW_ROW_WRAP);
