@@ -70,6 +70,10 @@
 #include <thread>
 #include <vector>
 
+namespace helix {
+struct SensorInfo; // Forward declaration for get_sensors()
+} // namespace helix
+
 /**
  * @brief High-level Moonraker API facade
  *
@@ -195,6 +199,22 @@ class MoonrakerAPI {
      */
     virtual void set_device_power(const std::string& device, const std::string& action,
                                   SuccessCallback on_success, ErrorCallback on_error);
+
+    // ========================================================================
+    // Sensor Operations
+    // ========================================================================
+
+    using SensorsCallback = std::function<void(const std::vector<helix::SensorInfo>&, const nlohmann::json&)>;
+
+    /**
+     * @brief Get list of all configured Moonraker sensors
+     *
+     * Queries server.sensors.list endpoint for sensor metadata and initial values.
+     *
+     * @param on_success Callback with sensor list and initial values JSON
+     * @param on_error Error callback
+     */
+    virtual void get_sensors(SensorsCallback on_success, ErrorCallback on_error = nullptr);
 
     // ========================================================================
     // System Control Operations

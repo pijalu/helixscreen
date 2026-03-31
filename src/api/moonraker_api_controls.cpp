@@ -10,6 +10,7 @@
 #include "moonraker_api.h"
 #include "moonraker_api_internal.h"
 #include "printer_state.h"
+#include "sensor_state.h"
 #include "spdlog/spdlog.h"
 
 #include <algorithm>
@@ -289,6 +290,68 @@ void MoonrakerAPI::set_device_power(const std::string& device, const std::string
             on_success();
         }
     }).detach();
+}
+
+// ============================================================================
+// Sensor Operations
+// ============================================================================
+
+void MoonrakerAPI::get_sensors(SensorsCallback on_success, ErrorCallback on_error) {
+    client_.send_jsonrpc(
+        "server.sensors.list", json::object(),
+        [on_success](json response) {
+            std::vector<helix::SensorInfo> sensors;
+            nlohmann::json initial_values;
+
+            if (response.contains("result") && response["result"].contains("sensors") &&
+                response["result"]["sensors"].is_object()) {
+                for (auto it = response["result"]["sensors"].begin();
+                     it != response["result"]["sensors"].end(); ++it) {
+                    const std::string& sensor_id = it.key();
+                    const auto& sensor_data = it.value();
+                    if (!sensor_data.is_object())
+                        continue;
+
+                    helix::SensorInfo info;
+                    info.id = sensor_id;
+                    info.friendly_name = sensor_data.value("friendly_name", sensor_id);
+                    info.type = sensor_data.value("type", "unknown");
+
+                    // Extract value keys and initial values from the "values" object
+                    if (sensor_data.contains("values") && sensor_data["values"].is_object()) {
+                        nlohmann::json sensor_values;
+                        for (auto vit = sensor_data["values"].begin();
+                             vit != sensor_data["values"].end(); ++vit) {
+                            info.value_keys.push_back(vit.key());
+                            if (vit.value().is_object() && vit.value().contains("value") &&
+                                vit.value()["value"].is_number()) {
+                                sensor_values[vit.key()] = vit.value()["value"].get<double>();
+                            }
+                        }
+                        if (!sensor_values.empty()) {
+                            initial_values[sensor_id] = std::move(sensor_values);
+                        }
+                    }
+
+                    if (!info.id.empty()) {
+                        sensors.push_back(std::move(info));
+                    }
+                }
+            }
+
+            spdlog::info("[Moonraker API] Found {} sensors", sensors.size());
+            if (on_success) {
+                on_success(sensors, initial_values);
+            }
+        },
+        [on_error](const MoonrakerError& err) {
+            spdlog::debug("[Moonraker API] Sensor list failed: {}", err.message);
+            if (on_error) {
+                on_error(err);
+            }
+        },
+        0,     // default timeout
+        true); // silent — sensors are optional
 }
 
 // ============================================================================
