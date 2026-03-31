@@ -605,12 +605,14 @@ void ToolState::load_spool_assignments(MoonrakerAPI* api) {
                     spdlog::info("[ToolState] Loaded spool assignments from Moonraker DB");
                 });
         },
-        [this](const MoonrakerError& err) {
+        [this, api](const MoonrakerError& err) {
             spdlog::debug("[ToolState] Moonraker DB load failed ({}), trying local JSON",
                           err.user_message());
-            helix::ui::queue_update<int>(std::make_unique<int>(0), [this](int*) {
+            helix::ui::queue_update<int>(std::make_unique<int>(0), [this, api](int*) {
                 load_spool_json();
                 spool_assignments_loaded_ = true;
+                // Seed Moonraker DB so subsequent connections don't hit 404
+                save_spool_assignments(api);
                 // Re-sync AmsState so slot UI subjects reflect loaded assignments
                 AmsState::instance().sync_from_backend();
             });

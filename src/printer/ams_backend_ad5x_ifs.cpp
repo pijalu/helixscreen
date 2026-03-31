@@ -655,8 +655,8 @@ AmsError AmsBackendAd5xIfs::write_ifs_var(const std::string& key,
 
     // Use _IFS_VARS macro to persist state — works for both lessWaste and bambufy.
     // The macro updates in-memory gcode variables AND writes SAVE_VARIABLE with the
-    // correct prefix automatically. SHOW=0 suppresses the interactive dialog.
-    std::string gcode = "_IFS_VARS " + key + "=" + value + " SHOW=0";
+    // correct prefix automatically.
+    std::string gcode = "_IFS_VARS " + key + "=" + value;
     spdlog::debug("{} Writing IFS var: {} = {}", backend_log_tag(), key, value);
     return execute_gcode(gcode);
 }
