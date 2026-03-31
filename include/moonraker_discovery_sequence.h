@@ -194,6 +194,14 @@ class MoonrakerDiscoverySequence {
     void discover_power_devices();
 
     /**
+     * @brief Discover Moonraker sensors (fire-and-forget)
+     *
+     * Queries server.sensors.list and populates SensorState with initial values.
+     * Called alongside discover_power_devices() during both partial and full discovery.
+     */
+    void discover_sensors();
+
+    /**
      * @brief Continue discovery after Klippy readiness gate passes
      *
      * Chains: objects.list → server.info → printer.info → MCU queries → subscribe
