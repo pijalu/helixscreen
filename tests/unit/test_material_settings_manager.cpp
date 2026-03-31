@@ -8,13 +8,23 @@
 
 #include "../catch_amalgamated.hpp"
 
+namespace helix {
+class TestAccess {
+  public:
+    static void reset(MaterialSettingsManager& mgr) {
+        mgr.overrides_.clear();
+        mgr.initialized_ = false;
+    }
+};
+}  // namespace helix
+
 using namespace helix;
 using namespace filament;
 
 // Fixture that resets MaterialSettingsManager singleton between tests
 struct MaterialSettingsFixture : LVGLTestFixture {
     ~MaterialSettingsFixture() override {
-        MaterialSettingsManager::instance().reset_for_testing();
+        TestAccess::reset(MaterialSettingsManager::instance());
     }
 };
 

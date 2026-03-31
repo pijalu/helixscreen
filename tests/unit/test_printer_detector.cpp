@@ -1490,7 +1490,7 @@ TEST_CASE_METHOD(PrinterDetectorFixture, "PrinterDetector: Artillery Sidewinder 
 
     REQUIRE(result.detected());
     REQUIRE(result.type_name ==
-            "Artillery M1 Pro"); // Hostname "artillery" matches Artillery M1 Pro entry
+            "Artillery Sidewinder X2"); // Hostname "sidewinder" matches Sidewinder X2 entry
     // Hostname match is the dominant signal here
     REQUIRE(result.confidence >= 70);
 }
