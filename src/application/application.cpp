@@ -34,6 +34,7 @@
 #include "panel_factory.h"
 #include "power_device_state.h"
 #include "print_history_manager.h"
+#include "sensor_state.h"
 #include "screenshot.h"
 #include "sound_manager.h"
 #include "static_panel_registry.h"
@@ -1971,9 +1972,10 @@ void Application::setup_discovery_callbacks() {
                     helix::TimelapseState::instance().handle_timelapse_event(data);
                 });
 
-            // Subscribe to power device state change notifications
+            // Subscribe to power device and sensor state change notifications
             if (c->api) {
                 helix::PowerDeviceState::instance().subscribe(*c->api);
+                helix::SensorState::instance().subscribe(*c->api);
             }
 
             // Hardware validation: check config expectations vs discovered hardware
@@ -3043,9 +3045,10 @@ void Application::tear_down_printer_state() {
                                                           "timelapse_state");
     }
 
-    // 8b. Unsubscribe power device state
+    // 8b. Unsubscribe power device and sensor state
     if (m_moonraker && m_moonraker->api()) {
         helix::PowerDeviceState::instance().unsubscribe(*m_moonraker->api());
+        helix::SensorState::instance().unsubscribe(*m_moonraker->api());
     }
 
     // 9. Unregister action prompt callback
@@ -3290,9 +3293,10 @@ void Application::shutdown() {
                                                           "timelapse_state");
     }
 
-    // Unsubscribe power device state
+    // Unsubscribe power device and sensor state
     if (m_moonraker && m_moonraker->api()) {
         helix::PowerDeviceState::instance().unsubscribe(*m_moonraker->api());
+        helix::SensorState::instance().unsubscribe(*m_moonraker->api());
     }
 
     // Unregister action prompt callback before moonraker is destroyed

@@ -26,6 +26,7 @@
 #include "moonraker_api.h"
 #include "moonraker_client.h"
 #include "power_device_state.h"
+#include "sensor_state.h"
 #ifdef HELIX_ENABLE_MOCKS
 #include "moonraker_api_mock.h"
 #include "moonraker_client_mock.h"
@@ -212,6 +213,7 @@ void MoonrakerManager::process_notifications() {
             // Safe to call multiple times — insert is a no-op if handler already registered.
             if (new_state == static_cast<int>(ConnectionState::CONNECTED) && m_api) {
                 helix::PowerDeviceState::instance().subscribe(*m_api);
+                helix::SensorState::instance().subscribe(*m_api);
             }
 
             // Auto-close Connection Failed modal when connection is restored
