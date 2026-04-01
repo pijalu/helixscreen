@@ -61,15 +61,9 @@ platform_stop_competing_uis() {
         echo "DRM keepalive: background process PID $DRM_KEEPALIVE_PID"
     fi
 
-    # Stop stock UI and camera via init scripts
-    for svc in /etc/init.d/S99screen /etc/init.d/S90lmd; do
-        if [ -x "$svc" ]; then
-            echo "Stopping $svc..."
-            "$svc" stop 2>/dev/null || true
-        fi
-    done
-
-    # Kill any remaining stock UI processes
+    # Kill stock UI and camera processes directly.
+    # NOTE: Do NOT call /etc/init.d/S99screen stop — on the U1, S99screen is
+    # patched to delegate to helixscreen.init, which would cause infinite recursion.
     for ui in gui unisrv lmd snapmaker-ui snapmaker-screen KlipperScreen klipperscreen; do
         if command -v killall >/dev/null 2>&1; then
             killall "$ui" 2>/dev/null || true
@@ -118,9 +112,9 @@ platform_post_stop() {
         DRM_KEEPALIVE_PID=""
     fi
 
-    # Restart stock UI when HelixScreen exits
-    if [ -x /etc/init.d/S99screen ]; then
-        /etc/init.d/S99screen start 2>/dev/null || true
+    # Restart stock GUI directly (not via S99screen, which may delegate back to us)
+    if [ -x /usr/bin/gui ]; then
+        start-stop-daemon -S -b -x /usr/bin/gui -m -p /var/run/gui.pid 2>/dev/null || true
     fi
     return 0
 }
