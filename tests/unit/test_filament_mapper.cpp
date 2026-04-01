@@ -106,8 +106,21 @@ TEST_CASE("materials_match is case-insensitive", "[filament_mapper][material]") 
     CHECK(FilamentMapper::materials_match("Pla", "pLA"));
     CHECK(FilamentMapper::materials_match("PETG", "petg"));
     CHECK_FALSE(FilamentMapper::materials_match("PLA", "PETG"));
-    CHECK_FALSE(FilamentMapper::materials_match("PLA", "PLA+"));
+    CHECK(FilamentMapper::materials_match("PLA", "PLA+"));  // Same compat group
     CHECK(FilamentMapper::materials_match("", ""));
+}
+
+TEST_CASE("materials_match handles brand-name variants", "[filament_mapper][material]") {
+    // Compound names with known base material
+    CHECK(FilamentMapper::materials_match("PLA", "PLA SnapSpeed"));
+    CHECK(FilamentMapper::materials_match("PLA SnapSpeed", "PLA"));
+    CHECK(FilamentMapper::materials_match("PLA SnapSpeed", "PLA SnapSpeed"));
+    CHECK(FilamentMapper::materials_match("PETG", "PETG Pro"));
+    CHECK(FilamentMapper::materials_match("ABS", "ABS Premium"));
+
+    // Different base materials still mismatch
+    CHECK_FALSE(FilamentMapper::materials_match("PLA SnapSpeed", "PETG"));
+    CHECK_FALSE(FilamentMapper::materials_match("ABS Premium", "PLA"));
 }
 
 // =============================================================================
@@ -701,9 +714,10 @@ TEST_CASE("compute_defaults single tool no material info skips mismatch",
 
 TEST_CASE("materials_match handles trailing whitespace",
           "[filament_mapper][material]") {
-    // Slicers sometimes add trailing spaces
-    CHECK_FALSE(FilamentMapper::materials_match("PLA ", "PLA"));
-    CHECK_FALSE(FilamentMapper::materials_match("PLA", " PLA"));
+    // Trailing spaces: base material extraction finds "PLA" in "PLA "
+    CHECK(FilamentMapper::materials_match("PLA ", "PLA"));
+    // Leading space: " PLA" has no known prefix, but "PLA" is known → unknown vs PLA = compatible
+    CHECK(FilamentMapper::materials_match("PLA", " PLA"));
     CHECK(FilamentMapper::materials_match("PLA ", "PLA "));
 }
 
@@ -711,7 +725,8 @@ TEST_CASE("materials_match handles long material strings",
           "[filament_mapper][material]") {
     std::string long_name(200, 'X');
     CHECK(FilamentMapper::materials_match(long_name, long_name));
-    CHECK_FALSE(FilamentMapper::materials_match(long_name, long_name + "Y"));
+    // Both unknown → compatible (can't determine incompatibility)
+    CHECK(FilamentMapper::materials_match(long_name, long_name + "Y"));
 }
 
 // =============================================================================

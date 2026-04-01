@@ -2,6 +2,8 @@
 
 #include "filament_mapper.h"
 
+#include "filament_database.h"
+
 #include <algorithm>
 #include <cctype>
 #include <cmath>
@@ -70,14 +72,50 @@ bool FilamentMapper::colors_match(uint32_t color_a, uint32_t color_b) {
     return color_distance(color_a, color_b) <= COLOR_MATCH_TOLERANCE;
 }
 
+/// Extract the base material from a compound name like "PLA SnapSpeed" → "PLA".
+/// Tries progressively shorter prefixes against the filament database.
+static std::string_view extract_base_material(std::string_view name) {
+    // Already a known material?
+    if (filament::find_material(name).has_value()) {
+        return name;
+    }
+
+    // Try progressively shorter prefixes at word/separator boundaries.
+    // "PLA SnapSpeed" → try "PLA SnapSpee"... eventually "PLA"
+    // "PLA-CF" → try "PLA-C"... "PLA-"... "PLA"
+    for (size_t i = name.size(); i > 0; --i) {
+        char c = name[i - 1];
+        if (c == ' ' || c == '-' || c == '_') {
+            auto prefix = name.substr(0, i - 1);
+            if (!prefix.empty() && filament::find_material(prefix).has_value()) {
+                return prefix;
+            }
+        }
+    }
+
+    return name; // Return as-is if no known prefix found
+}
+
 bool FilamentMapper::materials_match(const std::string& a, const std::string& b) {
-    if (a.size() != b.size()) {
+    // Empty vs non-empty is always a mismatch
+    if (a.empty() != b.empty()) {
         return false;
     }
-    return std::equal(a.begin(), a.end(), b.begin(), [](char ca, char cb) {
-        return std::tolower(static_cast<unsigned char>(ca)) ==
-               std::tolower(static_cast<unsigned char>(cb));
-    });
+
+    // Case-insensitive exact match
+    if (a.size() == b.size() &&
+        std::equal(a.begin(), a.end(), b.begin(), [](char ca, char cb) {
+            return std::tolower(static_cast<unsigned char>(ca)) ==
+                   std::tolower(static_cast<unsigned char>(cb));
+        })) {
+        return true;
+    }
+
+    // Resolve compound names to base materials (e.g., "PLA SnapSpeed" → "PLA")
+    // then check compatibility groups
+    auto base_a = extract_base_material(a);
+    auto base_b = extract_base_material(b);
+    return filament::are_materials_compatible(base_a, base_b);
 }
 
 SlotKey FilamentMapper::find_closest_color_slot(uint32_t target_color,
