@@ -7,9 +7,31 @@
 #include "../catch_amalgamated.hpp"
 
 using namespace helix;
+
+/// Clear all LED-related Config paths to prevent cross-test contamination.
+/// Tests run in random order and the Config singleton persists between tests.
+static void clear_led_config_paths() {
+    auto* cfg = Config::get_instance();
+    if (!cfg) return;
+    cfg->set(cfg->df() + "leds/selected_strips", nlohmann::json::array());
+    cfg->set(cfg->df() + "leds/selected", nlohmann::json());
+    cfg->set(cfg->df() + "leds/strip", nlohmann::json());
+    cfg->set(cfg->df() + "leds/last_color", nlohmann::json());
+    cfg->set(cfg->df() + "leds/last_brightness", nlohmann::json());
+    cfg->set(cfg->df() + "leds/color_presets", nlohmann::json());
+    cfg->set(cfg->df() + "leds/macro_devices", nlohmann::json());
+    cfg->set(cfg->df() + "leds/led_on_at_start", nlohmann::json());
+    cfg->set("/led/selected_strips", nlohmann::json());
+    cfg->set("/led/last_color", nlohmann::json());
+    cfg->set("/led/last_brightness", nlohmann::json());
+    cfg->set("/led/color_presets", nlohmann::json());
+    cfg->set("/led/macro_devices", nlohmann::json());
+    cfg->save();
+}
 TEST_CASE("LedController config: default values after init", "[led][config]") {
     auto& ctrl = helix::led::LedController::instance();
     ctrl.deinit();
+    clear_led_config_paths();
     ctrl.init(nullptr, nullptr);
 
     REQUIRE(ctrl.last_color() == 0xFFFFFF);
@@ -120,6 +142,7 @@ TEST_CASE("LedController config: configured macros round-trip", "[led][config]")
 TEST_CASE("LedController config: deinit resets config state to defaults", "[led][config]") {
     auto& ctrl = helix::led::LedController::instance();
     ctrl.deinit();
+    clear_led_config_paths();
     ctrl.init(nullptr, nullptr);
 
     // Modify state
@@ -140,6 +163,7 @@ TEST_CASE("LedController config: deinit resets config state to defaults", "[led]
     REQUIRE(ctrl.configured_macros().size() == 1);
 
     ctrl.deinit();
+    clear_led_config_paths();
 
     // After deinit, re-init should restore defaults
     ctrl.init(nullptr, nullptr);

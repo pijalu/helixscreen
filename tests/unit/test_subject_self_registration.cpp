@@ -51,12 +51,14 @@ TEST_CASE("StaticSubjectRegistry basic operations", "[shutdown][registry]") {
 
     SECTION("register and deinit round-trip") {
         auto& registry = StaticSubjectRegistry::instance();
-        size_t initial_count = registry.count();
+        // Clear stale entries without running callbacks (avoids SIGSEGV from
+        // other tests' fixture-local captures that are no longer on the stack)
+        registry.clear();
 
         bool callback_called = false;
         registry.register_deinit("TestEntry", [&callback_called]() { callback_called = true; });
 
-        REQUIRE(registry.count() == initial_count + 1);
+        REQUIRE(registry.count() == 1);
 
         registry.deinit_all();
         REQUIRE(callback_called);
@@ -65,6 +67,8 @@ TEST_CASE("StaticSubjectRegistry basic operations", "[shutdown][registry]") {
 
     SECTION("deinit runs in reverse registration order") {
         auto& registry = StaticSubjectRegistry::instance();
+        registry.clear();
+
         std::vector<int> order;
 
         registry.register_deinit("First", [&order]() { order.push_back(1); });
@@ -83,69 +87,87 @@ TEST_CASE("StaticSubjectRegistry basic operations", "[shutdown][registry]") {
 TEST_CASE("PrinterState self-registers cleanup on init_subjects", "[shutdown][self-register]") {
     LVGLTestFixture fixture;
     auto& registry = StaticSubjectRegistry::instance();
-    registry.deinit_all(); // Start clean
+    // Deinit the singleton directly to reset its subjects_initialized_ flag,
+    // then clear the registry (avoids running stale callbacks from other tests)
+    get_printer_state().deinit_subjects();
+    registry.clear();
 
     get_printer_state().init_subjects();
 
     REQUIRE(registry.count() > 0);
 
-    // Cleanup
-    registry.deinit_all();
+    get_printer_state().deinit_subjects();
+    registry.clear();
 }
 
 TEST_CASE("AmsState self-registers cleanup on init_subjects", "[shutdown][self-register]") {
     LVGLTestFixture fixture;
     auto& registry = StaticSubjectRegistry::instance();
-    registry.deinit_all();
+    AmsState::instance().deinit_subjects();
+    registry.clear();
 
     AmsState::instance().init_subjects(false);
 
     REQUIRE(registry.count() > 0);
 
-    registry.deinit_all();
+    AmsState::instance().deinit_subjects();
+    registry.clear();
 }
 
 TEST_CASE("ToolState self-registers cleanup on init_subjects", "[shutdown][self-register]") {
     LVGLTestFixture fixture;
     auto& registry = StaticSubjectRegistry::instance();
-    registry.deinit_all();
+    helix::ToolState::instance().deinit_subjects();
+    registry.clear();
 
     helix::ToolState::instance().init_subjects();
 
     REQUIRE(registry.count() > 0);
 
-    registry.deinit_all();
+    helix::ToolState::instance().deinit_subjects();
+    registry.clear();
 }
 
 TEST_CASE("TimelapseState self-registers cleanup on init_subjects", "[shutdown][self-register]") {
     LVGLTestFixture fixture;
     auto& registry = StaticSubjectRegistry::instance();
-    registry.deinit_all();
+    helix::TimelapseState::instance().deinit_subjects();
+    registry.clear();
 
     helix::TimelapseState::instance().init_subjects();
 
     REQUIRE(registry.count() > 0);
 
-    registry.deinit_all();
+    helix::TimelapseState::instance().deinit_subjects();
+    registry.clear();
 }
 
 TEST_CASE("FilamentSensorManager self-registers cleanup on init_subjects",
           "[shutdown][self-register]") {
     LVGLTestFixture fixture;
     auto& registry = StaticSubjectRegistry::instance();
-    registry.deinit_all();
+    helix::FilamentSensorManager::instance().deinit_subjects();
+    registry.clear();
 
     helix::FilamentSensorManager::instance().init_subjects();
 
     REQUIRE(registry.count() > 0);
 
-    registry.deinit_all();
+    helix::FilamentSensorManager::instance().deinit_subjects();
+    registry.clear();
 }
 
 TEST_CASE("Sensor managers self-register cleanup on init_subjects", "[shutdown][self-register]") {
     LVGLTestFixture fixture;
     auto& registry = StaticSubjectRegistry::instance();
-    registry.deinit_all();
+    // Deinit each sensor manager directly
+    helix::sensors::HumiditySensorManager::instance().deinit_subjects();
+    helix::sensors::WidthSensorManager::instance().deinit_subjects();
+    helix::sensors::ProbeSensorManager::instance().deinit_subjects();
+    helix::sensors::AccelSensorManager::instance().deinit_subjects();
+    helix::sensors::ColorSensorManager::instance().deinit_subjects();
+    helix::sensors::TemperatureSensorManager::instance().deinit_subjects();
+    registry.clear();
 
     helix::sensors::HumiditySensorManager::instance().init_subjects();
     helix::sensors::WidthSensorManager::instance().init_subjects();
@@ -157,7 +179,13 @@ TEST_CASE("Sensor managers self-register cleanup on init_subjects", "[shutdown][
     // Each sensor manager should have registered exactly one entry
     REQUIRE(registry.count() == 6);
 
-    registry.deinit_all();
+    helix::sensors::HumiditySensorManager::instance().deinit_subjects();
+    helix::sensors::WidthSensorManager::instance().deinit_subjects();
+    helix::sensors::ProbeSensorManager::instance().deinit_subjects();
+    helix::sensors::AccelSensorManager::instance().deinit_subjects();
+    helix::sensors::ColorSensorManager::instance().deinit_subjects();
+    helix::sensors::TemperatureSensorManager::instance().deinit_subjects();
+    registry.clear();
 }
 
 TEST_CASE("AppGlobals self-registers cleanup on init_subjects", "[shutdown][self-register]") {
