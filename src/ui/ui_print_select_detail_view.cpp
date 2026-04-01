@@ -17,8 +17,8 @@
 #include "app_globals.h"
 #include "color_utils.h"
 #include "config.h"
-#include "gcode_parser.h" // for ParsedGCodeFile (try_extract_gcode_colors)
 #include "display_settings_manager.h"
+#include "gcode_parser.h"
 #include "lvgl/src/others/translation/lv_translation.h"
 #include "memory_utils.h"
 #include "moonraker_api.h"

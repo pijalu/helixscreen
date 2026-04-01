@@ -433,13 +433,11 @@ FileMetadata MoonrakerFileAPI::parse_file_metadata(const json& response) {
             std::istringstream ss(colour_str);
             std::string token;
             while (std::getline(ss, token, ';')) {
-                // Trim whitespace
+                // Trim leading/trailing whitespace
                 size_t start = token.find_first_not_of(" \t");
+                size_t end = token.find_last_not_of(" \t");
                 if (start != std::string::npos) {
-                    token = token.substr(start);
-                }
-                if (!token.empty()) {
-                    metadata.filament_colors.push_back(token);
+                    metadata.filament_colors.push_back(token.substr(start, end - start + 1));
                 }
             }
             if (!metadata.filament_colors.empty()) {
