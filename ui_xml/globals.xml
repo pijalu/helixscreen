@@ -176,25 +176,25 @@
     <px name="button_padding" value="12"/>
 
     <!-- Icon buttons, back buttons -->
-    <px name="button_height_sm_tiny" value="22"/>
+    <px name="button_height_sm_tiny" value="28"/>
     <px name="button_height_sm_small" value="40"/>
     <px name="button_height_sm_medium" value="40"/>
     <px name="button_height_sm_large" value="40"/>
 
     <!-- button_height is responsive: _small/_medium/_large registered as button_height based on screen size -->
-    <px name="button_height_tiny" value="26"/>
+    <px name="button_height_tiny" value="32"/>
     <px name="button_height_small" value="48"/>
     <px name="button_height_medium" value="52"/>
     <px name="button_height_large" value="72"/>
 
-    <px name="button_height_lg_tiny" value="32"/>
+    <px name="button_height_lg_tiny" value="40"/>
     <px name="button_height_lg_small" value="64"/>
     <px name="button_height_lg_medium" value="70"/>
     <px name="button_height_lg_large" value="96"/>
 
     <!-- Other component dimensions -->
     <!-- header_height is responsive: _small/_medium/_large registered as header_height based on screen height -->
-    <px name="header_height_tiny" value="28"/>
+    <px name="header_height_tiny" value="32"/>
     <px name="header_height_small" value="48"/>
     <px name="header_height_medium" value="56"/>
     <px name="header_height_large" value="60"/>
@@ -224,19 +224,19 @@
          runtime by ui_theme_register_responsive_fonts() - do NOT define them
          here or responsive overrides will be silently ignored. -->
     <!-- font_heading variants (section headings, large text) -->
-    <string name="font_heading_tiny" value="noto_sans_14"/>
+    <string name="font_heading_tiny" value="noto_sans_16"/>
     <string name="font_heading_small" value="noto_sans_20"/>
     <string name="font_heading_medium" value="noto_sans_26"/>
     <string name="font_heading_large" value="noto_sans_28"/>
     <!-- NO BASE font_heading - registered at runtime -->
     <!-- font_xl variants (extra-large display text, e.g. clock digits) - uses Bold weight -->
-    <string name="font_xl_tiny" value="noto_sans_bold_16"/>
+    <string name="font_xl_tiny" value="noto_sans_bold_18"/>
     <string name="font_xl_small" value="noto_sans_bold_20"/>
     <string name="font_xl_medium" value="noto_sans_bold_28"/>
     <string name="font_xl_large" value="noto_sans_bold_28"/>
     <!-- NO BASE font_xl - registered at runtime -->
     <!-- font_body variants (standard body text) -->
-    <string name="font_body_tiny" value="noto_sans_11"/>
+    <string name="font_body_tiny" value="noto_sans_12"/>
     <string name="font_body_small" value="noto_sans_14"/>
     <string name="font_body_medium" value="noto_sans_18"/>
     <string name="font_body_large" value="noto_sans_20"/>
@@ -263,13 +263,13 @@
     <!-- Icon Typography - Responsive Material Design Icon Fonts               -->
     <!-- ===================================================================== -->
     <!-- icon_font_xs: Extra-small icons (compact badges, minimal UI elements) -->
-    <string name="icon_font_xs_tiny" value="mdi_icons_14"/>
+    <string name="icon_font_xs_tiny" value="mdi_icons_16"/>
     <string name="icon_font_xs_small" value="mdi_icons_16"/>
     <string name="icon_font_xs_medium" value="mdi_icons_16"/>
     <string name="icon_font_xs_large" value="mdi_icons_16"/>
     <!-- NO BASE icon_font_xs - registered at runtime -->
     <!-- icon_font_sm: Small inline icons (metadata, hints, small indicators) -->
-    <string name="icon_font_sm_tiny" value="mdi_icons_14"/>
+    <string name="icon_font_sm_tiny" value="mdi_icons_24"/>
     <string name="icon_font_sm_small" value="mdi_icons_24"/>
     <string name="icon_font_sm_medium" value="mdi_icons_24"/>
     <string name="icon_font_sm_large" value="mdi_icons_24"/>

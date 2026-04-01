@@ -143,7 +143,9 @@
                       style_flex_cross_place="center" style_pad_gap="#space_xs" clickable="false" event_bubble="true">
                 <icon name="nozzle_heater_icon"
                       src="heater" size="xs" variant="secondary" clickable="false" event_bubble="true"/>
-                <text_small bind_text="controls_nozzle_label"/>
+                <text_small bind_text="controls_nozzle_label">
+                  <bind_flag_if_eq subject="ui_breakpoint" flag="hidden" ref_value="0"/>
+                </text_small>
               </lv_obj>
               <!-- Right side: temp display + edit icon -->
               <lv_obj width="content"
@@ -172,7 +174,9 @@
                       style_flex_cross_place="center" style_pad_gap="#space_xs" clickable="false" event_bubble="true">
                 <icon name="bed_heater_icon"
                       src="radiator" size="xs" variant="secondary" clickable="false" event_bubble="true"/>
-                <text_small text="Bed" translation_tag="Bed"/>
+                <text_small text="Bed" translation_tag="Bed">
+                  <bind_flag_if_eq subject="ui_breakpoint" flag="hidden" ref_value="0"/>
+                </text_small>
               </lv_obj>
               <!-- Right side: temp display + edit icon -->
               <lv_obj width="content"
@@ -194,7 +198,10 @@
                     clickable="true" hidden="true">
               <event_cb trigger="clicked" callback="on_chamber_temp_clicked"/>
               <bind_flag_if_eq subject="printer_has_chamber" flag="hidden" ref_value="0"/>
-              <text_small text="Chamber:" translation_tag="Chamber:" clickable="false" event_bubble="true"/>
+              <icon src="fridge_industrial" size="xs" variant="secondary" clickable="false" event_bubble="true"/>
+              <text_small text="Chamber" translation_tag="Chamber" clickable="false" event_bubble="true">
+                <bind_flag_if_eq subject="ui_breakpoint" flag="hidden" ref_value="0"/>
+              </text_small>
               <temp_display name="chamber_temp_display"
                             size="md" show_target="false" bind_current="chamber_temp" clickable="false"
                             event_bubble="true"/>

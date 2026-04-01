@@ -37,7 +37,7 @@
 
         <!-- Temperature Status Card - shows both nozzle and bed -->
         <ui_card name="temp_status_card"
-                 width="100%" style_pad_all="#space_lg" style_pad_gap="#temp_card_spacing"
+                 width="100%" style_pad_all="#space_sm" style_pad_gap="#temp_card_spacing"
                  flex_flow="column" style_flex_main_place="start" style_flex_cross_place="start">
 
           <!-- Header row with icon -->
@@ -115,8 +115,8 @@
 
       <!-- BOTTOM: Multi-Filament Card (visible when AMS or multi-tool, managed by C++) -->
       <ui_card name="ams_status_card"
-               width="100%" style_radius="#border_radius" style_pad_all="#space_md" flex_flow="column"
-               style_flex_main_place="start" style_flex_cross_place="center" style_pad_gap="#space_sm">
+               width="100%" height="0" flex_grow="1" style_radius="#border_radius" style_pad_ver="#space_xs" style_pad_hor="#space_md" style_pad_gap="#space_xxs"
+               flex_flow="column" style_flex_main_place="start" style_flex_cross_place="stretch">
         <!-- Header row with icon (hidden when external spool mode — no AMS) -->
         <lv_obj name="ams_card_header_row" width="100%"
                 height="content" style_pad_all="0" scrollable="false"
@@ -126,17 +126,17 @@
         </lv_obj>
 
         <!-- AMS mini status + action widget row -->
-        <lv_obj name="ams_manage_row" width="100%" height="#button_height_lg"
+        <lv_obj name="ams_manage_row" width="100%" flex_grow="1"
                 style_pad_all="0" scrollable="false"
                 flex_flow="row" style_flex_main_place="space_between" style_flex_cross_place="center"
                 style_pad_gap="#space_sm"
                 flags="hidden">
 
-          <!-- AMS mini status (auto-binds to AmsState, fills width) -->
-          <ams_mini_status flex_grow="1"/>
+          <!-- AMS mini status (auto-binds to AmsState, fills width, stretches to row height) -->
+          <ams_mini_status flex_grow="1" height="100%"/>
           <!-- Manage Button (shown when single-tool AMS, hidden when multi-tool) -->
           <ui_button name="btn_manage_slots"
-                     width="content" text="Manage" translation_tag="Manage"
+                     width="content" height="#button_height" text="Manage" translation_tag="Manage"
                      style_pad_left="#space_md" style_pad_right="#space_md">
             <event_cb trigger="clicked" callback="filament_manage_slots_cb"/>
           </ui_button>

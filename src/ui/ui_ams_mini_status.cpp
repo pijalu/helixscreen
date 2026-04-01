@@ -18,6 +18,8 @@
 #include "theme_manager.h"
 #include "ui/ams_drawing_utils.h"
 
+#include "ui_update_queue.h"
+
 #include <spdlog/spdlog.h>
 
 #include <algorithm>
@@ -193,9 +195,17 @@ static void rebuild_bars(AmsMiniStatusData* data) {
     int overflow_count = data->slot_count - visible_count;
 
     // Calculate dimensions from container
-    lv_obj_update_layout(data->container);
+    // Don't force layout — read current dimensions. If they're not resolved
+    // yet, LV_EVENT_SIZE_CHANGED will trigger a rebuild when they are.
     int32_t container_width = lv_obj_get_content_width(data->container);
     int32_t container_height = lv_obj_get_content_height(data->container);
+    spdlog::trace("[AmsMiniStatus] rebuild_bars: container={}x{}, slots={}, width_px={}",
+                  container_width, container_height, data->slot_count, data->width_px);
+
+    // Skip if dimensions aren't resolved yet — size_changed will call us back.
+    if (container_width < 20 && data->width_px == 0) {
+        return;
+    }
 
     int32_t gap = theme_manager_get_spacing("space_xxs");
 
@@ -206,6 +216,14 @@ static void rebuild_bars(AmsMiniStatusData* data) {
     }
     // Cap bars at 80% of container height so they don't fill the entire widget
     effective_height = effective_height * 80 / 100;
+
+    // Cap bar height by aspect ratio — bars taller than 4× their width look awkward.
+    // Compute max bar width first to get the aspect limit.
+    int32_t max_bw = effective_max_bar_width(data);
+    int32_t max_bar_height = max_bw * 4;
+    if (effective_height > max_bar_height) {
+        effective_height = max_bar_height;
+    }
 
     bool is_multi_unit = (data->unit_count >= 2);
 
@@ -372,9 +390,11 @@ static void rebuild_bars(AmsMiniStatusData* data) {
                     slot->col = ams_draw::create_slot_column(data->bars_container, bar_width,
                                                              bar_height, BAR_BORDER_RADIUS_PX);
                 } else {
-                    // Update existing bar dimensions (density or container width may have changed)
+                    // Update existing bar dimensions (size may have changed)
                     lv_obj_set_width(slot->col.container, bar_width);
+                    lv_obj_set_height(slot->col.container, bar_height + ams_draw::STATUS_LINE_HEIGHT_PX + ams_draw::STATUS_LINE_GAP_PX);
                     lv_obj_set_width(slot->col.bar_bg, bar_width);
+                    lv_obj_set_height(slot->col.bar_bg, bar_height);
                     lv_obj_set_width(slot->col.status_line, bar_width);
                 }
 
@@ -431,6 +451,15 @@ static void on_delete(lv_event_t* e) {
     }
 }
 
+/** Size changed callback - rebuild bars when layout resolves */
+static void on_size_changed(lv_event_t* e) {
+    lv_obj_t* obj = lv_event_get_target_obj(e);
+    auto* data = get_data(obj);
+    if (data && data->slot_count > 0) {
+        rebuild_bars(data);
+    }
+}
+
 /** Click callback to open AMS panel (routes to overview for multi-unit) */
 static void on_click(lv_event_t* e) {
     (void)e;
@@ -480,7 +509,7 @@ lv_obj_t* ui_ams_mini_status_create(lv_obj_t* parent, int32_t height) {
                           LV_FLEX_ALIGN_CENTER);
     lv_obj_set_style_pad_column(data_ptr->bars_container, theme_manager_get_spacing("space_xxs"),
                                 LV_PART_MAIN);
-    lv_obj_set_size(data_ptr->bars_container, LV_SIZE_CONTENT, height);
+    lv_obj_set_size(data_ptr->bars_container, LV_PCT(100), height);
 
     // Create overflow label (hidden by default) - use responsive font
     data_ptr->overflow_label = lv_label_create(container);
@@ -498,6 +527,7 @@ lv_obj_t* ui_ams_mini_status_create(lv_obj_t* parent, int32_t height) {
     AmsMiniStatusData* data = data_ptr.release();
     s_registry[container] = data;
     lv_obj_add_event_cb(container, on_delete, LV_EVENT_DELETE, nullptr);
+    lv_obj_add_event_cb(container, on_size_changed, LV_EVENT_SIZE_CHANGED, nullptr);
 
     // Make clickable to open AMS panel
     lv_obj_add_flag(container, LV_OBJ_FLAG_CLICKABLE);
@@ -523,10 +553,15 @@ lv_obj_t* ui_ams_mini_status_create(lv_obj_t* parent, int32_t height) {
                     sync_from_ams_state(d);
             });
 
-        // Sync initial state if AMS already has data
+        // Sync initial state if AMS already has data — defer so layout is
+        // fully resolved before rebuild_bars queries container dimensions.
         lv_subject_t* slot_count_subject = AmsState::instance().get_slot_count_subject();
         if (slot_count_subject && lv_subject_get_int(slot_count_subject) > 0) {
-            sync_from_ams_state(data);
+            helix::ui::queue_update([container]() {
+                auto* d = get_data(container);
+                if (d)
+                    sync_from_ams_state(d);
+            });
         }
         spdlog::debug("[AmsMiniStatus] Auto-bound to AmsState slots_version subject");
     }
@@ -767,6 +802,7 @@ static void* ui_ams_mini_status_xml_create(lv_xml_parser_state_t* state, const c
     AmsMiniStatusData* data = data_ptr.release();
     s_registry[container] = data;
     lv_obj_add_event_cb(container, on_delete, LV_EVENT_DELETE, nullptr);
+    lv_obj_add_event_cb(container, on_size_changed, LV_EVENT_SIZE_CHANGED, nullptr);
 
     // Make clickable to open AMS panel
     lv_obj_add_flag(container, LV_OBJ_FLAG_CLICKABLE);
@@ -791,10 +827,15 @@ static void* ui_ams_mini_status_xml_create(lv_xml_parser_state_t* state, const c
                     sync_from_ams_state(d);
             });
 
-        // Sync initial state if AMS already has data
+        // Sync initial state if AMS already has data — defer so layout is
+        // fully resolved before rebuild_bars queries container dimensions.
         lv_subject_t* slot_count_subject = AmsState::instance().get_slot_count_subject();
         if (slot_count_subject && lv_subject_get_int(slot_count_subject) > 0) {
-            sync_from_ams_state(data);
+            helix::ui::queue_update([container]() {
+                auto* d = get_data(container);
+                if (d)
+                    sync_from_ams_state(d);
+            });
         }
     }
 
