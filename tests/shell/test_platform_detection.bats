@@ -392,3 +392,87 @@ _mock_k2_detect_platform() {
 @test "install.sh (bundled) has K2 detection" {
     grep -q 'k2' "$WORKTREE_ROOT/scripts/install.sh"
 }
+
+# --- Snapmaker U1 platform detection tests ---
+
+# Mock detect_platform for U1: uses filesystem markers in temp dir
+_mock_u1_detect_platform() {
+    local mock_root="$BATS_TEST_TMPDIR"
+    local u1_markers=0
+    [ -d "$mock_root/home/lava" ] && u1_markers=$((u1_markers + 1))
+    [ -d "$mock_root/home/lava/printer_data" ] && u1_markers=$((u1_markers + 1))
+    [ -x "$mock_root/usr/bin/unisrv" ] && u1_markers=$((u1_markers + 1))
+    [ -d "$mock_root/oem" ] && u1_markers=$((u1_markers + 1))
+    if [ "$u1_markers" -ge 2 ]; then
+        echo "snapmaker-u1"
+        return
+    fi
+    echo "pi"
+}
+
+@test "U1: /home/lava + /oem (2 markers) returns snapmaker-u1" {
+    detect_platform() { _mock_u1_detect_platform; }
+    mkdir -p "$BATS_TEST_TMPDIR/home/lava"
+    mkdir -p "$BATS_TEST_TMPDIR/oem"
+    run detect_platform
+    [ "$status" -eq 0 ]
+    [ "$output" = "snapmaker-u1" ]
+}
+
+@test "U1: /home/lava + /home/lava/printer_data + /oem (3 markers) returns snapmaker-u1" {
+    detect_platform() { _mock_u1_detect_platform; }
+    mkdir -p "$BATS_TEST_TMPDIR/home/lava/printer_data"
+    mkdir -p "$BATS_TEST_TMPDIR/oem"
+    run detect_platform
+    [ "$status" -eq 0 ]
+    [ "$output" = "snapmaker-u1" ]
+}
+
+@test "U1: only /home/lava (1 marker) returns pi (not enough markers)" {
+    detect_platform() { _mock_u1_detect_platform; }
+    mkdir -p "$BATS_TEST_TMPDIR/home/lava"
+    run detect_platform
+    [ "$status" -eq 0 ]
+    [ "$output" = "pi" ]
+}
+
+@test "U1: /home/lava + unisrv executable (2 markers) returns snapmaker-u1" {
+    detect_platform() { _mock_u1_detect_platform; }
+    mkdir -p "$BATS_TEST_TMPDIR/home/lava"
+    mkdir -p "$BATS_TEST_TMPDIR/usr/bin"
+    touch "$BATS_TEST_TMPDIR/usr/bin/unisrv"
+    chmod +x "$BATS_TEST_TMPDIR/usr/bin/unisrv"
+    run detect_platform
+    [ "$status" -eq 0 ]
+    [ "$output" = "snapmaker-u1" ]
+}
+
+@test "U1: detect_platform checks U1 before Pi (ordering)" {
+    local platform_sh="$WORKTREE_ROOT/scripts/lib/installer/platform.sh"
+    local u1_line pi_line
+    u1_line=$(grep -n 'Snapmaker U1' "$platform_sh" | head -1 | cut -d: -f1)
+    pi_line=$(grep -n 'Raspberry Pi\|ARM SBC\|Generic ARM' "$platform_sh" | head -1 | cut -d: -f1)
+    [ -n "$u1_line" ]
+    [ -n "$pi_line" ]
+    [ "$u1_line" -lt "$pi_line" ]
+}
+
+@test "U1: set_install_paths sets correct paths for snapmaker-u1" {
+    detect_tmp_dir() { TMP_DIR="/tmp/helixscreen-install"; }
+    set_install_paths "snapmaker-u1"
+    [ "$INSTALL_DIR" = "/userdata/helixscreen" ]
+    [ "$INIT_SYSTEM" = "sysv" ]
+    [ "$KLIPPER_USER" = "root" ]
+}
+
+@test "platform.sh returns snapmaker-u1 in detect_platform" {
+    grep -q 'snapmaker-u1' "$WORKTREE_ROOT/scripts/lib/installer/platform.sh"
+}
+
+@test "platform.sh has /home/lava check for U1 detection" {
+    grep -q '/home/lava' "$WORKTREE_ROOT/scripts/lib/installer/platform.sh"
+}
+
+@test "install.sh (bundled) has snapmaker-u1 detection" {
+    grep -q 'snapmaker-u1' "$WORKTREE_ROOT/scripts/install.sh"
+}
