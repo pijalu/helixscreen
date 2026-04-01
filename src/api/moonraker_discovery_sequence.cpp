@@ -845,7 +845,7 @@ void MoonrakerDiscoverySequence::complete_discovery_subscription() {
         spdlog::info("[Moonraker Client] Subscribing to box + motor_control (CFS)");
     }
 
-    // Snapmaker U1 SnapSwap — RFID filament, feed modules, task config
+    // Snapmaker U1 SnapSwap — RFID filament, feed modules, task config, extruder states
     if (hardware_.mmu_type() == AmsType::SNAPMAKER) {
         subscription_objects["filament_detect"] = nullptr;
         subscription_objects["filament_feed left"] = nullptr;
@@ -855,7 +855,12 @@ void MoonrakerDiscoverySequence::complete_discovery_subscription() {
         for (int i = 0; i < 4; ++i) {
             subscription_objects[fmt::format("filament_motion_sensor e{}_filament", i)] = nullptr;
         }
-        spdlog::info("[Moonraker Client] Subscribing to Snapmaker filament + feed objects");
+        // Subscribe to individual extruder objects for park_pin/active_pin state
+        subscription_objects["extruder"] = nullptr;
+        for (int i = 1; i < 4; ++i) {
+            subscription_objects[fmt::format("extruder{}", i)] = nullptr;
+        }
+        spdlog::info("[Moonraker Client] Subscribing to Snapmaker filament + feed + extruder objects");
     }
 
     // All discovered filament sensors (filament_switch_sensor, filament_motion_sensor)

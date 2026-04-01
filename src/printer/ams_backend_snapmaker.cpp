@@ -268,6 +268,14 @@ SnapmakerRfidInfo AmsBackendSnapmaker::parse_rfid_info(const nlohmann::json& jso
 // ============================================================================
 
 void AmsBackendSnapmaker::handle_status_update(const nlohmann::json& notification) {
+    // notify_status_update format: {"method":"notify_status_update","params":[{...}, timestamp]}
+    if (!notification.contains("params") || !notification["params"].is_array() ||
+        notification["params"].empty()) {
+        return;
+    }
+    const auto& status = notification["params"][0];
+    if (!status.is_object()) return;
+
     std::lock_guard<std::mutex> lock(mutex_);
     bool changed = false;
 
@@ -276,8 +284,8 @@ void AmsBackendSnapmaker::handle_status_update(const nlohmann::json& notificatio
     static const std::string extruder_keys[] = {"extruder", "extruder1", "extruder2", "extruder3"};
     for (int i = 0; i < NUM_TOOLS; i++) {
         const auto& key = extruder_keys[i];
-        if (notification.contains(key) && notification[key].is_object()) {
-            auto new_state = parse_extruder_state(notification[key]);
+        if (status.contains(key) && status[key].is_object()) {
+            auto new_state = parse_extruder_state(status[key]);
 
             // Update slot status based on extruder state
             auto* slot = system_info_.units[0].get_slot(i);
@@ -304,8 +312,8 @@ void AmsBackendSnapmaker::handle_status_update(const nlohmann::json& notificatio
             break;
         }
     }
-    if (notification.contains("toolhead") && notification["toolhead"].is_object()) {
-        const auto& th = notification["toolhead"];
+    if (status.contains("toolhead") && status["toolhead"].is_object()) {
+        const auto& th = status["toolhead"];
         if (th.contains("extruder") && th["extruder"].is_string()) {
             auto ext_name = th["extruder"].get<std::string>();
             // "extruder" = 0, "extruder1" = 1, etc.
@@ -323,8 +331,8 @@ void AmsBackendSnapmaker::handle_status_update(const nlohmann::json& notificatio
     }
 
     // Parse filament_detect info (RFID data per channel)
-    if (notification.contains("filament_detect") && notification["filament_detect"].is_object()) {
-        const auto& fd = notification["filament_detect"];
+    if (status.contains("filament_detect") && status["filament_detect"].is_object()) {
+        const auto& fd = status["filament_detect"];
 
         // Parse RFID info per channel — filament_detect.info is a JSON array [ch0, ch1, ch2, ch3]
         if (fd.contains("info") && fd["info"].is_array()) {
@@ -335,11 +343,13 @@ void AmsBackendSnapmaker::handle_status_update(const nlohmann::json& notificatio
 
                 auto* slot = system_info_.units[0].get_slot(i);
                 if (slot) {
-                    slot->material = rfid.main_type;
+                    // RFID returns "NONE" when no tag is present or reader is disabled
+                    slot->material = (rfid.main_type == "NONE") ? "" : rfid.main_type;
                     // Prefer MANUFACTURER over VENDOR for brand
-                    slot->brand = !rfid.manufacturer.empty() ? rfid.manufacturer : rfid.vendor;
+                    auto brand = !rfid.manufacturer.empty() ? rfid.manufacturer : rfid.vendor;
+                    slot->brand = (brand == "NONE") ? "" : brand;
                     slot->color_rgb = rfid.color_rgb;
-                    slot->color_name = rfid.sub_type;
+                    slot->color_name = (rfid.sub_type == "NONE") ? "" : rfid.sub_type;
                     slot->nozzle_temp_min = rfid.hotend_min_temp;
                     slot->nozzle_temp_max = rfid.hotend_max_temp;
                     slot->bed_temp = rfid.bed_temp;
@@ -350,17 +360,21 @@ void AmsBackendSnapmaker::handle_status_update(const nlohmann::json& notificatio
         }
 
         // Parse filament state per channel — filament_detect.state is [int, int, int, int]
-        // 0 = tag present and read, non-zero = no tag / error
+        // 1 = filament present, 0 = no filament / no tag
         if (fd.contains("state") && fd["state"].is_array()) {
             const auto& state_arr = fd["state"];
             for (int i = 0; i < NUM_TOOLS && i < static_cast<int>(state_arr.size()); i++) {
                 if (!state_arr[i].is_number()) continue;
                 int state_val = state_arr[i].get<int>();
                 auto* slot = system_info_.units[0].get_slot(i);
-                if (slot && slot->status == SlotStatus::UNKNOWN) {
-                    slot->status = (state_val == 0) ? SlotStatus::AVAILABLE : SlotStatus::EMPTY;
+                if (slot) {
+                    // Only set from filament_detect if extruder state hasn't already
+                    // provided a more authoritative status (LOADED/AVAILABLE via park_pin/active_pin)
+                    if (slot->status == SlotStatus::UNKNOWN) {
+                        slot->status = (state_val != 0) ? SlotStatus::AVAILABLE : SlotStatus::EMPTY;
+                    }
+                    changed = true;
                 }
-                changed = true;
             }
         }
     }
@@ -368,18 +382,20 @@ void AmsBackendSnapmaker::handle_status_update(const nlohmann::json& notificatio
     // Parse filament_feed left/right — top-level Klipper objects (not nested in filament_detect)
     // Each contains per-extruder state: filament_detected, channel_state, channel_error
     for (const auto& feed_key : {"filament_feed left", "filament_feed right"}) {
-        if (notification.contains(feed_key) && notification[feed_key].is_object()) {
-            const auto& feed = notification[feed_key];
+        if (status.contains(feed_key) && status[feed_key].is_object()) {
+            const auto& feed = status[feed_key];
             for (int i = 0; i < NUM_TOOLS; i++) {
                 std::string ext_key = (i == 0) ? "extruder0" : fmt::format("extruder{}", i);
                 if (feed.contains(ext_key) && feed[ext_key].is_object()) {
                     bool detected = feed[ext_key].value("filament_detected", false);
                     auto* slot = system_info_.units[0].get_slot(i);
                     if (slot) {
-                        if (detected && slot->status == SlotStatus::EMPTY) {
+                        if (detected &&
+                            (slot->status == SlotStatus::EMPTY ||
+                             slot->status == SlotStatus::UNKNOWN)) {
                             slot->status = SlotStatus::AVAILABLE;
                             changed = true;
-                        } else if (!detected && slot->status == SlotStatus::AVAILABLE) {
+                        } else if (!detected && slot->status != SlotStatus::LOADED) {
                             slot->status = SlotStatus::EMPTY;
                             changed = true;
                         }
@@ -389,7 +405,98 @@ void AmsBackendSnapmaker::handle_status_update(const nlohmann::json& notificatio
         }
     }
 
+    // Parse print_task_config — authoritative filament info from Snapmaker's task manager
+    // Contains per-extruder filament type, vendor, color, and presence data
+    if (status.contains("print_task_config") &&
+        status["print_task_config"].is_object()) {
+        const auto& ptc = status["print_task_config"];
+
+        // filament_exist: [bool, bool, bool, bool] — whether filament is loaded per slot
+        if (ptc.contains("filament_exist") && ptc["filament_exist"].is_array()) {
+            const auto& exist_arr = ptc["filament_exist"];
+            for (int i = 0; i < NUM_TOOLS && i < static_cast<int>(exist_arr.size()); i++) {
+                if (!exist_arr[i].is_boolean()) continue;
+                bool exists = exist_arr[i].get<bool>();
+                auto* slot = system_info_.units[0].get_slot(i);
+                if (slot) {
+                    if (exists && slot->status != SlotStatus::LOADED) {
+                        slot->status = SlotStatus::AVAILABLE;
+                    } else if (!exists) {
+                        slot->status = SlotStatus::EMPTY;
+                    }
+                    changed = true;
+                }
+            }
+        }
+
+        // filament_type: ["PLA", "PLA", ...] — material type per slot
+        if (ptc.contains("filament_type") && ptc["filament_type"].is_array()) {
+            const auto& type_arr = ptc["filament_type"];
+            for (int i = 0; i < NUM_TOOLS && i < static_cast<int>(type_arr.size()); i++) {
+                if (!type_arr[i].is_string()) continue;
+                auto* slot = system_info_.units[0].get_slot(i);
+                if (slot) {
+                    auto type = type_arr[i].get<std::string>();
+                    // Append sub_type if available (e.g., "PLA SnapSpeed")
+                    if (ptc.contains("filament_sub_type") && ptc["filament_sub_type"].is_array()) {
+                        const auto& sub_arr = ptc["filament_sub_type"];
+                        if (i < static_cast<int>(sub_arr.size()) && sub_arr[i].is_string()) {
+                            auto sub = sub_arr[i].get<std::string>();
+                            if (!sub.empty() && sub != "generic") {
+                                type += " " + sub;
+                            }
+                        }
+                    }
+                    slot->material = type;
+                    changed = true;
+                }
+            }
+        }
+
+        // filament_vendor: ["Snapmaker", ...] — brand per slot
+        if (ptc.contains("filament_vendor") && ptc["filament_vendor"].is_array()) {
+            const auto& vendor_arr = ptc["filament_vendor"];
+            for (int i = 0; i < NUM_TOOLS && i < static_cast<int>(vendor_arr.size()); i++) {
+                if (!vendor_arr[i].is_string()) continue;
+                auto* slot = system_info_.units[0].get_slot(i);
+                if (slot) {
+                    slot->brand = vendor_arr[i].get<std::string>();
+                    changed = true;
+                }
+            }
+        }
+
+        // filament_color_rgba: ["080A0DFF", "E2DEDBFF", ...] — hex RGBA color per slot
+        if (ptc.contains("filament_color_rgba") && ptc["filament_color_rgba"].is_array()) {
+            const auto& color_arr = ptc["filament_color_rgba"];
+            for (int i = 0; i < NUM_TOOLS && i < static_cast<int>(color_arr.size()); i++) {
+                if (!color_arr[i].is_string()) continue;
+                auto* slot = system_info_.units[0].get_slot(i);
+                if (slot) {
+                    auto hex = color_arr[i].get<std::string>();
+                    // RGBA hex string → RGB uint32: take first 6 chars
+                    if (hex.size() >= 6) {
+                        try {
+                            slot->color_rgb = std::stoul(hex.substr(0, 6), nullptr, 16);
+                        } catch (...) {}
+                    }
+                    changed = true;
+                }
+            }
+        }
+    }
+
     if (changed) {
+        // Log slot state summary for debugging
+        for (int i = 0; i < NUM_TOOLS; i++) {
+            const auto* slot = system_info_.units[0].get_slot(i);
+            if (slot) {
+                spdlog::debug("[AMS Snapmaker] Slot {}: status={}, material='{}', brand='{}', "
+                              "color=0x{:06X}",
+                              i, static_cast<int>(slot->status), slot->material, slot->brand,
+                              slot->color_rgb);
+            }
+        }
         emit_event(EVENT_STATE_CHANGED);
     }
 }
