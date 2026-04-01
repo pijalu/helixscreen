@@ -63,7 +63,9 @@ make PLATFORM_TARGET=snapmaker-u1 -j
 
 ### CI/Release Status
 
-The Snapmaker U1 target is **deliberately excluded** from the release pipeline (`release-all` and `package-all`). It will not build in GitHub Actions until a workflow job is explicitly added to `.github/workflows/release.yml`. Manual packaging is available:
+The snapmaker-u1 target is included in `release-all`, `package-all`, and the GitHub Actions release workflow. Binaries are built on every tagged release.
+
+Manual packaging is also available:
 
 ```bash
 make package-snapmaker-u1
@@ -84,6 +86,17 @@ make package-snapmaker-u1
    ```bash
    ssh root@<printer-ip>   # password: snapmaker
    ```
+
+### One-Line Install (Recommended)
+
+For end users with Extended Firmware already installed, the easiest path is the hosted installer:
+
+```bash
+# Install on U1 (requires extended firmware and SSH access)
+curl -sSL https://releases.helixscreen.org/install.sh | sh
+```
+
+The installer auto-detects the U1 platform, downloads the correct aarch64 binary from the release CDN, deploys platform hooks, and starts HelixScreen. Re-run to upgrade.
 
 ### Build
 
@@ -214,7 +227,7 @@ HelixScreen auto-detects the sysfs backlight device (`/sys/class/backlight/backl
 
 ## Auto-Detection
 
-HelixScreen auto-detects the Snapmaker U1 using several heuristics from `config/printer_database.json`:
+HelixScreen auto-detects the Snapmaker U1 using 17 heuristics from `config/printer_database.json`:
 
 | Heuristic | Confidence | Description |
 |-----------|------------|-------------|
@@ -226,8 +239,20 @@ HelixScreen auto-detects the Snapmaker U1 using several heuristics from `config/
 | `tmc2240` object | 60 | TMC2240 stepper driver presence |
 | CoreXY kinematics | 40 | CoreXY motion system |
 | Cartesian kinematics | 20 | Cartesian motion system |
+| _(+9 additional heuristics)_ | various | Tool state, extruder naming, custom macros, motion parameters, etc. |
 
 No manual printer configuration is needed in most cases. The FM175xx RFID reader is the strongest signal -- it is unique to the U1 and provides near-certain identification.
+
+When the U1 is detected, the printer database record provides these metadata fields:
+
+| Field | Value |
+|-------|-------|
+| `probe_type` | `eddy_current` |
+| `toolhead_style` | `snapmaker_u1` |
+| `preset` | `snapmaker_u1` |
+| `z_offset_calibration_strategy` | `probe_calibrate` |
+
+The `snapmaker_u1` preset causes the first-run wizard to auto-skip hardware steps that do not apply to the U1 (e.g., probe wiring, toolhead identification).
 
 ## Print Start Tracking
 
@@ -257,7 +282,6 @@ These are resolution-specific issues, not Snapmaker-specific. Any 480x320 device
 
 ## Known Limitations
 
-- **Not in CI/release pipeline** -- Must be built manually. No automated release artifacts yet.
 - **480x320 UI needs work** -- Multiple panels have layout issues at this resolution (see above).
 - **Extended firmware required** -- SSH access (needed for deployment) requires the community [Extended Firmware](https://github.com/paxx12/SnapmakerU1-Extended-Firmware). Stock firmware does not provide SSH.
 - **Auto-start requires `/oem/.debug`** -- The overlay filesystem is wiped on boot unless `/oem/.debug` exists. This flag must be created once during installation to persist the S99screen patch.
@@ -315,10 +339,10 @@ We welcome additional testers with Snapmaker U1 hardware:
 
 1. Install the [Extended Firmware](https://github.com/paxx12/SnapmakerU1-Extended-Firmware) for SSH access
 2. Enable SSH: `curl -X POST http://<ip>/firmware-config/api/settings/ssh/true`
-3. Build: `make snapmaker-u1-docker`
-4. Deploy: `make deploy-snapmaker-u1-fg SNAPMAKER_U1_HOST=<ip>` (runs in foreground with debug logging)
-5. Report: Does the wizard appear? Does touch work? Can you connect to Moonraker? Do tool changes work?
-6. File issues at the HelixScreen GitHub repository
+3. Install via one-liner (easiest): `curl -sSL https://releases.helixscreen.org/install.sh | sh`
+   - Or build from source: `make snapmaker-u1-docker` then `make deploy-snapmaker-u1-fg SNAPMAKER_U1_HOST=<ip>`
+4. Report: Does the wizard appear? Does touch work? Can you connect to Moonraker? Do tool changes work?
+5. File issues at the HelixScreen GitHub repository
 
 ## Related Resources
 
