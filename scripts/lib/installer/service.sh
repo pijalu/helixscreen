@@ -43,10 +43,27 @@ _has_no_new_privs() {
 install_service() {
     local platform=$1
 
+    if [ "$platform" = "snapmaker-u1" ]; then
+        install_service_snapmaker_u1
+        return
+    fi
+
     if [ "$INIT_SYSTEM" = "systemd" ]; then
         install_service_systemd
     else
         install_service_sysv
+    fi
+}
+
+install_service_snapmaker_u1() {
+    log_info "Configuring Snapmaker U1 autostart..."
+
+    # Run the dedicated U1 autostart setup script
+    if [ -f "${INSTALL_DIR}/scripts/snapmaker-u1-setup-autostart.sh" ]; then
+        bash "${INSTALL_DIR}/scripts/snapmaker-u1-setup-autostart.sh" "${INSTALL_DIR}"
+    else
+        log_warn "Snapmaker U1 autostart script not found at ${INSTALL_DIR}/scripts/snapmaker-u1-setup-autostart.sh"
+        log_warn "You may need to configure autostart manually"
     fi
 }
 

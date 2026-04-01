@@ -216,6 +216,13 @@ stop_competing_uis() {
         stock_klipper|guilouz) stop_k1_stock_competing_uis ;;
     esac
 
+    # Snapmaker U1 stock UI
+    if pgrep -x "unisrv" >/dev/null 2>&1; then
+        log_info "Stopping Snapmaker stock UI (unisrv)..."
+        killall unisrv 2>/dev/null || true
+        found_any=true
+    fi
+
     # Handle the specific previous UI if we know it (for clean reversibility)
     if [ -n "$PREVIOUS_UI_SCRIPT" ] && [ -x "$PREVIOUS_UI_SCRIPT" ] 2>/dev/null; then
         log_info "Stopping previous UI: $PREVIOUS_UI_SCRIPT"

@@ -90,6 +90,24 @@ detect_platform() {
         fi
     fi
 
+    # Snapmaker U1 (aarch64 + extended firmware markers)
+    # Must check BEFORE generic Pi/ARM SBC since U1 is also aarch64 Debian
+    if [ "$arch" = "aarch64" ]; then
+        local u1_markers=0
+        [ -d "/home/lava" ] && u1_markers=$((u1_markers + 1))
+        [ -d "/home/lava/printer_data" ] && u1_markers=$((u1_markers + 1))
+        [ -x "/usr/bin/unisrv" ] && u1_markers=$((u1_markers + 1))
+        [ -d "/oem" ] && u1_markers=$((u1_markers + 1))
+        # Check for RK3562 SoC in device-tree
+        if [ -f /proc/device-tree/compatible ] && grep -q "rockchip,rk3562" /proc/device-tree/compatible 2>/dev/null; then
+            u1_markers=$((u1_markers + 1))
+        fi
+        if [ "$u1_markers" -ge 2 ]; then
+            echo "snapmaker-u1"
+            return 0
+        fi
+    fi
+
     # Check for Debian-family SBC (Raspberry Pi, MKS, BTT, Armbian, etc.)
     # Returns "pi" for 64-bit, "pi32" for 32-bit
     if [ "$arch" = "aarch64" ] || [ "$arch" = "armv7l" ]; then
@@ -450,6 +468,13 @@ set_install_paths() {
         KLIPPER_USER="root"
         KLIPPER_HOME="/root"
         log_info "Platform: Creality K2 series"
+        log_info "Install directory: ${INSTALL_DIR}"
+    elif [ "$platform" = "snapmaker-u1" ]; then
+        INSTALL_DIR="/userdata/helixscreen"
+        KLIPPER_USER="root"
+        INIT_SYSTEM="sysv"
+        INIT_SCRIPT_DEST="/etc/init.d/S99helixscreen"
+        log_info "Platform: Snapmaker U1"
         log_info "Install directory: ${INSTALL_DIR}"
     else
         # Pi and other platforms — detect klipper user, then auto-detect install dir

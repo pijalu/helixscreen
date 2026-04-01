@@ -290,10 +290,24 @@ get_latest_version() {
     show_manual_install_instructions "$platform" "latest"
 }
 
+# Map a detected platform identifier to the release artifact platform name.
+# Most platforms use their own artifact name, but some share artifacts.
+# Prints the release platform name to stdout.
+get_release_platform() {
+    local platform=$1
+    local RELEASE_PLATFORM
+    case "$platform" in
+        snapmaker-u1) RELEASE_PLATFORM="snapmaker-u1" ;;
+        *) RELEASE_PLATFORM="$platform" ;;
+    esac
+    echo "$RELEASE_PLATFORM"
+}
+
 # Download release tarball (tries R2 CDN first, falls back to GitHub)
 download_release() {
     local version=$1
     local platform=$2
+    platform=$(get_release_platform "$platform")
 
     local filename="helixscreen-${platform}-${version}.tar.gz"
     local dest="${TMP_DIR}/helixscreen.tar.gz"
@@ -490,7 +504,7 @@ validate_binary_architecture() {
             expected_machine_lo="08"
             expected_desc="MIPS 32-bit (mipsel)"
             ;;
-        pi)
+        pi|snapmaker-u1)
             expected_class="02"
             expected_machine_lo="b7"
             expected_desc="AARCH64 64-bit"
