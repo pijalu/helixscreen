@@ -875,6 +875,17 @@ WiFiError WifiBackendWpaSupplicant::connect_network(const std::string& ssid,
         return WiFiErrorHelper::connection_failed("Failed to select network for connection");
     }
 
+    // Step 6: Save config so WiFi persists across reboots
+    // wpa_supplicant writes to its -c config file (which may be symlinked to
+    // persistent storage by platform-specific scripts, e.g. Snapmaker U1's
+    // /etc/network/if-pre-up.d/wpa-conf.sh)
+    std::string save_result = send_command("SAVE_CONFIG");
+    if (save_result == "OK\n") {
+        spdlog::debug("[WifiBackend] Configuration saved to disk");
+    } else {
+        spdlog::warn("[WifiBackend] SAVE_CONFIG failed (non-fatal): {}", save_result);
+    }
+
     spdlog::info("[WifiBackend] Network configuration complete, connecting to '{}'", ssid);
     return WiFiErrorHelper::success();
 }

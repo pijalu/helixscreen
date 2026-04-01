@@ -45,7 +45,7 @@ platform_stop_competing_uis() {
                     comm=$(cat "/proc/$pid/comm" 2>/dev/null) || continue
                     case "$comm" in
                         helix-screen)
-                            if ls -l "$pid_dir" 2>/dev/null | grep -q '/dev/dri/card0'; then
+                            if readlink "$pid_dir"/* 2>/dev/null | grep -q '/dev/dri/card0'; then
                                 echo "DRM keepalive: helix-screen (pid $pid) has /dev/dri/card0, releasing"
                                 exit 0
                             fi
