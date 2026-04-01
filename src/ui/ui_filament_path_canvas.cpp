@@ -2755,19 +2755,36 @@ static void filament_path_click_cb(lv_event_t* e) {
     int32_t x_off = obj_coords.x1;
     int32_t y_off = obj_coords.y1;
 
-    // For PARALLEL topology (tool changers), also accept clicks on the toolhead area
+    // For PARALLEL topology (tool changers), accept clicks on toolheads AND the
+    // filament line/spool area (top half of canvas, above the sensor dots)
     if (data->topology == static_cast<int>(PathTopology::PARALLEL) && data->slot_callback) {
         constexpr float PARALLEL_TOOLHEAD_Y = 0.55f;
+        constexpr float PARALLEL_SENSOR_Y = 0.38f;
         int32_t toolhead_y = y_off + (int32_t)(height * PARALLEL_TOOLHEAD_Y);
+        int32_t sensor_y = y_off + (int32_t)(height * PARALLEL_SENSOR_Y);
         int32_t tool_scale = LV_MAX(6, data->extruder_scale * 2 / 3);
-        int32_t hit_radius_y = tool_scale * 4; // Generous vertical hit area around toolhead
 
+        // Toolhead click area (bottom half)
+        int32_t hit_radius_y = tool_scale * 4;
         if (abs(point.y - toolhead_y) < hit_radius_y) {
             for (int i = 0; i < data->slot_count; i++) {
                 int32_t slot_x = x_off + get_slot_x(data, i, x_off);
                 int32_t hit_radius_x = LV_MAX(20, tool_scale * 3);
                 if (abs(point.x - slot_x) < hit_radius_x) {
                     spdlog::debug("[FilamentPath] Toolhead {} clicked (parallel topology)", i);
+                    data->slot_callback(i, data->slot_user_data);
+                    return;
+                }
+            }
+        }
+
+        // Spool/filament line click area (top of canvas down to sensor dots)
+        if (point.y < sensor_y) {
+            for (int i = 0; i < data->slot_count; i++) {
+                int32_t slot_x = x_off + get_slot_x(data, i, x_off);
+                int32_t hit_radius_x = LV_MAX(20, tool_scale * 3);
+                if (abs(point.x - slot_x) < hit_radius_x) {
+                    spdlog::debug("[FilamentPath] Spool {} clicked (parallel topology)", i);
                     data->slot_callback(i, data->slot_user_data);
                     return;
                 }
