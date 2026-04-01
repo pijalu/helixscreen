@@ -108,7 +108,9 @@ AmsError AmsBackendSnapmaker::load_filament(int slot_index) {
     auto err = validate_slot_index(slot_index);
     if (err.result != AmsResult::SUCCESS) return err;
 
-    return execute_gcode("AUTO_FEEDING");
+    // Use T{n} tool change which handles heating automatically.
+    // AUTO_FEEDING is a raw feed macro that requires pre-heated nozzle.
+    return execute_gcode(fmt::format("T{}", slot_index));
 }
 
 AmsError AmsBackendSnapmaker::unload_filament(int /*slot_index*/) {
@@ -337,6 +339,7 @@ void AmsBackendSnapmaker::handle_status_update(const nlohmann::json& notificatio
             }
         }
         system_info_.current_tool = active;
+        system_info_.current_slot = active;  // 1:1 tool-to-slot on Snapmaker
         system_info_.filament_loaded = (active >= 0);
         // Mark active tool's slot as LOADED
         if (active >= 0 && active < NUM_TOOLS) {
