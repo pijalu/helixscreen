@@ -257,6 +257,7 @@ Remaining items for production readiness:
 | **Power consumption display** | Medium | Tasmota/Mainsail-style energy monitoring: voltage, current, power, energy usage for power devices |
 | **Plugin system tests** | Medium | Only mock tests exist; add real plugin load/unload/injection tests |
 | **Error-path integration tests** | High | Disconnect mid-print, settings corruption recovery, AMS hardware desync |
+| **Remove libinput dependency** | Medium | Refactor to use direct evdev for all input; eliminates libinput build/link complexity across cross-compile targets |
 | **Missing docs** | Medium | SENSOR_MANAGEMENT, GCODE_RENDERING_ARCHITECTURE, ACTION_PROMPTS, BLUETOOTH_SYSTEM, USB_MANAGEMENT |
 
 See `docs/devel/IDEAS.md` for additional ideas and design rationale.
@@ -277,6 +278,13 @@ See `docs/ARCHITECTURAL_DEBT.md` for the full register.
 - **Singleton cascade pattern** → UIPanelContext value object
 - **Code duplication** → PanelBase/OverlayBase with RAII subjects (complete)
 - **NavigationManager intimacy** → Extract INavigable interface
+
+**Deferred past 1.0 (known, accepted):**
+- **God classes** (Application 3.3K LOC, AmsState 3.5K LOC, ThemeManager 3.6K LOC) — real debt, but refactoring pre-1.0 is high risk for regressions. They work.
+- **Recursive mutex in AmsState** — ugly pattern but functional with current usage.
+- **Shutdown flag races** — theoretical window, mitigated by alive guards in practice.
+- **UpdateQueue frozen TOCTOU** — the frozen flag is a safety net that works "well enough"; fixing it is fiddly atomic work for marginal gain.
+- **Static subject lifecycle** — documented, understood, tested.
 
 ---
 
