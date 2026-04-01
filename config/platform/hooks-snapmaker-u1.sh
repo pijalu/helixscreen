@@ -100,6 +100,29 @@ platform_pre_start() {
     export HELIX_CACHE_DIR="/userdata/helixscreen/cache"
     # Force DRM device — skip auto-detection which may race with connector state
     export HELIX_DRM_DEVICE="/dev/dri/card0"
+
+    # Restore saved WiFi credentials into wpa_supplicant.
+    # The stock Snapmaker app saves WiFi config to /oem/printer_data/gui/
+    # and loads it into wpa_supplicant at runtime. Since we replaced the stock
+    # app, we need to do this ourselves.
+    SAVED_WPA="/oem/printer_data/gui/wpa_supplicant.conf"
+    if [ -f "$SAVED_WPA" ] && command -v wpa_cli >/dev/null 2>&1; then
+        # Extract network blocks and configure wpa_supplicant
+        SSID=$(grep 'ssid=' "$SAVED_WPA" | head -1 | sed 's/.*ssid="\(.*\)"/\1/')
+        PSK=$(grep 'psk=' "$SAVED_WPA" | head -1 | sed 's/.*psk="\(.*\)"/\1/')
+        if [ -n "$SSID" ] && [ -n "$PSK" ]; then
+            echo "WiFi: restoring saved network '$SSID'"
+            NETID=$(wpa_cli -i wlan0 add_network 2>/dev/null | tail -1)
+            if [ -n "$NETID" ] && [ "$NETID" != "FAIL" ]; then
+                wpa_cli -i wlan0 set_network "$NETID" ssid "\"$SSID\"" >/dev/null 2>&1
+                wpa_cli -i wlan0 set_network "$NETID" psk "\"$PSK\"" >/dev/null 2>&1
+                wpa_cli -i wlan0 enable_network "$NETID" >/dev/null 2>&1
+                wpa_cli -i wlan0 select_network "$NETID" >/dev/null 2>&1
+                echo "WiFi: network '$SSID' configured (id=$NETID)"
+            fi
+        fi
+    fi
+
     return 0
 }
 
