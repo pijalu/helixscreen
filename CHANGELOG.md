@@ -7,6 +7,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.99.16] - 2026-04-01
+
+### Added
+- Snapmaker U1 preset configuration with automatic wizard skip on detection
+- Snapmaker U1 platform detection in installer with auto-start boot support
+- `make dev` target for faster debug builds (-O0)
+
+### Fixed
+- Abort detection now uses printer.info instead of gcode probe to correctly identify Kalico (#685)
+- Snapmaker AMS backend not receiving status updates or populating slots
+- Snapmaker AMS deadlock in status handler and incorrect extruder subscriptions
+- Snapmaker active tool slot not marked as LOADED from toolhead.extruder
+- IFS filament system now stores color/type natively without lessWaste/bambufy conversion
+- Moonraker request timeout increased from 30s to 60s to prevent timeouts on slow networks
+- IFS, CFS, and SnapSwap names displayed correctly in AMS wizard
+- Snapmaker per-update debug logging removed (was causing UI freeze)
+- Save Z-Offset button hidden for printers with auto-persisted z-offset
+- AFC multi-unit ordering sorted by lane number instead of name (#554)
+- Wizard step titles and subtitles now translated across all languages
+- WiFi wpa_supplicant config persisted after connecting
+- Printer name on home screen refreshes after editing in printer manager
+- Redundant Power Devices entry removed from advanced panel
+- TINY breakpoint (480x320) readability and AMS widget sizing improved
+- Snapmaker S99screen recursion prevention and direct GUI restart
+
+### Changed
+- Z-offset GCODE_OFFSET strategy renamed to FIRMWARE_MANAGED
+- Clog detection widget disabled by default
+- Printer display name uses shared helper across UI
+
 ## [0.99.15] - 2026-04-01
 
 ### Added
@@ -2473,6 +2503,7 @@ Initial tagged release. Foundation for all subsequent development.
 - Automated GitHub Actions release pipeline
 - One-liner installation script with platform auto-detection
 
+[0.99.16]: https://github.com/prestonbrown/helixscreen/compare/v0.99.15...v0.99.16
 [0.99.15]: https://github.com/prestonbrown/helixscreen/compare/v0.99.14...v0.99.15
 [0.99.14]: https://github.com/prestonbrown/helixscreen/compare/v0.99.13...v0.99.14
 [0.99.13]: https://github.com/prestonbrown/helixscreen/compare/v0.99.12...v0.99.13
