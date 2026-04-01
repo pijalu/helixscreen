@@ -20,7 +20,10 @@
       "chamber": "",
       "exhaust": "",
       "hotend": "heater_fan power_fan",
-      "part": "fan"
+      "part": "fan",
+      "names": {
+        "fan_generic cavity_fan": "Aux Bed Fan"
+      }
     },
     "leds": {
       "strip": "led cavity_led",
@@ -66,6 +69,14 @@
         "extruder3",
         "fan",
         "heater_fan power_fan",
+        "fan_generic cavity_fan",
+        "heater_fan e0_nozzle_fan",
+        "fan_generic e1_fan",
+        "heater_fan e1_nozzle_fan",
+        "fan_generic e2_fan",
+        "heater_fan e2_nozzle_fan",
+        "fan_generic e3_fan",
+        "heater_fan e3_nozzle_fan",
         "led cavity_led",
         "filament_motion_sensor e0_filament",
         "filament_motion_sensor e1_filament",

@@ -25,7 +25,7 @@ class PrinterState;
  * process. Supports three strategies based on printer configuration:
  * - PROBE_CALIBRATE: Klipper's PROBE_CALIBRATE -> TESTZ -> ACCEPT -> SAVE_CONFIG
  * - ENDSTOP: Z_ENDSTOP_CALIBRATE -> TESTZ -> ACCEPT -> Z_OFFSET_APPLY_ENDSTOP -> SAVE_CONFIG
- * - GCODE_OFFSET: G28 -> move to center -> G1 Z adjustments -> SET_GCODE_OFFSET
+ * - FIRMWARE_MANAGED: G28 -> move to center -> G1 Z adjustments -> SET_GCODE_OFFSET
  *
  * ## State Machine:
  * - IDLE: Shows instructions and Start button

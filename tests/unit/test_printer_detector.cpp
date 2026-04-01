@@ -2965,16 +2965,16 @@ TEST_CASE_METHOD(PrinterDetectorFixture,
 // ============================================================================
 
 TEST_CASE("Z-offset calibration strategy lookup", "[printer_detector]") {
-    SECTION("FlashForge AD5M returns gcode_offset strategy") {
+    SECTION("FlashForge AD5M returns firmware_managed strategy") {
         std::string strategy =
             PrinterDetector::get_z_offset_calibration_strategy("FlashForge Adventurer 5M");
-        REQUIRE(strategy == "gcode_offset");
+        REQUIRE(strategy == "firmware_managed");
     }
 
-    SECTION("FlashForge AD5M Pro returns gcode_offset strategy") {
+    SECTION("FlashForge AD5M Pro returns firmware_managed strategy") {
         std::string strategy =
             PrinterDetector::get_z_offset_calibration_strategy("FlashForge Adventurer 5M Pro");
-        REQUIRE(strategy == "gcode_offset");
+        REQUIRE(strategy == "firmware_managed");
     }
 
     SECTION("Unknown printer returns empty string") {
@@ -2986,7 +2986,7 @@ TEST_CASE("Z-offset calibration strategy lookup", "[printer_detector]") {
     SECTION("Case insensitive lookup") {
         std::string strategy =
             PrinterDetector::get_z_offset_calibration_strategy("flashforge adventurer 5m");
-        REQUIRE(strategy == "gcode_offset");
+        REQUIRE(strategy == "firmware_managed");
     }
 }
 

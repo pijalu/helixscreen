@@ -63,8 +63,8 @@ TEST_CASE("format_offset: negative microns", "[zoffset][format]") {
 // is_auto_saved tests
 // ============================================================================
 
-TEST_CASE("is_auto_saved: GCODE_OFFSET returns true", "[zoffset][strategy]") {
-    REQUIRE(is_auto_saved(ZOffsetCalibrationStrategy::GCODE_OFFSET) == true);
+TEST_CASE("is_auto_saved: FIRMWARE_MANAGED returns true", "[zoffset][strategy]") {
+    REQUIRE(is_auto_saved(ZOffsetCalibrationStrategy::FIRMWARE_MANAGED) == true);
 }
 
 TEST_CASE("is_auto_saved: PROBE_CALIBRATE returns false", "[zoffset][strategy]") {

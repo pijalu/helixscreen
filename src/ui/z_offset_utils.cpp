@@ -16,11 +16,11 @@
 namespace helix::zoffset {
 
 bool is_auto_saved(ZOffsetCalibrationStrategy strategy) {
-    if (strategy == ZOffsetCalibrationStrategy::GCODE_OFFSET) {
-        // GCODE_OFFSET means firmware or macros handle Z-offset persistence
+    if (strategy == ZOffsetCalibrationStrategy::FIRMWARE_MANAGED) {
+        // FIRMWARE_MANAGED means firmware or macros handle Z-offset persistence
         // (e.g., FlashForge firmware, Artillery M1 save-zoffset macro).
         // HelixScreen should not offer its own save path.
-        spdlog::debug("[ZOffsetUtils] Z-offset auto-saved by firmware (gcode_offset strategy)");
+        spdlog::debug("[ZOffsetUtils] Z-offset auto-saved by firmware (firmware_managed strategy)");
         ToastManager::instance().show(ToastSeverity::INFO,
                                       lv_tr("Z-offset is auto-saved by firmware"), 3000);
         return true;
@@ -52,9 +52,9 @@ void apply_and_save(MoonrakerAPI* api, ZOffsetCalibrationStrategy strategy,
         return;
     }
 
-    if (strategy == ZOffsetCalibrationStrategy::GCODE_OFFSET) {
+    if (strategy == ZOffsetCalibrationStrategy::FIRMWARE_MANAGED) {
         // Firmware/macros handle persistence — nothing for us to do
-        spdlog::debug("[ZOffsetUtils] apply_and_save: gcode_offset strategy — auto-saved");
+        spdlog::debug("[ZOffsetUtils] apply_and_save: firmware_managed strategy — auto-saved");
         if (on_success)
             on_success();
         return;

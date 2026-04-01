@@ -800,8 +800,8 @@ void PrinterState::set_printer_type_internal(const std::string& type) {
     auto new_caps = PrinterDetector::get_print_start_capabilities(type);
     std::string strategy_str = PrinterDetector::get_z_offset_calibration_strategy(type);
     ZOffsetCalibrationStrategy new_strategy;
-    if (strategy_str == "gcode_offset") {
-        new_strategy = ZOffsetCalibrationStrategy::GCODE_OFFSET;
+    if (strategy_str == "firmware_managed") {
+        new_strategy = ZOffsetCalibrationStrategy::FIRMWARE_MANAGED;
     } else if (strategy_str == "endstop") {
         new_strategy = ZOffsetCalibrationStrategy::ENDSTOP;
     } else if (strategy_str == "probe_calibrate") {
@@ -820,8 +820,8 @@ void PrinterState::set_printer_type_internal(const std::string& type) {
     print_start_capabilities_ = new_caps;
     z_offset_calibration_strategy_ = new_strategy;
 
-    // Update z_offset_can_save subject: 0 when firmware/macros auto-persist (GCODE_OFFSET)
-    int can_save = (new_strategy != ZOffsetCalibrationStrategy::GCODE_OFFSET) ? 1 : 0;
+    // Update z_offset_can_save subject: 0 when firmware/macros auto-persist (FIRMWARE_MANAGED)
+    int can_save = (new_strategy != ZOffsetCalibrationStrategy::FIRMWARE_MANAGED) ? 1 : 0;
     if (subjects_initialized_ && lv_subject_get_int(&z_offset_can_save_) != can_save) {
         lv_subject_set_int(&z_offset_can_save_, can_save);
     }
@@ -843,7 +843,7 @@ void PrinterState::set_printer_type_internal(const std::string& type) {
     // Recalculate composite visibility subjects
     update_gcode_modification_visibility();
 
-    const char* strategy_names[] = {"probe_calibrate", "gcode_offset", "endstop"};
+    const char* strategy_names[] = {"probe_calibrate", "firmware_managed", "endstop"};
     spdlog::info(
         "[PrinterState] Printer type set to: '{}' (capabilities: {}, priming={}, z_cal={})", type,
         print_start_capabilities_.empty() ? "none" : print_start_capabilities_.macro_name,

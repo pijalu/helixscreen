@@ -144,13 +144,13 @@ enum class PrintStartPhase {
  * @brief Z-offset calibration strategy — determines gcode commands for calibration and save
  *
  * Different printers need different approaches to calibrate and persist Z-offset.
- * GCODE_OFFSET: firmware or macros auto-persist (FlashForge, Artillery M1, ForgeX-mod).
+ * FIRMWARE_MANAGED: firmware or macros auto-persist (FlashForge, Snapmaker U1, Artillery M1, ForgeX-mod).
  * PROBE_CALIBRATE: standard Klipper PROBE_CALIBRATE -> ACCEPT -> SAVE_CONFIG.
  * ENDSTOP: Z_ENDSTOP_CALIBRATE -> ACCEPT -> Z_OFFSET_APPLY_ENDSTOP -> SAVE_CONFIG.
  */
 enum class ZOffsetCalibrationStrategy {
     PROBE_CALIBRATE, ///< Standard Klipper: PROBE_CALIBRATE -> ACCEPT -> SAVE_CONFIG
-    GCODE_OFFSET,    ///< Firmware/macros auto-persist (FlashForge, Artillery M1, ForgeX-mod)
+    FIRMWARE_MANAGED, ///< Firmware/macros auto-persist (FlashForge, Snapmaker U1, Artillery M1, ForgeX-mod)
     ENDSTOP ///< Endstop: Z_ENDSTOP_CALIBRATE -> ACCEPT -> Z_OFFSET_APPLY_ENDSTOP -> SAVE_CONFIG
 };
 
@@ -845,7 +845,7 @@ class PrinterState {
      *
      * Returns 1 when the printer's Z-offset calibration strategy requires
      * HelixScreen to save (PROBE_CALIBRATE or ENDSTOP), 0 when the
-     * firmware/macros handle persistence automatically (GCODE_OFFSET).
+     * firmware/macros handle persistence automatically (FIRMWARE_MANAGED).
      * Used in XML to hide the "Save Z-Offset" button for auto-saved printers.
      */
     lv_subject_t* get_z_offset_can_save_subject() { return &z_offset_can_save_; }

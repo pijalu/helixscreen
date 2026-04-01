@@ -442,7 +442,7 @@ void ZOffsetCalibrationPanel::begin_probe_sequence() {
     const char* homed = lv_subject_get_string(ps.get_homed_axes_subject());
     bool all_homed = homed && std::string(homed).find("xyz") != std::string::npos;
 
-    if (strategy == ZOffsetCalibrationStrategy::GCODE_OFFSET) {
+    if (strategy == ZOffsetCalibrationStrategy::FIRMWARE_MANAGED) {
         // Manual Z calibrate: home, move to center, lower to Z0.1
         cumulative_z_delta_ = 0.0f;
 
@@ -550,7 +550,7 @@ void ZOffsetCalibrationPanel::adjust_z(float delta) {
 
     auto strategy = get_printer_state().get_z_offset_calibration_strategy();
 
-    if (strategy == ZOffsetCalibrationStrategy::GCODE_OFFSET) {
+    if (strategy == ZOffsetCalibrationStrategy::FIRMWARE_MANAGED) {
         // Direct G1 move using relative positioning
         char cmd[128];
         snprintf(cmd, sizeof(cmd), "G91\nG1 Z%.3f F300\nG90", delta);
@@ -593,7 +593,7 @@ void ZOffsetCalibrationPanel::send_accept() {
     final_offset_ = current_z_;
     on_calibration_result(true, "");
 
-    if (strategy == ZOffsetCalibrationStrategy::GCODE_OFFSET) {
+    if (strategy == ZOffsetCalibrationStrategy::FIRMWARE_MANAGED) {
         // Apply cumulative delta as gcode Z offset
         set_state(State::SAVING);
         char cmd[64];
@@ -674,7 +674,7 @@ void ZOffsetCalibrationPanel::send_abort() {
 
     auto strategy = get_printer_state().get_z_offset_calibration_strategy();
 
-    if (strategy == ZOffsetCalibrationStrategy::GCODE_OFFSET) {
+    if (strategy == ZOffsetCalibrationStrategy::FIRMWARE_MANAGED) {
         // Retract nozzle without applying any offset
         spdlog::info("[ZOffsetCal] Aborting gcode_offset mode, retracting");
         api_->execute_gcode(

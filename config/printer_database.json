@@ -23,7 +23,7 @@
       "manufacturer": "FlashForge",
       "image": "flashforge-adventurer-5m.png",
       "print_start_profile": "forge_x",
-      "z_offset_calibration_strategy": "gcode_offset",
+      "z_offset_calibration_strategy": "firmware_managed",
       "heuristics": [
         {
           "type": "macro_match",
@@ -115,7 +115,7 @@
       "manufacturer": "FlashForge",
       "image": "flashforge-adventurer-5m-pro.png",
       "print_start_profile": "forge_x",
-      "z_offset_calibration_strategy": "gcode_offset",
+      "z_offset_calibration_strategy": "firmware_managed",
       "heuristics": [
         {
           "type": "led_match",
@@ -227,7 +227,7 @@
       "name": "FlashForge Adventurer 5X",
       "manufacturer": "FlashForge",
       "image": "flashforge-adventurer-5x.png",
-      "z_offset_calibration_strategy": "gcode_offset",
+      "z_offset_calibration_strategy": "firmware_managed",
       "heuristics": [
         {
           "type": "object_exists",
@@ -3684,7 +3684,7 @@
       "name": "Artillery M1 Pro",
       "manufacturer": "Artillery",
       "image": "artillery-m1-pro.png",
-      "z_offset_calibration_strategy": "gcode_offset",
+      "z_offset_calibration_strategy": "firmware_managed",
       "heuristics": [
         {
           "type": "kinematics_match",
@@ -4093,7 +4093,7 @@
       "toolhead_style": "snapmaker_u1",
       "probe_type": "eddy_current",
       "preset": "snapmaker_u1",
-      "z_offset_calibration_strategy": "probe_calibrate",
+      "z_offset_calibration_strategy": "firmware_managed",
       "print_start_profile": "snapmaker_u1",
       "heuristics": [
         {

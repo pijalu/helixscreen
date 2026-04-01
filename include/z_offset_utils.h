@@ -12,7 +12,7 @@ class MoonrakerAPI;
 
 namespace helix::zoffset {
 
-/// Returns true and shows toast if strategy auto-persists (GCODE_OFFSET).
+/// Returns true and shows toast if strategy auto-persists (FIRMWARE_MANAGED).
 /// Callers should return early when this returns true.
 bool is_auto_saved(ZOffsetCalibrationStrategy strategy);
 
@@ -25,7 +25,7 @@ void format_offset(int microns, char* buf, size_t buf_size);
 /// Execute strategy-aware save sequence:
 ///   PROBE_CALIBRATE -> Z_OFFSET_APPLY_PROBE -> SAVE_CONFIG
 ///   ENDSTOP -> Z_OFFSET_APPLY_ENDSTOP -> SAVE_CONFIG
-///   GCODE_OFFSET -> no-op (firmware/macros auto-persist)
+///   FIRMWARE_MANAGED -> no-op (firmware/macros auto-persist)
 ///
 /// @param api           Moonraker API for gcode execution (must not be null)
 /// @param strategy      Calibration strategy determining command sequence
