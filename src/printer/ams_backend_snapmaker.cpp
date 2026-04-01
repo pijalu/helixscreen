@@ -276,8 +276,11 @@ void AmsBackendSnapmaker::handle_status_update(const nlohmann::json& notificatio
     const auto& status = notification["params"][0];
     if (!status.is_object()) return;
 
-    std::lock_guard<std::mutex> lock(mutex_);
     bool changed = false;
+
+    {  // Scope lock — emit_event MUST be called outside mutex_ to avoid deadlock
+       // with sync_from_backend() which acquires mutex_ via get_system_info()
+    std::lock_guard<std::mutex> lock(mutex_);
 
     // Parse extruder0..3 state
     // Klipper uses "extruder" for T0, "extruder1" for T1, etc.
@@ -287,18 +290,19 @@ void AmsBackendSnapmaker::handle_status_update(const nlohmann::json& notificatio
         if (status.contains(key) && status[key].is_object()) {
             auto new_state = parse_extruder_state(status[key]);
 
-            // Update slot status based on extruder state
+            // Update slot status based on extruder state (only if pin state changed)
             auto* slot = system_info_.units[0].get_slot(i);
             if (slot) {
+                SlotStatus prev = slot->status;
                 if (new_state.active_pin) {
                     slot->status = SlotStatus::LOADED;
                 } else if (new_state.park_pin) {
                     slot->status = SlotStatus::AVAILABLE;
                 }
+                if (slot->status != prev) changed = true;
             }
 
             extruder_states_[i] = std::move(new_state);
-            changed = true;
         }
     }
 
@@ -485,6 +489,8 @@ void AmsBackendSnapmaker::handle_status_update(const nlohmann::json& notificatio
             }
         }
     }
+
+    }  // Release mutex_ before emitting event
 
     if (changed) {
         emit_event(EVENT_STATE_CHANGED);

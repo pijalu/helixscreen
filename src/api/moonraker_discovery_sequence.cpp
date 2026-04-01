@@ -855,12 +855,7 @@ void MoonrakerDiscoverySequence::complete_discovery_subscription() {
         for (int i = 0; i < 4; ++i) {
             subscription_objects[fmt::format("filament_motion_sensor e{}_filament", i)] = nullptr;
         }
-        // Subscribe to individual extruder objects for park_pin/active_pin state
-        subscription_objects["extruder"] = nullptr;
-        for (int i = 1; i < 4; ++i) {
-            subscription_objects[fmt::format("extruder{}", i)] = nullptr;
-        }
-        spdlog::info("[Moonraker Client] Subscribing to Snapmaker filament + feed + extruder objects");
+        spdlog::info("[Moonraker Client] Subscribing to Snapmaker filament + feed objects");
     }
 
     // All discovered filament sensors (filament_switch_sensor, filament_motion_sensor)
