@@ -401,6 +401,23 @@ class PrintSelectDetailView : public OverlayBase {
     void apply_mapped_tool_colors();
 
     /**
+     * @brief Extract filament colors from parsed gcode when metadata lacks them
+     *
+     * Called after gcode viewer finishes loading. If current_filament_colors_ is empty,
+     * extracts tool_color_palette from the parsed file and updates the mapping card.
+     * Fixes Snapmaker (and other printers whose Moonraker doesn't return filament_colors).
+     */
+    void try_extract_gcode_colors(lv_obj_t* viewer);
+
+    /**
+     * @brief Fetch gcode header for color extraction when viewer is inactive
+     *
+     * Does a partial download (first 16KB) and parses extruder_colour from the header.
+     * Used as fallback when gcode viewer is skipped (Thumbnail Only mode, 2D-only, etc).
+     */
+    void fetch_gcode_header_for_colors();
+
+    /**
      * @brief Static callback for delete confirmation
      */
     static void on_confirm_delete_static(lv_event_t* e);
