@@ -308,13 +308,17 @@ void AmsBackendSnapmaker::handle_status_update(const nlohmann::json& notificatio
         }
     }
 
-    // Detect active tool: whichever extruder has active_pin set (or state != "PARKED")
-    // Also check toolhead.extruder for cross-validation
+    // Detect active tool from extruder pin state and toolhead.extruder.
+    // Only update when we have actual evidence — incremental status updates
+    // may omit extruder/toolhead keys, so preserve the current value when
+    // no relevant data is present (prevents oscillation between valid and -1).
+    bool has_extruder_data = false;
     int active = -1;
     for (int i = 0; i < NUM_TOOLS; i++) {
         if (extruder_states_[i].active_pin ||
             (!extruder_states_[i].state.empty() && extruder_states_[i].state != "PARKED")) {
             active = i;
+            has_extruder_data = true;
             break;
         }
     }
@@ -328,9 +332,10 @@ void AmsBackendSnapmaker::handle_status_update(const nlohmann::json& notificatio
             } else if (ext_name.size() > 8 && ext_name.rfind("extruder", 0) == 0) {
                 try { active = std::stoi(ext_name.substr(8)); } catch (...) {}
             }
+            has_extruder_data = true;
         }
     }
-    if (active != system_info_.current_tool) {
+    if (has_extruder_data && active != system_info_.current_tool) {
         // Demote previous active tool from LOADED to AVAILABLE
         if (system_info_.current_tool >= 0 && system_info_.current_tool < NUM_TOOLS) {
             auto* prev_slot = system_info_.units[0].get_slot(system_info_.current_tool);
