@@ -17,7 +17,7 @@
 #include "app_globals.h"
 #include "color_utils.h"
 #include "config.h"
-#include "gcode_parser.h"
+#include "gcode_parser.h" // for ParsedGCodeFile (try_extract_gcode_colors)
 #include "display_settings_manager.h"
 #include "lvgl/src/others/translation/lv_translation.h"
 #include "memory_utils.h"
@@ -345,11 +345,6 @@ void PrintSelectDetailView::show(const std::string& filename, const std::string&
         // No AMS — fall back to simple color swatches display
         update_color_swatches(filament_colors);
     }
-
-    // When Moonraker metadata lacks filament colors (e.g., Snapmaker, older Moonraker),
-    // fetch the gcode header (16KB) to extract colors from slicer metadata comments.
-    // This is fast and runs independently of the gcode viewer loading.
-    fetch_gcode_header_for_colors();
 
     // Register with NavigationManager for lifecycle callbacks
     NavigationManager::instance().register_overlay_instance(overlay_root_, this);
@@ -791,65 +786,6 @@ void PrintSelectDetailView::try_extract_gcode_colors(lv_obj_t* viewer) {
     if (filament_mapping_card_.is_visible() && color_requirements_card_) {
         lv_obj_add_flag(color_requirements_card_, LV_OBJ_FLAG_HIDDEN);
     }
-}
-
-void PrintSelectDetailView::fetch_gcode_header_for_colors() {
-    // Only needed when metadata didn't provide colors
-    if (!current_filament_colors_.empty()) {
-        return;
-    }
-
-    if (!api_) {
-        return;
-    }
-
-    std::string file_path =
-        current_path_.empty() ? current_filename_ : current_path_ + "/" + current_filename_;
-
-    auto tok = lifetime_.token();
-
-    // Download first 16KB of gcode file (header contains color metadata)
-    api_->transfers().download_file_partial(
-        "gcodes", file_path, 16384,
-        [this, tok](const std::string& content) {
-            if (tok.expired()) {
-                return;
-            }
-
-            auto header = helix::gcode::extract_header_metadata_from_content(content);
-            if (header.tool_colors.empty()) {
-                return;
-            }
-
-            // Marshal to main thread for UI updates
-            auto colors = std::move(header.tool_colors);
-            helix::ui::queue_update([this, tok, colors = std::move(colors)]() {
-                if (tok.expired() || !current_filament_colors_.empty()) {
-                    return;
-                }
-
-                spdlog::info("[DetailView] Extracted {} filament colors from gcode header",
-                             colors.size());
-                current_filament_colors_ = colors;
-
-                filament_mapping_card_.update(current_filament_colors_, current_filament_materials_);
-                lv_subject_set_int(&filament_mismatch_,
-                                   filament_mapping_card_.has_mismatch() ? 1 : 0);
-
-                if (filament_mapping_card_.is_visible()) {
-                    if (color_requirements_card_) {
-                        lv_obj_add_flag(color_requirements_card_, LV_OBJ_FLAG_HIDDEN);
-                    }
-                } else {
-                    // No AMS — update legacy color swatches
-                    update_color_swatches(current_filament_colors_);
-                }
-            });
-        },
-        [file_path](const MoonrakerError& err) {
-            spdlog::debug("[DetailView] Partial download for color extraction failed: {}",
-                          err.message);
-        });
 }
 
 void PrintSelectDetailView::load_gcode_for_preview() {

@@ -9,6 +9,8 @@
 #include "moonraker_client.h"
 #include "spdlog/spdlog.h"
 
+#include <sstream>
+
 using namespace moonraker_internal;
 
 // ============================================================================
@@ -411,6 +413,7 @@ FileMetadata MoonrakerFileAPI::parse_file_metadata(const json& response) {
     metadata.first_layer_height = get_double("first_layer_height");
 
     // Filament colors (array of hex strings from slicer metadata)
+    // Newer Moonraker versions return "filament_colors" as a JSON array.
     if (result.contains("filament_colors") && result["filament_colors"].is_array()) {
         for (const auto& color : result["filament_colors"]) {
             if (color.is_string()) {
@@ -418,7 +421,31 @@ FileMetadata MoonrakerFileAPI::parse_file_metadata(const json& response) {
             }
         }
         if (!metadata.filament_colors.empty()) {
-            spdlog::trace("[FileAPI] Found {} filament colors", metadata.filament_colors.size());
+            spdlog::trace("[FileAPI] Found {} filament colors (array)", metadata.filament_colors.size());
+        }
+    }
+
+    // Fallback: "filament_colour" as semicolon-separated string (e.g., "#FF0000;#00FF00")
+    // Standard Moonraker returns this field name from slicer metadata comments.
+    if (metadata.filament_colors.empty()) {
+        std::string colour_str = get_string("filament_colour");
+        if (!colour_str.empty()) {
+            std::istringstream ss(colour_str);
+            std::string token;
+            while (std::getline(ss, token, ';')) {
+                // Trim whitespace
+                size_t start = token.find_first_not_of(" \t");
+                if (start != std::string::npos) {
+                    token = token.substr(start);
+                }
+                if (!token.empty()) {
+                    metadata.filament_colors.push_back(token);
+                }
+            }
+            if (!metadata.filament_colors.empty()) {
+                spdlog::trace("[FileAPI] Found {} filament colors (filament_colour string)",
+                              metadata.filament_colors.size());
+            }
         }
     }
 
