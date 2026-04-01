@@ -329,8 +329,22 @@ void AmsBackendSnapmaker::handle_status_update(const nlohmann::json& notificatio
         }
     }
     if (active != system_info_.current_tool) {
+        // Demote previous active tool from LOADED to AVAILABLE
+        if (system_info_.current_tool >= 0 && system_info_.current_tool < NUM_TOOLS) {
+            auto* prev_slot = system_info_.units[0].get_slot(system_info_.current_tool);
+            if (prev_slot && prev_slot->status == SlotStatus::LOADED) {
+                prev_slot->status = SlotStatus::AVAILABLE;
+            }
+        }
         system_info_.current_tool = active;
         system_info_.filament_loaded = (active >= 0);
+        // Mark active tool's slot as LOADED
+        if (active >= 0 && active < NUM_TOOLS) {
+            auto* slot = system_info_.units[0].get_slot(active);
+            if (slot && slot->status != SlotStatus::EMPTY) {
+                slot->status = SlotStatus::LOADED;
+            }
+        }
         changed = true;
     }
 
