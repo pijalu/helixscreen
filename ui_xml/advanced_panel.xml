@@ -187,19 +187,6 @@
                           description_tag="Adjusts individual characteristics of your heaters for optimal control">
         <event_cb trigger="clicked" callback="on_pid_tuning_clicked"/>
       </setting_action_row>
-      <!-- ================================================================== -->
-      <!-- POWER SECTION (hidden if no power devices) -->
-      <!-- ================================================================== -->
-      <lv_obj name="container_power" width="100%" style_pad_all="0" scrollable="false" flex_flow="column">
-        <bind_flag_if_eq subject="power_device_count" flag="hidden" ref_value="0"/>
-        <setting_section_header title="POWER" title_tag="POWER" icon="power"/>
-        <setting_action_row name="row_power"
-                            label="Power Devices" label_tag="Power Devices" icon="power"
-                            description="Control power switches and relays"
-                            description_tag="Control power switches and relays">
-          <event_cb trigger="clicked" callback="on_power_row_clicked"/>
-        </setting_action_row>
-      </lv_obj>
       <!-- Bottom padding for scroll -->
       <lv_obj width="100%" height="#space_xl" scrollable="false"/>
     </lv_obj>
