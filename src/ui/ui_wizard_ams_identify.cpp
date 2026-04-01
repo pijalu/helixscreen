@@ -169,6 +169,12 @@ std::string WizardAmsIdentifyStep::get_ams_type_name() const {
         return "ACE";
     case AmsType::TOOL_CHANGER:
         return "Tool Changer";
+    case AmsType::AD5X_IFS:
+        return "FlashForge IFS";
+    case AmsType::CFS:
+        return "Creality CFS";
+    case AmsType::SNAPMAKER:
+        return "Snapmaker SnapSwap";
     default:
         return "Unknown";
     }
