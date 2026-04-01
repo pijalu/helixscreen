@@ -2,7 +2,6 @@
 
 #pragma once
 
-#include <functional>
 #include <optional>
 #include <string>
 #include <vector>
@@ -38,11 +37,6 @@ bool check_capability_bit(const std::string& hex_bitmask, int bit);
 std::optional<ScannedDevice> find_mouse_device();
 std::optional<ScannedDevice> find_mouse_device(const std::string& dev_base,
                                                 const std::string& sysfs_base);
-
-/// Set a callback that returns the configured scanner device ID (vendor:product).
-/// Called by the no-arg find_keyboard_device() to exclude the scanner from keyboard detection.
-/// Must be set before find_keyboard_device() is called (typically during display backend init).
-void set_scanner_device_id_provider(std::function<std::string()> provider);
 
 /// Scan /dev/input/event* for keyboard devices (KEY_A set).
 /// Skips devices that look like barcode scanners ("barcode"/"scanner" in name).

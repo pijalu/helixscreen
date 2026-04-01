@@ -38,9 +38,7 @@
 #include "ui_nav_manager.h"
 #endif
 
-#include "input_device_scanner.h"
 #include "lock_manager.h"
-#include "settings_manager.h"
 #include "system/telemetry_manager.h"
 #include "ui_lock_screen.h"
 
@@ -117,12 +115,6 @@ bool DisplayManager::init(const Config& config) {
     // Initialize helix-xml engine (extracted from LVGL 9.5)
     // Must be called after lv_init() - sets up XML component scopes, widget registry, etc.
     lv_xml_init();
-
-    // Register scanner device ID provider so input_device_scanner can exclude
-    // the barcode scanner from keyboard detection without depending on SettingsManager
-    helix::input::set_scanner_device_id_provider([]() {
-        return SettingsManager::instance().get_scanner_device_id();
-    });
 
     // Create display backend (auto-detects: DRM → framebuffer → SDL)
     m_backend = DisplayBackend::create_auto();
