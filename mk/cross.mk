@@ -1692,39 +1692,40 @@ SNAPMAKER_U1_DEPLOY_DIR ?= /userdata/helixscreen
 
 .PHONY: deploy-snapmaker-u1 deploy-snapmaker-u1-fg deploy-snapmaker-u1-bin snapmaker-u1-ssh
 
-deploy-snapmaker-u1:
-	@test -f build/snapmaker-u1/bin/helix-screen || { echo "$(RED)Error: build/snapmaker-u1/bin/helix-screen not found. Run 'make snapmaker-u1-docker' first.$(RESET)"; exit 1; }
-	@echo "$(CYAN)Deploying HelixScreen to $(SNAPMAKER_U1_SSH_TARGET):$(SNAPMAKER_U1_DEPLOY_DIR)...$(RESET)"
-	ssh $(SNAPMAKER_U1_SSH_TARGET) "killall helix-screen helix-splash helix-watchdog 2>/dev/null || true; mkdir -p $(SNAPMAKER_U1_DEPLOY_DIR)/bin"
+# Common deploy recipe for Snapmaker U1
+# Deploys binaries, assets, hooks, init script, and sets up auto-start
+define snapmaker-u1-deploy-common
+	ssh $(SNAPMAKER_U1_SSH_TARGET) "killall helix-screen helix-splash helix-watchdog 2>/dev/null || true; mkdir -p $(SNAPMAKER_U1_DEPLOY_DIR)/bin $(SNAPMAKER_U1_DEPLOY_DIR)/platform"
 	scp build/snapmaker-u1/bin/helix-screen $(SNAPMAKER_U1_SSH_TARGET):$(SNAPMAKER_U1_DEPLOY_DIR)/bin/
 	@if [ -f build/snapmaker-u1/bin/helix-splash ]; then scp build/snapmaker-u1/bin/helix-splash $(SNAPMAKER_U1_SSH_TARGET):$(SNAPMAKER_U1_DEPLOY_DIR)/bin/; fi
+	@if [ -f build/snapmaker-u1/bin/helix-watchdog ]; then scp build/snapmaker-u1/bin/helix-watchdog $(SNAPMAKER_U1_SSH_TARGET):$(SNAPMAKER_U1_DEPLOY_DIR)/bin/; fi
 	ssh $(SNAPMAKER_U1_SSH_TARGET) "chmod +x $(SNAPMAKER_U1_DEPLOY_DIR)/bin/helix-*"
-	@# Transfer assets and hooks
 	COPYFILE_DISABLE=1 tar -cf - $(DEPLOY_TAR_EXCLUDES) $(DEPLOY_TAR_NO_TRACKER) $(DEPLOY_ASSET_DIRS) | ssh $(SNAPMAKER_U1_SSH_TARGET) "cd $(SNAPMAKER_U1_DEPLOY_DIR) && tar -xf -"
-	ssh $(SNAPMAKER_U1_SSH_TARGET) "mkdir -p $(SNAPMAKER_U1_DEPLOY_DIR)/platform"
 	cat config/platform/hooks-snapmaker-u1.sh | ssh $(SNAPMAKER_U1_SSH_TARGET) "cat > $(SNAPMAKER_U1_DEPLOY_DIR)/platform/hooks.sh && chmod +x $(SNAPMAKER_U1_DEPLOY_DIR)/platform/hooks.sh"
 	scp scripts/helix-launcher.sh $(SNAPMAKER_U1_SSH_TARGET):$(SNAPMAKER_U1_DEPLOY_DIR)/bin/ && ssh $(SNAPMAKER_U1_SSH_TARGET) "chmod +x $(SNAPMAKER_U1_DEPLOY_DIR)/bin/helix-launcher.sh"
-	cat config/helixscreen.init | ssh $(SNAPMAKER_U1_SSH_TARGET) "cat > $(SNAPMAKER_U1_DEPLOY_DIR)/helixscreen.init && chmod +x $(SNAPMAKER_U1_DEPLOY_DIR)/helixscreen.init"
+	cat config/helixscreen.init | ssh $(SNAPMAKER_U1_SSH_TARGET) "sed 's|DAEMON_DIR=\"/opt/helixscreen\"|DAEMON_DIR=\"$(SNAPMAKER_U1_DEPLOY_DIR)\"|' > $(SNAPMAKER_U1_DEPLOY_DIR)/helixscreen.init && chmod +x $(SNAPMAKER_U1_DEPLOY_DIR)/helixscreen.init"
 	@if [ -f "build/snapmaker-u1/certs/ca-certificates.crt" ]; then \
 		echo "  $(DIM)Deploying CA certificates...$(RESET)"; \
 		ssh $(SNAPMAKER_U1_SSH_TARGET) "mkdir -p $(SNAPMAKER_U1_DEPLOY_DIR)/certs"; \
 		scp build/snapmaker-u1/certs/ca-certificates.crt $(SNAPMAKER_U1_SSH_TARGET):$(SNAPMAKER_U1_DEPLOY_DIR)/certs/; \
 	fi
+	@echo "  $(DIM)Setting up auto-start...$(RESET)"
+	scp scripts/snapmaker-u1-setup-autostart.sh $(SNAPMAKER_U1_SSH_TARGET):/tmp/
+	ssh $(SNAPMAKER_U1_SSH_TARGET) "sh /tmp/snapmaker-u1-setup-autostart.sh $(SNAPMAKER_U1_DEPLOY_DIR)"
+endef
+
+deploy-snapmaker-u1:
+	@test -f build/snapmaker-u1/bin/helix-screen || { echo "$(RED)Error: build/snapmaker-u1/bin/helix-screen not found. Run 'make snapmaker-u1-docker' first.$(RESET)"; exit 1; }
+	@echo "$(CYAN)Deploying HelixScreen to $(SNAPMAKER_U1_SSH_TARGET):$(SNAPMAKER_U1_DEPLOY_DIR)...$(RESET)"
+	$(call snapmaker-u1-deploy-common)
 	@echo "$(GREEN)✓ Deployed to $(SNAPMAKER_U1_HOST):$(SNAPMAKER_U1_DEPLOY_DIR)$(RESET)"
 	@echo "$(CYAN)Starting helix-screen on $(SNAPMAKER_U1_HOST)...$(RESET)"
-	ssh $(SNAPMAKER_U1_SSH_TARGET) "cd $(SNAPMAKER_U1_DEPLOY_DIR) && ./bin/helix-launcher.sh &"
+	ssh $(SNAPMAKER_U1_SSH_TARGET) "$(SNAPMAKER_U1_DEPLOY_DIR)/helixscreen.init start"
 
 deploy-snapmaker-u1-fg:
 	@test -f build/snapmaker-u1/bin/helix-screen || { echo "$(RED)Error: build/snapmaker-u1/bin/helix-screen not found. Run 'make snapmaker-u1-docker' first.$(RESET)"; exit 1; }
 	@echo "$(CYAN)Deploying HelixScreen to $(SNAPMAKER_U1_SSH_TARGET):$(SNAPMAKER_U1_DEPLOY_DIR)...$(RESET)"
-	ssh $(SNAPMAKER_U1_SSH_TARGET) "killall helix-screen helix-splash helix-watchdog 2>/dev/null || true; mkdir -p $(SNAPMAKER_U1_DEPLOY_DIR)/bin"
-	scp build/snapmaker-u1/bin/helix-screen $(SNAPMAKER_U1_SSH_TARGET):$(SNAPMAKER_U1_DEPLOY_DIR)/bin/
-	ssh $(SNAPMAKER_U1_SSH_TARGET) "chmod +x $(SNAPMAKER_U1_DEPLOY_DIR)/bin/helix-*"
-	COPYFILE_DISABLE=1 tar -cf - $(DEPLOY_TAR_EXCLUDES) $(DEPLOY_TAR_NO_TRACKER) $(DEPLOY_ASSET_DIRS) | ssh $(SNAPMAKER_U1_SSH_TARGET) "cd $(SNAPMAKER_U1_DEPLOY_DIR) && tar -xf -"
-	ssh $(SNAPMAKER_U1_SSH_TARGET) "mkdir -p $(SNAPMAKER_U1_DEPLOY_DIR)/platform"
-	cat config/platform/hooks-snapmaker-u1.sh | ssh $(SNAPMAKER_U1_SSH_TARGET) "cat > $(SNAPMAKER_U1_DEPLOY_DIR)/platform/hooks.sh && chmod +x $(SNAPMAKER_U1_DEPLOY_DIR)/platform/hooks.sh"
-	scp scripts/helix-launcher.sh $(SNAPMAKER_U1_SSH_TARGET):$(SNAPMAKER_U1_DEPLOY_DIR)/bin/ && ssh $(SNAPMAKER_U1_SSH_TARGET) "chmod +x $(SNAPMAKER_U1_DEPLOY_DIR)/bin/helix-launcher.sh"
-	cat config/helixscreen.init | ssh $(SNAPMAKER_U1_SSH_TARGET) "cat > $(SNAPMAKER_U1_DEPLOY_DIR)/helixscreen.init && chmod +x $(SNAPMAKER_U1_DEPLOY_DIR)/helixscreen.init"
+	$(call snapmaker-u1-deploy-common)
 	@echo "$(GREEN)✓ Deployed to $(SNAPMAKER_U1_HOST):$(SNAPMAKER_U1_DEPLOY_DIR)$(RESET)"
 	@echo "$(CYAN)Starting helix-screen on $(SNAPMAKER_U1_HOST) (foreground, verbose)...$(RESET)"
 	ssh -t $(SNAPMAKER_U1_SSH_TARGET) "cd $(SNAPMAKER_U1_DEPLOY_DIR) && ./bin/helix-launcher.sh --debug"
@@ -1737,7 +1738,7 @@ deploy-snapmaker-u1-bin:
 	ssh $(SNAPMAKER_U1_SSH_TARGET) "chmod +x $(SNAPMAKER_U1_DEPLOY_DIR)/bin/helix-screen"
 	@echo "$(GREEN)✓ Binary deployed$(RESET)"
 	@echo "$(CYAN)Restarting helix-screen on $(SNAPMAKER_U1_HOST)...$(RESET)"
-	ssh $(SNAPMAKER_U1_SSH_TARGET) "cd $(SNAPMAKER_U1_DEPLOY_DIR) && killall helix-screen helix-watchdog 2>/dev/null; sleep 1; ./bin/helix-launcher.sh &"
+	ssh $(SNAPMAKER_U1_SSH_TARGET) "$(SNAPMAKER_U1_DEPLOY_DIR)/helixscreen.init restart"
 
 snapmaker-u1-ssh:
 	ssh $(SNAPMAKER_U1_SSH_TARGET)
