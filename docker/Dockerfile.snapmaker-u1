@@ -50,6 +50,12 @@ RUN dpkg --add-architecture arm64 && apt-get update && apt-get install -y --no-i
     libstdc++-14-dev:arm64 \
     libssl-dev:arm64 \
     zlib1g-dev:arm64 \
+    libzstd-dev:arm64 \
+    libdrm-dev:arm64 \
+    libinput-dev:arm64 \
+    libudev-dev:arm64 \
+    libevdev-dev:arm64 \
+    libmtdev-dev:arm64 \
     && rm -rf /var/lib/apt/lists/*
 
 # ==============================================================================

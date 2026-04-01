@@ -76,6 +76,17 @@ void NozzleTempsWidget::clear_rows() {
     helix::ui::UpdateQueue::instance().drain();
 
     ++rebuild_gen_; // Bump generation to invalidate stale deferred callbacks
+
+    // Release lifetime tokens BEFORE destroying observers. The ObserverGuard
+    // holds a weak_ptr to the SubjectLifetime shared_ptr. If the dynamic subject
+    // was already destroyed (reconnection), the source's shared_ptr is gone —
+    // but our row's copy keeps the weak_ptr alive. Resetting our copy first
+    // lets the weak_ptr expire, so ObserverGuard::reset() safely skips
+    // lv_observer_remove() on the freed observer. (issue #673)
+    for (auto& row : extruder_rows_) {
+        row.temp_lifetime.reset();
+        row.target_lifetime.reset();
+    }
     extruder_rows_.clear();
     bed_temp_observer_.reset();
     bed_target_observer_.reset();

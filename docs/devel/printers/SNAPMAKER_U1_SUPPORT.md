@@ -10,10 +10,10 @@ HelixScreen supports the Snapmaker U1 toolchanger as an alternative touchscreen 
 |------|-------|
 | SoC | Rockchip RK3562 — quad Cortex-A53 @ 2GHz (aarch64) |
 | GPU | Mali-G52 2EE (OpenGL ES 3.2) |
-| RAM | Unknown (RK3562 supports up to 4GB LPDDR4) |
-| Display | 3.5" touch, framebuffer (`/dev/fb0`) — **resolution unconfirmed** (build assumes 480x320, community reports suggest 800x480 or 1024x600; needs hardware verification via `fbset`) |
-| Touch Input | `/dev/input/event0` |
-| Storage | 26GB eMMC (SquashFS rootfs read-only, `/home/lava/` writable) |
+| RAM | 961MB |
+| Display | 3.5" 480x320 32bpp capacitive touch, DRM/KMS (`/dev/dri/card0`, rockchipdrmfb) |
+| Touch Controller | TLSC6x capacitive (`tlsc6x_touch` on `/dev/input/event0`) |
+| Storage | 28GB eMMC (`/userdata` ext4 persistent, SquashFS rootfs read-only overlay) |
 | Recovery | A/B firmware slots + Rockchip MaskRom (unbrickable) |
 | Firmware | Klipper + Moonraker |
 | OS | Debian Trixie (ARM64) |
@@ -27,7 +27,7 @@ HelixScreen supports the Snapmaker U1 toolchanger as an alternative touchscreen 
 
 The U1 is a 4-toolhead color printer. Each head has its own nozzle, extruder, heater, and filament sensor. Tool changes take approximately 5 seconds with no purging required.
 
-The U1 does **not** use the standard [viesturz/klipper-toolchanger](https://github.com/viesturz/klipper-toolchanger) module. Instead, it presents as a standard multi-extruder printer via Moonraker (`extruder`, `extruder1`, `extruder2`, `extruder3`). HelixScreen currently detects multi-extruder configurations but does not have dedicated toolchanger UI for the U1's native multi-extruder approach.
+The U1 does **not** use the standard [viesturz/klipper-toolchanger](https://github.com/viesturz/klipper-toolchanger) module. Instead, it uses native multi-extruder with custom Klipper extensions. Extruders are named `extruder`, `extruder1`, `extruder2`, `extruder3` with custom state fields (`park_pin`, `active_pin`, `activating_move`, `state`). HelixScreen has a dedicated `AmsBackendSnapmaker` that tracks tool state, RFID filament data, and supports tool switching via `T0`–`T3` gcodes.
 
 ## Cross-Compilation
 
@@ -54,8 +54,8 @@ make PLATFORM_TARGET=snapmaker-u1 -j
 |---------|-------|
 | Architecture | aarch64 (ARMv8-A) |
 | Toolchain | `aarch64-linux-gnu-gcc` (Debian cross) |
-| Linking | Fully static |
-| Display backend | fbdev (`/dev/fb0`) |
+| Linking | Hybrid (static libstdc++/libgcc, dynamic libc/libdrm) |
+| Display backend | DRM/KMS (`/dev/dri/card0`, double-buffered page flipping) |
 | Input | evdev (auto-detected) |
 | SSL | Enabled |
 | Optimization | `-Os` (size-optimized) |
@@ -73,58 +73,106 @@ make package-snapmaker-u1
 
 ### Prerequisites
 
-- Snapmaker U1 with [extended firmware](https://github.com/paxx12/SnapmakerU1-Extended-Firmware) installed (provides SSH access)
-- SSH access: `lava@<printer-ip>` (password: `snapmaker`)
+1. **Snapmaker U1** on the network (Ethernet or WiFi)
+2. **Extended Firmware** installed — provides SSH access. Download from [paxx12/SnapmakerU1-Extended-Firmware](https://github.com/paxx12/SnapmakerU1-Extended-Firmware), flash via USB drive (FAT32, `.bin` file in root)
+3. **SSH enabled** — after Extended Firmware is installed, enable SSH via the firmware config web UI:
+   ```bash
+   # Open http://<printer-ip>/firmware-config/ in a browser, or:
+   curl -X POST http://<printer-ip>/firmware-config/api/settings/ssh/true
+   ```
+4. **SSH access verified** — connect as root:
+   ```bash
+   ssh root@<printer-ip>   # password: snapmaker
+   ```
+
+### Build
+
+```bash
+# Build the Docker toolchain and cross-compile (first time builds the toolchain image)
+make snapmaker-u1-docker
+```
+
+Output: `build/snapmaker-u1/bin/helix-screen` (~13MB stripped aarch64 binary)
 
 ### Deploy
 
 ```bash
-# Full deploy (binary + assets)
-make deploy-snapmaker-u1 SNAPMAKER_U1_HOST=192.168.1.xxx
+# Full deploy (binary + assets + platform hooks) — stops stock UI, starts HelixScreen
+make deploy-snapmaker-u1 SNAPMAKER_U1_HOST=<printer-ip>
 
-# Deploy and run in foreground with debug logging
-make deploy-snapmaker-u1-fg SNAPMAKER_U1_HOST=192.168.1.xxx
+# Deploy and run in foreground with debug logging (recommended for first run)
+make deploy-snapmaker-u1-fg SNAPMAKER_U1_HOST=<printer-ip>
 
 # Deploy binary only (fast iteration during development)
-make deploy-snapmaker-u1-bin SNAPMAKER_U1_HOST=192.168.1.xxx
+make deploy-snapmaker-u1-bin SNAPMAKER_U1_HOST=<printer-ip>
 
 # SSH into the printer
-make snapmaker-u1-ssh SNAPMAKER_U1_HOST=192.168.1.xxx
+make snapmaker-u1-ssh SNAPMAKER_U1_HOST=<printer-ip>
 ```
 
-Default SSH user is `lava` (override with `SNAPMAKER_U1_USER`). Default deploy directory is `/opt/helixscreen` (override with `SNAPMAKER_U1_DEPLOY_DIR`).
+Default SSH user is `root` (override with `SNAPMAKER_U1_USER`). Default deploy directory is `/userdata/helixscreen` (override with `SNAPMAKER_U1_DEPLOY_DIR`).
+
+The deploy target automatically:
+- Copies the binary, assets, and platform hooks to `/userdata/helixscreen/`
+- Deploys the init script (`helixscreen.init`) and DRM keepalive hooks
+- Starts HelixScreen via the init script (which sources the hooks)
+
+### What Happens on Deploy
+
+1. DRM keepalive: a background process opens `/dev/dri/card0` to prevent CRTC teardown
+2. Stock UI processes (`gui`, `lmd`) are killed via their SysV init scripts
+3. HelixScreen starts as DRM master with double-buffered page flipping
+4. The DRM keepalive process exits once HelixScreen has the DRM device open
+5. The first-run wizard appears (language selection, printer connection setup)
+
+### Rollback (Restore Stock UI)
+
+To restore the stock Snapmaker touchscreen UI at any time:
+
+```bash
+# Quick rollback — kill HelixScreen, restart stock UI
+ssh root@<printer-ip> "killall helix-screen helix-watchdog; /etc/init.d/S99screen start; /etc/init.d/S90lmd start"
+
+# Or simply reboot — stock UI starts automatically on boot
+ssh root@<printer-ip> reboot
+```
+
+The stock UI lives on the read-only SquashFS rootfs and cannot be damaged by HelixScreen deployment. HelixScreen files are entirely on `/userdata/` and can be removed cleanly:
+
+```bash
+ssh root@<printer-ip> "killall helix-screen helix-watchdog 2>/dev/null; rm -rf /userdata/helixscreen; reboot"
+```
 
 ## Reversible Deployment Strategy
 
 HelixScreen can be deployed to the U1 without modifying the stock firmware. The approach is fully reversible at multiple levels.
 
-### Level 1: Manual SSH Deployment (Simplest, Fully Reversible)
+### Level 1: Manual SSH Deployment (Current, Fully Reversible)
 
-Deploy HelixScreen to the writable `/home/lava/` or `/opt/helixscreen/` partition:
+This is the current deployment method used by `make deploy-snapmaker-u1`:
 
 1. Install [Extended Firmware](https://github.com/paxx12/SnapmakerU1-Extended-Firmware) for SSH access
-2. SSH in: `ssh root@<ip>` (password: `snapmaker`)
-3. Identify and stop the stock UI: `killall unisrv` (stock UI binary is `/usr/bin/unisrv`)
-4. Deploy HelixScreen to writable storage (does NOT touch read-only rootfs)
-5. Run HelixScreen directly on the framebuffer
+2. Enable SSH via firmware config web UI
+3. Deploy via `make deploy-snapmaker-u1 SNAPMAKER_U1_HOST=<ip>`
+4. Platform hooks stop stock UI (`S99screen`, `S90lmd`) and HelixScreen starts on `/dev/fb0`
 
-**To revert**: Kill HelixScreen, restart stock UI (`/usr/bin/unisrv`), or simply reboot. The stock UI is on the read-only SquashFS rootfs and cannot be damaged.
+**To revert**: `killall helix-screen; /etc/init.d/S99screen start` — or simply reboot. The stock UI is on the read-only SquashFS rootfs and cannot be damaged. Init scripts are not modified.
 
-### Level 2: Systemd Override (Persistent, Reversible)
+### Level 2: SysV Init Override (Persistent, Reversible)
 
-Create a systemd override to start HelixScreen instead of the stock UI on boot:
+The U1 uses SysV init (not systemd). A persistent override would:
 
-1. Create override in writable storage that masks the stock UI service
-2. Create a HelixScreen systemd service file
+1. Create a HelixScreen init script in `/etc/init.d/` (writable overlay)
+2. Optionally chmod -x the stock `S99screen` script (reversible since overlay)
 3. HelixScreen starts on boot; stock UI stays dormant
 
-**To revert**: Remove the systemd override files and reboot. Stock UI resumes automatically.
+**To revert**: Remove the init script override and reboot. Stock UI resumes from the read-only base.
 
 ### Level 3: Extended Firmware Overlay (Cleanest, Reversible)
 
 Package HelixScreen as an overlay in paxx12's Extended Firmware build system:
 
-1. Add a HelixScreen overlay that deploys the binary and service file
+1. Add a HelixScreen overlay that deploys the binary and init script
 2. Build a custom firmware .bin with the overlay included
 3. Flash via USB like any firmware update
 
@@ -140,15 +188,29 @@ Package HelixScreen as an overlay in paxx12's Extended Firmware build system:
 | Can't revert | Multiple revert paths: reboot, kill process, remove override, reflash firmware |
 | Firmware slot corruption | A/B slots — switch with `updateEngine --misc=other --reboot` |
 
-### Display Backend
+### Display Backend — DRM/KMS with CRTC Keepalive
 
-HelixScreen renders directly to `/dev/fb0`. The exact display resolution needs hardware verification — the build assumes 480x320 but community sources suggest 800x480. HelixScreen auto-detects resolution from the framebuffer via `FBIOGET_VSCREENINFO`, so this will work regardless. The stock Snapmaker touchscreen UI must be stopped first to release the display. The platform hooks script (`config/platform/hooks-snapmaker-u1.sh`) handles this automatically during deployment by stopping known Snapmaker UI services and killing residual processes.
+HelixScreen uses the DRM backend for double-buffered page flipping on `/dev/dri/card0` (rockchipdrmfb). The 480x320 MCU panel runs on a DPI/RGB parallel interface via the Rockchip VOP2 display controller.
 
-The stock Snapmaker touchscreen UI is `/usr/bin/unisrv` (Universal Service). It renders directly to `/dev/fb0` and handles touch input from `/dev/input/event0`. The exact systemd service name is unconfirmed — the platform hooks script attempts to stop several candidate names.
+**The CRTC keepalive problem**: The stock UI (`/usr/bin/gui`) holds DRM master. When gui exits, the kernel's VOP2 driver calls `vop2_crtc_atomic_disable`, permanently disabling the display until reboot. The MCU panel driver only creates modes during the initial boot sequence — once the CRTC is disabled, there's no way to re-enable it.
+
+**The solution**: The platform hooks (`config/platform/hooks-snapmaker-u1.sh`) spawn a background process that holds `/dev/dri/card0` open *before* killing gui. This prevents the kernel from tearing down the CRTC when gui exits. HelixScreen then opens the DRM device itself and becomes DRM master. The keepalive process detects that HelixScreen has the device open and exits — but the CRTC stays active because HelixScreen now holds the fd.
+
+**Critical implementation notes**:
+- The keepalive MUST be a background subshell (`(exec 3>/dev/dri/card0; ...) &`), not a shell fd (`exec 7>`). Shell fds die when the init script exits, but background processes survive.
+- The keepalive polls `/proc/*/fd` until it sees `helix-screen` with `/dev/dri/card0` open, then exits.
+- `HELIX_DRM_DEVICE=/dev/dri/card0` is set in `platform_pre_start()` to skip auto-detection.
+- No libinput is needed — touch input uses evdev directly.
+
+**Filesystem note**: `/opt/` is an overlay filesystem wiped on reboot. All persistent data lives on `/userdata/` (ext4, 28GB). `/home/lava/` is also part of the overlay and is NOT persistent.
 
 ### Touch Input
 
-HelixScreen uses evdev and should auto-detect `/dev/input/event0` on the U1. The `lava` user (or root) should have appropriate permissions on the input device.
+Touch input is provided by a TLSC6x capacitive controller (`tlsc6x_touch`) on `/dev/input/event0`. HelixScreen auto-detects this device and uses multitouch (MT) axis ranges (0-480, 0-320). No touch calibration is required — the capacitive controller is factory-calibrated.
+
+### Backlight
+
+HelixScreen auto-detects the sysfs backlight device (`/sys/class/backlight/backlight`, max brightness 255) for sleep/wake control.
 
 ## Auto-Detection
 
@@ -195,47 +257,57 @@ These are resolution-specific issues, not Snapmaker-specific. Any 480x320 device
 
 ## Known Limitations
 
-- **Untested on real hardware** -- Cross-compilation target and detection heuristics are implemented but not yet validated on actual U1 hardware. Community testers are very welcome.
-- **No toolchanger UI** -- The U1 presents as a standard multi-extruder printer, not as a `toolchanger` object. HelixScreen detects the extruders but does not have dedicated tool-switching UI for the U1's native approach. See the [toolchanger research](printer-research/SNAPMAKER_U1_RESEARCH.md) for details.
-- **RFID filament integration not implemented** -- The U1 has a 4-channel FM175xx RFID reader with OpenSpool support. HelixScreen does not yet read RFID filament data. Klipper commands (`FILAMENT_DT_UPDATE`, `FILAMENT_DT_QUERY`) are available for future integration.
 - **Not in CI/release pipeline** -- Must be built manually. No automated release artifacts yet.
 - **480x320 UI needs work** -- Multiple panels have layout issues at this resolution (see above).
-- **Extended firmware required** -- SSH access (needed for deployment) requires the community extended firmware. Stock firmware does not provide SSH.
-- **Snapmaker Klipper/Moonraker source released March 30, 2026** ([u1-klipper](https://github.com/Snapmaker/u1-klipper), [u1-moonraker](https://github.com/Snapmaker/u1-moonraker)). Touchscreen UI remains proprietary.
+- **Extended firmware required** -- SSH access (needed for deployment) requires the community [Extended Firmware](https://github.com/paxx12/SnapmakerU1-Extended-Firmware). Stock firmware does not provide SSH.
+- **No auto-start on boot** -- HelixScreen must be started manually after each reboot. An init script (`helixscreen.init`) is deployed but must be installed to `/etc/init.d/` (on the overlay, or via Extended Firmware overlay mechanism) for boot persistence.
+- **WiFi management** -- Stopping `unisrv` (stock UI) does not affect WiFi — the U1 uses standard `wpa_supplicant` managed by the OS. HelixScreen has its own WiFi manager with `wpa_supplicant` support.
 
 ## Future Work
 
-### Analyze Snapmaker Klipper Fork
+### Auto-Start on Boot
 
-The [u1-klipper](https://github.com/Snapmaker/u1-klipper) source reveals the exact Moonraker API surface. The `lava/` directory contains Snapmaker-specific modules and configs. Key investigation: what objects/fields are exposed for tool state, tool switching, and RFID filament. This unblocks proper toolchanger UI implementation.
-
-### RFID Filament Integration
-
-The U1's 4-channel RFID reader could be integrated following the existing AMS backend pattern (`AmsBackendRfid`). Klipper commands:
-
-- `FILAMENT_DT_UPDATE CHANNEL=<n>` -- Read RFID tag
-- `FILAMENT_DT_QUERY CHANNEL=<n>` -- Query cached tag data
-- OpenSpool JSON format with material type, color, and temperature ranges
+The init script (`helixscreen.init`) exists and works, but the overlay filesystem is reset on reboot. Options for persistence:
+1. Install to `/oem/overlay/upper/etc/init.d/S90helixscreen` (persists in the overlay upper layer)
+2. Package as an Extended Firmware overlay for automatic deployment
+3. Add a post-boot hook in the Extended Firmware configuration
 
 ### Extended Firmware Overlay
 
-HelixScreen could be packaged as an extended firmware overlay for cleaner installation (vs. manual SSH deployment).
+Package HelixScreen as an Extended Firmware overlay for one-click installation via paxx12's build system.
 
-### Open Source Firmware Analysis
+### RFID Filament UI
 
-Snapmaker released their Klipper and Moonraker forks on March 30, 2026 ([u1-klipper](https://github.com/Snapmaker/u1-klipper), [u1-moonraker](https://github.com/Snapmaker/u1-moonraker)). The full Moonraker API surface can now be documented. This enables proper toolchanger detection and tool-switching UI.
+The `AmsBackendSnapmaker` backend already parses RFID data from `filament_detect.info` (material type, color, temperature ranges, spool weight). The filament panel UI needs to be tested and refined to properly display this data.
+
+### Virtual Slot Mapping
+
+The U1 supports an `extruder_map_table` with 32 virtual slots mapped to 4 physical extruders. This could enable more advanced filament management workflows.
+
+## Verified Hardware
+
+HelixScreen has been tested on a Snapmaker U1 with Extended Firmware. Confirmed working:
+
+- DRM display at 480x320 via rockchipdrmfb with double-buffered page flipping
+- DRM CRTC keepalive works — gui killed cleanly, no SIGSTOP hack needed
+- Touch input via TLSC6x capacitive controller (no calibration needed)
+- Backlight control via sysfs
+- Stock UI stops and restarts cleanly via init script hooks
+- SSH session survives stopping gui (WiFi unaffected)
+- First-run wizard displays correctly at TINY breakpoint
+- Memory monitor reports 961MB total with appropriate thresholds
+- Persistent deployment on `/userdata/` survives reboots
 
 ## Community Testing
 
-We need testers with Snapmaker U1 hardware. If you can help:
+We welcome additional testers with Snapmaker U1 hardware:
 
-1. Install the [extended firmware](https://github.com/paxx12/SnapmakerU1-Extended-Firmware) for SSH access
-2. Build the binary: `make snapmaker-u1-docker`
-3. Deploy: `make deploy-snapmaker-u1-fg SNAPMAKER_U1_HOST=<ip>` (runs in foreground with debug logging)
-4. Report back: Does it start? Does the display render at 480x320? Does touch work? Is your printer detected correctly?
-5. File issues at the HelixScreen GitHub repository
-
-Even a quick "it boots and shows the home screen" report is valuable.
+1. Install the [Extended Firmware](https://github.com/paxx12/SnapmakerU1-Extended-Firmware) for SSH access
+2. Enable SSH: `curl -X POST http://<ip>/firmware-config/api/settings/ssh/true`
+3. Build: `make snapmaker-u1-docker`
+4. Deploy: `make deploy-snapmaker-u1-fg SNAPMAKER_U1_HOST=<ip>` (runs in foreground with debug logging)
+5. Report: Does the wizard appear? Does touch work? Can you connect to Moonraker? Do tool changes work?
+6. File issues at the HelixScreen GitHub repository
 
 ## Related Resources
 

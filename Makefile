@@ -575,9 +575,12 @@ ifneq ($(CROSS_COMPILE)$(filter x86 x86-fbdev x86-both,$(PLATFORM_TARGET)),)
     endif
     # Add target-specific linker flags (e.g., -lstdc++fs for GCC 8)
     LDFLAGS += $(TARGET_LDFLAGS)
-    # DRM backend requires libdrm and libinput for LVGL display/input drivers
+    # DRM backend requires libdrm for display; libinput for LVGL input drivers
     ifeq ($(DISPLAY_BACKEND),drm)
-        LDFLAGS += -ldrm -linput
+        LDFLAGS += -ldrm
+        ifneq ($(SNAPMAKER_SKIP_LIBINPUT),yes)
+            LDFLAGS += -linput
+        endif
         # GPU-accelerated rendering via EGL/OpenGL ES
         ifeq ($(ENABLE_OPENGLES),yes)
             LDFLAGS += -lEGL -lGLESv2 -lgbm

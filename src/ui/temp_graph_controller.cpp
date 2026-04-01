@@ -101,6 +101,15 @@ void TempGraphController::resume() {
 }
 
 void TempGraphController::rebuild() {
+    // Guard against stale container — if the parent widget was deleted while a
+    // deferred reconnect observer callback was queued, container_ is dangling.
+    // lv_obj_is_valid() is O(n) but acceptable here (rebuild is debounced to 2s).
+    if (!container_ || !lv_obj_is_valid(container_)) {
+        spdlog::warn("[TempGraphController] Rebuild skipped — container is null or freed");
+        container_ = nullptr;
+        return;
+    }
+
     // Debounce rapid rebuilds — reconnect flapping (e.g., Klipper error state)
     // can trigger dozens of rebuilds per second, racing with the LVGL render cycle
     auto now = std::chrono::steady_clock::now();
@@ -162,6 +171,12 @@ int TempGraphController::series_id_for(const std::string& klipper_name) const {
 // ============================================================================
 
 void TempGraphController::create_graph() {
+    if (!container_ || !lv_obj_is_valid(container_)) {
+        spdlog::error("[TempGraphController] Container is null or freed, cannot create graph");
+        container_ = nullptr;
+        return;
+    }
+
     graph_ = ui_temp_graph_create(container_);
     if (!graph_) return;
 

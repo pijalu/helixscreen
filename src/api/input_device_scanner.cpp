@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include "input_device_scanner.h"
-#include "settings_manager.h"
 #include "touch_calibration.h"
 
 #include <algorithm>
@@ -59,8 +58,6 @@ constexpr int BUS_BLUETOOTH = 0x05;
 }  // namespace
 
 namespace helix::input {
-
-using helix::SettingsManager;
 
 bool check_capability_bit(const std::string& hex_bitmask, int bit) {
     if (bit < 0 || hex_bitmask.empty()) {
@@ -270,13 +267,7 @@ std::optional<ScannedDevice> find_keyboard_device(const std::string& dev_base,
 }
 
 std::optional<ScannedDevice> find_keyboard_device() {
-    std::string exclude_id;
-    try {
-        exclude_id = SettingsManager::instance().get_scanner_device_id();
-    } catch (...) {
-        // SettingsManager may not be initialized yet during early startup
-    }
-    return find_keyboard_device("/dev/input", "/sys/class/input", exclude_id);
+    return find_keyboard_device("/dev/input", "/sys/class/input");
 }
 
 std::vector<ScannedDevice> find_hid_keyboard_devices(const std::string& dev_base,

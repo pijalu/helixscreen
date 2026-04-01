@@ -71,6 +71,15 @@ bool has_direct_input_prop(int event_num) {
 DisplayBackendFbdev::DisplayBackendFbdev() = default;
 
 DisplayBackendFbdev::~DisplayBackendFbdev() {
+    // Clear calibration wrapper's user_data and read callback before
+    // calibration_context_ is destroyed. If LVGL's indev timer fires
+    // between our destruction and lv_deinit(), calibrated_read_cb would
+    // dereference freed memory (use-after-free / SIGSEGV).
+    if (touch_) {
+        lv_indev_set_read_cb(touch_, nullptr);
+        lv_indev_set_user_data(touch_, nullptr);
+    }
+
     restore_console();
 }
 

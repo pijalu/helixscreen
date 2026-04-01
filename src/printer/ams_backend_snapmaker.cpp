@@ -7,7 +7,7 @@
 
 #include <spdlog/spdlog.h>
 
-#include <fmt/format.h>
+#include <spdlog/fmt/fmt.h>
 
 // ============================================================================
 // Construction

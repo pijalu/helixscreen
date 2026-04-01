@@ -328,11 +328,13 @@ lv_indev_t* DisplayBackendDRM::create_input_pointer() {
 
     // If we have an explicit device, try it first
     if (!device_override.empty()) {
+#if LV_USE_LIBINPUT
         pointer_ = lv_libinput_create(LV_INDEV_TYPE_POINTER, device_override.c_str());
         if (pointer_ != nullptr) {
             spdlog::info("[DRM Backend] Libinput pointer device created on {}", device_override);
             return pointer_;
         }
+#endif
         // Try evdev as fallback for the specified device
         pointer_ = lv_evdev_create(LV_INDEV_TYPE_POINTER, device_override.c_str());
         if (pointer_ != nullptr) {
@@ -342,12 +344,12 @@ lv_indev_t* DisplayBackendDRM::create_input_pointer() {
         spdlog::warn("[DRM Backend] Could not open specified touch device: {}", device_override);
     }
 
-    // Priority 3: Auto-discover touch using libinput
-    // Look for touch capability devices (touchscreens like DSI displays)
-    spdlog::info("[DRM Backend] Auto-detecting touch/pointer device via libinput...");
+    // Priority 3: Auto-discover touch device
+    spdlog::info("[DRM Backend] Auto-detecting touch/pointer device...");
 
-    // Use evdev driver for touch devices — it supports multi-touch gesture
-    // recognition (pinch-to-zoom) while the libinput driver does not.
+#if LV_USE_LIBINPUT
+    // Use libinput to discover touch devices, then prefer evdev driver for
+    // multi-touch gesture recognition (pinch-to-zoom)
     char* touch_path = lv_libinput_find_dev(LV_LIBINPUT_CAPABILITY_TOUCH, true);
     if (touch_path) {
         spdlog::info("[DRM Backend] Found touch device: {}", touch_path);
@@ -356,10 +358,6 @@ lv_indev_t* DisplayBackendDRM::create_input_pointer() {
             spdlog::info("[DRM Backend] Evdev touch device created on {} (multi-touch enabled)",
                          touch_path);
 #if LV_USE_GESTURE_RECOGNITION
-            // Lower pinch thresholds so PINCH recognizes quickly, and disable
-            // ROTATE by setting an unreachable threshold.  Without this, ROTATE
-            // (default 0.2 rad) wins the race, resets PINCH's cumulative scale
-            // to 1.0, and causes visible zoom jumps.
             lv_indev_set_pinch_up_threshold(pointer_, 1.15f);
             lv_indev_set_pinch_down_threshold(pointer_, 0.85f);
             lv_indev_set_rotation_rad_threshold(pointer_, 3.14f);
@@ -374,6 +372,26 @@ lv_indev_t* DisplayBackendDRM::create_input_pointer() {
             }
         }
     }
+#else
+    // No libinput — use evdev scanner to find touch/pointer device
+    const char* touch_path = nullptr;
+    auto mouse = helix::input::find_mouse_device("/dev/input", "/sys/class/input");
+    std::string touch_path_str;
+    if (mouse) {
+        touch_path_str = mouse->path;
+        touch_path = touch_path_str.c_str();
+        spdlog::info("[DRM Backend] Found touch/pointer device via evdev scan: {}", touch_path_str);
+        pointer_ = lv_evdev_create(LV_INDEV_TYPE_POINTER, touch_path);
+        if (pointer_ != nullptr) {
+            spdlog::info("[DRM Backend] Evdev touch device created on {}", touch_path_str);
+#if LV_USE_GESTURE_RECOGNITION
+            lv_indev_set_pinch_up_threshold(pointer_, 1.15f);
+            lv_indev_set_pinch_down_threshold(pointer_, 0.85f);
+            lv_indev_set_rotation_rad_threshold(pointer_, 3.14f);
+#endif
+        }
+    }
+#endif
 
     // --- Touch calibration detection ---
     if (pointer_ && touch_path) {
@@ -435,12 +453,11 @@ lv_indev_t* DisplayBackendDRM::create_input_pointer() {
         }
     }
 
-    // Don't free touch_path — it points into LVGL's internal devices[] array
-    // (lv_libinput_find_dev returns a direct pointer, not a copy)
-
-    // If no touch was found, try evdev fallback on common device paths
+    // If no touch was found, try pointer devices
     if (!pointer_) {
+#if LV_USE_LIBINPUT
         // Try pointer devices via libinput (mouse, trackpad)
+        // Don't free pointer_path — points into LVGL's internal devices[] array
         char* pointer_path = lv_libinput_find_dev(LV_LIBINPUT_CAPABILITY_POINTER, false);
         if (pointer_path) {
             spdlog::info("[DRM Backend] Found pointer device: {}", pointer_path);
@@ -451,8 +468,8 @@ lv_indev_t* DisplayBackendDRM::create_input_pointer() {
                 spdlog::warn("[DRM Backend] Failed to create libinput device for: {}",
                              pointer_path);
             }
-            // Don't free — points into LVGL's internal devices[] array
         }
+#endif
     }
 
     if (!pointer_) {
@@ -531,9 +548,17 @@ lv_indev_t* DisplayBackendDRM::create_input_keyboard() {
     // Priority 1: Environment variable override
     const char* env_device = std::getenv("HELIX_KEYBOARD_DEVICE");
     if (env_device && env_device[0] != '\0') {
+#if LV_USE_LIBINPUT
         keyboard_ = lv_libinput_create(LV_INDEV_TYPE_KEYPAD, env_device);
         if (keyboard_) {
             spdlog::info("[DRM Backend] Keyboard created on {} (env override)", env_device);
+            return keyboard_;
+        }
+#endif
+        // Try evdev fallback
+        keyboard_ = lv_evdev_create(LV_INDEV_TYPE_KEYPAD, env_device);
+        if (keyboard_) {
+            spdlog::info("[DRM Backend] Evdev keyboard created on {} (env override)", env_device);
             return keyboard_;
         }
         spdlog::warn("[DRM Backend] Could not open specified keyboard device: {}", env_device);

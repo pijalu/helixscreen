@@ -52,8 +52,8 @@ class FanWidget : public PanelWidget {
     nlohmann::json config_;
     std::string selected_fan_;   // object_name (e.g., "heater_fan hotend_fan")
     std::string display_name_;
+    SubjectLifetime speed_lifetime_;  // Before observer: destroyed after observer in ~dtor
     ObserverGuard speed_observer_;
-    SubjectLifetime speed_lifetime_;
     ObserverGuard version_observer_;
     helix::AsyncLifetimeGuard lifetime_;
     char speed_buffer_[16] = {};

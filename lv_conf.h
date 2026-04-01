@@ -1153,7 +1153,8 @@
 #endif
 
 /*Driver for libinput input devices (preferred for DRM on modern systems)*/
-#ifdef HELIX_DISPLAY_DRM
+/*Snapmaker U1 has no libinput — uses evdev directly for touch input*/
+#if defined(HELIX_DISPLAY_DRM) && !defined(HELIX_PLATFORM_SNAPMAKER_U1)
     #define LV_USE_LIBINPUT    1
 #else
     #define LV_USE_LIBINPUT    0

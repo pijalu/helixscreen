@@ -166,8 +166,8 @@ void FanWidget::detach() {
         auto freeze = helix::ui::UpdateQueue::instance().scoped_freeze();
         helix::ui::UpdateQueue::instance().drain();
         version_observer_.reset();
+        speed_lifetime_.reset();   // Before observer: expire weak_ptr if subject already freed
         speed_observer_.reset();
-        speed_lifetime_.reset();
     }
 
     if (widget_obj_) {

@@ -171,23 +171,25 @@ void CameraWidget::on_activate() {
     // stream while the screen is off (saves ~20% CPU on Pi).
     // Uses LifetimeToken so the callback safely no-ops after destruction.
     if (!sleep_cb_registered_) {
-        auto token = lifetime_.token();
-        DisplayManager::instance()->register_sleep_callback([this, token](bool sleeping) {
-            if (token.expired())
-                return;
-            if (sleeping) {
-                // Don't stop the stream if fullscreen overlay is open — the
-                // user is actively viewing the camera feed.
-                if (!fullscreen_overlay_) {
-                    spdlog::debug("[CameraWidget] Display sleeping — stopping camera stream");
-                    stop_stream();
+        if (auto* dm = DisplayManager::instance()) {
+            auto token = lifetime_.token();
+            dm->register_sleep_callback([this, token](bool sleeping) {
+                if (token.expired())
+                    return;
+                if (sleeping) {
+                    // Don't stop the stream if fullscreen overlay is open — the
+                    // user is actively viewing the camera feed.
+                    if (!fullscreen_overlay_) {
+                        spdlog::debug("[CameraWidget] Display sleeping — stopping camera stream");
+                        stop_stream();
+                    }
+                } else if (fullscreen_overlay_ || (active_ && !compact_)) {
+                    spdlog::debug("[CameraWidget] Display waking — restarting camera stream");
+                    start_stream();
                 }
-            } else if (fullscreen_overlay_ || (active_ && !compact_)) {
-                spdlog::debug("[CameraWidget] Display waking — restarting camera stream");
-                start_stream();
-            }
-        });
-        sleep_cb_registered_ = true;
+            });
+            sleep_cb_registered_ = true;
+        }
     }
 
     if (!compact_) {
