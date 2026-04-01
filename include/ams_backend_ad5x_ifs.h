@@ -23,8 +23,9 @@ class Ad5xIfsTestAccess;
 /// - filament_switch_sensor _ifs_port_sensor_{1-4}: per-port filament presence
 /// - filament_switch_sensor head_switch_sensor: filament at toolhead
 ///
-/// Native ZMOD IFS (no per-port sensors):
-/// - save_variables: same as above
+/// Native ZMOD IFS (no per-port sensors, no _IFS_VARS macro):
+/// - Color/type stored in FlashForge config, read via GET_ZCOLOR G-code
+/// - Writes via CHANGE_ZCOLOR SLOT=N HEX=RRGGBB TYPE=MATERIAL
 /// - filament_motion_sensor ifs_motion_sensor: toolhead filament presence
 /// - filament_switch_sensor head_switch_sensor: filament at toolhead
 ///
@@ -79,11 +80,14 @@ class AmsBackendAd5xIfs : public AmsSubscriptionBackend {
     void parse_port_sensor(int port_1based, bool detected);
     void parse_head_sensor(bool detected);
     void update_slot_from_state(int slot_index);
+    void query_zcolor_fallback();
+    void parse_zcolor_response(const std::string& response);
 
     std::string build_color_list_value() const;
     std::string build_type_list_value() const;
     std::string build_tool_map_value() const;
     AmsError write_ifs_var(const std::string& key, const std::string& value);
+    AmsError write_zcolor(int slot_index);
     void detect_load_unload_completion(bool head_detected);
 
     int find_first_tool_for_port(int port_1based) const;
@@ -108,6 +112,11 @@ class AmsBackendAd5xIfs : public AmsSubscriptionBackend {
     // Native ZMOD IFS has no per-port sensors — infer port presence from active
     // tool + head sensor state so the UI doesn't show all slots as EMPTY.
     bool has_per_port_sensors_ = false;
+
+    // True if _IFS_VARS macro is available (lessWaste or bambufy plugin).
+    // False for native ZMOD, which stores color/type in FlashForge config
+    // and uses CHANGE_ZCOLOR / GET_ZCOLOR G-code commands instead.
+    bool has_ifs_vars_ = false;
 
     // Action timeout tracking
     static constexpr int ACTION_TIMEOUT_SECONDS = 90;

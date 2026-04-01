@@ -10,6 +10,7 @@
 #include <spdlog/spdlog.h>
 
 #include <algorithm>
+#include <regex>
 #include <sstream>
 
 using json = nlohmann::json;
@@ -64,6 +65,20 @@ void AmsBackendAd5xIfs::on_started() {
             if (token.expired()) return;
             if (response.contains("result") && response["result"].contains("status")) {
                 handle_status_update(response["result"]["status"]);
+            }
+
+            // If save_variables didn't populate any colors, we're likely on native
+            // ZMOD which stores color/type in FlashForge config, not save_variables.
+            // Fall back to querying GET_ZCOLOR for initial slot data.
+            bool need_zcolor = false;
+            {
+                std::lock_guard<std::mutex> lock(mutex_);
+                need_zcolor = !has_ifs_vars_;
+            }
+            if (need_zcolor) {
+                spdlog::info("{} No _IFS_VARS data found, querying GET_ZCOLOR (native ZMOD)",
+                             backend_log_tag());
+                query_zcolor_fallback();
             }
         });
 }
@@ -174,11 +189,13 @@ void AmsBackendAd5xIfs::parse_save_variables(const json& vars) {
             var_prefix_ = "bambufy";
             spdlog::info("{} Detected bambufy variable prefix", backend_log_tag());
         }
+        has_ifs_vars_ = true;
     } else if (vars.contains("less_waste_colors") || vars.contains("less_waste_tools")) {
         if (var_prefix_ != "less_waste") {
             var_prefix_ = "less_waste";
             spdlog::info("{} Detected lessWaste variable prefix", backend_log_tag());
         }
+        has_ifs_vars_ = true;
     }
 
     const std::string p = var_prefix_;
@@ -539,20 +556,31 @@ AmsError AmsBackendAd5xIfs::set_slot_info(int slot_index, const SlotInfo& info, 
     }
 
     if (persist) {
-        // Persist via _IFS_VARS macro — handles both lessWaste and bambufy prefixes
-        // and updates in-memory gcode variables + save_variables in one call.
-        std::string color_val, type_val;
+        bool use_ifs_vars;
         {
             std::lock_guard<std::mutex> lock(mutex_);
-            color_val = build_color_list_value();
-            type_val = build_type_list_value();
+            use_ifs_vars = has_ifs_vars_;
         }
 
-        auto err = write_ifs_var("colors", color_val);
-        if (!err.success()) return err;
+        if (use_ifs_vars) {
+            // lessWaste/bambufy: bulk update all slots via _IFS_VARS macro
+            std::string color_val, type_val;
+            {
+                std::lock_guard<std::mutex> lock(mutex_);
+                color_val = build_color_list_value();
+                type_val = build_type_list_value();
+            }
 
-        err = write_ifs_var("types", type_val);
-        if (!err.success()) return err;
+            auto err = write_ifs_var("colors", color_val);
+            if (!err.success()) return err;
+
+            err = write_ifs_var("types", type_val);
+            if (!err.success()) return err;
+        } else {
+            // Native ZMOD: per-slot update via CHANGE_ZCOLOR
+            auto err = write_zcolor(slot_index);
+            if (!err.success()) return err;
+        }
     }
 
     emit_event(EVENT_SLOT_CHANGED, std::to_string(slot_index));
@@ -577,7 +605,12 @@ AmsError AmsBackendAd5xIfs::set_tool_mapping(int tool_number, int slot_index) {
         }
     }
 
-    // Persist tool mapping
+    // Persist tool mapping (only for lessWaste/bambufy — native ZMOD manages
+    // tool mapping internally via the COLOR/SET_ZCOLOR dialog)
+    if (!has_ifs_vars_) {
+        return AmsErrorHelper::success();
+    }
+
     std::string tools_val;
     {
         std::lock_guard<std::mutex> lock(mutex_);
@@ -594,6 +627,12 @@ AmsError AmsBackendAd5xIfs::enable_bypass() {
     if (!err.success()) return err;
 
     spdlog::info("{} Enabling bypass (external) mode", backend_log_tag());
+    if (!has_ifs_vars_) {
+        // Native ZMOD has no external/bypass mode variable — update local state only
+        std::lock_guard<std::mutex> lock(mutex_);
+        external_mode_ = true;
+        return AmsErrorHelper::success();
+    }
     return write_ifs_var("external", "1");
 }
 
@@ -602,6 +641,11 @@ AmsError AmsBackendAd5xIfs::disable_bypass() {
     if (!err.success()) return err;
 
     spdlog::info("{} Disabling bypass (external) mode", backend_log_tag());
+    if (!has_ifs_vars_) {
+        std::lock_guard<std::mutex> lock(mutex_);
+        external_mode_ = false;
+        return AmsErrorHelper::success();
+    }
     return write_ifs_var("external", "0");
 }
 
@@ -659,6 +703,119 @@ AmsError AmsBackendAd5xIfs::write_ifs_var(const std::string& key,
     std::string gcode = "_IFS_VARS " + key + "=" + value;
     spdlog::debug("{} Writing IFS var: {} = {}", backend_log_tag(), key, value);
     return execute_gcode(gcode);
+}
+
+AmsError AmsBackendAd5xIfs::write_zcolor(int slot_index) {
+    if (!api_) {
+        return AmsErrorHelper::invalid_parameter("No API connection");
+    }
+
+    auto idx = static_cast<size_t>(slot_index);
+    int slot_1based = slot_index + 1;
+
+    std::string hex, material;
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        hex = colors_[idx];
+        material = materials_[idx];
+    }
+
+    if (hex.empty()) hex = "808080";
+    if (material.empty()) material = "PLA";
+
+    // Native ZMOD: CHANGE_ZCOLOR SLOT=N HEX=RRGGBB TYPE=MATERIAL
+    std::string gcode = "CHANGE_ZCOLOR SLOT=" + std::to_string(slot_1based) +
+                        " HEX=" + hex + " TYPE=" + material;
+    spdlog::info("{} Writing slot {} via CHANGE_ZCOLOR (native ZMOD)", backend_log_tag(),
+                 slot_1based);
+    return execute_gcode(gcode);
+}
+
+void AmsBackendAd5xIfs::query_zcolor_fallback() {
+    if (!client_ || !api_) return;
+
+    // Accumulate gcode response lines, then parse when prompt_show arrives
+    auto lines = std::make_shared<std::vector<std::string>>();
+    auto token = lifetime_.token();
+
+    static const std::string handler_name = "ifs_zcolor_query";
+
+    client_->register_method_callback(
+        "notify_gcode_response", handler_name,
+        [this, lines, token](const json& msg) {
+            if (token.expired()) return;
+
+            // notify_gcode_response: {"method": "notify_gcode_response", "params": ["line"]}
+            std::string line;
+            if (msg.contains("params") && msg["params"].is_array() &&
+                !msg["params"].empty() && msg["params"][0].is_string()) {
+                line = msg["params"][0].get<std::string>();
+            } else if (msg.is_array() && !msg.empty() && msg[0].is_string()) {
+                line = msg[0].get<std::string>();
+            } else {
+                return;
+            }
+
+            lines->push_back(line);
+
+            // prompt_show marks the end of the GET_ZCOLOR response
+            if (line.find("action:prompt_show") != std::string::npos) {
+                client_->unregister_method_callback("notify_gcode_response", handler_name);
+
+                std::string combined;
+                for (const auto& l : *lines) {
+                    combined += l + "\n";
+                }
+                parse_zcolor_response(combined);
+            }
+        });
+
+    // Execute GET_ZCOLOR — non-silent mode produces prompt buttons with slot data
+    execute_gcode("GET_ZCOLOR");
+}
+
+void AmsBackendAd5xIfs::parse_zcolor_response(const std::string& response) {
+    // Parse lines like:
+    //   // action:prompt_button 1: PLA|RUN_ZCOLOR SLOT=1 HEX=FFFFFF TYPE=PLA|primary|FFFFFF
+    // Extract SLOT, HEX, TYPE from the RUN_ZCOLOR command embedded in each button.
+    static const std::regex button_re(
+        R"(RUN_ZCOLOR\s+SLOT=(\d+)\s+HEX=([0-9A-Fa-f]{6})\s+TYPE=([^|\s]+))");
+
+    std::istringstream stream(response);
+    std::string line;
+    int parsed_count = 0;
+
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+
+        while (std::getline(stream, line)) {
+            std::smatch match;
+            if (std::regex_search(line, match, button_re)) {
+                int slot_1based = std::stoi(match[1].str());
+                std::string hex = match[2].str();
+                std::string type = match[3].str();
+
+                // Convert to uppercase hex
+                for (auto& c : hex) c = static_cast<char>(toupper(c));
+
+                int idx = slot_1based - 1; // ZMOD slots are 1-based
+                if (idx >= 0 && idx < NUM_PORTS) {
+                    colors_[static_cast<size_t>(idx)] = hex;
+                    materials_[static_cast<size_t>(idx)] = type;
+                    update_slot_from_state(idx);
+                    ++parsed_count;
+                }
+            }
+        }
+    } // release lock before emit_event (which also takes mutex_)
+
+    if (parsed_count > 0) {
+        spdlog::info("{} Loaded {} slots from GET_ZCOLOR (native ZMOD)", backend_log_tag(),
+                     parsed_count);
+        emit_event(EVENT_STATE_CHANGED);
+    } else {
+        spdlog::warn("{} GET_ZCOLOR returned no parseable slot data", backend_log_tag());
+    }
 }
 
 void AmsBackendAd5xIfs::detect_load_unload_completion(bool head_detected) {

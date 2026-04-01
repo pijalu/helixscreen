@@ -61,6 +61,13 @@ class Ad5xIfsTestAccess {
     static bool has_per_port_sensors(const AmsBackendAd5xIfs& b) {
         return b.has_per_port_sensors_;
     }
+    static bool has_ifs_vars(const AmsBackendAd5xIfs& b) {
+        std::lock_guard<std::mutex> lock(b.mutex_);
+        return b.has_ifs_vars_;
+    }
+    static void parse_zcolor(AmsBackendAd5xIfs& b, const std::string& response) {
+        b.parse_zcolor_response(response);
+    }
 };
 
 // Helper to build a full save_variables JSON payload
@@ -835,5 +842,134 @@ TEST_CASE("AD5X IFS native ZMOD infers active slot from head sensor", "[ams][ad5
     // Non-active slots remain EMPTY (no per-port sensor data to infer from)
     auto info1 = backend.get_slot_info(1);
     REQUIRE(info1.status == SlotStatus::EMPTY);
+}
+
+// ==========================================================================
+// 22. has_ifs_vars_ detection
+// ==========================================================================
+
+TEST_CASE("AD5X IFS has_ifs_vars detection", "[ams][ad5x_ifs]") {
+    AmsBackendAd5xIfs backend(nullptr, nullptr);
+
+    SECTION("defaults to false") {
+        REQUIRE_FALSE(Ad5xIfsTestAccess::has_ifs_vars(backend));
+    }
+
+    SECTION("set true when lessWaste variables found") {
+        Ad5xIfsTestAccess::handle_status(backend, make_save_variables(standard_variables()));
+        REQUIRE(Ad5xIfsTestAccess::has_ifs_vars(backend));
+    }
+
+    SECTION("set true when bambufy variables found") {
+        json vars;
+        vars["bambufy_colors"] = json::array({"FF0000", "00FF00", "0000FF", "FFFFFF"});
+        vars["bambufy_tools"] =
+            json::array({1, 2, 3, 4, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5});
+        Ad5xIfsTestAccess::handle_status(backend, make_save_variables(vars));
+        REQUIRE(Ad5xIfsTestAccess::has_ifs_vars(backend));
+    }
+
+    SECTION("stays false when save_variables has no recognized prefix") {
+        json vars;
+        vars["some_other_var"] = 42;
+        Ad5xIfsTestAccess::handle_status(backend, make_save_variables(vars));
+        REQUIRE_FALSE(Ad5xIfsTestAccess::has_ifs_vars(backend));
+    }
+}
+
+// ==========================================================================
+// 23. parse_zcolor_response (native ZMOD GET_ZCOLOR output)
+// ==========================================================================
+
+TEST_CASE("AD5X IFS parse_zcolor_response", "[ams][ad5x_ifs]") {
+    AmsBackendAd5xIfs backend(nullptr, nullptr);
+
+    SECTION("parses standard GET_ZCOLOR prompt output") {
+        std::string response =
+            "// action:prompt_begin Material selection\n"
+            "// action:prompt_text Extruder: None (0) | IFS: True\n"
+            "// action:prompt_text Choose a spool:\n"
+            "// action:prompt_button_group_start\n"
+            "// action:prompt_button 1: PLA/white|RUN_ZCOLOR SLOT=1 HEX=FFFFFF TYPE=PLA|primary|FFFFFF\n"
+            "// action:prompt_button 2: PETG|RUN_ZCOLOR SLOT=2 HEX=00FF00 TYPE=PETG|primary|00FF00\n"
+            "// action:prompt_button 3: ABS|RUN_ZCOLOR SLOT=3 HEX=0000FF TYPE=ABS|primary|0000FF\n"
+            "// action:prompt_button 4: TPU|RUN_ZCOLOR SLOT=4 HEX=FF0000 TYPE=TPU|primary|FF0000\n"
+            "// action:prompt_button_group_end\n"
+            "// action:prompt_footer_button Ok|RESPOND TYPE=command MSG=action:prompt_end\n"
+            "// action:prompt_show\n";
+
+        Ad5xIfsTestAccess::parse_zcolor(backend, response);
+
+        auto info0 = backend.get_slot_info(0);
+        REQUIRE(info0.color_rgb == 0xFFFFFF);
+        REQUIRE(info0.material == "PLA");
+
+        auto info1 = backend.get_slot_info(1);
+        REQUIRE(info1.color_rgb == 0x00FF00);
+        REQUIRE(info1.material == "PETG");
+
+        auto info2 = backend.get_slot_info(2);
+        REQUIRE(info2.color_rgb == 0x0000FF);
+        REQUIRE(info2.material == "ABS");
+
+        auto info3 = backend.get_slot_info(3);
+        REQUIRE(info3.color_rgb == 0xFF0000);
+        REQUIRE(info3.material == "TPU");
+    }
+
+    SECTION("handles lowercase hex") {
+        std::string response =
+            "// action:prompt_button 1: PLA|RUN_ZCOLOR SLOT=1 HEX=ff8800 TYPE=PLA|primary|ff8800\n";
+
+        Ad5xIfsTestAccess::parse_zcolor(backend, response);
+
+        auto info = backend.get_slot_info(0);
+        REQUIRE(info.color_rgb == 0xFF8800);
+        REQUIRE(info.material == "PLA");
+    }
+
+    SECTION("ignores non-button lines") {
+        std::string response =
+            "// action:prompt_begin Title\n"
+            "// action:prompt_text Some text\n"
+            "// action:prompt_show\n";
+
+        Ad5xIfsTestAccess::parse_zcolor(backend, response);
+
+        // Slots should remain at defaults
+        auto info = backend.get_slot_info(0);
+        REQUIRE(info.material.empty());
+    }
+
+    SECTION("handles partial response (only 2 slots)") {
+        std::string response =
+            "// action:prompt_button 1: PLA|RUN_ZCOLOR SLOT=1 HEX=AABBCC TYPE=PLA|primary|AABBCC\n"
+            "// action:prompt_button 3: PETG|RUN_ZCOLOR SLOT=3 HEX=112233 TYPE=PETG|primary|112233\n";
+
+        Ad5xIfsTestAccess::parse_zcolor(backend, response);
+
+        auto info0 = backend.get_slot_info(0);
+        REQUIRE(info0.color_rgb == 0xAABBCC);
+        REQUIRE(info0.material == "PLA");
+
+        // Slot 1 (port 2) not in response — stays at default
+        auto info1 = backend.get_slot_info(1);
+        REQUIRE(info1.material.empty());
+
+        auto info2 = backend.get_slot_info(2);
+        REQUIRE(info2.color_rgb == 0x112233);
+        REQUIRE(info2.material == "PETG");
+    }
+
+    SECTION("PLA-CF material with hyphen") {
+        std::string response =
+            "// action:prompt_button 2: PLA-CF|RUN_ZCOLOR SLOT=2 HEX=333333 TYPE=PLA-CF|primary|333333\n";
+
+        Ad5xIfsTestAccess::parse_zcolor(backend, response);
+
+        auto info = backend.get_slot_info(1);
+        REQUIRE(info.color_rgb == 0x333333);
+        REQUIRE(info.material == "PLA-CF");
+    }
 }
 
