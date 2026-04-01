@@ -3684,6 +3684,7 @@
       "name": "Artillery M1 Pro",
       "manufacturer": "Artillery",
       "image": "artillery-m1-pro.png",
+      "z_offset_calibration_strategy": "gcode_offset",
       "heuristics": [
         {
           "type": "kinematics_match",

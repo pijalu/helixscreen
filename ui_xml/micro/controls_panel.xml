@@ -84,14 +84,19 @@
             <icon src="chevron_right" size="xs" variant="secondary"/>
           </lv_obj>
         </lv_obj>
-        <!-- Save Z-Offset button (conditional: visible when gcode_z_offset != 0, disabled during print) -->
-        <ui_button name="btn_save_z_offset"
-                   width="100%" height="#button_height_sm" variant="success" icon="check" text="Save Z-Offset"
-                   translation_tag="Save Z-Offset" hidden="true">
-          <bind_flag_if_eq subject="gcode_z_offset" flag="hidden" ref_value="0"/>
-          <bind_state_if_eq subject="print_active" state="disabled" ref_value="1"/>
-          <event_cb trigger="clicked" callback="on_controls_save_z_offset"/>
-        </ui_button>
+        <!-- Save Z-Offset button: hidden when firmware auto-saves (GCODE_OFFSET strategy)
+             or when gcode_z_offset == 0. Wrapper binds to strategy, button binds to offset. -->
+        <lv_obj width="100%" height="content" hidden="true"
+                style_pad_all="0" style_bg_opa="0" style_border_width="0">
+          <bind_flag_if_eq subject="z_offset_can_save" flag="hidden" ref_value="0"/>
+          <ui_button name="btn_save_z_offset"
+                     width="100%" height="#button_height_sm" variant="success" icon="check" text="Save Z-Offset"
+                     translation_tag="Save Z-Offset" hidden="true">
+            <bind_flag_if_eq subject="gcode_z_offset" flag="hidden" ref_value="0"/>
+            <bind_state_if_eq subject="print_active" state="disabled" ref_value="1"/>
+            <event_cb trigger="clicked" callback="on_controls_save_z_offset"/>
+          </ui_button>
+        </lv_obj>
         <!-- Motion panel navigation button -->
         <ui_button name="btn_motion"
                    width="100%" height="#button_height_sm" icon="cursor_move" text="Motion" translation_tag="Motion">

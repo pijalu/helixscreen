@@ -25,8 +25,7 @@ void format_offset(int microns, char* buf, size_t buf_size);
 /// Execute strategy-aware save sequence:
 ///   PROBE_CALIBRATE -> Z_OFFSET_APPLY_PROBE -> SAVE_CONFIG
 ///   ENDSTOP -> Z_OFFSET_APPLY_ENDSTOP -> SAVE_CONFIG
-///   GCODE_OFFSET (no probe) -> no-op (firmware auto-saves)
-///   GCODE_OFFSET (with probe) -> persist to probe config via KlipperConfigEditor
+///   GCODE_OFFSET -> no-op (firmware/macros auto-persist)
 ///
 /// @param api           Moonraker API for gcode execution (must not be null)
 /// @param strategy      Calibration strategy determining command sequence
@@ -35,12 +34,5 @@ void format_offset(int microns, char* buf, size_t buf_size);
 void apply_and_save(MoonrakerAPI* api, ZOffsetCalibrationStrategy strategy,
                     std::function<void()> on_success,
                     std::function<void(const std::string& error)> on_error);
-
-/// Persist a gcode Z-offset value to the printer's probe config section.
-/// Used for GCODE_OFFSET strategy printers that have a probe (e.g., K1C prtouch_v2).
-/// Edits the config file directly via KlipperConfigEditor, then triggers firmware restart.
-void persist_gcode_offset_to_config(MoonrakerAPI* api, double offset_mm,
-                                     std::function<void()> on_success,
-                                     std::function<void(const std::string& error)> on_error);
 
 } // namespace helix::zoffset

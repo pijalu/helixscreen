@@ -1,3 +1,4 @@
+// ccache test
 // Copyright (C) 2025-2026 356C LLC
 // SPDX-License-Identifier: GPL-3.0-or-later
 
@@ -144,13 +145,13 @@ enum class PrintStartPhase {
  * @brief Z-offset calibration strategy — determines gcode commands for calibration and save
  *
  * Different printers need different approaches to calibrate and persist Z-offset.
- * ForgeX-mod printers use SET_GCODE_OFFSET (auto-persisted by mod macro).
- * Standard Klipper uses PROBE_CALIBRATE -> ACCEPT -> SAVE_CONFIG.
- * Endstop printers use Z_ENDSTOP_CALIBRATE -> ACCEPT -> SAVE_CONFIG.
+ * GCODE_OFFSET: firmware or macros auto-persist (FlashForge, Artillery M1, ForgeX-mod).
+ * PROBE_CALIBRATE: standard Klipper PROBE_CALIBRATE -> ACCEPT -> SAVE_CONFIG.
+ * ENDSTOP: Z_ENDSTOP_CALIBRATE -> ACCEPT -> Z_OFFSET_APPLY_ENDSTOP -> SAVE_CONFIG.
  */
 enum class ZOffsetCalibrationStrategy {
     PROBE_CALIBRATE, ///< Standard Klipper: PROBE_CALIBRATE -> ACCEPT -> SAVE_CONFIG
-    GCODE_OFFSET,    ///< ForgeX mod: G28 -> move -> G1 adjustments -> SET_GCODE_OFFSET
+    GCODE_OFFSET,    ///< Firmware/macros auto-persist (FlashForge, Artillery M1, ForgeX-mod)
     ENDSTOP ///< Endstop: Z_ENDSTOP_CALIBRATE -> ACCEPT -> Z_OFFSET_APPLY_ENDSTOP -> SAVE_CONFIG
 };
 
@@ -839,6 +840,16 @@ class PrinterState {
     lv_subject_t* get_pending_z_offset_delta_subject() {
         return motion_state_.get_pending_z_offset_delta_subject();
     }
+
+    /**
+     * @brief Get subject indicating whether Z-offset can be manually saved
+     *
+     * Returns 1 when the printer's Z-offset calibration strategy requires
+     * HelixScreen to save (PROBE_CALIBRATE or ENDSTOP), 0 when the
+     * firmware/macros handle persistence automatically (GCODE_OFFSET).
+     * Used in XML to hide the "Save Z-Offset" button for auto-saved printers.
+     */
+    lv_subject_t* get_z_offset_can_save_subject() { return &z_offset_can_save_; }
 
     /**
      * @brief Add to pending Z-offset delta (called when user adjusts Z during print)
@@ -1844,6 +1855,7 @@ class PrinterState {
     PrintStartCapabilities print_start_capabilities_; ///< Cached capabilities for current type
     ZOffsetCalibrationStrategy z_offset_calibration_strategy_ =
         ZOffsetCalibrationStrategy::PROBE_CALIBRATE;
+    lv_subject_t z_offset_can_save_{}; ///< 1 when manual save needed, 0 when auto-saved
 
     /// Last kinematics string (to skip redundant recomputation)
     std::string last_kinematics_;

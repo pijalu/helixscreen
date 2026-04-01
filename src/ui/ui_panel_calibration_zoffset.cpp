@@ -602,37 +602,11 @@ void ZOffsetCalibrationPanel::send_accept() {
 
         api_->execute_gcode(
             cmd,
-            [this, strategy]() {
-                spdlog::info("[ZOffsetCal] SET_GCODE_OFFSET applied successfully");
-
-                // Probe printers (e.g., K1C prtouch_v2) need config persistence
-                if (get_printer_state().has_probe()) {
-                    spdlog::info("[ZOffsetCal] Probe printer — persisting offset to config");
-                    auto token = lifetime_.token();
-                    helix::zoffset::apply_and_save(
-                        api_, strategy,
-                        [this, token]() {
-                            if (token.expired())
-                                return;
-                            lifetime_.defer(
-                                "ZOffsetCalibrationPanel::on_calibration_result(save_ok)",
-                                [this]() { on_calibration_result(true, ""); });
-                        },
-                        [this, token](const std::string& error) {
-                            if (token.expired())
-                                return;
-                            std::string msg = error;
-                            lifetime_.defer(
-                                "ZOffsetCalibrationPanel::on_calibration_result(save_fail)",
-                                [this, msg = std::move(msg)]() {
-                                    on_calibration_result(false, msg);
-                                });
-                        });
-                } else {
-                    lifetime_.defer(
-                        "ZOffsetCalibrationPanel::on_calibration_result(no_probe_ok)",
-                        [this]() { on_calibration_result(true, ""); });
-                }
+            [this]() {
+                spdlog::info("[ZOffsetCal] SET_GCODE_OFFSET applied — firmware/macros handle save");
+                lifetime_.defer(
+                    "ZOffsetCalibrationPanel::on_calibration_result(gcode_offset_ok)",
+                    [this]() { on_calibration_result(true, ""); });
             },
             [this](const MoonrakerError& err) {
                 spdlog::error("[ZOffsetCal] SET_GCODE_OFFSET failed: {}", err.message);
