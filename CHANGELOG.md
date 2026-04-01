@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.99.15] - 2026-04-01
+
+### Added
+- Snapmaker U1 DRM display backend with CRTC keepalive and persistent /userdata deployment
+
+### Fixed
+- Crash in temperature graph when parent object is invalid (#674)
+- Config symlinks not restored after Moonraker web-type update
+- Compressed fonts not rendering (LV_USE_FONT_COMPRESSED was disabled)
+- Barcode scanner device ID read from wrong config source (#659)
+- Chamber heater UI not showing when heater exists without a dedicated temperature sensor
+
 ## [0.99.14] - 2026-03-31
 
 ### Added
@@ -2461,6 +2473,7 @@ Initial tagged release. Foundation for all subsequent development.
 - Automated GitHub Actions release pipeline
 - One-liner installation script with platform auto-detection
 
+[0.99.15]: https://github.com/prestonbrown/helixscreen/compare/v0.99.14...v0.99.15
 [0.99.14]: https://github.com/prestonbrown/helixscreen/compare/v0.99.13...v0.99.14
 [0.99.13]: https://github.com/prestonbrown/helixscreen/compare/v0.99.12...v0.99.13
 [0.99.12]: https://github.com/prestonbrown/helixscreen/compare/v0.99.11...v0.99.12
