@@ -131,11 +131,14 @@ class MoonrakerRequestTracker {
         return default_request_timeout_ms_;
     }
 
+    /// Default timeout for Moonraker requests (tool changes, moves, etc.)
+    static constexpr uint32_t DEFAULT_REQUEST_TIMEOUT_MS = 60000; // 60s
+
   private:
     std::map<uint64_t, PendingRequest> pending_requests_;
     std::mutex requests_mutex_;
     std::atomic_uint64_t request_id_{0};
-    uint32_t default_request_timeout_ms_{30000};
+    uint32_t default_request_timeout_ms_{DEFAULT_REQUEST_TIMEOUT_MS};
 };
 
 } // namespace helix
