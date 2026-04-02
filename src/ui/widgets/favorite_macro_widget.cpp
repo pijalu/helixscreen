@@ -130,7 +130,13 @@ void FavoriteMacroWidget::set_config(const nlohmann::json& config) {
         macro_name_ = config["macro"].get<std::string>();
     }
     if (config.contains("icon") && config["icon"].is_string()) {
-        icon_name_ = config["icon"].get<std::string>();
+        std::string icon = config["icon"].get<std::string>();
+        // Validate icon exists in codepoints — reject stale/invalid names
+        if (icon.empty() || ui_icon::lookup_codepoint(icon.c_str())) {
+            icon_name_ = std::move(icon);
+        } else {
+            spdlog::warn("[FavoriteMacroWidget] Unknown icon '{}' in config, using default", icon);
+        }
     }
     if (config.contains("color") && config["color"].is_number_unsigned()) {
         icon_color_ = config["color"].get<uint32_t>();
@@ -151,8 +157,15 @@ void FavoriteMacroWidget::attach(lv_obj_t* widget_obj, lv_obj_t* parent_screen) 
     }
 
     // Cache label pointers from XML
+    icon_badge_ = lv_obj_find_by_name(widget_obj_, "fav_macro_badge");
     icon_label_ = lv_obj_find_by_name(widget_obj_, "fav_macro_icon");
     name_label_ = lv_obj_find_by_name(widget_obj_, "fav_macro_name");
+
+    if (!icon_label_ || !name_label_) {
+        spdlog::warn("[FavoriteMacroWidget] XML child lookup failed: icon={} name={} badge={} — "
+                     "widget will appear blank",
+                     icon_label_ != nullptr, name_label_ != nullptr, icon_badge_ != nullptr);
+    }
 
     update_display();
 
@@ -169,6 +182,7 @@ void FavoriteMacroWidget::detach() {
         widget_obj_ = nullptr;
     }
     parent_screen_ = nullptr;
+    icon_badge_ = nullptr;
     icon_label_ = nullptr;
     name_label_ = nullptr;
 
@@ -183,7 +197,12 @@ void FavoriteMacroWidget::on_size_changed(int colspan, int rowspan, int /*width_
     bool tall = (rowspan >= 2);
     bool wide = (colspan >= 2);
 
-    // Scale icon: md (32px) at 1×1, lg (48px) when tall or 2×2
+    // Scale badge and icon: 48px/md at 1×1, 64px/lg when tall or 2×2
+    int badge_size = tall ? 64 : 48;
+    if (icon_badge_) {
+        lv_obj_set_size(icon_badge_, badge_size, badge_size);
+        lv_obj_set_style_radius(icon_badge_, badge_size / 2, 0);
+    }
     if (icon_label_) {
         const lv_font_t* icon_font = tall ? &mdi_icons_48 : &mdi_icons_32;
         lv_obj_set_style_text_font(icon_label_, icon_font, 0);
@@ -222,8 +241,10 @@ MoonrakerAPI* FavoriteMacroWidget::get_api() const {
 }
 
 void FavoriteMacroWidget::update_display() {
+    bool unconfigured = macro_name_.empty();
+
     if (name_label_) {
-        if (macro_name_.empty()) {
+        if (unconfigured) {
             lv_label_set_text(name_label_, lv_tr("Configure"));
         } else {
             std::string display = helix::get_display_name(macro_name_, helix::DeviceType::MACRO);
@@ -232,17 +253,30 @@ void FavoriteMacroWidget::update_display() {
     }
 
     if (icon_label_) {
-        // Unconfigured: cog icon. Configured: custom icon or "play" default.
-        const char* effective_icon = "cog";
-        if (!macro_name_.empty())
+        // Unconfigured: script_text icon. Configured: custom icon or "play" default.
+        const char* effective_icon = "script_text";
+        if (!unconfigured)
             effective_icon = icon_name_.empty() ? "play" : icon_name_.c_str();
         ui_icon_set_source(icon_label_, effective_icon);
 
-        // Apply custom color when configured, otherwise theme secondary
-        if (icon_color_ != 0 && !macro_name_.empty()) {
+        // Apply custom color when configured, muted when unconfigured
+        if (icon_color_ != 0 && !unconfigured) {
             ui_icon_set_color(icon_label_, lv_color_hex(icon_color_), LV_OPA_COVER);
+        } else if (unconfigured) {
+            ui_icon_set_variant(icon_label_, "secondary");
         } else {
             ui_icon_set_variant(icon_label_, "secondary");
+        }
+    }
+
+    // Badge background: muted when unconfigured, tinted when configured
+    if (icon_badge_) {
+        if (unconfigured) {
+            lv_obj_set_style_bg_color(icon_badge_, theme_manager_get_color("secondary"), 0);
+        } else if (icon_color_ != 0) {
+            lv_obj_set_style_bg_color(icon_badge_, lv_color_hex(icon_color_), 0);
+        } else {
+            lv_obj_set_style_bg_color(icon_badge_, theme_manager_get_color("secondary"), 0);
         }
     }
 }

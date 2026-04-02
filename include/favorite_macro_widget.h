@@ -57,6 +57,7 @@ class FavoriteMacroWidget : public PanelWidget {
 
     lv_obj_t* widget_obj_ = nullptr;
     lv_obj_t* parent_screen_ = nullptr;
+    lv_obj_t* icon_badge_ = nullptr;
     lv_obj_t* icon_label_ = nullptr;
     lv_obj_t* name_label_ = nullptr;
 
