@@ -124,6 +124,15 @@ void TempGraphOverlay::on_activate() {
 
     // Create controller (handles graph creation, observers, history, auto-range)
     if (graph_container_) {
+        // Defer destruction of old controller — destroying synchronously inside
+        // process_pending() causes re-entrant drain() and corrupts LVGL's
+        // observer linked list (SIGSEGV in lv_ll_remove, #696)
+        if (controller_) {
+            auto* old = controller_.release();
+            lv_async_call(
+                [](void* p) { delete static_cast<helix::TempGraphController*>(p); }, old);
+        }
+
         helix::TempGraphControllerConfig cfg;
         // Default point_count (1200 = 20 min) — overlay is the detailed full-screen view
         cfg.axis_size = "sm";
@@ -664,7 +673,12 @@ void TempGraphOverlay::on_extruder_selected(lv_event_t* e) {
 
     self->active_extruder_name_ = name;
     self->printer_state_->set_active_extruder(name);
-    self->rebuild_extruder_selector();
+
+    // Defer rebuild — synchronous lv_obj_clean() from inside a click event callback
+    // can corrupt flex layout if layout_update_core() is mid-traversal (crash #de4ad08f)
+    self->lifetime_.defer("rebuild_extruder_selector", [self]() {
+        self->rebuild_extruder_selector();
+    });
 
     spdlog::debug("[TempGraphOverlay] Selected extruder: {}", name);
 }
