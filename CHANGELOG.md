@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.99.16] - 2026-04-01
+## [0.99.16] - 2026-04-02
 
 ### Added
 - Snapmaker U1 preset configuration with automatic wizard skip on detection
@@ -15,10 +15,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `make dev` target for faster debug builds (-O0)
 
 ### Fixed
+- Crash from unsafe DNS resolution on ARM and LVGL event chain corruption (#689, #690, #691)
 - Abort detection now uses printer.info instead of gcode probe to correctly identify Kalico (#685)
 - Snapmaker AMS backend not receiving status updates or populating slots
 - Snapmaker AMS deadlock in status handler and incorrect extruder subscriptions
 - Snapmaker active tool slot not marked as LOADED from toolhead.extruder
+- Snapmaker active tool oscillation from incremental status updates
+- Snapmaker filament slot using appended sub_type instead of base filament type
+- Snapmaker filament color chips now parsed from Moonraker metadata and gcode headers
+- Filament material matching uses compatibility groups instead of exact string comparison
+- Card gradient backgrounds stretched to fill and rendered at exact dimensions
+- Context menu item spacing increased for small screens
 - IFS filament system now stores color/type natively without lessWaste/bambufy conversion
 - Moonraker request timeout increased from 30s to 60s to prevent timeouts on slow networks
 - IFS, CFS, and SnapSwap names displayed correctly in AMS wizard
