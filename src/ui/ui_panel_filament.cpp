@@ -133,17 +133,22 @@ FilamentPanel::FilamentPanel(PrinterState& printer_state, MoonrakerAPI* api)
         [](FilamentPanel* self) { self->update_all_temps(); });
 
     // Subscribe to chamber temperature (optional - only if printer has chamber)
+    // Note: We check are_subjects_initialized() because observers may fire immediately
+    // upon registration, but subjects aren't initialized until init_subjects() is called.
     chamber_temp_observer_ = observe_int_sync<FilamentPanel>(
         printer_state_.get_chamber_temp_subject(), this, [](FilamentPanel* self, int raw) {
             self->chamber_current_ = centi_to_degrees(raw);
-            self->update_chamber_temp_display();
-            self->update_status();
+            if (self->are_subjects_initialized()) {
+                self->update_chamber_temp_display();
+                self->update_status();
+            }
         });
     chamber_target_observer_ = observe_int_sync<FilamentPanel>(
         printer_state_.get_chamber_target_subject(), this, [](FilamentPanel* self, int raw) {
             self->chamber_target_ = centi_to_degrees(raw);
-            self->update_chamber_temp_display();
-            self->update_status();
+            if (self->are_subjects_initialized()) {
+                self->update_chamber_temp_display();
+            }
         });
 
     // Subscribe to active tool changes for dynamic nozzle label + dropdown sync
@@ -157,8 +162,10 @@ FilamentPanel::FilamentPanel(PrinterState& printer_state, MoonrakerAPI* api)
         });
     update_nozzle_label();
 
-    // Initialize chamber temperature display with current value from subjects
-    update_chamber_temp_display();
+    // Note: Chamber temperature display is initialized by observer callbacks
+    // and refresh_all_displays() on panel activation.
+    // We don't call update_chamber_temp_display() here because subjects
+    // aren't initialized yet (init_subjects() is called after construction).
 }
 
 FilamentPanel::~FilamentPanel() {

@@ -139,7 +139,7 @@
       <!-- BOTTOM: Multi-Filament Card (visible when AMS or multi-tool, managed by C++) -->
       <ui_card name="ams_status_card"
                width="100%" height="0" flex_grow="1" style_radius="#border_radius" style_pad_ver="#space_xs" style_pad_hor="#space_md" style_pad_gap="#space_xxs"
-               flex_flow="column" style_flex_main_place="start" style_flex_cross_place="stretch">
+               flex_flow="column" style_flex_main_place="start" style_flex_cross_place="center">
         <!-- Header row with icon (hidden when external spool mode — no AMS) -->
         <lv_obj name="ams_card_header_row" width="100%"
                 height="content" style_pad_all="0" scrollable="false"

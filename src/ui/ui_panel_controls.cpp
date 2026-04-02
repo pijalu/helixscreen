@@ -532,16 +532,18 @@ void ControlsPanel::register_observers() {
         });
 
     // Subscribe to chamber temperature (current and target)
+    // Note: We check are_subjects_initialized() because observers may fire immediately
+    // upon registration, but subjects aren't initialized until init_subjects() is called.
     observe_int_sync<ControlsPanel>(printer_state_.get_chamber_temp_subject(), this,
                                     [](ControlsPanel* self, int value) {
                                         self->cached_chamber_temp_ = value;
-                                        if (self->active_)
+                                        if (self->are_subjects_initialized() && self->active_)
                                             self->update_chamber_temp_display();
                                     });
     observe_int_sync<ControlsPanel>(printer_state_.get_chamber_target_subject(), this,
                                     [](ControlsPanel* self, int value) {
                                         self->cached_chamber_target_ = value;
-                                        if (self->active_)
+                                        if (self->are_subjects_initialized() && self->active_)
                                             self->update_chamber_temp_display();
                                     });
 
