@@ -54,6 +54,10 @@ class AmsSubscriptionBackend : public AmsBackend {
     AmsError check_preconditions() const;
     virtual AmsError execute_gcode(const std::string& gcode);
 
+    /// Query homing status and auto-home (G28) if needed before executing gcode.
+    /// Returns immediately — homing and gcode execution happen asynchronously.
+    AmsError ensure_homed_then(std::string gcode);
+
   protected:
     // --- Hooks for derived classes ---
 

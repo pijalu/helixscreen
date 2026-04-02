@@ -558,13 +558,13 @@ AmsError AmsBackendCfs::load_filament(int slot_index) {
     if (gcode.empty()) {
         return AmsErrorHelper::invalid_slot(slot_index, 15);
     }
-    return execute_gcode(gcode);
+    return ensure_homed_then(std::move(gcode));
 }
 
 AmsError AmsBackendCfs::unload_filament(int) {
     auto err = check_preconditions();
     if (err.result != AmsResult::SUCCESS) return err;
-    return execute_gcode(unload_gcode());
+    return ensure_homed_then(unload_gcode());
 }
 
 AmsError AmsBackendCfs::select_slot(int) {
@@ -574,7 +574,7 @@ AmsError AmsBackendCfs::select_slot(int) {
 AmsError AmsBackendCfs::change_tool(int tool) {
     auto err = check_preconditions();
     if (err.result != AmsResult::SUCCESS) return err;
-    return execute_gcode(load_gcode(tool));
+    return ensure_homed_then(load_gcode(tool));
 }
 
 AmsError AmsBackendCfs::reset() {

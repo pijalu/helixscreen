@@ -96,6 +96,47 @@ struct MoonrakerError {
     }
 
     /**
+     * @brief Extract a human-readable message from Moonraker/Klipper error strings.
+     *
+     * Klipper errors often arrive as Python dict repr strings like:
+     *   {'error': 'WebRequestError', 'message': 'Must home axis first'}
+     * This extracts just the 'message' value for user-friendly display.
+     */
+    static std::string extract_friendly_message(const std::string& raw) {
+        // Look for 'message': '...' pattern (Python dict repr with single quotes)
+        static constexpr const char* key = "'message': '";
+        auto pos = raw.find(key);
+        if (pos != std::string::npos) {
+            auto start = pos + std::char_traits<char>::length(key);
+            auto end = raw.find('\'', start);
+            if (end != std::string::npos && end > start) {
+                return raw.substr(start, end - start);
+            }
+        }
+        // Also handle "message": "..." (JSON with double quotes)
+        static constexpr const char* key2 = "\"message\": \"";
+        pos = raw.find(key2);
+        if (pos == std::string::npos) {
+            static constexpr const char* key3 = "\"message\":\"";
+            pos = raw.find(key3);
+            if (pos != std::string::npos) {
+                auto start = pos + std::char_traits<char>::length(key3);
+                auto end = raw.find('"', start);
+                if (end != std::string::npos && end > start) {
+                    return raw.substr(start, end - start);
+                }
+            }
+        } else {
+            auto start = pos + std::char_traits<char>::length(key2);
+            auto end = raw.find('"', start);
+            if (end != std::string::npos && end > start) {
+                return raw.substr(start, end - start);
+            }
+        }
+        return raw;
+    }
+
+    /**
      * @brief Create error from JSON-RPC error response
      * @param error_obj JSON-RPC error object from Moonraker
      * @param method_name Method name that triggered the error
@@ -111,7 +152,7 @@ struct MoonrakerError {
         }
 
         if (error_obj.contains("message")) {
-            err.message = error_obj["message"].get<std::string>();
+            err.message = extract_friendly_message(error_obj["message"].get<std::string>());
         }
 
         if (error_obj.contains("data")) {

@@ -2117,7 +2117,7 @@ AmsError AmsBackendAfc::load_filament(int slot_index) {
         if (tool >= 0 && tool < static_cast<int>(extruders_.size())) {
             std::string cmd = "AFC_SELECT_TOOL TOOL=" + extruders_[tool].name;
             spdlog::info("[AMS AFC] Loading slot {} via toolchanger: {}", slot_index, cmd);
-            return execute_gcode(cmd);
+            return ensure_homed_then(std::move(cmd));
         }
     }
 
@@ -2126,7 +2126,7 @@ AmsError AmsBackendAfc::load_filament(int slot_index) {
     cmd << "CHANGE_TOOL LANE=" << lane_name;
 
     spdlog::info("[AMS AFC] Loading from lane {} (slot {})", lane_name, slot_index);
-    return execute_gcode(cmd.str());
+    return ensure_homed_then(cmd.str());
 }
 
 AmsError AmsBackendAfc::unload_filament(int slot_index) {
@@ -2148,11 +2148,11 @@ AmsError AmsBackendAfc::unload_filament(int slot_index) {
 
     if (num_extruders_ > 1) {
         spdlog::info("[AMS AFC] Unloading via toolchanger: AFC_UNSELECT_TOOL");
-        return execute_gcode("AFC_UNSELECT_TOOL");
+        return ensure_homed_then("AFC_UNSELECT_TOOL");
     }
 
     spdlog::info("[AMS AFC] Unloading filament");
-    return execute_gcode("TOOL_UNLOAD");
+    return ensure_homed_then("TOOL_UNLOAD");
 }
 
 AmsError AmsBackendAfc::select_slot(int slot_index) {
@@ -2208,7 +2208,7 @@ AmsError AmsBackendAfc::change_tool(int tool_number) {
     }
 
     spdlog::info("[AMS AFC] Tool change: {}", cmd);
-    return execute_gcode(cmd);
+    return ensure_homed_then(std::move(cmd));
 }
 
 // ============================================================================

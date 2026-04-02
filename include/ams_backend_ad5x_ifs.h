@@ -93,7 +93,6 @@ class AmsBackendAd5xIfs : public AmsSubscriptionBackend {
     int find_first_tool_for_port(int port_1based) const;
     bool validate_slot_index(int slot_index) const;
     void check_action_timeout();
-    AmsError ensure_homed_then(std::string gcode);
 
     // Cached state from save_variables
     // Variable prefix: "less_waste" (lessWaste/zmod) or "bambufy" — auto-detected from

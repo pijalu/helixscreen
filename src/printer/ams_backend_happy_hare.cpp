@@ -1506,7 +1506,7 @@ AmsError AmsBackendHappyHare::load_filament(int slot_index) {
     cmd << "MMU_LOAD GATE=" << slot_index;
 
     spdlog::info("[AMS HappyHare] Loading from slot {}", slot_index);
-    return execute_gcode(cmd.str());
+    return ensure_homed_then(cmd.str());
 }
 
 AmsError AmsBackendHappyHare::unload_filament(int /*slot_index*/) {
@@ -1525,7 +1525,7 @@ AmsError AmsBackendHappyHare::unload_filament(int /*slot_index*/) {
     }
 
     spdlog::info("[AMS HappyHare] Unloading filament");
-    return execute_gcode("MMU_UNLOAD");
+    return ensure_homed_then("MMU_UNLOAD");
 }
 
 AmsError AmsBackendHappyHare::select_slot(int slot_index) {
@@ -1573,7 +1573,7 @@ AmsError AmsBackendHappyHare::change_tool(int tool_number) {
     cmd << "T" << tool_number;
 
     spdlog::info("[AMS HappyHare] Tool change to T{}", tool_number);
-    return execute_gcode(cmd.str());
+    return ensure_homed_then(cmd.str());
 }
 
 // ============================================================================

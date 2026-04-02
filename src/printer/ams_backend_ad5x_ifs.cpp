@@ -421,10 +421,8 @@ AmsError AmsBackendAd5xIfs::load_filament(int slot_index) {
         system_info_.action = AmsAction::LOADING;
         action_start_time_ = std::chrono::steady_clock::now();
     }
-    // NOTE: load may also need ensure_homed_then() if users report "must home first"
-    // errors on load. Unload confirmed to need it — load not yet reported as an issue.
     spdlog::info("{} Loading filament from port {}", backend_log_tag(), port);
-    return execute_gcode("INSERT_PRUTOK_IFS PRUTOK=" + std::to_string(port));
+    return ensure_homed_then("INSERT_PRUTOK_IFS PRUTOK=" + std::to_string(port));
 }
 
 AmsError AmsBackendAd5xIfs::unload_filament(int slot_index) {
@@ -486,7 +484,7 @@ AmsError AmsBackendAd5xIfs::change_tool(int tool_number) {
         action_start_time_ = std::chrono::steady_clock::now();
     }
     spdlog::info("{} Changing to tool T{} (port {})", backend_log_tag(), tool_number, port);
-    return execute_gcode("A_CHANGE_FILAMENT CHANNEL=" + std::to_string(port));
+    return ensure_homed_then("A_CHANGE_FILAMENT CHANNEL=" + std::to_string(port));
 }
 
 // --- Recovery ---
@@ -841,60 +839,7 @@ bool AmsBackendAd5xIfs::validate_slot_index(int slot_index) const {
     return slot_index >= 0 && slot_index < NUM_PORTS;
 }
 
-AmsError AmsBackendAd5xIfs::ensure_homed_then(std::string gcode) {
-    if (!client_) {
-        return execute_gcode(gcode);
-    }
-
-    auto token = lifetime_.token();
-    auto gcode_copy = std::move(gcode);
-    client_->send_jsonrpc(
-        "printer.objects.query",
-        json{{"objects", json{{"toolhead", json::array({"homed_axes"})}}}},
-        [this, token, gcode_copy](const json& response) {
-            if (token.expired()) return;
-
-            bool needs_home = true;
-            if (response.contains("result") && response["result"].contains("status")) {
-                const auto& status = response["result"]["status"];
-                if (status.contains("toolhead") &&
-                    status["toolhead"].contains("homed_axes") &&
-                    status["toolhead"]["homed_axes"].is_string()) {
-                    std::string axes = status["toolhead"]["homed_axes"].get<std::string>();
-                    needs_home = (axes.find("xyz") == std::string::npos);
-                }
-            }
-
-            if (needs_home) {
-                spdlog::info("{} Not homed, sending G28 before operation", backend_log_tag());
-                api_->execute_gcode(
-                    "G28",
-                    [this, token, gcode_copy]() {
-                        if (token.expired()) return;
-                        spdlog::info("{} Homing complete, proceeding with: {}",
-                                     backend_log_tag(), gcode_copy);
-                        execute_gcode(gcode_copy);
-                    },
-                    [this, token](const MoonrakerError& err) {
-                        if (token.expired()) return;
-                        spdlog::error("{} Homing failed: {}", backend_log_tag(), err.message);
-                        std::lock_guard<std::mutex> lock(mutex_);
-                        system_info_.action = AmsAction::IDLE;
-                    },
-                    MoonrakerAPI::HOMING_TIMEOUT_MS);
-            } else {
-                execute_gcode(gcode_copy);
-            }
-        },
-        [this, token](const MoonrakerError& err) {
-            if (token.expired()) return;
-            spdlog::error("{} Homed axes query failed: {}", backend_log_tag(), err.message);
-            std::lock_guard<std::mutex> lock(mutex_);
-            system_info_.action = AmsAction::IDLE;
-        });
-
-    return AmsErrorHelper::success();
-}
+// ensure_homed_then() provided by AmsSubscriptionBackend
 
 void AmsBackendAd5xIfs::check_action_timeout() {
     if (system_info_.action != AmsAction::LOADING &&
