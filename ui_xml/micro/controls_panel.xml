@@ -144,14 +144,15 @@
                 <icon name="nozzle_heater_icon"
                       src="heater" size="xs" variant="secondary" clickable="false" event_bubble="true"/>
                 <text_small bind_text="controls_nozzle_label"/>
-              </lv_obj>
-              <!-- Right side: temp display + edit icon -->
-              <lv_obj width="content"
-                      height="content" flex_flow="row" style_pad_all="0" scrollable="false"
-                      style_flex_cross_place="center" style_pad_gap="#space_xs" clickable="false" event_bubble="true">
                 <temp_display name="nozzle_temp_display"
                               size="md" show_target="true" bind_current="extruder_temp" bind_target="extruder_target"
-                              event_cb="on_nozzle_temp_clicked"/>
+                              clickable="false" event_bubble="true"/>
+              </lv_obj>
+              <!-- Right side: temp display + edit icon -->
+              <lv_obj name="nozzle_temp_edit_container"
+                      width="content" height="content" flex_flow="row" style_pad_all="0" scrollable="false"
+                      style_flex_cross_place="center" style_pad_gap="#space_xs" clickable="true">
+                <event_cb trigger="clicked" callback="on_nozzle_target_edit"/>
                 <icon src="pencil" size="xs" variant="tertiary" clickable="false" event_bubble="true"/>
               </lv_obj>
             </lv_obj>
@@ -173,14 +174,15 @@
                 <icon name="bed_heater_icon"
                       src="radiator" size="xs" variant="secondary" clickable="false" event_bubble="true"/>
                 <text_small text="Bed" translation_tag="Bed"/>
-              </lv_obj>
-              <!-- Right side: temp display + edit icon -->
-              <lv_obj width="content"
-                      height="content" flex_flow="row" style_pad_all="0" scrollable="false"
-                      style_flex_cross_place="center" style_pad_gap="#space_xs" clickable="false" event_bubble="true">
                 <temp_display name="bed_temp_display"
                               size="md" show_target="true" bind_current="bed_temp" bind_target="bed_target"
-                              event_cb="on_bed_temp_clicked"/>
+                              clickable="false" event_bubble="true"/>
+              </lv_obj>
+              <!-- Right side: temp display + edit icon -->
+              <lv_obj name="bed_temp_edit_container"
+                      width="content" height="content" flex_flow="row" style_pad_all="0" scrollable="false"
+                      style_flex_cross_place="center" style_pad_gap="#space_xs" clickable="true">
+                <event_cb trigger="clicked" callback="on_bed_target_edit"/>
                 <icon src="pencil" size="xs" variant="tertiary" clickable="false" event_bubble="true"/>
               </lv_obj>
             </lv_obj>
