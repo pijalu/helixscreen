@@ -35,8 +35,8 @@
 #include "post_op_cooldown_manager.h"
 #include "power_device_state.h"
 #include "print_history_manager.h"
-#include "sensor_state.h"
 #include "screenshot.h"
+#include "sensor_state.h"
 #include "sound_manager.h"
 #include "static_panel_registry.h"
 #include "static_subject_registry.h"
@@ -89,7 +89,6 @@
 #include "ui_panel_settings.h"
 #include "ui_panel_spoolman.h"
 #include "ui_panel_step_test.h"
-#include "temperature_service.h"
 #include "ui_panel_test.h"
 #include "ui_print_tune_overlay.h"
 #include "ui_printer_status_icon.h"
@@ -116,6 +115,7 @@
 #include "android_asset_extractor.h"
 #include "data_root_resolver.h"
 #include "display_settings_manager.h"
+#include "temperature_service.h"
 #ifdef HELIX_ENABLE_SCREENSAVER
 #include "screensaver.h"
 #endif
@@ -392,6 +392,12 @@ int Application::run(int argc, char** argv) {
         return 1;
     }
 
+    // Phase 7b: Rotation probe + layout manager init
+    // Must run BEFORE register_xml_components() so that layout-specific XML overrides
+    // (e.g., ui_xml/micro/controls_panel.xml) are resolved correctly.
+    // Deferred from init_display() so lv_tr() is available for probe strings.
+    run_rotation_probe_and_layout();
+
     // Phase 8: Register XML components
     if (!register_xml_components()) {
         shutdown();
@@ -403,11 +409,6 @@ int Application::run(int argc, char** argv) {
         shutdown();
         return 1;
     }
-
-    // Phase 8c: Rotation probe + layout manager init
-    // Deferred from init_display() so lv_tr() is available for probe strings.
-    // Must run before Phase 9 (UI creation depends on layout dimensions).
-    run_rotation_probe_and_layout();
 
     // Phase 9a: Initialize core subjects and state (PrinterState, AmsState)
     // Must happen before Moonraker init because API creation needs PrinterState
@@ -709,8 +710,8 @@ bool Application::parse_args(int argc, char** argv) {
         if (auto size_str = EnvConfig::get_screen_size()) {
             if (helix::parse_screen_size_string(size_str->c_str(), m_screen_width, m_screen_height,
                                                 m_args.screen_size)) {
-                spdlog::info("[Application] Screen size from HELIX_SCREEN_SIZE: {}x{}", m_screen_width,
-                             m_screen_height);
+                spdlog::info("[Application] Screen size from HELIX_SCREEN_SIZE: {}x{}",
+                             m_screen_width, m_screen_height);
             } else {
                 spdlog::warn("[Application] Invalid HELIX_SCREEN_SIZE='{}' — use named size "
                              "(micro/tiny/small/medium/large/xlarge) or WxH (e.g. 480x400)",
@@ -1939,7 +1940,8 @@ void Application::setup_discovery_callbacks() {
             {
                 namespace fs = std::filesystem;
                 std::error_code ec;
-                std::string sentinel = AppConstants::Update::backup_fallback_dir() + "/self_restart_sentinel";
+                std::string sentinel =
+                    AppConstants::Update::backup_fallback_dir() + "/self_restart_sentinel";
                 if (fs::remove(sentinel, ec)) {
                     spdlog::info("[Application] Cleaned up self-restart sentinel");
                 }
@@ -2076,23 +2078,21 @@ void Application::setup_discovery_callbacks() {
             // Populate the external spool slot from a SpoolInfo and queue the
             // result to the UI thread. Used by both startup sync and live
             // notification paths.
-            auto sync_external_spool = [try_assign_active_spool_to_tool](
-                                           const SpoolInfo& spool,
-                                           std::string log_context) {
-                helix::ui::queue_update(
-                    [spool, try_assign_active_spool_to_tool,
-                     log_context = std::move(log_context)]() {
-                        SlotInfo slot;
-                        slot.slot_index = -2;
-                        slot.global_index = -2;
-                        apply_spool_to_slot(slot, spool);
-                        slot.spool_name = spool.display_name();
-                        slot.multi_color_hexes = spool.multi_color_hexes;
-                        AmsState::instance().set_external_spool_info(slot);
-                        try_assign_active_spool_to_tool(spool);
-                        spdlog::info("[Application] External spool {}: {} (id={})",
-                                     log_context, slot.spool_name, slot.spoolman_id);
-                    });
+            auto sync_external_spool = [try_assign_active_spool_to_tool](const SpoolInfo& spool,
+                                                                         std::string log_context) {
+                helix::ui::queue_update([spool, try_assign_active_spool_to_tool,
+                                         log_context = std::move(log_context)]() {
+                    SlotInfo slot;
+                    slot.slot_index = -2;
+                    slot.global_index = -2;
+                    apply_spool_to_slot(slot, spool);
+                    slot.spool_name = spool.display_name();
+                    slot.multi_color_hexes = spool.multi_color_hexes;
+                    AmsState::instance().set_external_spool_info(slot);
+                    try_assign_active_spool_to_tool(spool);
+                    spdlog::info("[Application] External spool {}: {} (id={})", log_context,
+                                 slot.spool_name, slot.spoolman_id);
+                });
             };
 
             // Sync external spool from Moonraker's active Spoolman spool
@@ -2101,8 +2101,7 @@ void Application::setup_discovery_callbacks() {
             {
                 MoonrakerAPI* api_for_spool = c->api;
                 api_for_spool->spoolman().get_spoolman_status(
-                    [api_for_spool,
-                     sync_external_spool](bool connected, int active_spool_id) {
+                    [api_for_spool, sync_external_spool](bool connected, int active_spool_id) {
                         if (!connected || active_spool_id <= 0) {
                             spdlog::debug("[Application] No active Spoolman spool to sync "
                                           "(connected={}, spool_id={})",
@@ -2141,8 +2140,7 @@ void Application::setup_discovery_callbacks() {
                             });
                     },
                     [](const MoonrakerError& err) {
-                        spdlog::debug("[Application] Spoolman status unavailable: {}",
-                                      err.message);
+                        spdlog::debug("[Application] Spoolman status unavailable: {}", err.message);
                     },
                     true); // silent: Spoolman not configured is normal
             }
@@ -2153,8 +2151,7 @@ void Application::setup_discovery_callbacks() {
                 MoonrakerAPI* api_for_notify = c->api;
                 c->client->register_method_callback(
                     "notify_active_spool_set", "external_spool_sync",
-                    [api_for_notify,
-                     sync_external_spool](const nlohmann::json& data) {
+                    [api_for_notify, sync_external_spool](const nlohmann::json& data) {
                         // Callback receives full JSON-RPC message — extract params
                         const auto& params_arr = data.contains("params") ? data["params"] : data;
                         int spool_id = 0;
@@ -2167,9 +2164,8 @@ void Application::setup_discovery_callbacks() {
 
                         if (spool_id <= 0) {
                             spdlog::info("[Application] Active spool cleared via notification");
-                            helix::ui::queue_update([]() {
-                                AmsState::instance().clear_external_spool_info();
-                            });
+                            helix::ui::queue_update(
+                                []() { AmsState::instance().clear_external_spool_info(); });
                             return;
                         }
 
@@ -2184,9 +2180,8 @@ void Application::setup_discovery_callbacks() {
                                 sync_external_spool(*spool_opt, "updated via notification");
                             },
                             [spool_id](const MoonrakerError& err) {
-                                spdlog::warn(
-                                    "[Application] Failed to fetch notified spool {}: {}",
-                                    spool_id, err.message);
+                                spdlog::warn("[Application] Failed to fetch notified spool {}: {}",
+                                             spool_id, err.message);
                             });
                     });
             }
