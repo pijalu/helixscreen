@@ -99,7 +99,6 @@
                   hidden="true">
             <event_cb trigger="clicked" callback="on_filament_chamber_target_tap"/>
             <bind_flag_if_eq subject="printer_has_chamber" flag="hidden" ref_value="0"/>
-            <icon src="fridge_industrial" size="xs" variant="secondary" clickable="false" event_bubble="true"/>
             <text_small text="Chamber" translation_tag="Chamber" clickable="false" event_bubble="true"/>
             <lv_obj
                     height="content" flex_flow="row" style_pad_all="0"

@@ -196,7 +196,7 @@
                     clickable="true" hidden="true">
               <bind_flag_if_eq subject="printer_has_chamber" flag="hidden" ref_value="0"/>
               <icon src="fridge_industrial" size="xs" variant="secondary" clickable="false" event_bubble="true"/>
-              <text_small text="Chamber:" translation_tag="Chamber:" clickable="false" event_bubble="true"/>
+              <text_small text="Chamb:" translation_tag="Chamb:" clickable="false" event_bubble="true"/>
               <!-- Chamber temp display + edit icon -->
               <lv_obj name="chamber_temp_edit_container"
                       width="content" height="content" flex_flow="row" style_pad_all="0" scrollable="false"
@@ -208,6 +208,12 @@
                 <icon src="pencil" size="xs" variant="tertiary" clickable="false" event_bubble="true"/>
               </lv_obj>
             </lv_obj>
+            <text_small name="chamber_status"
+                        width="100%" bind_text="controls_chamber_status" style_text_color="#text"
+                        style_text_align="right">
+              <!-- Hidden on TINY screens (breakpoint 0) -->
+              <bind_flag_if_eq subject="ui_breakpoint" flag="hidden" ref_value="0"/>
+            </text_small>
             <!-- Secondary temperature sensors list (populated dynamically) -->
             <lv_obj name="secondary_temps_list"
                     width="100%" height="content" style_pad_all="0" scrollable="false" flex_flow="column"

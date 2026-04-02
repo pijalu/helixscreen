@@ -178,6 +178,10 @@ class ControlsPanel : public PanelBase {
     char bed_status_buf_[16] = {};
     HeatingIconAnimator bed_heater_animator_;
 
+    // Chamber temperature display
+    lv_subject_t chamber_status_subject_{};
+    char chamber_status_buf_[16] = {};
+
     // Fan speed display
     lv_subject_t fan_speed_subject_{};
     char fan_speed_buf_[16] = {};
@@ -200,6 +204,7 @@ class ControlsPanel : public PanelBase {
     int cached_extruder_target_ = 0;
     int cached_bed_temp_ = 0;
     int cached_bed_target_ = 0;
+    int cached_chamber_temp_ = 0;   ///< Chamber current temperature (°C)
     int cached_chamber_target_ = 0; ///< Chamber target temperature (°C)
 
     // Temperature limits for keypad
@@ -347,6 +352,7 @@ class ControlsPanel : public PanelBase {
     // Display update helpers
     void update_nozzle_temp_display();
     void update_bed_temp_display();
+    void update_chamber_temp_display();
     void update_fan_display();
     void populate_secondary_fans();  // Build fan list from helix::PrinterState
     void populate_secondary_temps(); // Build temp sensor list from TemperatureSensorManager

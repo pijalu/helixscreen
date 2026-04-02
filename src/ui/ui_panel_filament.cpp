@@ -134,12 +134,16 @@ FilamentPanel::FilamentPanel(PrinterState& printer_state, MoonrakerAPI* api)
 
     // Subscribe to chamber temperature (optional - only if printer has chamber)
     chamber_temp_observer_ = observe_int_sync<FilamentPanel>(
-        printer_state_.get_chamber_temp_subject(), this,
-        [](FilamentPanel* self, int raw) { self->chamber_current_ = centi_to_degrees(raw); });
+        printer_state_.get_chamber_temp_subject(), this, [](FilamentPanel* self, int raw) {
+            self->chamber_current_ = centi_to_degrees(raw);
+            self->update_chamber_temp_display();
+            self->update_status();
+        });
     chamber_target_observer_ = observe_int_sync<FilamentPanel>(
         printer_state_.get_chamber_target_subject(), this, [](FilamentPanel* self, int raw) {
             self->chamber_target_ = centi_to_degrees(raw);
             self->update_chamber_temp_display();
+            self->update_status();
         });
 
     // Subscribe to active tool changes for dynamic nozzle label + dropdown sync
@@ -152,6 +156,9 @@ FilamentPanel::FilamentPanel(PrinterState& printer_state, MoonrakerAPI* api)
             }
         });
     update_nozzle_label();
+
+    // Initialize chamber temperature display with current value from subjects
+    update_chamber_temp_display();
 }
 
 FilamentPanel::~FilamentPanel() {
@@ -458,6 +465,23 @@ void FilamentPanel::update_status_icon(const char* icon_name, const char* varian
 
 void FilamentPanel::update_status() {
     const char* status_msg;
+
+    // Check if chamber is heating (higher priority when chamber target is set)
+    if (chamber_target_ > 0 && chamber_current_ < chamber_target_ - 5) {
+        // Chamber is heating
+        std::snprintf(status_buf_, sizeof(status_buf_), lv_tr("Chamber heating to %d°C..."),
+                      chamber_target_);
+        lv_subject_copy_string(&status_subject_, status_buf_);
+        update_status_icon("fire", "warning");
+        return;
+    } else if (chamber_target_ > 0 && chamber_current_ >= chamber_target_ - 5 &&
+               chamber_current_ <= chamber_target_ + 2) {
+        // Chamber at target
+        std::snprintf(status_buf_, sizeof(status_buf_), lv_tr("Chamber at %d°C"), chamber_target_);
+        lv_subject_copy_string(&status_subject_, status_buf_);
+        update_status_icon("check", "success");
+        return;
+    }
 
     if (helix::ui::temperature::is_extrusion_safe(nozzle_current_, min_extrude_temp_)) {
         // Hot enough - ready to load

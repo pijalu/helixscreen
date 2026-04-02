@@ -126,6 +126,10 @@ void ControlsPanel::init_subjects() {
     UI_MANAGED_SUBJECT_STRING(bed_status_subject_, bed_status_buf_, "Off", "controls_bed_status",
                               subjects_);
 
+    // Chamber temperature display
+    UI_MANAGED_SUBJECT_STRING(chamber_status_subject_, chamber_status_buf_, "Off",
+                              "controls_chamber_status", subjects_);
+
     // Fan speed display
     UI_MANAGED_SUBJECT_STRING(fan_speed_subject_, fan_speed_buf_, "Off", "controls_fan_speed",
                               subjects_);
@@ -433,8 +437,15 @@ void ControlsPanel::refresh_all_displays() {
     if (auto* subj = printer_state_.get_bed_target_subject()) {
         cached_bed_target_ = lv_subject_get_int(subj);
     }
+    if (auto* subj = printer_state_.get_chamber_temp_subject()) {
+        cached_chamber_temp_ = lv_subject_get_int(subj);
+    }
+    if (auto* subj = printer_state_.get_chamber_target_subject()) {
+        cached_chamber_target_ = lv_subject_get_int(subj);
+    }
     update_nozzle_temp_display();
     update_bed_temp_display();
+    update_chamber_temp_display();
     update_fan_display();
     update_nozzle_label();
     update_speed_display();
@@ -519,6 +530,20 @@ void ControlsPanel::register_observers() {
             if (self->active_)
                 self->update_bed_temp_display();
         });
+
+    // Subscribe to chamber temperature (current and target)
+    observe_int_sync<ControlsPanel>(printer_state_.get_chamber_temp_subject(), this,
+                                    [](ControlsPanel* self, int value) {
+                                        self->cached_chamber_temp_ = value;
+                                        if (self->active_)
+                                            self->update_chamber_temp_display();
+                                    });
+    observe_int_sync<ControlsPanel>(printer_state_.get_chamber_target_subject(), this,
+                                    [](ControlsPanel* self, int value) {
+                                        self->cached_chamber_target_ = value;
+                                        if (self->active_)
+                                            self->update_chamber_temp_display();
+                                    });
 
     // Subscribe to fan updates (skip formatting when hidden)
     fan_observer_ = observe_int_sync<ControlsPanel>(printer_state_.get_fan_speed_subject(), this,
@@ -662,6 +687,14 @@ void ControlsPanel::update_bed_temp_display() {
     lv_subject_copy_string(&bed_status_subject_, bed_status_buf_);
 
     bed_heater_animator_.update(cached_bed_temp_, cached_bed_target_);
+}
+
+void ControlsPanel::update_chamber_temp_display() {
+    auto result =
+        helix::ui::temperature::heater_display(cached_chamber_temp_, cached_chamber_target_);
+
+    std::snprintf(chamber_status_buf_, sizeof(chamber_status_buf_), "%s", result.status.c_str());
+    lv_subject_copy_string(&chamber_status_subject_, chamber_status_buf_);
 }
 
 void ControlsPanel::update_fan_display() {
