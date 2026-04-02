@@ -14,6 +14,8 @@ class LayoutManagerTestAccess {
         lm.name_ = "standard";
         lm.override_name_.clear();
         lm.initialized_ = false;
+        lm.width_ = 0;
+        lm.height_ = 0;
     }
 };
 
@@ -26,6 +28,34 @@ struct LayoutFixture {
         LayoutManagerTestAccess::reset(LayoutManager::instance());
     }
 };
+
+// ============================================================================
+// Screen dimensions
+// ============================================================================
+
+TEST_CASE_METHOD(LayoutFixture, "LayoutManager stores screen dimensions", "[layout-manager]") {
+    auto& lm = LayoutManager::instance();
+
+    SECTION("800x480 standard") {
+        lm.init(800, 480);
+        REQUIRE(lm.width() == 800);
+        REQUIRE(lm.height() == 480);
+    }
+    SECTION("1920x440 ultrawide") {
+        lm.init(1920, 440);
+        REQUIRE(lm.width() == 1920);
+        REQUIRE(lm.height() == 440);
+    }
+    SECTION("480x1600 portrait") {
+        lm.init(480, 1600);
+        REQUIRE(lm.width() == 480);
+        REQUIRE(lm.height() == 1600);
+    }
+    SECTION("uninitialized returns 0") {
+        REQUIRE(lm.width() == 0);
+        REQUIRE(lm.height() == 0);
+    }
+}
 
 // ============================================================================
 // Detection via init()

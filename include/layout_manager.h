@@ -28,6 +28,8 @@ class LayoutManager {
     std::string resolve_xml_path(const std::string& filename) const;
     bool has_override(const std::string& filename) const;
     bool is_standard() const;
+    int width() const { return width_; }
+    int height() const { return height_; }
 
   private:
     friend class ::LayoutManagerTestAccess;
@@ -40,6 +42,8 @@ class LayoutManager {
     std::string name_{"standard"};
     std::string override_name_;
     bool initialized_{false};
+    int width_{0};
+    int height_{0};
 };
 
 } // namespace helix

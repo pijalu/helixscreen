@@ -21,6 +21,8 @@ void LayoutManager::init(int width, int height) {
     }
     name_ = type_to_name(type_);
     initialized_ = true;
+    width_ = width;
+    height_ = height;
     spdlog::info("LayoutManager: {}x{} -> layout '{}'{}", width, height, name_,
                  override_name_.empty() ? "" : " (override)");
 }
