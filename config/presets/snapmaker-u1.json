@@ -90,6 +90,29 @@
       "unload_filament": { "label": "Unload", "gcode": "UNLOAD_FILAMENT" },
       "macro_1": { "label": "Clean Nozzle", "gcode": "HELIX_CLEAN_NOZZLE" },
       "macro_2": { "label": "Bed Level", "gcode": "HELIX_BED_MESH_IF_NEEDED" }
+    },
+    "panel_widgets": {
+      "home": {
+        "main_page_index": 0,
+        "next_page_id": 1,
+        "pages": [
+          {
+            "id": "main",
+            "widgets": [
+              { "id": "printer_image", "enabled": true, "col": 0, "row": 0, "colspan": 2, "rowspan": 2 },
+              { "id": "print_status",  "enabled": true, "col": 0, "row": 2, "colspan": 3, "rowspan": 2 },
+              { "id": "tips",          "enabled": true, "col": 2, "row": 0, "colspan": 4, "rowspan": 1 },
+              { "id": "preheat",       "enabled": true, "col": 2, "row": 1, "colspan": 4, "rowspan": 1 },
+              { "id": "temperature",   "enabled": true, "col": 3, "row": 2, "colspan": 1, "rowspan": 1 },
+              { "id": "led",           "enabled": true, "col": 4, "row": 2, "colspan": 1, "rowspan": 1 },
+              { "id": "filament",      "enabled": true, "col": 5, "row": 2, "colspan": 1, "rowspan": 1 },
+              { "id": "bed_temperature","enabled": true, "col": 3, "row": 3, "colspan": 1, "rowspan": 1 },
+              { "id": "ams",           "enabled": true, "col": 4, "row": 3, "colspan": 1, "rowspan": 1 },
+              { "id": "notifications", "enabled": true, "col": 5, "row": 3, "colspan": 1, "rowspan": 1 }
+            ]
+          }
+        ]
+      }
     }
   }
 }
