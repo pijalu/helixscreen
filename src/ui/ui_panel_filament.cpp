@@ -240,6 +240,12 @@ void FilamentPanel::init_subjects() {
 }
 
 void FilamentPanel::deinit_subjects() {
+    // Cancel any pending preheat without notification (panel is being torn down)
+    if (pending_preheat_op_ != PreheatOp::NONE) {
+        pending_preheat_op_ = PreheatOp::NONE;
+        pending_preheat_target_ = 0;
+        restore_heater_after_preheat();
+    }
     external_spool_observer_.reset();
     temp_observers_.clear();
     deinit_subjects_base(subjects_);
@@ -1759,7 +1765,12 @@ void FilamentPanel::execute_load() {
         gcode,
         [this]() {
             helix::ui::async_call(
-                [](void* ud) { static_cast<FilamentPanel*>(ud)->operation_guard_.end(); }, this);
+                [](void* ud) {
+                    auto* self = static_cast<FilamentPanel*>(ud);
+                    self->operation_guard_.end();
+                    self->restore_heater_after_preheat();
+                },
+                this);
             NOTIFY_SUCCESS(lv_tr("Filament loaded"));
         },
         [this](const MoonrakerError& error) {
@@ -1848,7 +1859,12 @@ void FilamentPanel::execute_unload() {
         gcode,
         [this]() {
             helix::ui::async_call(
-                [](void* ud) { static_cast<FilamentPanel*>(ud)->operation_guard_.end(); }, this);
+                [](void* ud) {
+                    auto* self = static_cast<FilamentPanel*>(ud);
+                    self->operation_guard_.end();
+                    self->restore_heater_after_preheat();
+                },
+                this);
             NOTIFY_SUCCESS(lv_tr("Filament unloaded"));
         },
         [this](const MoonrakerError& error) {
