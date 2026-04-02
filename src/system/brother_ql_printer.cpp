@@ -5,13 +5,11 @@
 
 #include "brother_ql_printer.h"
 #include "brother_ql_protocol.h"
+#include "safe_resolve.h"
 #include "ui_update_queue.h"
 
 #include <spdlog/spdlog.h>
 
-#include <arpa/inet.h>
-#include <netdb.h>
-#include <netinet/in.h>
 #include <sys/socket.h>
 #include <unistd.h>
 
@@ -84,19 +82,16 @@ void BrotherQLPrinter::print_label(const std::string& host, int port,
             tv.tv_sec = 10;
             setsockopt(sockfd, SOL_SOCKET, SO_SNDTIMEO, &tv, sizeof(tv));
 
-            // Resolve hostname
-            struct addrinfo hints{}, *result = nullptr;
-            hints.ai_family = AF_INET;
-            hints.ai_socktype = SOCK_STREAM;
-            int gai_err = getaddrinfo(host.c_str(), std::to_string(port).c_str(),
-                                       &hints, &result);
-            if (gai_err != 0) {
-                error = fmt::format("DNS resolve failed for {}: {}", host,
-                                    gai_strerror(gai_err));
+            // Resolve hostname (safe on ARM — avoids glibc __check_pf crash)
+            struct sockaddr_in addr{};
+            int resolve_err = helix::safe_resolve(host, port, addr);
+            if (resolve_err != 0) {
+                error = fmt::format("DNS resolve failed for {}", host);
                 spdlog::error("Brother QL: {}", error);
             } else {
                 // Connect
-                if (connect(sockfd, result->ai_addr, result->ai_addrlen) < 0) {
+                if (connect(sockfd, reinterpret_cast<struct sockaddr*>(&addr),
+                            sizeof(addr)) < 0) {
                     error = fmt::format("connect to {}:{} failed: {}", host, port,
                                         strerror(errno));
                     spdlog::error("Brother QL: {}", error);
@@ -118,7 +113,6 @@ void BrotherQLPrinter::print_label(const std::string& host, int port,
                         spdlog::info("Brother QL: sent {} bytes successfully", total_sent);
                     }
                 }
-                freeaddrinfo(result);
             }
             close(sockfd);
         }

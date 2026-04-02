@@ -22,6 +22,7 @@
 #include "niimbot_protocol.h"
 #include "phomemo_bt_printer.h"
 #include "phomemo_printer.h"
+#include "safe_resolve.h"
 #include "sheet_label_layout.h"
 #include "ui_update_queue.h"
 #include "usb_printer_detector.h"
@@ -29,8 +30,6 @@
 #include <algorithm>
 #include <thread>
 
-#include <arpa/inet.h>
-#include <netdb.h>
 #include <sys/socket.h>
 #include <unistd.h>
 
@@ -52,20 +51,17 @@ static helix::label::BrotherQLMedia query_brother_media_tcp(const std::string& h
     setsockopt(sockfd, SOL_SOCKET, SO_SNDTIMEO, &tv, sizeof(tv));
     setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
 
-    struct addrinfo hints{}, *result = nullptr;
-    hints.ai_family = AF_INET;
-    hints.ai_socktype = SOCK_STREAM;
-    if (getaddrinfo(host.c_str(), std::to_string(port).c_str(), &hints, &result) != 0) {
+    // Safe DNS resolution (avoids glibc __check_pf crash on ARM)
+    struct sockaddr_in addr{};
+    if (helix::safe_resolve(host, port, addr) != 0) {
         close(sockfd);
         return media;
     }
 
-    if (connect(sockfd, result->ai_addr, result->ai_addrlen) < 0) {
-        freeaddrinfo(result);
+    if (connect(sockfd, reinterpret_cast<struct sockaddr*>(&addr), sizeof(addr)) < 0) {
         close(sockfd);
         return media;
     }
-    freeaddrinfo(result);
 
     auto req = helix::label::brother_ql_build_status_request();
     send(sockfd, req.data(), req.size(), MSG_NOSIGNAL);
