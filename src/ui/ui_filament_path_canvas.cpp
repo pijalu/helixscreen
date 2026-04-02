@@ -2217,14 +2217,16 @@ static void filament_path_draw_cb(lv_event_t* e) {
         // - Gray the line PAST sensor to merge (we don't know extent beyond sensor)
         bool is_non_active_with_filament = !is_active_slot && has_filament;
 
-        // Line from entry to prep sensor: colored if filament present, hollow if idle
+        // Line from entry to prep sensor position.
+        // When no prep sensor exists, draw continuously through the gap.
+        int32_t line_end_y = data->slot_has_prep_sensor[i] ? (prep_y - sensor_r) : prep_y;
         if (has_filament) {
-            draw_glow_line(layer, slot_x, entry_y, slot_x, prep_y - sensor_r, lane_color,
+            draw_glow_line(layer, slot_x, entry_y, slot_x, line_end_y, lane_color,
                            lane_width);
-            draw_vertical_line(layer, slot_x, entry_y, prep_y - sensor_r, lane_color, lane_width,
+            draw_vertical_line(layer, slot_x, entry_y, line_end_y, lane_color, lane_width,
                                true, true, is_active_slot ? &active_path : nullptr);
         } else {
-            draw_hollow_vertical_line(layer, slot_x, entry_y, prep_y - sensor_r, idle_color,
+            draw_hollow_vertical_line(layer, slot_x, entry_y, line_end_y, idle_color,
                                       bg_color, line_active);
         }
 
@@ -2267,7 +2269,8 @@ static void filament_path_draw_cb(lv_event_t* e) {
             // Draw curved tube from prep to hub sensor dot
             // S-curve: CP1 below start (departs downward), CP2 above end (arrives from top)
             // cap_start=false eliminates visible endcap seam at straight→curve junction
-            int32_t start_y = prep_y + sensor_r;
+            // When no prep sensor, start curve flush with the line (no gap)
+            int32_t start_y = data->slot_has_prep_sensor[i] ? (prep_y + sensor_r) : prep_y;
             int32_t end_y = hub_top - sensor_r;
             int32_t drop = end_y - start_y;
             int32_t cp1_x = slot_x;

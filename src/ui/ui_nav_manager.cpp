@@ -29,6 +29,7 @@ using namespace helix;
 using helix::ui::observe_int_sync;
 
 #include <algorithm>
+#include <chrono>
 #include <cstdlib>
 
 // ============================================================================
@@ -765,6 +766,7 @@ void NavigationManager::nav_button_clicked_cb(lv_event_t* event) {
 }
 
 void NavigationManager::switch_to_panel_impl(int panel_id) {
+    auto switch_start = std::chrono::steady_clock::now();
     spdlog::trace("[NavigationManager] switch_to_panel_impl executing for panel {}", panel_id);
 
     // Hide ALL visible overlay panels
@@ -892,9 +894,12 @@ void NavigationManager::switch_to_panel_impl(int panel_id) {
                       panel_stack_.size());
     }
 
-    spdlog::trace("[NavigationManager] Switched to panel {}", panel_id);
     set_active((PanelId)panel_id);
     SoundManager::instance().play("nav_forward");
+
+    auto switch_elapsed = std::chrono::steady_clock::now() - switch_start;
+    spdlog::info("[NavigationManager] Panel switch to {} took {:.1f}ms", panel_id,
+                 std::chrono::duration<double, std::milli>(switch_elapsed).count());
 }
 
 // ============================================================================
