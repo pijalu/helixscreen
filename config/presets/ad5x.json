@@ -33,7 +33,8 @@
       "chamber": "fan_generic chamber_fan",
       "exhaust": "fan_generic external_fan",
       "hotend": "heater_fan heat_fan",
-      "part": "fan_generic fanM106"
+      "part": "fan_generic fanM106",
+      "aux": "fan_generic internal_fan"
     },
     "leds": {
       "strip": "led chamber_light"
@@ -61,6 +62,7 @@
         "extruder",
         "fan_generic fanM106",
         "heater_fan heat_fan",
+        "fan_generic internal_fan",
         "filament_switch_sensor e0_sensor"
       ]
     },

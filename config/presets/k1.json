@@ -15,13 +15,15 @@
     },
     "temp_sensors": {
       "bed": "heater_bed",
-      "hotend": "extruder"
+      "hotend": "extruder",
+      "chamber": "temperature_sensor chamber_temp"
     },
     "fans": {
       "chamber": "temperature_fan chamber_fan",
-      "exhaust": "",
+      "exhaust": "output_pin fan2",
       "hotend": "heater_fan hotend_fan",
-      "part": ""
+      "part": "output_pin fan0",
+      "aux": "output_pin fan1"
     },
     "leds": {
       "strip": "output_pin LED"
@@ -50,6 +52,7 @@
         "temperature_fan chamber_fan",
         "heater_fan hotend_fan",
         "output_pin LED",
+        "output_pin fan0",
         "filament_switch_sensor filament_sensor"
       ]
     },

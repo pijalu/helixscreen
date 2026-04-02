@@ -20,7 +20,7 @@
       "chamber": "temperature_sensor chamber_temp"
     },
     "fans": {
-      "chamber": "heater_fan chamber_fan",
+      "chamber": "temperature_fan chamber_fan",
       "hotend": "heater_fan hotend_fan",
       "part": "output_pin fan0",
       "aux": "output_pin fan1",

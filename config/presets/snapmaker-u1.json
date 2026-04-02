@@ -10,11 +10,15 @@
     "moonraker_port": 7125,
     "heaters": {
       "bed": "heater_bed",
-      "hotend": "extruder"
+      "hotend": "extruder",
+      "hotend1": "extruder1",
+      "hotend2": "extruder2",
+      "hotend3": "extruder3"
     },
     "temp_sensors": {
       "bed": "heater_bed",
-      "hotend": "extruder"
+      "hotend": "extruder",
+      "chamber": "temperature_sensor cavity"
     },
     "fans": {
       "chamber": "",
