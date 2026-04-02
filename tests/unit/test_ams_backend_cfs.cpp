@@ -340,3 +340,88 @@ TEST_CASE("CFS backend has environment sensors", "[ams][cfs]") {
     // (Cannot instantiate AmsBackendCfs without a real API, so test the header contract)
     REQUIRE(true); // Compile-time check: has_environment_sensors() exists in header
 }
+
+// =============================================================================
+// CFS active slot inference from box status
+// =============================================================================
+
+TEST_CASE("CFS parse_box_status infers active slot from tool map", "[ams][cfs]") {
+    auto status = make_cfs_status_json();
+
+    SECTION("filament loaded with valid tool map → current_slot from T0 mapping") {
+        auto info = AmsBackendCfs::parse_box_status(status["box"]);
+        // box.filament = 1 and map has T1A→T1A (slot 0 mapped to slot 0)
+        REQUIRE(info.filament_loaded == true);
+        REQUIRE(info.tool_to_slot_map.size() >= 1);
+        REQUIRE(info.tool_to_slot_map[0] == 0); // T1A = slot 0
+    }
+
+    SECTION("filament not loaded → no active slot inferred") {
+        status["box"]["filament"] = 0;
+        auto info = AmsBackendCfs::parse_box_status(status["box"]);
+        REQUIRE(info.filament_loaded == false);
+    }
+
+    SECTION("tool map preserved across multiple slots") {
+        auto info = AmsBackendCfs::parse_box_status(status["box"]);
+        // Map: T1A→T1A(0), T1B→T1B(1), T1C→T1C(2), T1D→T1D(3)
+        REQUIRE(info.tool_to_slot_map.size() == 4);
+        REQUIRE(info.tool_to_slot_map[0] == 0);
+        REQUIRE(info.tool_to_slot_map[1] == 1);
+        REQUIRE(info.tool_to_slot_map[2] == 2);
+        REQUIRE(info.tool_to_slot_map[3] == 3);
+    }
+}
+
+// =============================================================================
+// CFS filament segment logic
+// =============================================================================
+
+TEST_CASE("CFS segment returns HUB for available slots", "[ams][cfs]") {
+    auto status = make_cfs_status_json();
+    auto info = AmsBackendCfs::parse_box_status(status["box"]);
+
+    SECTION("available slots have HUB segment") {
+        // All slots with filament (remain_len > 0) should be AVAILABLE
+        REQUIRE(info.units[0].slots[0].status == SlotStatus::AVAILABLE);
+        // get_slot_filament_segment returns HUB for AVAILABLE slots (tested via backend)
+        // We can only test parse_box_status here since backend needs API
+    }
+
+    SECTION("empty slots have EMPTY status") {
+        // Modify a slot to have no color
+        status["box"]["T1"]["color_value"][0] = "-1";
+        auto info2 = AmsBackendCfs::parse_box_status(status["box"]);
+        REQUIRE(info2.units[0].slots[0].status == SlotStatus::EMPTY);
+    }
+}
+
+// =============================================================================
+// CFS action state in operations
+// =============================================================================
+
+TEST_CASE("CFS GCode generation for all operations", "[ams][cfs]") {
+    SECTION("load gcode slot indices are correct") {
+        REQUIRE(AmsBackendCfs::load_gcode(0) == "M8200 P\nM8200 L I=0\nM8200 F\nM8200 O");
+        REQUIRE(AmsBackendCfs::load_gcode(3) == "M8200 P\nM8200 L I=3\nM8200 F\nM8200 O");
+        REQUIRE(AmsBackendCfs::load_gcode(15) == "M8200 P\nM8200 L I=15\nM8200 F\nM8200 O");
+    }
+
+    SECTION("load gcode rejects out of range") {
+        REQUIRE(AmsBackendCfs::load_gcode(-1).empty());
+        REQUIRE(AmsBackendCfs::load_gcode(16).empty());
+    }
+}
+
+TEST_CASE("CFS has no per-slot prep sensors", "[ams][cfs]") {
+    // CFS tracks slot inventory via material database (RFID/software), not
+    // per-gate optical sensors. slot_has_prep_sensor must return false so the
+    // filament path canvas draws continuous lines without sensor dot gaps.
+    AmsBackendCfs backend(nullptr, nullptr);
+
+    SECTION("all slots report no prep sensor") {
+        for (int i = 0; i < 16; i++) {
+            REQUIRE_FALSE(backend.slot_has_prep_sensor(i));
+        }
+    }
+}

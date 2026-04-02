@@ -437,6 +437,19 @@ void AmsBackendCfs::handle_status_update(const nlohmann::json& notification) {
             system_info_.filament_loaded = new_info.filament_loaded;
             system_info_.tool_to_slot_map = std::move(new_info.tool_to_slot_map);
 
+            // Infer active slot from tool map when filament is loaded.
+            // CFS doesn't report which slot is active — derive from T0 mapping.
+            if (system_info_.filament_loaded &&
+                !system_info_.tool_to_slot_map.empty() &&
+                system_info_.tool_to_slot_map[0] >= 0) {
+                system_info_.current_slot = system_info_.tool_to_slot_map[0];
+                system_info_.current_tool = 0;
+            } else if (!system_info_.filament_loaded &&
+                       system_info_.action != AmsAction::LOADING) {
+                system_info_.current_slot = -1;
+                system_info_.current_tool = -1;
+            }
+
             // Apply user overrides over parsed RFID data (uses global slot indices)
             for (auto& unit : system_info_.units) {
                 for (size_t j = 0; j < unit.slots.size(); ++j) {
