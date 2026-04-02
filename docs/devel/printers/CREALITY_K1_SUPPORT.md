@@ -10,10 +10,10 @@ All K1 models use the Ingenic X2000E MIPS32r2 dual-core processor running Creali
 |-------|-------------|---------|------------------|--------|
 | K1 | 220 x 220 x 250 mm | 4.3" 480x800 | Standard | Untested |
 | K1C | 220 x 220 x 250 mm | 4.3" 480x800 | Tri-metal "Unicorn" nozzle | **Tested** |
-| K1 Max | 300 x 300 x 300 mm | 4.3" 480x800 | AI camera, LiDAR, ethernet | Untested |
+| K1 Max | 300 x 300 x 300 mm | 4.3" 480x800 | AI camera, LiDAR, ethernet | **Tested** |
 | K1 SE | 220 x 220 x 250 mm | 4.3" 480x800 | Budget model | Untested |
 
-## Hardware (Confirmed on K1C — 2026-03, other models untested)
+## Hardware (Confirmed on K1C and K1 Max — 2026-03)
 
 | Spec | Value |
 |------|-------|

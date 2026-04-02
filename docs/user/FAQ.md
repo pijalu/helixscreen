@@ -34,7 +34,7 @@ HelixScreen works with any Klipper-based printer running Moonraker. Tested and s
 | Creality K2 Max / K2 Plus | **Tested** | Runs natively with CFS support |
 | Creality Sonic Pad | **Supported** | 32-bit ARM, dedicated build |
 | FlashForge AD5X | **Tested** | IFS filament system integrated |
-| SOVOL SV06 / SV08 | **Testing** | Community reports welcome |
+| SOVOL SV06 / SV08 | **Tested** | Community reports welcome |
 | Elegoo Centauri Carbon 1 | **Testing** | Dedicated build target |
 | Other Klipper printers | **Should work** | Any printer with Moonraker API access |
 
