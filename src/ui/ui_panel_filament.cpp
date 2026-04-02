@@ -547,6 +547,9 @@ void FilamentPanel::update_all_temps() {
         lv_subject_set_int(&nozzle_heating_subject_,
                            (nozzle_target_ > 0 || bed_target_ > 0) ? 1 : 0);
     }
+
+    // Check if pending preheat target has been reached
+    check_pending_preheat();
 }
 
 // ============================================================================
@@ -721,9 +724,14 @@ void FilamentPanel::handle_load_button() {
         return;
     }
 
+    // Cancel existing preheat if user taps again
+    if (pending_preheat_op_ != PreheatOp::NONE) {
+        cancel_pending_preheat();
+        return;
+    }
+
     if (!is_extrusion_allowed()) {
-        NOTIFY_WARNING(lv_tr("Nozzle too cold for filament load ({}°C, min: {}°C)"), nozzle_current_,
-                       min_extrude_temp_);
+        start_preheat_for_op(PreheatOp::LOAD);
         return;
     }
 
@@ -749,9 +757,14 @@ void FilamentPanel::handle_unload_button() {
         return;
     }
 
+    // Cancel existing preheat if user taps again
+    if (pending_preheat_op_ != PreheatOp::NONE) {
+        cancel_pending_preheat();
+        return;
+    }
+
     if (!is_extrusion_allowed()) {
-        NOTIFY_WARNING(lv_tr("Nozzle too cold for filament unload ({}°C, min: {}°C)"), nozzle_current_,
-                       min_extrude_temp_);
+        start_preheat_for_op(PreheatOp::UNLOAD);
         return;
     }
 
