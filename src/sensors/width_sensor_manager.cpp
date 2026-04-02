@@ -247,8 +247,6 @@ nlohmann::json WidthSensorManager::save_config() const {
 }
 
 void WidthSensorManager::load_config_from_file() {
-    std::lock_guard<std::recursive_mutex> lock(mutex_);
-
     spdlog::debug("[WidthSensorManager] Loading config from file");
 
     Config* config = Config::get_instance();
@@ -257,41 +255,15 @@ void WidthSensorManager::load_config_from_file() {
         return;
     }
 
-    // Build path using default printer prefix
+    // Reuse load_config() to avoid deserialization drift (mirrors save_config_to_file)
     std::string base_path = config->df() + "width_sensors";
-
-    // Load per-sensor config
     try {
-        nlohmann::json& sensors_json = config->get_json(base_path + "/sensors");
-        if (sensors_json.is_array()) {
-            for (const auto& sensor_json : sensors_json) {
-                if (!sensor_json.contains("klipper_name")) {
-                    continue;
-                }
-
-                std::string klipper_name = sensor_json["klipper_name"].get<std::string>();
-                auto* sensor = find_config(klipper_name);
-
-                if (sensor) {
-                    // Update existing sensor config
-                    if (sensor_json.contains("role")) {
-                        sensor->role =
-                            width_role_from_string(sensor_json["role"].get<std::string>());
-                    }
-                    if (sensor_json.contains("enabled")) {
-                        sensor->enabled = sensor_json["enabled"].get<bool>();
-                    }
-                    spdlog::debug("[WidthSensorManager] Loaded config for {}: role={}, enabled={}",
-                                  klipper_name, width_role_to_string(sensor->role),
-                                  sensor->enabled);
-                }
-            }
-        }
+        nlohmann::json& config_json = config->get_json(base_path);
+        load_config(config_json);
     } catch (const std::exception& e) {
         spdlog::debug("[WidthSensorManager] No saved config found: {}", e.what());
     }
 
-    update_subjects();
     spdlog::info("[WidthSensorManager] Config loaded from file");
 }
 
