@@ -12,8 +12,8 @@
 #include "moonraker_client_mock_internal.h"
 #include "power_device_state.h"
 #include "printer_state.h"
-#include "sensor_state.h"
 #include "runtime_config.h"
+#include "sensor_state.h"
 
 #include <spdlog/spdlog.h>
 
@@ -42,10 +42,7 @@ static json mock_object_entry(const std::string& name, int index, int total) {
     return {{"name", name},
             {"center", {cx, cy}},
             {"polygon",
-             {{cx - hw, cy - hh},
-              {cx + hw, cy - hh},
-              {cx + hw, cy + hh},
-              {cx - hw, cy + hh}}}};
+             {{cx - hw, cy - hh}, {cx + hw, cy - hh}, {cx + hw, cy + hh}, {cx - hw, cy + hh}}}};
 }
 
 // Delegating constructor - uses default speedup of 1.0
@@ -280,9 +277,8 @@ void MoonrakerClientMock::populate_capabilities() {
         // Only include sensors with proper prefixes — skip bare heater names
         // (e.g., "extruder", "heater_bed") which are already in heaters list
         if (sensor.rfind("temperature_sensor ", 0) == 0 ||
-            sensor.rfind("temperature_fan ", 0) == 0 ||
-            sensor.rfind("tmc2240 ", 0) == 0 || sensor.rfind("tmc2209 ", 0) == 0 ||
-            sensor.rfind("tmc5160 ", 0) == 0) {
+            sensor.rfind("temperature_fan ", 0) == 0 || sensor.rfind("tmc2240 ", 0) == 0 ||
+            sensor.rfind("tmc2209 ", 0) == 0 || sensor.rfind("tmc5160 ", 0) == 0) {
             mock_objects.push_back(sensor);
         }
     }
@@ -514,7 +510,6 @@ void MoonrakerClientMock::rebuild_hardware_from_lists() {
     discovery_.hardware().parse_objects(objects);
 }
 
-
 void MoonrakerClientMock::discover_printer(
     std::function<void()> on_complete, std::function<void(const std::string& reason)> on_error) {
     spdlog::debug("[MoonrakerClientMock] Simulating hardware discovery");
@@ -619,7 +614,9 @@ void MoonrakerClientMock::discover_printer(
 
             // Set up mock sensors
             std::vector<helix::SensorInfo> mock_sensors = {
-                {"mock_energy", "Mock Energy Monitor", "mqtt",
+                {"mock_energy",
+                 "Mock Energy Monitor",
+                 "mqtt",
                  {"power", "voltage", "current", "energy"}},
             };
             nlohmann::json mock_sensor_values = {
@@ -1327,8 +1324,7 @@ int MoonrakerClientMock::gcode_script(const std::string& gcode) {
                 // Dispatch immediate position update (matches real Moonraker)
                 dispatch_status_update(
                     {{"toolhead",
-                      {{"position",
-                        {pos_x_.load(), pos_y_.load(), pos_z_.load(), 0.0}}}}});
+                      {{"position", {pos_x_.load(), pos_y_.load(), pos_z_.load(), 0.0}}}}});
             }
         }
     }
@@ -2370,23 +2366,28 @@ bool MoonrakerClientMock::start_print_internal(const std::string& filename) {
                 if (line.find("EXCLUDE_OBJECT_DEFINE") != std::string::npos) {
                     // Extract NAME= parameter
                     auto name_pos = line.find("NAME=");
-                    if (name_pos == std::string::npos) continue;
+                    if (name_pos == std::string::npos)
+                        continue;
                     std::string name;
                     size_t start = name_pos + 5;
                     if (start < line.size() && line[start] == '"') {
                         size_t end = line.find('"', start + 1);
-                        if (end != std::string::npos) name = line.substr(start + 1, end - start - 1);
+                        if (end != std::string::npos)
+                            name = line.substr(start + 1, end - start - 1);
                     } else if (start < line.size() && line[start] == '\'') {
                         size_t end = line.find('\'', start + 1);
-                        if (end != std::string::npos) name = line.substr(start + 1, end - start - 1);
+                        if (end != std::string::npos)
+                            name = line.substr(start + 1, end - start - 1);
                     } else {
                         size_t end = line.find(' ', start);
                         name = line.substr(start, end - start);
                     }
-                    if (name.empty()) continue;
+                    if (name.empty())
+                        continue;
 
                     defined_objects.push_back(name);
-                    if (mock_state_) mock_state_->add_object_name(name);
+                    if (mock_state_)
+                        mock_state_->add_object_name(name);
 
                     // Build JSON object entry with CENTER and POLYGON if present
                     json obj_entry = {{"name", name}};
@@ -2403,7 +2404,8 @@ bool MoonrakerClientMock::start_print_internal(const std::string& filename) {
                                 float cx = std::stof(center_str.substr(0, comma));
                                 float cy = std::stof(center_str.substr(comma + 1));
                                 obj_entry["center"] = {cx, cy};
-                            } catch (...) {}
+                            } catch (...) {
+                            }
                         }
                     }
 
@@ -2415,8 +2417,15 @@ bool MoonrakerClientMock::start_print_internal(const std::string& filename) {
                         int depth = 0;
                         size_t pe = ps;
                         for (; pe < line.size(); ++pe) {
-                            if (line[pe] == '[') depth++;
-                            else if (line[pe] == ']') { depth--; if (depth == 0) { pe++; break; } }
+                            if (line[pe] == '[')
+                                depth++;
+                            else if (line[pe] == ']') {
+                                depth--;
+                                if (depth == 0) {
+                                    pe++;
+                                    break;
+                                }
+                            }
                         }
                         std::string poly_str = line.substr(ps, pe - ps);
 
@@ -2425,7 +2434,8 @@ bool MoonrakerClientMock::start_print_internal(const std::string& filename) {
                         size_t pos = 0;
                         while ((pos = poly_str.find('[', pos)) != std::string::npos) {
                             size_t end = poly_str.find(']', pos);
-                            if (end == std::string::npos) break;
+                            if (end == std::string::npos)
+                                break;
                             std::string pair = poly_str.substr(pos + 1, end - pos - 1);
                             auto c = pair.find(',');
                             if (c != std::string::npos) {
@@ -2433,7 +2443,8 @@ bool MoonrakerClientMock::start_print_internal(const std::string& filename) {
                                     float px = std::stof(pair.substr(0, c));
                                     float py = std::stof(pair.substr(c + 1));
                                     polygon.push_back({px, py});
-                                } catch (...) {}
+                                } catch (...) {
+                                }
                             }
                             pos = end + 1;
                         }
@@ -3084,6 +3095,11 @@ void MoonrakerClientMock::dispatch_historical_temperatures() {
         json status_obj = {{"extruder", {{"temperature", ext_with_noise}, {"target", 0.0}}},
                            {"heater_bed", {{"temperature", bed_with_noise}, {"target", 0.0}}}};
 
+        // Add width sensor data (Hall-effect filament diameter measurement)
+        // Always include to ensure WidthSensorManager receives updates
+        status_obj["hall_filament_width_sensor"] = {
+            {"Diameter", 1.75}, {"Raw", 500.0}, {"is_active", true}};
+
         // Add historical temperature data for all temperature sensors
         for (const auto& s : discovery_.sensors()) {
             if (s.rfind("temperature_sensor ", 0) == 0) {
@@ -3558,6 +3574,11 @@ void MoonrakerClientMock::temperature_simulation_loop() {
                                        return "Ready";
                                    }
                                }()}}}};
+
+        // Add width sensor data (Hall-effect filament diameter measurement)
+        // Always include to ensure WidthSensorManager receives updates
+        status_obj["hall_filament_width_sensor"] = {
+            {"Diameter", 1.75}, {"Raw", 500.0}, {"is_active", true}};
 
         // Add klippy state if not ready (only send when abnormal)
         KlippyState klippy = klippy_state_.load();

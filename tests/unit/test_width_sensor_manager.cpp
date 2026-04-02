@@ -169,7 +169,8 @@ TEST_CASE_METHOD(WidthSensorTestFixture, "WidthSensorManager - discovery", "[wid
         REQUIRE(configs[0].sensor_name == "tsl1401cl");
         REQUIRE(configs[0].type == WidthSensorType::TSL1401CL);
         REQUIRE(configs[0].enabled == true);
-        REQUIRE(configs[0].role == WidthSensorRole::NONE);
+        // First discovered sensor is auto-assigned to FLOW_COMPENSATION role
+        REQUIRE(configs[0].role == WidthSensorRole::FLOW_COMPENSATION);
     }
 
     SECTION("Discovers Hall sensor") {
@@ -182,6 +183,8 @@ TEST_CASE_METHOD(WidthSensorTestFixture, "WidthSensorManager - discovery", "[wid
         REQUIRE(configs[0].klipper_name == "hall_filament_width_sensor");
         REQUIRE(configs[0].sensor_name == "hall");
         REQUIRE(configs[0].type == WidthSensorType::HALL);
+        // First discovered sensor is auto-assigned to FLOW_COMPENSATION role
+        REQUIRE(configs[0].role == WidthSensorRole::FLOW_COMPENSATION);
     }
 
     SECTION("Discovers multiple sensors") {
@@ -192,8 +195,12 @@ TEST_CASE_METHOD(WidthSensorTestFixture, "WidthSensorManager - discovery", "[wid
         auto configs = mgr().get_sensors();
         REQUIRE(configs[0].sensor_name == "tsl1401cl");
         REQUIRE(configs[0].type == WidthSensorType::TSL1401CL);
+        // First discovered sensor is auto-assigned to FLOW_COMPENSATION role
+        REQUIRE(configs[0].role == WidthSensorRole::FLOW_COMPENSATION);
         REQUIRE(configs[1].sensor_name == "hall");
         REQUIRE(configs[1].type == WidthSensorType::HALL);
+        // Second sensor remains unassigned (NONE)
+        REQUIRE(configs[1].role == WidthSensorRole::NONE);
     }
 
     SECTION("Ignores unrelated objects") {
@@ -340,8 +347,9 @@ TEST_CASE_METHOD(WidthSensorTestFixture, "WidthSensorManager - subject values",
                  "[width][subjects]") {
     discover_test_sensors();
 
-    SECTION("Diameter subject shows -1 when no sensor assigned to role") {
-        REQUIRE(lv_subject_get_int(mgr().get_diameter_subject()) == -1);
+    SECTION("Diameter subject shows 0 after discovery (first sensor auto-assigned)") {
+        // First sensor is auto-assigned to FLOW_COMPENSATION, diameter defaults to 0.0
+        REQUIRE(lv_subject_get_int(mgr().get_diameter_subject()) == 0);
     }
 
     SECTION("Diameter subject updates correctly (diameter x 1000)") {
@@ -431,10 +439,10 @@ TEST_CASE_METHOD(WidthSensorTestFixture, "WidthSensorManager - config persistenc
         // Should not crash
         mgr().load_config(config);
 
-        // Existing sensors should be unaffected
-        for (const auto& sensor : mgr().get_sensors()) {
-            REQUIRE(sensor.role == WidthSensorRole::NONE);
-        }
+        // Existing sensors should be unaffected (first sensor auto-assigned to FLOW_COMPENSATION)
+        auto configs = mgr().get_sensors();
+        REQUIRE(configs[0].role == WidthSensorRole::FLOW_COMPENSATION);
+        REQUIRE(configs[1].role == WidthSensorRole::NONE);
     }
 }
 
@@ -443,10 +451,12 @@ TEST_CASE_METHOD(WidthSensorTestFixture, "WidthSensorManager - config persistenc
 // ============================================================================
 
 TEST_CASE_METHOD(WidthSensorTestFixture, "WidthSensorManager - edge cases", "[width][edge]") {
-    SECTION("get_sensor_state returns nullopt for unassigned role") {
+    SECTION("get_sensor_state returns state for auto-assigned FLOW_COMPENSATION role") {
         discover_test_sensors();
+        // First sensor is auto-assigned to FLOW_COMPENSATION
         auto state = mgr().get_sensor_state(WidthSensorRole::FLOW_COMPENSATION);
-        REQUIRE_FALSE(state.has_value());
+        REQUIRE(state.has_value());
+        REQUIRE(state->diameter == 0.0f); // Default value
     }
 
     SECTION("get_sensor_state returns nullopt for NONE role") {
@@ -457,10 +467,7 @@ TEST_CASE_METHOD(WidthSensorTestFixture, "WidthSensorManager - edge cases", "[wi
 
     SECTION("is_sensor_available checks role assignment and enabled") {
         discover_test_sensors();
-        REQUIRE_FALSE(mgr().is_sensor_available(WidthSensorRole::FLOW_COMPENSATION));
-
-        mgr().set_sensor_role("tsl1401cl_filament_width_sensor",
-                              WidthSensorRole::FLOW_COMPENSATION);
+        // First sensor is auto-assigned to FLOW_COMPENSATION, so it should be available
         REQUIRE(mgr().is_sensor_available(WidthSensorRole::FLOW_COMPENSATION));
 
         mgr().set_sensor_enabled("tsl1401cl_filament_width_sensor", false);

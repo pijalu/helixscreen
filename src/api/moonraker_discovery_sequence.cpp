@@ -8,6 +8,7 @@
 #include "app_globals.h"
 #include "config.h"
 #include "helix_version.h"
+#include "hv/requests.h"
 #include "led/led_controller.h"
 #include "macro_fan_analyzer.h"
 #include "macro_param_cache.h"
@@ -16,8 +17,6 @@
 #include "power_device_state.h"
 #include "printer_state.h"
 #include "sensor_state.h"
-
-#include "hv/requests.h"
 
 #include <algorithm>
 #include <thread>
@@ -120,8 +119,7 @@ void MoonrakerDiscoverySequence::discover_power_devices() {
             spdlog::info("[Moonraker Client] Power device detection: {} devices", devices.size());
             get_printer_state().set_power_device_count(static_cast<int>(devices.size()));
             // Marshal to UI thread — set_devices creates LVGL subjects
-            auto devices_copy =
-                std::make_shared<std::vector<PowerDevice>>(std::move(devices));
+            auto devices_copy = std::make_shared<std::vector<PowerDevice>>(std::move(devices));
             helix::ui::queue_update("PowerDeviceState::set_devices", [devices_copy]() {
                 helix::PowerDeviceState::instance().set_devices(*devices_copy);
             });
@@ -264,8 +262,8 @@ void MoonrakerDiscoverySequence::continue_discovery_objects() {
             parse_objects(objects);
 
             // Early hardware discovery callback - allows AMS/MMU backends to initialize
-            // BEFORE the subscription response arrives, so they can receive initial state naturally.
-            // Copy hardware_ to prevent data races if callback defers work (#562).
+            // BEFORE the subscription response arrives, so they can receive initial state
+            // naturally. Copy hardware_ to prevent data races if callback defers work (#562).
             if (on_hardware_discovered_) {
                 spdlog::debug("[Moonraker Client] Invoking early hardware discovery callback");
                 auto hw_snapshot = hardware_;
@@ -351,11 +349,12 @@ void MoonrakerDiscoverySequence::continue_discovery_objects() {
                         if (has_webcam) {
                             spdlog::info("[Discovery] Webcam found via Moonraker: stream={}",
                                          stream_url);
-                            get_printer_state().set_webcam_available(true, stream_url,
-                                                                     snapshot_url, flip_h, flip_v);
+                            get_printer_state().set_webcam_available(true, stream_url, snapshot_url,
+                                                                     flip_h, flip_v);
                         } else {
                             // No Moonraker webcam config — probe local camera endpoints
-                            spdlog::info("[Discovery] No Moonraker webcam, probing local camera...");
+                            spdlog::info(
+                                "[Discovery] No Moonraker webcam, probing local camera...");
                             std::thread([]() {
                                 static const char* probe_urls[] = {
                                     "http://127.0.0.1:8080/?action=snapshot",
@@ -370,8 +369,8 @@ void MoonrakerDiscoverySequence::continue_discovery_objects() {
                                     req->timeout = 2;
                                     auto resp = requests::request(req);
                                     if (resp) {
-                                        spdlog::info("[Discovery] Probe {} → status {}",
-                                                     url, static_cast<int>(resp->status_code));
+                                        spdlog::info("[Discovery] Probe {} → status {}", url,
+                                                     static_cast<int>(resp->status_code));
                                     } else {
                                         spdlog::info("[Discovery] Probe {} → no response", url);
                                     }
@@ -428,8 +427,8 @@ void MoonrakerDiscoverySequence::continue_discovery_objects() {
                         // Set klippy state based on printer.info response
                         // This ensures we recognize shutdown/error states at startup
                         if (state == "shutdown" || state == "disconnected") {
-                            spdlog::warn(
-                                "[Moonraker Client] Printer is in {} state at startup", state);
+                            spdlog::warn("[Moonraker Client] Printer is in {} state at startup",
+                                         state);
                             get_printer_state().set_klippy_state(KlippyState::SHUTDOWN);
                         } else if (state == "error") {
                             spdlog::warn("[Moonraker Client] Printer is in ERROR state at startup");
@@ -451,8 +450,7 @@ void MoonrakerDiscoverySequence::continue_discovery_objects() {
                     client_.send_jsonrpc(
                         "printer.objects.query",
                         {{"objects",
-                          json::object(
-                              {{"configfile", json::array({"config", "settings"})}})}},
+                          json::object({{"configfile", json::array({"config", "settings"})}})}},
                         [this](json config_response) {
                             if (config_response.contains("result") &&
                                 config_response["result"].contains("status") &&
@@ -493,8 +491,7 @@ void MoonrakerDiscoverySequence::continue_discovery_objects() {
                                 auto* config = Config::get_instance();
                                 if (config && !macro_result.role_hints.empty()) {
                                     for (const auto& [obj_name, role] : macro_result.role_hints) {
-                                        std::string key =
-                                            config->df() + "fans/names/" + obj_name;
+                                        std::string key = config->df() + "fans/names/" + obj_name;
                                         if (config->get<std::string>(key, "").empty()) {
                                             config->set(key, role);
                                             spdlog::debug(
@@ -862,6 +859,16 @@ void MoonrakerDiscoverySequence::complete_discovery_subscription() {
     // These provide runout detection and encoder motion data
     for (const auto& sensor : filament_sensors_) {
         subscription_objects[sensor] = nullptr;
+    }
+
+    // All discovered width sensors (hall_filament_width_sensor, tsl1401cl_filament_width_sensor)
+    // These provide filament diameter measurement for flow compensation
+    if (hardware_.has_width_sensors()) {
+        for (const auto& sensor : hardware_.width_sensor_objects()) {
+            subscription_objects[sensor] = nullptr;
+        }
+        spdlog::info("[Moonraker Client] Subscribing to {} width sensors",
+                     hardware_.width_sensor_objects().size());
     }
 
     // All discovered tool objects (for toolchanger support)

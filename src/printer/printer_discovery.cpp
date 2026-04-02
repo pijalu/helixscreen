@@ -127,15 +127,7 @@ void init_subsystems_from_hardware(const PrinterDiscovery& hardware, MoonrakerAP
     if (hardware.has_width_sensors()) {
         auto& wsm = helix::sensors::WidthSensorManager::instance();
         wsm.discover(hardware.width_sensor_objects());
-        // In mock mode, auto-assign the first sensor to FLOW_COMPENSATION role
-        // so the diameter subject gets a meaningful value for UI testing
-        if (get_runtime_config()->should_mock_sensors()) {
-            auto sensors = wsm.get_sensors();
-            if (!sensors.empty()) {
-                wsm.set_sensor_role(sensors.front().klipper_name,
-                                    helix::sensors::WidthSensorRole::FLOW_COMPENSATION);
-            }
-        }
+        wsm.load_config_from_file();
         spdlog::debug("[PrinterDiscovery] Discovered {} width sensors",
                       hardware.width_sensor_objects().size());
     }

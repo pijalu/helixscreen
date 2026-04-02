@@ -17,46 +17,37 @@ static bool is_mock_kalico() {
 json get_mock_gcode_macro_config() {
     json cfg;
     cfg["gcode_macro clean_nozzle"] = {
-        {"gcode",
-         "{% set PURGE_LEN = params.PURGE_LEN|default(10)|float %}\n"
-         "{% set PURGE_TEMP = params.PURGE_TEMP|default(240)|int %}\nG1 ..."},
-        {"description",
-         "Wipe and purge the nozzle using the brush at the rear of the bed, "
-         "with configurable purge length and temperature"},
+        {"gcode", "{% set PURGE_LEN = params.PURGE_LEN|default(10)|float %}\n"
+                  "{% set PURGE_TEMP = params.PURGE_TEMP|default(240)|int %}\nG1 ..."},
+        {"description", "Wipe and purge the nozzle using the brush at the rear of the bed, "
+                        "with configurable purge length and temperature"},
         {"variable_start_x", "265"},
         {"variable_start_y", "298"},
         {"variable_wipe_qty", "4"}};
     cfg["gcode_macro print_start"] = {
-        {"gcode",
-         "{% set BED_TEMP = params.BED_TEMP|default(60)|float %}\n"
-         "{% set EXTRUDER_TEMP = params.EXTRUDER_TEMP|default(190)|float %}\n"
-         "G28\nM190 S{BED_TEMP}"},
+        {"gcode", "{% set BED_TEMP = params.BED_TEMP|default(60)|float %}\n"
+                  "{% set EXTRUDER_TEMP = params.EXTRUDER_TEMP|default(190)|float %}\n"
+                  "G28\nM190 S{BED_TEMP}"},
         {"description", "Home, heat bed and nozzle, then start printing"}};
     cfg["gcode_macro start_print"] = {
-        {"gcode",
-         "{% set BED_TEMP = params.BED_TEMP|default(60)|float %}\n"
-         "{% set EXTRUDER_TEMP = params.EXTRUDER_TEMP|default(200)|float %}\n"
-         "{% set CHAMBER_TEMP = params.CHAMBER_TEMP|default(0)|float %}\nG28"},
-        {"description",
-         "Full print start sequence: homes all axes, heats bed to target, "
-         "waits for chamber soak if specified, performs QGL and adaptive bed "
-         "mesh, then heats nozzle and primes"}};
+        {"gcode", "{% set BED_TEMP = params.BED_TEMP|default(60)|float %}\n"
+                  "{% set EXTRUDER_TEMP = params.EXTRUDER_TEMP|default(200)|float %}\n"
+                  "{% set CHAMBER_TEMP = params.CHAMBER_TEMP|default(0)|float %}\nG28"},
+        {"description", "Full print start sequence: homes all axes, heats bed to target, "
+                        "waits for chamber soak if specified, performs QGL and adaptive bed "
+                        "mesh, then heats nozzle and primes"}};
     cfg["gcode_macro pause"] = {{"gcode", "SAVE_GCODE_STATE\nBASE_PAUSE"}};
     cfg["gcode_macro resume"] = {{"gcode", "RESTORE_GCODE_STATE\nBASE_RESUME"}};
-    cfg["gcode_macro cancel_print"] = {
-        {"gcode", "TURN_OFF_HEATERS\nCANCEL_PRINT_BASE"},
-        {"description", "Cancel print and turn off heaters"}};
-    cfg["gcode_macro end_print"] = {
-        {"gcode", "G91\nG1 Z5\nG90\nTURN_OFF_HEATERS"}};
+    cfg["gcode_macro cancel_print"] = {{"gcode", "TURN_OFF_HEATERS\nCANCEL_PRINT_BASE"},
+                                       {"description", "Cancel print and turn off heaters"}};
+    cfg["gcode_macro end_print"] = {{"gcode", "G91\nG1 Z5\nG90\nTURN_OFF_HEATERS"}};
     cfg["gcode_macro load_filament"] = {
-        {"gcode",
-         "{% set TEMP = params.TEMP|default(220)|int %}\n"
-         "{% set SPEED = params.SPEED|default(300)|int %}\nM109 S{TEMP}"},
+        {"gcode", "{% set TEMP = params.TEMP|default(220)|int %}\n"
+                  "{% set SPEED = params.SPEED|default(300)|int %}\nM109 S{TEMP}"},
         {"description", "Heat nozzle and load filament"}};
-    cfg["gcode_macro unload_filament"] = {
-        {"gcode",
-         "{% set TEMP = params.TEMP|default(220)|int %}\n"
-         "M109 S{TEMP}\nG1 E-50 F300"}};
+    cfg["gcode_macro unload_filament"] = {{"gcode",
+                                           "{% set TEMP = params.TEMP|default(220)|int %}\n"
+                                           "M109 S{TEMP}\nG1 E-50 F300"}};
     return cfg;
 }
 
@@ -64,7 +55,8 @@ void register_object_handlers(std::unordered_map<std::string, MethodHandler>& re
     // printer.objects.list - List available printer objects
     // When Klippy is in STARTUP or ERROR state, Klipper returns JSON-RPC error -32601
     registry["printer.objects.list"] =
-        [](MoonrakerClientMock* self, const json& /*params*/, std::function<void(const json&)> success_cb,
+        [](MoonrakerClientMock* self, const json& /*params*/,
+           std::function<void(const json&)> success_cb,
            std::function<void(const MoonrakerError&)> error_cb) -> bool {
         auto klippy = self->get_klippy_state();
 
@@ -102,7 +94,8 @@ void register_object_handlers(std::unordered_map<std::string, MethodHandler>& re
 
     // printer.objects.query - Query printer object state
     registry["printer.objects.query"] =
-        [](MoonrakerClientMock* self, const json& params, std::function<void(const json&)> success_cb,
+        [](MoonrakerClientMock* self, const json& params,
+           std::function<void(const json&)> success_cb,
            std::function<void(const MoonrakerError&)> error_cb) -> bool {
         (void)error_cb;
         json status_obj = json::object();
@@ -292,7 +285,8 @@ void register_object_handlers(std::unordered_map<std::string, MethodHandler>& re
     // printer.objects.subscribe - Subscribe to printer object updates
     // Returns initial state with eventtime (subsequent updates come via notify_status_update)
     registry["printer.objects.subscribe"] =
-        [](MoonrakerClientMock* self, const json& params, std::function<void(const json&)> success_cb,
+        [](MoonrakerClientMock* self, const json& params,
+           std::function<void(const json&)> success_cb,
            std::function<void(const MoonrakerError&)> error_cb) -> bool {
         (void)error_cb;
 
@@ -400,6 +394,15 @@ void register_object_handlers(std::unordered_map<std::string, MethodHandler>& re
             // fan (part cooling fan)
             if (objects.contains("fan")) {
                 status_obj["fan"] = {{"speed", 0.0}, {"rpm", nullptr}};
+            }
+
+            // Width sensors (hall_filament_width_sensor, tsl1401cl_filament_width_sensor)
+            for (auto it = objects.begin(); it != objects.end(); ++it) {
+                if (it.key().find("filament_width_sensor") != std::string::npos ||
+                    it.key().find("fila_switch") != std::string::npos) {
+                    status_obj[it.key()] = {
+                        {"Diameter", 1.75}, {"Raw", 500.0}, {"is_active", true}};
+                }
             }
 
             // gcode_move

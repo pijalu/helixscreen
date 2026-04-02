@@ -10,23 +10,22 @@
 
 #include "ui_event_safety.h"
 #include "ui_nav_manager.h"
+#include "ui_status_pill.h"
 #include "ui_utils.h"
 
-#include "app_globals.h"
-#include "printer_state.h"
-#include "settings_manager.h"
-
 #include "accel_sensor_manager.h"
+#include "app_globals.h"
 #include "color_sensor_manager.h"
 #include "filament_sensor_manager.h"
 #include "filament_sensor_types.h"
 #include "humidity_sensor_manager.h"
 #include "printer_hardware.h"
+#include "printer_state.h"
 #include "probe_sensor_manager.h"
+#include "settings_manager.h"
 #include "static_panel_registry.h"
 #include "temperature_sensor_manager.h"
 #include "theme_manager.h"
-#include "ui_status_pill.h"
 #include "width_sensor_manager.h"
 
 #include <spdlog/spdlog.h>
@@ -427,26 +426,101 @@ void SensorSettingsOverlay::populate_width_sensors() {
 
     spdlog::debug("[{}] Populating width sensor list with {} sensors", get_name(), sensors.size());
 
+    // Create a row for each sensor using XML component
     for (const auto& sensor : sensors) {
-        auto* row = lv_obj_create(sensors_list);
-        lv_obj_set_width(row, lv_pct(100));
-        lv_obj_set_height(row, LV_SIZE_CONTENT);
-        lv_obj_set_style_bg_opa(row, 0, 0);
-        lv_obj_set_style_border_width(row, 0, 0);
-        lv_obj_set_style_pad_all(row, theme_manager_get_spacing("space_sm"), 0);
-        lv_obj_set_flex_flow(row, LV_FLEX_FLOW_ROW);
-        lv_obj_set_style_flex_cross_place(row, LV_FLEX_ALIGN_CENTER, 0);
-
-        auto* name_label = lv_label_create(row);
-        lv_label_set_text(name_label, sensor.sensor_name.c_str());
-        lv_obj_set_style_text_color(name_label, theme_manager_get_color("text"), 0);
-        lv_obj_set_flex_grow(name_label, 1);
-
-        auto* type_label = lv_label_create(row);
+        // Create sensor row from XML component
         const char* type_str =
             sensor.type == helix::sensors::WidthSensorType::TSL1401CL ? "TSL1401CL" : "Hall";
-        lv_label_set_text(type_label, type_str);
-        lv_obj_set_style_text_color(type_label, theme_manager_get_color("text_muted"), 0);
+        const char* attrs[] = {"sensor_name", sensor.sensor_name.c_str(), "sensor_type", type_str,
+                               nullptr};
+        auto* row = static_cast<lv_obj_t*>(lv_xml_create(sensors_list, "width_sensor_row", attrs));
+        if (!row) {
+            spdlog::error("[{}] Failed to create sensor row for {}", get_name(),
+                          sensor.sensor_name);
+            continue;
+        }
+
+        // Store klipper_name as user data for callbacks
+        char* klipper_name = static_cast<char*>(lv_malloc(sensor.klipper_name.size() + 1));
+        if (!klipper_name) {
+            spdlog::error("[{}] Failed to allocate memory for sensor name: {}", get_name(),
+                          sensor.klipper_name);
+            continue;
+        }
+        strcpy(klipper_name, sensor.klipper_name.c_str());
+        lv_obj_set_user_data(row, klipper_name);
+
+        // Register cleanup to free allocated string when row is deleted
+        lv_obj_add_event_cb(
+            row,
+            [](lv_event_t* e) {
+                lv_obj_t* obj = lv_event_get_target_obj(e);
+                char* data = static_cast<char*>(lv_obj_get_user_data(obj));
+                if (data) {
+                    lv_free(data);
+                }
+            },
+            LV_EVENT_DELETE, nullptr);
+
+        // Wire up enable toggle
+        lv_obj_t* enable_toggle = lv_obj_find_by_name(row, "enable_toggle");
+
+        if (enable_toggle) {
+            if (sensor.enabled) {
+                lv_obj_add_state(enable_toggle, LV_STATE_CHECKED);
+            } else {
+                lv_obj_remove_state(enable_toggle, LV_STATE_CHECKED);
+            }
+
+            // Pass klipper_name via event user_data
+            lv_obj_add_event_cb(
+                enable_toggle,
+                [](lv_event_t* e) {
+                    auto* klipper_name_ptr = static_cast<const char*>(lv_event_get_user_data(e));
+                    if (!klipper_name_ptr)
+                        return;
+                    auto* toggle = static_cast<lv_obj_t*>(lv_event_get_current_target(e));
+
+                    bool enabled = lv_obj_has_state(toggle, LV_STATE_CHECKED);
+
+                    auto& mgr = helix::sensors::WidthSensorManager::instance();
+                    mgr.set_sensor_enabled(klipper_name_ptr, enabled);
+                    mgr.save_config_to_file();
+                    spdlog::info("[SensorSettingsOverlay] Width sensor {} enabled: {}",
+                                 klipper_name_ptr, enabled ? "ON" : "OFF");
+                },
+                LV_EVENT_VALUE_CHANGED, klipper_name);
+        }
+
+        // Wire up role dropdown
+        lv_obj_t* role_dropdown = lv_obj_find_by_name(row, "role_dropdown");
+        if (role_dropdown) {
+            lv_dropdown_set_selected(role_dropdown, static_cast<uint32_t>(sensor.role));
+
+            // Pass klipper_name via event user_data
+            lv_obj_add_event_cb(
+                role_dropdown,
+                [](lv_event_t* e) {
+                    auto* klipper_name_ptr = static_cast<const char*>(lv_event_get_user_data(e));
+                    if (!klipper_name_ptr)
+                        return;
+                    auto* dropdown = static_cast<lv_obj_t*>(lv_event_get_current_target(e));
+
+                    // NOTE: Dropdown option order must match WidthSensorRole enum:
+                    //   0 = NONE, 1 = FLOW_COMPENSATION
+                    // See also: ui_xml/width_sensor_row.xml dropdown options
+                    int index = static_cast<int>(lv_dropdown_get_selected(dropdown));
+                    auto role = static_cast<helix::sensors::WidthSensorRole>(index);
+
+                    auto& mgr = helix::sensors::WidthSensorManager::instance();
+                    mgr.set_sensor_role(klipper_name_ptr, role);
+                    mgr.save_config_to_file();
+                    spdlog::info("[SensorSettingsOverlay] Width sensor {} role changed to {}",
+                                 klipper_name_ptr,
+                                 helix::sensors::width_role_to_display_string(role));
+                },
+                LV_EVENT_VALUE_CHANGED, klipper_name);
+        }
 
         spdlog::debug("[{}]   Created row for width sensor: {}", get_name(), sensor.sensor_name);
     }
@@ -725,8 +799,7 @@ void SensorSettingsOverlay::populate_chamber_assignment() {
         if (current == "auto") {
             lv_dropdown_set_selected(heater_dd, 0);
         } else if (current == "none") {
-            lv_dropdown_set_selected(heater_dd,
-                                     static_cast<uint32_t>(heater_names.size() + 1));
+            lv_dropdown_set_selected(heater_dd, static_cast<uint32_t>(heater_names.size() + 1));
         } else {
             for (size_t i = 0; i < heater_names.size(); i++) {
                 if (heater_names[i] == current) {
@@ -745,8 +818,8 @@ void SensorSettingsOverlay::populate_chamber_assignment() {
             heater_dd,
             [](lv_event_t* e) {
                 lv_obj_t* obj = lv_event_get_target_obj(e);
-                if (auto* data = static_cast<std::vector<std::string>*>(
-                        lv_obj_get_user_data(obj))) {
+                if (auto* data =
+                        static_cast<std::vector<std::string>*>(lv_obj_get_user_data(obj))) {
                     delete data;
                     lv_obj_set_user_data(obj, nullptr);
                 }
@@ -758,9 +831,10 @@ void SensorSettingsOverlay::populate_chamber_assignment() {
             heater_dd,
             [](lv_event_t* e) {
                 auto* dropdown = lv_event_get_target_obj(e);
-                auto* names_ptr = static_cast<std::vector<std::string>*>(
-                    lv_obj_get_user_data(dropdown));
-                if (!names_ptr) return;
+                auto* names_ptr =
+                    static_cast<std::vector<std::string>*>(lv_obj_get_user_data(dropdown));
+                if (!names_ptr)
+                    return;
 
                 uint32_t sel = lv_dropdown_get_selected(dropdown);
                 std::string value;
@@ -815,8 +889,7 @@ void SensorSettingsOverlay::populate_chamber_assignment() {
         if (current == "auto") {
             lv_dropdown_set_selected(sensor_dd, 0);
         } else if (current == "none") {
-            lv_dropdown_set_selected(sensor_dd,
-                                     static_cast<uint32_t>(sensor_names.size() + 1));
+            lv_dropdown_set_selected(sensor_dd, static_cast<uint32_t>(sensor_names.size() + 1));
         } else {
             for (size_t i = 0; i < sensor_names.size(); i++) {
                 if (sensor_names[i] == current) {
@@ -835,8 +908,8 @@ void SensorSettingsOverlay::populate_chamber_assignment() {
             sensor_dd,
             [](lv_event_t* e) {
                 lv_obj_t* obj = lv_event_get_target_obj(e);
-                if (auto* data = static_cast<std::vector<std::string>*>(
-                        lv_obj_get_user_data(obj))) {
+                if (auto* data =
+                        static_cast<std::vector<std::string>*>(lv_obj_get_user_data(obj))) {
                     delete data;
                     lv_obj_set_user_data(obj, nullptr);
                 }
@@ -848,9 +921,10 @@ void SensorSettingsOverlay::populate_chamber_assignment() {
             sensor_dd,
             [](lv_event_t* e) {
                 auto* dropdown = lv_event_get_target_obj(e);
-                auto* names_ptr = static_cast<std::vector<std::string>*>(
-                    lv_obj_get_user_data(dropdown));
-                if (!names_ptr) return;
+                auto* names_ptr =
+                    static_cast<std::vector<std::string>*>(lv_obj_get_user_data(dropdown));
+                if (!names_ptr)
+                    return;
 
                 uint32_t sel = lv_dropdown_get_selected(dropdown);
                 std::string value;
