@@ -13,12 +13,6 @@ namespace helix::ui {
 
 void create_ripple(lv_obj_t* parent, lv_coord_t x, lv_coord_t y, int start_size, int end_size,
                    int32_t duration_ms) {
-    // Skip animation if disabled
-    if (!helix::DisplaySettingsManager::instance().get_animations_enabled()) {
-        spdlog::trace("[UI Effects] Animations disabled - skipping ripple");
-        return;
-    }
-
     if (!parent) {
         return;
     }

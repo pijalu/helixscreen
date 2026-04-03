@@ -24,13 +24,13 @@
 #if HELIX_HAS_LABEL_PRINTER
 #include "ui_settings_label_printer.h"
 #endif
+#include "ui_settings_fans.h"
 #include "ui_settings_led.h"
 #include "ui_settings_machine_limits.h"
 #include "ui_settings_macro_buttons.h"
 #include "ui_settings_material_temps.h"
 #include "ui_settings_plugins.h"
 #include "ui_settings_security.h"
-#include "ui_settings_fans.h"
 #include "ui_settings_sensors.h"
 #include "ui_settings_sound.h"
 #include "ui_settings_telemetry_data.h"
@@ -295,7 +295,8 @@ void SettingsPanel::init_subjects() {
 
     // Touch calibration status - show "Calibrated" or "Not calibrated" in row description
     Config* config = Config::get_instance();
-    bool is_calibrated = config && config->get<bool>("/input/calibration/valid", false);
+    bool is_calibrated =
+        config && config->get<bool>(config->df() + "input/calibration/valid", false);
     const char* status_text = is_calibrated ? lv_tr("Calibrated") : lv_tr("Not calibrated");
     UI_MANAGED_SUBJECT_STRING(touch_cal_status_subject_, touch_cal_status_buf_, status_text,
                               "touch_cal_status", subjects_);
@@ -566,9 +567,9 @@ void SettingsPanel::setup_toggle_handlers() {
             // Without GLES, remove "3D View" option — use reduced set
             // Indices: 0=Auto, 1=2D Layers, 2=Thumbnail Only
             lv_dropdown_set_options(gcode_dropdown,
-                                       (std::string(lv_tr("Auto")) + "\n" +
-                                        lv_tr("2D Layers") + "\n" +
-                                        lv_tr("Thumbnail Only")).c_str());
+                                    (std::string(lv_tr("Auto")) + "\n" + lv_tr("2D Layers") + "\n" +
+                                     lv_tr("Thumbnail Only"))
+                                        .c_str());
             // Map stored render mode to reduced dropdown index
             int mode = display_settings.get_gcode_render_mode();
             int index = 0; // Auto
