@@ -27,14 +27,14 @@
     "fans": {
       "hotend": "heater_fan heat_fan",
       "part": "fan_generic fanM106",
-      "aux": "fan_generic pcb_fan"
+      "aux": "fan_generic chamber_fan"
     },
     "filament_sensors": {
       "master_enabled": true,
       "sensors": [
         {
           "enabled": true,
-          "klipper_name": "filament_switch_sensor e0_sensor",
+          "klipper_name": "filament_switch_sensor runout_sensor",
           "role": "runout",
           "type": "switch"
         }
@@ -46,8 +46,9 @@
         "extruder",
         "fan_generic fanM106",
         "heater_fan heat_fan",
-        "fan_generic pcb_fan",
-        "filament_switch_sensor e0_sensor"
+        "fan_generic chamber_fan",
+        "controller_fan driver_fan",
+        "filament_switch_sensor head_switch_sensor"
       ]
     },
     "default_macros": {

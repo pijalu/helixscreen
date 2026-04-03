@@ -317,7 +317,8 @@ void SettingsPanel::init_subjects() {
 
     // Touch calibration status - show "Calibrated" or "Not calibrated" in row description
     Config* config = Config::get_instance();
-    bool is_calibrated = config && config->get<bool>("/input/calibration/valid", false);
+    bool is_calibrated =
+        config && config->get<bool>(config->df() + "input/calibration/valid", false);
     const char* status_text = is_calibrated ? lv_tr("Calibrated") : lv_tr("Not calibrated");
     UI_MANAGED_SUBJECT_STRING(touch_cal_status_subject_, touch_cal_status_buf_, status_text,
                               "touch_cal_status", subjects_);

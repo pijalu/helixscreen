@@ -96,7 +96,7 @@
       "manufacturer": "FlashForge",
       "image": "flashforge-adventurer-5m.png",
       "preset": "ad5m",
-      "print_start_profile": "ad5m",
+      "print_start_profile": "forge_x",
       "probe_type": "loadcell",
       "z_offset_calibration_strategy": "firmware_managed",
       "heuristics": [
@@ -120,6 +120,20 @@
           "pattern": "tvoc",
           "confidence": 95,
           "reason": "TVOC sensor (matches stock 'tvocValue' and ForgeX 'TVOC_Level')"
+        },
+        {
+          "type": "sensor_match",
+          "field": "sensors",
+          "pattern": "load_cell",
+          "confidence": 80,
+          "reason": "Load cell sensor (ForgeX name for spool weight sensor)"
+        },
+        {
+          "type": "sensor_match",
+          "field": "sensors",
+          "pattern": "weightValue",
+          "confidence": 80,
+          "reason": "Spool weight sensor (stock firmware name)"
         },
         {
           "type": "kinematics_match",
@@ -262,7 +276,7 @@
       "manufacturer": "FlashForge",
       "image": "flashforge-adventurer-5m-pro.png",
       "preset": "ad5m_pro",
-      "print_start_profile": "ad5m",
+      "print_start_profile": "forge_x",
       "probe_type": "loadcell",
       "z_offset_calibration_strategy": "firmware_managed",
       "heuristics": [
@@ -293,6 +307,20 @@
           "pattern": "tvoc",
           "confidence": 95,
           "reason": "TVOC sensor (matches stock 'tvocValue' and ForgeX 'TVOC_Level')"
+        },
+        {
+          "type": "sensor_match",
+          "field": "sensors",
+          "pattern": "load_cell",
+          "confidence": 80,
+          "reason": "Load cell sensor (ForgeX name for spool weight sensor)"
+        },
+        {
+          "type": "sensor_match",
+          "field": "sensors",
+          "pattern": "weightValue",
+          "confidence": 80,
+          "reason": "Spool weight sensor (stock firmware name)"
         },
         {
           "type": "kinematics_match",
