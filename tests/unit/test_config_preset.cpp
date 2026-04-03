@@ -198,3 +198,43 @@ TEST_CASE_METHOD(PresetConfigFixture,
 
     TearDown();
 }
+
+TEST_CASE_METHOD(PresetConfigFixture, "Config::apply_preset_file integrates with detection flow",
+                 "[config][preset][integration]") {
+    SetUp();
+
+    // Simulate what auto_detect_and_save does: set preset then apply
+    write_preset(
+        "ad5m_pro",
+        {{"preset", "ad5m_pro"},
+         {"printer",
+          {{"fans",
+            {{"chamber", "fan_generic chamber_fan"},
+             {"exhaust", "fan_generic external_fan"},
+             {"hotend", "heater_fan heat_fan"},
+             {"part", "fan_generic fanM106"},
+             {"aux", "fan_generic internal_fan"}}},
+           {"heaters", {{"bed", "heater_bed"}, {"hotend", "extruder"}}},
+           {"temp_sensors", {{"bed", "heater_bed"}, {"hotend", "extruder"}}},
+           {"leds", {{"strip", "led chamber_light"}}},
+           {"hardware",
+            {{"expected",
+              {"heater_bed", "extruder", "fan_generic chamber_fan", "led chamber_light"}}}}}}});
+
+    // Simulate detection flow
+    config.set_preset("ad5m_pro");
+    bool applied = config.apply_preset_file("ad5m_pro");
+    REQUIRE(applied == true);
+
+    // Verify preset name was updated
+    REQUIRE(config.get_preset() == "ad5m_pro");
+
+    // Verify hardware was merged
+    REQUIRE(printer_data()["fans"].contains("chamber"));
+    REQUIRE(printer_data().contains("leds"));
+
+    // Verify non-hardware preserved
+    REQUIRE(printer_data()["moonraker_host"] == "127.0.0.1");
+
+    TearDown();
+}

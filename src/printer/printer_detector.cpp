@@ -1461,8 +1461,13 @@ bool PrinterDetector::auto_detect_and_save(const helix::PrinterDiscovery& discov
         config->set<std::string>(config->df() + helix::wizard::PRINTER_TYPE, result.type_name);
         if (!result.preset.empty()) {
             config->set_preset(result.preset);
-            spdlog::info("[PrinterDetector] Auto-detected preset '{}' for printer '{}'",
-                         result.preset, result.type_name);
+            if (config->apply_preset_file(result.preset)) {
+                spdlog::info("[PrinterDetector] Applied preset '{}' for printer '{}'",
+                             result.preset, result.type_name);
+            } else {
+                spdlog::info("[PrinterDetector] Preset '{}' set (file not applied) for '{}'",
+                             result.preset, result.type_name);
+            }
         }
         config->save();
 
