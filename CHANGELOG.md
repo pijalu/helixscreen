@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.99.18] - 2026-04-02
+
+### Added
+- Unified post-operation cooldown manager turns off extruder heater after filament operations complete (configurable delay, default 2 minutes)
+
+### Fixed
+- Touch not registering on AD5M/AD5X after upgrade — device-specific calibration removed from presets so each device calibrates during first-run wizard
+
 ## [0.99.17] - 2026-04-02
 
 ### Added
@@ -2539,6 +2547,7 @@ Initial tagged release. Foundation for all subsequent development.
 - Automated GitHub Actions release pipeline
 - One-liner installation script with platform auto-detection
 
+[0.99.18]: https://github.com/prestonbrown/helixscreen/compare/v0.99.17...v0.99.18
 [0.99.17]: https://github.com/prestonbrown/helixscreen/compare/v0.99.16...v0.99.17
 [0.99.16]: https://github.com/prestonbrown/helixscreen/compare/v0.99.15...v0.99.16
 [0.99.15]: https://github.com/prestonbrown/helixscreen/compare/v0.99.14...v0.99.15
