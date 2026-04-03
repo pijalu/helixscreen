@@ -531,6 +531,7 @@ lv_obj_t* ui_ams_mini_status_create(lv_obj_t* parent, int32_t height) {
 
     // Make clickable to open AMS panel
     lv_obj_add_flag(container, LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_set_style_opa(container, LV_OPA_70, LV_PART_MAIN | LV_STATE_PRESSED);
     lv_obj_add_event_cb(container, on_click, LV_EVENT_CLICKED, nullptr);
 
     // Initially hidden (no slots)
@@ -806,6 +807,7 @@ static void* ui_ams_mini_status_xml_create(lv_xml_parser_state_t* state, const c
 
     // Make clickable to open AMS panel
     lv_obj_add_flag(container, LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_set_style_opa(container, LV_OPA_70, LV_PART_MAIN | LV_STATE_PRESSED);
     lv_obj_add_event_cb(container, on_click, LV_EVENT_CLICKED, nullptr);
 
     // Initially hidden (no slots)
