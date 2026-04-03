@@ -34,13 +34,15 @@
 #include "printer_state.h"
 #include "runtime_config.h"
 #ifdef HELIX_ENABLE_SCREENSAVER
-#include "screensaver.h"
 #include "ui_nav_manager.h"
+
+#include "screensaver.h"
 #endif
+
+#include "ui_lock_screen.h"
 
 #include "lock_manager.h"
 #include "system/telemetry_manager.h"
-#include "ui_lock_screen.h"
 
 #include <spdlog/spdlog.h>
 
@@ -120,8 +122,8 @@ bool DisplayManager::init(const Config& config) {
     m_backend = DisplayBackend::create_auto();
     if (!m_backend) {
         spdlog::error("[DisplayManager] No display backend available");
-        TelemetryManager::instance().record_error(
-            "display", "init_failed", "no display backend available");
+        TelemetryManager::instance().record_error("display", "init_failed",
+                                                  "no display backend available");
         lv_xml_deinit();
         lv_deinit();
         return false;
@@ -194,8 +196,8 @@ bool DisplayManager::init(const Config& config) {
 
     if (!m_display) {
         spdlog::error("[DisplayManager] Failed to create display (all backends exhausted)");
-        TelemetryManager::instance().record_error(
-            "display", "init_failed", "all display backends exhausted");
+        TelemetryManager::instance().record_error("display", "init_failed",
+                                                  "all display backends exhausted");
         m_backend.reset();
         lv_xml_deinit();
         lv_deinit();
@@ -599,8 +601,8 @@ void DisplayManager::enter_sleep(int timeout_sec) {
     if (m_backlight && m_backlight->is_available() && m_sleep_backlight_off) {
         m_backlight->set_brightness(0);
     }
-    spdlog::info("[DisplayManager] Display sleeping ({}{}) after {}s",
-                 method, m_sleep_backlight_off ? "" : ", backlight kept on", timeout_sec);
+    spdlog::info("[DisplayManager] Display sleeping ({}{}) after {}s", method,
+                 m_sleep_backlight_off ? "" : ", backlight kept on", timeout_sec);
 
     // Notify subscribers (camera stream, etc.) to suspend background work
     for (auto& cb : m_sleep_callbacks) {
@@ -657,8 +659,9 @@ void DisplayManager::check_display_sleep() {
             } else {
                 // "1" or any other value: use configured type, fallback to toasters
                 auto configured = ScreensaverManager::configured_type();
-                force_type = (configured != ScreensaverType::OFF) ? configured
-                                                                   : ScreensaverType::FLYING_TOASTERS;
+                force_type = (configured != ScreensaverType::OFF)
+                                 ? configured
+                                 : ScreensaverType::FLYING_TOASTERS;
             }
             spdlog::info("[DisplayManager] HELIX_SCREENSAVER_NOW={}, forcing screensaver type {}",
                          val, static_cast<int>(force_type));
@@ -829,8 +832,7 @@ void DisplayManager::wake_display() {
                  was_sleeping ? "sleep" : "dim", brightness);
 
     // Auto-lock: show lock screen when waking from sleep or screensaver/dim
-    if ((was_sleeping || was_dimmed) &&
-        helix::LockManager::instance().auto_lock_enabled() &&
+    if ((was_sleeping || was_dimmed) && helix::LockManager::instance().auto_lock_enabled() &&
         helix::LockManager::instance().has_pin()) {
         spdlog::info("[DisplayManager] Auto-lock engaged on wake");
         helix::LockManager::instance().lock();
@@ -867,6 +869,12 @@ void DisplayManager::set_dim_timeout(int seconds) {
 void DisplayManager::restore_display_on_shutdown() {
     // Clean up software sleep overlay if active
     destroy_sleep_overlay();
+
+    // Clear framebuffer to black so the last rendered frame doesn't persist
+    // after the process exits (SIGTERM/SIGINT graceful shutdown)
+    if (m_backend) {
+        m_backend->clear_framebuffer(0x00000000);
+    }
 
     // Ensure display is awake before exiting so next app doesn't start with black screen
     int brightness = DisplaySettingsManager::instance().get_brightness();
@@ -1036,7 +1044,7 @@ bool DisplayManager::try_drm_to_fbdev_fallback(lv_display_rotation_t rot, bool s
     spdlog::warn("[DisplayManager] DRM lacks hardware rotation for {}°, "
                  "falling back to fbdev (flicker-free software rotation)",
                  static_cast<int>(rot) * 90);
-    lv_display_delete(m_display);
+    lv_display_delete(m_display); // intentional: switching backend before lv_deinit
     m_display = nullptr;
     m_backend.reset();
     m_backend = DisplayBackend::create(DisplayBackendType::FBDEV);
