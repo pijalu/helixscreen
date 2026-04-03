@@ -3008,7 +3008,10 @@ extract_release() {
         done
     fi
 
-    # Cleanup
+    # Cleanup — cd out first since we cd'd into extract_dir earlier;
+    # removing the CWD causes "getcwd: cannot access parent directories"
+    # errors in subsequent commands (#703)
+    cd / 2>/dev/null || true
     rm -rf "$extract_dir"
 
     # Remove legacy files that were shipped in older releases but are no longer needed.

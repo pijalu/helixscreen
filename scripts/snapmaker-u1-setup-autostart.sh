@@ -15,8 +15,9 @@ set -e
 
 DEPLOY_DIR="${1:-/userdata/helixscreen}"
 
-if [ ! -f "$DEPLOY_DIR/helixscreen.init" ]; then
-    echo "Error: $DEPLOY_DIR/helixscreen.init not found"
+INIT_SCRIPT="$DEPLOY_DIR/config/helixscreen.init"
+if [ ! -f "$INIT_SCRIPT" ]; then
+    echo "Error: $INIT_SCRIPT not found"
     echo "Deploy HelixScreen first, then run this script"
     exit 1
 fi
@@ -54,7 +55,7 @@ log()
 }
 
 # If HelixScreen is installed, delegate to its init script
-for helix_init in /userdata/helixscreen/helixscreen.init /opt/helixscreen/helixscreen.init; do
+for helix_init in /userdata/helixscreen/config/helixscreen.init /opt/helixscreen/config/helixscreen.init; do
     if [ -x "$helix_init" ]; then
         case "$1" in
           start)
