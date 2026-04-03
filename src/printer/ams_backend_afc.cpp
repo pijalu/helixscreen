@@ -532,8 +532,7 @@ void AmsBackendAfc::handle_status_update(const nlohmann::json& notification) {
         }
         // If an active tool's extruder updated current_slot, don't let
         // reconciliation override it with the default tool_to_slot_map
-        if (system_info_.current_slot != slot_before_extruder &&
-            system_info_.current_tool >= 0) {
+        if (system_info_.current_slot != slot_before_extruder && system_info_.current_tool >= 0) {
             extruder_set_active_slot = true;
         }
 
@@ -982,11 +981,14 @@ void AmsBackendAfc::parse_afc_state(const nlohmann::json& afc_data,
                 if (ext_data.contains("tool_stn") && ext_data["tool_stn"].is_number()) {
                     info.tool_stn = ext_data["tool_stn"].get<float>();
                 }
-                if (ext_data.contains("tool_stn_unload") && ext_data["tool_stn_unload"].is_number()) {
+                if (ext_data.contains("tool_stn_unload") &&
+                    ext_data["tool_stn_unload"].is_number()) {
                     info.tool_stn_unload = ext_data["tool_stn_unload"].get<float>();
                 }
-                if (ext_data.contains("tool_sensor_after_extruder") && ext_data["tool_sensor_after_extruder"].is_number()) {
-                    info.tool_sensor_after_extruder = ext_data["tool_sensor_after_extruder"].get<float>();
+                if (ext_data.contains("tool_sensor_after_extruder") &&
+                    ext_data["tool_sensor_after_extruder"].is_number()) {
+                    info.tool_sensor_after_extruder =
+                        ext_data["tool_sensor_after_extruder"].get<float>();
                 }
 
                 spdlog::debug("[AMS AFC] Extruder '{}': lane_loaded='{}', {} lanes", ext_name,
@@ -1315,8 +1317,7 @@ void AmsBackendAfc::parse_afc_buffer(const std::string& buffer_name, const nlohm
     }
 }
 
-void AmsBackendAfc::parse_afc_extruder(const std::string& ext_name,
-                                       const nlohmann::json& data) {
+void AmsBackendAfc::parse_afc_extruder(const std::string& ext_name, const nlohmann::json& data) {
     // Parse AFC_extruder object for toolhead sensors
     // {
     //   "tool_start_status": true,   // Toolhead entry sensor
@@ -1352,8 +1353,8 @@ void AmsBackendAfc::parse_afc_extruder(const std::string& ext_name,
 
                 // Only update current_slot if this extruder is the active tool
                 // or no authoritative source has set it yet
-                bool is_active_tool = (system_info_.current_tool >= 0) &&
-                                      (ext_tool == system_info_.current_tool);
+                bool is_active_tool =
+                    (system_info_.current_tool >= 0) && (ext_tool == system_info_.current_tool);
                 if (system_info_.current_slot < 0 || is_active_tool) {
                     current_lane_name_ = lane;
                     system_info_.current_slot = loaded_slot;
@@ -1438,6 +1439,12 @@ void AmsBackendAfc::parse_afc_unit_object(AfcUnitInfo& unit_info, const nlohmann
 
     if (has_direct && has_hub_routed) {
         unit_info.topology = PathTopology::MIXED;
+    } else if (has_hub_routed && unit_info.extruders.size() > 1 &&
+               unit_info.extruders.size() == unit_info.lanes.size()) {
+        // Each lane has its own hub AND its own extruder — parallel topology
+        // with hub sensors along independent filament paths (e.g., ACE Pro as
+        // lane loader through AFC: 4 lanes, 4 hubs, 4 extruders, 1 unit).
+        unit_info.topology = PathTopology::PARALLEL;
     } else if (has_hub_routed) {
         unit_info.topology = PathTopology::HUB;
     } else if (has_direct && unit_info.extruders.size() > 1) {
@@ -1470,8 +1477,8 @@ void AmsBackendAfc::parse_afc_unit_object(AfcUnitInfo& unit_info, const nlohmann
                       units_with_lanes, unit_infos_.size());
         rebuild_unit_map_from_klipper();
     } else {
-        spdlog::debug("[AMS AFC] Waiting for unit data: {}/{} units have lanes",
-                      units_with_lanes, unit_infos_.size());
+        spdlog::debug("[AMS AFC] Waiting for unit data: {}/{} units have lanes", units_with_lanes,
+                      unit_infos_.size());
     }
 }
 
@@ -1543,7 +1550,8 @@ void AmsBackendAfc::detect_afc_version() {
     client_->send_jsonrpc(
         "server.database.get_item", params,
         [this, token](const nlohmann::json& response) {
-            if (token.expired()) return;
+            if (token.expired())
+                return;
             bool should_query_lane_data = false;
 
             if (response.contains("value") && response["value"].is_object()) {
@@ -1590,7 +1598,8 @@ void AmsBackendAfc::detect_afc_version() {
             }
         },
         [this, token](const MoonrakerError& err) {
-            if (token.expired()) return;
+            if (token.expired())
+                return;
             spdlog::warn("[AMS AFC] Could not detect AFC version: {}", err.message);
             std::lock_guard<std::mutex> lock(mutex_);
             afc_version_ = "unknown";
@@ -1688,7 +1697,8 @@ void AmsBackendAfc::query_initial_state() {
     client_->send_jsonrpc(
         "printer.objects.query", params,
         [this, token](const nlohmann::json& response) {
-            if (token.expired()) return;
+            if (token.expired())
+                return;
             // Response structure: {"jsonrpc": "2.0", "result": {"eventtime": ..., "status": {...}},
             // "id": ...}
             if (response.contains("result") && response["result"].contains("status") &&
@@ -1727,7 +1737,8 @@ void AmsBackendAfc::query_lane_data() {
     client_->send_jsonrpc(
         "server.database.get_item", params,
         [this, token](const nlohmann::json& response) {
-            if (token.expired()) return;
+            if (token.expired())
+                return;
             if (response.contains("value") && response["value"].is_object()) {
                 {
                     std::lock_guard<std::mutex> lock(mutex_);
@@ -1938,13 +1949,13 @@ void AmsBackendAfc::reorganize_slots() {
     for (auto& [name, lanes] : sorted_units) {
         std::sort(lanes.begin(), lanes.end(), natural_less);
     }
-    std::sort(sorted_units.begin(), sorted_units.end(),
-              [](const auto& a, const auto& b) {
-                  int min_a = a.second.empty() ? INT_MAX : trailing_number(a.second.front());
-                  int min_b = b.second.empty() ? INT_MAX : trailing_number(b.second.front());
-                  if (min_a != min_b) return min_a < min_b;
-                  return a.first < b.first;
-              });
+    std::sort(sorted_units.begin(), sorted_units.end(), [](const auto& a, const auto& b) {
+        int min_a = a.second.empty() ? INT_MAX : trailing_number(a.second.front());
+        int min_b = b.second.empty() ? INT_MAX : trailing_number(b.second.front());
+        if (min_a != min_b)
+            return min_a < min_b;
+        return a.first < b.first;
+    });
     slots_.reorganize(sorted_units);
 
     // Rebuild system_info_.units for unit-level metadata (connected, topology,
@@ -2373,8 +2384,8 @@ AmsError AmsBackendAfc::set_slot_info(int slot_index, const SlotInfo& info, bool
         // Send gcode even when version is unknown — SET_SPOOL_ID has existed
         // since well before v1.0.20. Silently skipping gcode for unknown
         // versions caused issue #644 (spool assignment bypassed AFC).
-        if (persist && (version_at_least("1.0.20") || afc_version_ == "unknown" ||
-                        afc_version_.empty())) {
+        if (persist &&
+            (version_at_least("1.0.20") || afc_version_ == "unknown" || afc_version_.empty())) {
             if (afc_version_ == "unknown" || afc_version_.empty()) {
                 spdlog::debug("[AMS AFC] Version unknown, attempting gcode persistence anyway");
             }
@@ -2678,7 +2689,8 @@ void AmsBackendAfc::load_afc_configs() {
     // ensuring all parser writes are visible before the main thread reads them.
     auto token = lifetime_.token();
     auto check_done = [this, token, loads_remaining]() {
-        if (token.expired()) return;
+        if (token.expired())
+            return;
         if (loads_remaining->fetch_sub(1) == 1) {
             // Both loads complete — release barrier ensures parser state is visible
             configs_loading_.store(false, std::memory_order_relaxed);
@@ -2858,23 +2870,48 @@ std::vector<helix::printer::DeviceAction> AmsBackendAfc::get_device_actions() co
             std::string tool_label = " (T" + std::to_string(i) + ")";
 
             actions.push_back(
-                DeviceAction{"tool_stn" + suffix, "Sensor to Nozzle" + tool_label,
-                             "ruler", "toolhead",
+                DeviceAction{"tool_stn" + suffix,
+                             "Sensor to Nozzle" + tool_label,
+                             "ruler",
+                             "toolhead",
                              "Distance from toolhead sensor to nozzle for T" + std::to_string(i),
-                             ActionType::SLIDER, std::any(ext.tool_stn), {},
-                             0.0f, 200.0f, "mm", -1, true, ""});
-            actions.push_back(
-                DeviceAction{"tool_stn_unload" + suffix, "Unload Distance" + tool_label,
-                             "ruler", "toolhead",
-                             "Retraction distance for T" + std::to_string(i),
-                             ActionType::SLIDER, std::any(ext.tool_stn_unload), {},
-                             0.0f, 200.0f, "mm", -1, true, ""});
-            actions.push_back(
-                DeviceAction{"tool_sensor_after_extruder" + suffix, "Post-Sensor Clear" + tool_label,
-                             "ruler", "toolhead",
-                             "Extra clear distance for T" + std::to_string(i),
-                             ActionType::SLIDER, std::any(ext.tool_sensor_after_extruder), {},
-                             0.0f, 100.0f, "mm", -1, true, ""});
+                             ActionType::SLIDER,
+                             std::any(ext.tool_stn),
+                             {},
+                             0.0f,
+                             200.0f,
+                             "mm",
+                             -1,
+                             true,
+                             ""});
+            actions.push_back(DeviceAction{"tool_stn_unload" + suffix,
+                                           "Unload Distance" + tool_label,
+                                           "ruler",
+                                           "toolhead",
+                                           "Retraction distance for T" + std::to_string(i),
+                                           ActionType::SLIDER,
+                                           std::any(ext.tool_stn_unload),
+                                           {},
+                                           0.0f,
+                                           200.0f,
+                                           "mm",
+                                           -1,
+                                           true,
+                                           ""});
+            actions.push_back(DeviceAction{"tool_sensor_after_extruder" + suffix,
+                                           "Post-Sensor Clear" + tool_label,
+                                           "ruler",
+                                           "toolhead",
+                                           "Extra clear distance for T" + std::to_string(i),
+                                           ActionType::SLIDER,
+                                           std::any(ext.tool_sensor_after_extruder),
+                                           {},
+                                           0.0f,
+                                           100.0f,
+                                           "mm",
+                                           -1,
+                                           true,
+                                           ""});
         }
     }
 
@@ -2886,39 +2923,48 @@ std::vector<helix::printer::DeviceAction> AmsBackendAfc::get_device_actions() co
         for (int i = 0; i < static_cast<int>(extruders_.size()); ++i) {
             auto it = toolhead_led_state_.find(i);
             bool led_on = (it != toolhead_led_state_.end()) && it->second;
-            actions.push_back(
-                DeviceAction{fmt::format("led_extruder_T{}", i),
-                             fmt::format("{} Toolhead LED (T{})", led_on ? "Turn Off" : "Turn On", i),
-                             led_on ? "lightbulb-off" : "lightbulb-on",
-                             "setup",
-                             fmt::format("Toggle toolhead LED for T{}", i),
-                             ActionType::BUTTON,
-                             {},
-                             {},
-                             0,
-                             0,
-                             "",
-                             -1,
-                             true,
-                             ""});
+            actions.push_back(DeviceAction{
+                fmt::format("led_extruder_T{}", i),
+                fmt::format("{} Toolhead LED (T{})", led_on ? "Turn Off" : "Turn On", i),
+                led_on ? "lightbulb-off" : "lightbulb-on",
+                "setup",
+                fmt::format("Toggle toolhead LED for T{}", i),
+                ActionType::BUTTON,
+                {},
+                {},
+                0,
+                0,
+                "",
+                -1,
+                true,
+                ""});
         }
     }
 
     // Per-lane dist_hub actions in the hub section
     for (int i = 0; i < slots_.slot_count(); ++i) {
         const auto* entry = slots_.get(i);
-        if (!entry) continue;
+        if (!entry)
+            continue;
         std::string lane_name = slots_.name_of(i);
         std::string id = "dist_hub_" + lane_name;
         std::string label = "Hub Distance (" + lane_name + ")";
         float current = entry->sensors.dist_hub;
 
-        actions.push_back(
-            DeviceAction{id, label, "ruler", "hub",
-                         "Distance from lane extruder to hub",
-                         ActionType::SLIDER, std::any(current), {},
-                         0.0f, std::max(500.0f, current * 1.5f), "mm",
-                         i, true, ""});
+        actions.push_back(DeviceAction{id,
+                                       label,
+                                       "ruler",
+                                       "hub",
+                                       "Distance from lane extruder to hub",
+                                       ActionType::SLIDER,
+                                       std::any(current),
+                                       {},
+                                       0.0f,
+                                       std::max(500.0f, current * 1.5f),
+                                       "mm",
+                                       i,
+                                       true,
+                                       ""});
     }
 
     // ---- Overlay dynamic values from config onto default actions ----
@@ -3025,8 +3071,7 @@ std::vector<helix::printer::DeviceAction> AmsBackendAfc::get_device_actions() co
         // Purge & Wipe actions — from afc_config_ [AFC] and [AFC_poop] sections
         else if (a.id == "purge_enabled") {
             if (cfg_ready) {
-                a.current_value = std::any(
-                    afc_config_->parser().get_bool("AFC", "poop", false));
+                a.current_value = std::any(afc_config_->parser().get_bool("AFC", "poop", false));
                 a.enabled = true;
             } else {
                 a.enabled = false;
@@ -3034,8 +3079,8 @@ std::vector<helix::printer::DeviceAction> AmsBackendAfc::get_device_actions() co
             }
         } else if (a.id == "purge_length") {
             if (cfg_ready) {
-                a.current_value = std::any(
-                    afc_config_->parser().get_float("AFC_poop", "purge_length", 70.0f));
+                a.current_value =
+                    std::any(afc_config_->parser().get_float("AFC_poop", "purge_length", 70.0f));
                 a.enabled = true;
             } else {
                 a.enabled = false;
@@ -3043,8 +3088,7 @@ std::vector<helix::printer::DeviceAction> AmsBackendAfc::get_device_actions() co
             }
         } else if (a.id == "brush_enabled") {
             if (cfg_ready) {
-                a.current_value = std::any(
-                    afc_config_->parser().get_bool("AFC", "wipe", false));
+                a.current_value = std::any(afc_config_->parser().get_bool("AFC", "wipe", false));
                 a.enabled = true;
             } else {
                 a.enabled = false;
@@ -3215,9 +3259,10 @@ AmsError AmsBackendAfc::execute_device_action(const std::string& action_id, cons
         }
         try {
             float val = std::any_cast<float>(value);
-            AmsError err = execute_gcode(
-                fmt::format("SET_HUB_DIST LANE={} LENGTH={:g}", lane_name, val));
-            if (!err) return err;
+            AmsError err =
+                execute_gcode(fmt::format("SET_HUB_DIST LANE={} LENGTH={:g}", lane_name, val));
+            if (!err)
+                return err;
             AmsError save_err = execute_gcode("SAVE_HUB_DIST LANE=" + lane_name);
             if (!save_err) {
                 spdlog::warn("[AMS AFC] SAVE_HUB_DIST failed (runtime value was set)");
@@ -3231,8 +3276,8 @@ AmsError AmsBackendAfc::execute_device_action(const std::string& action_id, cons
     // ---- Toolhead distance actions (single + multi-extruder) ----
     // Longest-prefix-first: tool_stn is a prefix of tool_stn_unload
     auto parse_toolhead_action = [](const std::string& id) -> std::pair<std::string, int> {
-        static const std::vector<std::string> fields = {
-            "tool_sensor_after_extruder", "tool_stn_unload", "tool_stn"};
+        static const std::vector<std::string> fields = {"tool_sensor_after_extruder",
+                                                        "tool_stn_unload", "tool_stn"};
         for (const auto& field : fields) {
             if (id == field) {
                 return {field, 0};
@@ -3241,7 +3286,8 @@ AmsError AmsBackendAfc::execute_device_action(const std::string& action_id, cons
                 try {
                     int idx = std::stoi(id.substr(field.size() + 2));
                     return {field, idx};
-                } catch (...) {}
+                } catch (...) {
+                }
             }
         }
         return {"", -1};
@@ -3261,14 +3307,18 @@ AmsError AmsBackendAfc::execute_device_action(const std::string& action_id, cons
             }
 
             std::string param;
-            if (th_field == "tool_stn") param = "TOOL_STN";
-            else if (th_field == "tool_stn_unload") param = "TOOL_STN_UNLOAD";
-            else if (th_field == "tool_sensor_after_extruder") param = "TOOL_AFTER_EXTRUDER";
+            if (th_field == "tool_stn")
+                param = "TOOL_STN";
+            else if (th_field == "tool_stn_unload")
+                param = "TOOL_STN_UNLOAD";
+            else if (th_field == "tool_sensor_after_extruder")
+                param = "TOOL_AFTER_EXTRUDER";
 
-            std::string cmd = fmt::format("UPDATE_TOOLHEAD_SENSORS EXTRUDER={} {}={:g}",
-                                          ext_name, param, val);
+            std::string cmd =
+                fmt::format("UPDATE_TOOLHEAD_SENSORS EXTRUDER={} {}={:g}", ext_name, param, val);
             AmsError err = execute_gcode(cmd);
-            if (!err) return err;
+            if (!err)
+                return err;
 
             AmsError save_err = execute_gcode("SAVE_EXTRUDER_VALUES EXTRUDER=" + ext_name);
             if (!save_err) {

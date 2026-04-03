@@ -1933,18 +1933,26 @@ TEST_CASE("AFC HTLF mixed topology classification from per-lane hub routing",
     helper.setup_toolchanger(3);
 
     // Feed stepper data WITH hub routing BEFORE unit object (stepper parsing happens first)
-    helper.feed_afc_stepper("lane0",
-                            {{"map", "T0"}, {"extruder", "extruder"}, {"hub", "direct"},
-                             {"status", "Ready"}, {"color", "FF0000"}});
-    helper.feed_afc_stepper("lane1",
-                            {{"map", "T2"}, {"extruder", "extruder1"}, {"hub", "direct"},
-                             {"status", "Ready"}, {"color", "00FF00"}});
-    helper.feed_afc_stepper("lane2",
-                            {{"map", "T1"}, {"extruder", "extruder2"}, {"hub", "HTLF_1"},
-                             {"status", "Ready"}, {"color", "0000FF"}});
-    helper.feed_afc_stepper("lane3",
-                            {{"map", "T3"}, {"extruder", "extruder2"}, {"hub", "HTLF_1"},
-                             {"status", "Ready"}, {"color", "FFFF00"}});
+    helper.feed_afc_stepper("lane0", {{"map", "T0"},
+                                      {"extruder", "extruder"},
+                                      {"hub", "direct"},
+                                      {"status", "Ready"},
+                                      {"color", "FF0000"}});
+    helper.feed_afc_stepper("lane1", {{"map", "T2"},
+                                      {"extruder", "extruder1"},
+                                      {"hub", "direct"},
+                                      {"status", "Ready"},
+                                      {"color", "00FF00"}});
+    helper.feed_afc_stepper("lane2", {{"map", "T1"},
+                                      {"extruder", "extruder2"},
+                                      {"hub", "HTLF_1"},
+                                      {"status", "Ready"},
+                                      {"color", "0000FF"}});
+    helper.feed_afc_stepper("lane3", {{"map", "T3"},
+                                      {"extruder", "extruder2"},
+                                      {"hub", "HTLF_1"},
+                                      {"status", "Ready"},
+                                      {"color", "FFFF00"}});
 
     // Feed AFC state with unit name
     nlohmann::json afc_state;
@@ -2078,14 +2086,14 @@ TEST_CASE("AFC direct_load hub field classified as direct (not hub-routed)",
     helper.setup_toolchanger(4);
 
     // Feed stepper data: all lanes with hub:"direct_load"
-    helper.feed_afc_stepper("lane0",
-                            {{"hub", "direct_load"}, {"extruder", "extruder"}, {"status", "Ready"}});
-    helper.feed_afc_stepper("lane1",
-                            {{"hub", "direct_load"}, {"extruder", "extruder1"}, {"status", "Ready"}});
-    helper.feed_afc_stepper("lane2",
-                            {{"hub", "direct_load"}, {"extruder", "extruder2"}, {"status", "Ready"}});
-    helper.feed_afc_stepper("lane3",
-                            {{"hub", "direct_load"}, {"extruder", "extruder3"}, {"status", "Ready"}});
+    helper.feed_afc_stepper(
+        "lane0", {{"hub", "direct_load"}, {"extruder", "extruder"}, {"status", "Ready"}});
+    helper.feed_afc_stepper(
+        "lane1", {{"hub", "direct_load"}, {"extruder", "extruder1"}, {"status", "Ready"}});
+    helper.feed_afc_stepper(
+        "lane2", {{"hub", "direct_load"}, {"extruder", "extruder2"}, {"status", "Ready"}});
+    helper.feed_afc_stepper(
+        "lane3", {{"hub", "direct_load"}, {"extruder", "extruder3"}, {"status", "Ready"}});
 
     nlohmann::json afc_state;
     afc_state["units"] = nlohmann::json::array({"Box_Turtle Turtle_1"});
@@ -2143,10 +2151,18 @@ TEST_CASE("AFC unit with hubs AND multiple extruders gets PARALLEL topology",
     REQUIRE(helper.get_unit_topology(0) == PathTopology::PARALLEL);
 
     // Feed stepper map data: lanes 0,1 direct, lanes 2,3 shared via hub
-    helper.feed_afc_stepper("lane0", {{"map", "T0"}, {"extruder", "extruder"}, {"status", "Ready"}, {"color", "FF0000"}});
-    helper.feed_afc_stepper("lane1", {{"map", "T2"}, {"extruder", "extruder1"}, {"status", "Ready"}, {"color", "00FF00"}});
-    helper.feed_afc_stepper("lane2", {{"map", "T1"}, {"extruder", "extruder2"}, {"status", "Ready"}, {"color", "0000FF"}});
-    helper.feed_afc_stepper("lane3", {{"map", "T3"}, {"extruder", "extruder2"}, {"status", "Ready"}, {"color", "FFFF00"}});
+    helper.feed_afc_stepper(
+        "lane0",
+        {{"map", "T0"}, {"extruder", "extruder"}, {"status", "Ready"}, {"color", "FF0000"}});
+    helper.feed_afc_stepper(
+        "lane1",
+        {{"map", "T2"}, {"extruder", "extruder1"}, {"status", "Ready"}, {"color", "00FF00"}});
+    helper.feed_afc_stepper(
+        "lane2",
+        {{"map", "T1"}, {"extruder", "extruder2"}, {"status", "Ready"}, {"color", "0000FF"}});
+    helper.feed_afc_stepper(
+        "lane3",
+        {{"map", "T3"}, {"extruder", "extruder2"}, {"status", "Ready"}, {"color", "FFFF00"}});
 
     // Verify tool mappings
     auto info = helper.get_system_info();
@@ -2164,6 +2180,122 @@ TEST_CASE("AFC unit with hubs AND multiple extruders gets PARALLEL topology",
     CHECK(slot1->extruder_name == "extruder1");
     CHECK(slot2->extruder_name == "extruder2");
     CHECK(slot3->extruder_name == "extruder2");
+}
+
+TEST_CASE("AFC hub-routed lanes with per-lane extruders classified as PARALLEL",
+          "[ams][afc][topology]") {
+    // ACE Pro as lane loader through AFC: 4 lanes, each with its own hub AND its
+    // own extruder, all under one unit. Each lane independently feeds a different
+    // toolhead through a hub sensor — this is parallel topology, not hub merger.
+    AmsBackendAfcTestHelper helper;
+    helper.initialize_test_lanes_zero_based(4);
+    helper.initialize_slots_from_discovery();
+    helper.setup_toolchanger(4);
+
+    // Feed stepper data: each lane has its own hub and extruder
+    helper.feed_afc_stepper("lane0", {{"hub", "ace_hub1"},
+                                      {"extruder", "extruder"},
+                                      {"map", "T0"},
+                                      {"status", "Loaded"},
+                                      {"color", "89a84f"}});
+    helper.feed_afc_stepper("lane1", {{"hub", "ace_hub2"},
+                                      {"extruder", "extruder1"},
+                                      {"map", "T1"},
+                                      {"status", "Loaded"},
+                                      {"color", "23ADE9"}});
+    helper.feed_afc_stepper("lane2", {{"hub", "ace_hub3"},
+                                      {"extruder", "extruder2"},
+                                      {"map", "T2"},
+                                      {"status", "Loaded"},
+                                      {"color", "F20808"}});
+    helper.feed_afc_stepper("lane3", {{"hub", "ace_hub4"},
+                                      {"extruder", "extruder3"},
+                                      {"map", "T3"},
+                                      {"status", "Loaded"},
+                                      {"color", "DE4343"}});
+
+    // Feed AFC state with unit
+    nlohmann::json afc_state;
+    afc_state["units"] = nlohmann::json::array({"ACE Ace_1"});
+    helper.feed_afc_state(afc_state);
+
+    // Feed unit object: 4 hubs + 4 extruders (parallel with hubs)
+    nlohmann::json unit_data;
+    unit_data["lanes"] = nlohmann::json::array({"lane0", "lane1", "lane2", "lane3"});
+    unit_data["extruders"] =
+        nlohmann::json::array({"extruder", "extruder1", "extruder2", "extruder3"});
+    unit_data["hubs"] = nlohmann::json::array({"ace_hub1", "ace_hub2", "ace_hub3", "ace_hub4"});
+    unit_data["buffers"] = nlohmann::json::array();
+
+    nlohmann::json params;
+    params["AFC_ACE Ace_1"] = unit_data;
+    helper.feed_status_update(params);
+
+    // Verify topology is PARALLEL (not HUB)
+    const auto& unit_infos = helper.get_unit_infos();
+    REQUIRE(unit_infos.size() == 1);
+    REQUIRE(unit_infos[0].topology == PathTopology::PARALLEL);
+    REQUIRE(helper.get_unit_topology(0) == PathTopology::PARALLEL);
+
+    // All lanes are hub-routed (each through its own hub)
+    REQUIRE(unit_infos[0].lane_is_hub_routed.size() == 4);
+    for (bool routed : unit_infos[0].lane_is_hub_routed) {
+        REQUIRE(routed == true);
+    }
+
+    // Verify tool mappings are 1:1
+    auto info = helper.get_system_info();
+    auto* slot0 = info.get_slot_global(0);
+    auto* slot1 = info.get_slot_global(1);
+    auto* slot2 = info.get_slot_global(2);
+    auto* slot3 = info.get_slot_global(3);
+    REQUIRE(slot0->mapped_tool == 0);
+    REQUIRE(slot1->mapped_tool == 1);
+    REQUIRE(slot2->mapped_tool == 2);
+    REQUIRE(slot3->mapped_tool == 3);
+}
+
+TEST_CASE("AFC hub-routed lanes with shared extruder still classified as HUB",
+          "[ams][afc][topology]") {
+    // Standard Box Turtle / OpenAMS: 4 lanes through hubs but only 1 extruder.
+    // Must remain HUB topology — the new parallel-with-hubs check should NOT
+    // trigger when extruder count != lane count.
+    AmsBackendAfcTestHelper helper;
+    helper.initialize_test_lanes_zero_based(4);
+    helper.initialize_slots_from_discovery();
+
+    // Feed stepper data: all lanes through per-lane hubs but same extruder
+    helper.feed_afc_stepper(
+        "lane0",
+        {{"hub", "Hub_1"}, {"extruder", "extruder4"}, {"status", "Ready"}, {"color", "FF0000"}});
+    helper.feed_afc_stepper(
+        "lane1",
+        {{"hub", "Hub_2"}, {"extruder", "extruder4"}, {"status", "Ready"}, {"color", "00FF00"}});
+    helper.feed_afc_stepper(
+        "lane2",
+        {{"hub", "Hub_3"}, {"extruder", "extruder4"}, {"status", "Ready"}, {"color", "0000FF"}});
+    helper.feed_afc_stepper(
+        "lane3",
+        {{"hub", "Hub_4"}, {"extruder", "extruder4"}, {"status", "Ready"}, {"color", "FFFF00"}});
+
+    nlohmann::json afc_state;
+    afc_state["units"] = nlohmann::json::array({"OpenAMS AMS_1"});
+    helper.feed_afc_state(afc_state);
+
+    nlohmann::json unit_data;
+    unit_data["lanes"] = nlohmann::json::array({"lane0", "lane1", "lane2", "lane3"});
+    unit_data["extruders"] = nlohmann::json::array({"extruder4"});
+    unit_data["hubs"] = nlohmann::json::array({"Hub_1", "Hub_2", "Hub_3", "Hub_4"});
+    unit_data["buffers"] = nlohmann::json::array();
+
+    nlohmann::json params;
+    params["AFC_OpenAMS AMS_1"] = unit_data;
+    helper.feed_status_update(params);
+
+    // Must still be HUB — 4 hubs but only 1 extruder
+    const auto& unit_infos = helper.get_unit_infos();
+    REQUIRE(unit_infos.size() == 1);
+    REQUIRE(unit_infos[0].topology == PathTopology::HUB);
 }
 
 TEST_CASE("AFC backend unit object triggers lane reorganization", "[ams][afc][mixed]") {
@@ -3084,8 +3216,10 @@ TEST_CASE("AFC get_device_actions includes per-extruder LED toggles in toolchang
     // Should have per-extruder LED actions
     bool found_t0 = false, found_t1 = false;
     for (const auto& a : actions) {
-        if (a.id == "led_extruder_T0") found_t0 = true;
-        if (a.id == "led_extruder_T1") found_t1 = true;
+        if (a.id == "led_extruder_T0")
+            found_t0 = true;
+        if (a.id == "led_extruder_T1")
+            found_t1 = true;
     }
     REQUIRE(found_t0);
     REQUIRE(found_t1);
@@ -3093,7 +3227,8 @@ TEST_CASE("AFC get_device_actions includes per-extruder LED toggles in toolchang
     // Should NOT have the generic led_extruder action
     bool found_generic = false;
     for (const auto& a : actions) {
-        if (a.id == "led_extruder") found_generic = true;
+        if (a.id == "led_extruder")
+            found_generic = true;
     }
     REQUIRE_FALSE(found_generic);
 }
@@ -3107,7 +3242,8 @@ TEST_CASE("AFC get_device_actions does not include LED toggles in single-extrude
 
     bool found_per_extruder = false;
     for (const auto& a : actions) {
-        if (a.id.rfind("led_extruder_T", 0) == 0) found_per_extruder = true;
+        if (a.id.rfind("led_extruder_T", 0) == 0)
+            found_per_extruder = true;
     }
     REQUIRE_FALSE(found_per_extruder);
 }
@@ -3136,8 +3272,7 @@ TEST_CASE("AFC execute_device_action led_extruder_T1 sends AFC_SET_EXTRUDER_LED"
     REQUIRE(helper.has_gcode("AFC_SET_EXTRUDER_LED EXTRUDER=extruder1 TURN_ON=1"));
 }
 
-TEST_CASE("AFC execute_device_action led_extruder toggles state",
-          "[ams][afc][toolchanger][led]") {
+TEST_CASE("AFC execute_device_action led_extruder toggles state", "[ams][afc][toolchanger][led]") {
     AmsBackendAfcTestHelper helper;
     helper.initialize_test_lanes_with_slots(4);
     helper.setup_toolchanger(2);
@@ -3174,19 +3309,18 @@ TEST_CASE("Mixed BoxTurtle + ViViD units with string format", "[ams][afc][mixed]
     AmsBackendAfcTestHelper helper;
 
     // Pre-initialize 12 lanes (non-contiguous: lane1-lane8 + lane13-lane16)
-    std::vector<std::string> all_lanes = {"lane1", "lane2",  "lane3",  "lane4",
-                                          "lane5", "lane6",  "lane7",  "lane8",
-                                          "lane13", "lane14", "lane15", "lane16"};
+    std::vector<std::string> all_lanes = {"lane1", "lane2", "lane3",  "lane4",  "lane5",  "lane6",
+                                          "lane7", "lane8", "lane13", "lane14", "lane15", "lane16"};
     helper.set_discovered_lanes(all_lanes, {"Turtle_2"});
     helper.initialize_slots_from_discovery();
 
     // Feed AFC state with 3 string-format units
     nlohmann::json afc_state;
-    afc_state["units"] = nlohmann::json::array(
-        {"Box_Turtle Turtle_1", "Box_Turtle Turtle_2", "ViViD vivid_1"});
-    afc_state["lanes"] = nlohmann::json::array(
-        {"lane1", "lane2", "lane3", "lane4", "lane5", "lane6", "lane7", "lane8",
-         "lane13", "lane14", "lane15", "lane16"});
+    afc_state["units"] =
+        nlohmann::json::array({"Box_Turtle Turtle_1", "Box_Turtle Turtle_2", "ViViD vivid_1"});
+    afc_state["lanes"] =
+        nlohmann::json::array({"lane1", "lane2", "lane3", "lane4", "lane5", "lane6", "lane7",
+                               "lane8", "lane13", "lane14", "lane15", "lane16"});
     afc_state["extruders"] = nlohmann::json::array({"extruder"});
     helper.feed_afc_state(afc_state);
 
@@ -3257,19 +3391,18 @@ TEST_CASE("Mixed BoxTurtle + ViViD units with string format", "[ams][afc][mixed]
     }
 }
 
-TEST_CASE("Partial unit data waits for all units before reorganization",
-          "[ams][afc][mixed]") {
+TEST_CASE("Partial unit data waits for all units before reorganization", "[ams][afc][mixed]") {
     AmsBackendAfcTestHelper helper;
     helper.initialize_test_lanes_zero_based(12);
     helper.initialize_slots_from_discovery();
 
     // Feed 3 string units
     nlohmann::json afc_state;
-    afc_state["units"] = nlohmann::json::array(
-        {"Box_Turtle Turtle_1", "OpenAMS AMS_1", "OpenAMS AMS_2"});
-    afc_state["lanes"] = nlohmann::json::array(
-        {"lane0", "lane1", "lane2", "lane3", "lane4", "lane5", "lane6", "lane7",
-         "lane8", "lane9", "lane10", "lane11"});
+    afc_state["units"] =
+        nlohmann::json::array({"Box_Turtle Turtle_1", "OpenAMS AMS_1", "OpenAMS AMS_2"});
+    afc_state["lanes"] =
+        nlohmann::json::array({"lane0", "lane1", "lane2", "lane3", "lane4", "lane5", "lane6",
+                               "lane7", "lane8", "lane9", "lane10", "lane11"});
     afc_state["extruders"] = nlohmann::json::array({"extruder"});
     helper.feed_afc_state(afc_state);
 
@@ -3321,14 +3454,12 @@ TEST_CASE("Partial unit data waits for all units before reorganization",
     CHECK(total_slots == 12);
 }
 
-TEST_CASE("Non-contiguous lane numbering assigns sequential global indices",
-          "[ams][afc][mixed]") {
+TEST_CASE("Non-contiguous lane numbering assigns sequential global indices", "[ams][afc][mixed]") {
     AmsBackendAfcTestHelper helper;
 
     // Lanes 1-8 and 13-16 (gap at 9-12)
-    std::vector<std::string> all_lanes = {"lane1", "lane2",  "lane3",  "lane4",
-                                          "lane5", "lane6",  "lane7",  "lane8",
-                                          "lane13", "lane14", "lane15", "lane16"};
+    std::vector<std::string> all_lanes = {"lane1", "lane2", "lane3",  "lane4",  "lane5",  "lane6",
+                                          "lane7", "lane8", "lane13", "lane14", "lane15", "lane16"};
     helper.set_discovered_lanes(all_lanes, {});
     helper.initialize_slots_from_discovery();
 
@@ -3338,13 +3469,13 @@ TEST_CASE("Non-contiguous lane numbering assigns sequential global indices",
     // The slot registry maps sequential indices 0-11 to the non-contiguous lane names
     CHECK(helper.get_slot_name(0) == "lane1");
     CHECK(helper.get_slot_name(7) == "lane8");
-    CHECK(helper.get_slot_name(8) == "lane13");   // Index 8 → lane13 (no gap)
+    CHECK(helper.get_slot_name(8) == "lane13"); // Index 8 → lane13 (no gap)
     CHECK(helper.get_slot_name(11) == "lane16");
 
     // Feed units to trigger reorganization
     nlohmann::json afc_state;
-    afc_state["units"] = nlohmann::json::array(
-        {"Box_Turtle Turtle_1", "Box_Turtle Turtle_2", "ViViD vivid_1"});
+    afc_state["units"] =
+        nlohmann::json::array({"Box_Turtle Turtle_1", "Box_Turtle Turtle_2", "ViViD vivid_1"});
     helper.feed_afc_state(afc_state);
 
     // Feed unit objects with lane assignments
@@ -3359,11 +3490,10 @@ TEST_CASE("Non-contiguous lane numbering assigns sequential global indices",
         {"extruders", {"extruder4", "extruder5", "extruder6", "extruder7"}},
         {"hubs", nlohmann::json::array()},
         {"buffers", nlohmann::json::array()}};
-    params["AFC_vivid vivid_1"] = {
-        {"lanes", {"lane13", "lane14", "lane15", "lane16"}},
-        {"extruders", {"extruder"}},
-        {"hubs", {"vivid_hub"}},
-        {"buffers", nlohmann::json::array()}};
+    params["AFC_vivid vivid_1"] = {{"lanes", {"lane13", "lane14", "lane15", "lane16"}},
+                                   {"extruders", {"extruder"}},
+                                   {"hubs", {"vivid_hub"}},
+                                   {"buffers", nlohmann::json::array()}};
     helper.feed_status_update(params);
 
     // After reorganization, global indices should still be sequential 0-11
@@ -3404,13 +3534,12 @@ TEST_CASE("AFC tool changer reconciliation preserves current_load slot",
     // All 4 lanes report as loaded (tool changer direct-feed)
     for (int i = 0; i < 4; ++i) {
         std::string key = "AFC_stepper lane" + std::to_string(i);
-        params[key] = {
-            {"status", "Tooled"},
-            {"tool_loaded", true},
-            {"color", "FF0000"},
-            {"material", "PLA"},
-            {"spool_id", std::to_string(100 + i)},
-            {"weight", 750}};
+        params[key] = {{"status", "Tooled"},
+                       {"tool_loaded", true},
+                       {"color", "FF0000"},
+                       {"material", "PLA"},
+                       {"spool_id", std::to_string(100 + i)},
+                       {"weight", 750}};
     }
 
     helper.feed_status_update(params);
@@ -3421,8 +3550,7 @@ TEST_CASE("AFC tool changer reconciliation preserves current_load slot",
     CHECK(info.filament_loaded == true);
 }
 
-TEST_CASE("AFC parse_lane_data does not overwrite valid current_slot",
-          "[ams][afc][toolchanger]") {
+TEST_CASE("AFC parse_lane_data does not overwrite valid current_slot", "[ams][afc][toolchanger]") {
     AmsBackendAfcTestHelper helper;
     helper.initialize_test_lanes_zero_based(4);
     helper.initialize_slots_from_discovery();
@@ -3435,11 +3563,10 @@ TEST_CASE("AFC parse_lane_data does not overwrite valid current_slot",
     nlohmann::json lane_data;
     for (int i = 0; i < 4; ++i) {
         std::string name = "lane" + std::to_string(i);
-        lane_data[name] = {
-            {"tool_loaded", true},
-            {"color", "00FF00"},
-            {"material", "PETG"},
-            {"spool_id", std::to_string(200 + i)}};
+        lane_data[name] = {{"tool_loaded", true},
+                           {"color", "00FF00"},
+                           {"material", "PETG"},
+                           {"spool_id", std::to_string(200 + i)}};
     }
     helper.feed_afc_state({{"lanes", lane_data}});
 
@@ -3460,11 +3587,11 @@ TEST_CASE("AFC 3-unit incremental arrival preserves all unit lanes",
 
     // Feed AFC state with 3 string-format units
     nlohmann::json afc_state;
-    afc_state["units"] = nlohmann::json::array(
-        {"OpenAMS AMS_1", "OpenAMS AMS_2", "Box_Turtle Turtle_1"});
-    afc_state["lanes"] = nlohmann::json::array(
-        {"lane0", "lane1", "lane2", "lane3", "lane4", "lane5", "lane6", "lane7",
-         "lane8", "lane9", "lane10", "lane11"});
+    afc_state["units"] =
+        nlohmann::json::array({"OpenAMS AMS_1", "OpenAMS AMS_2", "Box_Turtle Turtle_1"});
+    afc_state["lanes"] =
+        nlohmann::json::array({"lane0", "lane1", "lane2", "lane3", "lane4", "lane5", "lane6",
+                               "lane7", "lane8", "lane9", "lane10", "lane11"});
     afc_state["extruders"] = nlohmann::json::array({"extruder"});
     helper.feed_afc_state(afc_state);
 
@@ -3478,7 +3605,7 @@ TEST_CASE("AFC 3-unit incremental arrival preserves all unit lanes",
             {"material", "PLA"},
             {"spool_id", std::to_string(300 + i)},
             {"weight", 800},
-            {"tool_loaded", (i >= 8)}  // Turtle lanes are direct-feed
+            {"tool_loaded", (i >= 8)} // Turtle lanes are direct-feed
         };
         helper.feed_afc_stepper(lane_name, stepper_data);
     }
@@ -3542,7 +3669,7 @@ TEST_CASE("AFC 3-unit incremental arrival preserves all unit lanes",
             found_turtle = true;
             for (const auto& slot : unit.slots) {
                 CHECK(slot.material != "");
-                CHECK(slot.color_rgb != 0x808080);  // Not default gray
+                CHECK(slot.color_rgb != 0x808080); // Not default gray
             }
         }
     }
@@ -3553,8 +3680,7 @@ TEST_CASE("AFC 3-unit incremental arrival preserves all unit lanes",
 // 4-unit ordering: units sorted by min lane number, not name (#554)
 // ============================================================================
 
-TEST_CASE("AFC 4-unit ordering by lane number not unit name",
-          "[ams][afc][mixed][toolchanger]") {
+TEST_CASE("AFC 4-unit ordering by lane number not unit name", "[ams][afc][mixed][toolchanger]") {
     AmsBackendAfcTestHelper helper;
     helper.initialize_test_lanes_zero_based(16);
     helper.initialize_slots_from_discovery();
@@ -3573,8 +3699,10 @@ TEST_CASE("AFC 4-unit ordering by lane number not unit name",
     // Feed stepper data for all 16 lanes
     for (int i = 0; i < 16; ++i) {
         std::string lane = "lane" + std::to_string(i);
-        helper.feed_afc_stepper(lane, {{"color", "FF0000"}, {"material", "PLA"},
-                                       {"spool_id", std::to_string(i)}, {"weight", 800}});
+        helper.feed_afc_stepper(lane, {{"color", "FF0000"},
+                                       {"material", "PLA"},
+                                       {"spool_id", std::to_string(i)},
+                                       {"weight", 800}});
     }
 
     // Feed unit objects mapping lanes to units (deliberately out of physical order).
@@ -3635,10 +3763,9 @@ TEST_CASE("AFC stepper-only updates do not overwrite current_slot set by AFC sta
     {
         nlohmann::json params;
         params["AFC"] = {{"current_load", "lane9"}, {"filament_loaded", true}};
-        params["AFC_stepper lane9"] = {
-            {"status", "Tooled"}, {"tool_loaded", true},
-            {"color", "00AEFF"},  {"material", "ASA"},
-            {"spool_id", "42"},   {"weight", 800}};
+        params["AFC_stepper lane9"] = {{"status", "Tooled"}, {"tool_loaded", true},
+                                       {"color", "00AEFF"},  {"material", "ASA"},
+                                       {"spool_id", "42"},   {"weight", 800}};
         helper.feed_status_update(params);
     }
     REQUIRE(helper.get_system_info().current_slot == 9);
@@ -3647,8 +3774,7 @@ TEST_CASE("AFC stepper-only updates do not overwrite current_slot set by AFC sta
     {
         nlohmann::json params;
         params["AFC_stepper lane0"] = {
-            {"prep", true}, {"load", true}, {"status", "Ready"},
-            {"tool_loaded", false}};
+            {"prep", true}, {"load", true}, {"status", "Ready"}, {"tool_loaded", false}};
         helper.feed_status_update(params);
     }
 
@@ -3660,8 +3786,7 @@ TEST_CASE("AFC stepper-only updates do not overwrite current_slot set by AFC sta
     {
         nlohmann::json params;
         params["AFC_stepper lane3"] = {
-            {"prep", false}, {"load", false}, {"status", "None"},
-            {"tool_loaded", false}};
+            {"prep", false}, {"load", false}, {"status", "None"}, {"tool_loaded", false}};
         helper.feed_status_update(params);
     }
     CHECK(helper.get_system_info().current_slot == 9);
@@ -3678,8 +3803,7 @@ TEST_CASE("AFC reconciliation updates current_slot when active lane becomes unlo
         nlohmann::json params;
         params["AFC"] = {{"current_load", "lane2"}};
         params["AFC_stepper lane2"] = {
-            {"status", "Tooled"}, {"tool_loaded", true},
-            {"color", "FF0000"},  {"material", "PLA"}};
+            {"status", "Tooled"}, {"tool_loaded", true}, {"color", "FF0000"}, {"material", "PLA"}};
         helper.feed_status_update(params);
     }
     REQUIRE(helper.get_system_info().current_slot == 2);
@@ -3688,11 +3812,9 @@ TEST_CASE("AFC reconciliation updates current_slot when active lane becomes unlo
     {
         nlohmann::json params;
         params["AFC"] = {{"current_load", "lane3"}};
-        params["AFC_stepper lane2"] = {
-            {"status", "Ready"}, {"tool_loaded", false}};
+        params["AFC_stepper lane2"] = {{"status", "Ready"}, {"tool_loaded", false}};
         params["AFC_stepper lane3"] = {
-            {"status", "Tooled"}, {"tool_loaded", true},
-            {"color", "00FF00"},  {"material", "PETG"}};
+            {"status", "Tooled"}, {"tool_loaded", true}, {"color", "00FF00"}, {"material", "PETG"}};
         helper.feed_status_update(params);
     }
 
@@ -3710,8 +3832,7 @@ TEST_CASE("AFC reconciliation via stepper-only updates current_slot when no auth
     {
         nlohmann::json params;
         params["AFC_stepper lane2"] = {
-            {"status", "Tooled"}, {"tool_loaded", true},
-            {"color", "FF0000"},  {"material", "PLA"}};
+            {"status", "Tooled"}, {"tool_loaded", true}, {"color", "FF0000"}, {"material", "PLA"}};
         helper.feed_status_update(params);
     }
     REQUIRE(helper.get_system_info().current_slot == 2);
@@ -3719,11 +3840,9 @@ TEST_CASE("AFC reconciliation via stepper-only updates current_slot when no auth
     // Step 2: Stepper-only tool change — should detect and update
     {
         nlohmann::json params;
-        params["AFC_stepper lane2"] = {
-            {"status", "Ready"}, {"tool_loaded", false}};
+        params["AFC_stepper lane2"] = {{"status", "Ready"}, {"tool_loaded", false}};
         params["AFC_stepper lane3"] = {
-            {"status", "Tooled"}, {"tool_loaded", true},
-            {"color", "00FF00"},  {"material", "PETG"}};
+            {"status", "Tooled"}, {"tool_loaded", true}, {"color", "00FF00"}, {"material", "PETG"}};
         helper.feed_status_update(params);
     }
 
@@ -3731,18 +3850,17 @@ TEST_CASE("AFC reconciliation via stepper-only updates current_slot when no auth
     CHECK(info.current_slot == 3);
 }
 
-TEST_CASE("AFC non-active extruder does not overwrite current_slot",
-          "[ams][afc][reconciliation]") {
+TEST_CASE("AFC non-active extruder does not overwrite current_slot", "[ams][afc][reconciliation]") {
     AmsBackendAfcTestHelper helper;
     helper.initialize_test_lanes_zero_based(4);
     helper.initialize_slots_from_discovery();
     helper.setup_toolchanger(2);
 
     // Set tool mapping: T0 -> lane0 (slot 0), T1 -> lane1 (slot 1)
-    helper.feed_afc_stepper("lane0", {{"map", "T0"}, {"status", "Tooled"},
-                                      {"tool_loaded", true}, {"color", "FF0000"}});
-    helper.feed_afc_stepper("lane1", {{"map", "T1"}, {"status", "Ready"},
-                                      {"tool_loaded", false}, {"color", "00FF00"}});
+    helper.feed_afc_stepper(
+        "lane0", {{"map", "T0"}, {"status", "Tooled"}, {"tool_loaded", true}, {"color", "FF0000"}});
+    helper.feed_afc_stepper(
+        "lane1", {{"map", "T1"}, {"status", "Ready"}, {"tool_loaded", false}, {"color", "00FF00"}});
 
     // AFC state says current_load = lane0, current_tool = 0
     helper.feed_afc_state({{"current_load", "lane0"}, {"current_tool", 0}});
@@ -3750,17 +3868,16 @@ TEST_CASE("AFC non-active extruder does not overwrite current_slot",
     REQUIRE(helper.get_system_info().current_tool == 0);
 
     // Non-active extruder1 reports lane_loaded = lane1 — must NOT overwrite current_slot
-    helper.feed_afc_extruder("extruder1", {{"lane_loaded", "lane1"},
-                                            {"tool_start_status", false},
-                                            {"tool_end_status", false}});
+    helper.feed_afc_extruder(
+        "extruder1",
+        {{"lane_loaded", "lane1"}, {"tool_start_status", false}, {"tool_end_status", false}});
 
     auto info2 = helper.get_system_info();
     CHECK(info2.current_slot == 0);
     CHECK(info2.current_tool == 0);
 }
 
-TEST_CASE("AFC filament unload (current_load=null) clears state",
-          "[ams][afc][reconciliation]") {
+TEST_CASE("AFC filament unload (current_load=null) clears state", "[ams][afc][reconciliation]") {
     AmsBackendAfcTestHelper helper;
     helper.initialize_test_lanes_zero_based(4);
     helper.initialize_slots_from_discovery();
@@ -3770,8 +3887,7 @@ TEST_CASE("AFC filament unload (current_load=null) clears state",
         nlohmann::json params;
         params["AFC"] = {{"current_load", "lane2"}, {"filament_loaded", true}};
         params["AFC_stepper lane2"] = {
-            {"status", "Tooled"}, {"tool_loaded", true},
-            {"color", "FF0000"},  {"material", "PLA"}};
+            {"status", "Tooled"}, {"tool_loaded", true}, {"color", "FF0000"}, {"material", "PLA"}};
         helper.feed_status_update(params);
     }
     REQUIRE(helper.get_system_info().current_slot == 2);
@@ -3793,14 +3909,14 @@ TEST_CASE("AFC tool changer reconciliation derives current_slot from active tool
     helper.setup_toolchanger(4);
 
     // Set up tool mapping: T0->slot0, T1->slot1, T2->slot2, T3->slot3
-    helper.feed_afc_stepper("lane0", {{"map", "T0"}, {"status", "Ready"},
-                                      {"tool_loaded", false}, {"color", "FF0000"}});
-    helper.feed_afc_stepper("lane1", {{"map", "T1"}, {"status", "Ready"},
-                                      {"tool_loaded", false}, {"color", "00FF00"}});
-    helper.feed_afc_stepper("lane2", {{"map", "T2"}, {"status", "Ready"},
-                                      {"tool_loaded", false}, {"color", "0000FF"}});
-    helper.feed_afc_stepper("lane3", {{"map", "T3"}, {"status", "Ready"},
-                                      {"tool_loaded", false}, {"color", "FFFF00"}});
+    helper.feed_afc_stepper(
+        "lane0", {{"map", "T0"}, {"status", "Ready"}, {"tool_loaded", false}, {"color", "FF0000"}});
+    helper.feed_afc_stepper(
+        "lane1", {{"map", "T1"}, {"status", "Ready"}, {"tool_loaded", false}, {"color", "00FF00"}});
+    helper.feed_afc_stepper(
+        "lane2", {{"map", "T2"}, {"status", "Ready"}, {"tool_loaded", false}, {"color", "0000FF"}});
+    helper.feed_afc_stepper(
+        "lane3", {{"map", "T3"}, {"status", "Ready"}, {"tool_loaded", false}, {"color", "FFFF00"}});
 
     // Verify tool mapping is populated
     auto mapping = helper.get_tool_to_slot_map();
@@ -3811,7 +3927,8 @@ TEST_CASE("AFC tool changer reconciliation derives current_slot from active tool
         nlohmann::json params;
         nlohmann::json bt_data;
         bt_data["lanes"] = nlohmann::json::array({"lane0", "lane1", "lane2", "lane3"});
-        bt_data["extruders"] = nlohmann::json::array({"extruder", "extruder1", "extruder2", "extruder3"});
+        bt_data["extruders"] =
+            nlohmann::json::array({"extruder", "extruder1", "extruder2", "extruder3"});
         bt_data["hubs"] = nlohmann::json::array();
         bt_data["buffers"] = nlohmann::json::array();
         params["AFC_BoxTurtle Turtle_1"] = bt_data;
