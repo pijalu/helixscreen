@@ -204,8 +204,9 @@ class ControlsPanel : public PanelBase {
     int cached_extruder_target_ = 0;
     int cached_bed_temp_ = 0;
     int cached_bed_target_ = 0;
-    int cached_chamber_temp_ = 0;   ///< Chamber current temperature (°C)
-    int cached_chamber_target_ = 0; ///< Chamber target temperature (°C)
+    int cached_chamber_temp_ = 0; ///< Chamber current temperature (degrees, observer converts)
+    int cached_chamber_target_ =
+        0; ///< Chamber target temperature (centidegrees, matches PrinterState)
 
     // Temperature limits for keypad
     int nozzle_max_temp_ = 500;  ///< Nozzle max temperature (°C) from heater_generic config

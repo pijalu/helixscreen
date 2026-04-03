@@ -29,8 +29,8 @@
 #include "macro_executor.h"
 #include "macro_param_cache.h"
 #include "moonraker_api.h"
-#include "post_op_cooldown_manager.h"
 #include "observer_factory.h"
+#include "post_op_cooldown_manager.h"
 #include "printer_state.h"
 #include "settings_manager.h"
 #include "standard_macros.h"
@@ -145,7 +145,7 @@ FilamentPanel::FilamentPanel(PrinterState& printer_state, MoonrakerAPI* api)
         });
     chamber_target_observer_ = observe_int_sync<FilamentPanel>(
         printer_state_.get_chamber_target_subject(), this, [](FilamentPanel* self, int raw) {
-            self->chamber_target_ = centi_to_degrees(raw);
+            self->chamber_target_ = raw; // Store centidegrees (matches PrinterState format)
             if (self->are_subjects_initialized()) {
                 self->update_chamber_temp_display();
             }
@@ -485,17 +485,18 @@ void FilamentPanel::update_status() {
         lv_subject_copy_string(&status_subject_, status_buf_);
         update_status_icon("flash", "warning");
         return; // Already updated, exit early
-    } else if (chamber_target_ > 0 && chamber_current_ < chamber_target_ - 5) {
+    } else if (chamber_target_ > 0 && chamber_current_ < centi_to_degrees(chamber_target_) - 5) {
         // Chamber is heating (show only if nozzle is cold)
         std::snprintf(status_buf_, sizeof(status_buf_), lv_tr("Chamber heating to %d°C..."),
-                      chamber_target_);
+                      centi_to_degrees(chamber_target_));
         lv_subject_copy_string(&status_subject_, status_buf_);
         update_status_icon("fire", "warning");
         return;
-    } else if (chamber_target_ > 0 && chamber_current_ >= chamber_target_ - 5 &&
-               chamber_current_ <= chamber_target_ + 2) {
+    } else if (chamber_target_ > 0 && chamber_current_ >= centi_to_degrees(chamber_target_) - 5 &&
+               chamber_current_ <= centi_to_degrees(chamber_target_) + 2) {
         // Chamber at target (show only if nozzle is cold)
-        std::snprintf(status_buf_, sizeof(status_buf_), lv_tr("Chamber at %d°C"), chamber_target_);
+        std::snprintf(status_buf_, sizeof(status_buf_), lv_tr("Chamber at %d°C"),
+                      centi_to_degrees(chamber_target_));
         lv_subject_copy_string(&status_subject_, status_buf_);
         update_status_icon("check", "success");
         return;
@@ -678,8 +679,8 @@ void FilamentPanel::handle_bed_temp_tap() {
 void FilamentPanel::handle_chamber_temp_tap() {
     spdlog::debug("[{}] Opening custom chamber temperature keypad", get_name());
 
-    ui_keypad_config_t config = {.initial_value =
-                                     static_cast<float>(chamber_target_ > 0 ? chamber_target_ : 50),
+    ui_keypad_config_t config = {.initial_value = static_cast<float>(
+                                     chamber_target_ > 0 ? centi_to_degrees(chamber_target_) : 50),
                                  .min_value = 0.0f,
                                  .max_value = static_cast<float>(chamber_max_temp_),
                                  .title_label = "Chamber Temperature",
@@ -702,7 +703,8 @@ void FilamentPanel::handle_custom_chamber_confirmed(float value) {
     spdlog::info("[{}] Custom chamber temperature confirmed: {}°C", get_name(),
                  static_cast<int>(value));
 
-    chamber_target_ = static_cast<int>(value);
+    // Convert degrees to centidegrees for storage (matches PrinterState internal format)
+    chamber_target_ = static_cast<int>(value * 10);
     update_chamber_temp_display();
 
     // Send temperature command to printer - chamber can be heater_generic or temperature_fan
@@ -717,6 +719,8 @@ void FilamentPanel::handle_custom_chamber_confirmed(float value) {
             return;
         }
 
+        // Convert centidegrees back to degrees for the GCODE command
+        int target_degrees = centi_to_degrees(chamber_target_);
         char gcode[128];
 
         // Check if this is a temperature_fan (needs SET_TEMPERATURE_FAN_TARGET)
@@ -726,17 +730,17 @@ void FilamentPanel::handle_custom_chamber_confirmed(float value) {
             std::string fan_name = heater_full_name.substr(16);
             std::snprintf(gcode, sizeof(gcode),
                           "SET_TEMPERATURE_FAN_TARGET TEMPERATURE_FAN=%s TARGET=%d",
-                          fan_name.c_str(), chamber_target_);
+                          fan_name.c_str(), target_degrees);
         } else {
             // heater_generic or other heater type
             std::string object_name = printer_state_.get_discovery().chamber_heater_object_name();
             std::snprintf(gcode, sizeof(gcode), "SET_HEATER_TEMPERATURE HEATER=%s TARGET=%d",
-                          object_name.c_str(), chamber_target_);
+                          object_name.c_str(), target_degrees);
         }
 
         api_->execute_gcode(
             gcode,
-            [target = chamber_target_]() {
+            [target = target_degrees]() {
                 NOTIFY_SUCCESS(lv_tr("Chamber target set to {}°C"), target);
             },
             [](const MoonrakerError& err) {
@@ -803,8 +807,10 @@ void FilamentPanel::update_material_temp_display() {
 
 void FilamentPanel::update_chamber_temp_display() {
     // Update chamber current and target temperatures
+    // chamber_current_ is already in degrees (observer converts), chamber_target_ is centidegrees
     std::snprintf(chamber_current_buf_, sizeof(chamber_current_buf_), "%d°C", chamber_current_);
-    format_target_or_off(chamber_target_, chamber_target_buf_, sizeof(chamber_target_buf_));
+    format_target_or_off(centi_to_degrees(chamber_target_), chamber_target_buf_,
+                         sizeof(chamber_target_buf_));
     lv_subject_copy_string(&chamber_current_subject_, chamber_current_buf_);
     lv_subject_copy_string(&chamber_target_subject_, chamber_target_buf_);
 }

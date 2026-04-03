@@ -239,8 +239,8 @@ class FilamentPanel : public PanelBase {
     int nozzle_target_ = 0;
     int bed_current_ = 25;
     int bed_target_ = 0;
-    int chamber_current_ = 25;
-    int chamber_target_ = 0;
+    int chamber_current_ = 25; ///< Chamber current temperature (degrees, observer converts)
+    int chamber_target_ = 0;   ///< Chamber target temperature (centidegrees, matches PrinterState)
     int prev_nozzle_target_ = -1; ///< Previous target for change detection in update_all_temps
     int prev_bed_target_ = -1;    ///< Previous target for change detection in update_all_temps
     int selected_material_ = -1;  // -1=none, 0=PLA, 1=PETG, 2=ABS, 3=TPU
@@ -253,8 +253,8 @@ class FilamentPanel : public PanelBase {
     // Auto-preheat state for load/unload
     enum class PreheatOp { NONE, LOAD, UNLOAD };
     PreheatOp pending_preheat_op_ = PreheatOp::NONE;
-    int pending_preheat_target_ = 0;   ///< Target temp in °C for pending preheat
-    int prior_nozzle_target_ = 0;      ///< Nozzle target before preheat (0 = was off → cool down after)
+    int pending_preheat_target_ = 0; ///< Target temp in °C for pending preheat
+    int prior_nozzle_target_ = 0; ///< Nozzle target before preheat (0 = was off → cool down after)
 
     // Filament macros now resolved via StandardMacros singleton (load, unload, purge)
 
@@ -335,15 +335,16 @@ class FilamentPanel : public PanelBase {
     void update_preset_button_temps();   ///< Update preset button labels from filament DB
     void check_and_auto_select_preset(); ///< Auto-select preset if targets match
     void update_all_temps();             ///< Unified handler for temp observer bundle
-    void check_pending_preheat();                        ///< Called from update_all_temps()
-    void cancel_pending_preheat();                       ///< Reset preheat state + notify
+    void check_pending_preheat();        ///< Called from update_all_temps()
+    void cancel_pending_preheat();       ///< Reset preheat state + notify
     struct PreheatTempResult {
         int temp = 0;
         std::string material_name;
     };
-    PreheatTempResult resolve_preheat_temp() const;      ///< Priority: ext spool > AMS slot > preset > fallback
-    void start_preheat_for_op(PreheatOp op);             ///< Resolve temp, heat, set pending state
-    void restore_heater_after_preheat();                 ///< Cool down if heater was off before preheat
+    PreheatTempResult
+    resolve_preheat_temp() const;            ///< Priority: ext spool > AMS slot > preset > fallback
+    void start_preheat_for_op(PreheatOp op); ///< Resolve temp, heat, set pending state
+    void restore_heater_after_preheat();     ///< Cool down if heater was off before preheat
 
     //
     // === Instance Handlers ===
