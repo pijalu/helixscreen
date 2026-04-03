@@ -66,7 +66,15 @@ void PrintSelectFileProvider::refresh_files(const std::string& current_path,
         // Success callback
         [self, existing_data = std::move(existing_data), path_copy, on_ready,
          on_err](const std::vector<FileInfo>& files) {
-            spdlog::debug("[FileProvider] Received {} items from Moonraker", files.size());
+            spdlog::debug("[FileProvider] Moonraker returned {} raw items for path='{}'",
+                          files.size(), path_copy.empty() ? "/" : path_copy);
+            for (size_t i = 0; i < files.size() && i < 30; ++i) {
+                spdlog::debug("[FileProvider]   raw[{}]: '{}' (dir={}, modified={:.0f})", i,
+                              files[i].filename, files[i].is_dir, files[i].modified);
+            }
+            if (files.size() > 30) {
+                spdlog::debug("[FileProvider]   ... and {} more raw items", files.size() - 30);
+            }
 
             std::vector<PrintFileData> file_list;
 

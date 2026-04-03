@@ -422,9 +422,18 @@ void PrintSelectPanel::setup(lv_obj_t* panel, lv_obj_t* parent_screen) {
     // Initialize file data provider for Moonraker files
     file_provider_ = std::make_unique<helix::ui::PrintSelectFileProvider>();
     file_provider_->set_api(api_);
-    file_provider_->set_on_files_ready([self,
-                                        token = self->lifetime_.token()](
+    file_provider_->set_on_files_ready([self, token = self->lifetime_.token()](
                                            std::vector<PrintFileData>&& files) {
+        spdlog::debug("[{}] on_files_ready callback: received {} items from provider",
+                      self->get_name(), files.size());
+        for (size_t i = 0; i < files.size() && i < 30; ++i) {
+            spdlog::debug("[{}]   file[{}]: '{}' (dir={}, modified={})", self->get_name(), i,
+                          files[i].filename, files[i].is_dir, files[i].modified_timestamp);
+        }
+        if (files.size() > 30) {
+            spdlog::debug("[{}]   ... and {} more items", self->get_name(), files.size() - 30);
+        }
+
         // CRITICAL: Defer ALL work to main thread
         // WebSocket callbacks run on libhv thread - direct LVGL calls cause crashes
         struct FilesReadyContext {
@@ -436,9 +445,15 @@ void PrintSelectPanel::setup(lv_obj_t* panel, lv_obj_t* parent_screen) {
             std::make_unique<FilesReadyContext>(FilesReadyContext{self, token, std::move(files)});
 
         helix::ui::queue_update<FilesReadyContext>(std::move(ctx), [](FilesReadyContext* c) {
-            if (c->token.expired())
+            if (c->token.expired()) {
+                spdlog::warn("[{}] on_files_ready: lifetime token expired, dropping {} files",
+                             c->panel->get_name(), c->files.size());
                 return;
+            }
             auto* panel = c->panel;
+
+            spdlog::debug("[{}] on_files_ready: applying {} files on main thread",
+                          panel->get_name(), c->files.size());
 
             // Move data into panel (now safe - on main thread)
             panel->file_list_ = std::move(c->files);
@@ -492,8 +507,7 @@ void PrintSelectPanel::setup(lv_obj_t* panel, lv_obj_t* parent_screen) {
         });
     });
     file_provider_->set_on_metadata_updated(
-        [self, token = self->lifetime_.token()](
-            size_t index, const PrintFileData& updated) {
+        [self, token = self->lifetime_.token()](size_t index, const PrintFileData& updated) {
             // CRITICAL: Defer all work to main thread
             // WebSocket callbacks run on libhv thread - direct LVGL calls cause crashes
             struct MetadataUpdateContext {
@@ -779,8 +793,8 @@ void PrintSelectPanel::set_return_to_home_on_close() {
 
 void PrintSelectPanel::set_sort_recent() {
     // Force MODIFIED descending without toggle
-    auto sorter_column = static_cast<helix::ui::SortColumn>(
-        static_cast<int>(PrintSelectSortColumn::MODIFIED));
+    auto sorter_column =
+        static_cast<helix::ui::SortColumn>(static_cast<int>(PrintSelectSortColumn::MODIFIED));
     file_sorter_.set_sort(sorter_column, helix::ui::SortDirection::DESCENDING);
 
     current_sort_column_ = PrintSelectSortColumn::MODIFIED;
@@ -823,9 +837,13 @@ void PrintSelectPanel::refresh_files() {
     }
 
     if (!file_provider_->is_ready()) {
-        spdlog::trace("[{}] Cannot refresh files: not connected", get_name());
+        spdlog::debug("[{}] Cannot refresh files: not connected (API state: {})", get_name(),
+                      api_ ? static_cast<int>(api_->get_connection_state()) : -1);
         return;
     }
+
+    spdlog::debug("[{}] refresh_files() called for path='{}', existing_count={}", get_name(),
+                  current_path_.empty() ? "/" : current_path_, file_list_.size());
 
     // Delegate to file provider - callbacks set in setup() will handle the results
     file_provider_->refresh_files(current_path_, file_list_);
@@ -905,16 +923,16 @@ void PrintSelectPanel::fetch_metadata_range(size_t start, size_t end) {
                             // Metascan succeeded - process the fresh metadata
                             self->process_metadata_result(i, filename, scanned);
                         },
-                        [self, i, filename, captured_gen,
-                         token](const MoonrakerError& error) {
+                        [self, i, filename, captured_gen, token](const MoonrakerError& error) {
                             if (token.expired()) {
                                 return;
                             }
                             if (self->nav_generation_.load() != captured_gen) {
                                 return;
                             }
-                            spdlog::debug("[{}] Metascan failed for {}: {}, trying gcode extraction",
-                                          self->get_name(), filename, error.message);
+                            spdlog::debug(
+                                "[{}] Metascan failed for {}: {}, trying gcode extraction",
+                                self->get_name(), filename, error.message);
                             // Fall through to process_metadata_result with empty metadata
                             // so the gcode header extraction fallback can kick in
                             FileMetadata empty_meta;
@@ -957,8 +975,7 @@ void PrintSelectPanel::fetch_metadata_range(size_t start, size_t end) {
                             }
                             self->process_metadata_result(i, filename, scanned);
                         },
-                        [self, i, filename, captured_gen,
-                         token](const MoonrakerError& scan_error) {
+                        [self, i, filename, captured_gen, token](const MoonrakerError& scan_error) {
                             if (token.expired()) {
                                 return;
                             }
@@ -1092,13 +1109,28 @@ void PrintSelectPanel::process_metadata_result(size_t i, const std::string& file
     };
 
     helix::ui::queue_update<MetadataUpdate>(
-        std::make_unique<MetadataUpdate>(
-            MetadataUpdate{this, i, filename, print_time_minutes, filament_grams, filament_type,
-                           filament_name, print_time_str, filament_str, layer_count,
-                           layer_count_str, object_height, print_height_str, layer_height,
-                           layer_height_str, uuid, thumb_path, thumb_is_local, target,
-                           std::move(filament_types), std::move(filament_names),
-                           std::move(filament_colors)}),
+        std::make_unique<MetadataUpdate>(MetadataUpdate{this,
+                                                        i,
+                                                        filename,
+                                                        print_time_minutes,
+                                                        filament_grams,
+                                                        filament_type,
+                                                        filament_name,
+                                                        print_time_str,
+                                                        filament_str,
+                                                        layer_count,
+                                                        layer_count_str,
+                                                        object_height,
+                                                        print_height_str,
+                                                        layer_height,
+                                                        layer_height_str,
+                                                        uuid,
+                                                        thumb_path,
+                                                        thumb_is_local,
+                                                        target,
+                                                        std::move(filament_types),
+                                                        std::move(filament_names),
+                                                        std::move(filament_colors)}),
         [](MetadataUpdate* d) {
             auto* self = d->panel;
 
@@ -1128,10 +1160,11 @@ void PrintSelectPanel::process_metadata_result(size_t i, const std::string& file
             self->file_list_[d->index].filament_names = std::move(d->filament_names);
             self->file_list_[d->index].filament_colors = std::move(d->filament_colors);
 
-            spdlog::trace("[{}] Updated metadata for {}: {}min, {}g, {} layers, {} types, {} colors",
-                          self->get_name(), d->filename, d->print_time_minutes, d->filament_grams,
-                          d->layer_count, self->file_list_[d->index].filament_types.size(),
-                          self->file_list_[d->index].filament_colors.size());
+            spdlog::trace(
+                "[{}] Updated metadata for {}: {}min, {}g, {} layers, {} types, {} colors",
+                self->get_name(), d->filename, d->print_time_minutes, d->filament_grams,
+                d->layer_count, self->file_list_[d->index].filament_types.size(),
+                self->file_list_[d->index].filament_colors.size());
 
             // Handle thumbnail with pre-scaling optimization
             if (!d->thumb_path.empty() && self->api_) {
@@ -1326,8 +1359,10 @@ void PrintSelectPanel::set_api(MoonrakerAPI* api) {
             "print_select_filelist_" + std::to_string(reinterpret_cast<uintptr_t>(this));
         auto* self = this;
         api_->register_method_callback(
-            "notify_filelist_changed", filelist_handler_name_, [self](const json& /*msg*/) {
-                spdlog::info("[{}] File list changed notification received", self->get_name());
+            "notify_filelist_changed", filelist_handler_name_, [self](const json& msg) {
+                spdlog::info(
+                    "[{}] notify_filelist_changed received: {}", self->get_name(),
+                    msg.dump(-1, ' ', false, json::error_handler_t::replace).substr(0, 500));
 
                 // Check if we're on the printer source (not USB)
                 bool is_usb_active = self->usb_source_ && self->usb_source_->is_usb_active();
@@ -1372,7 +1407,8 @@ void PrintSelectPanel::set_api(MoonrakerAPI* api) {
                 }
                 bool is_usb_active = panel->usb_source_ && panel->usb_source_->is_usb_active();
                 if (!is_usb_active) {
-                    spdlog::trace("[{}] Polling fallback: refreshing file list", panel->get_name());
+                    spdlog::debug("[{}] Polling fallback: refreshing file list (current_count={})",
+                                  panel->get_name(), panel->file_list_.size());
                     panel->refresh_files();
                 }
             },
@@ -1413,9 +1449,8 @@ void PrintSelectPanel::check_moonraker_usb_symlink() {
                     self->usb_source_->set_moonraker_has_usb_access(true);
                 }
             } else {
-                spdlog::debug(
-                    "[{}] Moonraker returned {} files but none under usb/ - no symlink",
-                    self->get_name(), files.size());
+                spdlog::debug("[{}] Moonraker returned {} files but none under usb/ - no symlink",
+                              self->get_name(), files.size());
             }
         },
         [self](const MoonrakerError& error) {
@@ -1437,8 +1472,9 @@ void PrintSelectPanel::on_activate() {
             if (panel_) {
                 lv_obj_set_style_opa(panel_, LV_OPA_0, 0);
             }
-            spdlog::debug("[{}] Print Last flow: hiding panel (detail_open={}, pending={}, count={})",
-                          get_name(), detail_open, pending, return_home_activation_count_);
+            spdlog::debug(
+                "[{}] Print Last flow: hiding panel (detail_open={}, pending={}, count={})",
+                get_name(), detail_open, pending, return_home_activation_count_);
         } else {
             // Detail view closed OR safety timeout — restore opacity and go home
             if (return_home_activation_count_ > 3) {
@@ -2137,9 +2173,8 @@ void PrintSelectPanel::create_detail_view() {
     print_controller_->set_update_print_button([this]() { update_print_button_state(); });
     print_controller_->set_hide_detail_view([this]() { hide_detail_view(); });
     print_controller_->set_show_detail_view([this]() { show_detail_view(); });
-    print_controller_->set_navigate_to_print_status([this]() {
-        PrintStatusPanel::push_overlay(parent_screen_);
-    });
+    print_controller_->set_navigate_to_print_status(
+        [this]() { PrintStatusPanel::push_overlay(parent_screen_); });
 
     // Crash recovery: restore firmware mapping if app restarted mid-print
     print_controller_->recover_pending_remap();
@@ -2381,8 +2416,7 @@ void PrintSelectPanel::set_usb_manager(UsbManager* manager) {
     if (usb_source_) {
         usb_source_->set_usb_manager(manager);
     }
-    spdlog::trace("[{}] UsbManager set (usb_source_={})", get_name(),
-                  usb_source_ != nullptr);
+    spdlog::trace("[{}] UsbManager set (usb_source_={})", get_name(), usb_source_ != nullptr);
 }
 
 void PrintSelectPanel::on_usb_drive_inserted() {

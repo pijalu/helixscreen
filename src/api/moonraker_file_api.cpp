@@ -78,21 +78,28 @@ void MoonrakerFileAPI::get_directory(const std::string& root, const std::string&
 
     json params = {{"path", full_path}};
 
-    spdlog::debug("[FileAPI] Getting directory contents: {}", full_path);
+    spdlog::debug("[FileAPI] Sending server.files.get_directory for path='{}'", full_path);
 
     client_.send_jsonrpc(
         "server.files.get_directory", params,
-        [this, on_success, on_error](json response) {
+        [this, full_path, on_success, on_error](json response) {
             try {
                 std::vector<FileInfo> files = parse_file_list(response);
-                spdlog::trace("[FileAPI] Directory has {} items", files.size());
+                spdlog::debug("[FileAPI] get_directory response for '{}': {} items", full_path,
+                              files.size());
                 on_success(files);
             } catch (const std::exception& e) {
-                LOG_ERROR_INTERNAL("Failed to parse directory: {}", e.what());
+                LOG_ERROR_INTERNAL("Failed to parse directory '{}': {}", full_path, e.what());
                 report_parse_error(on_error, "server.files.get_directory", e.what());
             }
         },
-        on_error);
+        [full_path, on_error](const MoonrakerError& error) {
+            spdlog::error("[FileAPI] get_directory FAILED for '{}': {} ({})", full_path,
+                          error.message, error.get_type_string());
+            if (on_error) {
+                on_error(error);
+            }
+        });
 }
 
 void MoonrakerFileAPI::get_file_metadata(const std::string& filename,
@@ -421,7 +428,8 @@ FileMetadata MoonrakerFileAPI::parse_file_metadata(const json& response) {
             }
         }
         if (!metadata.filament_colors.empty()) {
-            spdlog::trace("[FileAPI] Found {} filament colors (array)", metadata.filament_colors.size());
+            spdlog::trace("[FileAPI] Found {} filament colors (array)",
+                          metadata.filament_colors.size());
         }
     }
 
