@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+#include "ui_update_queue.h"
+
 #include "../../include/temp_graph_controller.h"
 #include "../../include/ui_temp_graph.h"
 #include "../ui_test_utils.h"
-#include "lvgl/lvgl.h"
-
 #include "app_globals.h"
+#include "lvgl/lvgl.h"
 #include "printer_state.h"
 
 #include "../catch_amalgamated.hpp"
@@ -40,8 +41,7 @@ class TempGraphControllerFixture {
 // Tests
 // ============================================================================
 
-TEST_CASE_METHOD(TempGraphControllerFixture,
-                 "Controller creates graph with minimal config",
+TEST_CASE_METHOD(TempGraphControllerFixture, "Controller creates graph with minimal config",
                  "[controller][temp_graph_controller]") {
     TempGraphControllerConfig cfg;
     cfg.series.clear(); // No series — avoids printer state lookups for sensors
@@ -52,8 +52,7 @@ TEST_CASE_METHOD(TempGraphControllerFixture,
     REQUIRE(controller->graph() != nullptr);
 }
 
-TEST_CASE_METHOD(TempGraphControllerFixture,
-                 "Controller with series specs returns valid IDs",
+TEST_CASE_METHOD(TempGraphControllerFixture, "Controller with series specs returns valid IDs",
                  "[controller][temp_graph_controller]") {
     TempGraphControllerConfig cfg;
     cfg.series = {
@@ -76,8 +75,7 @@ TEST_CASE_METHOD(TempGraphControllerFixture,
     REQUIRE(controller->series_id_for("nonexistent_sensor") == -1);
 }
 
-TEST_CASE_METHOD(TempGraphControllerFixture,
-                 "Controller pause and resume do not crash",
+TEST_CASE_METHOD(TempGraphControllerFixture, "Controller pause and resume do not crash",
                  "[controller][temp_graph_controller]") {
     TempGraphControllerConfig cfg;
 
@@ -90,8 +88,7 @@ TEST_CASE_METHOD(TempGraphControllerFixture,
     REQUIRE_NOTHROW(controller->resume());
 }
 
-TEST_CASE_METHOD(TempGraphControllerFixture,
-                 "Controller set_features applies feature flags",
+TEST_CASE_METHOD(TempGraphControllerFixture, "Controller set_features applies feature flags",
                  "[controller][temp_graph_controller]") {
     TempGraphControllerConfig cfg;
 
@@ -133,8 +130,7 @@ TEST_CASE_METHOD(TempGraphControllerFixture,
     REQUIRE(controller->series_id_for("heater_bed") >= 0);
 }
 
-TEST_CASE_METHOD(TempGraphControllerFixture,
-                 "Controller with custom scale params does not crash",
+TEST_CASE_METHOD(TempGraphControllerFixture, "Controller with custom scale params does not crash",
                  "[controller][temp_graph_controller]") {
     TempGraphControllerConfig cfg;
     cfg.scale_params.step = 25.0f;
@@ -148,8 +144,7 @@ TEST_CASE_METHOD(TempGraphControllerFixture,
     REQUIRE(controller->graph() != nullptr);
 }
 
-TEST_CASE_METHOD(TempGraphControllerFixture,
-                 "Controller destruction with series is safe",
+TEST_CASE_METHOD(TempGraphControllerFixture, "Controller destruction with series is safe",
                  "[controller][temp_graph_controller]") {
     TempGraphControllerConfig cfg;
     cfg.series = {
@@ -164,4 +159,90 @@ TEST_CASE_METHOD(TempGraphControllerFixture,
     // Destruction tears down observers, drains queue, destroys graph
     REQUIRE_NOTHROW(controller.reset());
     REQUIRE(controller == nullptr);
+}
+
+// Reproducer for: chamber series klipper_name is "heater_generic chamber" (full Klipper
+// object name), not "chamber". setup_observers() must resolve it to chamber temp/target
+// subjects — an exact match on "chamber" would silently skip, leaving the graph empty.
+TEST_CASE_METHOD(TempGraphControllerFixture,
+                 "Chamber series with heater_generic prefix resolves to chamber subjects",
+                 "[controller][temp_graph_controller][chamber]") {
+    auto& ps = get_printer_state();
+
+    // Set chamber temp/target subjects to known values
+    lv_subject_set_int(ps.get_chamber_temp_subject(), 423);   // 42.3°C
+    lv_subject_set_int(ps.get_chamber_target_subject(), 500); // 50.0°C
+
+    TempGraphControllerConfig cfg;
+    cfg.series = {
+        {"heater_generic chamber", lv_color_hex(0xA3BE8C), true},
+    };
+
+    auto controller = std::make_unique<TempGraphController>(screen, cfg);
+    REQUIRE(controller->is_valid());
+
+    // Verify series ID was assigned
+    int chamber_id = controller->series_id_for("heater_generic chamber");
+    REQUIRE(chamber_id >= 0);
+
+    // Pump the observer callbacks through UpdateQueue
+    auto& queue = helix::ui::UpdateQueue::instance();
+    queue.drain();
+    lv_timer_handler_safe();
+
+    // The chart should have received data — verify the series has points
+    auto* graph = controller->graph();
+    REQUIRE(graph != nullptr);
+    lv_obj_t* chart = ui_temp_graph_get_chart(graph);
+    REQUIRE(chart != nullptr);
+    uint32_t point_cnt = lv_chart_get_point_count(chart);
+    REQUIRE(point_cnt > 0);
+
+    // Verify the actual data point was set.
+    // The chart stores values as deci-degrees (temp * 10).
+    // 42.3°C → 423 in chart storage.
+    lv_chart_series_t* ser = lv_chart_get_series_next(chart, nullptr);
+    REQUIRE(ser != nullptr);
+    int32_t* y_points = lv_chart_get_series_y_array(chart, ser);
+    REQUIRE(y_points != nullptr);
+    // On first value, the series is backfilled with the initial temp → 423 (deci-degrees)
+    REQUIRE(y_points[0] == 423);
+}
+
+TEST_CASE_METHOD(TempGraphControllerFixture,
+                 "Chamber series with temperature_fan prefix resolves to chamber subjects",
+                 "[controller][temp_graph_controller][chamber]") {
+    auto& ps = get_printer_state();
+
+    // Set chamber temp/target to known values
+    lv_subject_set_int(ps.get_chamber_temp_subject(), 385);   // 38.5°C
+    lv_subject_set_int(ps.get_chamber_target_subject(), 450); // 45.0°C
+
+    TempGraphControllerConfig cfg;
+    cfg.series = {
+        {"temperature_fan chamber", lv_color_hex(0xA3BE8C), true},
+    };
+
+    auto controller = std::make_unique<TempGraphController>(screen, cfg);
+    REQUIRE(controller->is_valid());
+
+    int chamber_id = controller->series_id_for("temperature_fan chamber");
+    REQUIRE(chamber_id >= 0);
+
+    // Pump observer callbacks
+    auto& queue = helix::ui::UpdateQueue::instance();
+    queue.drain();
+    lv_timer_handler_safe();
+
+    auto* graph = controller->graph();
+    REQUIRE(graph != nullptr);
+    lv_obj_t* chart = ui_temp_graph_get_chart(graph);
+    REQUIRE(chart != nullptr);
+
+    lv_chart_series_t* ser = lv_chart_get_series_next(chart, nullptr);
+    REQUIRE(ser != nullptr);
+    int32_t* y_points = lv_chart_get_series_y_array(chart, ser);
+    REQUIRE(y_points != nullptr);
+    // 38.5°C → 385 in chart storage (deci-degrees)
+    REQUIRE(y_points[0] == 385);
 }
