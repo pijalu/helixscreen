@@ -337,6 +337,15 @@ ifneq ($(ENABLE_MOCKS),yes)
 endif
 APP_OBJS := $(patsubst $(SRC_DIR)/%.cpp,$(OBJ_DIR)/%.o,$(APP_SRCS))
 
+# libhv dns_resolv.c — needed by safe_resolve.h on statically-linked ARM/MIPS
+# targets (avoids glibc __check_pf SIGSEGV). Only compiled for cross builds.
+# Uses APP_ prefix to avoid collision with DNS_RESOLV_OBJ in tests.mk.
+ifneq ($(CROSS_COMPILE),)
+    APP_DNS_RESOLV_OBJ := $(OBJ_DIR)/dns_resolv.o
+else
+    APP_DNS_RESOLV_OBJ :=
+endif
+
 # Objective-C++ sources (macOS only - .mm files)
 # Only include on macOS, exclude on Linux to avoid linking errors
 ifeq ($(UNAME_S),Darwin)
