@@ -195,22 +195,28 @@
               <bind_flag_if_eq subject="ui_breakpoint" flag="hidden" ref_value="0"/>
             </text_small>
             <!-- Chamber section (visible only if printer has chamber sensor) -->
-            <lv_obj name="chamber_section"
+            <lv_obj name="btn_chamber_temp"
                     width="100%" flex_flow="row" style_flex_main_place="space_between" style_flex_cross_place="center"
-                    hidden="true">
+                    hidden="true" clickable="true" scrollable="false">
               <bind_flag_if_eq subject="printer_has_chamber" flag="hidden" ref_value="0"/>
-              <icon src="fridge_industrial" size="xs" variant="secondary" clickable="false" event_bubble="true"/>
-              <text_small text="Chamb:" translation_tag="Chamb:" clickable="false" event_bubble="true">
-                <bind_flag_if_eq subject="ui_breakpoint" flag="hidden" ref_value="0"/>
-              </text_small>
-              <!-- Chamber temp display + edit icon -->
+              <event_cb trigger="clicked" callback="on_chamber_temp_clicked"/>
+              <!-- Left side: icon + label + temp display -->
+              <lv_obj width="content"
+                      height="content" flex_flow="row" style_pad_all="0" scrollable="false"
+                      style_flex_cross_place="center" style_pad_gap="#space_xs" clickable="false" event_bubble="true">
+                <icon src="fridge_industrial" size="xs" variant="secondary" clickable="false" event_bubble="true"/>
+                <text_small text="Chamb:" translation_tag="Chamb:" clickable="false" event_bubble="true">
+                  <bind_flag_if_eq subject="ui_breakpoint" flag="hidden" ref_value="0"/>
+                </text_small>
+                <temp_display name="chamber_temp_display"
+                              size="md" show_target="true" bind_current="chamber_temp" bind_target="chamber_target"
+                              clickable="false" event_bubble="true"/>
+              </lv_obj>
+              <!-- Right side: temp display + edit icon -->
               <lv_obj name="chamber_temp_edit_container"
                       width="content" height="content" flex_flow="row" style_pad_all="0" scrollable="false"
                       style_flex_cross_place="center" style_pad_gap="#space_xs" clickable="true">
                 <event_cb trigger="clicked" callback="on_chamber_target_edit"/>
-                <temp_display name="chamber_temp_display"
-                              size="md" show_target="true" bind_current="chamber_temp" bind_target="chamber_target"
-                              clickable="false" event_bubble="true"/>
                 <icon src="pencil" size="xs" variant="tertiary" clickable="false" event_bubble="true"/>
               </lv_obj>
             </lv_obj>
