@@ -178,6 +178,7 @@ void ControlsPanel::init_subjects() {
     UI_MANAGED_SUBJECT_INT(macro_4_visible_, 0, "macro_4_visible", subjects_);
     UI_MANAGED_SUBJECT_STRING(macro_3_name_, macro_3_name_buf_, "", "macro_3_name", subjects_);
     UI_MANAGED_SUBJECT_STRING(macro_4_name_, macro_4_name_buf_, "", "macro_4_name", subjects_);
+    UI_MANAGED_SUBJECT_INT(macro_header_visible_, 1, "macro_header_visible", subjects_);
 
     // Operation timeout guard (disables buttons while homing/QGL/Z-tilt in progress)
     operation_guard_.init_subject("controls_operation_in_progress", subjects_);
@@ -760,6 +761,11 @@ void ControlsPanel::refresh_macro_buttons() {
         update_macro_button(macros, *slots[i], *visible_subjects[i], *name_subjects[i],
                             static_cast<int>(i + 1));
     }
+
+    // Hide the Quick Actions header when row 2 is visible (macro 3 or 4) to save space
+    bool row2_visible =
+        lv_subject_get_int(&macro_3_visible_) == 1 || lv_subject_get_int(&macro_4_visible_) == 1;
+    lv_subject_set_int(&macro_header_visible_, row2_visible ? 0 : 1);
 }
 
 /// @brief Priority score for fan display ordering on the cooling card.

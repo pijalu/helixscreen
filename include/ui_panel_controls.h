@@ -339,6 +339,7 @@ class ControlsPanel : public PanelBase {
     lv_subject_t macro_4_name_{};
     char macro_3_name_buf_[64] = {};
     char macro_4_name_buf_[64] = {};
+    lv_subject_t macro_header_visible_{};
 
   public:
     // === Leveling Commands (shared with MotionPanel) ===
