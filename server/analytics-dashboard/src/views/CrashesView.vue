@@ -40,6 +40,7 @@
                   <th>Platform</th>
                   <th>Uptime</th>
                   <th>Device</th>
+                  <th>Count</th>
                 </tr>
               </thead>
               <tbody>
@@ -50,6 +51,10 @@
                   <td>{{ crash.platform || '—' }}</td>
                   <td class="mono">{{ formatDuration(crash.uptime_sec) }}</td>
                   <td class="mono device-id">{{ shortDeviceId(crash.device_id) }}</td>
+                  <td class="mono">
+                    <span v-if="crash.occurrences > 1" class="badge occurrences">{{ crash.occurrences }}×</span>
+                    <span v-else>1</span>
+                  </td>
                 </tr>
               </tbody>
             </table>
@@ -262,5 +267,10 @@ watch(() => filters.queryString, fetchData, { immediate: true })
 .badge.signal-other {
   background: rgba(139, 92, 246, 0.15);
   color: #a78bfa;
+}
+
+.badge.occurrences {
+  background: rgba(245, 158, 11, 0.15);
+  color: #fbbf24;
 }
 </style>

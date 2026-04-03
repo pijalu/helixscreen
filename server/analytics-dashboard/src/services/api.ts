@@ -41,6 +41,7 @@ export interface CrashListData {
     signal: string
     platform: string
     uptime_sec: number
+    occurrences: number
   }[]
 }
 
@@ -124,7 +125,7 @@ export interface StabilityData {
   memory_warnings_trend: { date: string; count: number }[]
   error_categories: { category: string; count: number }[]
   error_codes: { category: string; code: string; count: number }[]
-  recent_crashes: { timestamp: string; device_id: string; version: string; signal: string; platform: string; uptime_sec: number }[]
+  recent_crashes: { timestamp: string; device_id: string; version: string; signal: string; platform: string; uptime_sec: number; occurrences: number }[]
 }
 
 export interface PrintStartData {

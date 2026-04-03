@@ -59,6 +59,44 @@ function json(body: unknown, status = 200): Response {
   });
 }
 
+interface RawCrashRow {
+  timestamp: string;
+  device_id: string;
+  ver: string;
+  sig: string;
+  platform: string;
+  uptime_sec: number;
+}
+
+interface DedupedCrashRow extends RawCrashRow {
+  occurrences: number;
+}
+
+/**
+ * De-duplicate raw crash rows in TypeScript. Devices re-report the same crash
+ * on every reboot, so we group by (device_id, signal, uptime bucket rounded
+ * to 60s) and keep the most recent timestamp + occurrence count.
+ */
+function deduplicateCrashes(rows: RawCrashRow[]): DedupedCrashRow[] {
+  const groups = new Map<string, { row: RawCrashRow; count: number }>();
+  for (const row of rows) {
+    const uptimeBucket = Math.floor(row.uptime_sec / 60);
+    const key = `${row.device_id}:${row.sig}:${uptimeBucket}`;
+    const existing = groups.get(key);
+    if (existing) {
+      existing.count++;
+      if (row.timestamp > existing.row.timestamp) {
+        existing.row = row;
+      }
+    } else {
+      groups.set(key, { row, count: 1 });
+    }
+  }
+  return [...groups.values()]
+    .map(({ row, count }) => ({ ...row, occurrences: count }))
+    .sort((a, b) => b.timestamp.localeCompare(a.timestamp));
+}
+
 function randomHex(bytes: number): string {
   const buf = new Uint8Array(bytes);
   crypto.getRandomValues(buf);
@@ -449,7 +487,8 @@ export default {
             parseInt(url.searchParams.get("limit") ?? "50", 10) || 50,
             200,
           ));
-          const sql = crashListQuery(days, limit, filters);
+          // Fetch more raw rows than needed so dedup still yields enough results
+          const sql = crashListQuery(days, limit * 5, filters);
           const result = await executeQuery(queryConfig, sql);
           const data = result as {
             data: Array<{
@@ -462,14 +501,17 @@ export default {
             }>;
           };
 
+          const deduped = deduplicateCrashes(data.data ?? []);
+
           return json({
-            crashes: (data.data ?? []).map((r) => ({
+            crashes: deduped.slice(0, limit).map((r) => ({
               timestamp: r.timestamp,
               device_id: r.device_id,
               version: r.ver,
               signal: r.sig,
               platform: r.platform,
               uptime_sec: r.uptime_sec,
+              occurrences: r.occurrences,
             })),
           });
         }
@@ -760,28 +802,32 @@ export default {
         // GET /v1/dashboard/stability
         if (url.pathname === "/v1/dashboard/stability") {
           const queries = stabilityQueries(days, filters);
-          const limit = Math.max(1, Math.min(
+          const displayLimit = Math.max(1, Math.min(
             parseInt(url.searchParams.get("limit") ?? "50", 10) || 50,
             200,
           ));
-          const crashListSql = crashListQuery(days, limit, filters);
+          // Fetch all unique crash incidents (deduped via GROUP BY in SQL)
+          // with a high limit so we can compute accurate aggregates in TS.
+          const crashListSql = crashListQuery(days, 10000, filters);
 
           const allResults = await Promise.all([
-            ...queries.map((q) => executeQuery(queryConfig, q)),
+            // Skip queries 0,2,4,5 (crash aggregates) — we compute those from the deduped list
+            executeQuery(queryConfig, queries[1]),  // session count over time
+            executeQuery(queryConfig, queries[3]),  // session count by version
+            executeQuery(queryConfig, queries[6]),  // klippy
+            executeQuery(queryConfig, queries[7]),  // memory warnings
+            executeQuery(queryConfig, queries[8]),  // error categories
+            executeQuery(queryConfig, queries[9]),  // error codes
             executeQuery(queryConfig, crashListSql),
           ]);
 
-          const crashTimeRes = allResults[0] as { data: Array<{ date: string; crash_count: number }> };
-          const sessionTimeRes = allResults[1] as { data: Array<{ date: string; session_count: number }> };
-          const crashByVerRes = allResults[2] as { data: Array<{ ver: string; crash_count: number }> };
-          const sessionByVerRes = allResults[3] as { data: Array<{ ver: string; session_count: number }> };
-          const signalRes = allResults[4] as { data: Array<{ signal: string; count: number }> };
-          const uptimeRes = allResults[5] as { data: Array<{ avg_uptime_sec: number }> };
-          const klippyRes = allResults[6] as { data: Array<{ date: string; errors: number; shutdowns: number }> };
-          const memWarnRes = allResults[7] as { data: Array<{ date: string; count: number }> };
-          const errorCatsRes = allResults[8] as { data: Array<{ category: string; count: number }> };
-          const errorCodesRes = allResults[9] as { data: Array<{ category: string; code: string; count: number }> };
-          const crashListRes = allResults[10] as {
+          const sessionTimeRes = allResults[0] as { data: Array<{ date: string; session_count: number }> };
+          const sessionByVerRes = allResults[1] as { data: Array<{ ver: string; session_count: number }> };
+          const klippyRes = allResults[2] as { data: Array<{ date: string; errors: number; shutdowns: number }> };
+          const memWarnRes = allResults[3] as { data: Array<{ date: string; count: number }> };
+          const errorCatsRes = allResults[4] as { data: Array<{ category: string; count: number }> };
+          const errorCodesRes = allResults[5] as { data: Array<{ category: string; code: string; count: number }> };
+          const crashListRes = allResults[6] as {
             data: Array<{
               timestamp: string;
               device_id: string;
@@ -792,45 +838,68 @@ export default {
             }>;
           };
 
-          // Merge crash counts and session counts by date for crash rate trend
+          const dedupedCrashes = deduplicateCrashes(crashListRes.data ?? []);
+
+          // Compute crash aggregates from the deduplicated crash list
+          // Crash count by date (from deduped crash timestamps)
+          const crashByDate = new Map<string, number>();
+          for (const row of dedupedCrashes) {
+            const date = row.timestamp.slice(0, 10); // "2026-04-03T..." → "2026-04-03"
+            crashByDate.set(date, (crashByDate.get(date) ?? 0) + 1);
+          }
+
+          // Merge with session dates for crash rate trend
           const sessionByDate = new Map<string, number>();
           for (const row of sessionTimeRes.data ?? []) {
             sessionByDate.set(row.date, row.session_count);
           }
-          const allDates = new Set<string>();
-          for (const row of crashTimeRes.data ?? []) allDates.add(row.date);
-          for (const row of sessionTimeRes.data ?? []) allDates.add(row.date);
-          const crashByDate = new Map<string, number>();
-          for (const row of crashTimeRes.data ?? []) {
-            crashByDate.set(row.date, row.crash_count);
-          }
+          const allDates = new Set([...crashByDate.keys(), ...sessionByDate.keys()]);
           const crash_rate_trend = [...allDates].sort().map((date) => {
             const crashes = crashByDate.get(date) ?? 0;
             const sessions = sessionByDate.get(date) ?? 0;
             return { date, crashes, sessions, rate: sessions > 0 ? crashes / sessions : 0 };
           });
 
-          // Merge crash and session counts by version
+          // Crash count by version (from deduped list)
+          const crashByVer = new Map<string, number>();
+          for (const row of dedupedCrashes) {
+            if (row.ver) crashByVer.set(row.ver, (crashByVer.get(row.ver) ?? 0) + 1);
+          }
           const sessionVerMap = new Map<string, number>();
           for (const row of sessionByVerRes.data ?? []) {
             sessionVerMap.set(row.ver, row.session_count);
           }
-          const by_version = (crashByVerRes.data ?? []).map((r) => {
-            const crashes = r.crash_count;
-            const sessionCount = sessionVerMap.get(r.ver) ?? 0;
-            return {
-              version: r.ver,
-              crash_count: crashes,
-              session_count: sessionCount,
-              rate: sessionCount > 0 ? crashes / sessionCount : 0,
-            };
-          });
+          const by_version = [...crashByVer.entries()]
+            .sort((a, b) => b[1] - a[1])
+            .map(([ver, crashes]) => {
+              const sessionCount = sessionVerMap.get(ver) ?? 0;
+              return {
+                version: ver,
+                crash_count: crashes,
+                session_count: sessionCount,
+                rate: sessionCount > 0 ? crashes / sessionCount : 0,
+              };
+            });
+
+          // Crashes by signal (from deduped list)
+          const crashBySignal = new Map<string, number>();
+          for (const row of dedupedCrashes) {
+            if (row.sig) crashBySignal.set(row.sig, (crashBySignal.get(row.sig) ?? 0) + 1);
+          }
+          const by_signal = [...crashBySignal.entries()]
+            .sort((a, b) => b[1] - a[1])
+            .map(([signal, count]) => ({ signal, count }));
+
+          // Average uptime (from deduped list)
+          const avg_uptime_sec = dedupedCrashes.length > 0
+            ? dedupedCrashes.reduce((sum, r) => sum + r.uptime_sec, 0) / dedupedCrashes.length
+            : 0;
 
           return json({
             crash_rate_trend,
             by_version,
-            by_signal: (signalRes.data ?? []).map((r) => ({ signal: r.signal, count: r.count })),
-            avg_uptime_sec: uptimeRes.data?.[0]?.avg_uptime_sec ?? 0,
+            by_signal,
+            avg_uptime_sec,
             klippy_trend: (klippyRes.data ?? []).map((r) => ({
               date: r.date,
               errors: r.errors,
@@ -849,13 +918,14 @@ export default {
               code: r.code,
               count: r.count,
             })),
-            recent_crashes: (crashListRes.data ?? []).map((r) => ({
+            recent_crashes: dedupedCrashes.slice(0, displayLimit).map((r) => ({
               timestamp: r.timestamp,
               device_id: r.device_id,
               version: r.ver,
               signal: r.sig,
               platform: r.platform,
               uptime_sec: r.uptime_sec,
+              occurrences: r.occurrences,
             })),
           });
         }

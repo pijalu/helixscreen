@@ -6,8 +6,6 @@
 #include "ui_update_queue.h"
 
 #include "accel_sensor_manager.h"
-#include "panel_widget_config.h"
-#include "panel_widget_manager.h"
 #include "ams_state.h"
 #include "ams_types.h"
 #include "app_globals.h"
@@ -22,6 +20,8 @@
 #include "moonraker_api.h"
 #include "moonraker_client.h"
 #include "moonraker_types.h"
+#include "panel_widget_config.h"
+#include "panel_widget_manager.h"
 #include "platform_capabilities.h"
 #include "printer_state.h"
 #include "system/crash_handler.h"
@@ -562,7 +562,8 @@ void TelemetryManager::notify_overlay_opened() {
 }
 
 void TelemetryManager::notify_widget_interaction(const std::string& widget_id) {
-    if (!enabled_.load() || !initialized_.load()) return;
+    if (!enabled_.load() || !initialized_.load())
+        return;
     // Strip instance suffix for aggregation (e.g., "favorite_macro:2" -> "favorite_macro")
     std::string base_id = widget_id;
     auto colon = base_id.find(':');
@@ -1101,19 +1102,16 @@ void TelemetryManager::check_previous_crash() {
     }
 
     // Client-side dedup: skip if we already sent a report with the same fingerprint
-    {
-        std::string sig = crash_data.value("signal_name", "");
-        std::string ver = crash_data.value("app_version", "");
-        std::string bt0;
-        if (crash_data.contains("backtrace") && crash_data["backtrace"].is_array() &&
-            !crash_data["backtrace"].empty()) {
-            bt0 = crash_data["backtrace"][0].get<std::string>();
-        }
-        std::string fp = helix::crash_fingerprint(sig, ver, bt0);
-        if (helix::CrashHistory::instance().has_fingerprint(fp)) {
-            spdlog::info("[TelemetryManager] Duplicate crash ({}), skipping telemetry event", fp);
-            return;
-        }
+    std::string bt0;
+    if (crash_data.contains("backtrace") && crash_data["backtrace"].is_array() &&
+        !crash_data["backtrace"].empty()) {
+        bt0 = crash_data["backtrace"][0].get<std::string>();
+    }
+    std::string fp = helix::crash_fingerprint(crash_data.value("signal_name", ""),
+                                              crash_data.value("app_version", ""), bt0);
+    if (helix::CrashHistory::instance().has_fingerprint(fp)) {
+        spdlog::info("[TelemetryManager] Duplicate crash ({}), skipping telemetry event", fp);
+        return;
     }
 
     // Build a crash event following the telemetry schema
@@ -1164,6 +1162,19 @@ void TelemetryManager::check_previous_crash() {
         save_queue();
         spdlog::info("[TelemetryManager] Enqueued crash event (signal={}, name={})",
                      crash_data.value("signal", 0), crash_data.value("signal_name", "unknown"));
+
+        // Record fingerprint so we don't re-send this crash on subsequent boots.
+        // CrashReporter also records when its own send succeeds, but that path may
+        // not run (user dismisses modal, network down, etc.).
+        helix::CrashHistoryEntry hist_entry;
+        hist_entry.timestamp = get_timestamp();
+        hist_entry.signal_name = crash_data.value("signal_name", "");
+        hist_entry.signal = crash_data.value("signal", 0);
+        hist_entry.app_version = crash_data.value("app_version", "");
+        hist_entry.uptime_sec = crash_data.value("uptime_sec", 0);
+        hist_entry.sent_via = "telemetry";
+        hist_entry.fingerprint = fp;
+        helix::CrashHistory::instance().add_entry(hist_entry);
     } else {
         spdlog::debug("[TelemetryManager] Crash event discarded (telemetry disabled)");
     }
@@ -1873,8 +1884,7 @@ nlohmann::json TelemetryManager::build_settings_snapshot_event() const {
     // Home widget placement snapshot
     try {
         json widgets = json::array();
-        auto& widget_config =
-            helix::PanelWidgetManager::instance().get_widget_config("home");
+        auto& widget_config = helix::PanelWidgetManager::instance().get_widget_config("home");
         for (const auto& page : widget_config.pages()) {
             for (const auto& entry : page.widgets) {
                 if (entry.enabled) {
