@@ -80,7 +80,7 @@ diff --git a/src/misc/lv_event.c b/src/misc/lv_event.c
 index 39c17ffd1..ebe86e75b 100644
 --- a/src/misc/lv_event.c
 +++ b/src/misc/lv_event.c
-@@ -317,9 +317,17 @@ uint32_t lv_event_register_id(void)
+@@ -317,9 +317,24 @@ uint32_t lv_event_register_id(void)
 
  void lv_event_mark_deleted(void * target)
  {
@@ -88,7 +88,13 @@ index 39c17ffd1..ebe86e75b 100644
 +
      lv_event_t * e = event_head;
 
-     while(e) {
+-    while(e) {
++    /*Depth limit prevents infinite loops from corrupt circular chains.
++     *Event dispatch depth > 64 is abnormal (typical max is ~3-5 nested
++     *events). A corrupt prev pointer that happens to be aligned and
++     *mapped would be followed indefinitely without this. (#697)*/
++    int depth = 64;
++    while(e && depth-- > 0) {
 +        /*Events are stack-allocated structs — always pointer-aligned.
 +         *A misaligned pointer means the chain is corrupt (heap/stack
 +         *corruption stomped event_head or a prev pointer). Bail out

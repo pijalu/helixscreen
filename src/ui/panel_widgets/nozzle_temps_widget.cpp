@@ -2,18 +2,17 @@
 
 #include "nozzle_temps_widget.h"
 
+#include "ui_overlay_temp_graph.h"
 #include "ui_temperature_utils.h"
 #include "ui_update_queue.h"
 
 #include "app_globals.h"
+#include "lvgl/src/others/translation/lv_translation.h"
 #include "observer_factory.h"
 #include "panel_widget_registry.h"
 #include "printer_state.h"
 #include "theme_manager.h"
 #include "tool_state.h"
-#include "ui_overlay_temp_graph.h"
-
-#include "lvgl/src/others/translation/lv_translation.h"
 
 #include <spdlog/spdlog.h>
 
@@ -33,8 +32,7 @@ void register_nozzle_temps_widget() {
 
 using namespace helix;
 
-NozzleTempsWidget::NozzleTempsWidget(PrinterState& printer_state)
-    : printer_state_(printer_state) {}
+NozzleTempsWidget::NozzleTempsWidget(PrinterState& printer_state) : printer_state_(printer_state) {}
 
 NozzleTempsWidget::~NozzleTempsWidget() {
     detach();
@@ -83,16 +81,23 @@ void NozzleTempsWidget::clear_rows() {
     // but our row's copy keeps the weak_ptr alive. Resetting our copy first
     // lets the weak_ptr expire, so ObserverGuard::reset() safely skips
     // lv_observer_remove() on the freed observer. (issue #673)
+    //
+    // Observers MUST be reset in the same loop, immediately after their lifetime
+    // tokens. Relying on vector destructor ordering is unsafe: the destructor
+    // processes members in reverse declaration order (observer before lifetime),
+    // so the weak_ptr check would see a still-alive token. (#698)
     for (auto& row : extruder_rows_) {
         row.temp_lifetime.reset();
         row.target_lifetime.reset();
+        row.temp_observer.reset();
+        row.target_observer.reset();
     }
     extruder_rows_.clear();
     bed_temp_observer_.reset();
     bed_target_observer_.reset();
 
-    auto* container = widget_obj_ ? lv_obj_find_by_name(widget_obj_, "nozzle_temps_container")
-                                  : nullptr;
+    auto* container =
+        widget_obj_ ? lv_obj_find_by_name(widget_obj_, "nozzle_temps_container") : nullptr;
     if (container)
         lv_obj_clean(container);
 
@@ -107,8 +112,8 @@ void NozzleTempsWidget::clear_rows() {
 void NozzleTempsWidget::rebuild_rows() {
     clear_rows();
 
-    auto* container = widget_obj_ ? lv_obj_find_by_name(widget_obj_, "nozzle_temps_container")
-                                  : nullptr;
+    auto* container =
+        widget_obj_ ? lv_obj_find_by_name(widget_obj_, "nozzle_temps_container") : nullptr;
     if (!container) {
         spdlog::warn("[NozzleTempsWidget] Container not found in XML");
         return;
@@ -190,8 +195,7 @@ void NozzleTempsWidget::rebuild_rows() {
     if (bed_temp_subj) {
         cached_bed_temp_ = lv_subject_get_int(bed_temp_subj);
         bed_temp_observer_ = helix::ui::observe_int_sync<NozzleTempsWidget>(
-            bed_temp_subj, this,
-            [token](NozzleTempsWidget* self, int temp) {
+            bed_temp_subj, this, [token](NozzleTempsWidget* self, int temp) {
                 if (token.expired())
                     return;
                 self->cached_bed_temp_ = temp;
@@ -204,8 +208,7 @@ void NozzleTempsWidget::rebuild_rows() {
     if (bed_target_subj) {
         cached_bed_target_ = lv_subject_get_int(bed_target_subj);
         bed_target_observer_ = helix::ui::observe_int_sync<NozzleTempsWidget>(
-            bed_target_subj, this,
-            [token](NozzleTempsWidget* self, int target) {
+            bed_target_subj, this, [token](NozzleTempsWidget* self, int target) {
                 if (token.expired())
                     return;
                 self->cached_bed_target_ = target;
@@ -263,8 +266,7 @@ void NozzleTempsWidget::on_size_changed(int colspan, int rowspan, int /*width_px
     }
 
     // Use compact font when widget is narrow (single column)
-    const lv_font_t* text_font =
-        (colspan <= 1) ? theme_manager_get_font("font_xs") : nullptr;
+    const lv_font_t* text_font = (colspan <= 1) ? theme_manager_get_font("font_xs") : nullptr;
     if (text_font) {
         auto set_font = [text_font](lv_obj_t* lbl) {
             if (lbl)
