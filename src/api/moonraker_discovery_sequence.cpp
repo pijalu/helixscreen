@@ -895,15 +895,15 @@ void MoonrakerDiscoverySequence::complete_discovery_subscription() {
     subscription_objects["gcode_macro _HELIX_STATE"] = nullptr;
 
     json subscribe_params = {{"objects", subscription_objects}};
+    size_t num_subscribed = subscription_objects.size();
 
     client_.send_jsonrpc(
-        "printer.objects.subscribe", subscribe_params,
-        [this, subscription_objects](json sub_response) {
+        "printer.objects.subscribe", subscribe_params, [this, num_subscribed](json sub_response) {
             if (is_stale())
                 return;
             if (sub_response.contains("result")) {
                 spdlog::info("[Moonraker Client] Subscription complete: {} objects subscribed",
-                             subscription_objects.size());
+                             num_subscribed);
 
                 // Process initial state from subscription response
                 // Moonraker returns current values in result.status
