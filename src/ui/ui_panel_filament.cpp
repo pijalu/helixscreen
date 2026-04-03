@@ -1896,7 +1896,12 @@ void FilamentPanel::run_filament_macro(const std::string& macro_name,
         gcode,
         [this]() {
             helix::ui::async_call(
-                [](void* ud) { static_cast<FilamentPanel*>(ud)->operation_guard_.end(); }, this);
+                [](void* ud) {
+                    auto* self = static_cast<FilamentPanel*>(ud);
+                    self->operation_guard_.end();
+                    self->restore_heater_after_preheat();
+                },
+                this);
             NOTIFY_SUCCESS(lv_tr("Macro complete"));
         },
         [this](const MoonrakerError& error) {
