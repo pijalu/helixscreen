@@ -659,7 +659,7 @@ void MoonrakerClientMock::populate_hardware() {
     switch (printer_type_) {
     case PrinterType::VORON_24:
         // Voron 2.4 configuration
-        discovery_.heaters() = {"heater_bed", "extruder"};
+        discovery_.heaters() = {"heater_bed", "extruder", "heater_generic chamber"};
         discovery_.sensors() = {"heater_bed", // Bed thermistor (Klipper naming: bare heater name)
                                 "extruder", // Hotend thermistor (Klipper naming: bare heater name)
                                 "temperature_sensor chamber",
@@ -1118,6 +1118,11 @@ int MoonrakerClientMock::gcode_script(const std::string& gcode) {
             reset_idle_timeout();
             spdlog::info("[MoonrakerClientMock] Bed target set to {}°C", target);
             dispatch_status_update({{"heater_bed", {{"target", target}}}});
+        } else if (gcode.find("HEATER=chamber") != std::string::npos) {
+            chamber_target_.store(target);
+            reset_idle_timeout();
+            spdlog::info("[MoonrakerClientMock] Chamber target set to {}°C", target);
+            dispatch_status_update({{"heater_generic chamber", {{"target", target}}}});
         }
     }
     // Check for M-code style temperature commands
@@ -2872,6 +2877,7 @@ void MoonrakerClientMock::dispatch_initial_state() {
     json initial_status = {
         {"extruder", {{"temperature", ext_temp}, {"target", ext_target}}},
         {"heater_bed", {{"temperature", bed_temp_val}, {"target", bed_target_val}}},
+        {"heater_generic chamber", {{"temperature", 42.3}, {"target", chamber_target_.load()}}},
         {"temperature_sensor chamber", {{"temperature", 42.3}}},
         {"toolhead",
          {{"position", {x, y, z, 0.0}},
