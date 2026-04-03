@@ -146,6 +146,7 @@ class TempGraphController {
         int series_id = -1;
         bool show_target = false;
         bool is_dynamic = false;
+        int64_t last_update_ms = 0; ///< Throttle graph updates to 1Hz per series
         ObserverGuard temp_obs;
         ObserverGuard target_obs;
         SubjectLifetime lifetime;

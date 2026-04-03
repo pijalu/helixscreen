@@ -280,10 +280,15 @@ void TempGraphController::setup_observers() {
                     auto& si = self->series_[idx];
                     if (si.series_id < 0) return;
 
-                    float temp_deg = centi_to_degrees_f(temp_centi);
+                    // Throttle chart updates to 1Hz per series — Klipper pushes
+                    // status at ~4Hz which causes excessive LVGL chart invalidations
                     auto now_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
                                       std::chrono::system_clock::now().time_since_epoch())
                                       .count();
+                    if (now_ms - si.last_update_ms < 1000) return;
+                    si.last_update_ms = now_ms;
+
+                    float temp_deg = centi_to_degrees_f(temp_centi);
                     ui_temp_graph_update_series_with_time(self->graph_, si.series_id, temp_deg,
                                                          now_ms);
                     self->apply_auto_range();
