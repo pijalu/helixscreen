@@ -400,6 +400,15 @@ class MoonrakerClientMock : public helix::MoonrakerClient {
      */
     void set_bed_target(double target);
 
+    /**
+     * @brief Set simulated chamber target temperature
+     *
+     * Starts heating/cooling simulation toward target.
+     *
+     * @param target Target temperature in Celsius
+     */
+    void set_chamber_target(double target);
+
     // ========== Test Helpers ==========
 
     /**
@@ -986,6 +995,8 @@ class MoonrakerClientMock : public helix::MoonrakerClient {
     static constexpr double EXTRUDER_COOL_RATE = 1.5;     // °C/sec when cooling
     static constexpr double BED_HEAT_RATE = 1.0;          // °C/sec when heating
     static constexpr double BED_COOL_RATE = 0.3;          // °C/sec when cooling
+    static constexpr double CHAMBER_HEAT_RATE = 0.3;      // °C/sec when heating (slower than bed)
+    static constexpr double CHAMBER_COOL_RATE = 0.1;      // °C/sec when cooling
     static constexpr int SIMULATION_INTERVAL_MS = 250;    // Physics tick interval
     static constexpr int NOTIFICATION_INTERVAL_TICKS = 8; // Dispatch every 8 ticks (~2s)
 

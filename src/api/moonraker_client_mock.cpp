@@ -1119,7 +1119,7 @@ int MoonrakerClientMock::gcode_script(const std::string& gcode) {
             spdlog::info("[MoonrakerClientMock] Bed target set to {}°C", target);
             dispatch_status_update({{"heater_bed", {{"target", target}}}});
         } else if (gcode.find("HEATER=chamber") != std::string::npos) {
-            chamber_target_.store(target);
+            set_chamber_target(target);
             reset_idle_timeout();
             spdlog::info("[MoonrakerClientMock] Chamber target set to {}°C", target);
             dispatch_status_update({{"heater_generic chamber", {{"target", target}}}});
@@ -3164,6 +3164,10 @@ void MoonrakerClientMock::set_bed_target(double target) {
     bed_target_.store(target);
 }
 
+void MoonrakerClientMock::set_chamber_target(double target) {
+    chamber_target_.store(target);
+}
+
 void MoonrakerClientMock::dispatch_method_callback(const std::string& method, const json& msg) {
     std::vector<std::function<void(const json&)>> callbacks_to_invoke;
 
@@ -3289,34 +3293,34 @@ void MoonrakerClientMock::temperature_simulation_loop() {
         }
         bed_temp_.store(bed_temp_val);
 
-        // Simulate chamber temperature (passive sensor, slow variation between 25-45°C)
-        // Chamber heats up slowly during printing/preheat, cools down when idle
+        // Simulate chamber temperature change (scaled by speedup)
+        // Chamber responds to target temperature like bed/extruder, but slower
         if (has_chamber_sensor()) {
-            constexpr double CHAMBER_MIN = 25.0;
-            constexpr double CHAMBER_MAX = 45.0;
-            constexpr double CHAMBER_HEAT_RATE = 0.05;   // °C/sec (very slow heating)
-            constexpr double CHAMBER_COOL_RATE = 0.02;   // °C/sec (slow passive cooling)
+            constexpr double CHAMBER_IDLE_VARIATION_AMPLITUDE = 1.5;
             constexpr double CHAMBER_WAVE_PERIOD = 90.0; // 90 second period for idle variation
 
             double chamber = chamber_temp_.load();
-            MockPrintPhase current_phase = print_phase_.load();
+            double chamber_target = chamber_target_.load();
 
-            if (current_phase == MockPrintPhase::PRINTING ||
-                current_phase == MockPrintPhase::PREHEAT) {
-                // During printing: chamber heats up toward max
-                if (chamber < CHAMBER_MAX) {
+            if (chamber_target > 0) {
+                // Heating/cooling toward target
+                if (chamber < chamber_target) {
                     chamber += CHAMBER_HEAT_RATE * effective_dt;
-                    if (chamber > CHAMBER_MAX)
-                        chamber = CHAMBER_MAX;
+                    if (chamber > chamber_target)
+                        chamber = chamber_target;
+                } else if (chamber > chamber_target) {
+                    chamber -= CHAMBER_COOL_RATE * effective_dt;
+                    if (chamber < chamber_target)
+                        chamber = chamber_target;
                 }
             } else {
-                // When idle: cool toward room temp with slight variation
-                if (chamber > CHAMBER_MIN + 2.0) {
+                // Cool toward room temp, then add continuous variation
+                if (chamber > ROOM_TEMP + CHAMBER_IDLE_VARIATION_AMPLITUDE) {
                     chamber -= CHAMBER_COOL_RATE * effective_dt;
                 } else {
-                    // At minimum: add slow sinusoidal variation
-                    double wave = std::sin(2.0 * M_PI * sim_time / CHAMBER_WAVE_PERIOD);
-                    chamber = CHAMBER_MIN + 5.0 + 3.0 * wave; // Vary 27-33°C when idle
+                    // At room temp: apply sinusoidal variation
+                    double wave = std::sin(2.0 * M_PI * sim_time / CHAMBER_WAVE_PERIOD + 2.0);
+                    chamber = ROOM_TEMP + CHAMBER_IDLE_VARIATION_AMPLITUDE * wave;
                 }
             }
             chamber_temp_.store(chamber);
