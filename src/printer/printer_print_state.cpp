@@ -430,8 +430,29 @@ void PrinterPrintState::update_from_status(const nlohmann::json& status) {
                 }
             }
 
-            // Layer estimation: always uses file_progress_pct (file position
-            // correlates better with layer number than time-weighted progress)
+            // Use virtual_sdcard layer data if available (more accurate than estimation)
+            if (sdcard.contains("layer") && sdcard["layer"].is_number_integer()) {
+                int vsd_layer = sdcard["layer"].get<int>();
+                if (!has_real_layer_data_) {
+                    spdlog::info("[LayerTracker] Receiving real layer data from virtual_sdcard");
+                    has_real_layer_data_ = true;
+                }
+                if (vsd_layer != lv_subject_get_int(&print_layer_current_)) {
+                    spdlog::debug("[LayerTracker] current_layer={} (from virtual_sdcard)",
+                                  vsd_layer);
+                    lv_subject_set_int(&print_layer_current_, vsd_layer);
+                }
+            }
+            if (sdcard.contains("layer_count") && sdcard["layer_count"].is_number_integer()) {
+                int vsd_total = sdcard["layer_count"].get<int>();
+                if (vsd_total != lv_subject_get_int(&print_layer_total_)) {
+                    spdlog::debug("[LayerTracker] total_layer={} (from virtual_sdcard)",
+                                  vsd_total);
+                    lv_subject_set_int(&print_layer_total_, vsd_total);
+                }
+            }
+
+            // Layer estimation fallback: linear interpolation from file progress
             if (!has_real_layer_data_) {
                 auto current_state =
                     static_cast<PrintJobState>(lv_subject_get_int(&print_state_enum_));
