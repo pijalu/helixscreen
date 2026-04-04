@@ -1460,14 +1460,32 @@ bool PrinterDetector::auto_detect_and_save(const helix::PrinterDiscovery& discov
         // Save to config
         config->set<std::string>(config->df() + helix::wizard::PRINTER_TYPE, result.type_name);
         if (!result.preset.empty()) {
-            config->set_preset(result.preset);
-            if (config->apply_preset_file(result.preset)) {
-                spdlog::info("[PrinterDetector] Applied preset '{}' for printer '{}'",
-                             result.preset, result.type_name);
-            } else {
-                spdlog::info("[PrinterDetector] Preset '{}' set (file not applied) for '{}'",
-                             result.preset, result.type_name);
+            // Select firmware-specific preset variant when available.
+            // ZMOD firmware uses different Klipper device names (e.g. "fan_generic fanM106"
+            // instead of "fan", "heater_fan heat_fan" instead of "heater_fan hotend_fan").
+            // Check for ZMOD signature objects and use the _zmod preset variant if it exists.
+            std::string preset = result.preset;
+            auto& objects = discovery.printer_objects();
+            bool is_zmod =
+                std::find(objects.begin(), objects.end(), "fan_generic fanM106") != objects.end();
+            if (is_zmod) {
+                std::string zmod_preset = preset + "_zmod";
+                spdlog::info("[PrinterDetector] ZMOD firmware detected (fan_generic fanM106), "
+                             "trying preset '{}'",
+                             zmod_preset);
+                if (config->apply_preset_file(zmod_preset)) {
+                    preset = zmod_preset;
+                } else {
+                    spdlog::info("[PrinterDetector] No ZMOD preset variant, using '{}'", preset);
+                }
             }
+            config->set_preset(preset);
+            if (!is_zmod) {
+                // Apply default preset (ZMOD variant was already applied above if found)
+                config->apply_preset_file(preset);
+            }
+            spdlog::info("[PrinterDetector] Applied preset '{}' for printer '{}'", preset,
+                         result.type_name);
         }
         config->save();
 
