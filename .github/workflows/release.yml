@@ -647,7 +647,7 @@ jobs:
         echo "channels=$CHANNELS" >> $GITHUB_OUTPUT
         echo "Upload channels: $CHANNELS"
 
-    - name: Generate manifests and upload to R2
+    - name: Upload artifacts and manifests to R2
       env:
         AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
         AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
@@ -661,43 +661,45 @@ jobs:
       run: |
         chmod +x scripts/generate-manifest.sh
 
-        for CHANNEL in $UPLOAD_CHANNELS; do
-          echo "=== Uploading to ${CHANNEL} channel ==="
+        # Upload tarballs ONCE to releases/v{VERSION}/ (not per-channel)
+        echo "=== Uploading artifacts to releases/v${RELEASE_VERSION}/ ==="
+        for tarball in release-files/*.tar.gz release-files/*.zip; do
+          [ -f "$tarball" ] || continue
+          filename=$(basename "$tarball")
+          echo "Uploading releases/v${RELEASE_VERSION}/${filename}..."
+          aws s3 cp "$tarball" \
+            "s3://${R2_BUCKET}/releases/v${RELEASE_VERSION}/${filename}" \
+            --endpoint-url "$R2_ENDPOINT"
+        done
 
-          # Generate channel-specific manifest
+        # Upload install.sh to R2 (served by dl-worker for HTTP install)
+        echo "Uploading install.sh..."
+        aws s3 cp scripts/install.sh "s3://${R2_BUCKET}/install.sh" \
+          --endpoint-url "$R2_ENDPOINT" \
+          --content-type "text/x-shellscript"
+
+        # Generate and upload per-channel manifests (pointing to shared artifacts)
+        for CHANNEL in $UPLOAD_CHANNELS; do
+          echo "=== Generating ${CHANNEL} manifest ==="
+
           scripts/generate-manifest.sh \
             --version "$RELEASE_VERSION" \
             --tag "$RELEASE_TAG" \
             --notes "$RELEASE_NOTES" \
             --dir release-files \
-            --base-url "${R2_PUBLIC_URL}/${CHANNEL}" \
+            --base-url "${R2_PUBLIC_URL}/releases/v${RELEASE_VERSION}" \
             --output "release-files/manifest-${CHANNEL}.json"
 
           echo "Generated manifest for ${CHANNEL}:"
           cat "release-files/manifest-${CHANNEL}.json" | jq .
 
-          # Upload all tarballs
-          for tarball in release-files/*.tar.gz release-files/*.zip; do
-            filename=$(basename "$tarball")
-            echo "Uploading ${CHANNEL}/${filename}..."
-            aws s3 cp "$tarball" "s3://${R2_BUCKET}/${CHANNEL}/${filename}" \
-              --endpoint-url "$R2_ENDPOINT"
-          done
-
-          # Upload install.sh to R2 (served by dl-worker for HTTP install)
-          echo "Uploading install.sh..."
-          aws s3 cp scripts/install.sh "s3://${R2_BUCKET}/install.sh" \
-            --endpoint-url "$R2_ENDPOINT" \
-            --content-type "text/x-shellscript"
-
-          # Upload manifest
           echo "Uploading ${CHANNEL}/manifest.json..."
           aws s3 cp "release-files/manifest-${CHANNEL}.json" \
             "s3://${R2_BUCKET}/${CHANNEL}/manifest.json" \
             --endpoint-url "$R2_ENDPOINT" \
             --content-type "application/json"
 
-          echo "=== ${CHANNEL} upload complete ==="
+          echo "=== ${CHANNEL} manifest uploaded ==="
         done
 
         # Upload symbol maps and debug info (version-keyed, not channel-specific)
@@ -718,7 +720,6 @@ jobs:
           [ -f "$dbgfile" ] || continue
           filename=$(basename "$dbgfile")
           platform="${filename%.debug}"
-          # Compress with zstd (~2.5x on DWARF data, saves ~60% storage)
           echo "Compressing ${platform}.debug..."
           zstd -9 --rm -q "$dbgfile"
           echo "Uploading symbols/v${RELEASE_VERSION}/${platform}.debug.zst..."
@@ -740,51 +741,54 @@ jobs:
         AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
         R2_ENDPOINT: https://${{ secrets.R2_ACCOUNT_ID }}.r2.cloudflarestorage.com
         R2_BUCKET: ${{ vars.R2_BUCKET_NAME || 'helixscreen-releases' }}
-        UPLOAD_CHANNELS: ${{ steps.channels.outputs.channels }}
         RETAIN_COUNT: 5
       run: |
-        # Sort versions using semver-aware sort (numeric on each dotted component)
         semver_sort() {
           sort -t. -k1,1n -k2,2n -k3,3n
         }
 
-        for CHANNEL in $UPLOAD_CHANNELS; do
-          echo "=== Pruning old releases from ${CHANNEL} ==="
+        # Prune old releases from releases/ (shared artifact store)
+        echo "=== Pruning old releases ==="
+        VERSIONS=$(aws s3 ls "s3://${R2_BUCKET}/releases/" \
+          --endpoint-url "$R2_ENDPOINT" \
+          | grep -oP 'PRE v\K[0-9]+\.[0-9]+\.[0-9]+(?:-[a-zA-Z0-9.]+)?' \
+          | sort -u \
+          | semver_sort)
 
-          # List all .tar.gz files in channel, extract unique versions
-          VERSIONS=$(aws s3 ls "s3://${R2_BUCKET}/${CHANNEL}/" \
-            --endpoint-url "$R2_ENDPOINT" \
-            | grep -oP 'helixscreen-\w+-v\K[0-9]+\.[0-9]+\.[0-9]+(?:-[a-zA-Z0-9.]+)?(?=\.tar\.gz)' \
-            | sort -u \
-            | semver_sort)
+        VERSION_COUNT=$(echo "$VERSIONS" | grep -c . || true)
+        echo "Found ${VERSION_COUNT} versions in releases/"
 
-          VERSION_COUNT=$(echo "$VERSIONS" | grep -c . || true)
-          echo "Found ${VERSION_COUNT} versions in ${CHANNEL}"
-
-          if [ "$VERSION_COUNT" -le "$RETAIN_COUNT" ]; then
-            echo "Within retention limit, nothing to prune"
-            continue
-          fi
-
-          # Get versions to delete (all but the most recent N)
+        if [ "$VERSION_COUNT" -gt "$RETAIN_COUNT" ]; then
           DELETE_VERSIONS=$(echo "$VERSIONS" | head -n -${RETAIN_COUNT})
           DELETE_COUNT=$(echo "$DELETE_VERSIONS" | grep -c . || true)
           echo "Pruning ${DELETE_COUNT} old versions: $(echo $DELETE_VERSIONS | tr '\n' ' ')"
 
           for VERSION in $DELETE_VERSIONS; do
-            # Delete all files matching this version in the channel
-            aws s3 ls "s3://${R2_BUCKET}/${CHANNEL}/" \
+            echo "  Deleting releases/v${VERSION}/"
+            aws s3 rm "s3://${R2_BUCKET}/releases/v${VERSION}/" \
               --endpoint-url "$R2_ENDPOINT" \
-              | awk '{print $4}' \
-              | grep -- "-v${VERSION}\." \
-              | while read -r filename; do
-                echo "  Deleting ${CHANNEL}/${filename}"
-                aws s3 rm "s3://${R2_BUCKET}/${CHANNEL}/${filename}" \
-                  --endpoint-url "$R2_ENDPOINT"
-              done
+              --recursive
           done
+        else
+          echo "Within retention limit, nothing to prune"
+        fi
 
-          echo "=== ${CHANNEL} pruning complete ==="
+        # Prune legacy per-channel tarballs (from before shared artifact store)
+        for CHANNEL in stable beta dev; do
+          LEGACY=$(aws s3 ls "s3://${R2_BUCKET}/${CHANNEL}/" \
+            --endpoint-url "$R2_ENDPOINT" 2>/dev/null \
+            | awk '{print $4}' \
+            | grep -E '\.(tar\.gz|zip)$' || true)
+
+          if [ -n "$LEGACY" ]; then
+            LEGACY_COUNT=$(echo "$LEGACY" | grep -c . || true)
+            echo "Removing ${LEGACY_COUNT} legacy tarballs from ${CHANNEL}/"
+            echo "$LEGACY" | while read -r filename; do
+              echo "  Deleting ${CHANNEL}/${filename}"
+              aws s3 rm "s3://${R2_BUCKET}/${CHANNEL}/${filename}" \
+                --endpoint-url "$R2_ENDPOINT"
+            done
+          fi
         done
 
         # Prune old symbol maps
@@ -812,4 +816,4 @@ jobs:
         else
           echo "Within retention limit, nothing to prune"
         fi
-        echo "=== Symbol pruning complete ==="
+        echo "=== Pruning complete ==="

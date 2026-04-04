@@ -323,7 +323,7 @@ download_release() {
     fi
     # Fall back to constructed R2 URL if manifest didn't have it
     if [ -z "$r2_url" ]; then
-        r2_url="${R2_BASE_URL}/${R2_CHANNEL}/${filename}"
+        r2_url="${R2_BASE_URL}/releases/${version}/${filename}"
     fi
 
     log_info "Downloading HelixScreen ${version} for ${platform}..."
@@ -357,7 +357,7 @@ download_release() {
     fi
 
     # HTTP fallback for systems without SSL (K1, AD5M BusyBox wget)
-    local http_url="${HTTP_BASE_URL}/${R2_CHANNEL}/${filename}"
+    local http_url="${HTTP_BASE_URL}/releases/${version}/${filename}"
     # If we got the manifest via HTTP, try to use its URL (rewritten to HTTP)
     if [ -n "$_R2_MANIFEST" ]; then
         local http_manifest_url

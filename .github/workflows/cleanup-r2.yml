@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       retain_count:
-        description: 'Number of versions to retain per channel'
+        description: 'Number of versions to retain in releases/'
         required: false
         default: '5'
       dry_run:
@@ -19,7 +19,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Clean up old releases (retain ${{ inputs.retain_count }} most recent)
+    - name: Clean up old releases
       env:
         AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
         AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
@@ -32,33 +32,19 @@ jobs:
           sort -t. -k1,1n -k2,2n -k3,3n
         }
 
-        for CHANNEL in stable beta dev; do
-          echo "=== Checking ${CHANNEL} channel ==="
+        # Prune old versions from releases/ (shared artifact store)
+        echo "=== Checking releases/ ==="
+        VERSIONS=$(aws s3 ls "s3://${R2_BUCKET}/releases/" \
+          --endpoint-url "$R2_ENDPOINT" 2>/dev/null \
+          | grep -oP 'PRE v\K[0-9]+\.[0-9]+\.[0-9]+(?:-[a-zA-Z0-9.]+)?' \
+          | sort -u \
+          | semver_sort)
 
-          # List all objects in channel
-          LISTING=$(aws s3 ls "s3://${R2_BUCKET}/${CHANNEL}/" \
-            --endpoint-url "$R2_ENDPOINT" 2>/dev/null || true)
+        VERSION_COUNT=$(echo "$VERSIONS" | grep -c . || true)
+        echo "Found ${VERSION_COUNT} versions in releases/:"
+        echo "$VERSIONS" | sed 's/^/  /'
 
-          if [ -z "$LISTING" ]; then
-            echo "No objects found in ${CHANNEL}, skipping"
-            continue
-          fi
-
-          # Extract unique versions — anchor at .tar.gz to avoid matching extension
-          VERSIONS=$(echo "$LISTING" \
-            | grep -oP 'helixscreen-\w+-v\K[0-9]+\.[0-9]+\.[0-9]+(?:-[a-zA-Z0-9.]+)?(?=\.tar\.gz)' \
-            | sort -u \
-            | semver_sort)
-
-          VERSION_COUNT=$(echo "$VERSIONS" | grep -c . || true)
-          echo "Found ${VERSION_COUNT} versions in ${CHANNEL}:"
-          echo "$VERSIONS" | sed 's/^/  /'
-
-          if [ "$VERSION_COUNT" -le "$RETAIN_COUNT" ]; then
-            echo "Within retention limit (${RETAIN_COUNT}), nothing to prune"
-            continue
-          fi
-
+        if [ "$VERSION_COUNT" -gt "$RETAIN_COUNT" ]; then
           DELETE_VERSIONS=$(echo "$VERSIONS" | head -n -${RETAIN_COUNT})
           KEEP_VERSIONS=$(echo "$VERSIONS" | tail -n ${RETAIN_COUNT})
           DELETE_COUNT=$(echo "$DELETE_VERSIONS" | grep -c . || true)
@@ -70,22 +56,48 @@ jobs:
           echo "$DELETE_VERSIONS" | sed 's/^/  ✗ /'
 
           for VERSION in $DELETE_VERSIONS; do
-            aws s3 ls "s3://${R2_BUCKET}/${CHANNEL}/" \
-              --endpoint-url "$R2_ENDPOINT" \
-              | awk '{print $4}' \
-              | grep -- "-v${VERSION}\." \
-              | while read -r filename; do
-                if [ "$DRY_RUN" = "true" ]; then
-                  echo "  [DRY RUN] Would delete ${CHANNEL}/${filename}"
-                else
-                  echo "  Deleting ${CHANNEL}/${filename}"
-                  aws s3 rm "s3://${R2_BUCKET}/${CHANNEL}/${filename}" \
-                    --endpoint-url "$R2_ENDPOINT"
-                fi
-              done
+            if [ "$DRY_RUN" = "true" ]; then
+              echo "  [DRY RUN] Would delete releases/v${VERSION}/"
+            else
+              echo "  Deleting releases/v${VERSION}/"
+              aws s3 rm "s3://${R2_BUCKET}/releases/v${VERSION}/" \
+                --endpoint-url "$R2_ENDPOINT" \
+                --recursive
+            fi
           done
+        else
+          echo "Within retention limit (${RETAIN_COUNT}), nothing to prune"
+        fi
+        echo "=== releases/ complete ==="
+        echo ""
 
-          echo "=== ${CHANNEL} complete ==="
+        # Remove legacy per-channel tarballs (from before shared artifact store)
+        for CHANNEL in stable beta dev; do
+          echo "=== Checking ${CHANNEL}/ for legacy tarballs ==="
+
+          LEGACY=$(aws s3 ls "s3://${R2_BUCKET}/${CHANNEL}/" \
+            --endpoint-url "$R2_ENDPOINT" 2>/dev/null \
+            | awk '{print $4}' \
+            | grep -E '\.(tar\.gz|zip)$' || true)
+
+          if [ -z "$LEGACY" ]; then
+            echo "No legacy tarballs in ${CHANNEL}/"
+            continue
+          fi
+
+          LEGACY_COUNT=$(echo "$LEGACY" | grep -c . || true)
+          echo "Found ${LEGACY_COUNT} legacy tarballs in ${CHANNEL}/:"
+
+          echo "$LEGACY" | while read -r filename; do
+            if [ "$DRY_RUN" = "true" ]; then
+              echo "  [DRY RUN] Would delete ${CHANNEL}/${filename}"
+            else
+              echo "  Deleting ${CHANNEL}/${filename}"
+              aws s3 rm "s3://${R2_BUCKET}/${CHANNEL}/${filename}" \
+                --endpoint-url "$R2_ENDPOINT"
+            fi
+          done
+          echo "=== ${CHANNEL}/ complete ==="
           echo ""
         done
 

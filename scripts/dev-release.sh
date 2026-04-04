@@ -172,7 +172,7 @@ MANIFEST_FILE=$(mktemp)
     --tag "v${VERSION}" \
     --notes "Dev build from $(git rev-parse --short HEAD)" \
     --dir "$BUILD_DIR" \
-    --base-url "${R2_PUBLIC_URL}/${CHANNEL}" \
+    --base-url "${R2_PUBLIC_URL}/releases/v${VERSION}" \
     --output "$MANIFEST_FILE"
 
 MANIFEST=$(cat "$MANIFEST_FILE")
@@ -195,7 +195,7 @@ if [[ "$DRY_RUN" == "true" ]]; then
     for tarball in "$BUILD_DIR"/helixscreen-*-*.tar.gz; do
         if [[ -f "$tarball" ]]; then
             filename=$(basename "$tarball")
-            echo "aws s3 cp \"$tarball\" \"s3://${R2_BUCKET_NAME}/${CHANNEL}/${filename}\" --endpoint-url \"$R2_ENDPOINT\""
+            echo "aws s3 cp \"$tarball\" \"s3://${R2_BUCKET_NAME}/releases/v${VERSION}/${filename}\" --endpoint-url \"$R2_ENDPOINT\""
         fi
     done
 
@@ -211,13 +211,13 @@ if [[ "$DRY_RUN" == "true" ]]; then
     echo -e "${GREEN}Manifest would be available at: ${R2_PUBLIC_URL}/${CHANNEL}/manifest.json${NC}"
 else
     echo ""
-    echo -e "${GREEN}Uploading tarballs...${NC}"
+    echo -e "${GREEN}Uploading tarballs to releases/v${VERSION}/...${NC}"
 
     for tarball in "$BUILD_DIR"/helixscreen-*-*.tar.gz; do
         if [[ -f "$tarball" ]]; then
             filename=$(basename "$tarball")
-            echo -e "${YELLOW}Uploading ${CHANNEL}/${filename}...${NC}"
-            aws s3 cp "$tarball" "s3://${R2_BUCKET_NAME}/${CHANNEL}/${filename}" \
+            echo -e "${YELLOW}Uploading releases/v${VERSION}/${filename}...${NC}"
+            aws s3 cp "$tarball" "s3://${R2_BUCKET_NAME}/releases/v${VERSION}/${filename}" \
                 --endpoint-url "$R2_ENDPOINT"
             echo -e "${GREEN}  Uploaded successfully${NC}"
         fi
