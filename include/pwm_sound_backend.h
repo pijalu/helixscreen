@@ -105,6 +105,9 @@ class PWMSoundBackend : public SoundBackend {
     int fd_period_ = -1;
     int fd_enable_ = -1;
 
+    // Track last period for glitch-free tone transitions
+    uint32_t last_period_ns_ = 0;
+
     // Render buffer
     std::vector<float> render_buf_;
 };

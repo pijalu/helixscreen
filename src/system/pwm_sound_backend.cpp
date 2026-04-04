@@ -163,18 +163,25 @@ void PWMSoundBackend::set_tone(float freq_hz, float amplitude, float /* duty_cyc
     uint32_t duty_ns = static_cast<uint32_t>(static_cast<float>(period_ns) * ratio * amplitude);
 
     if (fd_duty_ >= 0) {
-        // Must disable before period change to avoid EINVAL when new period < old duty
-        if (enabled_) {
-            sysfs_write_fd(fd_enable_, 0);
-            enabled_ = false;
+        if (!enabled_) {
+            // First tone: set up from scratch
+            sysfs_write_fd(fd_duty_, 0);
+            sysfs_write_fd(fd_period_, static_cast<int>(period_ns));
+            sysfs_write_fd(fd_duty_, static_cast<int>(duty_ns));
+            sysfs_write_fd(fd_enable_, 1);
+            enabled_ = true;
+        } else {
+            // Already playing: glitch-free transition
+            // Set duty to 0 first (always safe), then period, then new duty
+            // This avoids the disable/enable cycle that causes audible pops
+            sysfs_write_fd(fd_duty_, 0);
+            sysfs_write_fd(fd_period_, static_cast<int>(period_ns));
+            sysfs_write_fd(fd_duty_, static_cast<int>(duty_ns));
         }
-        sysfs_write_fd(fd_duty_, 0);
-        sysfs_write_fd(fd_period_, static_cast<int>(period_ns));
-        sysfs_write_fd(fd_duty_, static_cast<int>(duty_ns));
-        sysfs_write_fd(fd_enable_, 1);
-        enabled_ = true;
+        last_period_ns_ = period_ns;
     } else {
         std::string path = channel_path();
+        std::ofstream(path + "/duty_cycle") << "0";
         std::ofstream(path + "/period") << period_ns;
         std::ofstream(path + "/duty_cycle") << duty_ns;
         if (!enabled_) {
@@ -223,11 +230,13 @@ void PWMSoundBackend::set_render_source(std::function<void(float*, size_t, int)>
 }
 
 void PWMSoundBackend::clear_render_source() {
+    spdlog::info("[PWMSoundBackend] clear_render_source() called");
     stop_render_thread();
     {
         std::lock_guard<std::mutex> lock(render_source_mutex_);
         render_source_ = nullptr;
     }
+    spdlog::info("[PWMSoundBackend] clear_render_source() done");
 }
 
 void PWMSoundBackend::enter_pcm_mode() {
@@ -295,11 +304,23 @@ void PWMSoundBackend::render_loop() {
     const uint32_t carrier_period = static_cast<uint32_t>(1e9 / PCM_CARRIER_HZ);
     const long sample_interval_ns = 1000000000L / PCM_SAMPLE_RATE;
 
+    // Duty range: 0.5% to 99.5% for maximum buzzer deflection
+    static constexpr float DUTY_MIN = 0.005f;
+    static constexpr float DUTY_RANGE = 0.99f; // 0.995 - 0.005
+
     // Pre-allocate duty cycle string buffer (avoid per-sample allocation)
     // Max duty value ~16000 = 5 digits + null = 6 bytes per entry
     std::vector<char> duty_strs(render_buf_.size() * 8);
     std::vector<int> duty_offsets(render_buf_.size());
     std::vector<int> duty_lengths(render_buf_.size());
+
+    // Automatic gain control: track peak and boost quiet signals
+    // MOD files often have low amplitude (3-5% of full scale)
+    float agc_gain = 4.0f;
+    static constexpr float AGC_TARGET = 0.85f;
+    static constexpr float AGC_MAX = 20.0f;
+    static constexpr float AGC_ATTACK = 0.001f;   // fast attack (reduce gain on peaks)
+    static constexpr float AGC_RELEASE = 0.0001f; // slow release (increase gain gradually)
 
     struct timespec start_ts;
     clock_gettime(CLOCK_MONOTONIC, &start_ts);
@@ -328,12 +349,35 @@ void PWMSoundBackend::render_loop() {
         std::memset(render_buf_.data(), 0, frames * sizeof(float));
         source(render_buf_.data(), frames, PCM_SAMPLE_RATE);
 
+        // Find peak in this buffer for AGC
+        float peak = 0.0f;
+        for (size_t i = 0; i < frames; i++) {
+            float abs_val = std::abs(render_buf_[i]);
+            if (abs_val > peak)
+                peak = abs_val;
+        }
+
+        // Adjust AGC gain
+        if (peak * agc_gain > 1.0f) {
+            // Peak would clip — reduce gain quickly
+            agc_gain = std::max(1.0f, 1.0f / peak);
+        } else if (peak > 0.001f) {
+            float desired = AGC_TARGET / peak;
+            desired = std::min(desired, AGC_MAX);
+            if (desired < agc_gain) {
+                agc_gain += (desired - agc_gain) * AGC_ATTACK;
+            } else {
+                agc_gain += (desired - agc_gain) * AGC_RELEASE;
+            }
+        }
+
         // Pre-convert entire buffer to duty cycle strings (batch, no per-sample overhead)
         int str_offset = 0;
         for (size_t i = 0; i < frames; i++) {
-            float sample = std::clamp(render_buf_[i], -1.0f, 1.0f);
+            float sample = std::clamp(render_buf_[i] * agc_gain, -1.0f, 1.0f);
             float normalized = (sample + 1.0f) / 2.0f;
-            int duty = static_cast<int>(carrier_period * (0.01f + normalized * 0.98f));
+            int duty = static_cast<int>(static_cast<float>(carrier_period) *
+                                        (DUTY_MIN + normalized * DUTY_RANGE));
 
             duty_offsets[i] = str_offset;
             int len = snprintf(duty_strs.data() + str_offset, 8, "%d", duty);
@@ -342,7 +386,7 @@ void PWMSoundBackend::render_loop() {
         }
 
         // Output samples with tight timing
-        // Use nanosleep for coarse timing (>10μs), busy-wait for fine timing (<10μs)
+        // Use nanosleep for coarse timing (>10us), busy-wait for fine timing (<10us)
         for (size_t i = 0; i < frames && render_running_.load(); i++) {
             // Write pre-formatted duty cycle string
             if (fd_duty_ >= 0) {
@@ -359,7 +403,7 @@ void PWMSoundBackend::render_loop() {
             long now_ns = now_ts.tv_sec * 1000000000L + now_ts.tv_nsec;
             long remaining = target_ns - now_ns;
 
-            // Sleep for the bulk of the wait (leave 15μs for busy-wait)
+            // Sleep for the bulk of the wait (leave 15us for busy-wait)
             if (remaining > 15000) {
                 struct timespec sl = {0, remaining - 10000};
                 nanosleep(&sl, nullptr);
