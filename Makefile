@@ -691,7 +691,7 @@ LDFLAGS += $(ALSA_LIBS)
 # Tracker player — MOD/MED file playback with PCM samples (requires HELIX_HAS_SOUND)
 #
 # HELIX_HAS_SOUND:   Pi, x86, AD5M, native — any platform with audio output
-# HELIX_HAS_TRACKER: Pi, x86, native — platforms with real audio (ALSA/SDL)
+# HELIX_HAS_TRACKER: Pi, x86, AD5M, native — platforms with audio (ALSA/SDL/PWM PCM)
 # Disabled entirely: K1, K2, MIPS — no audio hardware at all
 SOUND_CXXFLAGS :=
 TRACKER_CXXFLAGS :=
@@ -699,8 +699,9 @@ ifneq (,$(filter pi pi-fbdev pi-both pi32 pi32-fbdev pi32-both x86 x86-fbdev x86
     SOUND_CXXFLAGS := -DHELIX_HAS_SOUND
     TRACKER_CXXFLAGS := -DHELIX_HAS_TRACKER
 else ifneq (,$(filter ad5m ad5x,$(PLATFORM_TARGET)))
-    # AD5M: PWM beeper only, no tracker (no DAC for sample playback)
+    # AD5M/AD5X: PWM buzzer with PCM duty-cycle modulation for tracker playback
     SOUND_CXXFLAGS := -DHELIX_HAS_SOUND
+    TRACKER_CXXFLAGS := -DHELIX_HAS_TRACKER
 else ifeq ($(PLATFORM_TARGET),native)
     SOUND_CXXFLAGS := -DHELIX_HAS_SOUND
     TRACKER_CXXFLAGS := -DHELIX_HAS_TRACKER
