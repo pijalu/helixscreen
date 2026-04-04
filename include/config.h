@@ -61,8 +61,8 @@ class Config {
   private:
     static Config* instance;
     std::string path;
-    std::string active_printer_id_;     ///< Currently active printer slug ID
-    bool read_only_mode_ = false;       ///< Config directory is on a read-only filesystem
+    std::string active_printer_id_; ///< Currently active printer slug ID
+    bool read_only_mode_ = false;   ///< Config directory is on a read-only filesystem
 
   protected:
     json data;

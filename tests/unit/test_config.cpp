@@ -2346,9 +2346,9 @@ namespace {
 struct HomeGuard {
     std::string original;
     bool had_home;
-    explicit HomeGuard(const std::string& new_home)
-        : had_home(std::getenv("HOME") != nullptr) {
-        if (had_home) original = std::getenv("HOME");
+    explicit HomeGuard(const std::string& new_home) : had_home(std::getenv("HOME") != nullptr) {
+        if (had_home)
+            original = std::getenv("HOME");
         setenv("HOME", new_home.c_str(), 1);
     }
     ~HomeGuard() {
@@ -2369,8 +2369,7 @@ struct TarballTestEnv {
     explicit TarballTestEnv(const std::string& name)
         : dir("/tmp/helix_test_" + name + "_" + std::to_string(getpid())),
           config_path((dir / "settings.json").string()),
-          backup_dir((dir / ".helixscreen").string()),
-          home(dir.string()) {
+          backup_dir((dir / ".helixscreen").string()), home(dir.string()) {
         struct stat st{};
         if (stat("/var/lib/helixscreen/settings.json.backup", &st) == 0)
             SKIP("System backup exists at /var/lib/helixscreen/ — would override test");
@@ -2378,7 +2377,9 @@ struct TarballTestEnv {
         std::filesystem::create_directories(dir);
     }
 
-    ~TarballTestEnv() { std::filesystem::remove_all(dir); }
+    ~TarballTestEnv() {
+        std::filesystem::remove_all(dir);
+    }
 
     void write_config(const json& j) {
         std::ofstream o(config_path);
