@@ -1049,7 +1049,7 @@ docker-toolchain-pi32: ensure-buildx
 
 docker-toolchain-ad5m: ensure-buildx
 	@echo "$(CYAN)Building Adventurer 5M toolchain Docker image...$(RESET)"
-	$(Q)docker buildx build -t helixscreen/toolchain-ad5m -f docker/Dockerfile.ad5m docker/
+	$(Q)docker buildx build --platform linux/amd64 -t helixscreen/toolchain-ad5m -f docker/Dockerfile.ad5m docker/
 
 docker-toolchain-ad5x: ensure-buildx
 	@echo "$(CYAN)Building Adventurer 5X toolchain Docker image...$(RESET)"
@@ -1057,7 +1057,7 @@ docker-toolchain-ad5x: ensure-buildx
 
 docker-toolchain-cc1: ensure-buildx
 	@echo "$(CYAN)Building Centauri Carbon 1 toolchain Docker image...$(RESET)"
-	$(Q)docker buildx build -t helixscreen/toolchain-cc1 -f docker/Dockerfile.cc1 docker/
+	$(Q)docker buildx build --platform linux/amd64 -t helixscreen/toolchain-cc1 -f docker/Dockerfile.cc1 docker/
 
 docker-toolchain-k1: ensure-buildx
 	@echo "$(CYAN)Building MIPS32 K1 toolchain Docker image...$(RESET)"
