@@ -3315,13 +3315,62 @@ install_service_sysv() {
 }
 
 # Start service (dispatcher)
-# Calls start_service_systemd or start_service_sysv based on INIT_SYSTEM
+# Calls start_service_systemd or start_service_sysv based on INIT_SYSTEM.
+# Snapmaker U1 uses its own init script path (patched S99screen, not S99helixscreen).
 start_service() {
+    local platform=${1:-}
+
+    if [ "$platform" = "snapmaker-u1" ]; then
+        start_service_snapmaker_u1
+        return
+    fi
+
     if [ "$INIT_SYSTEM" = "systemd" ]; then
         start_service_systemd
     else
         start_service_sysv
     fi
+}
+
+# Start service (Snapmaker U1)
+# The U1 patches /etc/init.d/S99screen to delegate to helixscreen.init;
+# there is no standalone S99helixscreen init script.
+start_service_snapmaker_u1() {
+    if _is_self_update; then
+        log_info "Skipping service start (self-update; restart via watchdog)"
+        return 0
+    fi
+
+    log_info "Starting HelixScreen (Snapmaker U1)..."
+
+    local init_src="${INSTALL_DIR}/config/helixscreen.init"
+    if [ ! -x "$init_src" ]; then
+        chmod +x "$init_src" 2>/dev/null || true
+    fi
+
+    if [ ! -x "$init_src" ]; then
+        log_error "Init script not found or not executable: $init_src"
+        log_error "The release package may be incomplete."
+        exit 1
+    fi
+
+    if ! $SUDO "$init_src" start; then
+        log_error "Failed to start HelixScreen."
+        log_error "Check logs in: /tmp/helixscreen.log"
+        exit 1
+    fi
+
+    # Wait for service to start (may be slow on embedded hardware)
+    local i
+    for i in 1 2 3 4 5; do
+        sleep 1
+        if pidof helix-screen >/dev/null 2>&1; then
+            log_success "HelixScreen is running!"
+            return
+        fi
+    done
+    log_warn "Service may still be starting..."
+    log_warn "Check logs in: /tmp/helixscreen.log"
 }
 
 # Start service (systemd)
@@ -3439,6 +3488,13 @@ fix_install_ownership() {
 
 # Stop service for update
 stop_service() {
+    local platform=${1:-}
+
+    if [ "$platform" = "snapmaker-u1" ]; then
+        stop_service_snapmaker_u1
+        return
+    fi
+
     if [ "$INIT_SYSTEM" = "systemd" ]; then
         # Under NoNewPrivileges (self-update), sudo is blocked.  The service will be
         # restarted by the watchdog after exit(0) — stopping it here isn't needed.
@@ -3472,6 +3528,23 @@ stop_service() {
             kill_process_by_name $HELIX_PROCESSES
         fi
     fi
+}
+
+# Stop service (Snapmaker U1)
+stop_service_snapmaker_u1() {
+    if _is_self_update; then
+        log_info "Skipping service stop (self-update; restart via watchdog)"
+        return
+    fi
+
+    local init_src="${INSTALL_DIR}/config/helixscreen.init"
+    if [ -x "$init_src" ]; then
+        log_info "Stopping existing HelixScreen service (Snapmaker U1)..."
+        $SUDO "$init_src" stop 2>/dev/null || true
+    fi
+    # Also kill by name in case init script stop didn't clean up
+    # shellcheck disable=SC2086
+    kill_process_by_name $HELIX_PROCESSES
 }
 
 # ============================================
@@ -4301,7 +4374,7 @@ main() {
         if [ ! -d "$INSTALL_DIR" ]; then
             log_warn "No existing installation found. Performing fresh install."
         fi
-        stop_service
+        stop_service "$platform"
     fi
 
     # Download and install (or use local tarball)
@@ -4341,7 +4414,7 @@ main() {
     configure_moonraker_updates "$platform"
 
     # Start service
-    start_service
+    start_service "$platform"
     cleanup_old_install
 
     # Cleanup on success

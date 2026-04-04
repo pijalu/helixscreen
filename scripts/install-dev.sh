@@ -213,7 +213,7 @@ main() {
         if [ ! -d "$INSTALL_DIR" ]; then
             log_warn "No existing installation found. Performing fresh install."
         fi
-        stop_service
+        stop_service "$platform"
     fi
 
     # Download and install (or use local tarball)
@@ -232,7 +232,7 @@ main() {
     configure_moonraker_updates "$platform"
 
     # Start service
-    start_service
+    start_service "$platform"
 
     # Cleanup on success
     cleanup_on_success
