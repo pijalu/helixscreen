@@ -7,6 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.99.19] - 2026-04-03
+
+### Added
+- Chamber temperature control on the controls panel — set target, view status, and graph (community PR #688)
+- Chamber temperature mini graph on the filament panel
+- Filament eject icon with retract animation at slot sensor
+- Safety warning automatically hidden when active spool material is known
+- Runtime preset loading — FlashForge AD5M/Pro/5X presets applied automatically after detection
+- ZMOD firmware auto-detection with firmware-specific preset support
+- Nozzle and bed edit buttons now open the editor directly instead of the graph
+- 8 new translated strings across all languages
+
+### Fixed
+- Crashes from observer use-after-free, event chain corruption, and DNS SIGSEGV (#697, #698, #700)
+- Snapmaker U1 getcwd error and wrong init script path (#703)
+- Sound sequencer stalling on thread-starved systems
+- Touch calibration crosshair flash not appearing when animations disabled
+- Modal dialog text clipping
+- Screen artifacts on graceful shutdown (framebuffer not cleared)
+- Print file card crashes from stale pool pointers and missing thumbnails
+- AFC hub-routed lanes with per-lane extruders now correctly get PARALLEL topology
+- IFS backend no longer incorrectly claims firmware spool persistence
+- FlashForge AD5M/Pro presets split correctly; non-stock hardware removed
+- Quick Actions header visible when macro row 2 active
+- Ripple effect not rendering; settings reading calibration from wrong config path
+- Duplicate crash reports in telemetry
+- AD5M/AD5X preset naming updated for ForgeX and ZMOD firmware
+
 ## [0.99.18] - 2026-04-02
 
 ### Added
@@ -2547,6 +2575,7 @@ Initial tagged release. Foundation for all subsequent development.
 - Automated GitHub Actions release pipeline
 - One-liner installation script with platform auto-detection
 
+[0.99.19]: https://github.com/prestonbrown/helixscreen/compare/v0.99.18...v0.99.19
 [0.99.18]: https://github.com/prestonbrown/helixscreen/compare/v0.99.17...v0.99.18
 [0.99.17]: https://github.com/prestonbrown/helixscreen/compare/v0.99.16...v0.99.17
 [0.99.16]: https://github.com/prestonbrown/helixscreen/compare/v0.99.15...v0.99.16
