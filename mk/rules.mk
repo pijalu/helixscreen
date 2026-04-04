@@ -226,7 +226,7 @@ endif
 ifneq ($(APP_DNS_RESOLV_OBJ),)
 $(LIBHV_DIR)/base/dns_resolv.c: $(PATCHES_STAMP)
 
-$(APP_DNS_RESOLV_OBJ): $(LIBHV_DIR)/base/dns_resolv.c
+$(APP_DNS_RESOLV_OBJ): $(LIBHV_DIR)/base/dns_resolv.c $(LIBHV_LIB)
 	$(Q)mkdir -p $(dir $@)
 	$(ECHO) "$(BLUE)[CC]$(RESET) $<"
 	$(Q)$(CC) $(CFLAGS) -I$(LIBHV_DIR)/base $(LIBHV_INC) -c $< -o $@
