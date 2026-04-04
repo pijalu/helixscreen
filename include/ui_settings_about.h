@@ -26,6 +26,7 @@
 #include "overlay_base.h"
 #include "subject_managed_panel.h"
 
+#include <chrono>
 #include <string>
 
 namespace helix::settings {
@@ -133,6 +134,9 @@ class AboutSettingsOverlay : public OverlayBase {
 
     // History dashboard overlay (lazy-created)
     lv_obj_t* history_dashboard_panel_ = nullptr;
+
+    // Debounce tracker restart on inadvertent re-open
+    std::chrono::steady_clock::time_point last_deactivate_{};
 
     //
     // === Static Callbacks ===

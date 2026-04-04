@@ -39,6 +39,8 @@ inline constexpr int kContributorCount = 1;
 
 #ifdef HELIX_HAS_TRACKER
 #include "sound_manager.h"
+
+#include <chrono>
 #endif
 
 #include <spdlog/fmt/fmt.h>
@@ -57,8 +59,8 @@ static std::unique_ptr<AboutSettingsOverlay> g_about_settings_overlay;
 AboutSettingsOverlay& get_about_settings_overlay() {
     if (!g_about_settings_overlay) {
         g_about_settings_overlay = std::make_unique<AboutSettingsOverlay>();
-        StaticPanelRegistry::instance().register_destroy("AboutSettingsOverlay",
-                                                         []() { g_about_settings_overlay.reset(); });
+        StaticPanelRegistry::instance().register_destroy(
+            "AboutSettingsOverlay", []() { g_about_settings_overlay.reset(); });
     }
     return *g_about_settings_overlay;
 }
@@ -76,6 +78,9 @@ AboutSettingsOverlay::AboutSettingsOverlay() {
 }
 
 AboutSettingsOverlay::~AboutSettingsOverlay() {
+#ifdef HELIX_HAS_TRACKER
+    helix::SoundManager::instance().stop_tracker();
+#endif
     spdlog::trace("[{}] Destroyed", get_name());
 }
 
@@ -95,8 +100,8 @@ void AboutSettingsOverlay::init_subjects() {
         UI_MANAGED_SUBJECT_STRING(printer_value_subject_, printer_value_buf_, "\xe2\x80\x94",
                                   "printer_value", subjects_);
 
-        UI_MANAGED_SUBJECT_STRING(print_hours_value_subject_, print_hours_value_buf_, "\xe2\x80\x94",
-                                  "print_hours_value", subjects_);
+        UI_MANAGED_SUBJECT_STRING(print_hours_value_subject_, print_hours_value_buf_,
+                                  "\xe2\x80\x94", "print_hours_value", subjects_);
 
         UI_MANAGED_SUBJECT_STRING(update_current_version_subject_, update_current_version_buf_,
                                   helix_version(), "update_current_version", subjects_);
@@ -202,8 +207,17 @@ void AboutSettingsOverlay::on_activate() {
     }
 
 #ifdef HELIX_HAS_TRACKER
-    helix::SoundManager::instance().play_file(
-        "assets/sounds/space_debris.mod", SoundPriority::EVENT);
+    // Debounce: don't restart tracker if we just deactivated (inadvertent re-open from
+    // touch lift registering as click on the About row in Settings)
+    auto now = std::chrono::steady_clock::now();
+    auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - last_deactivate_);
+    if (elapsed.count() > 500) {
+        helix::SoundManager::instance().play_file("assets/sounds/space_debris.mod",
+                                                  SoundPriority::EVENT);
+    } else {
+        spdlog::debug("[{}] Skipping tracker start - re-activated {}ms after deactivation",
+                      get_name(), elapsed.count());
+    }
 #endif
 }
 
@@ -212,6 +226,7 @@ void AboutSettingsOverlay::on_deactivate() {
 
 #ifdef HELIX_HAS_TRACKER
     helix::SoundManager::instance().stop_tracker();
+    last_deactivate_ = std::chrono::steady_clock::now();
 #endif
 }
 

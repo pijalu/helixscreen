@@ -130,6 +130,7 @@ class SoundManager {
 #ifdef HELIX_HAS_TRACKER
     std::unique_ptr<helix::audio::TrackerPlayer> tracker_;
     SoundPriority tracker_priority_ = SoundPriority::UI;
+    std::string tracker_path_;
 #endif
 };
 

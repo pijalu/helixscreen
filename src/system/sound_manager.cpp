@@ -152,8 +152,10 @@ void SoundManager::play(const std::string& sound_name, SoundPriority priority) {
 }
 
 void SoundManager::play(const SoundDefinition& sound, SoundPriority priority) {
-    if (!AudioSettingsManager::instance().get_sounds_enabled()) return;
-    if (!sequencer_ || !backend_) return;
+    if (!AudioSettingsManager::instance().get_sounds_enabled())
+        return;
+    if (!sequencer_ || !backend_)
+        return;
 
 #ifdef HELIX_HAS_TRACKER
     if (tracker_ && tracker_->is_playing()) {
@@ -315,6 +317,12 @@ void SoundManager::play_file(const std::string& path, SoundPriority priority) {
         return;
     }
 
+    // Don't restart if same file is already playing
+    if (tracker_ && tracker_->is_playing() && tracker_path_ == path) {
+        spdlog::debug("[SoundManager] play_file('{}') skipped - already playing", path);
+        return;
+    }
+
     auto module = helix::audio::TrackerModule::load(path);
     if (!module) {
         spdlog::warn("[SoundManager] play_file('{}') - failed to load", path);
@@ -332,6 +340,7 @@ void SoundManager::play_file(const std::string& path, SoundPriority priority) {
     tracker_ = std::make_unique<helix::audio::TrackerPlayer>(backend_);
     tracker_->load(std::move(*module));
     tracker_priority_ = priority;
+    tracker_path_ = path;
     tracker_->play();
 
     // Route ticks to tracker for sequencing
@@ -341,9 +350,8 @@ void SoundManager::play_file(const std::string& path, SoundPriority priority) {
     // Set render source for PCM sample playback on capable backends.
     // Frequency-only backends (PWM, M300) get synth fallback via set_voice().
     if (backend_->supports_render_source()) {
-        backend_->set_render_source([tp](float* buf, size_t frames, int sr) {
-            tp->render_audio(buf, frames, sr);
-        });
+        backend_->set_render_source(
+            [tp](float* buf, size_t frames, int sr) { tp->render_audio(buf, frames, sr); });
     }
 
     spdlog::info("[SoundManager] play_file('{}', priority={})", path, static_cast<int>(priority));
@@ -361,6 +369,7 @@ void SoundManager::stop_tracker() {
         tracker_->stop();
         tracker_.reset();
     }
+    tracker_path_.clear();
     spdlog::debug("[SoundManager] stop_tracker");
 }
 
@@ -369,7 +378,8 @@ bool SoundManager::is_tracker_playing() const {
 }
 
 void SoundManager::fade_out_tracker(uint32_t duration_ms) {
-    if (!tracker_ || !tracker_->is_playing()) return;
+    if (!tracker_ || !tracker_->is_playing())
+        return;
 
     spdlog::debug("[SoundManager] fade_out_tracker over {}ms", duration_ms);
 
@@ -395,10 +405,8 @@ void SoundManager::fade_out_tracker(uint32_t duration_ms) {
             return;
         }
 
-        float elapsed_ms =
-            std::chrono::duration<float, std::milli>(now - fade_start).count();
-        float total_ms =
-            std::chrono::duration<float, std::milli>(fade_end - fade_start).count();
+        float elapsed_ms = std::chrono::duration<float, std::milli>(now - fade_start).count();
+        float total_ms = std::chrono::duration<float, std::milli>(fade_end - fade_start).count();
         float progress = elapsed_ms / total_ms;
         int vol = static_cast<int>(100.0f * (1.0f - progress));
         tp->set_volume_override(std::max(0, vol));
