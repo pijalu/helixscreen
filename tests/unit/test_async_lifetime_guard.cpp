@@ -150,6 +150,96 @@ TEST_CASE_METHOD(LVGLTestFixture, "Defer after invalidate uses new generation",
     REQUIRE(second_ran);
 }
 
+// ============================================================================
+// LifetimeToken::defer() tests (need LVGL for UpdateQueue)
+// ============================================================================
+
+TEST_CASE_METHOD(LVGLTestFixture, "Token defer runs when valid", "[lifetime_guard]") {
+    AsyncLifetimeGuard guard;
+    auto tok = guard.token();
+    bool ran = false;
+
+    tok.defer([&ran]() { ran = true; });
+
+    helix::ui::UpdateQueue::instance().drain();
+    REQUIRE(ran);
+}
+
+TEST_CASE_METHOD(LVGLTestFixture, "Token defer skips when guard invalidated", "[lifetime_guard]") {
+    AsyncLifetimeGuard guard;
+    auto tok = guard.token();
+    bool ran = false;
+
+    guard.invalidate();
+    tok.defer([&ran]() { ran = true; });
+
+    helix::ui::UpdateQueue::instance().drain();
+    REQUIRE_FALSE(ran);
+}
+
+TEST_CASE_METHOD(LVGLTestFixture, "Token defer skips when guard destroyed", "[lifetime_guard]") {
+    bool ran = false;
+
+    // Use optional to control guard lifetime independently of token
+    auto guard_ptr = std::make_unique<AsyncLifetimeGuard>();
+    auto tok = guard_ptr->token();
+
+    // Destroy guard — invalidate() in destructor expires tok
+    guard_ptr.reset();
+
+    // Token outlives guard — defer must not crash and must skip callback
+    tok.defer([&ran]() { ran = true; });
+
+    helix::ui::UpdateQueue::instance().drain();
+    REQUIRE_FALSE(ran);
+}
+
+TEST_CASE_METHOD(LVGLTestFixture, "Token defer with tag skips when invalidated",
+                 "[lifetime_guard]") {
+    AsyncLifetimeGuard guard;
+    auto tok = guard.token();
+    bool ran = false;
+
+    guard.invalidate();
+    tok.defer("test::tagged_token_callback", [&ran]() { ran = true; });
+
+    helix::ui::UpdateQueue::instance().drain();
+    REQUIRE_FALSE(ran);
+}
+
+TEST_CASE_METHOD(LVGLTestFixture, "Token defer after invalidate — new token works",
+                 "[lifetime_guard]") {
+    AsyncLifetimeGuard guard;
+    auto old_tok = guard.token();
+    bool old_ran = false;
+    bool new_ran = false;
+
+    guard.invalidate();
+    auto new_tok = guard.token();
+
+    old_tok.defer([&old_ran]() { old_ran = true; });
+    new_tok.defer([&new_ran]() { new_ran = true; });
+
+    helix::ui::UpdateQueue::instance().drain();
+
+    REQUIRE_FALSE(old_ran);
+    REQUIRE(new_ran);
+}
+
+TEST_CASE_METHOD(LVGLTestFixture, "Token defer queued before invalidate is skipped",
+                 "[lifetime_guard]") {
+    AsyncLifetimeGuard guard;
+    auto tok = guard.token();
+    bool ran = false;
+
+    // Queue via token, then invalidate before drain
+    tok.defer([&ran]() { ran = true; });
+    guard.invalidate();
+
+    helix::ui::UpdateQueue::instance().drain();
+    REQUIRE_FALSE(ran);
+}
+
 TEST_CASE("Thread safety — concurrent token and invalidate", "[lifetime_guard][slow]") {
     AsyncLifetimeGuard guard;
     std::atomic<bool> stop{false};

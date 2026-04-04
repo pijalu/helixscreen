@@ -76,7 +76,8 @@ Most commonly needed:
 | 4 | **NO C++ styling** | `lv_obj_set_style_bg_color()` | XML: `style_bg_color="#card_bg"` |
 | 5 | **NO manual LVGL cleanup** | `lv_display_delete()`, `lv_group_delete()` | Just `lv_deinit()` - handles everything |
 | 6 | **bind_style priority** | `style_bg_color` + `bind_style` | Inline attrs override - use TWO bind_styles |
-| 7 | **NO ad-hoc callback guards** | `shared_ptr<bool> alive_`, `callback_guard_`, `alive_guard_` | `lifetime_.defer(...)` or `lifetime_.token()` via `AsyncLifetimeGuard` |
+| 7 | **NO ad-hoc callback guards** | `shared_ptr<bool> alive_`, `callback_guard_`, `alive_guard_` | `lifetime_.token()` + `tok.defer(...)` via `AsyncLifetimeGuard` |
+| 8 | **NO lifetime_.defer from BG** | `lifetime_.defer([this](){...})` in API callbacks | `tok.defer([this](){...})` — token holds its own shared_ptr (#707) |
 
 **Exceptions:** DELETE cleanup, widget pool recycling, chart data, animations
 
@@ -120,17 +121,25 @@ to update UI, use `AsyncLifetimeGuard` to prevent use-after-free if the owning o
 
 ```cpp
 // Common pattern: bg thread → deferred UI update
-auto token = lifetime_.token();
-api->fetch([this, token]() {
-    if (token.expired()) return;       // Owner dismissed — skip
-    lifetime_.defer([this]() {         // Queue to main thread, auto-guarded
+// IMPORTANT: Use tok.defer() (NOT lifetime_.defer()) from BG-thread callbacks.
+// lifetime_.defer() accesses this->lifetime_ which is a TOCTOU race — this
+// can be destroyed between the tok.expired() check and the defer() call (#707).
+auto tok = lifetime_.token();
+api->fetch([this, tok]() {
+    if (tok.expired()) return;         // Owner dismissed — skip
+    tok.defer([this]() {               // Safe: uses token's own shared_ptr
         update_ui();
     });
 });
 
+// lifetime_.defer() is safe ONLY from the main thread (this guaranteed valid):
+void MyPanel::on_activate() {
+    lifetime_.defer([this]() { rebuild_layout(); });  // OK — main thread
+}
+
 // Cancel-and-retry (e.g., re-test while previous test in flight):
 lifetime_.invalidate();                // Expire all outstanding tokens
-auto token = lifetime_.token();        // Fresh token for new operation
+auto tok = lifetime_.token();          // Fresh token for new operation
 ```
 
 Do **NOT** use `shared_ptr<bool> alive_`, `callback_guard_`, `alive_guard_`, `weak_ptr<bool>`,
@@ -167,6 +176,18 @@ void MyState::init_subjects() {
 - `PrinterTemperatureState::get_extruder_temp_subject(name, lifetime)` / `get_extruder_target_subject(name, lifetime)` — per-extruder temps
 
 **Static subjects** (singleton lifetime, no token needed): `get_fan_speed_subject()` (no args), `get_bed_temp_subject()`, etc.
+
+**SubjectLifetime reset ordering (MANDATORY):** When rebinding observers to new subjects, reset the lifetime BEFORE the observer. The observer guard's `weak_ptr` only expires if the `shared_ptr` (SubjectLifetime) is destroyed first. Wrong order = `lv_observer_remove()` on a freed subject (#705).
+
+```cpp
+// ✅ CORRECT: lifetime first, then observer
+speed_lifetime_.reset();
+speed_observer_.reset();
+
+// ❌ CRASH: observer tries lv_observer_remove() while weak_ptr is still alive
+speed_observer_.reset();
+speed_lifetime_.reset();
+```
 
 See `ui_observer_guard.h` for full documentation of the `SubjectLifetime` pattern.
 
