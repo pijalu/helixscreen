@@ -615,13 +615,14 @@ void SpoolmanOverlay::configure_spoolman(const std::string& host, const std::str
         [this, token, entries](const std::string& content) {
             if (token.expired())
                 return;
-            finish_configure(content, entries);
+            // Defer to main thread — finish_configure() accesses lifetime_
+            token.defer([this, content, entries]() { finish_configure(content, entries); });
         },
         [this, token, entries](const MoonrakerError& err) {
             if (token.expired())
                 return;
             if (err.type == MoonrakerErrorType::FILE_NOT_FOUND) {
-                finish_configure("", entries);
+                token.defer([this, entries]() { finish_configure("", entries); });
             } else {
                 token.defer("SpoolmanOverlay::configure_error", [this]() {
                     set_setup_status(lv_tr("Failed to read config. Check connection."), true);
@@ -642,7 +643,8 @@ void SpoolmanOverlay::finish_configure(
         [this, token]() {
             if (token.expired())
                 return;
-            ensure_moonraker_include();
+            // Defer to main thread — ensure_moonraker_include() accesses lifetime_
+            token.defer([this]() { ensure_moonraker_include(); });
         },
         [this, token](const MoonrakerError& err) {
             if (token.expired())
@@ -662,45 +664,53 @@ void SpoolmanOverlay::ensure_moonraker_include() {
         [this, token](const std::string& content) {
             if (token.expired())
                 return;
-            if (helix::MoonrakerConfigManager::has_include_line(content)) {
-                restart_and_verify();
-                return;
-            }
-            std::string modified = helix::MoonrakerConfigManager::add_include_line(content);
-            api_->transfers().upload_file(
-                "config", "moonraker.conf", modified,
-                [this, token]() {
-                    if (token.expired())
-                        return;
+            // Defer to main thread — helper methods access lifetime_
+            token.defer([this, content]() {
+                if (helix::MoonrakerConfigManager::has_include_line(content)) {
                     restart_and_verify();
-                },
-                [this, token](const MoonrakerError&) {
-                    if (token.expired())
-                        return;
-                    token.defer([this]() {
-                        set_setup_status(lv_tr("Failed to update moonraker.conf."), true);
+                    return;
+                }
+                auto token2 = lifetime_.token();
+                std::string modified = helix::MoonrakerConfigManager::add_include_line(content);
+                api_->transfers().upload_file(
+                    "config", "moonraker.conf", modified,
+                    [this, token2]() {
+                        if (token2.expired())
+                            return;
+                        token2.defer([this]() { restart_and_verify(); });
+                    },
+                    [this, token2](const MoonrakerError&) {
+                        if (token2.expired())
+                            return;
+                        token2.defer([this]() {
+                            set_setup_status(lv_tr("Failed to update moonraker.conf."), true);
+                        });
                     });
-                });
+            });
         },
         [this, token](const MoonrakerError& err) {
             if (token.expired())
                 return;
             if (err.type == MoonrakerErrorType::FILE_NOT_FOUND) {
-                std::string fresh = helix::MoonrakerConfigManager::add_include_line("");
-                api_->transfers().upload_file(
-                    "config", "moonraker.conf", fresh,
-                    [this, token]() {
-                        if (token.expired())
-                            return;
-                        restart_and_verify();
-                    },
-                    [this, token](const MoonrakerError&) {
-                        if (token.expired())
-                            return;
-                        token.defer([this]() {
-                            set_setup_status(lv_tr("Failed to update moonraker.conf."), true);
+                // Defer to main thread — upload chain accesses lifetime_
+                token.defer([this]() {
+                    auto token2 = lifetime_.token();
+                    std::string fresh = helix::MoonrakerConfigManager::add_include_line("");
+                    api_->transfers().upload_file(
+                        "config", "moonraker.conf", fresh,
+                        [this, token2]() {
+                            if (token2.expired())
+                                return;
+                            token2.defer([this]() { restart_and_verify(); });
+                        },
+                        [this, token2](const MoonrakerError&) {
+                            if (token2.expired())
+                                return;
+                            token2.defer([this]() {
+                                set_setup_status(lv_tr("Failed to update moonraker.conf."), true);
+                            });
                         });
-                    });
+                });
             } else {
                 token.defer(
                     [this]() { set_setup_status(lv_tr("Failed to read moonraker.conf."), true); });
