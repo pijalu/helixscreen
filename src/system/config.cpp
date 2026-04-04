@@ -683,6 +683,34 @@ void Config::init(const std::string& config_path) {
         spdlog::info("[Config] Loading config from {}", path);
         try {
             data = json::parse(std::fstream(path));
+
+            // Detect tarball default that replaced user config during a Moonraker
+            // web update.  Moonraker type:web does rmtree() on the install dir and
+            // extracts the release tarball fresh — the tarball includes a preset-based
+            // settings.json with wizard_completed=false and no config_version.  If a
+            // rolling backup with real user data exists, prefer it.
+            if (data.value("config_version", 0) == 0) {
+                std::string backup_src =
+                    find_backup({CONFIG_BACKUP_PRIMARY, config_backup_fallback(),
+                                 LEGACY_CONFIG_BACKUP_PRIMARY, legacy_config_backup_fallback()});
+                if (!backup_src.empty()) {
+                    try {
+                        auto backup_data = json::parse(std::fstream(backup_src));
+                        if (backup_data.value("config_version", 0) > 0) {
+                            spdlog::warn("[Config] Loaded config is a tarball default "
+                                         "(no config_version) — restoring from backup: {}",
+                                         backup_src);
+                            data = std::move(backup_data);
+                            restored_from_backup_ = true;
+                            config_modified = true;
+                            NOTIFY_WARNING("Settings restored after update");
+                        }
+                    } catch (const json::exception& e) {
+                        spdlog::warn("[Config] Backup parse failed during tarball detection: {}",
+                                     e.what());
+                    }
+                }
+            }
         } catch (const json::exception& e) {
             spdlog::error("[Config] Failed to parse {}: {}", path, e.what());
             CONFIG_RECORD_ERROR("file_io", "config_read_failed",
@@ -744,24 +772,13 @@ void Config::init(const std::string& config_path) {
         config_modified = true;
     }
 
-    // If config was restored from backup, re-run the wizard so the user can
-    // verify their setup.  The backup preserves all other settings (printer IP,
-    // display prefs, etc.) so the wizard can pre-populate from existing values.
+    // Config restored from backup — all settings (printer IP, display prefs,
+    // etc.) are intact.  Don't reset wizard_completed: forcing users through
+    // the wizard after an upgrade feels like config loss even though everything
+    // is preserved.  The backup is a rolling copy from the last save(), so it's
+    // always recent and trustworthy.
     if (restored_from_backup_) {
-        if (data.contains("wizard_completed")) {
-            data["wizard_completed"] = false;
-            config_modified = true;
-        }
-        // Also reset per-printer wizard_completed flags
-        if (data.contains("printers") && data["printers"].is_object()) {
-            for (auto& [id, printer] : data["printers"].items()) {
-                if (printer.contains("wizard_completed")) {
-                    printer["wizard_completed"] = false;
-                    config_modified = true;
-                }
-            }
-        }
-        spdlog::info("[Config] Config restored from backup — wizard will re-run for verification");
+        spdlog::info("[Config] Config restored from backup — settings preserved");
     }
 
     // Load active printer ID from config (must happen before df() is used)
