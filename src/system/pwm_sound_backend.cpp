@@ -15,7 +15,9 @@
 #include <unistd.h>
 
 // Buffer size for render loop (frames per render call)
-static constexpr size_t RENDER_BUFFER_FRAMES = 128;
+// Larger = fewer source callbacks + better amortization of nanosleep overhead
+// 512 frames @ 16kHz = 32ms per buffer (good balance of latency vs efficiency)
+static constexpr size_t RENDER_BUFFER_FRAMES = 512;
 
 PWMSoundBackend::PWMSoundBackend(const std::string& base_path, int chip, int channel)
     : base_path_(base_path), chip_(chip), channel_(channel) {}
@@ -132,6 +134,13 @@ void PWMSoundBackend::set_tone(float freq_hz, float amplitude, float /* duty_cyc
         return;
     }
 
+    // While PCM render thread is running (tracker playback), skip tone-mode
+    // sounds entirely — the single PWM channel can't do both simultaneously.
+    // SoundManager already handles priority (ALARM kills tracker).
+    if (render_running_.load()) {
+        return;
+    }
+
     amplitude = std::clamp(amplitude, 0.0f, 1.0f);
 
     if (amplitude == 0.0f || freq_hz <= 0.0f) {
@@ -139,7 +148,7 @@ void PWMSoundBackend::set_tone(float freq_hz, float amplitude, float /* duty_cyc
         return;
     }
 
-    // If in PCM mode, exit first (tone mode needs variable period)
+    // If in PCM mode (shouldn't happen with guard above, but be safe)
     if (in_pcm_mode_) {
         exit_pcm_mode();
     }
@@ -177,6 +186,11 @@ void PWMSoundBackend::set_tone(float freq_hz, float amplitude, float /* duty_cyc
 
 void PWMSoundBackend::silence() {
     if (!initialized_) {
+        return;
+    }
+
+    // Don't silence the PWM while the PCM render thread owns it
+    if (render_running_.load() && in_pcm_mode_) {
         return;
     }
 
@@ -281,6 +295,12 @@ void PWMSoundBackend::render_loop() {
     const uint32_t carrier_period = static_cast<uint32_t>(1e9 / PCM_CARRIER_HZ);
     const long sample_interval_ns = 1000000000L / PCM_SAMPLE_RATE;
 
+    // Pre-allocate duty cycle string buffer (avoid per-sample allocation)
+    // Max duty value ~16000 = 5 digits + null = 6 bytes per entry
+    std::vector<char> duty_strs(render_buf_.size() * 8);
+    std::vector<int> duty_offsets(render_buf_.size());
+    std::vector<int> duty_lengths(render_buf_.size());
+
     struct timespec start_ts;
     clock_gettime(CLOCK_MONOTONIC, &start_ts);
     long base_ns = start_ts.tv_sec * 1000000000L + start_ts.tv_nsec;
@@ -297,42 +317,60 @@ void PWMSoundBackend::render_loop() {
         if (!source) {
             struct timespec sl = {0, 1000000}; // 1ms
             nanosleep(&sl, nullptr);
-            // Reset timing base so we don't try to "catch up" when source appears
             clock_gettime(CLOCK_MONOTONIC, &start_ts);
             base_ns = start_ts.tv_sec * 1000000000L + start_ts.tv_nsec;
             sample_index = 0;
             continue;
         }
 
-        // Render a buffer of samples
+        // Render a buffer of PCM samples
         size_t frames = render_buf_.size();
         std::memset(render_buf_.data(), 0, frames * sizeof(float));
         source(render_buf_.data(), frames, PCM_SAMPLE_RATE);
 
-        // Output each sample at precise intervals via duty cycle modulation
-        for (size_t i = 0; i < frames && render_running_.load(); i++) {
+        // Pre-convert entire buffer to duty cycle strings (batch, no per-sample overhead)
+        int str_offset = 0;
+        for (size_t i = 0; i < frames; i++) {
             float sample = std::clamp(render_buf_[i], -1.0f, 1.0f);
-
-            // Map [-1, 1] → duty [1%, 99%] of carrier period
             float normalized = (sample + 1.0f) / 2.0f;
             int duty = static_cast<int>(carrier_period * (0.01f + normalized * 0.98f));
 
+            duty_offsets[i] = str_offset;
+            int len = snprintf(duty_strs.data() + str_offset, 8, "%d", duty);
+            duty_lengths[i] = len;
+            str_offset += len + 1; // +1 for null terminator
+        }
+
+        // Output samples with tight timing
+        // Use nanosleep for coarse timing (>10μs), busy-wait for fine timing (<10μs)
+        for (size_t i = 0; i < frames && render_running_.load(); i++) {
+            // Write pre-formatted duty cycle string
             if (fd_duty_ >= 0) {
-                sysfs_write_fd(fd_duty_, duty);
+                ::lseek(fd_duty_, 0, SEEK_SET);
+                ::write(fd_duty_, duty_strs.data() + duty_offsets[i], duty_lengths[i]);
             }
 
             sample_index++;
 
-            // Wait for next sample time using nanosleep
+            // Hybrid timing: nanosleep for bulk, busy-wait for precision
             long target_ns = base_ns + sample_index * sample_interval_ns;
             struct timespec now_ts;
             clock_gettime(CLOCK_MONOTONIC, &now_ts);
             long now_ns = now_ts.tv_sec * 1000000000L + now_ts.tv_nsec;
             long remaining = target_ns - now_ns;
 
-            if (remaining > 1000) { // > 1us
-                struct timespec sl = {0, remaining};
+            // Sleep for the bulk of the wait (leave 15μs for busy-wait)
+            if (remaining > 15000) {
+                struct timespec sl = {0, remaining - 10000};
                 nanosleep(&sl, nullptr);
+            }
+
+            // Busy-wait for final microseconds (precision timing)
+            for (;;) {
+                clock_gettime(CLOCK_MONOTONIC, &now_ts);
+                now_ns = now_ts.tv_sec * 1000000000L + now_ts.tv_nsec;
+                if (now_ns >= target_ns)
+                    break;
             }
         }
     }
