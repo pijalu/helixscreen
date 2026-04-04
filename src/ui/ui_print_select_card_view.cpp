@@ -36,6 +36,16 @@ bool PrintSelectCardView::is_placeholder_thumbnail(const std::string& path) {
            path == "A:assets/images/prerendered/thumbnail-placeholder-160.bin";
 }
 
+bool PrintSelectCardView::has_real_thumbnail(const std::string& path) {
+    if (path.empty() || is_placeholder_thumbnail(path))
+        return false;
+    // Strip LVGL "A:" drive prefix for OS filesystem check
+    std::string_view fs_path = path;
+    if (fs_path.substr(0, 2) == "A:")
+        fs_path.remove_prefix(2);
+    return std::filesystem::exists(fs_path);
+}
+
 // ============================================================================
 // Construction / Destruction
 // ============================================================================
@@ -413,9 +423,7 @@ void PrintSelectCardView::configure_card(lv_obj_t* card, size_t pool_index, size
     if (file.is_dir) {
         lv_subject_set_int(&data->thumbnail_state_subject, 2);
     } else {
-        bool has_real_thumb = !file.thumbnail_path.empty() &&
-                              !is_placeholder_thumbnail(file.thumbnail_path) &&
-                              std::filesystem::exists(file.thumbnail_path);
+        bool has_real_thumb = has_real_thumbnail(file.thumbnail_path);
         if (has_real_thumb) {
             lv_obj_t* thumb_img = lv_obj_find_by_name(card, "thumbnail");
             if (thumb_img) {

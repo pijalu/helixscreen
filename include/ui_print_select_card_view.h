@@ -135,6 +135,17 @@ class PrintSelectCardView {
      */
     static bool is_placeholder_thumbnail(const std::string& path);
 
+    /**
+     * @brief Check if a thumbnail path points to a real, existing file
+     *
+     * Validates that the path is non-empty, not a placeholder, and the
+     * underlying file exists on disk. Handles LVGL "A:" drive prefix
+     * stripping for the filesystem check.
+     *
+     * @param path Thumbnail path (may include LVGL "A:" prefix)
+     * @return true if path points to an existing non-placeholder file
+     */
+    static bool has_real_thumbnail(const std::string& path);
 
     // === Setup ===
 
