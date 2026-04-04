@@ -1,9 +1,8 @@
 // Copyright (C) 2025-2026 356C LLC
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-#include "config_backup.h"
-
 #include "app_constants.h"
+#include "config_backup.h"
 
 #include <cstdlib>
 #include <filesystem>
@@ -20,12 +19,17 @@ namespace {
 struct TmpDir {
     fs::path path;
     explicit TmpDir(const std::string& suffix) {
-        path = fs::temp_directory_path() / ("helix_test_" + suffix + "_" + std::to_string(getpid()));
+        path =
+            fs::temp_directory_path() / ("helix_test_" + suffix + "_" + std::to_string(getpid()));
         fs::create_directories(path);
     }
-    ~TmpDir() { fs::remove_all(path); }
+    ~TmpDir() {
+        fs::remove_all(path);
+    }
 
-    std::string file(const std::string& name) const { return (path / name).string(); }
+    std::string file(const std::string& name) const {
+        return (path / name).string();
+    }
 };
 
 void write_file(const std::string& path, const std::string& content) {
@@ -246,6 +250,7 @@ TEST_CASE("restore_from_backup falls back to second backup", "[config_backup]") 
 TEST_CASE("backup_fallback_dir uses HOME env var", "[config_backup]") {
     const char* original = std::getenv("HOME");
     setenv("HOME", "/tmp/fake_home", 1);
+    AppConstants::Update::reset_backup_fallback_dir_for_testing();
 
     std::string dir = AppConstants::Update::backup_fallback_dir();
     REQUIRE(dir == "/tmp/fake_home/.helixscreen");
@@ -254,16 +259,20 @@ TEST_CASE("backup_fallback_dir uses HOME env var", "[config_backup]") {
         setenv("HOME", original, 1);
     else
         unsetenv("HOME");
+    AppConstants::Update::reset_backup_fallback_dir_for_testing();
 }
 
 TEST_CASE("backup_fallback_dir falls back to /tmp when HOME unset", "[config_backup]") {
     const char* original = std::getenv("HOME");
     unsetenv("HOME");
+    AppConstants::Update::reset_backup_fallback_dir_for_testing();
 
     std::string dir = AppConstants::Update::backup_fallback_dir();
     REQUIRE(dir == "/tmp/.helixscreen");
 
-    if (original) setenv("HOME", original, 1);
+    if (original)
+        setenv("HOME", original, 1);
+    AppConstants::Update::reset_backup_fallback_dir_for_testing();
 }
 
 // ─── end-to-end: rolling backup + restore cycle ──────────────────────────────
@@ -367,12 +376,12 @@ TEST_CASE("restore_from_backup falls back to legacy backup names", "[config_back
 
     std::string legacy_backup = dir.file("helixconfig.json.backup");
     std::string target = dir.file("settings.json");
-    write_file(legacy_backup,
-               R"({"config_version": 8, "printers": [{"name": "test", "moonraker_address": "127.0.0.1"}]})");
+    write_file(
+        legacy_backup,
+        R"({"config_version": 8, "printers": [{"name": "test", "moonraker_address": "127.0.0.1"}]})");
 
     std::string new_backup = dir.file("settings.json.backup");
-    bool restored = restore_from_backup(target, "Config",
-                                         {new_backup, legacy_backup});
+    bool restored = restore_from_backup(target, "Config", {new_backup, legacy_backup});
 
     REQUIRE(restored);
     REQUIRE(fs::exists(target));

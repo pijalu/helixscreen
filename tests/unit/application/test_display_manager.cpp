@@ -10,6 +10,7 @@
  * display initialization, so we test DisplayManager in isolation where possible.
  */
 
+#include "app_constants.h"
 #include "application_test_fixture.h"
 #include "config.h"
 #include "display_manager.h"
@@ -408,6 +409,25 @@ TEST_CASE("sleep_backlight_off config controls backlight behavior during sleep",
     auto tmp_dir = fs::temp_directory_path() / ("helix_test_cfg_" + std::to_string(getpid()));
     fs::create_directories(tmp_dir);
     auto tmp_cfg = tmp_dir / "settings.json";
+
+    // RAII guard: redirect HOME so tarball-detection doesn't find a real backup
+    struct HomeRedirect {
+        std::string orig;
+        bool had;
+        explicit HomeRedirect(const std::string& dir) : had(std::getenv("HOME") != nullptr) {
+            if (had)
+                orig = std::getenv("HOME");
+            setenv("HOME", dir.c_str(), 1);
+            AppConstants::Update::reset_backup_fallback_dir_for_testing();
+        }
+        ~HomeRedirect() {
+            if (had)
+                setenv("HOME", orig.c_str(), 1);
+            else
+                unsetenv("HOME");
+            AppConstants::Update::reset_backup_fallback_dir_for_testing();
+        }
+    } home_guard(tmp_dir.string());
 
     {
         nlohmann::json cfg;

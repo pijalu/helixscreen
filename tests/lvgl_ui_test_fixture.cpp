@@ -149,6 +149,12 @@ void LVGLUITestFixture::register_widgets() {
 void LVGLUITestFixture::init_subjects() {
     spdlog::debug("[LVGLUITestFixture] Initializing subjects...");
 
+    // Force a clean slate: earlier tests in the shard may have called
+    // init_subjects(false) (no XML registration) and left subjects_initialized_
+    // set.  That guard would cause our init_subjects(true) to skip XML
+    // registration, leaving bindings unresolved (0 observers).
+    get_printer_state().deinit_subjects();
+
     // Core subjects (must be first)
     app_globals_init_subjects();
     NavigationManager::instance().init();

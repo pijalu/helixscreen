@@ -143,12 +143,26 @@ constexpr const char* LEGACY_CONFIG_BACKUP_PRIMARY = "/var/lib/helixscreen/helix
 /// Fallback backup — $HOME/.helixscreen/ (writable without StateDirectory)
 /// HOME is cached at first call to guard against later heap corruption
 /// corrupting the environ block (observed as single-char junk directories).
-inline std::string backup_fallback_dir() {
-    static const std::string dir = [] {
+namespace detail {
+inline std::string& backup_fallback_dir_ref() {
+    static std::string dir = [] {
         const char* home = std::getenv("HOME");
         return std::string(home ? home : "/tmp") + "/.helixscreen";
     }();
     return dir;
+}
+} // namespace detail
+
+inline std::string backup_fallback_dir() {
+    return detail::backup_fallback_dir_ref();
+}
+
+/// Reset the cached backup_fallback_dir so it re-reads $HOME on next call.
+/// Test-only: production code must not call this (the cache guards against
+/// heap-corrupted environ).
+inline void reset_backup_fallback_dir_for_testing() {
+    const char* home = std::getenv("HOME");
+    detail::backup_fallback_dir_ref() = std::string(home ? home : "/tmp") + "/.helixscreen";
 }
 inline std::string config_backup_fallback() {
     return backup_fallback_dir() + "/settings.json.backup";

@@ -1,6 +1,7 @@
 // Copyright (C) 2025-2026 356C LLC
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+#include "app_constants.h"
 #include "config.h"
 #include "static_subject_registry.h"
 #include "wizard_config_paths.h"
@@ -1498,27 +1499,31 @@ TEST_CASE_METHOD(ConfigTestFixture, "Config: language supports all planned langu
 // ============================================================================
 
 // RAII guard to save and restore the global backup file that init() overwrites
+/// RAII guard: redirect HOME to a temp dir so tarball-detection doesn't find
+/// real backups. Each instance gets a unique dir to avoid parallel-shard races.
 struct BackupGuard {
-    std::string backup_path;
-    std::string saved;
-    bool had_file = false;
+    std::string temp_dir;
+    std::string original_home;
+    bool had_home;
 
-    BackupGuard() {
-        const char* home = std::getenv("HOME");
-        backup_path = std::string(home ? home : "/tmp") + "/.helixscreen/settings.json.backup";
-        if (std::filesystem::exists(backup_path)) {
-            std::ifstream f(backup_path);
-            saved = std::string(std::istreambuf_iterator<char>(f), {});
-            had_file = true;
-        }
+    BackupGuard()
+        : temp_dir(std::filesystem::temp_directory_path().string() + "/helix_nobackup_" +
+                   std::to_string(getpid()) + "_" + std::to_string(rand())),
+          had_home(std::getenv("HOME") != nullptr) {
+        if (had_home)
+            original_home = std::getenv("HOME");
+        std::filesystem::create_directories(temp_dir);
+        setenv("HOME", temp_dir.c_str(), 1);
+        AppConstants::Update::reset_backup_fallback_dir_for_testing();
     }
     ~BackupGuard() {
-        if (had_file) {
-            std::ofstream o(backup_path);
-            o << saved;
-        } else {
-            std::filesystem::remove(backup_path);
-        }
+        if (had_home)
+            setenv("HOME", original_home.c_str(), 1);
+        else
+            unsetenv("HOME");
+        AppConstants::Update::reset_backup_fallback_dir_for_testing();
+        std::error_code ec;
+        std::filesystem::remove_all(temp_dir, ec);
     }
 };
 
@@ -1641,6 +1646,7 @@ TEST_CASE_METHOD(ConfigTestFixture,
         o << minimal_v0.dump(2);
     }
 
+    BackupGuard guard;
     Config test_config;
     test_config.init(temp_path);
 
@@ -2225,6 +2231,7 @@ TEST_CASE("Config::init() recovers from corrupt config by restoring backup",
     // Set HOME so the fallback backup path points to our temp dir
     const char* original_home = std::getenv("HOME");
     setenv("HOME", temp_dir.c_str(), 1);
+    AppConstants::Update::reset_backup_fallback_dir_for_testing();
 
     // Write a valid backup at the fallback backup location
     std::string backup_dir = temp_dir + "/.helixscreen";
@@ -2254,6 +2261,7 @@ TEST_CASE("Config::init() recovers from corrupt config by restoring backup",
         setenv("HOME", original_home, 1);
     else
         unsetenv("HOME");
+    AppConstants::Update::reset_backup_fallback_dir_for_testing();
 
     std::filesystem::remove_all(temp_dir);
 }
@@ -2274,6 +2282,7 @@ TEST_CASE("Config::init() falls back to defaults when corrupt and no backup exis
     // Set HOME so fallback backup points to empty dir (no backup exists)
     const char* original_home = std::getenv("HOME");
     setenv("HOME", temp_dir.c_str(), 1);
+    AppConstants::Update::reset_backup_fallback_dir_for_testing();
 
     Config test_config;
     test_config.init(temp_path);
@@ -2289,6 +2298,7 @@ TEST_CASE("Config::init() falls back to defaults when corrupt and no backup exis
         setenv("HOME", original_home, 1);
     else
         unsetenv("HOME");
+    AppConstants::Update::reset_backup_fallback_dir_for_testing();
 
     std::filesystem::remove_all(temp_dir);
 }
@@ -2309,6 +2319,7 @@ TEST_CASE("Config::init() falls back to defaults when both config and backup are
     // Set HOME and write a corrupt backup too
     const char* original_home = std::getenv("HOME");
     setenv("HOME", temp_dir.c_str(), 1);
+    AppConstants::Update::reset_backup_fallback_dir_for_testing();
 
     std::string backup_dir = temp_dir + "/.helixscreen";
     std::filesystem::create_directories(backup_dir);
@@ -2328,6 +2339,7 @@ TEST_CASE("Config::init() falls back to defaults when both config and backup are
         setenv("HOME", original_home, 1);
     else
         unsetenv("HOME");
+    AppConstants::Update::reset_backup_fallback_dir_for_testing();
 
     std::filesystem::remove_all(temp_dir);
 }
@@ -2350,12 +2362,14 @@ struct HomeGuard {
         if (had_home)
             original = std::getenv("HOME");
         setenv("HOME", new_home.c_str(), 1);
+        AppConstants::Update::reset_backup_fallback_dir_for_testing();
     }
     ~HomeGuard() {
         if (had_home)
             setenv("HOME", original.c_str(), 1);
         else
             unsetenv("HOME");
+        AppConstants::Update::reset_backup_fallback_dir_for_testing();
     }
 };
 
