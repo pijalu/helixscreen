@@ -805,6 +805,7 @@ void ControlsPanel::populate_secondary_fans() {
     secondary_fan_observers_.clear();
     secondary_fan_rows_.clear();
     lv_obj_add_flag(secondary_fans_list_, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_update_layout(secondary_fans_list_);
     lv_obj_clean(secondary_fans_list_);
 
     // Collect non-part-cooling fans and sort by display priority
@@ -1813,6 +1814,7 @@ void ControlsPanel::populate_secondary_temps() {
     secondary_temp_observers_.clear();
     secondary_temp_rows_.clear();
     lv_obj_add_flag(secondary_temps_list_, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_update_layout(secondary_temps_list_);
     lv_obj_clean(secondary_temps_list_);
 
     auto& tsm = helix::sensors::TemperatureSensorManager::instance();

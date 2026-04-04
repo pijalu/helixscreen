@@ -3,25 +3,24 @@
 
 #include "ui_panel_macros.h"
 
-#include "macro_executor.h"
 #include "ui_error_reporting.h"
 #include "ui_event_safety.h"
 #include "ui_global_panel_helper.h"
+#include "ui_modal.h"
 #include "ui_nav_manager.h"
 #include "ui_panel_common.h"
 #include "ui_subject_registry.h"
+#include "ui_update_queue.h"
 #include "ui_utils.h"
 
 #include "app_globals.h"
 #include "device_display_name.h"
+#include "lvgl/src/others/translation/lv_translation.h"
+#include "macro_executor.h"
+#include "macro_param_cache.h"
 #include "moonraker_api.h"
 #include "moonraker_client.h"
 #include "printer_state.h"
-#include "lvgl/src/others/translation/lv_translation.h"
-#include "ui_modal.h"
-#include "ui_update_queue.h"
-
-#include "macro_param_cache.h"
 
 #include <spdlog/spdlog.h>
 
@@ -133,9 +132,7 @@ void MacrosPanel::on_activate() {
     // overlay_slide_out_complete_cb() while LVGL is still processing the
     // animation tick.  Synchronous lv_obj_clean() here would delete children
     // whose events LVGL still references → SIGSEGV in lv_event_mark_deleted.
-    lifetime_.defer("MacrosPanel::populate", [this]() {
-        populate_macro_list();
-    });
+    lifetime_.defer("MacrosPanel::populate", [this]() { populate_macro_list(); });
 }
 
 void MacrosPanel::on_deactivate() {
@@ -151,6 +148,7 @@ void MacrosPanel::on_deactivate() {
 
 void MacrosPanel::clear_macro_list() {
     if (macro_list_container_) {
+        lv_obj_update_layout(macro_list_container_);
         lv_obj_clean(macro_list_container_);
     }
     macro_entries_.clear();
@@ -223,12 +221,16 @@ void MacrosPanel::create_macro_card(const std::string& macro_name) {
     bool no_params = (cached.knowledge == helix::MacroParamKnowledge::KNOWN_NO_PARAMS);
 
     // Create card using XML component
-    const char* attrs[] = {
-        "macro_name",        display_name.c_str(),
-        "macro_description", has_desc ? cached.description.c_str() : "",
-        "hide_description",  has_desc ? "false" : "true",
-        "hide_chevron",      no_params ? "true" : "false",
-        nullptr,             nullptr};
+    const char* attrs[] = {"macro_name",
+                           display_name.c_str(),
+                           "macro_description",
+                           has_desc ? cached.description.c_str() : "",
+                           "hide_description",
+                           has_desc ? "false" : "true",
+                           "hide_chevron",
+                           no_params ? "true" : "false",
+                           nullptr,
+                           nullptr};
     lv_obj_t* card =
         static_cast<lv_obj_t*>(lv_xml_create(macro_list_container_, "macro_card", attrs));
 

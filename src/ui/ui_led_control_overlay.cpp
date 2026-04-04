@@ -1017,6 +1017,7 @@ void LedControlOverlay::handle_strip_selected(const std::string& strip_id) {
         lifetime_.defer("LedControlOverlay::rebuild_strips", [this]() {
             strips_rebuild_pending_ = false;
             if (strip_selector_section_) {
+                lv_obj_update_layout(strip_selector_section_);
                 lv_obj_clean(strip_selector_section_);
                 populate_strip_selector();
             }
@@ -1132,6 +1133,7 @@ void LedControlOverlay::refresh_wled_status() {
             if (cleanup_called())
                 return;
             if (wled_presets_container_) {
+                lv_obj_update_layout(wled_presets_container_);
                 lv_obj_clean(wled_presets_container_);
                 populate_wled();
             }

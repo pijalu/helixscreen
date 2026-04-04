@@ -4,21 +4,16 @@
 #include "ui_panel_ams_overview.h"
 
 #include "ui_ams_context_menu.h"
-#include "ui_overlay_qr_scanner.h"
-
-#include "color_utils.h"
-#include "moonraker_api.h"
 #include "ui_ams_detail.h"
 #include "ui_ams_sidebar.h"
-#include "ui_ams_tool_text.h"
 #include "ui_ams_slot.h"
 #include "ui_ams_slot_layout.h"
+#include "ui_ams_tool_text.h"
 #include "ui_error_reporting.h"
 #include "ui_event_safety.h"
-
-#include "lvgl/src/others/translation/lv_translation.h"
 #include "ui_filament_path_canvas.h"
 #include "ui_nav_manager.h"
+#include "ui_overlay_qr_scanner.h"
 #include "ui_panel_ams.h"
 #include "ui_panel_common.h"
 #include "ui_spool_canvas.h"
@@ -30,8 +25,11 @@
 #include "ams_state.h"
 #include "ams_types.h"
 #include "app_globals.h"
+#include "color_utils.h"
 #include "display_settings_manager.h"
 #include "helix-xml/src/xml/lv_xml.h"
+#include "lvgl/src/others/translation/lv_translation.h"
+#include "moonraker_api.h"
 #include "observer_factory.h"
 #include "printer_detector.h"
 #include "static_panel_registry.h"
@@ -107,39 +105,36 @@ void AmsOverviewPanel::init_subjects() {
         // highlight) automatically — we only need to react to structural changes
         // (slot count changed) or refresh the overview cards.
         using helix::ui::observe_int_sync;
-        slots_version_observer_ =
-            observe_int_sync<AmsOverviewPanel>(AmsState::instance().get_slots_version_subject(),
-                                               this, [](AmsOverviewPanel* self, int) {
-                                                   if (!self->panel_)
-                                                       return;
-                                                   if (self->detail_unit_index_ >= 0) {
-                                                       // In detail mode — only rebuild slots if
-                                                       // count changed. Per-slot observers drive
-                                                       // all visual state (color, pulse, etc.)
-                                                       self->refresh_detail_if_needed();
-                                                       return;
-                                                   }
-                                                   // Use lv_async_call to defer the rebuild
-                                                   // outside process_pending(), preventing
-                                                   // lv_obj_clean() from corrupting the LVGL
-                                                   // event linked list (issue #190).
-                                                   if (!self->units_rebuild_pending_) {
-                                                       self->units_rebuild_pending_ = true;
-                                                       self->lifetime_.defer(
-                                                           "AmsOverviewPanel::refresh_units", [self]() {
-                                                               self->units_rebuild_pending_ = false;
-                                                               if (self->panel_ && self->cards_row_ &&
-                                                                   self->detail_unit_index_ < 0)
-                                                                   self->refresh_units();
-                                                           });
-                                                   }
-                                               });
+        slots_version_observer_ = observe_int_sync<AmsOverviewPanel>(
+            AmsState::instance().get_slots_version_subject(), this,
+            [](AmsOverviewPanel* self, int) {
+                if (!self->panel_)
+                    return;
+                if (self->detail_unit_index_ >= 0) {
+                    // In detail mode — only rebuild slots if
+                    // count changed. Per-slot observers drive
+                    // all visual state (color, pulse, etc.)
+                    self->refresh_detail_if_needed();
+                    return;
+                }
+                // Use lv_async_call to defer the rebuild
+                // outside process_pending(), preventing
+                // lv_obj_clean() from corrupting the LVGL
+                // event linked list (issue #190).
+                if (!self->units_rebuild_pending_) {
+                    self->units_rebuild_pending_ = true;
+                    self->lifetime_.defer("AmsOverviewPanel::refresh_units", [self]() {
+                        self->units_rebuild_pending_ = false;
+                        if (self->panel_ && self->cards_row_ && self->detail_unit_index_ < 0)
+                            self->refresh_units();
+                    });
+                }
+            });
 
         // Observe current_slot to reactively update lane highlights when the active
         // slot changes (e.g., slot selected without load/unload).
         current_slot_observer_ = observe_int_sync<AmsOverviewPanel>(
-            AmsState::instance().get_current_slot_subject(), this,
-            [](AmsOverviewPanel* self, int) {
+            AmsState::instance().get_current_slot_subject(), this, [](AmsOverviewPanel* self, int) {
                 if (!self->panel_)
                     return;
                 if (self->detail_unit_index_ >= 0) {
@@ -148,13 +143,11 @@ void AmsOverviewPanel::init_subjects() {
                 }
                 if (!self->units_rebuild_pending_) {
                     self->units_rebuild_pending_ = true;
-                    self->lifetime_.defer(
-                        "AmsOverviewPanel::refresh_units/slot", [self]() {
-                            self->units_rebuild_pending_ = false;
-                            if (self->panel_ && self->cards_row_ &&
-                                self->detail_unit_index_ < 0)
-                                self->refresh_units();
-                        });
+                    self->lifetime_.defer("AmsOverviewPanel::refresh_units/slot", [self]() {
+                        self->units_rebuild_pending_ = false;
+                        if (self->panel_ && self->cards_row_ && self->detail_unit_index_ < 0)
+                            self->refresh_units();
+                    });
                 }
             });
 
@@ -291,7 +284,9 @@ void AmsOverviewPanel::create_unit_cards(const AmsSystemInfo& info) {
         return;
     }
 
-    // Remove old card widgets
+    // Flush pending layout so LVGL doesn't reference children we're about to
+    // destroy (use-after-free in layout_update_core, issue #711).
+    lv_obj_update_layout(cards_row_);
     lv_obj_clean(cards_row_);
     unit_cards_.clear();
 
@@ -367,8 +362,12 @@ void AmsOverviewPanel::update_unit_card(UnitCard& card, const AmsUnit& unit, int
                           ams_draw::get_unit_display_name(unit, card.unit_index).c_str());
     }
 
-    // Rebuild mini bars (slot colors/status may have changed)
+    // Rebuild mini bars (slot colors/status may have changed).
+    // Flush pending layout first — deferred callbacks can run between layout
+    // passes, and cleaning children while LVGL still references them causes
+    // use-after-free in layout_update_core (issue #711).
     if (card.bars_container) {
+        lv_obj_update_layout(card.bars_container);
         lv_obj_clean(card.bars_container);
         create_mini_bars(card, unit, current_slot);
     }
@@ -1102,58 +1101,57 @@ void AmsOverviewPanel::show_detail_context_menu(int slot_index, lv_obj_t* near_w
         context_menu_ = std::make_unique<helix::ui::AmsContextMenu>();
     }
 
-    context_menu_->set_action_callback(
-        [this](helix::ui::AmsContextMenu::MenuAction action, int slot) {
-            AmsBackend* backend = AmsState::instance().get_backend();
+    context_menu_->set_action_callback([this](helix::ui::AmsContextMenu::MenuAction action,
+                                              int slot) {
+        AmsBackend* backend = AmsState::instance().get_backend();
 
-            switch (action) {
-            case helix::ui::AmsContextMenu::MenuAction::LOAD:
-                if (sidebar_) {
-                    sidebar_->handle_load_with_preheat(slot);
+        switch (action) {
+        case helix::ui::AmsContextMenu::MenuAction::LOAD:
+            if (sidebar_) {
+                sidebar_->handle_load_with_preheat(slot);
+            }
+            break;
+
+        case helix::ui::AmsContextMenu::MenuAction::UNLOAD:
+            if (!backend) {
+                NOTIFY_WARNING(lv_tr("AMS not available"));
+                return;
+            }
+            {
+                AmsError error = backend->unload_filament(slot);
+                if (error.result != AmsResult::SUCCESS) {
+                    NOTIFY_ERROR(lv_tr("Unload failed: {}"), error.user_msg);
                 }
-                break;
+            }
+            break;
 
-            case helix::ui::AmsContextMenu::MenuAction::UNLOAD:
-                if (!backend) {
-                    NOTIFY_WARNING(lv_tr("AMS not available"));
+        case helix::ui::AmsContextMenu::MenuAction::EDIT:
+        case helix::ui::AmsContextMenu::MenuAction::SPOOLMAN:
+            show_edit_modal(slot);
+            break;
+
+        case helix::ui::AmsContextMenu::MenuAction::SCAN_QR: {
+            spdlog::info("[AmsOverview] SCAN_QR action for slot {}", slot);
+            auto& scanner = helix::ui::get_qr_scanner_overlay();
+            scanner.show(parent_screen_, slot, [this, slot](const SpoolInfo& spool) {
+                AmsBackend* be = AmsState::instance().get_backend();
+                if (!be)
                     return;
-                }
-                {
-                    AmsError error = backend->unload_filament(slot);
-                    if (error.result != AmsResult::SUCCESS) {
-                        NOTIFY_ERROR(lv_tr("Unload failed: {}"), error.user_msg);
-                    }
-                }
-                break;
 
-            case helix::ui::AmsContextMenu::MenuAction::EDIT:
-            case helix::ui::AmsContextMenu::MenuAction::SPOOLMAN:
-                show_edit_modal(slot);
-                break;
+                SlotInfo info = be->get_slot_info(slot);
+                apply_spool_to_slot(info, spool);
+                be->set_slot_info(slot, info);
+                AmsState::instance().sync_from_backend();
+                spdlog::info("[AmsOverview] QR scan assigned spool #{} to slot {}", spool.id, slot);
+            });
+            break;
+        }
 
-            case helix::ui::AmsContextMenu::MenuAction::SCAN_QR: {
-                spdlog::info("[AmsOverview] SCAN_QR action for slot {}", slot);
-                auto& scanner = helix::ui::get_qr_scanner_overlay();
-                scanner.show(parent_screen_, slot,
-                    [this, slot](const SpoolInfo& spool) {
-                        AmsBackend* be = AmsState::instance().get_backend();
-                        if (!be) return;
-
-                        SlotInfo info = be->get_slot_info(slot);
-                        apply_spool_to_slot(info, spool);
-                        be->set_slot_info(slot, info);
-                        AmsState::instance().sync_from_backend();
-                        spdlog::info("[AmsOverview] QR scan assigned spool #{} to slot {}",
-                                     spool.id, slot);
-                    });
-                break;
-            }
-
-            case helix::ui::AmsContextMenu::MenuAction::CANCELLED:
-            default:
-                break;
-            }
-        });
+        case helix::ui::AmsContextMenu::MenuAction::CANCELLED:
+        default:
+            break;
+        }
+    });
 
     // Check if the slot is loaded
     bool is_loaded = false;
@@ -1206,14 +1204,13 @@ void AmsOverviewPanel::handle_bypass_click() {
 
             case helix::ui::AmsContextMenu::MenuAction::SCAN_QR: {
                 auto& scanner = helix::ui::get_qr_scanner_overlay();
-                scanner.show_for_active_spool(parent_screen_,
-                    [](const SpoolInfo& spool) {
-                        SlotInfo info;
-                        apply_spool_to_slot(info, spool);
-                        AmsState::instance().set_external_spool_info(info);
-                        spdlog::info("[AmsOverview] QR scan assigned spool #{} to external spool",
-                                     spool.id);
-                    });
+                scanner.show_for_active_spool(parent_screen_, [](const SpoolInfo& spool) {
+                    SlotInfo info;
+                    apply_spool_to_slot(info, spool);
+                    AmsState::instance().set_external_spool_info(info);
+                    spdlog::info("[AmsOverview] QR scan assigned spool #{} to external spool",
+                                 spool.id);
+                });
                 break;
             }
 

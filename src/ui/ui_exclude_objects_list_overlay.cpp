@@ -239,6 +239,7 @@ void ExcludeObjectsListOverlay::start_thumbnail_render() {
                 // Clear list first to destroy lv_image widgets referencing old draw
                 // buffers, then free the old buffers before creating new ones
                 if (objects_list_) {
+                    lv_obj_update_layout(objects_list_);
                     lv_obj_clean(objects_list_);
                 }
                 for (auto& [name, buf] : object_thumbnails_) {
@@ -308,7 +309,9 @@ void ExcludeObjectsListOverlay::populate_list() {
         return;
     }
 
-    // Clear existing rows
+    // Flush pending layout before cleaning children — deferred observer callbacks
+    // can run between layout passes, causing use-after-free (#711).
+    lv_obj_update_layout(objects_list_);
     lv_obj_clean(objects_list_);
 
     const auto& defined = printer_state_->get_defined_objects();

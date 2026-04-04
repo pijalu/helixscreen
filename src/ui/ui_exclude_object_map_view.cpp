@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "ui_exclude_object_map_view.h"
 
+#include "ui_print_exclude_object_manager.h"
+#include "ui_update_queue.h"
+
 #include "observer_factory.h"
 #include "printer_excluded_objects_state.h"
 #include "theme_manager.h"
-#include "ui_print_exclude_object_manager.h"
-#include "ui_update_queue.h"
 
 #include <spdlog/spdlog.h>
 
@@ -22,9 +23,8 @@ static ExcludeObjectMapView* g_active_map_view = nullptr;
 // CoordMapper
 // ============================================================================
 
-ExcludeObjectMapView::CoordMapper::CoordMapper(
-    float bed_w_mm, float bed_h_mm, int viewport_w_px, int viewport_h_px,
-    float origin_x, float origin_y)
+ExcludeObjectMapView::CoordMapper::CoordMapper(float bed_w_mm, float bed_h_mm, int viewport_w_px,
+                                               int viewport_h_px, float origin_x, float origin_y)
     : origin_x_(origin_x), origin_y_(origin_y), viewport_h_(viewport_h_px) {
     float scale_x = static_cast<float>(viewport_w_px) / bed_w_mm;
     float scale_y = static_cast<float>(viewport_h_px) / bed_h_mm;
@@ -35,8 +35,7 @@ ExcludeObjectMapView::CoordMapper::CoordMapper(
     offset_y_ = (static_cast<float>(viewport_h_px) - rendered_h) / 2.0f;
 }
 
-std::pair<float, float> ExcludeObjectMapView::CoordMapper::mm_to_px(
-    float x_mm, float y_mm) const {
+std::pair<float, float> ExcludeObjectMapView::CoordMapper::mm_to_px(float x_mm, float y_mm) const {
     // Subtract origin to handle non-zero-based coordinate systems
     float px = offset_x_ + (x_mm - origin_x_) * scale_;
     float bed_h_px = static_cast<float>(viewport_h_) - 2.0f * offset_y_;
@@ -44,15 +43,17 @@ std::pair<float, float> ExcludeObjectMapView::CoordMapper::mm_to_px(
     return {px, py};
 }
 
-ExcludeObjectMapView::PixelRect ExcludeObjectMapView::CoordMapper::bbox_to_rect(
-    glm::vec2 bbox_min, glm::vec2 bbox_max) const {
+ExcludeObjectMapView::PixelRect
+ExcludeObjectMapView::CoordMapper::bbox_to_rect(glm::vec2 bbox_min, glm::vec2 bbox_max) const {
     auto [x1, y1] = mm_to_px(bbox_min.x, bbox_max.y);
     auto [x2, y2] = mm_to_px(bbox_max.x, bbox_min.y);
     float raw_w = x2 - x1, raw_h = y2 - y1;
     float w = std::max(raw_w, MIN_TOUCH_TARGET_PX);
     float h = std::max(raw_h, MIN_TOUCH_TARGET_PX);
-    if (w > raw_w) x1 -= (w - raw_w) / 2.0f;
-    if (h > raw_h) y1 -= (h - raw_h) / 2.0f;
+    if (w > raw_w)
+        x1 -= (w - raw_w) / 2.0f;
+    if (h > raw_h)
+        y1 -= (h - raw_h) / 2.0f;
     return {x1, y1, w, h};
 }
 
@@ -61,8 +62,10 @@ ExcludeObjectMapView::PixelRect ExcludeObjectMapView::CoordMapper::bbox_to_rect(
 // ============================================================================
 
 ExcludeObjectMapView::KeyBarMode ExcludeObjectMapView::key_bar_mode(int object_count) {
-    if (object_count <= 4) return KeyBarMode::FullNames;
-    if (object_count <= 7) return KeyBarMode::Abbreviated;
+    if (object_count <= 4)
+        return KeyBarMode::FullNames;
+    if (object_count <= 7)
+        return KeyBarMode::Abbreviated;
     return KeyBarMode::Summary;
 }
 
@@ -84,8 +87,7 @@ ExcludeObjectMapView::~ExcludeObjectMapView() {
 // Create
 // ============================================================================
 
-void ExcludeObjectMapView::create(lv_obj_t* parent,
-                                  helix::PrinterExcludedObjectsState* state,
+void ExcludeObjectMapView::create(lv_obj_t* parent, helix::PrinterExcludedObjectsState* state,
                                   float bed_w_mm, float bed_h_mm,
                                   PrintExcludeObjectManager* exclude_manager,
                                   std::shared_ptr<helix::gcode::ParsedGCodeFile> parsed_file) {
@@ -173,7 +175,8 @@ void ExcludeObjectMapView::create(lv_obj_t* parent,
         const auto& defined = state_->get_defined_objects();
         for (const auto& name : defined) {
             auto info = state_->get_object_geometry(name);
-            if (!info || !info->has_bbox) continue;
+            if (!info || !info->has_bbox)
+                continue;
             if (!have_extents) {
                 coord_min_x = info->bbox_min.x;
                 coord_min_y = info->bbox_min.y;
@@ -215,8 +218,8 @@ void ExcludeObjectMapView::create(lv_obj_t* parent,
         lv_obj_update_layout(root_);
         int vw = lv_obj_get_width(plate_area_);
         int vh = lv_obj_get_height(plate_area_);
-        mapper_ = std::make_unique<CoordMapper>(bed_w_mm_, bed_h_mm_, vw, vh,
-                                                coord_min_x, coord_min_y);
+        mapper_ =
+            std::make_unique<CoordMapper>(bed_w_mm_, bed_h_mm_, vw, vh, coord_min_x, coord_min_y);
 
         // Create canvas for first-layer outline rendering
         if (vw > 0 && vh > 0) {
@@ -241,20 +244,22 @@ void ExcludeObjectMapView::create(lv_obj_t* parent,
     // Set up observers to react to state changes
     if (state_) {
         auto rebuild_handler = [](ExcludeObjectMapView* self, int) {
-            if (!self->root_) return;
+            if (!self->root_)
+                return;
             self->update_visual_states();
         };
 
         excluded_version_obs_ = observe_int_sync<ExcludeObjectMapView>(
             state_->get_excluded_objects_version_subject(), this, rebuild_handler);
 
-        defined_version_obs_ = observe_int_sync<ExcludeObjectMapView>(
-            state_->get_defined_objects_version_subject(), this,
-            [](ExcludeObjectMapView* self, int) {
-                if (!self->root_) return;
-                self->build_object_rects();
-                self->build_key_bar();
-            });
+        defined_version_obs_ =
+            observe_int_sync<ExcludeObjectMapView>(state_->get_defined_objects_version_subject(),
+                                                   this, [](ExcludeObjectMapView* self, int) {
+                                                       if (!self->root_)
+                                                           return;
+                                                       self->build_object_rects();
+                                                       self->build_key_bar();
+                                                   });
     }
 
     spdlog::info("[ExcludeObjectMapView] Created successfully");
@@ -265,7 +270,8 @@ void ExcludeObjectMapView::create(lv_obj_t* parent,
 // ============================================================================
 
 void ExcludeObjectMapView::destroy() {
-    if (!root_) return;
+    if (!root_)
+        return;
 
     spdlog::debug("[ExcludeObjectMapView] destroy()");
 
@@ -313,9 +319,12 @@ void ExcludeObjectMapView::destroy() {
 // ============================================================================
 
 void ExcludeObjectMapView::build_object_rects() {
-    if (!object_container_ || !state_ || !mapper_) return;
+    if (!object_container_ || !state_ || !mapper_)
+        return;
 
-    // Rebuild from scratch
+    // Flush pending layout before cleaning — observer callbacks can run between
+    // layout passes, causing use-after-free in layout_update_core (#711).
+    lv_obj_update_layout(object_container_);
     lv_obj_clean(object_container_);
     object_rects_.clear();
 
@@ -365,8 +374,8 @@ void ExcludeObjectMapView::build_object_rects() {
         ++index;
     }
 
-    spdlog::debug("[ExcludeObjectMapView] Built {} rects from {} defined objects",
-                  rects_created, defined.size());
+    spdlog::debug("[ExcludeObjectMapView] Built {} rects from {} defined objects", rects_created,
+                  defined.size());
 
     // Show or hide the empty message imperatively. The XML component scope
     // persists across create/destroy cycles, so we cannot use lv_xml_register_subject
@@ -387,7 +396,8 @@ void ExcludeObjectMapView::build_object_rects() {
         // Make bounding box rects invisible — outlines replace them visually
         // but keep them as tap hit areas
         for (auto& orect : object_rects_) {
-            if (!orect.rect) continue;
+            if (!orect.rect)
+                continue;
             lv_obj_set_style_border_opa(orect.rect, LV_OPA_TRANSP, 0);
             lv_obj_set_style_bg_opa(orect.rect, LV_OPA_TRANSP, 0);
         }
@@ -404,7 +414,8 @@ void ExcludeObjectMapView::build_object_rects() {
 // Returns hull points in counter-clockwise order.
 static std::vector<glm::vec2> convex_hull(std::vector<glm::vec2>& pts) {
     size_t n = pts.size();
-    if (n < 3) return pts;
+    if (n < 3)
+        return pts;
 
     std::sort(pts.begin(), pts.end(), [](const glm::vec2& a, const glm::vec2& b) {
         return a.x < b.x || (a.x == b.x && a.y < b.y);
@@ -420,22 +431,25 @@ static std::vector<glm::vec2> convex_hull(std::vector<glm::vec2>& pts) {
 
     // Lower hull
     for (size_t i = 0; i < n; ++i) {
-        while (k >= 2 && cross(hull[k - 2], hull[k - 1], pts[i]) <= 0) k--;
+        while (k >= 2 && cross(hull[k - 2], hull[k - 1], pts[i]) <= 0)
+            k--;
         hull[k++] = pts[i];
     }
 
     // Upper hull
     for (int i = static_cast<int>(n) - 2, t = k + 1; i >= 0; i--) {
-        while (k >= t && cross(hull[k - 2], hull[k - 1], pts[i]) <= 0) k--;
+        while (k >= t && cross(hull[k - 2], hull[k - 1], pts[i]) <= 0)
+            k--;
         hull[k++] = pts[i];
     }
 
-    hull.resize(k - 1);  // last point == first point, remove duplicate
+    hull.resize(k - 1); // last point == first point, remove duplicate
     return hull;
 }
 
 void ExcludeObjectMapView::draw_first_layer_outlines() {
-    if (!canvas_ || !mapper_ || !state_) return;
+    if (!canvas_ || !mapper_ || !state_)
+        return;
 
     // Clear canvas to transparent
     lv_canvas_fill_bg(canvas_, lv_color_black(), LV_OPA_TRANSP);
@@ -451,9 +465,11 @@ void ExcludeObjectMapView::draw_first_layer_outlines() {
         if (first_layer && !first_layer->segments.empty()) {
             std::unordered_map<std::string, std::vector<glm::vec2>> object_points;
             for (const auto& seg : first_layer->segments) {
-                if (!seg.is_extrusion) continue;
+                if (!seg.is_extrusion)
+                    continue;
                 const auto& obj_name = parsed_file_->get_object_name(seg.object_name_index);
-                if (obj_name.empty()) continue;
+                if (obj_name.empty())
+                    continue;
                 auto& pts = object_points[obj_name];
                 pts.push_back({seg.start.x, seg.start.y});
                 pts.push_back({seg.end.x, seg.end.y});
@@ -470,14 +486,16 @@ void ExcludeObjectMapView::draw_first_layer_outlines() {
     // Source 2: use Moonraker polygon data for any objects not covered by source 1
     const auto& defined = state_->get_defined_objects();
     for (const auto& name : defined) {
-        if (object_polygons.count(name) > 0) continue;  // already have outline
+        if (object_polygons.count(name) > 0)
+            continue; // already have outline
         auto geom = state_->get_object_geometry(name);
         if (geom && !geom->polygon.empty()) {
             object_polygons[name] = geom->polygon;
         }
     }
 
-    if (object_polygons.empty()) return;
+    if (object_polygons.empty())
+        return;
 
     for (const auto& [name, poly] : object_polygons) {
         spdlog::info("[ExcludeObjectMapView] Object '{}' polygon has {} points", name, poly.size());
@@ -495,8 +513,10 @@ void ExcludeObjectMapView::draw_first_layer_outlines() {
 
     for (const auto& [obj_name, polygon] : object_polygons) {
         auto it = name_to_index.find(obj_name);
-        if (it == name_to_index.end()) continue;
-        if (polygon.size() < 3) continue;
+        if (it == name_to_index.end())
+            continue;
+        if (polygon.size() < 3)
+            continue;
 
         lv_color_t color = get_object_color(it->second);
 
@@ -533,8 +553,7 @@ void ExcludeObjectMapView::draw_first_layer_outlines() {
 // ============================================================================
 
 lv_obj_t* ExcludeObjectMapView::create_object_rect(lv_obj_t* parent, int index,
-                                                    const std::string& name,
-                                                    const PixelRect& rect) {
+                                                   const std::string& name, const PixelRect& rect) {
     // Main rect
     (void)name; // name is tracked in object_rects_ by the caller
 
@@ -591,7 +610,8 @@ lv_obj_t* ExcludeObjectMapView::create_object_rect(lv_obj_t* parent, int index,
 // ============================================================================
 
 void ExcludeObjectMapView::update_visual_states() {
-    if (!state_) return;
+    if (!state_)
+        return;
 
     const auto& excluded = state_->get_excluded_objects();
     const auto& current_obj = state_->get_current_object();
@@ -603,7 +623,8 @@ void ExcludeObjectMapView::update_visual_states() {
     for (int i = 0; i < static_cast<int>(object_rects_.size()); ++i) {
         const auto& entry = object_rects_[i];
         lv_obj_t* rect = entry.rect;
-        if (!rect) continue;
+        if (!rect)
+            continue;
 
         bool is_excluded = excluded.count(entry.name) > 0;
         bool is_current = (entry.name == current_obj);
@@ -649,15 +670,19 @@ void ExcludeObjectMapView::update_visual_states() {
 // ============================================================================
 
 void ExcludeObjectMapView::build_key_bar() {
-    if (!key_bar_) return;
+    if (!key_bar_)
+        return;
 
+    lv_obj_update_layout(key_bar_);
     lv_obj_clean(key_bar_);
 
-    if (!state_) return;
+    if (!state_)
+        return;
 
     const auto& defined = state_->get_defined_objects();
     int count = static_cast<int>(defined.size());
-    if (count == 0) return;
+    if (count == 0)
+        return;
 
     KeyBarMode mode = key_bar_mode(count);
 
@@ -666,8 +691,8 @@ void ExcludeObjectMapView::build_key_bar() {
         const auto& excluded = state_->get_excluded_objects();
         int excluded_count = static_cast<int>(excluded.size());
         char buf[128];
-        snprintf(buf, sizeof(buf), "Tap an object to exclude it | %d objects (%d excluded)",
-                 count, excluded_count);
+        snprintf(buf, sizeof(buf), "Tap an object to exclude it | %d objects (%d excluded)", count,
+                 excluded_count);
         lv_obj_t* label = lv_label_create(key_bar_);
         lv_label_set_text(label, buf);
         lv_obj_set_style_text_font(label, theme_manager_get_font("font_small"), 0);
@@ -765,7 +790,8 @@ void ExcludeObjectMapView::on_close_clicked(lv_event_t* /*e*/) {
 
 void ExcludeObjectMapView::on_object_clicked(lv_event_t* e) {
     auto* self = static_cast<ExcludeObjectMapView*>(lv_event_get_user_data(e));
-    if (!self || !self->exclude_manager_) return;
+    if (!self || !self->exclude_manager_)
+        return;
 
     lv_obj_t* target = lv_event_get_target_obj(e);
 
@@ -781,4 +807,4 @@ void ExcludeObjectMapView::on_object_clicked(lv_event_t* e) {
     spdlog::debug("[ExcludeObjectMapView] on_object_clicked: no matching rect found");
 }
 
-}  // namespace helix::ui
+} // namespace helix::ui

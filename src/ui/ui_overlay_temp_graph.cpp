@@ -3,7 +3,14 @@
 
 #include "ui_overlay_temp_graph.h"
 
+#include "ui_component_keypad.h"
+#include "ui_error_reporting.h"
+#include "ui_heater_config.h"
+#include "ui_nav_manager.h"
+#include "ui_utils.h"
+
 #include "app_globals.h"
+#include "lvgl/src/others/translation/lv_translation.h"
 #include "moonraker_api.h"
 #include "panel_widget_manager.h"
 #include "printer_state.h"
@@ -11,15 +18,8 @@
 #include "static_panel_registry.h"
 #include "temperature_sensor_manager.h"
 #include "temperature_sensor_types.h"
-#include "theme_manager.h"
-#include "ui_error_reporting.h"
-#include "ui_heater_config.h"
-#include "ui_component_keypad.h"
-#include "ui_nav_manager.h"
 #include "temperature_service.h"
-#include "ui_utils.h"
-
-#include "lvgl/src/others/translation/lv_translation.h"
+#include "theme_manager.h"
 
 #include <spdlog/spdlog.h>
 
@@ -60,7 +60,7 @@ TempGraphOverlay& get_global_temp_graph_overlay() {
     if (!g_temp_graph_overlay) {
         g_temp_graph_overlay = std::make_unique<TempGraphOverlay>();
         StaticPanelRegistry::instance().register_destroy("TempGraphOverlay",
-                                                          []() { g_temp_graph_overlay.reset(); });
+                                                         []() { g_temp_graph_overlay.reset(); });
     }
     return *g_temp_graph_overlay;
 }
@@ -129,16 +129,15 @@ void TempGraphOverlay::on_activate() {
         // observer linked list (SIGSEGV in lv_ll_remove, #696)
         if (controller_) {
             auto* old = controller_.release();
-            lv_async_call(
-                [](void* p) { delete static_cast<helix::TempGraphController*>(p); }, old);
+            lv_async_call([](void* p) { delete static_cast<helix::TempGraphController*>(p); }, old);
         }
 
         helix::TempGraphControllerConfig cfg;
         // Default point_count (1200 = 20 min) — overlay is the detailed full-screen view
         cfg.axis_size = "sm";
-        cfg.initial_features = TEMP_GRAPH_FEATURE_LINES | TEMP_GRAPH_FEATURE_TARGET_LINES
-                             | TEMP_GRAPH_FEATURE_Y_AXIS | TEMP_GRAPH_FEATURE_X_AXIS
-                             | TEMP_GRAPH_FEATURE_GRADIENTS;
+        cfg.initial_features = TEMP_GRAPH_FEATURE_LINES | TEMP_GRAPH_FEATURE_TARGET_LINES |
+                               TEMP_GRAPH_FEATURE_Y_AXIS | TEMP_GRAPH_FEATURE_X_AXIS |
+                               TEMP_GRAPH_FEATURE_GRADIENTS;
         cfg.series = std::move(specs);
         controller_ = std::make_unique<helix::TempGraphController>(graph_container_, cfg);
 
@@ -160,8 +159,8 @@ void TempGraphOverlay::on_activate() {
     create_chips();
     configure_control_strip();
 
-    spdlog::debug("[TempGraphOverlay] Activated with {} series, mode={}",
-                  series_.size(), static_cast<int>(mode_));
+    spdlog::debug("[TempGraphOverlay] Activated with {} series, mode={}", series_.size(),
+                  static_cast<int>(mode_));
 }
 
 void TempGraphOverlay::on_deactivate() {
@@ -224,7 +223,8 @@ void TempGraphOverlay::discover_series() {
     series_.clear();
     int color_idx = 0;
 
-    if (!printer_state_) return;
+    if (!printer_state_)
+        return;
 
     const auto& temp_state = printer_state_->temperature_state();
 
@@ -293,9 +293,11 @@ void TempGraphOverlay::discover_series() {
     auto sensors = sensor_mgr.get_sensors_sorted();
     for (const auto& sensor : sensors) {
         // Skip sensors with chamber role (already handled above)
-        if (sensor.role == helix::sensors::TemperatureSensorRole::CHAMBER) continue;
+        if (sensor.role == helix::sensors::TemperatureSensorRole::CHAMBER)
+            continue;
         // Skip disabled sensors
-        if (!sensor.enabled) continue;
+        if (!sensor.enabled)
+            continue;
 
         SeriesInfo s;
         s.display_name = sensor.display_name;
@@ -337,7 +339,8 @@ void TempGraphOverlay::apply_default_visibility() {
 // ─────────────────────────────────────────────────────────────────────────────
 
 void TempGraphOverlay::create_chips() {
-    if (!chip_row_) return;
+    if (!chip_row_)
+        return;
 
     lv_obj_clean(chip_row_);
 
@@ -371,7 +374,8 @@ void TempGraphOverlay::create_chips() {
         lv_obj_set_style_bg_opa(dot, LV_OPA_COVER, 0);
         lv_obj_set_style_bg_color(dot, s.color, 0);
         lv_obj_set_style_border_width(dot, 0, 0);
-        lv_obj_remove_flag(dot, static_cast<lv_obj_flag_t>(LV_OBJ_FLAG_CLICKABLE | LV_OBJ_FLAG_SCROLLABLE));
+        lv_obj_remove_flag(
+            dot, static_cast<lv_obj_flag_t>(LV_OBJ_FLAG_CLICKABLE | LV_OBJ_FLAG_SCROLLABLE));
         lv_obj_add_flag(dot, LV_OBJ_FLAG_EVENT_BUBBLE);
 
         // Label — strip redundant " Temperature" suffix for chip brevity
@@ -406,7 +410,8 @@ void TempGraphOverlay::create_chips() {
 void TempGraphOverlay::on_chip_clicked(lv_event_t* e) {
     auto* self = static_cast<TempGraphOverlay*>(lv_event_get_user_data(e));
     auto* target = static_cast<lv_obj_t*>(lv_event_get_current_target(e));
-    if (!self || !target) return;
+    if (!self || !target)
+        return;
 
     auto idx = reinterpret_cast<size_t>(lv_obj_get_user_data(target));
     if (idx < self->series_.size()) {
@@ -415,7 +420,8 @@ void TempGraphOverlay::on_chip_clicked(lv_event_t* e) {
 }
 
 void TempGraphOverlay::toggle_series_visibility(size_t series_idx) {
-    if (series_idx >= series_.size()) return;
+    if (series_idx >= series_.size())
+        return;
     auto& s = series_[series_idx];
 
     s.visible = !s.visible;
@@ -430,14 +436,16 @@ void TempGraphOverlay::toggle_series_visibility(size_t series_idx) {
     }
     update_chip_style(series_idx);
 
-    spdlog::debug("[TempGraphOverlay] {} series '{}' (idx={})",
-                  s.visible ? "Showed" : "Hid", s.display_name, series_idx);
+    spdlog::debug("[TempGraphOverlay] {} series '{}' (idx={})", s.visible ? "Showed" : "Hid",
+                  s.display_name, series_idx);
 }
 
 void TempGraphOverlay::update_chip_style(size_t series_idx) {
-    if (series_idx >= series_.size()) return;
+    if (series_idx >= series_.size())
+        return;
     auto& s = series_[series_idx];
-    if (!s.chip) return;
+    if (!s.chip)
+        return;
 
     lv_opa_t opa = s.visible ? LV_OPA_COVER : LV_OPA_40;
     lv_obj_set_style_opa(s.chip, opa, 0);
@@ -449,36 +457,51 @@ void TempGraphOverlay::update_chip_style(size_t series_idx) {
 
 void TempGraphOverlay::configure_control_strip() {
     // Hide all strips first
-    if (nozzle_strip_) lv_obj_add_flag(nozzle_strip_, LV_OBJ_FLAG_HIDDEN);
-    if (bed_strip_) lv_obj_add_flag(bed_strip_, LV_OBJ_FLAG_HIDDEN);
-    if (chamber_strip_) lv_obj_add_flag(chamber_strip_, LV_OBJ_FLAG_HIDDEN);
+    if (nozzle_strip_)
+        lv_obj_add_flag(nozzle_strip_, LV_OBJ_FLAG_HIDDEN);
+    if (bed_strip_)
+        lv_obj_add_flag(bed_strip_, LV_OBJ_FLAG_HIDDEN);
+    if (chamber_strip_)
+        lv_obj_add_flag(chamber_strip_, LV_OBJ_FLAG_HIDDEN);
 
     if (mode_ == Mode::GraphOnly) {
         // Graph takes full width — no right column
-        if (graph_outer_) lv_obj_set_width(graph_outer_, lv_pct(100));
+        if (graph_outer_)
+            lv_obj_set_width(graph_outer_, lv_pct(100));
         return;
     }
 
     // Graph gets 66% width with control column visible
-    if (graph_outer_) lv_obj_set_width(graph_outer_, lv_pct(66));
+    if (graph_outer_)
+        lv_obj_set_width(graph_outer_, lv_pct(66));
 
     // Determine which strip to show and heater type
     helix::HeaterType heater_type;
-    if (!mode_to_heater_type(mode_, heater_type)) return;
+    if (!mode_to_heater_type(mode_, heater_type))
+        return;
 
     lv_obj_t* active_strip = nullptr;
     switch (mode_) {
-    case Mode::Nozzle:  active_strip = nozzle_strip_;  break;
-    case Mode::Bed:     active_strip = bed_strip_;      break;
-    case Mode::Chamber: active_strip = chamber_strip_;  break;
-    default: break;
+    case Mode::Nozzle:
+        active_strip = nozzle_strip_;
+        break;
+    case Mode::Bed:
+        active_strip = bed_strip_;
+        break;
+    case Mode::Chamber:
+        active_strip = chamber_strip_;
+        break;
+    default:
+        break;
     }
 
-    if (!active_strip) return;
+    if (!active_strip)
+        return;
     lv_obj_remove_flag(active_strip, LV_OBJ_FLAG_HIDDEN);
 
     // Get preset config from TemperatureService
-    if (!temp_control_panel_) return;
+    if (!temp_control_panel_)
+        return;
     auto& heater = temp_control_panel_->heater(heater_type);
 
     // Configure preset values for the callback
@@ -509,45 +532,52 @@ void TempGraphOverlay::configure_control_strip() {
 
 void TempGraphOverlay::on_temp_graph_preset_clicked(lv_event_t* e) {
     auto* btn = static_cast<lv_obj_t*>(lv_event_get_current_target(e));
-    if (!btn) return;
+    if (!btn)
+        return;
 
     // Derive preset index from button name (L069: ui_button owns user_data)
     const char* name = lv_obj_get_name(btn);
-    if (!name) return;
+    if (!name)
+        return;
 
     auto* self = &get_global_temp_graph_overlay();
-    if (!self->temp_control_panel_) return;
+    if (!self->temp_control_panel_)
+        return;
 
     // Map button name suffix to preset index
     int preset_idx = -1;
     std::string name_str(name);
-    if (name_str.find("preset_off") != std::string::npos) preset_idx = 0;
-    else if (name_str.find("preset_1") != std::string::npos) preset_idx = 1;
-    else if (name_str.find("preset_2") != std::string::npos) preset_idx = 2;
-    else if (name_str.find("preset_3") != std::string::npos) preset_idx = 3;
+    if (name_str.find("preset_off") != std::string::npos)
+        preset_idx = 0;
+    else if (name_str.find("preset_1") != std::string::npos)
+        preset_idx = 1;
+    else if (name_str.find("preset_2") != std::string::npos)
+        preset_idx = 2;
+    else if (name_str.find("preset_3") != std::string::npos)
+        preset_idx = 3;
 
-    if (preset_idx < 0 || preset_idx >= MAX_PRESETS) return;
+    if (preset_idx < 0 || preset_idx >= MAX_PRESETS)
+        return;
     auto& data = self->preset_data_[preset_idx];
 
     helix::HeaterType type;
-    if (!mode_to_heater_type(self->mode_, type)) return;
+    if (!mode_to_heater_type(self->mode_, type))
+        return;
 
-    spdlog::debug("[TempGraphOverlay] Preset clicked: {}°C for heater {}",
-                  data.preset_value, static_cast<int>(type));
+    spdlog::debug("[TempGraphOverlay] Preset clicked: {}°C for heater {}", data.preset_value,
+                  static_cast<int>(type));
 
     // Update local state
     self->temp_control_panel_->set_heater(type, self->temp_control_panel_->heater(type).current,
-                                           data.preset_value * 10);
+                                          data.preset_value * 10);
 
     // Send the temperature command
     if (self->api_) {
         auto& heater = self->temp_control_panel_->heater(type);
         const std::string& klipper_name =
-            (type == helix::HeaterType::Nozzle) ? self->active_extruder_name_
-                                                 : heater.klipper_name;
+            (type == helix::HeaterType::Nozzle) ? self->active_extruder_name_ : heater.klipper_name;
         self->api_->set_temperature(
-            klipper_name, static_cast<double>(data.preset_value),
-            []() {},
+            klipper_name, static_cast<double>(data.preset_value), []() {},
             [](const MoonrakerError& error) {
                 NOTIFY_ERROR(lv_tr("Failed to set temperature: {}"), error.user_message());
             });
@@ -557,10 +587,12 @@ void TempGraphOverlay::on_temp_graph_preset_clicked(lv_event_t* e) {
 void TempGraphOverlay::on_temp_graph_custom_clicked(lv_event_t* e) {
     (void)e;
     auto& overlay = get_global_temp_graph_overlay();
-    if (!overlay.temp_control_panel_) return;
+    if (!overlay.temp_control_panel_)
+        return;
 
     helix::HeaterType type;
-    if (!mode_to_heater_type(overlay.mode_, type)) return;
+    if (!mode_to_heater_type(overlay.mode_, type))
+        return;
 
     auto& heater = overlay.temp_control_panel_->heater(type);
 
@@ -597,19 +629,19 @@ void TempGraphOverlay::keypad_value_cb(float value, void* user_data) {
         std::optional<helix::LifetimeToken> token;
     };
     auto* ctx = static_cast<KeypadCtx*>(user_data);
-    if (!ctx || !ctx->overlay || !ctx->token || ctx->token->expired() || !ctx->overlay->api_) return;
+    if (!ctx || !ctx->overlay || !ctx->token || ctx->token->expired() || !ctx->overlay->api_)
+        return;
 
     int temp = static_cast<int>(value);
     auto& heater = ctx->overlay->temp_control_panel_->heater(ctx->type);
-    const std::string& klipper_name =
-        (ctx->type == helix::HeaterType::Nozzle) ? ctx->overlay->active_extruder_name_
-                                                   : heater.klipper_name;
+    const std::string& klipper_name = (ctx->type == helix::HeaterType::Nozzle)
+                                          ? ctx->overlay->active_extruder_name_
+                                          : heater.klipper_name;
 
     spdlog::debug("[TempGraphOverlay] Custom temperature: {}°C for {}", temp, klipper_name);
 
     ctx->overlay->api_->set_temperature(
-        klipper_name, static_cast<double>(temp),
-        []() {},
+        klipper_name, static_cast<double>(temp), []() {},
         [](const MoonrakerError& error) {
             NOTIFY_ERROR(lv_tr("Failed to set temperature: {}"), error.user_message());
         });
@@ -620,8 +652,10 @@ void TempGraphOverlay::keypad_value_cb(float value, void* user_data) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 void TempGraphOverlay::rebuild_extruder_selector() {
-    if (!extruder_selector_row_ || !printer_state_) return;
+    if (!extruder_selector_row_ || !printer_state_)
+        return;
 
+    lv_obj_update_layout(extruder_selector_row_);
     lv_obj_clean(extruder_selector_row_);
 
     auto& temp_state = printer_state_->temperature_state();
@@ -645,14 +679,17 @@ void TempGraphOverlay::rebuild_extruder_selector() {
         lv_obj_add_flag(btn, LV_OBJ_FLAG_CLICKABLE);
 
         bool is_active = (ext->name == active_extruder_name_);
-        lv_obj_set_style_bg_color(btn, is_active ? theme_manager_get_color("primary")
-                                                  : theme_manager_get_color("card_bg"), 0);
+        lv_obj_set_style_bg_color(
+            btn,
+            is_active ? theme_manager_get_color("primary") : theme_manager_get_color("card_bg"), 0);
 
         lv_obj_t* label = lv_label_create(btn);
         lv_label_set_text(label, ext->display_name.c_str());
         lv_obj_set_style_text_font(label, theme_manager_get_font("font_small"), 0);
-        lv_obj_set_style_text_color(label, is_active ? theme_manager_get_color("on_primary")
-                                                      : theme_manager_get_color("text_primary"), 0);
+        lv_obj_set_style_text_color(label,
+                                    is_active ? theme_manager_get_color("on_primary")
+                                              : theme_manager_get_color("text_primary"),
+                                    0);
         lv_obj_remove_flag(label, LV_OBJ_FLAG_CLICKABLE);
         lv_obj_add_flag(label, LV_OBJ_FLAG_EVENT_BUBBLE);
 
@@ -666,19 +703,20 @@ void TempGraphOverlay::rebuild_extruder_selector() {
 void TempGraphOverlay::on_extruder_selected(lv_event_t* e) {
     auto* self = static_cast<TempGraphOverlay*>(lv_event_get_user_data(e));
     auto* target = static_cast<lv_obj_t*>(lv_event_get_current_target(e));
-    if (!self || !target) return;
+    if (!self || !target)
+        return;
 
     const char* name = lv_obj_get_name(target);
-    if (!name) return;
+    if (!name)
+        return;
 
     self->active_extruder_name_ = name;
     self->printer_state_->set_active_extruder(name);
 
     // Defer rebuild — synchronous lv_obj_clean() from inside a click event callback
     // can corrupt flex layout if layout_update_core() is mid-traversal (crash #de4ad08f)
-    self->lifetime_.defer("rebuild_extruder_selector", [self]() {
-        self->rebuild_extruder_selector();
-    });
+    self->lifetime_.defer("rebuild_extruder_selector",
+                          [self]() { self->rebuild_extruder_selector(); });
 
     spdlog::debug("[TempGraphOverlay] Selected extruder: {}", name);
 }

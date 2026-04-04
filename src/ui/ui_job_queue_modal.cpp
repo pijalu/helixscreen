@@ -154,6 +154,7 @@ void JobQueueModal::populate_job_list() {
     if (!list)
         return;
 
+    lv_obj_update_layout(list);
     lv_obj_clean(list);
 
     auto* jqs = get_job_queue_state();

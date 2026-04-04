@@ -178,7 +178,9 @@ void JobQueueWidget::rebuild_job_list() {
     if (!job_list_container_)
         return;
 
-    // Clear existing children
+    // Flush pending layout before cleaning — deferred observer callbacks can run
+    // between layout passes, causing use-after-free in layout_update_core (#711).
+    lv_obj_update_layout(job_list_container_);
     lv_obj_clean(job_list_container_);
 
     auto* jqs = get_job_queue_state();
