@@ -3002,7 +3002,10 @@ void Application::tear_down_printer_state() {
     set_wizard_cancel_callback(nullptr);
 
     // 1. Clear app_globals BEFORE destroying managers to prevent
-    //    destructors from accessing destroyed objects
+    //    destructors from accessing destroyed objects.
+    //    Also clear SoundManager's client ref so the M300 sequencer thread
+    //    won't call gcode_script() on a dangling pointer after m_moonraker.reset() (#714).
+    SoundManager::instance().set_moonraker_client(nullptr);
     set_moonraker_manager(nullptr);
     set_moonraker_api(nullptr);
     set_moonraker_client(nullptr);
@@ -3253,6 +3256,10 @@ void Application::shutdown() {
         m_moonraker->client()->disconnect();
     }
 
+    // Clear SoundManager's client ref so the M300 sequencer thread
+    // won't call gcode_script() on a dangling pointer (#714).
+    SoundManager::instance().set_moonraker_client(nullptr);
+
     // Clear app_globals references BEFORE destroying managers to prevent
     // destructors (e.g., PrintSelectPanel) from accessing destroyed objects
     set_moonraker_manager(nullptr);
@@ -3276,11 +3283,13 @@ void Application::shutdown() {
     // Shutdown CrashHistory
     helix::CrashHistory::instance().shutdown();
 
+    // Shutdown SoundManager BEFORE clearing moonraker client — the M300
+    // backend's sender lambda references client_ and the sequencer thread
+    // must be stopped before the client is destroyed (#714).
+    SoundManager::instance().shutdown();
+
     // Shutdown PostOpCooldownManager (cancel pending cooldown timers)
     PostOpCooldownManager::instance().shutdown();
-
-    // Shutdown SoundManager (stops sequencer, closes audio backends)
-    SoundManager::instance().shutdown();
 
     // Unload plugins before destroying managers they depend on
     if (m_plugin_manager) {

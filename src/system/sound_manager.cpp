@@ -261,9 +261,10 @@ std::shared_ptr<SoundBackend> SoundManager::create_backend() {
 
     if (client_) {
         spdlog::debug("[SoundManager] Creating M300 backend via Moonraker");
-        auto* client = client_;
-        return std::make_shared<M300SoundBackend>(
-            [client](const std::string& gcode) { return client->gcode_script(gcode); });
+        return std::make_shared<M300SoundBackend>([this](const std::string& gcode) -> int {
+            auto* c = client_;
+            return c ? c->gcode_script(gcode) : -1;
+        });
     }
 
     spdlog::debug("[SoundManager] No backend available");
