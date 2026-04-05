@@ -581,17 +581,19 @@ AmsError AmsBackendAd5xIfs::set_slot_info(int slot_index, const SlotInfo& info, 
             }
 
             auto err = write_ifs_var("colors", color_val);
-            if (!err.success())
+            if (!err.success()) {
+                std::lock_guard<std::mutex> lock(mutex_);
+                dirty_[idx] = false;
                 return err;
+            }
 
             err = write_ifs_var("types", type_val);
-            if (!err.success())
-                return err;
-
             {
                 std::lock_guard<std::mutex> lock(mutex_);
                 dirty_[idx] = false;
             }
+            if (!err.success())
+                return err;
         } else {
             // Native ZMOD: per-slot update via CHANGE_ZCOLOR
             auto err = write_zcolor(slot_index);
