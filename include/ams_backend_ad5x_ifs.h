@@ -97,7 +97,7 @@ class AmsBackendAd5xIfs : public AmsSubscriptionBackend {
     std::string build_type_list_value() const;
     std::string build_tool_map_value() const;
     AmsError write_ifs_var(const std::string& key, const std::string& value);
-    AmsError write_zcolor(int slot_index);
+    AmsError write_adventurer_json(int slot_index);
     void detect_load_unload_completion(bool head_detected);
 
     int find_first_tool_for_port(int port_1based) const;

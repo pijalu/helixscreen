@@ -13,6 +13,7 @@
 #include <algorithm>
 #include <regex>
 #include <sstream>
+#include <thread>
 
 using json = nlohmann::json;
 
@@ -595,8 +596,8 @@ AmsError AmsBackendAd5xIfs::set_slot_info(int slot_index, const SlotInfo& info, 
             if (!err.success())
                 return err;
         } else {
-            // Native ZMOD: per-slot update via CHANGE_ZCOLOR
-            auto err = write_zcolor(slot_index);
+            // Native ZMOD: per-slot update via Adventurer5M.json
+            auto err = write_adventurer_json(slot_index);
             if (!err.success())
                 return err;
         }
@@ -728,13 +729,13 @@ AmsError AmsBackendAd5xIfs::write_ifs_var(const std::string& key, const std::str
     return execute_gcode(gcode);
 }
 
-AmsError AmsBackendAd5xIfs::write_zcolor(int slot_index) {
+AmsError AmsBackendAd5xIfs::write_adventurer_json(int slot_index) {
     if (!api_) {
         return AmsErrorHelper::invalid_parameter("No API connection");
     }
 
     auto idx = static_cast<size_t>(slot_index);
-    int slot_1based = slot_index + 1;
+    int port = slot_index + 1; // JSON uses 1-based slot numbering
 
     std::string hex, material;
     {
@@ -748,12 +749,82 @@ AmsError AmsBackendAd5xIfs::write_zcolor(int slot_index) {
     if (material.empty())
         material = "PLA";
 
-    // Native ZMOD: CHANGE_ZCOLOR SLOT=N HEX=RRGGBB TYPE=MATERIAL
-    std::string gcode =
-        "CHANGE_ZCOLOR SLOT=" + std::to_string(slot_1based) + " HEX=" + hex + " TYPE=" + material;
-    spdlog::info("{} Writing slot {} via CHANGE_ZCOLOR (native ZMOD)", backend_log_tag(),
-                 slot_1based);
-    return execute_gcode(gcode);
+    // Add # prefix for JSON file format
+    std::string hex_with_hash = "#" + hex;
+
+    spdlog::info("{} Writing slot {} to Adventurer5M.json (native ZMOD)", backend_log_tag(), port);
+
+    // Read-modify-write: download current file, update slot, re-upload
+    auto result = std::make_shared<AmsError>(AmsErrorHelper::success());
+    auto done = std::make_shared<std::atomic<bool>>(false);
+    auto token = lifetime_.token();
+
+    api_->transfers().download_file(
+        "config", "Adventurer5M.json",
+        [this, token, port, hex_with_hash, material, result, done](const std::string& content) {
+            if (token.expired()) {
+                *result =
+                    AmsErrorHelper::command_failed("write_adventurer_json", "Connection lost");
+                done->store(true);
+                return;
+            }
+
+            json doc;
+            try {
+                doc = json::parse(content);
+            } catch (const json::parse_error& e) {
+                spdlog::warn("{} Failed to parse Adventurer5M.json for write: {}",
+                             backend_log_tag(), e.what());
+                *result =
+                    AmsErrorHelper::command_failed("write_adventurer_json", "JSON parse error");
+                done->store(true);
+                return;
+            }
+
+            // Ensure FFMInfo exists
+            if (!doc.contains("FFMInfo")) {
+                doc["FFMInfo"] = json::object();
+            }
+
+            // Update the slot
+            doc["FFMInfo"]["ffmColor" + std::to_string(port)] = hex_with_hash;
+            doc["FFMInfo"]["ffmType" + std::to_string(port)] = material;
+
+            // Serialize with indentation to match zmod's format
+            std::string updated = doc.dump(4);
+
+            api_->transfers().upload_file(
+                "config", "Adventurer5M.json", updated,
+                [this, done, port]() {
+                    spdlog::info("{} Wrote slot {} to Adventurer5M.json", backend_log_tag(), port);
+                    done->store(true);
+                },
+                [this, result, done, port](const MoonrakerError& err) {
+                    spdlog::warn("{} Failed to upload Adventurer5M.json for slot {}: {}",
+                                 backend_log_tag(), port, err.message);
+                    *result = AmsErrorHelper::command_failed("write_adventurer_json", err.message);
+                    done->store(true);
+                });
+        },
+        [this, result, done](const MoonrakerError& err) {
+            spdlog::warn("{} Failed to download Adventurer5M.json for write: {}", backend_log_tag(),
+                         err.message);
+            *result = AmsErrorHelper::command_failed("write_adventurer_json", err.message);
+            done->store(true);
+        });
+
+    // Wait for async operation to complete (this is called from a sync API)
+    // The existing write_ifs_var / execute_gcode also blocks, so this is consistent.
+    for (int i = 0; i < 100 && !done->load(); ++i) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(50));
+    }
+
+    if (!done->load()) {
+        return AmsErrorHelper::command_failed("write_adventurer_json",
+                                              "Timeout writing Adventurer5M.json");
+    }
+
+    return *result;
 }
 
 void AmsBackendAd5xIfs::read_adventurer_json() {
