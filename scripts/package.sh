@@ -159,6 +159,11 @@ package_platform() {
     cp "${PROJECT_DIR}/scripts/helix-launcher.sh" "$pkg_dir/bin/"
     chmod +x "$pkg_dir/bin/helix-launcher.sh"
 
+    # Copy platform-specific setup scripts
+    mkdir -p "$pkg_dir/scripts"
+    cp "${PROJECT_DIR}/scripts/snapmaker-u1-setup-autostart.sh" "$pkg_dir/scripts/"
+    chmod +x "$pkg_dir/scripts/snapmaker-u1-setup-autostart.sh"
+
     # Copy config files
     cp "${PROJECT_DIR}/config/helixscreen.init" "$pkg_dir/config/"
     cp "${PROJECT_DIR}/config/helixscreen.service" "$pkg_dir/config/"

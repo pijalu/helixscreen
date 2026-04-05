@@ -62,8 +62,9 @@ install_service_snapmaker_u1() {
     if [ -f "${INSTALL_DIR}/scripts/snapmaker-u1-setup-autostart.sh" ]; then
         bash "${INSTALL_DIR}/scripts/snapmaker-u1-setup-autostart.sh" "${INSTALL_DIR}"
     else
-        log_warn "Snapmaker U1 autostart script not found at ${INSTALL_DIR}/scripts/snapmaker-u1-setup-autostart.sh"
-        log_warn "You may need to configure autostart manually"
+        log_error "Snapmaker U1 autostart script not found at ${INSTALL_DIR}/scripts/snapmaker-u1-setup-autostart.sh"
+        log_error "The release package may be incomplete."
+        exit 1
     fi
 }
 
