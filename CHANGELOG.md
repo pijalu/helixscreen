@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.99.21] - 2026-04-04
+
+### Fixed
+- Temperature keypad silently dropping commands when lifetime token expired during overlay hide
+- IFS filament slot material/color reverting to stale values when editing multiple slots
+- IFS material label not refreshing when only material changed (color unchanged)
+- M300 beep command crashing backend from dangling MoonrakerClient pointer (#714)
+
+### Changed
+- AMS edit modal spool actions condensed into a split button dropdown to prevent overflow in translated UIs
+- Modal button row now supports translation tags for primary/secondary buttons
+
 ## [0.99.20] - 2026-04-04
 
 ### Fixed
@@ -2588,6 +2600,7 @@ Initial tagged release. Foundation for all subsequent development.
 - Automated GitHub Actions release pipeline
 - One-liner installation script with platform auto-detection
 
+[0.99.21]: https://github.com/prestonbrown/helixscreen/compare/v0.99.20...v0.99.21
 [0.99.20]: https://github.com/prestonbrown/helixscreen/compare/v0.99.19...v0.99.20
 [0.99.19]: https://github.com/prestonbrown/helixscreen/compare/v0.99.18...v0.99.19
 [0.99.18]: https://github.com/prestonbrown/helixscreen/compare/v0.99.17...v0.99.18
