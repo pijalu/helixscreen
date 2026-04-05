@@ -58,9 +58,22 @@ install_service() {
 install_service_snapmaker_u1() {
     log_info "Configuring Snapmaker U1 autostart..."
 
-    # Run the dedicated U1 autostart setup script
+    # --- Fix DAEMON_DIR in the init script (U1 keeps it in-place, not /etc/init.d/) ---
+    local init_script="${INSTALL_DIR}/config/helixscreen.init"
+    if [ ! -f "$init_script" ]; then
+        log_error "Init script not found: $init_script"
+        exit 1
+    fi
+    chmod +x "$init_script"
+    _sed_inplace "s|DAEMON_DIR=.*|DAEMON_DIR=\"${INSTALL_DIR}\"|" "$init_script"
+
+    # --- Patch S99screen to delegate to helixscreen.init on boot ---
     if [ -f "${INSTALL_DIR}/scripts/snapmaker-u1-setup-autostart.sh" ]; then
-        bash "${INSTALL_DIR}/scripts/snapmaker-u1-setup-autostart.sh" "${INSTALL_DIR}"
+        if ! bash "${INSTALL_DIR}/scripts/snapmaker-u1-setup-autostart.sh" "${INSTALL_DIR}"; then
+            log_error "Snapmaker U1 autostart configuration failed."
+            log_error "Ensure /oem and /etc/init.d are writable."
+            exit 1
+        fi
     else
         log_error "Snapmaker U1 autostart script not found at ${INSTALL_DIR}/scripts/snapmaker-u1-setup-autostart.sh"
         log_error "The release package may be incomplete."

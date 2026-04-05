@@ -169,11 +169,12 @@ install_platform_hooks() {
         klipper_mod) platform_hook="ad5m-kmod" ;;
     esac
 
-    # Pi, K1, K2 platform hooks (pi32 shares Pi hooks)
+    # Platform hooks (pi32 shares Pi hooks)
     case "$platform" in
-        pi|pi32) platform_hook="pi" ;;
-        k1)      platform_hook="k1" ;;
-        k2)      platform_hook="k2" ;;
+        pi|pi32)       platform_hook="pi" ;;
+        k1)            platform_hook="k1" ;;
+        k2)            platform_hook="k2" ;;
+        snapmaker-u1)  platform_hook="snapmaker-u1" ;;
     esac
 
     if [ -n "$platform_hook" ]; then
