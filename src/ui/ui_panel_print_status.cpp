@@ -642,6 +642,10 @@ void PrintStatusPanel::on_activate() {
         lv_image_set_src(print_thumbnail_, cached_thumbnail_path_.c_str());
     }
 
+    // Sync button enabled/visibility state with current print state and outcome.
+    // XML bindings may have been lost during overlay lifecycle transitions (#546).
+    update_button_states();
+
     // Sync chamber row visibility (observer may have fired before UI was created)
     update_chamber_visibility();
 
@@ -2081,17 +2085,26 @@ void PrintStatusPanel::update_button_states() {
     }
     set_button_enabled(btn_cancel_, cancel_button_enabled);
 
-    // Error state: hide cancel, show reprint (same UX as cancelled).
-    // XML bindings only handle CANCELLED(2); this supplements for ERROR(3).
-    // Applied after XML observers fire, so it overrides until next subject change.
-    if (lifecycle_.state() == PrintState::Error) {
-        if (btn_cancel_) {
+    // Sync Cancel/Reprint visibility from current print_outcome.
+    // XML bind_flag_if_eq/bind_flag_if_not_eq bindings normally handle this,
+    // but they can be lost during widget lifecycle transitions (#546).
+    auto outcome =
+        static_cast<PrintOutcome>(lv_subject_get_int(printer_state_.get_print_outcome_subject()));
+    bool is_terminal = (outcome != PrintOutcome::NONE);
+    if (btn_cancel_) {
+        if (is_terminal) {
             lv_obj_add_flag(btn_cancel_, LV_OBJ_FLAG_HIDDEN);
+        } else {
+            lv_obj_remove_flag(btn_cancel_, LV_OBJ_FLAG_HIDDEN);
         }
-        if (btn_reprint_) {
+    }
+    if (btn_reprint_) {
+        if (is_terminal) {
             lv_obj_remove_flag(btn_reprint_, LV_OBJ_FLAG_HIDDEN);
             lv_obj_remove_state(btn_reprint_, LV_STATE_DISABLED);
             lv_obj_set_style_opa(btn_reprint_, LV_OPA_COVER, LV_PART_MAIN);
+        } else {
+            lv_obj_add_flag(btn_reprint_, LV_OBJ_FLAG_HIDDEN);
         }
     }
 
