@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #pragma once
 
+#include "ui_observer_guard.h"
+
 #include "async_lifetime_guard.h"
 #include "panel_widget.h"
-#include "ui_observer_guard.h"
 
 #include <memory>
 #include <string>
@@ -25,7 +26,9 @@ class NozzleTempsWidget : public PanelWidget {
     void attach(lv_obj_t* widget_obj, lv_obj_t* parent_screen) override;
     void detach() override;
     void on_size_changed(int colspan, int rowspan, int width_px, int height_px) override;
-    const char* id() const override { return "nozzle_temps"; }
+    const char* id() const override {
+        return "nozzle_temps";
+    }
 
   private:
     PrinterState& printer_state_;
@@ -64,14 +67,16 @@ class NozzleTempsWidget : public PanelWidget {
     int cached_bed_target_ = 0;
 
     ObserverGuard version_observer_;
-    int rebuild_gen_ = 0; // Generation counter to break infinite rebuild cycles (L074)
+    int rebuild_gen_ = 0;     // Generation counter to break infinite rebuild cycles (L074)
+    bool rebuilding_ = false; // Re-entrancy guard: drain() inside clear_rows() can fire
+                              // version_observer_ which calls rebuild_rows() again (#723)
 
     void rebuild_rows();
     void clear_rows();
     void create_extruder_row(lv_obj_t* container, ExtruderRow& row);
     void create_bed_row(lv_obj_t* container);
-    void update_row_display(lv_obj_t* temp_label, lv_obj_t* target_label,
-                            lv_obj_t* progress_bar, int temp_centi, int target_centi, bool is_bed);
+    void update_row_display(lv_obj_t* temp_label, lv_obj_t* target_label, lv_obj_t* progress_bar,
+                            int temp_centi, int target_centi, bool is_bed);
 };
 
 void register_nozzle_temps_widget();

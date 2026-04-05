@@ -110,12 +110,22 @@ void NozzleTempsWidget::clear_rows() {
 }
 
 void NozzleTempsWidget::rebuild_rows() {
+    // Guard against re-entrancy: drain() inside clear_rows() can process a
+    // pending version_observer_ callback which calls rebuild_rows() again.
+    // The inner call would create widgets that the outer call then destroys
+    // via lv_obj_clean(), leaving stale pointers and crashing in
+    // lv_observer_remove(). (#723, #724, #725)
+    if (rebuilding_)
+        return;
+    rebuilding_ = true;
+
     clear_rows();
 
     auto* container =
         widget_obj_ ? lv_obj_find_by_name(widget_obj_, "nozzle_temps_container") : nullptr;
     if (!container) {
         spdlog::warn("[NozzleTempsWidget] Container not found in XML");
+        rebuilding_ = false;
         return;
     }
 
@@ -221,6 +231,7 @@ void NozzleTempsWidget::rebuild_rows() {
     update_row_display(bed_temp_label_, bed_target_label_, bed_progress_bar_, cached_bed_temp_,
                        cached_bed_target_, true);
 
+    rebuilding_ = false;
     spdlog::debug("[NozzleTempsWidget] Rebuilt with {} extruder rows + bed", extruder_rows_.size());
 }
 
