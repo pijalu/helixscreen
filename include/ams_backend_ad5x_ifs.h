@@ -90,8 +90,8 @@ class AmsBackendAd5xIfs : public AmsSubscriptionBackend {
     void parse_port_sensor(int port_1based, bool detected);
     void parse_head_sensor(bool detected);
     void update_slot_from_state(int slot_index);
-    void query_zcolor_fallback();
-    void parse_zcolor_response(const std::string& response);
+    void parse_adventurer_json(const std::string& content);
+    void read_adventurer_json();
 
     std::string build_color_list_value() const;
     std::string build_type_list_value() const;

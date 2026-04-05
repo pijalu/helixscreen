@@ -22,9 +22,15 @@ class Ad5xIfsTestAccess {
         std::lock_guard<std::mutex> lock(b.mutex_);
         b.parse_save_variables(v);
     }
-    static int active_tool(const AmsBackendAd5xIfs& b) { return b.active_tool_; }
-    static bool external_mode(const AmsBackendAd5xIfs& b) { return b.external_mode_; }
-    static bool head_filament(const AmsBackendAd5xIfs& b) { return b.head_filament_; }
+    static int active_tool(const AmsBackendAd5xIfs& b) {
+        return b.active_tool_;
+    }
+    static bool external_mode(const AmsBackendAd5xIfs& b) {
+        return b.external_mode_;
+    }
+    static bool head_filament(const AmsBackendAd5xIfs& b) {
+        return b.head_filament_;
+    }
     static bool port_presence(const AmsBackendAd5xIfs& b, int i) {
         return b.port_presence_[static_cast<size_t>(i)];
     }
@@ -49,8 +55,7 @@ class Ad5xIfsTestAccess {
         b.system_info_.action = a;
         b.action_start_time_ = std::chrono::steady_clock::now();
     }
-    static void check_action_timeout(AmsBackendAd5xIfs& b,
-                                     std::chrono::seconds elapsed) {
+    static void check_action_timeout(AmsBackendAd5xIfs& b, std::chrono::seconds elapsed) {
         b.action_start_time_ = std::chrono::steady_clock::now() - elapsed;
         b.check_action_timeout();
     }
@@ -65,8 +70,8 @@ class Ad5xIfsTestAccess {
         std::lock_guard<std::mutex> lock(b.mutex_);
         return b.has_ifs_vars_;
     }
-    static void parse_zcolor(AmsBackendAd5xIfs& b, const std::string& response) {
-        b.parse_zcolor_response(response);
+    static void parse_adventurer_json(AmsBackendAd5xIfs& b, const std::string& content) {
+        b.parse_adventurer_json(content);
     }
 };
 
@@ -77,8 +82,7 @@ static json make_save_variables(const json& variables) {
 
 // Helper to build a port sensor notification
 static json make_port_sensor(int port_1based, bool detected) {
-    std::string key =
-        "filament_switch_sensor _ifs_port_sensor_" + std::to_string(port_1based);
+    std::string key = "filament_switch_sensor _ifs_port_sensor_" + std::to_string(port_1based);
     return json{{key, json{{"filament_detected", detected}}}};
 }
 
@@ -96,12 +100,11 @@ static json make_motion_sensor(bool detected) {
 
 // Standard test variables representing a typical IFS configuration
 static json standard_variables() {
-    return json{
-        {"less_waste_colors", json::array({"FF0000", "00FF00", "0000FF", "FFFFFF"})},
-        {"less_waste_types", json::array({"PLA", "PETG", "ABS", "TPU"})},
-        {"less_waste_tools", json::array({1, 2, 3, 4, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5})},
-        {"less_waste_current_tool", 0},
-        {"less_waste_external", 0}};
+    return json{{"less_waste_colors", json::array({"FF0000", "00FF00", "0000FF", "FFFFFF"})},
+                {"less_waste_types", json::array({"PLA", "PETG", "ABS", "TPU"})},
+                {"less_waste_tools", json::array({1, 2, 3, 4, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5})},
+                {"less_waste_current_tool", 0},
+                {"less_waste_external", 0}};
 }
 
 // ==========================================================================
@@ -231,8 +234,7 @@ TEST_CASE("AD5X IFS tool mapping reverse lookup", "[ams][ad5x_ifs]") {
     SECTION("non-standard mapping: T0->port3, T1->port1") {
         auto vars = standard_variables();
         // T0->3, T1->1, T2->5(unmapped), T3->2, rest unmapped
-        vars["less_waste_tools"] =
-            json::array({3, 1, 5, 2, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5});
+        vars["less_waste_tools"] = json::array({3, 1, 5, 2, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5});
         Ad5xIfsTestAccess::handle_status(backend, make_save_variables(vars));
 
         // Slot 0 (port 1): first tool mapping to port 1 is T1
@@ -300,18 +302,15 @@ TEST_CASE("AD5X IFS native ZMOD motion sensor parsing", "[ams][ad5x_ifs]") {
     REQUIRE_FALSE(Ad5xIfsTestAccess::head_filament(backend));
 }
 
-TEST_CASE("AD5X IFS native ZMOD combined update (no per-port sensors)",
-          "[ams][ad5x_ifs]") {
+TEST_CASE("AD5X IFS native ZMOD combined update (no per-port sensors)", "[ams][ad5x_ifs]") {
     AmsBackendAd5xIfs backend(nullptr, nullptr);
 
     // Simulate a native ZMOD IFS status update:
     // save_variables + motion sensor + head switch sensor, NO per-port sensors
     json notification;
     notification["save_variables"] = json{{"variables", standard_variables()}};
-    notification["filament_motion_sensor ifs_motion_sensor"] =
-        json{{"filament_detected", true}};
-    notification["filament_switch_sensor head_switch_sensor"] =
-        json{{"filament_detected", true}};
+    notification["filament_motion_sensor ifs_motion_sensor"] = json{{"filament_detected", true}};
+    notification["filament_switch_sensor head_switch_sensor"] = json{{"filament_detected", true}};
 
     Ad5xIfsTestAccess::handle_status(backend, notification);
 
@@ -338,16 +337,11 @@ TEST_CASE("AD5X IFS combined status update", "[ams][ad5x_ifs]") {
     // Build a combined notification with save_variables + sensors
     json notification;
     notification["save_variables"] = json{{"variables", standard_variables()}};
-    notification["filament_switch_sensor _ifs_port_sensor_1"] =
-        json{{"filament_detected", true}};
-    notification["filament_switch_sensor _ifs_port_sensor_2"] =
-        json{{"filament_detected", false}};
-    notification["filament_switch_sensor _ifs_port_sensor_3"] =
-        json{{"filament_detected", true}};
-    notification["filament_switch_sensor _ifs_port_sensor_4"] =
-        json{{"filament_detected", false}};
-    notification["filament_switch_sensor head_switch_sensor"] =
-        json{{"filament_detected", true}};
+    notification["filament_switch_sensor _ifs_port_sensor_1"] = json{{"filament_detected", true}};
+    notification["filament_switch_sensor _ifs_port_sensor_2"] = json{{"filament_detected", false}};
+    notification["filament_switch_sensor _ifs_port_sensor_3"] = json{{"filament_detected", true}};
+    notification["filament_switch_sensor _ifs_port_sensor_4"] = json{{"filament_detected", false}};
+    notification["filament_switch_sensor head_switch_sensor"] = json{{"filament_detected", true}};
 
     Ad5xIfsTestAccess::handle_status(backend, notification);
 
@@ -664,10 +658,8 @@ TEST_CASE("AD5X IFS handles wrapped notify_status_update", "[ams][ad5x_ifs]") {
     SECTION("wrapped combined notification updates all state") {
         json status;
         status["save_variables"] = json{{"variables", standard_variables()}};
-        status["filament_switch_sensor _ifs_port_sensor_1"] =
-            json{{"filament_detected", true}};
-        status["filament_switch_sensor head_switch_sensor"] =
-            json{{"filament_detected", true}};
+        status["filament_switch_sensor _ifs_port_sensor_1"] = json{{"filament_detected", true}};
+        status["filament_switch_sensor head_switch_sensor"] = json{{"filament_detected", true}};
 
         Ad5xIfsTestAccess::handle_status(backend, wrap_notification(status));
 
@@ -767,8 +759,7 @@ TEST_CASE("AD5X IFS variable prefix auto-detection", "[ams][ad5x_ifs]") {
         json vars;
         vars["bambufy_colors"] = json::array({"FF0000", "00FF00", "0000FF", "FFFFFF"});
         vars["bambufy_types"] = json::array({"PLA", "PETG", "ABS", "TPU"});
-        vars["bambufy_tools"] =
-            json::array({1, 2, 3, 4, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5});
+        vars["bambufy_tools"] = json::array({1, 2, 3, 4, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5});
         vars["bambufy_current_tool"] = 0;
         vars["bambufy_external"] = 0;
 
@@ -784,8 +775,7 @@ TEST_CASE("AD5X IFS variable prefix auto-detection", "[ams][ad5x_ifs]") {
 
     SECTION("detects bambufy prefix from tools alone") {
         json vars;
-        vars["bambufy_tools"] =
-            json::array({1, 2, 3, 4, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5});
+        vars["bambufy_tools"] = json::array({1, 2, 3, 4, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5});
 
         Ad5xIfsTestAccess::handle_status(backend, make_save_variables(vars));
 
@@ -829,8 +819,7 @@ TEST_CASE("AD5X IFS native ZMOD infers active slot from head sensor", "[ams][ad5
     // No per-port sensors — only motion sensor and save_variables
     json notification;
     notification["save_variables"] = json{{"variables", standard_variables()}};
-    notification["filament_motion_sensor ifs_motion_sensor"] =
-        json{{"filament_detected", true}};
+    notification["filament_motion_sensor ifs_motion_sensor"] = json{{"filament_detected", true}};
 
     Ad5xIfsTestAccess::handle_status(backend, notification);
 
@@ -863,8 +852,7 @@ TEST_CASE("AD5X IFS has_ifs_vars detection", "[ams][ad5x_ifs]") {
     SECTION("set true when bambufy variables found") {
         json vars;
         vars["bambufy_colors"] = json::array({"FF0000", "00FF00", "0000FF", "FFFFFF"});
-        vars["bambufy_tools"] =
-            json::array({1, 2, 3, 4, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5});
+        vars["bambufy_tools"] = json::array({1, 2, 3, 4, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5});
         Ad5xIfsTestAccess::handle_status(backend, make_save_variables(vars));
         REQUIRE(Ad5xIfsTestAccess::has_ifs_vars(backend));
     }
@@ -878,30 +866,33 @@ TEST_CASE("AD5X IFS has_ifs_vars detection", "[ams][ad5x_ifs]") {
 }
 
 // ==========================================================================
-// 23. parse_zcolor_response (native ZMOD GET_ZCOLOR output)
+// 23. parse_adventurer_json (native ZMOD Adventurer5M.json)
 // ==========================================================================
 
-TEST_CASE("AD5X IFS parse_zcolor_response", "[ams][ad5x_ifs]") {
+TEST_CASE("AD5X IFS parse_adventurer_json", "[ams][ad5x_ifs]") {
     AmsBackendAd5xIfs backend(nullptr, nullptr);
 
-    SECTION("parses standard GET_ZCOLOR prompt output") {
-        std::string response =
-            "// action:prompt_begin Material selection\n"
-            "// action:prompt_text Extruder: None (0) | IFS: True\n"
-            "// action:prompt_text Choose a spool:\n"
-            "// action:prompt_button_group_start\n"
-            "// action:prompt_button 1: PLA/white|RUN_ZCOLOR SLOT=1 HEX=FFFFFF TYPE=PLA|primary|FFFFFF\n"
-            "// action:prompt_button 2: PETG|RUN_ZCOLOR SLOT=2 HEX=00FF00 TYPE=PETG|primary|00FF00\n"
-            "// action:prompt_button 3: ABS|RUN_ZCOLOR SLOT=3 HEX=0000FF TYPE=ABS|primary|0000FF\n"
-            "// action:prompt_button 4: TPU|RUN_ZCOLOR SLOT=4 HEX=FF0000 TYPE=TPU|primary|FF0000\n"
-            "// action:prompt_button_group_end\n"
-            "// action:prompt_footer_button Ok|RESPOND TYPE=command MSG=action:prompt_end\n"
-            "// action:prompt_show\n";
+    SECTION("standard 4-slot JSON with # prefixed hex colors") {
+        std::string content = R"({
+            "FFMInfo": {
+                "channel": 2,
+                "ffmColor0": "",
+                "ffmColor1": "#FF0000",
+                "ffmColor2": "#00FF00",
+                "ffmColor3": "#0000FF",
+                "ffmColor4": "#FFFFFF",
+                "ffmType0": "?",
+                "ffmType1": "PLA",
+                "ffmType2": "PETG",
+                "ffmType3": "ABS",
+                "ffmType4": "TPU"
+            }
+        })";
 
-        Ad5xIfsTestAccess::parse_zcolor(backend, response);
+        Ad5xIfsTestAccess::parse_adventurer_json(backend, content);
 
         auto info0 = backend.get_slot_info(0);
-        REQUIRE(info0.color_rgb == 0xFFFFFF);
+        REQUIRE(info0.color_rgb == 0xFF0000);
         REQUIRE(info0.material == "PLA");
 
         auto info1 = backend.get_slot_info(1);
@@ -913,46 +904,52 @@ TEST_CASE("AD5X IFS parse_zcolor_response", "[ams][ad5x_ifs]") {
         REQUIRE(info2.material == "ABS");
 
         auto info3 = backend.get_slot_info(3);
-        REQUIRE(info3.color_rgb == 0xFF0000);
+        REQUIRE(info3.color_rgb == 0xFFFFFF);
         REQUIRE(info3.material == "TPU");
     }
 
-    SECTION("handles lowercase hex") {
-        std::string response =
-            "// action:prompt_button 1: PLA|RUN_ZCOLOR SLOT=1 HEX=ff8800 TYPE=PLA|primary|ff8800\n";
+    SECTION("lowercase hex is uppercased") {
+        std::string content = R"({
+            "FFMInfo": {
+                "ffmColor1": "#ff8800",
+                "ffmType1": "PLA"
+            }
+        })";
 
-        Ad5xIfsTestAccess::parse_zcolor(backend, response);
+        Ad5xIfsTestAccess::parse_adventurer_json(backend, content);
 
         auto info = backend.get_slot_info(0);
         REQUIRE(info.color_rgb == 0xFF8800);
         REQUIRE(info.material == "PLA");
     }
 
-    SECTION("ignores non-button lines") {
-        std::string response =
-            "// action:prompt_begin Title\n"
-            "// action:prompt_text Some text\n"
-            "// action:prompt_show\n";
+    SECTION("missing FFMInfo section is graceful no-op") {
+        std::string content = R"({"OtherSection": {"key": "value"}})";
 
-        Ad5xIfsTestAccess::parse_zcolor(backend, response);
+        Ad5xIfsTestAccess::parse_adventurer_json(backend, content);
 
         // Slots should remain at defaults
         auto info = backend.get_slot_info(0);
         REQUIRE(info.material.empty());
     }
 
-    SECTION("handles partial response (only 2 slots)") {
-        std::string response =
-            "// action:prompt_button 1: PLA|RUN_ZCOLOR SLOT=1 HEX=AABBCC TYPE=PLA|primary|AABBCC\n"
-            "// action:prompt_button 3: PETG|RUN_ZCOLOR SLOT=3 HEX=112233 TYPE=PETG|primary|112233\n";
+    SECTION("partial slots — only 2 of 4 populated") {
+        std::string content = R"({
+            "FFMInfo": {
+                "ffmColor1": "#AABBCC",
+                "ffmType1": "PLA",
+                "ffmColor3": "#112233",
+                "ffmType3": "PETG"
+            }
+        })";
 
-        Ad5xIfsTestAccess::parse_zcolor(backend, response);
+        Ad5xIfsTestAccess::parse_adventurer_json(backend, content);
 
         auto info0 = backend.get_slot_info(0);
         REQUIRE(info0.color_rgb == 0xAABBCC);
         REQUIRE(info0.material == "PLA");
 
-        // Slot 1 (port 2) not in response — stays at default
+        // Slot 1 (port 2) not in JSON — stays at default
         auto info1 = backend.get_slot_info(1);
         REQUIRE(info1.material.empty());
 
@@ -961,15 +958,57 @@ TEST_CASE("AD5X IFS parse_zcolor_response", "[ams][ad5x_ifs]") {
         REQUIRE(info2.material == "PETG");
     }
 
-    SECTION("PLA-CF material with hyphen") {
-        std::string response =
-            "// action:prompt_button 2: PLA-CF|RUN_ZCOLOR SLOT=2 HEX=333333 TYPE=PLA-CF|primary|333333\n";
+    SECTION("# prefix stripping") {
+        std::string content = R"({
+            "FFMInfo": {
+                "ffmColor1": "#ABCDEF",
+                "ffmType1": "ABS"
+            }
+        })";
 
-        Ad5xIfsTestAccess::parse_zcolor(backend, response);
+        Ad5xIfsTestAccess::parse_adventurer_json(backend, content);
 
-        auto info = backend.get_slot_info(1);
-        REQUIRE(info.color_rgb == 0x333333);
-        REQUIRE(info.material == "PLA-CF");
+        auto info = backend.get_slot_info(0);
+        REQUIRE(info.color_rgb == 0xABCDEF);
+    }
+
+    SECTION("empty color string defaults to gray") {
+        std::string content = R"({
+            "FFMInfo": {
+                "ffmColor1": "",
+                "ffmType1": "PLA"
+            }
+        })";
+
+        Ad5xIfsTestAccess::parse_adventurer_json(backend, content);
+
+        auto info = backend.get_slot_info(0);
+        REQUIRE(info.color_rgb == 0x808080);
+        REQUIRE(info.material == "PLA");
+    }
+
+    SECTION("invalid JSON is graceful no-op") {
+        std::string content = "this is not json {{{";
+
+        Ad5xIfsTestAccess::parse_adventurer_json(backend, content);
+
+        // Slots should remain at defaults
+        auto info = backend.get_slot_info(0);
+        REQUIRE(info.material.empty());
+    }
+
+    SECTION("color without # prefix still works") {
+        std::string content = R"({
+            "FFMInfo": {
+                "ffmColor1": "FF8800",
+                "ffmType1": "PETG"
+            }
+        })";
+
+        Ad5xIfsTestAccess::parse_adventurer_json(backend, content);
+
+        auto info = backend.get_slot_info(0);
+        REQUIRE(info.color_rgb == 0xFF8800);
+        REQUIRE(info.material == "PETG");
     }
 }
-

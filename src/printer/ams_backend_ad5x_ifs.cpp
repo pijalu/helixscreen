@@ -77,9 +77,9 @@ void AmsBackendAd5xIfs::on_started() {
                 need_zcolor = !has_ifs_vars_;
             }
             if (need_zcolor) {
-                spdlog::info("{} No _IFS_VARS data found, querying GET_ZCOLOR (native ZMOD)",
+                spdlog::info("{} No _IFS_VARS data found, reading Adventurer5M.json (native ZMOD)",
                              backend_log_tag());
-                query_zcolor_fallback();
+                read_adventurer_json();
             }
         });
 }
@@ -756,92 +756,77 @@ AmsError AmsBackendAd5xIfs::write_zcolor(int slot_index) {
     return execute_gcode(gcode);
 }
 
-void AmsBackendAd5xIfs::query_zcolor_fallback() {
-    if (!client_ || !api_)
-        return;
-
-    // Accumulate gcode response lines, then parse when prompt_show arrives
-    auto lines = std::make_shared<std::vector<std::string>>();
-    auto token = lifetime_.token();
-
-    static const std::string handler_name = "ifs_zcolor_query";
-
-    client_->register_method_callback(
-        "notify_gcode_response", handler_name, [this, lines, token](const json& msg) {
-            if (token.expired())
-                return;
-
-            // notify_gcode_response: {"method": "notify_gcode_response", "params": ["line"]}
-            std::string line;
-            if (msg.contains("params") && msg["params"].is_array() && !msg["params"].empty() &&
-                msg["params"][0].is_string()) {
-                line = msg["params"][0].get<std::string>();
-            } else if (msg.is_array() && !msg.empty() && msg[0].is_string()) {
-                line = msg[0].get<std::string>();
-            } else {
-                return;
-            }
-
-            lines->push_back(line);
-
-            // prompt_show marks the end of the GET_ZCOLOR response
-            if (line.find("action:prompt_show") != std::string::npos) {
-                client_->unregister_method_callback("notify_gcode_response", handler_name);
-
-                std::string combined;
-                for (const auto& l : *lines) {
-                    combined += l + "\n";
-                }
-                parse_zcolor_response(combined);
-            }
-        });
-
-    // Execute GET_ZCOLOR — non-silent mode produces prompt buttons with slot data
-    execute_gcode("GET_ZCOLOR");
+void AmsBackendAd5xIfs::read_adventurer_json() {
+    // Stub — Task 2 will implement reading via Moonraker HTTP file access.
+    // For now, parse_adventurer_json() is callable directly for testing.
 }
 
-void AmsBackendAd5xIfs::parse_zcolor_response(const std::string& response) {
-    // Parse lines like:
-    //   // action:prompt_button 1: PLA|RUN_ZCOLOR SLOT=1 HEX=FFFFFF TYPE=PLA|primary|FFFFFF
-    // Extract SLOT, HEX, TYPE from the RUN_ZCOLOR command embedded in each button.
-    static const std::regex button_re(
-        R"(RUN_ZCOLOR\s+SLOT=(\d+)\s+HEX=([0-9A-Fa-f]{6})\s+TYPE=([^|\s]+))");
+void AmsBackendAd5xIfs::parse_adventurer_json(const std::string& content) {
+    json doc;
+    try {
+        doc = json::parse(content);
+    } catch (const json::parse_error& e) {
+        spdlog::warn("{} Failed to parse Adventurer5M.json: {}", backend_log_tag(), e.what());
+        return;
+    }
 
-    std::istringstream stream(response);
-    std::string line;
+    auto ffm_it = doc.find("FFMInfo");
+    if (ffm_it == doc.end() || !ffm_it->is_object()) {
+        spdlog::debug("{} No FFMInfo section in Adventurer5M.json", backend_log_tag());
+        return;
+    }
+    const auto& ffm = *ffm_it;
+
     int parsed_count = 0;
 
     {
         std::lock_guard<std::mutex> lock(mutex_);
 
-        while (std::getline(stream, line)) {
-            std::smatch match;
-            if (std::regex_search(line, match, button_re)) {
-                int slot_1based = std::stoi(match[1].str());
-                std::string hex = match[2].str();
-                std::string type = match[3].str();
+        // Ports 1-4 in JSON map to slots 0-3
+        for (int port = 1; port <= NUM_PORTS; ++port) {
+            std::string color_key = "ffmColor" + std::to_string(port);
+            std::string type_key = "ffmType" + std::to_string(port);
 
-                // Convert to uppercase hex
-                for (auto& c : hex)
-                    c = static_cast<char>(toupper(c));
+            auto color_it = ffm.find(color_key);
+            auto type_it = ffm.find(type_key);
+            if (color_it == ffm.end() && type_it == ffm.end())
+                continue;
 
-                int idx = slot_1based - 1; // ZMOD slots are 1-based
-                if (idx >= 0 && idx < NUM_PORTS) {
-                    colors_[static_cast<size_t>(idx)] = hex;
-                    materials_[static_cast<size_t>(idx)] = type;
-                    update_slot_from_state(idx);
-                    ++parsed_count;
-                }
+            // Extract color — strip '#' prefix, default to gray if empty
+            std::string hex;
+            if (color_it != ffm.end() && color_it->is_string()) {
+                hex = color_it->get<std::string>();
             }
+            if (!hex.empty() && hex[0] == '#') {
+                hex = hex.substr(1);
+            }
+            if (hex.empty()) {
+                hex = "808080";
+            }
+            // Uppercase
+            for (auto& c : hex)
+                c = static_cast<char>(toupper(c));
+
+            // Extract material type
+            std::string type;
+            if (type_it != ffm.end() && type_it->is_string()) {
+                type = type_it->get<std::string>();
+            }
+
+            int idx = port - 1;
+            colors_[static_cast<size_t>(idx)] = hex;
+            materials_[static_cast<size_t>(idx)] = type;
+            update_slot_from_state(idx);
+            ++parsed_count;
         }
     } // release lock before emit_event (which also takes mutex_)
 
     if (parsed_count > 0) {
-        spdlog::info("{} Loaded {} slots from GET_ZCOLOR (native ZMOD)", backend_log_tag(),
+        spdlog::info("{} Loaded {} slots from Adventurer5M.json (native ZMOD)", backend_log_tag(),
                      parsed_count);
         emit_event(EVENT_STATE_CHANGED);
     } else {
-        spdlog::warn("{} GET_ZCOLOR returned no parseable slot data", backend_log_tag());
+        spdlog::debug("{} No slot data found in Adventurer5M.json", backend_log_tag());
     }
 }
 
