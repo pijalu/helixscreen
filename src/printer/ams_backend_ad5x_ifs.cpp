@@ -81,6 +81,7 @@ void AmsBackendAd5xIfs::on_started() {
                 spdlog::info("{} No _IFS_VARS data found, reading Adventurer5M.json (native ZMOD)",
                              backend_log_tag());
                 read_adventurer_json();
+                register_zcolor_listener();
             }
         });
 }
@@ -124,6 +125,14 @@ void AmsBackendAd5xIfs::handle_status_update(const json& notification) {
                 state_changed = true;
             }
         }
+    }
+
+    // Native ZMOD: when a port sensor changes, the user may have swapped filament.
+    // Schedule a re-read of Adventurer5M.json to pick up any color/type changes.
+    if (state_changed && !has_ifs_vars_) {
+        lock.unlock();
+        schedule_json_reread();
+        lock.lock();
     }
 
     // Native ZMOD IFS: single motion sensor replaces per-port presence sensors.
@@ -852,6 +861,54 @@ void AmsBackendAd5xIfs::read_adventurer_json() {
                              err.message);
             }
         });
+}
+
+void AmsBackendAd5xIfs::register_zcolor_listener() {
+    if (!client_)
+        return;
+
+    static const std::string handler_name = "ifs_zcolor_watcher";
+    auto token = lifetime_.token();
+
+    client_->register_method_callback(
+        "notify_gcode_response", handler_name, [this, token](const json& msg) {
+            if (token.expired())
+                return;
+
+            std::string line;
+            if (msg.contains("params") && msg["params"].is_array() && !msg["params"].empty() &&
+                msg["params"][0].is_string()) {
+                line = msg["params"][0].get<std::string>();
+            } else if (msg.is_array() && !msg.empty() && msg[0].is_string()) {
+                line = msg[0].get<std::string>();
+            } else {
+                return;
+            }
+
+            if (line.find("RUN_ZCOLOR") != std::string::npos ||
+                line.find("CHANGE_ZCOLOR") != std::string::npos) {
+                spdlog::debug(
+                    "{} Detected external color change in gcode stream, scheduling re-read",
+                    backend_log_tag());
+                schedule_json_reread();
+            }
+        });
+}
+
+void AmsBackendAd5xIfs::schedule_json_reread() {
+    if (reread_pending_.exchange(true))
+        return;
+
+    auto token = lifetime_.token();
+
+    std::thread([this, token]() {
+        std::this_thread::sleep_for(std::chrono::seconds(2));
+        if (token.expired())
+            return;
+        reread_pending_.store(false);
+        spdlog::debug("{} Re-reading Adventurer5M.json after external change", backend_log_tag());
+        read_adventurer_json();
+    }).detach();
 }
 
 void AmsBackendAd5xIfs::parse_adventurer_json(const std::string& content) {
