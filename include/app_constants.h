@@ -169,12 +169,6 @@ inline std::string backup_fallback_dir() {
     return detail::backup_fallback_dir_ref();
 }
 
-/// Reset the cached backup_fallback_dir so it re-reads $HOME on next call.
-/// Test-only: production code must not call this (the cache guards against
-/// heap-corrupted environ).
-inline void reset_backup_fallback_dir_for_testing() {
-    detail::backup_fallback_dir_ref() = sanitize_home(std::getenv("HOME")) + "/.helixscreen";
-}
 inline std::string config_backup_fallback() {
     return backup_fallback_dir() + "/settings.json.backup";
 }

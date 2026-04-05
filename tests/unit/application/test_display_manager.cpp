@@ -418,14 +418,16 @@ TEST_CASE("sleep_backlight_off config controls backlight behavior during sleep",
             if (had)
                 orig = std::getenv("HOME");
             setenv("HOME", dir.c_str(), 1);
-            AppConstants::Update::reset_backup_fallback_dir_for_testing();
+            AppConstants::Update::detail::backup_fallback_dir_ref() =
+                AppConstants::Update::sanitize_home(std::getenv("HOME")) + "/.helixscreen";
         }
         ~HomeRedirect() {
             if (had)
                 setenv("HOME", orig.c_str(), 1);
             else
                 unsetenv("HOME");
-            AppConstants::Update::reset_backup_fallback_dir_for_testing();
+            AppConstants::Update::detail::backup_fallback_dir_ref() =
+                AppConstants::Update::sanitize_home(std::getenv("HOME")) + "/.helixscreen";
         }
     } home_guard(tmp_dir.string());
 

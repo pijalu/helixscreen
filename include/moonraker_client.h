@@ -37,6 +37,7 @@
 
 #pragma once
 
+#include "hv/Event.h" // TimerID
 #include "hv/WebSocketClient.h"
 #include "json_fwd.h"
 #include "moonraker_discovery_sequence.h"
@@ -48,8 +49,6 @@
 #include "printer_detector.h" // For BuildVolume struct
 #include "printer_discovery.h"
 #include "spdlog/spdlog.h"
-
-#include "hv/Event.h" // TimerID
 
 #include <atomic>
 #include <chrono>
@@ -613,7 +612,8 @@ class MoonrakerClient : public hv::WebSocketClient {
 
     // Persistent method-specific callbacks (protected to allow mock to dispatch)
     // method_name : { handler_name : callback }
-    std::map<std::string, std::map<std::string, std::function<void(const json&)>>> method_callbacks_;
+    std::map<std::string, std::map<std::string, std::function<void(const json&)>>>
+        method_callbacks_;
 
     // Discovery sequence (protected to allow mock access to hardware vectors)
     MoonrakerDiscoverySequence discovery_;
@@ -649,6 +649,11 @@ class MoonrakerClient : public hv::WebSocketClient {
     // Event handler for transport events (decouples from UI layer)
     MoonrakerEventCallback event_handler_;
     mutable std::mutex event_handler_mutex_;
+
+    // Serialize connect()/disconnect() calls — close/callback-setup/open is not
+    // atomic and concurrent callers race on libhv internal state and callback
+    // assignment.  Recursive because force_reconnect() calls both.
+    mutable std::recursive_mutex connect_mutex_;
 
     // Disconnect modal suppression (for intentional restarts)
     std::chrono::steady_clock::time_point suppress_disconnect_modal_until_{};

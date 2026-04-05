@@ -14,13 +14,13 @@
 
 #include "moonraker_client.h"
 
-#include "system/telemetry_manager.h"
 #include "ui_error_reporting.h"
 #include "ui_update_queue.h"
 
 #include "abort_manager.h"
 #include "app_globals.h"
 #include "printer_state.h"
+#include "system/telemetry_manager.h"
 
 #include <sstream> // For annotate_gcode()
 
@@ -247,6 +247,9 @@ void MoonrakerClient::set_connection_state(ConnectionState new_state) {
 }
 
 void MoonrakerClient::disconnect() {
+    // Serialize with connect() — both modify callbacks and call close()
+    std::lock_guard<std::recursive_mutex> connect_lock(connect_mutex_);
+
     ConnectionState current_state = connection_state_.load();
 
     // Only log if we're actually connected/connecting
@@ -325,6 +328,10 @@ void MoonrakerClient::force_reconnect() {
 
 int MoonrakerClient::connect(const char* url, std::function<void()> on_connected,
                              std::function<void()> on_disconnected) {
+    // Serialize concurrent connect() calls — the close/callback-setup/open sequence
+    // is not atomic and concurrent callers race on libhv internal state.
+    std::lock_guard<std::recursive_mutex> connect_lock(connect_mutex_);
+
     // Reset WebSocket state from previous connection attempt BEFORE setting new callbacks.
     // This prevents libhv from rejecting the new open() call if we're already connecting/connected.
     // Note: close() is safe to call even if already closed (idempotent).
@@ -446,9 +453,8 @@ int MoonrakerClient::connect(const char* url, std::function<void()> on_connected
                 j = json::parse(msg);
             } catch (const json::parse_error& e) {
                 LOG_ERROR_INTERNAL("[Moonraker Client] JSON parse error: {}", e.what());
-                TelemetryManager::instance().record_error(
-                    "websocket", "parse_error",
-                    fmt::format("JSON parse: {}", e.what()));
+                TelemetryManager::instance().record_error("websocket", "parse_error",
+                                                          fmt::format("JSON parse: {}", e.what()));
                 return;
             }
 
@@ -546,8 +552,8 @@ int MoonrakerClient::connect(const char* url, std::function<void()> on_connected
                                 "[Moonraker Client] Disconnection callback threw exception: {}",
                                 e.what());
                         } catch (...) {
-                            LOG_ERROR_INTERNAL(
-                                "[Moonraker Client] Disconnection callback threw unknown exception");
+                            LOG_ERROR_INTERNAL("[Moonraker Client] Disconnection callback threw "
+                                               "unknown exception");
                         }
                     }
                 }
@@ -616,8 +622,8 @@ int MoonrakerClient::connect(const char* url, std::function<void()> on_connected
 
             if (was_connected_) {
                 spdlog::warn("[Moonraker Client] WebSocket connection closed");
-                TelemetryManager::instance().record_error(
-                    "websocket", "disconnected", "connection closed unexpectedly");
+                TelemetryManager::instance().record_error("websocket", "disconnected",
+                                                          "connection closed unexpectedly");
                 was_connected_ = false;
                 discovery_.reset_identified(); // Reset so re-identification happens on reconnect
 

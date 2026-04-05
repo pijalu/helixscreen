@@ -1514,14 +1514,16 @@ struct BackupGuard {
             original_home = std::getenv("HOME");
         std::filesystem::create_directories(temp_dir);
         setenv("HOME", temp_dir.c_str(), 1);
-        AppConstants::Update::reset_backup_fallback_dir_for_testing();
+        AppConstants::Update::detail::backup_fallback_dir_ref() =
+            AppConstants::Update::sanitize_home(std::getenv("HOME")) + "/.helixscreen";
     }
     ~BackupGuard() {
         if (had_home)
             setenv("HOME", original_home.c_str(), 1);
         else
             unsetenv("HOME");
-        AppConstants::Update::reset_backup_fallback_dir_for_testing();
+        AppConstants::Update::detail::backup_fallback_dir_ref() =
+            AppConstants::Update::sanitize_home(std::getenv("HOME")) + "/.helixscreen";
         std::error_code ec;
         std::filesystem::remove_all(temp_dir, ec);
     }
@@ -2220,14 +2222,16 @@ struct HomeGuard {
         if (had_home)
             original = std::getenv("HOME");
         setenv("HOME", new_home.c_str(), 1);
-        AppConstants::Update::reset_backup_fallback_dir_for_testing();
+        AppConstants::Update::detail::backup_fallback_dir_ref() =
+            AppConstants::Update::sanitize_home(std::getenv("HOME")) + "/.helixscreen";
     }
     ~HomeGuard() {
         if (had_home)
             setenv("HOME", original.c_str(), 1);
         else
             unsetenv("HOME");
-        AppConstants::Update::reset_backup_fallback_dir_for_testing();
+        AppConstants::Update::detail::backup_fallback_dir_ref() =
+            AppConstants::Update::sanitize_home(std::getenv("HOME")) + "/.helixscreen";
     }
 };
 
@@ -2311,11 +2315,13 @@ TEST_CASE("Config::init() falls back to defaults when corrupt and no backup exis
                 setenv("HOME", orig.c_str(), 1);
             else
                 unsetenv("HOME");
-            AppConstants::Update::reset_backup_fallback_dir_for_testing();
+            AppConstants::Update::detail::backup_fallback_dir_ref() =
+                AppConstants::Update::sanitize_home(std::getenv("HOME")) + "/.helixscreen";
         }
     } home_guard;
     setenv("HOME", temp_dir.c_str(), 1);
-    AppConstants::Update::reset_backup_fallback_dir_for_testing();
+    AppConstants::Update::detail::backup_fallback_dir_ref() =
+        AppConstants::Update::sanitize_home(std::getenv("HOME")) + "/.helixscreen";
 
     Config test_config;
     test_config.init(temp_path);
@@ -2355,11 +2361,13 @@ TEST_CASE("Config::init() falls back to defaults when both config and backup are
                 setenv("HOME", orig.c_str(), 1);
             else
                 unsetenv("HOME");
-            AppConstants::Update::reset_backup_fallback_dir_for_testing();
+            AppConstants::Update::detail::backup_fallback_dir_ref() =
+                AppConstants::Update::sanitize_home(std::getenv("HOME")) + "/.helixscreen";
         }
     } home_guard;
     setenv("HOME", temp_dir.c_str(), 1);
-    AppConstants::Update::reset_backup_fallback_dir_for_testing();
+    AppConstants::Update::detail::backup_fallback_dir_ref() =
+        AppConstants::Update::sanitize_home(std::getenv("HOME")) + "/.helixscreen";
 
     std::string backup_dir = temp_dir + "/.helixscreen";
     std::filesystem::create_directories(backup_dir);
