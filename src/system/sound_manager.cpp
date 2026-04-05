@@ -4,6 +4,7 @@
 #include "sound_manager.h"
 
 #include "audio_settings_manager.h"
+#include "config.h"
 #include "m300_sound_backend.h"
 #include "moonraker_client.h"
 #include "pwm_sound_backend.h"
@@ -51,6 +52,22 @@ void SoundManager::initialize() {
     if (initialized_) {
         spdlog::debug("[SoundManager] Already initialized");
         return;
+    }
+
+    // Check if sounds are disabled via CLI flag or persistent setting
+    auto* rtconfig = get_runtime_config();
+    if (rtconfig->disable_sound) {
+        spdlog::info("[SoundManager] Sound disabled via --no-sound, skipping initialization");
+        return;
+    }
+    {
+        Config* cfg = Config::get_instance();
+        if (cfg && cfg->get<bool>("/disable_sound", false)) {
+            spdlog::info(
+                "[SoundManager] Sound disabled via settings.json, skipping initialization");
+            rtconfig->disable_sound = true;
+            return;
+        }
     }
 
     // Create the best available backend
