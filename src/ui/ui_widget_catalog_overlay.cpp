@@ -4,6 +4,7 @@
 
 #include "ui_effects.h"
 #include "ui_fonts.h"
+#include "ui_modal.h"
 #include "ui_nav_manager.h"
 
 #include "lvgl/src/others/translation/lv_translation.h"
@@ -59,6 +60,24 @@ void close_catalog() {
             on_close();
         }
     }
+}
+
+void on_catalog_reset(lv_event_t* /*e*/) {
+    spdlog::info("[WidgetCatalog] Reset to defaults requested");
+
+    ui::modal_show_confirmation(
+        lv_tr("Reset Home Screen?"),
+        lv_tr("This will remove all custom pages and restore the default widget layout."),
+        ModalSeverity::Warning, lv_tr("Reset"),
+        [](lv_event_t* /*confirm_e*/) {
+            spdlog::info("[WidgetCatalog] Reset confirmed — resetting to defaults");
+            auto& config = PanelWidgetManager::instance().get_widget_config("home");
+            config.reset_to_defaults();
+            config.save();
+            close_catalog();
+            PanelWidgetManager::instance().notify_config_changed("home");
+        },
+        nullptr, nullptr);
 }
 
 } // namespace
@@ -295,6 +314,7 @@ void WidgetCatalogOverlay::show(lv_obj_t* parent_screen, const PanelWidgetConfig
         spdlog::warn("[WidgetCatalog] Already open, ignoring duplicate show()");
         return;
     }
+    lv_xml_register_event_cb(nullptr, "on_catalog_reset", on_catalog_reset);
 
     // Create a semi-transparent dark backdrop so the home panel shows through.
     // Uses the same modal_backdrop_opacity constant as Modal dialogs (DRY).
