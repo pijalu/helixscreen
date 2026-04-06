@@ -70,22 +70,22 @@ void NozzleTempsWidget::detach() {
 }
 
 void NozzleTempsWidget::clear_rows() {
+    // Invalidate lifetime to expire all pending deferred observer callbacks.
+    // This replaces drain() which caused re-entrant process_pending() crashes
+    // when SensorState::set_sensors() → drain() → rebuild_rows() → clear_rows()
+    // → drain() ran while subjects were in a half-torn-down state (#732).
+    // Freeze prevents new callbacks from being queued during cleanup.
+    lifetime_.invalidate();
     auto freeze = helix::ui::UpdateQueue::instance().scoped_freeze();
-    helix::ui::UpdateQueue::instance().drain();
 
-    ++rebuild_gen_; // Bump generation to invalidate stale deferred callbacks
+    ++rebuild_gen_;
 
     // Release lifetime tokens BEFORE destroying observers. The ObserverGuard
     // holds a weak_ptr to the SubjectLifetime shared_ptr. If the dynamic subject
     // was already destroyed (reconnection), the source's shared_ptr is gone —
     // but our row's copy keeps the weak_ptr alive. Resetting our copy first
     // lets the weak_ptr expire, so ObserverGuard::reset() safely skips
-    // lv_observer_remove() on the freed observer. (issue #673)
-    //
-    // Observers MUST be reset in the same loop, immediately after their lifetime
-    // tokens. Relying on vector destructor ordering is unsafe: the destructor
-    // processes members in reverse declaration order (observer before lifetime),
-    // so the weak_ptr check would see a still-alive token. (#698)
+    // lv_observer_remove() on the freed observer. (#673, #698)
     for (auto& row : extruder_rows_) {
         row.temp_lifetime.reset();
         row.target_lifetime.reset();
@@ -110,11 +110,8 @@ void NozzleTempsWidget::clear_rows() {
 }
 
 void NozzleTempsWidget::rebuild_rows() {
-    // Guard against re-entrancy: drain() inside clear_rows() can process a
-    // pending version_observer_ callback which calls rebuild_rows() again.
-    // The inner call would create widgets that the outer call then destroys
-    // via lv_obj_clean(), leaving stale pointers and crashing in
-    // lv_observer_remove(). (#723, #724, #725)
+    // Guard against re-entrancy from deferred observer callbacks that may
+    // trigger version changes during the rebuild cycle (#723, #724, #725).
     if (rebuilding_)
         return;
     rebuilding_ = true;
