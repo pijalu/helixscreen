@@ -1,80 +1,56 @@
-# Settings: Printer
+# Settings: Printing
 
-The Printer section contains settings for hardware connected to your printer. Items in this section appear or hide dynamically based on what HelixScreen detects from Klipper and Moonraker.
+The Printing category contains settings that affect how prints are configured and displayed.
 
 ---
 
-## Sensors
+## Toolhead Style
 
-> Only shown when sensors are detected.
+Choose the toolhead icon shown on the Home Panel and Print Status screen. Options:
 
-Tap to open the Sensor Settings overlay. Manage all detected filament sensors by choosing a role for each:
+| Option | Description |
+|--------|-------------|
+| **Auto** (default) | HelixScreen detects your toolhead from the printer database or Klipper config |
+| **Default** | Generic toolhead icon |
+| **A4T** | Armored Turtle toolhead |
+| **Anthead** | Anthead toolhead |
+| **Jabberwocky** | Jabberwocky toolhead |
+| **StealthBurner** | Voron StealthBurner toolhead |
+| **Creality K1** | Creality K1 series toolhead |
+| **Creality K2** | Creality K2 series toolhead |
 
-| Role | Behavior |
+Most users can leave this on **Auto**. Change it if HelixScreen picks the wrong icon or if you've swapped to an aftermarket toolhead.
+
+---
+
+## G-code Preview
+
+Enable interactive 3D G-code visualization during prints. When off, only the 2D layer view is available. Disable if your hardware struggles with 3D rendering.
+
+---
+
+## Z Movement
+
+Controls how Z-axis movement is displayed in the motion controls.
+
+| Mode | Behavior |
 |------|----------|
-| **Runout** | Pauses print when filament runs out |
-| **Motion** | Detects filament movement (clog detection) |
-| **Ignore** | Sensor present but not monitored |
+| **Auto** (default) | HelixScreen auto-detects based on your printer type (bed-slinger vs CoreXY vs delta) |
+| **Bed Moves** | Z controls labeled as bed movement (bed goes down = nozzle moves up relative to bed) |
+| **Nozzle Moves** | Z controls labeled as nozzle movement (nozzle goes up = away from bed) |
 
-Other detected sensors (accelerometers, probes, humidity, width, color) are listed as read-only information.
-
----
-
-## AMS Management
-
-> Only shown when an AMS (Automatic Material System) is detected.
-
-Tap to open Device Operations for quick actions, calibration, and speed settings for multi-material systems. Supports AFC, Happy Hare, ACE, and other Klipper-based filament changers.
+This only changes the direction labels in the UI — the actual G-code sent is the same. Use this if auto-detection picks the wrong style for your printer.
 
 ---
 
-## Fans
+## Machine Limits
 
-> Only shown when fans are detected.
+Tap to open the Machine Limits overlay. Adjust motion limits for the current session:
 
-Tap to open the Fan Settings overlay. This shows all detected fans and their current speeds. You can rename any fan for easier identification — for example, rename "fan_generic exhaust_fan" to "Exhaust". Custom names appear everywhere fans are shown in the UI.
+- Maximum velocity per axis
+- Maximum acceleration per axis
 
----
-
-## Spoolman
-
-> Only shown when Spoolman is configured in Moonraker.
-
-Tap to open Spoolman integration settings. HelixScreen connects to your Spoolman server for spool tracking, weight sync, and barcode scanning.
-
-### Server Setup
-
-If Spoolman is not yet configured, you'll see a setup screen. Enter the IP address and port of your Spoolman server, then tap **Connect**. HelixScreen verifies the connection and configures Moonraker automatically — no manual editing of `moonraker.conf` needed.
-
-### Server Status
-
-When connected, the settings screen shows your Spoolman server URL along with options to **Change** the server address or **Remove** the configuration entirely.
-
-### Sync with Spoolman
-
-Toggle this on to enable automatic weight polling. When enabled, HelixScreen periodically queries Spoolman for spool weight updates and displays the remaining filament on the home panel and filament panel.
-
-### Refresh Interval
-
-Controls how often HelixScreen polls Spoolman for weight updates. Options: **30 seconds**, **1 minute**, **2 minutes**, or **5 minutes**. Shorter intervals give more up-to-date readings but generate more network traffic.
-
-### Barcode Scanner
-
-Configure which USB device to use as a barcode scanner for scanning Spoolman QR codes on spool labels. By default, HelixScreen auto-detects scanners by looking for devices with "barcode" or "scanner" in their name.
-
-If your scanner uses a generic name (e.g., "TMS HIDKeyBoard"), tap this setting to manually select it from a list of connected USB HID devices. The selection is saved and persists across restarts.
-
-### Label Printer
-
-Opens label printer configuration for printing spool labels with QR codes. See [Label Printing](../label-printing.md) for full setup instructions and supported printers.
-
----
-
-## LED Settings
-
-> Only shown when LED hardware is detected.
-
-Tap to open the full LED configuration overlay. This is a large topic with its own page — see [LED Settings](led-settings.md).
+These override your Klipper config temporarily — useful for testing or troubleshooting motion issues. **Changes are lost on restart.** To make permanent changes, edit `printer.cfg` directly.
 
 ---
 
@@ -91,6 +67,17 @@ Tap to open the retraction overlay. Configure G10/G11 firmware retraction parame
 | **Retract Speed** | 10–80 mm/s | Speed of the retraction movement |
 | **Unretract Extra** | 0–1 mm | Extra filament to prime after retraction to compensate for ooze |
 | **Unretract Speed** | 10–60 mm/s | Speed of the prime (unretract) movement |
+
+---
+
+## Material Temperatures
+
+Configure preheat presets for different filament materials (PLA, PETG, ABS, TPU, etc.). Each material can have:
+
+- **Nozzle Temperature** — Target extruder temperature
+- **Bed Temperature** — Target bed temperature
+- **Preheat Macro** — A Klipper macro to run when preheating this material
+- **Macro Handles Heating** — If enabled, the macro is responsible for setting temperatures. If disabled, HelixScreen sets temperatures first, then runs the macro as an additional step.
 
 ---
 
@@ -168,11 +155,11 @@ If your printer doesn't have a matching macro, some slots fall back to HelixScre
 
 You can also assign a custom Klipper macro to each material preset (PLA, PETG, ABS, TPU). This is useful when preheating requires more than just setting temperatures — for example, turning on bed fans for ABS or starting a chamber heater.
 
-Configure per-material macros in **Settings > Material Temperatures**. Each material can have:
+Configure per-material macros in **Material Temperatures** (above). Each material can have:
 
 - **Preheat Macro** — A Klipper macro to run when preheating this material
 - **Macro Handles Heating** — If enabled, the macro is responsible for setting temperatures. If disabled, HelixScreen sets temperatures first, then runs the macro as an additional step.
 
 ---
 
-[Back to Settings](../settings.md) | [Prev: Appearance](appearance.md) | [Next: Notifications](notifications.md)
+[Back to Settings](../settings.md) | [Prev: Display & Sound](display-sound.md) | [Next: Hardware & Devices](hardware.md)

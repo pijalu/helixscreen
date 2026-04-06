@@ -228,7 +228,7 @@ void FilamentPanel::execute_load() {
   - Access via `MoonrakerAPI::hardware_discovery()`
 - `src/helix_macro_manager.cpp` - HELIX_* macro definitions
 - `include/config.h` - `MacroConfig` struct, `get_macro()` method
-- `ui_xml/display_settings_overlay.xml` - Reference overlay pattern
+- `ui_xml/settings_display_sound_overlay.xml` - Reference overlay pattern
 
 ### Files to Create
 - `include/standard_macros.h`

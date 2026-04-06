@@ -133,7 +133,7 @@ Each printer entry contains all printer-specific settings (connection details, h
 ---
 
 > **Looking for a walkthrough of each setting?** See the detailed guides:
-> [Appearance](guide/settings/appearance.md) · [Printer](guide/settings/printer.md) · [Notifications](guide/settings/notifications.md) · [Motion](guide/settings/motion.md) · [System](guide/settings/system.md) · [LED Settings](guide/settings/led-settings.md) · [Help & About](guide/settings/help-about.md)
+> [Display & Sound](guide/settings/display-sound.md) · [Printing](guide/settings/printing.md) · [Hardware & Devices](guide/settings/hardware.md) · [Safety & Notifications](guide/settings/safety.md) · [System](guide/settings/system.md) · [LED Settings](guide/settings/led-settings.md) · [Help & About](guide/settings/help-about.md)
 
 ## General Settings
 

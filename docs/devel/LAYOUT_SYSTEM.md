@@ -267,7 +267,7 @@ Not every panel needs a layout-specific version. Start with the ones that matter
 | High | `navigation_bar.xml` | Nav position/orientation differs per layout |
 | Medium | `controls_panel.xml` | Common panel with multiple cards to rearrange |
 | Medium | `print_status_panel.xml` | Important during prints |
-| Medium | `settings_panel.xml` | Long list that could use multi-column on ultrawide |
+| Medium | `settings_panel.xml` | Compact 6-row category menu; sub-panels may benefit from multi-column |
 | Low | Overlays (`*_overlay.xml`) | Usually modal dialogs that work OK at any size |
 | Low | Simple panels | Panels with minimal content adapt naturally |
 

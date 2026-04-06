@@ -28,11 +28,11 @@ These docs are **end-user facing**. They must be written for people who are NOT 
 | `guide/calibration.md` | Bed mesh, screws tilt, input shaper, PID |
 | `guide/touch-calibration.md` | Touch screen calibration, forcing recalibration, config reference |
 | `guide/settings.md` | Settings hub page with links to sub-pages |
-| `guide/settings/appearance.md` | Language, animations, 3D preview, display settings |
-| `guide/settings/printer.md` | Filament sensors, AMS, Spoolman, LEDs, retraction, macros |
-| `guide/settings/notifications.md` | Sound settings, print completion alerts |
-| `guide/settings/motion.md` | Z movement, machine limits, E-Stop, cancel escalation |
-| `guide/settings/system.md` | Network, host, printers, touch cal, hardware, plugins, telemetry, reset |
+| `guide/settings/display-sound.md` | Language, timezone, animations, display settings, sound settings, home widgets |
+| `guide/settings/printing.md` | Toolhead, G-code preview, Z movement, machine limits, retraction, timelapse, macros |
+| `guide/settings/hardware.md` | Printers, multi-filament systems, fans, sensors, LEDs, power devices, Spoolman |
+| `guide/settings/safety.md` | E-Stop confirmation, cancel escalation, print completion alert |
+| `guide/settings/system.md` | Security, network, host, touch cal, hardware issues, plugins, telemetry, reset |
 | `guide/settings/help-about.md` | Debug bundles, Discord, docs, version, updates, print hours |
 | `guide/settings/led-settings.md` | LED strip selection, auto-state, macro devices, setup guides |
 | `guide/advanced.md` | Console, macros, power, history, timelapse |

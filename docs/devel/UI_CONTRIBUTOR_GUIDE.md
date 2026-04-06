@@ -608,7 +608,7 @@ Start with the panels that matter most:
 | High | `navigation_bar.xml` | Nav position/orientation differs per layout |
 | Medium | `controls_panel.xml` | Multiple cards that benefit from rearranging |
 | Medium | `print_status_panel.xml` | Important during active prints |
-| Medium | `settings_panel.xml` | Could use multi-column on ultrawide |
+| Medium | `settings_panel.xml` | Compact 6-row category menu; sub-panels may benefit from multi-column |
 | Low | Overlays | Usually modal dialogs that adapt reasonably well |
 
 ---

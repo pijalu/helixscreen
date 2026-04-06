@@ -2,9 +2,9 @@
 
 ---
 
-## Help & Support
+## Help & About
 
-Three quick links at the bottom of the Settings panel:
+Four items in the Help & About category:
 
 | Action | What It Does |
 |--------|--------------|

@@ -1,6 +1,6 @@
 # Settings: System
 
-The System section covers security, network configuration, hardware management, privacy settings, and maintenance actions.
+The System category covers security, network configuration, privacy settings, and maintenance actions.
 
 ---
 
@@ -43,35 +43,11 @@ Tap to open the Network Settings overlay with a two-column layout:
 
 ---
 
-## Power Devices
-
-> Only shown when Moonraker power devices are configured.
-
-Tap to open the Power Devices overlay, where you can toggle individual power relays and smart outlets on or off. This is the same panel accessible from **Advanced > Power Devices** or by long-pressing the home panel power button.
-
-See [Power Device Control](../advanced.md#power-device-control) for full details on device selection and the home panel quick-toggle.
-
----
-
 ## Host
 
 Shows the current Moonraker host address (e.g., `localhost:7125`). Tap to open the **Change Host** dialog where you can enter a new IP address and port to connect to a different printer.
 
 After changing the host, HelixScreen disconnects from the current printer and reconnects to the new one.
-
----
-
-## Printers
-
-> Only shown when [beta features](../beta-features.md) are enabled.
-
-Manage all your configured printers. Tap to open the Printer Management overlay where you can:
-
-- **Switch printers** — Tap any printer in the list to switch to it. HelixScreen disconnects from the current printer and connects to the new one.
-- **Add a printer** — Tap "Add Printer" to launch the Setup Wizard for a new printer. You can cancel at any time to return to your current printer.
-- **Delete a printer** — Tap the trash icon next to any non-active printer and confirm. You cannot delete the last remaining printer.
-
-After switching, a toast notification confirms the new connection and you're taken to the Home panel.
 
 ---
 
@@ -150,12 +126,4 @@ Clears **all** HelixScreen settings and restarts the Setup Wizard. This resets:
 
 ---
 
-## Install Update
-
-> Only shown when an update is available.
-
-Download and install the available HelixScreen update. Shows a confirmation dialog with the version number, then displays download progress with a cancel option. After download completes, prompts to restart.
-
----
-
-[Back to Settings](../settings.md) | [Prev: Motion](motion.md) | [Next: Help & About](help-about.md)
+[Back to Settings](../settings.md) | [Prev: Safety & Notifications](safety.md) | [Next: Help & About](help-about.md)

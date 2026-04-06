@@ -338,10 +338,10 @@ Three settings control sound behavior. All are persisted across restarts.
 
 ### Settings Panel XML
 
-The sound settings live in `container_sounds` within `settings_panel.xml`:
+The sound settings live in the Sound section of `settings_display_sound_overlay.xml` (the Display & Sound sub-panel):
 
 ```
-container_sounds
+SOUND section
   +-- row_sounds              (master toggle, bound to settings_sounds_enabled)
   +-- container_ui_sounds     (hidden when master off)
   |     +-- row_ui_sounds     (UI toggle, bound to settings_ui_sounds_enabled)

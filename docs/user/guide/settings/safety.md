@@ -1,31 +1,6 @@
-# Settings: Motion
+# Settings: Safety & Notifications
 
-The Motion section controls how HelixScreen handles movement commands and safety features.
-
----
-
-## Z Movement
-
-Controls how Z-axis movement is displayed in the motion controls.
-
-| Mode | Behavior |
-|------|----------|
-| **Auto** (default) | HelixScreen auto-detects based on your printer type (bed-slinger vs CoreXY vs delta) |
-| **Bed Moves** | Z controls labeled as bed movement (bed goes down = nozzle moves up relative to bed) |
-| **Nozzle Moves** | Z controls labeled as nozzle movement (nozzle goes up = away from bed) |
-
-This only changes the direction labels in the UI — the actual G-code sent is the same. Use this if auto-detection picks the wrong style for your printer.
-
----
-
-## Machine Limits
-
-Tap to open the Machine Limits overlay. Adjust motion limits for the current session:
-
-- Maximum velocity per axis
-- Maximum acceleration per axis
-
-These override your Klipper config temporarily — useful for testing or troubleshooting motion issues. **Changes are lost on restart.** To make permanent changes, edit `printer.cfg` directly.
+The Safety & Notifications category covers emergency controls and print alert preferences.
 
 ---
 
@@ -60,4 +35,22 @@ When a print cancel is sent, some printers take a long time to finish their canc
 
 ---
 
-[Back to Settings](../settings.md) | [Prev: Notifications](notifications.md) | [Next: System](system.md)
+## Print Completion Alert
+
+Controls how HelixScreen notifies you when a print finishes, is cancelled, or fails — when you're not already on the print status screen.
+
+| Mode | Behavior |
+|------|----------|
+| **Off** | No visual notification (sound still plays if enabled) |
+| **Notification** | Brief toast message at the top of the screen |
+| **Alert** (default) | Full-screen modal showing print stats — duration, layers, filament used — with confetti for successful prints |
+
+To change: **Settings > Safety & Notifications > Print Completion Alert** dropdown.
+
+> **Note:** Print errors always show the full alert modal regardless of this setting, since errors need immediate visibility. If you're already on the print status screen when a print ends, no notification is shown (the panel itself shows the result).
+
+Sound always plays for terminal print states (complete, cancelled, error) regardless of alert mode, as long as the master Sounds toggle is on.
+
+---
+
+[Back to Settings](../settings.md) | [Prev: Hardware & Devices](hardware.md) | [Next: System](system.md)

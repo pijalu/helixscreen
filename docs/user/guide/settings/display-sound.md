@@ -1,24 +1,92 @@
-# Settings: Notifications
+# Settings: Display & Sound
 
-The Notifications section controls audio feedback and print completion alerts.
+The Display & Sound category covers visual preferences, display configuration, and audio settings.
 
 ---
 
-## Sound Settings
+## Appearance
 
-> Sound Settings appears as soon as HelixScreen starts — you don't need to wait for the printer to connect. If no audio hardware is detected after connection, the row is hidden.
+### Language
 
-Tap **Sound Settings** to open the overlay:
+Choose the display language for all UI text. Currently English is the only supported language; more translations are planned.
 
-| Setting | Effect |
-|---------|--------|
-| **Sounds** | Master toggle — turns all sounds on or off |
-| **Volume** | Master volume slider (0–100%). Only shown when sounds are enabled. |
-| **UI Sounds** | Controls button taps, navigation, and toggle sounds. When off, only important sounds still play (print complete, errors, alarms). |
-| **Sound Theme** | Choose sound style. A test sound plays when you switch themes. |
-| **Test Sound** | Play a test beep to verify audio is working |
+### Timezone
 
-All options except the master toggle are hidden when sounds are disabled. Both toggles take effect immediately.
+Set your local timezone so that print completion times, ETAs, and the clock widget display the correct time. Most printers default to UTC. Select from a curated list of common timezones — each entry shows the UTC offset (e.g., "Eastern (-5:00)"). DST is handled automatically using your system's timezone database.
+
+**Path:** Settings > Display & Sound > Timezone
+
+### Time Format
+
+Choose between 12-hour and 24-hour clock display. Affects all timestamps shown throughout the UI.
+
+### Animations
+
+Toggle UI motion effects (transitions, panel slides, confetti). Disable for better performance on slower hardware like Raspberry Pi 3.
+
+### Widget Labels
+
+Toggle labels on home panel widgets. Disable for a cleaner look on small screens.
+
+### Bed Mesh Render
+
+Choose how bed mesh data is visualized: Auto, 3D View, or 2D Heatmap.
+
+---
+
+## Display
+
+### Dark Mode
+
+Switch between light and dark themes. Disabled when the active theme doesn't support both modes.
+
+### Theme Colors
+
+Open the theme explorer to browse, preview, and apply color themes.
+
+### Brightness
+
+Slider from 10–100%. Only shown on hardware with backlight control (hidden on Android).
+
+### Screen Dim
+
+When the screen dims to lower brightness: Never, 30s, 1m, 2m, or 5m of inactivity.
+
+### Display Sleep
+
+When the screen turns off completely: Never, 1m, 5m, 10m, or 30m of inactivity.
+
+### Screensaver
+
+Choose a screensaver to display during inactivity instead of turning the screen off.
+
+### Sleep While Printing
+
+Allow the display to sleep during active prints. Off by default so you can monitor progress.
+
+> **Tip:** Touch the screen to wake from sleep.
+
+---
+
+## Sound
+
+### Sounds
+
+Master toggle — turns all sounds on or off. All other sound options are hidden when sounds are disabled.
+
+> Sound options appear as soon as HelixScreen starts — you don't need to wait for the printer to connect. If no audio hardware is detected after connection, the sound options are hidden entirely.
+
+### Volume
+
+Master volume slider (0–100%). Only shown when sounds are enabled.
+
+### UI Sounds
+
+Controls button taps, navigation, and toggle sounds. When off, only important sounds still play (print complete, errors, alarms).
+
+### Sound Theme
+
+Choose sound style. A test sound plays when you switch themes.
 
 ### Sound Themes
 
@@ -60,45 +128,27 @@ The first five (button press, toggles, navigation) are **UI sounds** and respect
 | **Creality AD5M / AD5M Pro** | Hardware PWM buzzer. Supports different tones and volume levels. |
 | **Other Klipper printers** | Beeper commands sent through Moonraker. Requires `[output_pin beeper]` in your Klipper config. Basic beep tones only. |
 
-If no audio hardware is detected, the Sound Settings row is hidden entirely.
+If no audio hardware is detected, the sound options are hidden entirely.
 
 **Disabling sound entirely:** On some hardware (e.g., Artillery M1 Pro), audio drivers are present but using them causes excessive CPU load. If you experience performance issues with sound enabled, add `"disable_sound": true` to your `settings.json` or start HelixScreen with `--no-sound`. This prevents the audio backend from initializing at all, unlike the Sounds toggle which just mutes playback.
 
 ### Sound Troubleshooting
 
-**I don't see Sound Settings in the Settings panel.**
+**I don't see Sound options in Settings.**
 Your printer doesn't have a detected speaker or buzzer. For Klipper printers, make sure you have `[output_pin beeper]` configured in your `printer.cfg`, then restart HelixScreen.
 
 **Sounds are too quiet or too loud.**
-Adjust the Volume slider in Sound Settings. Volume also varies by theme — try switching themes.
+Adjust the Volume slider. Volume also varies by theme — try switching themes.
 
 **Print complete sound doesn't play.**
 Make sure the master "Sounds" toggle is on. The "UI Sounds" toggle does not affect print completion sounds.
 
 **Button click sounds are annoying.**
-Turn off "UI Sounds" in Sound Settings. This disables button, toggle, and navigation sounds while keeping important notifications.
+Turn off "UI Sounds". This disables button, toggle, and navigation sounds while keeping important notifications.
 
 **Sounds work on desktop but not on my printer.**
 Confirm your printer has audio hardware. For Klipper printers, verify `[output_pin beeper]` is present and correctly configured. Test by sending an `M300` command from the Klipper console.
 
 ---
 
-## Print Completion Alert
-
-Controls how HelixScreen notifies you when a print finishes, is cancelled, or fails — when you're not already on the print status screen.
-
-| Mode | Behavior |
-|------|----------|
-| **Off** | No visual notification (sound still plays if enabled) |
-| **Notification** | Brief toast message at the top of the screen |
-| **Alert** (default) | Full-screen modal showing print stats — duration, layers, filament used — with confetti for successful prints |
-
-To change: **Settings > Print Completion Alert** dropdown.
-
-> **Note:** Print errors always show the full alert modal regardless of this setting, since errors need immediate visibility. If you're already on the print status screen when a print ends, no notification is shown (the panel itself shows the result).
-
-Sound always plays for terminal print states (complete, cancelled, error) regardless of alert mode, as long as the master Sounds toggle is on.
-
----
-
-[Back to Settings](../settings.md) | [Prev: Printer](printer.md) | [Next: Motion](motion.md)
+[Back to Settings](../settings.md) | [Next: Printing](printing.md)
