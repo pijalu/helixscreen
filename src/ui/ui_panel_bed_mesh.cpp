@@ -446,9 +446,17 @@ void BedMeshPanel::update_profile_list_subjects() {
         return;
     }
 
-    const auto profiles = api->advanced().get_bed_mesh_profiles();
+    const auto raw_profiles = api->advanced().get_bed_mesh_profiles();
     const BedMeshProfile* active_mesh = api->advanced().get_active_bed_mesh();
     std::string active_name = active_mesh ? active_mesh->name : "";
+
+    // Filter out the temporary calibration profile used internally
+    std::vector<std::string> profiles;
+    profiles.reserve(raw_profiles.size());
+    for (const auto& p : raw_profiles) {
+        if (p != "_hs_temp")
+            profiles.push_back(p);
+    }
 
     spdlog::debug("[{}] update_profile_list_subjects: {} profiles, active='{}'", get_name(),
                   profiles.size(), active_name);
@@ -1238,7 +1246,7 @@ void BedMeshPanel::execute_rename_profile(const std::string& old_name,
         });
 }
 
-void BedMeshPanel::execute_calibration(const std::string& profile_name) {
+void BedMeshPanel::execute_calibration(const std::string& /*profile_name*/) {
     MoonrakerAPI* api = get_moonraker_api();
     if (!api)
         return;
@@ -1251,19 +1259,24 @@ void BedMeshPanel::execute_calibration(const std::string& profile_name) {
         macro_name = "BED_MESH_CALIBRATE"; // Fallback if nothing configured/detected
     }
 
-    spdlog::info("[{}] Starting calibration for profile: {} (macro: {})", get_name(), profile_name,
-                 macro_name);
+    // Probe into a temporary profile so we don't clobber an existing "default"
+    // mesh. save_profile_with_name() renames this to the user's chosen name
+    // after probing completes.
+    static constexpr const char* TEMP_PROFILE = "_hs_temp";
+
+    spdlog::info("[{}] Starting calibration (temp profile: {}, macro: {})", get_name(),
+                 TEMP_PROFILE, macro_name);
     lv_subject_set_int(&bed_mesh_calibrating_, 1);
 
     auto token = lifetime_.token();
-    std::string cmd = macro_name + " PROFILE=" + profile_name;
+    std::string cmd = macro_name + " PROFILE=" + std::string(TEMP_PROFILE);
     api->execute_gcode(
         cmd,
-        [this, token, profile_name]() {
+        [this, token]() {
             if (token.expired())
                 return;
-            token.defer("BedMeshPanel::calibrate_gcode_done", [this, profile_name]() {
-                spdlog::info("[{}] Calibration started for: {}", get_name(), profile_name);
+            token.defer("BedMeshPanel::calibrate_gcode_done", [this]() {
+                spdlog::info("[{}] Calibration started", get_name());
                 NOTIFY_INFO(lv_tr("Calibration started"));
             });
         },
@@ -1433,13 +1446,23 @@ void BedMeshPanel::save_profile_with_name(const std::string& name) {
         return;
     }
 
+    // The calibration probed into "_hs_temp" to avoid clobbering existing
+    // profiles. Now save the mesh under the user's chosen name and remove
+    // the temporary profile.
+    static constexpr const char* TEMP_PROFILE = "_hs_temp";
+
     auto token = lifetime_.token();
     std::string cmd = "BED_MESH_PROFILE SAVE=" + name;
     api->execute_gcode(
         cmd,
-        [this, token, name]() {
+        [this, token, name, api]() {
             if (token.expired())
                 return;
+
+            // Clean up the temporary calibration profile
+            api->execute_gcode(std::string("BED_MESH_PROFILE REMOVE=") + TEMP_PROFILE, nullptr,
+                               nullptr);
+
             token.defer("BedMeshPanel::save_profile_done", [this, name]() {
                 spdlog::info("[BedMeshPanel] Profile saved: {}", name);
                 NOTIFY_SUCCESS(lv_tr("Mesh saved as '{}'"), name);
