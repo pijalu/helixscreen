@@ -4,7 +4,6 @@
 #include "pid_progress_tracker.h"
 
 #include <algorithm>
-#include <cmath>
 
 void PidProgressTracker::start(Heater heater, int target_temp, float current_temp) {
     phase_ = Phase::HEATING;
