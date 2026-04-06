@@ -3,11 +3,11 @@
 
 #pragma once
 
-#include "async_lifetime_guard.h"
 #include "ui_job_queue_modal.h"
 #include "ui_observer_guard.h"
 #include "ui_runout_guidance_modal.h"
 
+#include "async_lifetime_guard.h"
 #include "panel_widget.h"
 #include "print_history_manager.h"
 
@@ -33,7 +33,9 @@ class PrintStatusWidget : public PanelWidget {
 
     // Configuration
     void set_config(const nlohmann::json& config) override;
-    bool has_edit_configure() const override { return true; }
+    bool has_edit_configure() const override {
+        return true;
+    }
     bool on_edit_configure() override;
 
     /// Re-check runout condition after wizard completion
@@ -66,11 +68,11 @@ class PrintStatusWidget : public PanelWidget {
     lv_obj_t* print_card_info_ = nullptr;         // Info section (filename/progress)
 
     // Library idle state widgets
-    lv_obj_t* print_card_idle_ = nullptr;         // Full library idle card
-    lv_obj_t* print_card_idle_compact_ = nullptr; // Compact idle card (1x2)
+    lv_obj_t* print_card_idle_ = nullptr;          // Full library idle card
+    lv_obj_t* print_card_idle_compact_ = nullptr;  // Compact idle card (1x2)
     lv_obj_t* print_card_thumb_compact_ = nullptr; // Compact thumbnail
-    lv_obj_t* library_row_last_ = nullptr;        // Print Last row (for graying out)
-    lv_obj_t* compact_row_last_ = nullptr;        // Compact Print Last row (for graying out)
+    lv_obj_t* library_row_last_ = nullptr;         // Print Last row (for graying out)
+    lv_obj_t* compact_row_last_ = nullptr;         // Compact Print Last row (for graying out)
     lv_obj_t* library_row_queue_ = nullptr;
 
     // Size-dependent subject for XML bindings (1 = column/2x2 mode, 0 = row/wide)
@@ -131,6 +133,7 @@ class PrintStatusWidget : public PanelWidget {
     // Configuration state
     nlohmann::json config_;
     bool show_title_ = true;
+    bool show_print_files_ = true;
     bool show_reprint_last_ = true;
     bool show_recent_prints_ = true;
     bool show_job_queue_ = true;

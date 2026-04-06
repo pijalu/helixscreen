@@ -720,6 +720,9 @@ void PrintStatusWidget::set_config(const nlohmann::json& config) {
     if (config.contains("show_title") && config["show_title"].is_boolean()) {
         show_title_ = config["show_title"].get<bool>();
     }
+    if (config.contains("show_print_files") && config["show_print_files"].is_boolean()) {
+        show_print_files_ = config["show_print_files"].get<bool>();
+    }
     if (config.contains("show_reprint_last") && config["show_reprint_last"].is_boolean()) {
         show_reprint_last_ = config["show_reprint_last"].get<bool>();
     }
@@ -747,6 +750,22 @@ void PrintStatusWidget::apply_visibility_config() {
             lv_obj_remove_flag(library_header, LV_OBJ_FLAG_HIDDEN);
         else
             lv_obj_add_flag(library_header, LV_OBJ_FLAG_HIDDEN);
+    }
+
+    // Print Files rows (both full and compact)
+    lv_obj_t* library_row_files = lv_obj_find_by_name(widget_obj_, "library_row_files");
+    lv_obj_t* compact_row_files = lv_obj_find_by_name(widget_obj_, "compact_row_files");
+    if (library_row_files) {
+        if (show_print_files_)
+            lv_obj_remove_flag(library_row_files, LV_OBJ_FLAG_HIDDEN);
+        else
+            lv_obj_add_flag(library_row_files, LV_OBJ_FLAG_HIDDEN);
+    }
+    if (compact_row_files) {
+        if (show_print_files_)
+            lv_obj_remove_flag(compact_row_files, LV_OBJ_FLAG_HIDDEN);
+        else
+            lv_obj_add_flag(compact_row_files, LV_OBJ_FLAG_HIDDEN);
     }
 
     // Reprint Last rows (both full and compact)
@@ -810,6 +829,7 @@ void PrintStatusWidget::show_configure_picker() {
     };
     Option options[] = {
         {"Title", show_title_},
+        {"Print Files", show_print_files_},
         {"Reprint Last", show_reprint_last_},
         {"Recent Prints", show_recent_prints_},
         {"Job Queue", show_job_queue_},
@@ -923,10 +943,10 @@ void PrintStatusWidget::apply_picker_state() {
     if (!option_list)
         return;
 
-    // Read checkbox states in order: Title, Reprint Last, Recent Prints, Job Queue
-    bool values[4] = {true, true, true, true};
+    // Read checkbox states in order: Title, Print Files, Reprint Last, Recent Prints, Job Queue
+    bool values[5] = {true, true, true, true, true};
     uint32_t count = lv_obj_get_child_count(option_list);
-    for (uint32_t i = 0; i < count && i < 4; ++i) {
+    for (uint32_t i = 0; i < count && i < 5; ++i) {
         lv_obj_t* row = lv_obj_get_child(option_list, static_cast<int32_t>(i));
         uint32_t row_count = lv_obj_get_child_count(row);
         for (uint32_t j = 0; j < row_count; ++j) {
@@ -939,13 +959,15 @@ void PrintStatusWidget::apply_picker_state() {
     }
 
     show_title_ = values[0];
-    show_reprint_last_ = values[1];
-    show_recent_prints_ = values[2];
-    show_job_queue_ = values[3];
+    show_print_files_ = values[1];
+    show_reprint_last_ = values[2];
+    show_recent_prints_ = values[3];
+    show_job_queue_ = values[4];
 
     // Persist
     nlohmann::json new_config = config_;
     new_config["show_title"] = show_title_;
+    new_config["show_print_files"] = show_print_files_;
     new_config["show_reprint_last"] = show_reprint_last_;
     new_config["show_recent_prints"] = show_recent_prints_;
     new_config["show_job_queue"] = show_job_queue_;
@@ -955,9 +977,10 @@ void PrintStatusWidget::apply_picker_state() {
     // Apply visibility immediately
     apply_visibility_config();
 
-    spdlog::info("[PrintStatusWidget] Config updated: title={}, reprint_last={}, recent_prints={}, "
-                 "job_queue={}",
-                 show_title_, show_reprint_last_, show_recent_prints_, show_job_queue_);
+    spdlog::info("[PrintStatusWidget] Config updated: title={}, print_files={}, reprint_last={}, "
+                 "recent_prints={}, job_queue={}",
+                 show_title_, show_print_files_, show_reprint_last_, show_recent_prints_,
+                 show_job_queue_);
 }
 
 void PrintStatusWidget::dismiss_configure_picker() {
