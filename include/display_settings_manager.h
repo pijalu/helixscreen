@@ -150,6 +150,21 @@ class DisplaySettingsManager {
     /** @brief Get dropdown options string "12 Hour\n24 Hour" */
     static const char* get_time_format_options();
 
+    /** @brief Get current timezone IANA ID (e.g., "America/New_York") */
+    std::string get_timezone() const;
+
+    /** @brief Set timezone by IANA ID, applies via setenv/tzset, persists */
+    void set_timezone(const std::string& iana_id);
+
+    /** @brief Set timezone by dropdown index */
+    void set_timezone_by_index(int index);
+
+    /** @brief Get dropdown index for current timezone */
+    int get_timezone_index() const;
+
+    /** @brief Get newline-separated dropdown options string */
+    static std::string get_timezone_options();
+
     // =========================================================================
     // SCREENSAVER
     // =========================================================================
@@ -273,6 +288,11 @@ class DisplaySettingsManager {
         return &time_format_subject_;
     }
 
+    /** @brief Timezone subject (integer: index into curated list) */
+    lv_subject_t* subject_timezone() {
+        return &timezone_subject_;
+    }
+
 #ifdef HELIX_ENABLE_SCREENSAVER
     /** @brief Screensaver type subject (integer: 0=off, 1=toasters, 2=starfield, 3=pipes) */
     lv_subject_t* subject_screensaver_type() {
@@ -299,6 +319,7 @@ class DisplaySettingsManager {
     lv_subject_t bed_mesh_render_mode_subject_;
     lv_subject_t gcode_render_mode_subject_;
     lv_subject_t time_format_subject_;
+    lv_subject_t timezone_subject_;
 
 #ifdef HELIX_ENABLE_SCREENSAVER
     lv_subject_t screensaver_type_subject_;

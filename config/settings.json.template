@@ -164,6 +164,8 @@
     "_animations_enabled_comment": "Enable UI animations and transitions. Default: auto-detected from platform capabilities (off on embedded/basic hardware, on for standard).",
     "time_format": 0,
     "_time_format_comment": "Time display format. 0 = 12-hour (2:30 PM), 1 = 24-hour (14:30). Default is 12-hour.",
+    "timezone": "UTC",
+    "_timezone_comment": "IANA timezone ID (e.g., 'America/New_York', 'Europe/London'). Applied via setenv/tzset so all localtime_r() calls produce correct local times. Default: 'UTC'.",
     "theme": "nord",
     "_theme_comment": "Color theme. Options: 'nord' (default). Requires restart.",
     "rotate": 0,

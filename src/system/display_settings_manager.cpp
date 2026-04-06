@@ -16,6 +16,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdlib>
 
 using namespace helix;
 
@@ -23,13 +24,15 @@ using namespace helix;
 // Index: 0=Never, 1=30sec, 2=1min, 3=2min, 4=5min
 static const int DIM_OPTIONS[] = {0, 30, 60, 120, 300, 600};
 static const int DIM_OPTIONS_COUNT = sizeof(DIM_OPTIONS) / sizeof(DIM_OPTIONS[0]);
-static const char* DIM_OPTIONS_TEXT = "Never\n30 seconds\n1 minute\n2 minutes\n5 minutes\n10 minutes";
+static const char* DIM_OPTIONS_TEXT =
+    "Never\n30 seconds\n1 minute\n2 minutes\n5 minutes\n10 minutes";
 
 // Display sleep option values (seconds) - time before screen fully sleeps
 // Index: 0=Never, 1=1min, 2=5min, 3=10min, 4=30min
 static const int SLEEP_OPTIONS[] = {0, 60, 300, 600, 1200, 1800};
 static const int SLEEP_OPTIONS_COUNT = sizeof(SLEEP_OPTIONS) / sizeof(SLEEP_OPTIONS[0]);
-static const char* SLEEP_OPTIONS_TEXT = "Never\n1 minute\n5 minutes\n10 minutes\n20 minutes\n30 minutes";
+static const char* SLEEP_OPTIONS_TEXT =
+    "Never\n1 minute\n5 minutes\n10 minutes\n20 minutes\n30 minutes";
 
 // Bed mesh render mode options (Auto=0, 3D=1, 2D=2)
 static const char* BED_MESH_RENDER_MODE_OPTIONS_TEXT = "Auto\n3D View\n2D Heatmap";
@@ -37,6 +40,40 @@ static const char* GCODE_RENDER_MODE_OPTIONS_TEXT = "Auto\n3D View\n2D Layers\nT
 
 // Time format options (12H=0, 24H=1)
 static const char* TIME_FORMAT_OPTIONS_TEXT = "12 Hour\n24 Hour";
+
+// Timezone options: curated list of IANA timezones with friendly display names
+struct TimezoneEntry {
+    const char* display_name;
+    const char* iana_id;
+};
+
+static const TimezoneEntry TIMEZONE_ENTRIES[] = {
+    {"UTC", "UTC"},
+    {"Hawaii (HST)", "Pacific/Honolulu"},
+    {"Alaska (AKST)", "America/Anchorage"},
+    {"Pacific (PST/PDT)", "America/Los_Angeles"},
+    {"Mountain (MST/MDT)", "America/Denver"},
+    {"Central (CST/CDT)", "America/Chicago"},
+    {"Eastern (EST/EDT)", "America/New_York"},
+    {"Atlantic (AST)", "America/Halifax"},
+    {"Sao Paulo (BRT)", "America/Sao_Paulo"},
+    {"London (GMT/BST)", "Europe/London"},
+    {"Central Europe (CET)", "Europe/Berlin"},
+    {"Eastern Europe (EET)", "Europe/Bucharest"},
+    {"Moscow (MSK)", "Europe/Moscow"},
+    {"Gulf (GST)", "Asia/Dubai"},
+    {"India (IST)", "Asia/Kolkata"},
+    {"Bangladesh (BST)", "Asia/Dhaka"},
+    {"Indochina (ICT)", "Asia/Bangkok"},
+    {"China/Singapore (CST)", "Asia/Shanghai"},
+    {"Hong Kong (HKT)", "Asia/Hong_Kong"},
+    {"Japan/Korea (JST)", "Asia/Tokyo"},
+    {"Australia Western (AWST)", "Australia/Perth"},
+    {"Australia Central (ACST)", "Australia/Adelaide"},
+    {"Australia Eastern (AEST)", "Australia/Sydney"},
+    {"New Zealand (NZST)", "Pacific/Auckland"},
+};
+static const int TIMEZONE_COUNT = sizeof(TIMEZONE_ENTRIES) / sizeof(TIMEZONE_ENTRIES[0]);
 
 // Helper: Validate a timeout value against allowed options, snapping to nearest valid value
 template <size_t N>
@@ -178,6 +215,22 @@ void DisplaySettingsManager::init_subjects() {
     time_format = std::clamp(time_format, 0, 1);
     UI_MANAGED_SUBJECT_INT(time_format_subject_, time_format, "settings_time_format", subjects_);
 
+    // Timezone (default: "UTC")
+    std::string tz = config->get<std::string>("/display/timezone", "UTC");
+    int tz_index = 0; // Default to UTC
+    for (int i = 0; i < TIMEZONE_COUNT; ++i) {
+        if (tz == TIMEZONE_ENTRIES[i].iana_id) {
+            tz_index = i;
+            break;
+        }
+    }
+    UI_MANAGED_SUBJECT_INT(timezone_subject_, tz_index, "settings_timezone", subjects_);
+
+    // Apply timezone immediately
+    setenv("TZ", tz.c_str(), 1);
+    tzset();
+    spdlog::info("[DisplaySettingsManager] Timezone set to '{}' (index {})", tz, tz_index);
+
 #ifdef HELIX_ENABLE_SCREENSAVER
     // Screensaver type (default: 1 = Flying Toasters)
     // Migrate from old bool setting if new int setting doesn't exist
@@ -190,12 +243,13 @@ void DisplaySettingsManager::init_subjects() {
         screensaver_type = old_enabled ? 1 : 0;
         config->set<int>("/display/screensaver_type", screensaver_type);
         config->save();
-        spdlog::info("[DisplaySettingsManager] Migrated screensaver_enabled={} → screensaver_type={}",
-                     old_enabled, screensaver_type);
+        spdlog::info(
+            "[DisplaySettingsManager] Migrated screensaver_enabled={} → screensaver_type={}",
+            old_enabled, screensaver_type);
     }
     screensaver_type = std::clamp(screensaver_type, 0, 3);
-    UI_MANAGED_SUBJECT_INT(screensaver_type_subject_, screensaver_type,
-                           "settings_screensaver_type", subjects_);
+    UI_MANAGED_SUBJECT_INT(screensaver_type_subject_, screensaver_type, "settings_screensaver_type",
+                           subjects_);
 #endif
 
     subjects_initialized_ = true;
@@ -378,7 +432,7 @@ void DisplaySettingsManager::set_display_dim_sec(int seconds) {
         config->set<int>("/display/sleep_sec", seconds);
         config->save();
         ToastManager::instance().show(ToastSeverity::INFO,
-                                          lv_tr("Sleep adjusted to match dim timeout"), 2000);
+                                      lv_tr("Sleep adjusted to match dim timeout"), 2000);
     }
 
     spdlog::debug("[DisplaySettingsManager] Display dim set to {}s", seconds);
@@ -546,6 +600,59 @@ void DisplaySettingsManager::set_time_format(TimeFormat format) {
 
 const char* DisplaySettingsManager::get_time_format_options() {
     return TIME_FORMAT_OPTIONS_TEXT;
+}
+
+// =============================================================================
+// TIMEZONE
+// =============================================================================
+
+std::string DisplaySettingsManager::get_timezone() const {
+    int index = lv_subject_get_int(const_cast<lv_subject_t*>(&timezone_subject_));
+    index = std::clamp(index, 0, TIMEZONE_COUNT - 1);
+    return TIMEZONE_ENTRIES[index].iana_id;
+}
+
+void DisplaySettingsManager::set_timezone(const std::string& iana_id) {
+    int index = 0;
+    for (int i = 0; i < TIMEZONE_COUNT; ++i) {
+        if (iana_id == TIMEZONE_ENTRIES[i].iana_id) {
+            index = i;
+            break;
+        }
+    }
+    set_timezone_by_index(index);
+}
+
+void DisplaySettingsManager::set_timezone_by_index(int index) {
+    index = std::clamp(index, 0, TIMEZONE_COUNT - 1);
+    const char* iana_id = TIMEZONE_ENTRIES[index].iana_id;
+
+    spdlog::info("[DisplaySettingsManager] set_timezone({} = '{}')", index, iana_id);
+
+    lv_subject_set_int(&timezone_subject_, index);
+
+    // Apply timezone to process
+    setenv("TZ", iana_id, 1);
+    tzset();
+
+    // Persist
+    Config* config = Config::get_instance();
+    config->set<std::string>("/display/timezone", iana_id);
+    config->save();
+}
+
+int DisplaySettingsManager::get_timezone_index() const {
+    return lv_subject_get_int(const_cast<lv_subject_t*>(&timezone_subject_));
+}
+
+std::string DisplaySettingsManager::get_timezone_options() {
+    std::string options;
+    for (int i = 0; i < TIMEZONE_COUNT; ++i) {
+        if (i > 0)
+            options += '\n';
+        options += TIMEZONE_ENTRIES[i].display_name;
+    }
+    return options;
 }
 
 // =============================================================================
