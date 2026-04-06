@@ -172,6 +172,10 @@ void PrintStatusWidget::attach(lv_obj_t* widget_obj, lv_obj_t* parent_screen) {
     };
     if (auto* hm = get_print_history_manager()) {
         hm->add_observer(&history_changed_cb_);
+        // Trigger history fetch so idle thumbnail shows last print (not benchy)
+        if (!hm->is_loaded()) {
+            hm->fetch();
+        }
     }
 
     spdlog::debug("[PrintStatusWidget] Subscribed to print state/progress/time/thumbnail/runout");
