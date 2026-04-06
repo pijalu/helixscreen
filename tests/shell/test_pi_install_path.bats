@@ -115,9 +115,11 @@ setup() {
 
 # --- Regression tests for other platforms ---
 
-@test "AD5M klipper_mod path unchanged" {
+@test "AD5M klipper_mod path defaults to /opt without legacy dir" {
+    # v00.06+: /root/printer_software doesn't exist on CI, uses /opt fallback
+    # v00.05: would use /root/printer_software/helixscreen if that dir existed
     set_install_paths "ad5m" "klipper_mod"
-    [ "$INSTALL_DIR" = "/root/printer_software/helixscreen" ]
+    [ "$INSTALL_DIR" = "/opt/helixscreen" ]
 }
 
 @test "AD5M forge_x path unchanged" {

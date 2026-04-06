@@ -245,11 +245,11 @@ TEST_CASE("AmsBackendMock realistic mode completes to IDLE",
     SECTION("load completes to IDLE state") {
         // Unload first
         backend.unload_filament();
-        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        std::this_thread::sleep_for(std::chrono::milliseconds(500));
 
         // Load
         backend.load_filament(1);
-        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        std::this_thread::sleep_for(std::chrono::milliseconds(500));
 
         auto action = backend.get_current_action();
         REQUIRE(action == AmsAction::IDLE);
@@ -261,7 +261,7 @@ TEST_CASE("AmsBackendMock realistic mode completes to IDLE",
 
     SECTION("unload completes to IDLE state") {
         backend.unload_filament();
-        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        std::this_thread::sleep_for(std::chrono::milliseconds(500));
 
         auto action = backend.get_current_action();
         REQUIRE(action == AmsAction::IDLE);

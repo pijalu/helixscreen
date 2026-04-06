@@ -1015,7 +1015,7 @@ class MoonrakerClientMock : public helix::MoonrakerClient {
     static constexpr double CHAMBER_HEAT_RATE = 0.3;      // °C/sec when heating (slower than bed)
     static constexpr double CHAMBER_COOL_RATE = 0.1;      // °C/sec when cooling
     static constexpr int SIMULATION_INTERVAL_MS = 250;    // Physics tick interval
-    static constexpr int NOTIFICATION_INTERVAL_TICKS = 8; // Dispatch every 8 ticks (~2s)
+    static constexpr int NOTIFICATION_INTERVAL_TICKS = 4; // Dispatch every 4 ticks (~1s)
 
     // Mock service availability flags (initialized from env vars in constructor)
     bool mock_spoolman_enabled_{true};   ///< Controlled by HELIX_MOCK_SPOOLMAN env var
