@@ -52,29 +52,45 @@ void AmsBackendAd5xIfs::on_started() {
     auto token = lifetime_.token();
     client_->send_jsonrpc(
         "printer.objects.query",
-        json{{"objects", json{{"save_variables", nullptr},
-                              // lessWaste plugin: per-port filament switch sensors
-                              {"filament_switch_sensor _ifs_port_sensor_1", nullptr},
-                              {"filament_switch_sensor _ifs_port_sensor_2", nullptr},
-                              {"filament_switch_sensor _ifs_port_sensor_3", nullptr},
-                              {"filament_switch_sensor _ifs_port_sensor_4", nullptr},
-                              // Shared: head switch sensor (both lessWaste and native ZMOD)
-                              {"filament_switch_sensor head_switch_sensor", nullptr},
-                              // Native ZMOD IFS: single motion sensor (replaces per-port sensors)
-                              {"filament_motion_sensor ifs_motion_sensor", nullptr}}}},
+        json{{"objects",
+              json{{"save_variables", nullptr},
+                   // Verify _IFS_VARS macro actually exists (not just save_variables data)
+                   {"gcode_macro _ifs_vars", nullptr},
+                   // lessWaste plugin: per-port filament switch sensors
+                   {"filament_switch_sensor _ifs_port_sensor_1", nullptr},
+                   {"filament_switch_sensor _ifs_port_sensor_2", nullptr},
+                   {"filament_switch_sensor _ifs_port_sensor_3", nullptr},
+                   {"filament_switch_sensor _ifs_port_sensor_4", nullptr},
+                   // Shared: head switch sensor (both lessWaste and native ZMOD)
+                   {"filament_switch_sensor head_switch_sensor", nullptr},
+                   // Native ZMOD IFS: single motion sensor (replaces per-port sensors)
+                   {"filament_motion_sensor ifs_motion_sensor", nullptr}}}},
         [this, token](const json& response) {
             if (token.expired())
                 return;
+
+            // Check if the _IFS_VARS gcode macro actually exists on this printer.
+            // save_variables may contain lessWaste/bambufy data from a partially installed
+            // plugin, but the macro itself might not be loaded in Klipper.
+            bool macro_exists = false;
             if (response.contains("result") && response["result"].contains("status")) {
-                handle_status_update(response["result"]["status"]);
+                const auto& status = response["result"]["status"];
+                macro_exists = status.contains("gcode_macro _ifs_vars");
+                handle_status_update(status);
             }
 
-            // If save_variables didn't populate any colors, we're likely on native
-            // ZMOD which stores color/type in FlashForge config, not save_variables.
-            // Fall back to querying GET_ZCOLOR for initial slot data.
+            // If parse_save_variables set has_ifs_vars_ but the macro doesn't exist,
+            // fall back to native ZMOD. This happens when lessWaste/bambufy plugins
+            // are partially installed (save_variables data exists but macros aren't loaded).
             bool need_zcolor = false;
             {
                 std::lock_guard<std::mutex> lock(mutex_);
+                if (has_ifs_vars_ && !macro_exists) {
+                    spdlog::warn("{} save_variables contain {}_ data but _IFS_VARS macro "
+                                 "not found — falling back to native ZMOD",
+                                 backend_log_tag(), var_prefix_);
+                    has_ifs_vars_ = false;
+                }
                 need_zcolor = !has_ifs_vars_;
             }
             if (need_zcolor) {

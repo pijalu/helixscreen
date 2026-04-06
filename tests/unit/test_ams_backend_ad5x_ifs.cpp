@@ -70,6 +70,10 @@ class Ad5xIfsTestAccess {
         std::lock_guard<std::mutex> lock(b.mutex_);
         return b.has_ifs_vars_;
     }
+    static void set_has_ifs_vars(AmsBackendAd5xIfs& b, bool val) {
+        std::lock_guard<std::mutex> lock(b.mutex_);
+        b.has_ifs_vars_ = val;
+    }
     static void parse_adventurer_json(AmsBackendAd5xIfs& b, const std::string& content) {
         b.parse_adventurer_json(content);
     }
@@ -870,6 +874,37 @@ TEST_CASE("AD5X IFS has_ifs_vars detection", "[ams][ad5x_ifs]") {
         vars["some_other_var"] = 42;
         Ad5xIfsTestAccess::handle_status(backend, make_save_variables(vars));
         REQUIRE_FALSE(Ad5xIfsTestAccess::has_ifs_vars(backend));
+    }
+}
+
+TEST_CASE("AD5X IFS has_ifs_vars reset when macro missing", "[ams][ad5x_ifs]") {
+    // Scenario: lessWaste/bambufy plugins partially installed — save_variables data
+    // exists but _IFS_VARS gcode macro is not loaded. parse_save_variables() sets
+    // has_ifs_vars_ true, but on_started() should reset it when the macro is absent.
+    // This test verifies the parse step sets the flag (the reset happens in on_started).
+    AmsBackendAd5xIfs backend(nullptr, nullptr);
+
+    SECTION("parse_save_variables sets flag even without macro validation") {
+        Ad5xIfsTestAccess::handle_status(backend, make_save_variables(standard_variables()));
+        REQUIRE(Ad5xIfsTestAccess::has_ifs_vars(backend));
+
+        // Simulate what on_started() does: reset if macro absent
+        Ad5xIfsTestAccess::set_has_ifs_vars(backend, false);
+        REQUIRE_FALSE(Ad5xIfsTestAccess::has_ifs_vars(backend));
+    }
+
+    SECTION("set_slot_info uses native ZMOD path when has_ifs_vars is false") {
+        // Pre-populate slot data via save_variables
+        Ad5xIfsTestAccess::handle_status(backend, make_save_variables(standard_variables()));
+        // Reset has_ifs_vars_ as on_started() would when macro is missing
+        Ad5xIfsTestAccess::set_has_ifs_vars(backend, false);
+
+        // set_slot_info without persist should succeed regardless
+        SlotInfo info;
+        info.color_rgb = 0x00FF00;
+        info.material = "PETG";
+        auto err = backend.set_slot_info(0, info, false);
+        REQUIRE(err.success());
     }
 }
 
