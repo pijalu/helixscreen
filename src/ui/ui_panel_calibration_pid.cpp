@@ -865,6 +865,7 @@ void PIDCalibrationPanel::on_calibration_result(bool success, float kp, float ki
                                                 const std::string& error_message) {
     if (success) {
         // Set progress to 100% on completion
+        progress_tracker_.mark_complete();
         lv_subject_set_int(&subj_pid_progress_, 100);
         lv_subject_copy_string(&subj_pid_progress_text_, lv_tr("Complete!"));
 
