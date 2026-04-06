@@ -109,6 +109,14 @@
                             options_tag="Off&#10;Flying Toasters&#10;Starfield&#10;3D Pipes"
                             callback="on_screensaver_changed"/>
       <!-- ================================================================== -->
+      <!-- TIMEZONE -->
+      <!-- ================================================================== -->
+      <setting_dropdown_row name="row_timezone"
+                            label="Timezone" label_tag="Timezone" icon="clock"
+                            description="Set your local timezone for accurate time display"
+                            description_tag="Set your local timezone for accurate time display"
+                            options="" callback="on_timezone_changed"/>
+      <!-- ================================================================== -->
       <!-- SLEEP WHILE PRINTING -->
       <!-- ================================================================== -->
       <setting_toggle_row name="row_sleep_while_printing"

@@ -17,9 +17,9 @@
 #include "ui_utils.h"
 
 #include "display_settings_manager.h"
-#include "settings_manager.h"
 #include "format_utils.h"
 #include "lvgl/src/others/translation/lv_translation.h"
+#include "settings_manager.h"
 #include "static_panel_registry.h"
 #include "theme_manager.h"
 
@@ -99,6 +99,8 @@ void DisplaySettingsOverlay::register_callbacks() {
         // Register no-op so XML parser doesn't warn about missing callback
         {"on_screensaver_changed", [](lv_event_t*) {}},
 #endif
+        // Timezone dropdown
+        {"on_timezone_changed", on_timezone_changed},
         // Theme explorer callbacks (primary panel)
         {"on_theme_preset_changed", on_theme_preset_changed},
         {"on_theme_settings_clicked", on_theme_settings_clicked},
@@ -180,6 +182,7 @@ void DisplaySettingsOverlay::on_activate() {
     init_sleep_dropdown();
     init_sleep_while_printing_toggle();
     init_bed_mesh_dropdown();
+    init_timezone_dropdown();
 
 #ifdef HELIX_ENABLE_SCREENSAVER
     init_screensaver_dropdown();
@@ -286,6 +289,26 @@ void DisplaySettingsOverlay::init_bed_mesh_dropdown() {
 
         spdlog::debug("[{}] Bed mesh mode dropdown initialized to {} ({})", get_name(),
                       current_mode, current_mode == 0 ? "Auto" : (current_mode == 1 ? "3D" : "2D"));
+    }
+}
+
+void DisplaySettingsOverlay::init_timezone_dropdown() {
+    if (!overlay_root_)
+        return;
+
+    lv_obj_t* tz_row = lv_obj_find_by_name(overlay_root_, "row_timezone");
+    lv_obj_t* tz_dropdown = tz_row ? lv_obj_find_by_name(tz_row, "dropdown") : nullptr;
+    if (tz_dropdown) {
+        // Populate options from curated list
+        std::string options = DisplaySettingsManager::instance().get_timezone_options();
+        lv_dropdown_set_options(tz_dropdown, options.c_str());
+
+        // Set initial selection
+        int current_index = DisplaySettingsManager::instance().get_timezone_index();
+        lv_dropdown_set_selected(tz_dropdown, current_index);
+
+        spdlog::debug("[{}] Timezone dropdown initialized to index {} ({})", get_name(),
+                      current_index, DisplaySettingsManager::instance().get_timezone());
     }
 }
 
@@ -674,6 +697,15 @@ void DisplaySettingsOverlay::on_screensaver_changed(lv_event_t* e) {
     LVGL_SAFE_EVENT_CB_END();
 }
 #endif
+
+void DisplaySettingsOverlay::on_timezone_changed(lv_event_t* e) {
+    LVGL_SAFE_EVENT_CB_BEGIN("[DisplaySettingsOverlay] on_timezone_changed");
+    auto* dropdown = static_cast<lv_obj_t*>(lv_event_get_current_target(e));
+    int index = lv_dropdown_get_selected(dropdown);
+    spdlog::info("[DisplaySettingsOverlay] Timezone changed to index {}", index);
+    DisplaySettingsManager::instance().set_timezone_by_index(index);
+    LVGL_SAFE_EVENT_CB_END();
+}
 
 void DisplaySettingsOverlay::on_preview_dark_mode_toggled(lv_event_t* e) {
     LVGL_SAFE_EVENT_CB_BEGIN("[DisplaySettingsOverlay] on_preview_dark_mode_toggled");
