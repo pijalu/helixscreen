@@ -3,11 +3,11 @@
 
 #pragma once
 
+#include "ui_exclude_object_map_view.h"
 #include "ui_filament_runout_handler.h"
 #include "ui_modal.h"
 #include "ui_observer_guard.h"
 #include "ui_print_cancel_modal.h"
-#include "ui_exclude_object_map_view.h"
 #include "ui_print_exclude_object_manager.h"
 #include "ui_print_light_timelapse.h"
 #include "ui_print_tune_overlay.h"
@@ -431,8 +431,8 @@ class PrintStatusPanel : public OverlayBase {
     void animate_print_cancelled(); ///< Warning animation when print is cancelled
     void animate_print_error();     ///< Error animation when print fails
     void cleanup_temp_gcode();      ///< Remove temp G-code file downloaded for viewing
-    void show_exclude_map_view();    ///< Show overhead map view of print objects
-    void hide_exclude_map_view();    ///< Destroy map view and restore thumbnail/gradient
+    void show_exclude_map_view();   ///< Show overhead map view of print objects
+    void hide_exclude_map_view();   ///< Destroy map view and restore thumbnail/gradient
     void apply_filament_color_override(
         uint32_t color_rgb);            ///< Apply AMS/Spoolman filament color to gcode viewer
     bool build_and_apply_tool_colors(); ///< Build per-tool AMS color map and apply to viewer
@@ -446,7 +446,6 @@ class PrintStatusPanel : public OverlayBase {
     void handle_nozzle_card_click();
     void handle_bed_card_click();
     void handle_chamber_card_click();
-    void update_chamber_visibility();
     void update_chamber_status();
     void handle_pause_button();
     void handle_tune_button();
@@ -513,12 +512,11 @@ class PrintStatusPanel : public OverlayBase {
     ObserverGuard preprint_elapsed_observer_;
     ObserverGuard exclude_objects_observer_;
     ObserverGuard excluded_objects_version_observer_;
-    ObserverGuard ams_color_observer_;   ///< Tracks AMS/Spoolman filament color for gcode viewer
+    ObserverGuard ams_color_observer_;    ///< Tracks AMS/Spoolman filament color for gcode viewer
     ObserverGuard active_tool_observer_;  ///< Refreshes nozzle temp display with tool name prefix
-    ObserverGuard chamber_sensor_observer_;  ///< Tracks chamber sensor availability
-    ObserverGuard chamber_heater_observer_;  ///< Tracks chamber heater availability
-    ObserverGuard chamber_temp_observer_;    ///< Updates chamber status text
+    ObserverGuard chamber_temp_observer_; ///< Updates chamber status text
     ObserverGuard print_thumbnail_path_observer_; ///< Updates print_thumbnail_ from shared subject
+    ObserverGuard gcode_render_mode_observer_; ///< Watches settings changes to update viewer mode
 
     //
     // === Exclude Object Manager ===

@@ -93,6 +93,16 @@
                             options_tag="Never&#10;1 minute&#10;5 minutes&#10;10 minutes&#10;20 minutes&#10;30 minutes"
                             callback="on_display_sleep_changed"/>
       <!-- ================================================================== -->
+      <!-- SCREENSAVER (only visible when compiled with HELIX_ENABLE_SCREENSAVER) -->
+      <!-- ================================================================== -->
+      <setting_dropdown_row name="row_screensaver"
+                            label="Screensaver" label_tag="Screensaver" icon="television_classic"
+                            description="Show instead of dimming"
+                            description_tag="Show instead of dimming"
+                            options="Off&#10;Flying Toasters&#10;Starfield&#10;3D Pipes"
+                            options_tag="Off&#10;Flying Toasters&#10;Starfield&#10;3D Pipes"
+                            callback="on_screensaver_changed"/>
+      <!-- ================================================================== -->
       <!-- SLEEP WHILE PRINTING -->
       <!-- ================================================================== -->
       <setting_toggle_row name="row_sleep_while_printing"

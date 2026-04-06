@@ -106,17 +106,6 @@ PrintStatusPanel::PrintStatusPanel(PrinterState& printer_state, MoonrakerAPI* ap
         helix::ToolState::instance().get_active_tool_subject(), this,
         [](PrintStatusPanel* self, int) { self->on_temperature_changed(); });
 
-    // Chamber visibility: show row when sensor or heater exists (and not TINY breakpoint)
-    auto* chamber_sensor_subj = lv_xml_get_subject(nullptr, "printer_has_chamber_sensor");
-    if (chamber_sensor_subj) {
-        chamber_sensor_observer_ = observe_int_sync<PrintStatusPanel>(
-            chamber_sensor_subj, this,
-            [](PrintStatusPanel* self, int) { self->update_chamber_visibility(); });
-    }
-    chamber_heater_observer_ = observe_int_sync<PrintStatusPanel>(
-        printer_state_.get_printer_has_chamber_heater_subject(), this,
-        [](PrintStatusPanel* self, int) { self->update_chamber_visibility(); });
-
     // Chamber status text: observe chamber temp to compute Heating/Cooling/Holding status
     chamber_temp_observer_ = observe_int_sync<PrintStatusPanel>(
         printer_state_.get_chamber_temp_subject(), this,
@@ -234,6 +223,30 @@ PrintStatusPanel::PrintStatusPanel(PrinterState& printer_state, MoonrakerAPI* ap
         printer_state_.get_led_state_subject(), this,
         [](PrintStatusPanel* self, int state) { self->on_led_state_changed(state); });
     spdlog::debug("[{}] LED state observer registered (strips read lazily)", get_name());
+
+    // Subscribe to G-code render mode changes from settings panel
+    // This allows real-time updates to the viewer when the user changes the setting
+    gcode_render_mode_observer_ = observe_int_sync<PrintStatusPanel>(
+        DisplaySettingsManager::instance().subject_gcode_render_mode(), this,
+        [](PrintStatusPanel* self, int mode) {
+            spdlog::info("[{}] G-code render mode changed from settings: {}", self->get_name(),
+                         mode);
+            if (self->gcode_viewer_ && self->is_active_) {
+                // Apply the new render mode (skip "Thumbnail Only" mode = 3)
+                if (mode == 3) {
+                    // Thumbnail Only - hide the viewer
+                    self->show_gcode_viewer(false);
+                } else {
+                    auto render_mode = static_cast<GcodeViewerRenderMode>(mode);
+                    ui_gcode_viewer_set_render_mode(self->gcode_viewer_, render_mode);
+                    // Update viewer mode subject to trigger XML visibility bindings
+                    if (self->gcode_loaded_) {
+                        self->show_gcode_viewer(true);
+                    }
+                }
+            }
+        });
+    spdlog::debug("[{}] G-code render mode observer registered", get_name());
 
     // Create filament runout handler (extracted from PrintStatusPanel)
     runout_handler_ = std::make_unique<helix::ui::FilamentRunoutHandler>(api_);
@@ -645,9 +658,6 @@ void PrintStatusPanel::on_activate() {
     // Sync button enabled/visibility state with current print state and outcome.
     // XML bindings may have been lost during overlay lifecycle transitions (#546).
     update_button_states();
-
-    // Sync chamber row visibility (observer may have fired before UI was created)
-    update_chamber_visibility();
 
     // Restore G-code viewer state based on current print conditions
     // This ensures the viewer is properly restored when returning from overlays like Tune panel
@@ -1478,40 +1488,6 @@ void PrintStatusPanel::on_temperature_changed() {
     spdlog::trace("[{}] Temperatures updated: nozzle {}/{}°C, bed {}/{}°C", get_name(),
                   lifecycle_.nozzle_current(), lifecycle_.nozzle_target(), lifecycle_.bed_current(),
                   lifecycle_.bed_target());
-}
-
-void PrintStatusPanel::update_chamber_visibility() {
-    if (!overlay_root_)
-        return;
-
-    auto* sensor_subj = lv_xml_get_subject(nullptr, "printer_has_chamber_sensor");
-    bool has_sensor = sensor_subj && lv_subject_get_int(sensor_subj) != 0;
-    bool has_heater =
-        lv_subject_get_int(printer_state_.get_printer_has_chamber_heater_subject()) != 0;
-    bool is_tiny = lv_subject_get_int(theme_manager_get_breakpoint_subject()) == UI_BP_TINY;
-
-    auto* chamber_row = lv_obj_find_by_name(overlay_root_, "chamber_row");
-    if (!chamber_row)
-        return;
-
-    bool show = (has_sensor || has_heater) && !is_tiny;
-    if (show) {
-        lv_obj_remove_flag(chamber_row, LV_OBJ_FLAG_HIDDEN);
-    } else {
-        lv_obj_add_flag(chamber_row, LV_OBJ_FLAG_HIDDEN);
-    }
-
-    // Make chamber row clickable and show status label when a heater exists
-    if (has_heater) {
-        lv_obj_add_flag(chamber_row, LV_OBJ_FLAG_CLICKABLE);
-        auto* status_label = lv_obj_find_by_name(chamber_row, "chamber_status");
-        if (status_label) {
-            lv_obj_remove_flag(status_label, LV_OBJ_FLAG_HIDDEN);
-        }
-    }
-
-    // Update status text now that visibility may have changed
-    update_chamber_status();
 }
 
 void PrintStatusPanel::update_chamber_status() {

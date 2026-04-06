@@ -2654,6 +2654,7 @@ bool MoonrakerClientMock::cancel_print_internal() {
     // Set targets to 0 (begin cooldown)
     extruder_target_.store(0.0);
     bed_target_.store(0.0);
+    chamber_target_.store(0.0);
 
     // Reset PRINT_START simulation phase
     simulated_print_start_phase_.store(static_cast<uint8_t>(SimulatedPrintStartPhase::NONE));
@@ -2675,6 +2676,7 @@ void MoonrakerClientMock::emergency_stop_internal() {
     // Zero all heater targets
     extruder_target_.store(0.0);
     bed_target_.store(0.0);
+    chamber_target_.store(0.0);
 
     // Turn off all fans
     fan_speed_.store(0);

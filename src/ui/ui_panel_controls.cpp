@@ -641,13 +641,12 @@ void ControlsPanel::register_observers() {
                 self->update_speed_display();
         });
 
-    // Subscribe to gcode Z-offset for live tuning display (skip formatting when hidden)
-    gcode_z_offset_observer_ = observe_int_sync<ControlsPanel>(
-        printer_state_.get_gcode_z_offset_subject(), this,
-        [](ControlsPanel* self, int offset_microns) {
-            if (self->active_)
-                self->update_controls_z_offset_display(offset_microns);
-        });
+    // Subscribe to gcode Z-offset for live tuning display
+    gcode_z_offset_observer_ =
+        observe_int_sync<ControlsPanel>(printer_state_.get_gcode_z_offset_subject(), this,
+                                        [](ControlsPanel* self, int offset_microns) {
+                                            self->update_controls_z_offset_display(offset_microns);
+                                        });
 
     spdlog::trace("[{}] Observers registered for dashboard live data", get_name());
 }

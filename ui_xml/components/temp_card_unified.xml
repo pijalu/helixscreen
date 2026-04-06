@@ -45,23 +45,25 @@
                   style_text_align="right" variant="muted"/>
     </lv_obj>
 
-    <!-- Chamber row (hidden by default, C++ manages visibility) -->
+    <!-- Chamber row (hidden when no chamber sensor/heater) -->
     <lv_obj name="chamber_row"
             width="100%" height="content" style_pad_all="0"
-            flex_flow="row" style_flex_cross_place="center" hidden="true">
+            flex_flow="row" style_flex_cross_place="center" clickable="true"
+            hidden="true">
+      <bind_flag_if_eq subject="printer_has_chamber" flag="hidden" ref_value="0"/>
+      <event_cb trigger="clicked" callback="on_print_temp_chamber_clicked"/>
       <!-- Icon label for TINY/SMALL breakpoints -->
       <icon src="fridge_industrial" size="sm" variant="muted">
         <bind_flag_if_gt subject="ui_breakpoint" flag="hidden" ref_value="1"/>
       </icon>
       <!-- Text label for MEDIUM+ breakpoints -->
-      <text_small text="Chamber">
+      <text_small text="Chamber" translation_tag="Chamber">
         <bind_flag_if_lt subject="ui_breakpoint" flag="hidden" ref_value="2"/>
       </text_small>
-      <temp_display name="chamber_temp_display" size="md" show_target="false"
-                    bind_current="chamber_temp" flex_grow="1"/>
+      <temp_display name="chamber_temp_display" size="md" show_target="true"
+                    bind_current="chamber_temp" bind_target="chamber_target" flex_grow="1"/>
       <text_small name="chamber_status" bind_text="print_chamber_status"
-                  style_text_align="right" variant="muted"
-                  hidden="true"/>
+                  style_text_align="right" variant="muted"/>
     </lv_obj>
 
   </view>
