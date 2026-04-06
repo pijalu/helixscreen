@@ -9,6 +9,7 @@
 #include "ui_nav_manager.h"
 
 #include "app_globals.h"
+#include "config.h"
 #include "filament_database.h"
 #include "klipper_config_editor.h"
 #include "lvgl/src/others/translation/lv_translation.h"
@@ -46,6 +47,7 @@ PIDCalibrationPanel::PIDCalibrationPanel() {
     std::memset(buf_pid_kd_, 0, sizeof(buf_pid_kd_));
     std::memset(buf_error_message_, 0, sizeof(buf_error_message_));
     std::memset(buf_pid_progress_text_, 0, sizeof(buf_pid_progress_text_));
+    std::memset(buf_pid_eta_, 0, sizeof(buf_pid_eta_));
     std::memset(buf_mpc_heat_capacity_, 0, sizeof(buf_mpc_heat_capacity_));
     std::memset(buf_mpc_sensor_resp_, 0, sizeof(buf_mpc_sensor_resp_));
     std::memset(buf_mpc_ambient_transfer_, 0, sizeof(buf_mpc_ambient_transfer_));
@@ -118,6 +120,7 @@ void PIDCalibrationPanel::init_subjects() {
     UI_MANAGED_SUBJECT_INT(subj_pid_progress_, 0, "pid_cal_progress", subjects_);
     UI_MANAGED_SUBJECT_STRING(subj_pid_progress_text_, buf_pid_progress_text_, "Starting...",
                               "pid_progress_text", subjects_);
+    UI_MANAGED_SUBJECT_STRING(subj_pid_eta_, buf_pid_eta_, "", "pid_cal_eta", subjects_);
 
     // MPC-related subjects
     UI_MANAGED_SUBJECT_INT(subj_is_kalico_, 0, "cal_is_kalico", subjects_);
@@ -342,8 +345,8 @@ void PIDCalibrationPanel::on_activate() {
 void PIDCalibrationPanel::on_deactivate() {
     spdlog::debug("[PIDCal] on_deactivate()");
 
-    // Stop fallback timer
-    stop_fallback_progress_timer();
+    // Stop progress tracking
+    stop_progress_tracking();
 
     // Teardown graph before deactivating
     teardown_pid_graph();
@@ -367,8 +370,8 @@ void PIDCalibrationPanel::on_deactivate() {
 void PIDCalibrationPanel::cleanup() {
     spdlog::debug("[PIDCal] Cleaning up");
 
-    // Stop fallback timer before cleanup
-    stop_fallback_progress_timer();
+    // Stop progress tracking before cleanup
+    stop_progress_tracking();
 
     // Teardown graph before cleanup
     teardown_pid_graph();
@@ -420,7 +423,7 @@ void PIDCalibrationPanel::set_state(State new_state) {
     // Disable Start button in header when not idle
     lv_subject_set_int(&subj_cal_not_idle_, new_state != State::IDLE ? 1 : 0);
 
-    // Setup graph when entering CALIBRATING state
+    // Setup graph and progress tracking when entering CALIBRATING state
     if (new_state == State::CALIBRATING) {
         setup_pid_graph();
         // Reset progress
@@ -428,9 +431,10 @@ void PIDCalibrationPanel::set_state(State new_state) {
         has_kalico_progress_ = false;
         lv_subject_set_int(&subj_pid_progress_, 0);
         lv_subject_copy_string(&subj_pid_progress_text_, lv_tr("Starting..."));
-        start_fallback_progress_timer();
+        lv_subject_copy_string(&subj_pid_eta_, "");
+        start_progress_tracking();
     } else {
-        stop_fallback_progress_timer();
+        stop_progress_tracking();
     }
 }
 
@@ -863,6 +867,9 @@ void PIDCalibrationPanel::on_calibration_result(bool success, float kp, float ki
         lv_subject_set_int(&subj_pid_progress_, 100);
         lv_subject_copy_string(&subj_pid_progress_text_, lv_tr("Complete!"));
 
+        // Persist measured rates for future calibrations
+        save_calibration_history();
+
         // Store results
         result_kp_ = kp;
         result_ki_ = ki;
@@ -952,11 +959,10 @@ void PIDCalibrationPanel::inject_demo_results() {
 // ============================================================================
 
 void PIDCalibrationPanel::on_pid_progress(int sample, float tolerance) {
-    // First sample callback: switch from fallback to Kalico progress mode
+    // First sample callback: switch to Kalico mode
     if (!has_kalico_progress_) {
         has_kalico_progress_ = true;
-        stop_fallback_progress_timer();
-        spdlog::info("[PIDCal] Kalico sample progress detected, switching to precise mode");
+        spdlog::info("[PIDCal] Kalico sample progress detected");
     }
 
     // Dynamically adjust estimated total
@@ -964,81 +970,199 @@ void PIDCalibrationPanel::on_pid_progress(int sample, float tolerance) {
         pid_estimated_total_ = sample + 1;
     }
 
-    // Calculate progress percentage, cap at 95% (100% only on completion)
-    int progress = (sample * 100) / pid_estimated_total_;
-    if (progress > 95)
-        progress = 95;
-
-    lv_subject_set_int(&subj_pid_progress_, progress);
-
-    // Update progress text
-    char buf[32];
-    snprintf(buf, sizeof(buf), lv_tr("Sample %d/%d"), sample, pid_estimated_total_);
-    lv_subject_copy_string(&subj_pid_progress_text_, buf);
+    progress_tracker_.on_kalico_sample(sample, pid_estimated_total_);
+    update_progress_display();
 
     spdlog::debug("[PIDCal] Progress: sample={}/{} tolerance={:.3f} bar={}%", sample,
-                  pid_estimated_total_, tolerance, progress);
+                  pid_estimated_total_, tolerance, progress_tracker_.progress_percent());
 }
 
 // ============================================================================
-// FALLBACK PROGRESS TIMER (for standard Klipper without sample callbacks)
+// PHASE-AWARE PROGRESS TRACKING
 // ============================================================================
 
-void PIDCalibrationPanel::start_fallback_progress_timer() {
-    stop_fallback_progress_timer();
-    fallback_cycle_ = 0;
+void PIDCalibrationPanel::start_progress_tracking() {
+    stop_progress_tracking();
 
-    // Tick every 15 seconds — PID calibration takes ~3-10 minutes
-    uint32_t tick_ms = (selected_heater_ == Heater::EXTRUDER) ? 13500 : 15000;
-    progress_fallback_timer_ = lv_timer_create(on_fallback_progress_tick, tick_ms, this);
+    // Read current temperature as starting point
+    auto& state = get_printer_state();
+    lv_subject_t* temp_subj = nullptr;
 
-    // Fire once immediately after a short delay to show "Heating to target..."
-    lv_timer_t* initial = lv_timer_create(
-        [](lv_timer_t* t) {
-            auto* self = static_cast<PIDCalibrationPanel*>(lv_timer_get_user_data(t));
-            if (!self->has_kalico_progress_ && self->state_ == State::CALIBRATING) {
-                lv_subject_set_int(&self->subj_pid_progress_, 5);
-                lv_subject_copy_string(&self->subj_pid_progress_text_,
-                                       lv_tr("Heating to target..."));
-            }
-            lv_timer_delete(t);
-        },
-        3000, this);
-    lv_timer_set_repeat_count(initial, 1);
+    auto heater_type = (selected_heater_ == Heater::EXTRUDER) ? PidProgressTracker::Heater::EXTRUDER
+                                                              : PidProgressTracker::Heater::BED;
+
+    if (selected_heater_ == Heater::EXTRUDER) {
+        temp_subj = state.get_extruder_temp_subject("extruder", progress_temp_lifetime_);
+    } else {
+        temp_subj = state.get_bed_temp_subject();
+    }
+
+    if (!temp_subj) {
+        spdlog::warn("[PIDCal] Could not get temperature subject for progress tracking");
+        return;
+    }
+
+    float current_temp = static_cast<float>(lv_subject_get_int(temp_subj)) / 10.0f;
+    progress_tracker_.start(heater_type, target_temp_, current_temp);
+
+    // Load historical data if available
+    auto* config = helix::Config::get_instance();
+    if (config) {
+        const char* heater_key = (selected_heater_ == Heater::EXTRUDER) ? "extruder" : "heater_bed";
+        std::string heat_path =
+            std::string("/calibration/pid_history/") + heater_key + "/heat_rate";
+        std::string osc_path =
+            std::string("/calibration/pid_history/") + heater_key + "/oscillation_duration";
+        float heat_rate = config->get<float>(heat_path, 0.0f);
+        float osc_dur = config->get<float>(osc_path, 0.0f);
+        if (heat_rate > 0 && osc_dur > 0) {
+            progress_tracker_.set_history(heat_rate, osc_dur);
+            spdlog::info("[PIDCal] Loaded historical rates: heat={:.2f} s/deg, osc={:.0f}s",
+                         heat_rate, osc_dur);
+        }
+    }
+
+    // Observe temperature for phase tracking
+    // Extruder subject is dynamic (needs lifetime), bed is static (no lifetime)
+    if (selected_heater_ == Heater::EXTRUDER) {
+        progress_temp_observer_ = helix::ui::observe_int_sync<PIDCalibrationPanel>(
+            temp_subj, this,
+            [](PIDCalibrationPanel* self, int value) { self->on_progress_temperature(value); },
+            progress_temp_lifetime_);
+    } else {
+        progress_temp_observer_ = helix::ui::observe_int_sync<PIDCalibrationPanel>(
+            temp_subj, this,
+            [](PIDCalibrationPanel* self, int value) { self->on_progress_temperature(value); });
+    }
+
+    // Start ETA refresh timer (every 3 seconds)
+    eta_update_timer_ = lv_timer_create(on_eta_timer_tick, 3000, this);
+
+    // Show initial ETA estimate immediately
+    update_progress_display();
+
+    spdlog::info("[PIDCal] Progress tracking started (target={}C, start={:.1f}C)", target_temp_,
+                 current_temp);
 }
 
-void PIDCalibrationPanel::stop_fallback_progress_timer() {
-    if (progress_fallback_timer_) {
-        lv_timer_delete(progress_fallback_timer_);
-        progress_fallback_timer_ = nullptr;
+void PIDCalibrationPanel::stop_progress_tracking() {
+    // Reset lifetime BEFORE observer (CLAUDE.md mandatory ordering)
+    progress_temp_lifetime_.reset();
+    progress_temp_observer_.reset();
+
+    if (eta_update_timer_) {
+        lv_timer_delete(eta_update_timer_);
+        eta_update_timer_ = nullptr;
     }
 }
 
-void PIDCalibrationPanel::on_fallback_progress_tick(lv_timer_t* timer) {
-    auto* self = static_cast<PIDCalibrationPanel*>(lv_timer_get_user_data(timer));
-    if (self->has_kalico_progress_ || self->state_ != State::CALIBRATING)
+void PIDCalibrationPanel::on_progress_temperature(int temp_tenths) {
+    if (state_ != State::CALIBRATING)
         return;
 
-    self->fallback_cycle_++;
+    float temp = static_cast<float>(temp_tenths) / 10.0f;
+    uint32_t now = lv_tick_get();
 
-    // Slowly advance progress bar: asymptotic approach to 90%
-    // Each tick adds less: 15, 25, 33, 40, 46, 51, 55, ...
-    int progress = 90 - (90 * 100) / (100 + self->fallback_cycle_ * 30);
-    if (progress > 90)
-        progress = 90;
-    lv_subject_set_int(&self->subj_pid_progress_, progress);
+    progress_tracker_.on_temperature(temp, now);
+    update_progress_display();
+}
 
-    // Cycle through helpful messages
-    const char* messages[] = {
-        lv_tr("Oscillating around target..."),
-        lv_tr("Measuring thermal response..."),
-        lv_tr("Tuning control parameters..."),
-        lv_tr("Refining stability..."),
-    };
-    int msg_idx = (self->fallback_cycle_ - 1) % 4;
-    lv_subject_copy_string(&self->subj_pid_progress_text_, messages[msg_idx]);
+void PIDCalibrationPanel::update_progress_display() {
+    int progress = progress_tracker_.progress_percent();
+    // Cap at 95% until actual completion
+    if (progress > 95 && progress_tracker_.phase() != PidProgressTracker::Phase::COMPLETE)
+        progress = 95;
+    lv_subject_set_int(&subj_pid_progress_, progress);
 
-    spdlog::debug("[PIDCal] Fallback progress: cycle={} bar={}%", self->fallback_cycle_, progress);
+    // Status text
+    char buf[64];
+    auto phase = progress_tracker_.phase();
+    if (phase == PidProgressTracker::Phase::HEATING) {
+        snprintf(buf, sizeof(buf),
+                 lv_tr("Heating to %d\xC2\xB0"
+                       "C... %.0f\xC2\xB0"
+                       "C"),
+                 target_temp_, progress_tracker_.last_temp());
+    } else if (phase == PidProgressTracker::Phase::OSCILLATING) {
+        if (has_kalico_progress_) {
+            snprintf(buf, sizeof(buf), lv_tr("Sample %d/%d"), progress_tracker_.kalico_sample(),
+                     pid_estimated_total_);
+        } else {
+            snprintf(buf, sizeof(buf), lv_tr("Oscillating... cycle %d/%d"),
+                     progress_tracker_.oscillation_count(), PidProgressTracker::EXPECTED_CYCLES);
+        }
+    } else {
+        snprintf(buf, sizeof(buf), "%s", lv_tr("Starting..."));
+    }
+    lv_subject_copy_string(&subj_pid_progress_text_, buf);
+
+    // ETA text
+    auto eta = progress_tracker_.eta_seconds();
+    if (eta.has_value() && *eta > 0) {
+        int mins = *eta / 60;
+        int secs = *eta % 60;
+        char eta_buf[32];
+        snprintf(eta_buf, sizeof(eta_buf), "~%d:%02d %s", mins, secs, lv_tr("remaining"));
+        lv_subject_copy_string(&subj_pid_eta_, eta_buf);
+    } else if (progress >= 95) {
+        lv_subject_copy_string(&subj_pid_eta_, lv_tr("Finishing up..."));
+    } else {
+        lv_subject_copy_string(&subj_pid_eta_, lv_tr("Estimating..."));
+    }
+}
+
+void PIDCalibrationPanel::on_eta_timer_tick(lv_timer_t* timer) {
+    auto* self = static_cast<PIDCalibrationPanel*>(lv_timer_get_user_data(timer));
+    if (self->state_ != State::CALIBRATING)
+        return;
+    self->update_progress_display();
+}
+
+// ============================================================================
+// HISTORICAL CALIBRATION DATA PERSISTENCE
+// ============================================================================
+
+void PIDCalibrationPanel::save_calibration_history() {
+    auto* config = helix::Config::get_instance();
+    if (!config)
+        return;
+
+    float heat_rate = progress_tracker_.measured_heat_rate();
+    float osc_duration = progress_tracker_.measured_oscillation_duration();
+
+    // Only save if we have meaningful measurements
+    if (heat_rate <= 0 && osc_duration <= 0)
+        return;
+
+    const char* heater_key = (selected_heater_ == Heater::EXTRUDER) ? "extruder" : "heater_bed";
+    std::string heat_path = std::string("/calibration/pid_history/") + heater_key + "/heat_rate";
+    std::string osc_path =
+        std::string("/calibration/pid_history/") + heater_key + "/oscillation_duration";
+
+    // Weighted average with existing history (70% new, 30% old)
+    float old_heat = config->get<float>(heat_path, 0.0f);
+    float old_osc = config->get<float>(osc_path, 0.0f);
+
+    float new_heat = heat_rate;
+    float new_osc = osc_duration;
+
+    if (old_heat > 0 && heat_rate > 0) {
+        new_heat = 0.7f * heat_rate + 0.3f * old_heat;
+    }
+    if (old_osc > 0 && osc_duration > 0) {
+        new_osc = 0.7f * osc_duration + 0.3f * old_osc;
+    }
+
+    if (new_heat > 0) {
+        config->set<float>(heat_path, new_heat);
+    }
+    if (new_osc > 0) {
+        config->set<float>(osc_path, new_osc);
+    }
+    config->save();
+
+    spdlog::info("[PIDCal] Saved calibration history for {}: heat_rate={:.2f} s/deg, osc={:.0f}s",
+                 heater_key, new_heat, new_osc);
 }
 
 // ============================================================================
@@ -1223,7 +1347,6 @@ void PIDCalibrationPanel::on_mpc_result(const MoonrakerAdvancedAPI::MPCResult& r
 void PIDCalibrationPanel::on_mpc_progress(int phase, int total_phases, const std::string& desc) {
     if (!has_kalico_progress_) {
         has_kalico_progress_ = true;
-        stop_fallback_progress_timer();
         spdlog::info("[PIDCal] MPC phase progress detected");
     }
 

@@ -270,6 +270,8 @@
             <progress_bar name="pid_progress_bar" width="80%" bind_value="pid_cal_progress"/>
             <text_small name="pid_progress_text"
                         bind_text="pid_progress_text" text="Starting..." style_text_color="#text_muted"/>
+            <text_small name="pid_eta_text"
+                        bind_text="pid_cal_eta" text="" style_text_color="#text_muted"/>
           </lv_obj>
           <!-- Right: temperature graph + live display -->
           <lv_obj height="100%"

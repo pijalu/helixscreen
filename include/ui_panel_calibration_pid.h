@@ -3,11 +3,14 @@
 
 #pragma once
 
+#include "ui_observer_guard.h"
 #include "ui_temp_graph.h"
 
 #include "klipper_config_editor.h"
 #include "moonraker_advanced_api.h"
+#include "observer_factory.h"
 #include "overlay_base.h"
+#include "pid_progress_tracker.h"
 #include "subject_managed_panel.h"
 
 #include <lvgl.h>
@@ -311,19 +314,33 @@ class PIDCalibrationPanel : public OverlayBase {
     // Progress tracking for calibration
     lv_subject_t subj_pid_progress_; // int 0-100
     lv_subject_t subj_pid_progress_text_;
-    char buf_pid_progress_text_[32];
+    char buf_pid_progress_text_[64];
+    lv_subject_t subj_pid_eta_;
+    char buf_pid_eta_[32];
     int pid_estimated_total_ = 3;      // Dynamic estimate, starts at 3
     bool has_kalico_progress_ = false; // True once first sample callback arrives
 
-    // Fallback progress timer for standard Klipper (no sample callbacks)
-    lv_timer_t* progress_fallback_timer_ = nullptr;
-    int fallback_cycle_ = 0;
-    void start_fallback_progress_timer();
-    void stop_fallback_progress_timer();
-    static void on_fallback_progress_tick(lv_timer_t* timer);
+    // Phase-aware progress tracker
+    PidProgressTracker progress_tracker_;
+
+    // Temperature observer for progress tracking
+    ObserverGuard progress_temp_observer_;
+    SubjectLifetime progress_temp_lifetime_; // for dynamic extruder subject
+
+    // ETA update timer (fires every ~3 seconds to refresh ETA display)
+    lv_timer_t* eta_update_timer_ = nullptr;
+
+    void start_progress_tracking();
+    void stop_progress_tracking();
+    void on_progress_temperature(int temp_tenths);
+    void update_progress_display();
+    static void on_eta_timer_tick(lv_timer_t* timer);
 
     // Progress handler (called from UI thread via queue)
     void on_pid_progress(int sample, float tolerance);
+
+    // Persist measured calibration rates for future ETA estimates
+    void save_calibration_history();
 
     // Widget references
     lv_obj_t* fan_slider_ = nullptr;
