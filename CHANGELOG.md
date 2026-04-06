@@ -7,6 +7,50 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.99.23] - 2026-04-06
+
+A stability and polish release focused on probe handling, PID calibration UX, print status improvements, settings reorganization, and crash fixes across multiple subsystems.
+
+### Added
+- Smart PID calibration progress tracking with phase detection, ETA, and history persistence
+- Timezone selection in display settings with IANA timezone support and UTC offsets
+- G-code viewer progress/complete view toggle during prints
+- Print Files button on print status widget to configure file picker toggles
+- Centered thumbnail on print status widget when all action buttons are hidden
+
+### Fixed
+- Use-after-free in G-code streaming memory pressure callback (TOCTOU race, #733)
+- Probe Z-offset not loading for FlashForge AD5M/AD5X with loadcell probes (#733)
+- Probe discovery not seeding z_offset from config during initial setup
+- Single-probe setups not auto-assigning the Z_PROBE role
+- Ghost preview rendering too dark for short objects under 50mm
+- Bed mesh probe clobbering existing default mesh when using temp profiles
+- Probe accuracy test using wrong sample count and not pre-positioning to bed center
+- Input shaper peak dot misaligned with graph, progress bar and table spacing issues
+- Input shaper triggering disconnect dialog during SAVE_CONFIG restart
+- Screws tilt adjust not auto-homing, unsanitized errors, small icons, button heights
+- PID calibration progress bar not reflecting actual phase timing
+- Nozzle temperature widget re-entrant drain crash replaced with lifetime invalidation (#732)
+- Print status widget using positional child index instead of name-based lookup
+- Timelapse webcam detection failures and missing retry option
+- Camera probe crash and metadata re-fetching on AD5M (#724)
+- Sound tracker playback disabled on AD5M/AD5X to prevent print kills
+- IFS dirty flag not cleared on native ZMOD persist (#716)
+- Multiple crash fixes: observer UAF, style cascade SIGSEGV, AFC null deref (#726, #728, #729, #731)
+- Shutdown guards, deferred delete consolidation, and dynamic subject lifetime hardening
+- Z-offset display not updating on main panel
+- G-code viewer not activating when preview is set to thumbnail
+- Chamber temperature not shown on unified temp card
+- Screensaver option missing in micro layout
+
+### Changed
+- Settings reorganized into 6 category sub-panels
+- Power Control renamed to Power Devices
+- AMS Management renamed to Multi-Filament Management, card styling removed from rows
+- Macro Buttons moved from Hardware to Printing settings
+- AD5M/AD5M Pro split into ForgeX and stock printer database entries with macro_exclude heuristic
+- Macros widget icon updated to match Advanced Settings
+
 ## [0.99.22] - 2026-04-05
 
 ### Added
@@ -2623,6 +2667,7 @@ Initial tagged release. Foundation for all subsequent development.
 - Automated GitHub Actions release pipeline
 - One-liner installation script with platform auto-detection
 
+[0.99.23]: https://github.com/prestonbrown/helixscreen/compare/v0.99.22...v0.99.23
 [0.99.22]: https://github.com/prestonbrown/helixscreen/compare/v0.99.21...v0.99.22
 [0.99.21]: https://github.com/prestonbrown/helixscreen/compare/v0.99.20...v0.99.21
 [0.99.20]: https://github.com/prestonbrown/helixscreen/compare/v0.99.19...v0.99.20

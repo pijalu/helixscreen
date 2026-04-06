@@ -892,6 +892,71 @@ remove_config_symlink() {
     return 0
 }
 
+# Fix known Klipper config issues on AD5M KlipperMod printers.
+# The AD5M ships with screw_thread: CW-M4 but the correct value is CCW-M4.
+# This causes SCREWS_TILT_CALCULATE to output inverted CW/CCW directions,
+# leading users to tighten when they should loosen (and vice versa).
+# Only applies to KlipperMod (Forge-X and ZMOD don't ship screws_tilt_adjust).
+fix_ad5m_klipper_config() {
+    # Guard: only run on AD5M KlipperMod (uses lowercase $platform from main())
+    if [ "${platform:-}" != "ad5m" ] || [ "${AD5M_FIRMWARE:-}" != "klipper_mod" ]; then
+        return 0
+    fi
+
+    log_info "Checking AD5M Klipper config for known issues..."
+
+    local config_dir="${KLIPPER_HOME}/printer_data/config"
+    if [ ! -d "$config_dir" ]; then
+        log_info "No printer_data/config found, skipping Klipper config fixup"
+        return 0
+    fi
+
+    # Find config file with screws_tilt_adjust containing exactly "CW-M4"
+    # (not "CCW-M4" — grep -w ensures word boundary so CW-M4 won't match CCW-M4)
+    local target_file=""
+    for cfg_file in "$config_dir"/printer.base.cfg "$config_dir"/printer.cfg; do
+        [ -f "$cfg_file" ] || continue
+        if grep -q '\[screws_tilt_adjust\]' "$cfg_file" && \
+           grep -qw 'CW-M4' "$cfg_file" && \
+           ! grep -qw 'CCW-M4' "$cfg_file"; then
+            target_file="$cfg_file"
+            break
+        fi
+    done
+
+    if [ -z "$target_file" ]; then
+        log_info "AD5M screw_thread config OK (or not present)"
+        return 0
+    fi
+
+    log_info "Found incorrect screw_thread in: $target_file"
+    log_info "  CW-M4 → CCW-M4 (AD5M bed screws need reverse direction)"
+
+    # Backup before modifying
+    local backup_file="${target_file}.pre-helix"
+    if [ ! -f "$backup_file" ]; then
+        $SUDO cp "$target_file" "$backup_file"
+        log_info "  Backup: $backup_file"
+    fi
+
+    # Fix: replace exactly "CW-M4" with "CCW-M4" on screw_thread lines only.
+    # Anchored on line start (^) and end ($) to prevent matching CCW-M4.
+    # Uses temp file instead of sed -i for portability (macOS vs BusyBox).
+    local tmp_file="${target_file}.tmp"
+    $SUDO sed 's/^\(screw_thread:[[:space:]]*\)CW-M4$/\1CCW-M4/' "$target_file" > "$tmp_file"
+    $SUDO mv "$tmp_file" "$target_file"
+
+    if grep -qw 'CCW-M4' "$target_file"; then
+        log_success "Fixed AD5M screw_thread: CW-M4 → CCW-M4"
+    else
+        log_warn "Failed to fix screw_thread, restoring backup"
+        $SUDO cp "$backup_file" "$target_file"
+        return 1
+    fi
+
+    return 0
+}
+
 # ============================================
 # Module: permissions.sh
 # ============================================
