@@ -188,11 +188,16 @@ void GCodeStreamingController::register_memory_responder() {
     // Capture weak_ptr so the callback becomes a no-op after destruction.
     // MemoryMonitor copies the callback list before iterating, so
     // remove_pressure_responder() in the destructor doesn't prevent an
-    // already-copied callback from firing (prestonbrown/helixscreen#733).
+    // already-copied callback from firing.  Use lock() (not expired())
+    // to hold the sentinel alive for the duration of the call — this
+    // closes the TOCTOU window where the destructor could destroy members
+    // between the liveness check and respond_to_memory_pressure()
+    // (prestonbrown/helixscreen#733).
     std::weak_ptr<bool> weak = prevent_uaf_sentinel_;
     memory_responder_id_ = helix::MemoryMonitor::instance().add_pressure_responder(
         [this, weak](helix::MemoryPressureLevel level) {
-            if (weak.expired())
+            auto guard = weak.lock();
+            if (!guard)
                 return;
             if (level >= helix::MemoryPressureLevel::warning) {
                 respond_to_memory_pressure();
@@ -201,14 +206,33 @@ void GCodeStreamingController::register_memory_responder() {
 }
 
 GCodeStreamingController::~GCodeStreamingController() {
-    // Expire the sentinel FIRST so any in-flight MemoryMonitor callback
-    // (which captured a weak_ptr) becomes a no-op before we tear down
-    // members like cache_ (#733).
-    prevent_uaf_sentinel_.reset();
+    // Move sentinel into local — weak.lock() in the callback now returns
+    // nullptr for NEW calls, but an already-in-flight lock() still holds
+    // a strong reference via the same control block.
+    auto sentinel_local = std::move(prevent_uaf_sentinel_);
 
+    // Remove from MemoryMonitor to prevent future invocations
     if (memory_responder_id_ != 0) {
         helix::MemoryMonitor::instance().remove_pressure_responder(memory_responder_id_);
         memory_responder_id_ = 0;
+    }
+
+    // Wait for any in-flight pressure callback to finish.  The callback
+    // holds a shared_ptr from weak.lock(); when it returns, refcount
+    // drops back to 1 (our local).  This closes the TOCTOU window where
+    // the callback passed the liveness check but hasn't called
+    // respond_to_memory_pressure() yet (#733).
+    while (sentinel_local && sentinel_local.use_count() > 1) {
+        std::this_thread::yield();
+    }
+    sentinel_local.reset();
+
+    // Clear completion callback under lock before waiting for the future,
+    // matching close() semantics.  Prevents the async thread from invoking
+    // a stale callback during destruction.
+    {
+        std::lock_guard<std::mutex> lock(callback_mutex_);
+        index_complete_callback_ = nullptr;
     }
 
     // Wait for any async indexing to complete
