@@ -99,7 +99,7 @@
         <!-- View mode toggle: switches between progress (ghost layers) and complete view -->
         <lv_obj name="btn_view_toggle"
                 width="36" height="36" align="top_left"
-                style_translate_x="56" style_translate_y="#space_md"
+                style_translate_x="48" style_translate_y="#space_md"
                 style_bg_color="#card_bg" style_bg_opa="180" style_radius="18"
                 clickable="true" style_pad_all="0" scrollable="false">
           <bind_flag_if_eq subject="gcode_viewer_mode" flag="hidden" ref_value="0"/>

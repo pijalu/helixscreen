@@ -1687,6 +1687,18 @@ void PrintStatusPanel::on_print_state_changed(PrintJobState job_state) {
             lv_bar_set_value(progress_bar_, 0, LV_ANIM_OFF);
         }
         complete_view_mode_ = false;
+        // Reset toggle icon to default (progress view)
+        if (gcode_viewer_) {
+            lv_obj_t* card = lv_obj_get_parent(gcode_viewer_);
+            if (card) {
+                lv_obj_t* icon_label = lv_obj_find_by_name(card, "btn_view_toggle_icon");
+                if (icon_label) {
+                    const char* icon = lv_xml_get_const(nullptr, "icon_cube");
+                    if (icon)
+                        lv_label_set_text(icon_label, icon);
+                }
+            }
+        }
         spdlog::debug("[{}] Reset progress bar and view toggle for new print", get_name());
     }
 
