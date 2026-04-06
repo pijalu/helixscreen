@@ -372,6 +372,7 @@ void register_xml_components() {
     register_xml("components/panel_widget_print_stats.xml");
     register_xml("components/panel_widget_gcode_console.xml");
     register_xml("components/panel_widget_active_spool.xml");
+    register_xml("components/panel_widget_macros.xml");
     register_xml("components/clog_detection_config_modal.xml");
     register_xml("components/camera_config_modal.xml");
     register_xml("components/buffer_status_modal.xml");
