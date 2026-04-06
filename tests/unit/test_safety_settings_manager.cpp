@@ -16,6 +16,11 @@ using namespace helix;
 TEST_CASE_METHOD(LVGLTestFixture, "SafetySettingsManager default values after init",
                  "[safety_settings]") {
     Config::get_instance();
+    // Reset config keys to defaults so prior test persistence doesn't contaminate
+    Config::get_instance()->set<bool>("/safety/estop_require_confirmation", true);
+    Config::get_instance()->set<bool>("/safety/cancel_escalation_enabled", false);
+    Config::get_instance()->set<int>("/safety/cancel_escalation_timeout_seconds", 30);
+    SafetySettingsManager::instance().deinit_subjects();
     SafetySettingsManager::instance().init_subjects();
 
     SECTION("estop_require_confirmation defaults to true") {

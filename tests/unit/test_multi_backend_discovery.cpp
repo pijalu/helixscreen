@@ -78,6 +78,7 @@ TEST_CASE("PrinterDiscovery: no AMS detected returns empty", "[ams][multi-backen
 TEST_CASE("AmsState: add_backend stores multiple backends", "[ams][multi-backend]") {
     lv_init_safe();
     AmsState& ams = AmsState::instance();
+    ams.clear_backends();
     ams.deinit_subjects();
     ams.init_subjects(false);
 
@@ -98,6 +99,7 @@ TEST_CASE("AmsState: add_backend stores multiple backends", "[ams][multi-backend
 TEST_CASE("AmsState: set_backend replaces all backends", "[ams][multi-backend]") {
     lv_init_safe();
     AmsState& ams = AmsState::instance();
+    ams.clear_backends();
     ams.deinit_subjects();
     ams.init_subjects(false);
 

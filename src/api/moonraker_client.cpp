@@ -263,21 +263,28 @@ void MoonrakerClient::disconnect() {
         spdlog::debug("[Moonraker Client] Disconnecting from WebSocket server");
     }
 
-    // Stop health check timer before teardown
-    stop_health_timer();
-
-    // Disable auto-reconnect BEFORE closing to prevent spurious reconnection attempts
+    // Disable auto-reconnect BEFORE invalidation to prevent spurious reconnection
     setReconnect(nullptr);
 
-    // Close the WebSocket connection FIRST (before replacing callbacks)
-    // This allows the is_destroying_ flag check in callbacks to prevent execution
-    // The callbacks will check is_destroying_ and early-return if true
-    close();
+    // Invalidate lifetime guard so any in-flight or future callbacks on the event loop
+    // thread will see weak_guard.lock() fail and early-return. Then create a fresh guard
+    // for the next connect() call.
+    // NOTE: Do NOT replace onopen/onmessage/onclose with no-op lambdas here — that's a
+    // data race with the event loop thread which may be mid-call on the std::function.
+    // The invalidated weak_ptr is the safe cancellation mechanism.
+    lifetime_guard_.reset();
+    lifetime_guard_ = std::make_shared<bool>(true);
 
-    // Now replace callbacks with no-op lambdas to prevent any late invocations
-    onopen = []() { /* no-op */ };
-    onmessage = [](const std::string&) { /* no-op */ };
-    onclose = []() { /* no-op */ };
+    // Wait for any in-flight callbacks to finish before we modify shared state.
+    // Callbacks hold a shared lock; acquiring exclusive blocks until they complete.
+    {
+        std::unique_lock<std::shared_mutex> lk(callback_lifecycle_mutex_);
+    }
+
+    // Now safe to stop timer and close — no callbacks can restart the timer or
+    // access our state because the lifetime guard is invalidated.
+    stop_health_timer();
+    close();
 
     // Clean up any pending requests (invokes error callbacks)
     tracker_.cleanup_all();

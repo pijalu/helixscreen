@@ -1396,8 +1396,7 @@ TEST_CASE_METHOD(TelemetryTestFixture,
     REQUIRE_FALSE(tm.had_update_restart());
 }
 
-TEST_CASE_METHOD(TelemetryTestFixture,
-                 "Post-update crash: had_update_restart is false by default",
+TEST_CASE_METHOD(TelemetryTestFixture, "Post-update crash: had_update_restart is false by default",
                  "[telemetry][update][crash]") {
     auto& tm = TelemetryManager::instance();
     REQUIRE_FALSE(tm.had_update_restart());
@@ -1483,13 +1482,20 @@ TEST_CASE_METHOD(TelemetryTestFixture, "record_hardware_profile creates valid ev
 
 TEST_CASE_METHOD(TelemetryTestFixture, "record_settings_snapshot creates valid event",
                  "[telemetry][settings]") {
-    TelemetryManager::instance().set_enabled(true);
-    TelemetryManager::instance().record_settings_snapshot();
+    auto& tm = TelemetryManager::instance();
+    tm.set_enabled(true);
+    tm.clear_queue();
+    tm.record_settings_snapshot();
 
-    REQUIRE(TelemetryManager::instance().queue_size() == 1);
+    // Find our settings_snapshot event in the queue. Background threads (e.g., event loop
+    // health timer) may enqueue error_encountered events between clear and snapshot.
+    auto snapshot = tm.get_queue_snapshot();
+    auto it = std::find_if(snapshot.begin(), snapshot.end(), [](const json& e) {
+        return e.value("event", "") == "settings_snapshot";
+    });
+    REQUIRE(it != snapshot.end());
 
-    auto snapshot = TelemetryManager::instance().get_queue_snapshot();
-    auto& event = snapshot[0];
+    auto& event = *it;
 
     CHECK(event["event"] == "settings_snapshot");
     CHECK(event["schema_version"] == TelemetryManager::SCHEMA_VERSION);

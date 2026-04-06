@@ -2,6 +2,7 @@
 
 #include "panel_widget_config.h"
 #include "panel_widget_registry.h"
+#include "theme_manager.h"
 
 #include <algorithm>
 #include <cstdio>
@@ -40,6 +41,13 @@ class TempCwdGuard {
         fs::create_directories(tmp_dir_);
         int rc = chdir(tmp_dir_.c_str());
         (void)rc;
+
+        // Reset breakpoint subject to 0 (tiny) — prior tests may have
+        // initialized it to a different breakpoint index via theme_manager_init
+        lv_subject_t* bp = theme_manager_get_breakpoint_subject();
+        if (bp && bp->type == LV_SUBJECT_TYPE_INT) {
+            lv_subject_set_int(bp, 0);
+        }
     }
 
     ~TempCwdGuard() {

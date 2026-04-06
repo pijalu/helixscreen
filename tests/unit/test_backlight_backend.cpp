@@ -27,6 +27,8 @@ struct TestModeGuard {
 // ============================================================================
 
 TEST_CASE("BacklightBackend supports_hardware_blank defaults to false", "[api][backlight]") {
+    // Ensure test_mode is off (prior tests may have left it enabled)
+    get_runtime_config()->test_mode = false;
     // Factory creates None backend (no hardware). Key invariant: non-Allwinner
     // backends must NOT claim hardware blank support.
     auto backend = BacklightBackend::create();
@@ -35,6 +37,8 @@ TEST_CASE("BacklightBackend supports_hardware_blank defaults to false", "[api][b
 }
 
 TEST_CASE("BacklightBackend factory creates None backend without test mode", "[api][backlight]") {
+    // Ensure test_mode is off (prior tests may have left it enabled)
+    get_runtime_config()->test_mode = false;
     // Without test_mode, on a non-Linux (macOS) host, factory falls through to None
     auto backend = BacklightBackend::create();
     REQUIRE(backend != nullptr);
@@ -173,8 +177,7 @@ TEST_CASE("Sysfs supports_dimming() returns false when max_brightness=1",
     REQUIRE_FALSE(backend->supports_dimming());
 }
 
-TEST_CASE("Binary backlight maps any non-zero brightness to ON",
-          "[api][backlight][sysfs]") {
+TEST_CASE("Binary backlight maps any non-zero brightness to ON", "[api][backlight][sysfs]") {
     FakeSysfsBacklight fake(1); // Binary backlight (GPIO on/off)
     auto backend = BacklightBackend::create_sysfs(fake.base_dir.string());
     REQUIRE(backend->is_available());
@@ -220,8 +223,9 @@ TEST_CASE("None backend supports_dimming() mirrors simulate flag", "[api][backli
     REQUIRE(backend->supports_dimming());
 }
 
-TEST_CASE("None backend supports_dimming() returns false without simulate",
-          "[api][backlight]") {
+TEST_CASE("None backend supports_dimming() returns false without simulate", "[api][backlight]") {
+    // Ensure test_mode is off (prior tests may have left it enabled)
+    get_runtime_config()->test_mode = false;
     // Production None backend: no dimming
     auto backend = BacklightBackend::create();
     REQUIRE(std::string(backend->name()) == "None");

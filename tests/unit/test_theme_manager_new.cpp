@@ -243,6 +243,10 @@ TEST_CASE_METHOD(LVGLTestFixture, "ThemeManager toggles dark mode", "[theme-mana
 TEST_CASE_METHOD(LVGLTestFixture, "Styles update when mode changes",
                  "[theme-manager][mode-change]") {
     auto& tm = ThemeManager::instance();
+    // Reset to clean state: prior tests may have called set_palettes() with
+    // identical light/dark palettes, making dark/light comparison impossible
+    tm.shutdown();
+    tm.set_palettes(ThemePalette{}, ThemePalette{});
     tm.init();
 
     // Ensure we start in dark mode
