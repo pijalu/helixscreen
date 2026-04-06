@@ -458,8 +458,41 @@ void PrintSelectPanel::setup(lv_obj_t* panel, lv_obj_t* parent_screen) {
 
             panel->refresh_in_flight_ = false;
 
+            // Preserve cached metadata from previous file list before replacing.
+            // Without this, all metadata resets on every refresh, causing expensive
+            // metadata re-fetches and metascans on every scroll cycle (8-15s per
+            // file on AD5M). We carry forward the entire old entry for files that
+            // already had metadata fetched, updating only the file listing fields
+            // (size, modified time) from the fresh data.
+            std::unordered_map<std::string, PrintFileData> old_state;
+            for (auto& f : panel->file_list_) {
+                if (f.metadata_fetched) {
+                    old_state.emplace(f.filename, std::move(f));
+                }
+            }
+
             // Move data into panel (now safe - on main thread)
             panel->file_list_ = std::move(c->files);
+
+            // Merge old metadata into new file list
+            for (auto& f : panel->file_list_) {
+                auto it = old_state.find(f.filename);
+                if (it != old_state.end()) {
+                    auto& old = it->second;
+                    // Keep fresh listing data (size, modified time may have changed)
+                    time_t new_modified = f.modified_timestamp;
+                    size_t new_size = f.file_size_bytes;
+                    bool size_changed = (new_size != old.file_size_bytes);
+
+                    if (!size_changed) {
+                        // File unchanged — carry forward all cached metadata
+                        f = std::move(old);
+                        f.modified_timestamp = new_modified;
+                        f.file_size_bytes = new_size;
+                    }
+                    // If size changed, file was re-sliced — let metadata re-fetch
+                }
+            }
 
             panel->apply_sort();
             panel->merge_history_into_file_list(); // Populate history status for each file
@@ -1247,81 +1280,106 @@ void PrintSelectPanel::process_metadata_result(size_t i, const std::string& file
                 // No thumbnail from metadata - try extracting from gcode file directly
                 // This handles USB files where Moonraker can't write .thumbs directory
                 // because the USB mount is read-only.
-                //
-                // Flow:
-                // 1. Download first 100KB of gcode (thumbnails are in header)
-                // 2. Extract embedded base64 thumbnails
-                // 3. Save to cache and update file_list_
-                size_t file_idx = d->index;
-                std::string filename_copy = d->filename;
 
-                // Build the full gcode path for download
-                std::string gcode_path = filename_copy;
-                if (!self->current_path_.empty()) {
-                    gcode_path = self->current_path_ + "/" + filename_copy;
+                // Skip if we already have a thumbnail for this file (avoids re-extracting
+                // 100KB of gcode on every scroll cycle — major perf issue on AD5M)
+                if (!self->file_list_[d->index].thumbnail_path.empty()) {
+                    spdlog::trace("[{}] Skipping gcode extraction for {} (already have thumbnail)",
+                                  self->get_name(), d->filename);
+                } else {
+                    size_t file_idx = d->index;
+                    std::string filename_copy = d->filename;
+
+                    // Build the full gcode path for download
+                    std::string gcode_path = filename_copy;
+                    if (!self->current_path_.empty()) {
+                        gcode_path = self->current_path_ + "/" + filename_copy;
+                    }
+
+                    spdlog::debug("[{}] No thumbnail in metadata for {}, extracting from gcode",
+                                  self->get_name(), gcode_path);
+
+                    // Download first 100KB of gcode (thumbnails are always in header)
+                    constexpr size_t THUMBNAIL_HEADER_SIZE = 100 * 1024;
+
+                    // Create context for prescale callback safety
+                    ThumbnailLoadContext ctx;
+                    ctx.alive = self->thumbnail_alive_;
+                    ctx.generation = &self->nav_generation_;
+                    ctx.captured_gen = self->nav_generation_.load();
+
+                    self->api_->transfers().download_file_partial(
+                        "gcodes", gcode_path, THUMBNAIL_HEADER_SIZE,
+                        // Success callback - extract thumbnails from gcode content
+                        [self, file_idx, filename_copy, gcode_path,
+                         ctx](const std::string& content) {
+                            // Extract thumbnails from gcode content
+                            auto thumbnails =
+                                helix::gcode::extract_thumbnails_from_content(content);
+
+                            if (thumbnails.empty()) {
+                                spdlog::debug("[{}] No embedded thumbnails in {}", self->get_name(),
+                                              gcode_path);
+                                return;
+                            }
+
+                            // Use the largest thumbnail (already sorted largest-first)
+                            const auto& best = thumbnails[0];
+                            spdlog::debug("[{}] Extracted {}x{} thumbnail ({} bytes) from {}",
+                                          self->get_name(), best.width, best.height,
+                                          best.png_data.size(), gcode_path);
+
+                            // Save to cache using the gcode path as identifier
+                            std::string cache_key = gcode_path + "_extracted";
+                            std::string lvgl_path =
+                                get_thumbnail_cache().save_raw_png(cache_key, best.png_data);
+
+                            if (lvgl_path.empty()) {
+                                spdlog::warn("[{}] Failed to cache extracted thumbnail for {}",
+                                             self->get_name(), gcode_path);
+                                return;
+                            }
+
+                            // Feed through prescale pipeline for .bin generation
+                            // (avoids runtime 300x300→160x160 scaling on every frame)
+                            get_thumbnail_cache().fetch_for_card_view(
+                                self->api_, cache_key, ctx,
+                                [self, file_idx, filename_copy](const std::string& optimized) {
+                                    struct ExtractedThumbUpdate {
+                                        PrintSelectPanel* panel;
+                                        size_t index;
+                                        std::string filename;
+                                        std::string lvgl_path;
+                                    };
+                                    helix::ui::queue_update<ExtractedThumbUpdate>(
+                                        std::make_unique<ExtractedThumbUpdate>(ExtractedThumbUpdate{
+                                            self, file_idx, filename_copy, optimized}),
+                                        [](ExtractedThumbUpdate* t) {
+                                            if (t->index < t->panel->file_list_.size() &&
+                                                t->panel->file_list_[t->index].filename ==
+                                                    t->filename) {
+                                                t->panel->file_list_[t->index].thumbnail_path =
+                                                    t->lvgl_path;
+                                                spdlog::info(
+                                                    "[{}] Extracted thumbnail for {}: {}",
+                                                    t->panel->get_name(), t->filename,
+                                                    t->panel->file_list_[t->index].thumbnail_path);
+                                                t->panel->schedule_view_refresh();
+                                            }
+                                        });
+                                },
+                                [self, filename_copy](const std::string& error) {
+                                    spdlog::warn(
+                                        "[{}] Failed to prescale extracted thumbnail for {}: {}",
+                                        self->get_name(), filename_copy, error);
+                                });
+                        },
+                        // Error callback - silent fail (file might be too small or inaccessible)
+                        [self, gcode_path](const MoonrakerError& error) {
+                            spdlog::debug("[{}] Failed to download gcode header for {}: {}",
+                                          self->get_name(), gcode_path, error.message);
+                        });
                 }
-
-                spdlog::debug("[{}] No thumbnail in metadata for {}, extracting from gcode",
-                              self->get_name(), gcode_path);
-
-                // Download first 100KB of gcode (thumbnails are always in header)
-                constexpr size_t THUMBNAIL_HEADER_SIZE = 100 * 1024;
-                self->api_->transfers().download_file_partial(
-                    "gcodes", gcode_path, THUMBNAIL_HEADER_SIZE,
-                    // Success callback - extract thumbnails from gcode content
-                    [self, file_idx, filename_copy, gcode_path](const std::string& content) {
-                        // Extract thumbnails from gcode content
-                        auto thumbnails = helix::gcode::extract_thumbnails_from_content(content);
-
-                        if (thumbnails.empty()) {
-                            spdlog::debug("[{}] No embedded thumbnails in {}", self->get_name(),
-                                          gcode_path);
-                            return;
-                        }
-
-                        // Use the largest thumbnail (already sorted largest-first)
-                        const auto& best = thumbnails[0];
-                        spdlog::debug("[{}] Extracted {}x{} thumbnail ({} bytes) from {}",
-                                      self->get_name(), best.width, best.height,
-                                      best.png_data.size(), gcode_path);
-
-                        // Save to cache using the gcode path as identifier
-                        std::string cache_key = gcode_path + "_extracted";
-                        std::string lvgl_path =
-                            get_thumbnail_cache().save_raw_png(cache_key, best.png_data);
-
-                        if (lvgl_path.empty()) {
-                            spdlog::warn("[{}] Failed to cache extracted thumbnail for {}",
-                                         self->get_name(), gcode_path);
-                            return;
-                        }
-
-                        // Update file_list_ on main thread
-                        struct ExtractedThumbUpdate {
-                            PrintSelectPanel* panel;
-                            size_t index;
-                            std::string filename;
-                            std::string lvgl_path;
-                        };
-                        helix::ui::queue_update<ExtractedThumbUpdate>(
-                            std::make_unique<ExtractedThumbUpdate>(
-                                ExtractedThumbUpdate{self, file_idx, filename_copy, lvgl_path}),
-                            [](ExtractedThumbUpdate* t) {
-                                if (t->index < t->panel->file_list_.size() &&
-                                    t->panel->file_list_[t->index].filename == t->filename) {
-                                    t->panel->file_list_[t->index].thumbnail_path = t->lvgl_path;
-                                    spdlog::info("[{}] Extracted thumbnail for {}: {}",
-                                                 t->panel->get_name(), t->filename,
-                                                 t->panel->file_list_[t->index].thumbnail_path);
-                                    t->panel->schedule_view_refresh();
-                                }
-                            });
-                    },
-                    // Error callback - silent fail (file might be too small or inaccessible)
-                    [self, gcode_path](const MoonrakerError& error) {
-                        spdlog::debug("[{}] Failed to download gcode header for {}: {}",
-                                      self->get_name(), gcode_path, error.message);
-                    });
             }
 
             // Schedule debounced view refresh

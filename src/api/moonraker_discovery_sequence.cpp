@@ -353,46 +353,37 @@ void MoonrakerDiscoverySequence::continue_discovery_objects() {
                                                                      flip_h, flip_v);
                         } else {
                             // No Moonraker webcam config — probe local camera endpoints
-                            // Wrapped in try/catch because std::thread creation can fail
-                            // on resource-constrained ARM devices (AD5M crash #724).
+                            // Run synchronously on the WS callback instead of spawning a
+                            // detached std::thread. Thread creation crashes on resource-
+                            // constrained ARM devices (AD5M #724) — std::terminate is
+                            // called even with try/catch, likely a GCC 10.3/ARM TLS bug.
+                            // Synchronous probing blocks the WS thread for up to 6s (3
+                            // URLs × 2s timeout) but only runs once during discovery.
                             spdlog::info(
                                 "[Discovery] No Moonraker webcam, probing local camera...");
-                            try {
-                                std::thread([]() {
-                                    static const char* probe_urls[] = {
-                                        "http://127.0.0.1:8080/?action=snapshot",
-                                        "http://127.0.0.1:8081/?action=snapshot",
-                                        "http://127.0.0.1:4408/webcam/?action=snapshot",
-                                    };
-                                    for (const char* url : probe_urls) {
-                                        spdlog::info("[Discovery] Probing camera at {}", url);
-                                        auto req = std::make_shared<HttpRequest>();
-                                        req->method = HTTP_GET;
-                                        req->url = url;
-                                        req->timeout = 2;
-                                        auto resp = requests::request(req);
-                                        if (resp) {
-                                            spdlog::info("[Discovery] Probe {} → status {}", url,
-                                                         static_cast<int>(resp->status_code));
-                                        } else {
-                                            spdlog::info("[Discovery] Probe {} → no response", url);
-                                        }
-                                        if (resp && resp->status_code == 200) {
-                                            spdlog::info("[Discovery] Local camera found at {}",
-                                                         url);
-                                            get_printer_state().set_webcam_available(true, "", url,
-                                                                                     false, false);
-                                            return;
-                                        }
-                                    }
-                                    spdlog::info("[Discovery] No local camera found");
-                                    get_printer_state().set_webcam_available(false);
-                                }).detach();
-                            } catch (const std::system_error& e) {
-                                spdlog::error(
-                                    "[Discovery] Camera probe thread creation failed: {} — "
-                                    "skipping camera detection",
-                                    e.what());
+                            bool found = false;
+                            static const char* probe_urls[] = {
+                                "http://127.0.0.1:8080/?action=snapshot",
+                                "http://127.0.0.1:8081/?action=snapshot",
+                                "http://127.0.0.1:4408/webcam/?action=snapshot",
+                            };
+                            for (const char* url : probe_urls) {
+                                spdlog::info("[Discovery] Probing camera at {}", url);
+                                auto req = std::make_shared<HttpRequest>();
+                                req->method = HTTP_GET;
+                                req->url = url;
+                                req->timeout = 2;
+                                auto resp = requests::request(req);
+                                if (resp && resp->status_code == 200) {
+                                    spdlog::info("[Discovery] Local camera found at {}", url);
+                                    get_printer_state().set_webcam_available(true, "", url, false,
+                                                                             false);
+                                    found = true;
+                                    break;
+                                }
+                            }
+                            if (!found) {
+                                spdlog::info("[Discovery] No local camera found");
                                 get_printer_state().set_webcam_available(false);
                             }
                         }
