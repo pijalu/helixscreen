@@ -375,6 +375,7 @@ class PrintStatusPanel : public OverlayBase {
     // Track whether G-code was successfully loaded into the viewer
     // When false (memory check failed), don't switch to viewer mode on state changes
     bool gcode_loaded_ = false;
+    bool complete_view_mode_ = false;
 
     // Track whether panel is currently active (visible and receiving updates)
     // Used to load gcode immediately if already active when print starts
@@ -466,6 +467,7 @@ class PrintStatusPanel : public OverlayBase {
     static void on_cancel_clicked(lv_event_t* e);
     static void on_reprint_clicked(lv_event_t* e);
     static void on_objects_clicked(lv_event_t* e);
+    static void on_view_toggle_clicked(lv_event_t* e);
 
     // Static resize callback (registered with ui_resize_handler)
     static void on_resize_static();

@@ -30,6 +30,7 @@
 #include "display_settings_manager.h"
 #include "filament_sensor_manager.h"
 #include "format_utils.h"
+#include "helix-xml/src/xml/lv_xml.h"
 #include "injection_point_manager.h"
 #include "led/led_controller.h"
 #include "lvgl/src/others/translation/lv_translation.h"
@@ -372,6 +373,7 @@ void PrintStatusPanel::init_subjects() {
         {"on_print_temp_bed_clicked", on_bed_card_clicked},
         {"on_print_temp_chamber_clicked", on_chamber_card_clicked},
         {"on_print_status_objects", on_objects_clicked},
+        {"on_view_toggle", on_view_toggle_clicked},
         {"on_print_status_dismiss_overlay", on_dismiss_overlay_clicked},
     });
 
@@ -776,6 +778,7 @@ void PrintStatusPanel::on_ui_destroyed() {
     resize_registered_ = false;
     is_active_ = false;
     gcode_loaded_ = false;
+    complete_view_mode_ = false;
     // Clear dedup guards so thumbnail + gcode reload isn't blocked on next open.
     // loaded_thumbnail_filename_ gates the outer set_filename() idempotency check;
     // requested_gcode_filename_ gates the inner gcode download dedup;
@@ -1429,6 +1432,56 @@ void PrintStatusPanel::on_objects_clicked(lv_event_t* e) {
     LVGL_SAFE_EVENT_CB_END();
 }
 
+void PrintStatusPanel::on_view_toggle_clicked(lv_event_t* e) {
+    LVGL_SAFE_EVENT_CB_BEGIN("[PrintStatusPanel] on_view_toggle_clicked");
+    (void)e;
+    auto& panel = get_global_print_status_panel();
+
+    panel.complete_view_mode_ = !panel.complete_view_mode_;
+
+    if (panel.complete_view_mode_) {
+        // Complete view: show all layers solid (no ghost)
+        if (panel.gcode_viewer_) {
+            ui_gcode_viewer_set_print_progress(panel.gcode_viewer_, -1);
+        }
+    } else {
+        // Progress view: restore current layer with ghost
+        if (panel.gcode_viewer_) {
+            int current_layer =
+                lv_subject_get_int(panel.printer_state_.get_print_layer_current_subject());
+            int total_layers =
+                lv_subject_get_int(panel.printer_state_.get_print_layer_total_subject());
+            int viewer_max_layer = ui_gcode_viewer_get_max_layer(panel.gcode_viewer_);
+            int viewer_layer = current_layer;
+            if (total_layers > 0 && viewer_max_layer > 0) {
+                viewer_layer = (current_layer * viewer_max_layer) / total_layers;
+            }
+            ui_gcode_viewer_set_print_progress(panel.gcode_viewer_, viewer_layer);
+        }
+    }
+
+    // Update icon — search within the gcode viewer's parent card
+    lv_obj_t* icon_label = nullptr;
+    if (panel.gcode_viewer_) {
+        lv_obj_t* card = lv_obj_get_parent(panel.gcode_viewer_);
+        if (card) {
+            icon_label = lv_obj_find_by_name(card, "btn_view_toggle_icon");
+        }
+    }
+    if (icon_label) {
+        // Resolve global string since lv_label_set_text does not resolve # prefix
+        const char* icon_text = panel.complete_view_mode_ ? lv_xml_get_const(nullptr, "icon_layers")
+                                                          : lv_xml_get_const(nullptr, "icon_cube");
+        if (icon_text) {
+            lv_label_set_text(icon_label, icon_text);
+        }
+    }
+
+    spdlog::debug("[PrintStatusPanel] View toggle: {}",
+                  panel.complete_view_mode_ ? "complete" : "progress");
+    LVGL_SAFE_EVENT_CB_END();
+}
+
 void PrintStatusPanel::on_resize_static() {
     // Use global instance for resize callback (registered without user_data)
     if (g_print_status_panel) {
@@ -1629,9 +1682,12 @@ void PrintStatusPanel::on_print_state_changed(PrintJobState job_state) {
         runout_handler_->on_print_state_changed(result.old_state, result.new_state);
     }
 
-    if (result.should_reset_progress_bar && progress_bar_) {
-        lv_bar_set_value(progress_bar_, 0, LV_ANIM_OFF);
-        spdlog::debug("[{}] Reset progress bar for new print", get_name());
+    if (result.should_reset_progress_bar) {
+        if (progress_bar_) {
+            lv_bar_set_value(progress_bar_, 0, LV_ANIM_OFF);
+        }
+        complete_view_mode_ = false;
+        spdlog::debug("[{}] Reset progress bar and view toggle for new print", get_name());
     }
 
     if (result.should_clear_excluded_objects && exclude_manager_) {
@@ -1791,7 +1847,8 @@ void PrintStatusPanel::on_print_layer_changed(int current_layer) {
     lv_subject_copy_string(&layer_text_subject_, layer_text_buf_);
 
     // Update G-code viewer ghost layer if panel is active and viewer is visible
-    if (is_active_ && gcode_viewer_ && !lv_obj_has_flag(gcode_viewer_, LV_OBJ_FLAG_HIDDEN)) {
+    if (is_active_ && gcode_viewer_ && !lv_obj_has_flag(gcode_viewer_, LV_OBJ_FLAG_HIDDEN) &&
+        !complete_view_mode_) {
         // Map from Moonraker layer count (e.g., 240) to viewer layer count (e.g., 2912)
         // The slicer metadata and parsed G-code often have different layer counts
         int viewer_max_layer = ui_gcode_viewer_get_max_layer(gcode_viewer_);

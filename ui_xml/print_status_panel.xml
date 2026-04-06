@@ -96,6 +96,19 @@
           <event_cb trigger="clicked" callback="on_print_status_objects"/>
         </lv_obj>
 
+        <!-- View mode toggle: switches between progress (ghost layers) and complete view -->
+        <lv_obj name="btn_view_toggle"
+                width="36" height="36" align="top_left"
+                style_translate_x="56" style_translate_y="#space_md"
+                style_bg_color="#card_bg" style_bg_opa="180" style_radius="18"
+                clickable="true" style_pad_all="0" scrollable="false">
+          <bind_flag_if_eq subject="gcode_viewer_mode" flag="hidden" ref_value="0"/>
+          <lv_label name="btn_view_toggle_icon"
+                    text="#icon_cube" style_text_font="mdi_icons_24"
+                    style_text_color="#text_muted" align="center"/>
+          <event_cb trigger="clicked" callback="on_view_toggle"/>
+        </lv_obj>
+
         <!-- PRINT COMPLETE OVERLAY: Shown when print finishes successfully -->
         <!-- Hidden by default. Binding removes hidden ONLY when outcome == COMPLETE (1) -->
         <!-- Tap to dismiss overlay and interact with 3D viewer underneath -->
