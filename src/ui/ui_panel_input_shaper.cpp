@@ -263,6 +263,7 @@ void InputShaperPanel::init_subjects() {
     UI_MANAGED_SUBJECT_STRING(is_measuring_step_label_, is_measuring_step_label_buf_, "",
                               "is_measuring_step_label", subjects_);
     UI_MANAGED_SUBJECT_INT(is_measuring_progress_, 0, "is_measuring_progress", subjects_);
+    UI_MANAGED_SUBJECT_INT(is_measuring_has_progress_, 0, "is_measuring_has_progress", subjects_);
 
     // Per-axis result display subjects
     UI_MANAGED_SUBJECT_INT(is_results_has_x_, 0, "is_results_has_x", subjects_);
@@ -274,6 +275,10 @@ void InputShaperPanel::init_subjects() {
     // Recommended row index per axis (-1 = none highlighted)
     UI_MANAGED_SUBJECT_INT(is_x_recommended_row_, -1, "is_x_recommended_row", subjects_);
     UI_MANAGED_SUBJECT_INT(is_y_recommended_row_, -1, "is_y_recommended_row", subjects_);
+
+    // Number of shapers per axis (controls table row visibility via bind_flag_if_le)
+    UI_MANAGED_SUBJECT_INT(is_x_num_shapers_, 0, "is_x_num_shapers", subjects_);
+    UI_MANAGED_SUBJECT_INT(is_y_num_shapers_, 0, "is_y_num_shapers", subjects_);
 
     UI_MANAGED_SUBJECT_STRING(is_result_x_shaper_, is_result_x_shaper_buf_, "",
                               "is_result_x_shaper", subjects_);
@@ -558,13 +563,13 @@ void InputShaperPanel::start_with_preflight(char axis) {
     lv_subject_copy_string(&is_measuring_axis_label_, is_measuring_axis_label_buf_);
     lv_subject_copy_string(&is_measuring_step_label_, "");
     lv_subject_set_int(&is_measuring_progress_, 0);
+    lv_subject_set_int(&is_measuring_has_progress_, 0);
 
     calibration_lifetime_.invalidate();
     auto cal_tok = calibration_lifetime_.token();
 
     set_state(State::MEASURING);
-    spdlog::info(
-        "[InputShaper] Starting pre-flight noise check before {} axis calibration", axis);
+    spdlog::info("[InputShaper] Starting pre-flight noise check before {} axis calibration", axis);
 
     auto tok = lifetime_.token();
     calibrator_->check_accelerometer(
@@ -573,14 +578,14 @@ void InputShaperPanel::start_with_preflight(char axis) {
                 return;
             if (cal_tok.expired())
                 return;
-            on_preflight_complete(noise_level);
+            tok.defer([this, noise_level]() { on_preflight_complete(noise_level); });
         },
         [this, tok, cal_tok](const std::string& err) {
             if (tok.expired())
                 return;
             if (cal_tok.expired())
                 return;
-            on_preflight_error(err);
+            tok.defer([this, err]() { on_preflight_error(err); });
         });
 }
 
@@ -646,6 +651,7 @@ void InputShaperPanel::start_calibration(char axis) {
     }
 
     lv_subject_set_int(&is_measuring_progress_, 0);
+    lv_subject_set_int(&is_measuring_has_progress_, 0);
     set_state(State::MEASURING);
     spdlog::info("[InputShaper] Starting calibration for axis {}", axis);
 
@@ -660,11 +666,11 @@ void InputShaperPanel::start_calibration(char axis) {
                 if (tok.expired())
                     return;
                 if (cal_tok.expired()) {
-                    spdlog::debug(
-                        "[InputShaper] Discarding stale progress callback");
+                    spdlog::debug("[InputShaper] Discarding stale progress callback");
                     return;
                 }
                 lv_subject_set_int(&is_measuring_progress_, percent);
+                lv_subject_set_int(&is_measuring_has_progress_, 1);
                 if (percent < 55) {
                     snprintf(is_measuring_step_label_buf_, sizeof(is_measuring_step_label_buf_),
                              "Measuring vibrations... %d%%", percent);
@@ -688,8 +694,7 @@ void InputShaperPanel::start_calibration(char axis) {
                 if (tok.expired())
                     return;
                 if (cal_tok.expired()) {
-                    spdlog::debug(
-                        "[InputShaper] Discarding stale result callback");
+                    spdlog::debug("[InputShaper] Discarding stale result callback");
                     return;
                 }
                 on_calibration_result(result);
@@ -700,8 +705,7 @@ void InputShaperPanel::start_calibration(char axis) {
                 if (tok.expired())
                     return;
                 if (cal_tok.expired()) {
-                    spdlog::debug(
-                        "[InputShaper] Discarding stale error callback");
+                    spdlog::debug("[InputShaper] Discarding stale error callback");
                     return;
                 }
                 on_calibration_error(err);
@@ -1055,6 +1059,8 @@ void InputShaperPanel::clear_results() {
     lv_subject_set_int(&is_results_has_y_, 0);
     lv_subject_set_int(&is_x_recommended_row_, -1);
     lv_subject_set_int(&is_y_recommended_row_, -1);
+    lv_subject_set_int(&is_x_num_shapers_, 0);
+    lv_subject_set_int(&is_y_num_shapers_, 0);
 
     // Clear comparison table subjects
     for (size_t i = 0; i < MAX_SHAPERS; i++) {
@@ -1178,7 +1184,9 @@ void InputShaperPanel::populate_axis_result(char axis, const InputShaperResult& 
     // Populate comparison table subjects
     auto& cmp = (axis == 'X') ? x_cmp_ : y_cmp_;
     auto& recommended_row = (axis == 'X') ? is_x_recommended_row_ : is_y_recommended_row_;
+    auto& num_shapers = (axis == 'X') ? is_x_num_shapers_ : is_y_num_shapers_;
     lv_subject_set_int(&recommended_row, -1); // Reset
+    lv_subject_set_int(&num_shapers, static_cast<int>(result.all_shapers.size()));
 
     for (size_t i = 0; i < MAX_SHAPERS; i++) {
         if (i < result.all_shapers.size()) {
@@ -1685,11 +1693,9 @@ void InputShaperPanel::handle_print_test_pattern_clicked() {
         [tok]() {
             if (tok.expired())
                 return;
-            spdlog::info(
-                "[InputShaper] Tuning tower enabled - start a print to test calibration");
+            spdlog::info("[InputShaper] Tuning tower enabled - start a print to test calibration");
             ToastManager::instance().show(
-                ToastSeverity::INFO, lv_tr("Tuning tower enabled - start a print to test"),
-                3000);
+                ToastSeverity::INFO, lv_tr("Tuning tower enabled - start a print to test"), 3000);
         },
         [tok](const MoonrakerError& err) {
             if (tok.expired())

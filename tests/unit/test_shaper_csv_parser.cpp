@@ -112,11 +112,11 @@ TEST_CASE("Valid CSV parse with all columns", "[shaper_csv]") {
         }
     }
 
-    SECTION("spot-check shaper curve values") {
-        // zv at row 0 = 0.001
-        CHECK(data.shaper_curves[0].values[0] == Catch::Approx(0.001f));
-        // mzv at row 9 (50 Hz) = 0.285
-        CHECK(data.shaper_curves[1].values[9] == Catch::Approx(0.285f));
+    SECTION("spot-check shaper curve values (transfer function * raw PSD)") {
+        // zv at row 0: transfer=0.001, raw_psd=1.234e-03 → 1.234e-06
+        CHECK(data.shaper_curves[0].values[0] == Catch::Approx(0.001f * 1.234e-03f));
+        // mzv at row 9 (50 Hz): transfer=0.285, raw_psd=0.350 → 0.09975
+        CHECK(data.shaper_curves[1].values[9] == Catch::Approx(0.285f * 0.350f));
     }
 }
 
@@ -199,19 +199,21 @@ TEST_CASE("Shaper header parsing for complex names", "[shaper_csv]") {
     CHECK(data.shaper_curves[0].name == "2hump_ei");
     CHECK(data.shaper_curves[0].frequency == Catch::Approx(71.8f));
     CHECK(data.shaper_curves[0].values.size() == 1);
-    CHECK(data.shaper_curves[0].values[0] == Catch::Approx(0.005f));
+    // transfer=0.005, raw_psd=0.001 → 5e-06
+    CHECK(data.shaper_curves[0].values[0] == Catch::Approx(0.005f * 0.001f));
 
     CHECK(data.shaper_curves[1].name == "3hump_ei");
     CHECK(data.shaper_curves[1].frequency == Catch::Approx(89.6f));
     CHECK(data.shaper_curves[1].values.size() == 1);
-    CHECK(data.shaper_curves[1].values[0] == Catch::Approx(0.003f));
+    // transfer=0.003, raw_psd=0.001 → 3e-06
+    CHECK(data.shaper_curves[1].values[0] == Catch::Approx(0.003f * 0.001f));
 }
 
 TEST_CASE("Parser detects shaper columns without marker", "[shaper_csv]") {
     // Real Klipper format has no shapers: marker - shaper columns follow psd_xyz directly
     TempCsvFile csv("freq,psd_x,psd_y,psd_z,psd_xyz,zv(59.6),mzv(55.0),ei(67.2)\n"
-                    "0.0,0.0,0.0,0.0,0.0,0.123,0.456,0.789\n"
-                    "5.0,0.001,0.002,0.001,0.004,0.100,0.200,0.300\n");
+                    "5.0,0.500,0.600,0.300,1.400,0.123,0.456,0.789\n"
+                    "10.0,1.000,0.800,0.500,2.300,0.100,0.200,0.300\n");
     auto data = parse_shaper_csv(csv.path, 'X');
 
     REQUIRE(data.shaper_curves.size() == 3);
@@ -222,9 +224,9 @@ TEST_CASE("Parser detects shaper columns without marker", "[shaper_csv]") {
     CHECK(data.shaper_curves[2].name == "ei");
     CHECK(data.shaper_curves[2].frequency == Catch::Approx(67.2f));
 
-    // Verify shaper values are parsed correctly
+    // Verify shaper values = transfer_function * raw_psd
     REQUIRE(data.shaper_curves[0].values.size() == 2);
-    CHECK(data.shaper_curves[0].values[0] == Catch::Approx(0.123f));
-    CHECK(data.shaper_curves[0].values[1] == Catch::Approx(0.100f));
-    CHECK(data.shaper_curves[2].values[0] == Catch::Approx(0.789f));
+    CHECK(data.shaper_curves[0].values[0] == Catch::Approx(0.123f * 0.500f)); // zv row 0
+    CHECK(data.shaper_curves[0].values[1] == Catch::Approx(0.100f * 1.000f)); // zv row 1
+    CHECK(data.shaper_curves[2].values[0] == Catch::Approx(0.789f * 0.500f)); // ei row 0
 }

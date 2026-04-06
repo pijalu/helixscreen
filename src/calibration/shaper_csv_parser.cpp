@@ -163,14 +163,16 @@ ShaperCsvData parse_shaper_csv(const std::string& csv_path, char axis) {
             result.raw_psd.push_back(0.0f);
         }
 
-        // Parse shaper values
+        // Parse shaper values — CSV contains transfer function coefficients (0.0-1.0),
+        // multiply by raw PSD to get the shaped (attenuated) PSD for charting
+        float raw_psd_val = result.raw_psd.back();
         for (size_t si = 0; si < shaper_columns.size(); ++si) {
             int col = shaper_columns[si].col_index;
             float val = 0.0f;
             if (col < static_cast<int>(fields.size()) && !fields[col].empty()) {
                 val = std::strtof(fields[col].c_str(), &end);
             }
-            result.shaper_curves[si].values.push_back(val);
+            result.shaper_curves[si].values.push_back(val * raw_psd_val);
         }
     }
 

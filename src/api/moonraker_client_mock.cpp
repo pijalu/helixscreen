@@ -4064,8 +4064,9 @@ void write_mock_shaper_csv(const std::string& path, char axis) {
             } else {
                 attenuation = 1.0f;
             }
-            float shaper_val = psd_xyz * attenuation;
-            ofs << "," << shaper_val;
+            // Write transfer function coefficient (0-1), matching real Klipper CSV format.
+            // The CSV parser multiplies by raw PSD to get shaped PSD for charting.
+            ofs << "," << attenuation;
         }
         ofs << "\n";
     }

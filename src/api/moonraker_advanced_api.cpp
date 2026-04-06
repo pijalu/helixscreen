@@ -3,14 +3,15 @@
 
 #include "moonraker_advanced_api.h"
 
-#include "accel_sensor_manager.h"
 #include "ui_error_reporting.h"
 #include "ui_notification.h"
 
+#include "accel_sensor_manager.h"
 #include "json_utils.h"
 #include "moonraker_api.h"
 #include "shaper_csv_parser.h"
 #include "spdlog/spdlog.h"
+
 #include <spdlog/fmt/fmt.h>
 
 #include <algorithm>
@@ -1086,8 +1087,9 @@ class InputShaperCollector : public std::enable_shared_from_this<InputShaperColl
 
     void parse_shaper_line(const std::string& line) {
         // Kalico bleeding-edge format (both smoothers and discrete shapers):
-        // Fitted smoother 'smooth_mzv' frequency = 42.6 Hz (vibration score = 1.23%, smoothing ~= 0.085, combined score = 1.234e-02)
-        // Fitted shaper 'mzv' frequency = 36.7 Hz (vibration score = 1.23%, smoothing ~= 0.140, combined score = 2.345e-02)
+        // Fitted smoother 'smooth_mzv' frequency = 42.6 Hz (vibration score = 1.23%, smoothing ~=
+        // 0.085, combined score = 1.234e-02) Fitted shaper 'mzv' frequency = 36.7 Hz (vibration
+        // score = 1.23%, smoothing ~= 0.140, combined score = 2.345e-02)
         static const std::regex kalico_regex(
             R"(Fitted (?:shaper|smoother) '([\w]+)' frequency = ([\d.]+) Hz \(vibration score = ([\d.]+)%, smoothing ~= ([\d.]+))");
 
@@ -1116,8 +1118,9 @@ class InputShaperCollector : public std::enable_shared_from_this<InputShaperColl
                           fit.frequency, fit.vibrations);
             shaper_fits_.push_back(fit);
 
-            // Emit progress in CALCULATING phase: 55-95% range, dynamic per shaper count
-            int calc_progress = 55 + static_cast<int>(shaper_fits_.size()) * 40 / 11;
+            // Emit progress in CALCULATING phase: 55-95% range, 8% per shaper fitted
+            // Standard Klipper has 5 shapers (reaches 95%), Kalico may have 10+ (caps at 95%)
+            int calc_progress = 55 + static_cast<int>(shaper_fits_.size()) * 8;
             calc_progress = std::min(calc_progress, 95);
             char status[64];
             snprintf(status, sizeof(status), "Fitted %s at %.1f Hz", fit.type.c_str(),
@@ -1148,7 +1151,8 @@ class InputShaperCollector : public std::enable_shared_from_this<InputShaperColl
         // Try new Klipper format first: "Recommended shaper_type_x = mzv, shaper_freq_x = 53.8 Hz"
         static const std::regex rec_new(
             R"(Recommended shaper_type_\w+ = (\w+), shaper_freq_\w+ = ([\d.]+) Hz)");
-        // Kalico smoother format: "Recommended smoother_type_x = smooth_mzv, smoother_freq_x = 42.6 Hz"
+        // Kalico smoother format: "Recommended smoother_type_x = smooth_mzv, smoother_freq_x = 42.6
+        // Hz"
         static const std::regex rec_smoother(
             R"(Recommended smoother_type_\w+ = (\w+), smoother_freq_\w+ = ([\d.]+) Hz)");
         // Legacy format: "Recommended shaper is mzv @ 36.7 Hz"
@@ -1478,8 +1482,7 @@ class BedMeshProgressCollector : public std::enable_shared_from_this<BedMeshProg
 
     BedMeshProgressCollector(MoonrakerClient& client, ProgressCallback on_progress,
                              MoonrakerAdvancedAPI::SuccessCallback on_complete,
-                             MoonrakerAdvancedAPI::ErrorCallback on_error,
-                             int expected_probes = 0)
+                             MoonrakerAdvancedAPI::ErrorCallback on_error, int expected_probes = 0)
         : client_(client), on_progress_(std::move(on_progress)),
           on_complete_(std::move(on_complete)), on_error_(std::move(on_error)),
           expected_probes_(expected_probes) {}
@@ -1592,7 +1595,8 @@ class BedMeshProgressCollector : public std::enable_shared_from_this<BedMeshProg
         // Fallback: count "probe at X,Y is z=Z" lines (standard Klipper probe
         // output).  Some firmware variants don't emit the "Probing point X/Y"
         // progress line but do emit per-probe result lines.
-        if (line.find("probe at ") != std::string::npos && line.find(" is z=") != std::string::npos) {
+        if (line.find("probe at ") != std::string::npos &&
+            line.find(" is z=") != std::string::npos) {
             probe_at_count_++;
             spdlog::debug("[BedMeshProgressCollector] Probe result line #{} (expected: {})",
                           probe_at_count_, expected_probes_);
@@ -1652,8 +1656,7 @@ class BedMeshProgressCollector : public std::enable_shared_from_this<BedMeshProg
 
 void MoonrakerAdvancedAPI::start_bed_mesh_calibrate(BedMeshProgressCallback on_progress,
                                                     SuccessCallback on_complete,
-                                                    ErrorCallback on_error,
-                                                    int expected_probes) {
+                                                    ErrorCallback on_error, int expected_probes) {
     spdlog::info("[MoonrakerAPI] Starting bed mesh calibration with progress tracking "
                  "(expected_probes={})",
                  expected_probes);
@@ -2333,8 +2336,7 @@ void MoonrakerAdvancedAPI::detect_belt_hardware(BeltHardwareCallback on_complete
                 // Use AccelSensorManager as the single source of truth for
                 // accelerometer detection (discovers from configfile.config,
                 // handles all chip types including beacon)
-                hw.has_adxl =
-                    helix::sensors::AccelSensorManager::instance().has_sensors();
+                hw.has_adxl = helix::sensors::AccelSensorManager::instance().has_sensors();
 
                 for (const auto& obj : objects) {
                     std::string name = obj.get<std::string>();
@@ -2356,8 +2358,9 @@ void MoonrakerAdvancedAPI::detect_belt_hardware(BeltHardwareCallback on_complete
             } catch (const std::exception& e) {
                 spdlog::error("[MoonrakerAPI] Failed to parse object list: {}", e.what());
                 if (on_error)
-                    on_error(MoonrakerError{MoonrakerErrorType::JSON_RPC_ERROR, 0,
-                                            fmt::format("Failed to parse printer objects: {}", e.what())});
+                    on_error(MoonrakerError{
+                        MoonrakerErrorType::JSON_RPC_ERROR, 0,
+                        fmt::format("Failed to parse printer objects: {}", e.what())});
                 return;
             }
 
@@ -2371,7 +2374,8 @@ void MoonrakerAdvancedAPI::detect_belt_hardware(BeltHardwareCallback on_complete
                         if (config_response.contains("result") &&
                             config_response["result"].contains("status") &&
                             config_response["result"]["status"].contains("configfile") &&
-                            config_response["result"]["status"]["configfile"].contains("settings")) {
+                            config_response["result"]["status"]["configfile"].contains(
+                                "settings")) {
                             const auto& settings =
                                 config_response["result"]["status"]["configfile"]["settings"];
 
@@ -2392,8 +2396,7 @@ void MoonrakerAdvancedAPI::detect_belt_hardware(BeltHardwareCallback on_complete
                         }
 
                         spdlog::info("[MoonrakerAPI] Belt HW kinematics: {} (type={})",
-                                     hw.kinematics_name,
-                                     static_cast<int>(hw.kinematics));
+                                     hw.kinematics_name, static_cast<int>(hw.kinematics));
 
                         if (on_complete)
                             on_complete(hw);
@@ -2479,12 +2482,10 @@ void MoonrakerAdvancedAPI::set_strobe_frequency(const std::string& pin_name, flo
         // Turn off strobe
         spdlog::info("[MoonrakerAPI] Turning off strobe LED on pin {}", pin_name);
         std::string gcode = fmt::format("SET_PIN PIN={} VALUE=0", pin_name);
-        api_.execute_gcode(
-            gcode, on_success,
-            [on_error](const MoonrakerError& err) {
-                if (on_error)
-                    on_error(err);
-            });
+        api_.execute_gcode(gcode, on_success, [on_error](const MoonrakerError& err) {
+            if (on_error)
+                on_error(err);
+        });
         return;
     }
 
@@ -2495,17 +2496,15 @@ void MoonrakerAdvancedAPI::set_strobe_frequency(const std::string& pin_name, flo
     std::string gcode =
         fmt::format("SET_PIN PIN={} VALUE=0.5 CYCLE_TIME={:.6f}", pin_name, cycle_time);
 
-    api_.execute_gcode(
-        gcode, on_success,
-        [on_error](const MoonrakerError& err) {
-            if (on_error)
-                on_error(err);
-        });
+    api_.execute_gcode(gcode, on_success, [on_error](const MoonrakerError& err) {
+        if (on_error)
+            on_error(err);
+    });
 }
 
-void MoonrakerAdvancedAPI::download_accel_csv(
-    const std::string& name, std::function<void(const std::string&)> on_complete,
-    ErrorCallback on_error) {
+void MoonrakerAdvancedAPI::download_accel_csv(const std::string& name,
+                                              std::function<void(const std::string&)> on_complete,
+                                              ErrorCallback on_error) {
     spdlog::debug("[MoonrakerAPI] Downloading accel CSV for: {}", name);
 
     // List files in data_store directory to find the CSV.
@@ -2590,9 +2589,9 @@ void MoonrakerAdvancedAPI::download_accel_csv(
                     } catch (const std::exception& e) {
                         spdlog::error("[MoonrakerAPI] Failed to read CSV data: {}", e.what());
                         if (on_error)
-                            on_error(MoonrakerError{MoonrakerErrorType::JSON_RPC_ERROR, 0,
-                                                    fmt::format("Failed to read CSV data: {}",
-                                                                e.what())});
+                            on_error(MoonrakerError{
+                                MoonrakerErrorType::JSON_RPC_ERROR, 0,
+                                fmt::format("Failed to read CSV data: {}", e.what())});
                     }
                 },
                 [on_error](const MoonrakerError& err) {

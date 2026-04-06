@@ -5,9 +5,9 @@
 
 #include "ui_frequency_response_chart.h"
 
+#include "async_lifetime_guard.h"
 #include "calibration_types.h" // For InputShaperResult
 #include "input_shaper_calibrator.h"
-#include "async_lifetime_guard.h"
 #include "overlay_base.h"
 #include "platform_capabilities.h"
 #include "subject_managed_panel.h"
@@ -256,6 +256,8 @@ class InputShaperPanel : public OverlayBase {
     char is_measuring_step_label_buf_[64] = {};
     lv_subject_t is_measuring_step_label_{};
     lv_subject_t is_measuring_progress_{};
+    lv_subject_t
+        is_measuring_has_progress_{}; // 0=indeterminate (spinner), 1=determinate (progress bar)
 
     // Per-axis result subjects
     lv_subject_t is_results_has_x_{};
@@ -267,6 +269,10 @@ class InputShaperPanel : public OverlayBase {
     // Recommended row index per axis (for table highlight)
     lv_subject_t is_x_recommended_row_{};
     lv_subject_t is_y_recommended_row_{};
+
+    // Number of shapers per axis (controls table row visibility)
+    lv_subject_t is_x_num_shapers_{};
+    lv_subject_t is_y_num_shapers_{};
 
     // X axis result display
     char is_result_x_shaper_buf_[48] = {};
@@ -293,7 +299,8 @@ class InputShaperPanel : public OverlayBase {
     // Calibrate All flow tracking
     bool calibrate_all_mode_ = false; ///< True when doing X+Y sequential calibration
     InputShaperResult x_result_;      ///< Stored X result when doing Calibrate All
-    helix::AsyncLifetimeGuard calibration_lifetime_; ///< Generation guard to discard stale calibration callbacks
+    helix::AsyncLifetimeGuard
+        calibration_lifetime_; ///< Generation guard to discard stale calibration callbacks
 
     // Results data
     char current_axis_ = 'X';

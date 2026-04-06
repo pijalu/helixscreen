@@ -122,17 +122,14 @@
           <text_small bind_text="is_measuring_step_label" text="" style_text_align="center"/>
           <text_small text="Do not touch the printer during calibration" translation_tag="Do not touch the printer during calibration" style_text_align="center" style_text_color="#text_muted"/>
 
-          <!-- Animated spinner (visible before sweep starts, invisible after — preserves layout) -->
-          <spinner size="lg" style_opa="255" style_opa:checked="0">
-            <bind_state_if_not_eq subject="is_measuring_progress" state="checked" ref_value="0"/>
+          <!-- Spinner during indeterminate phases (checking accel, homing) -->
+          <spinner size="lg">
+            <bind_flag_if_eq subject="is_measuring_has_progress" flag="hidden" ref_value="1"/>
           </spinner>
 
-          <!-- Progress bar (invisible until sweep starts, preserves layout) -->
-          <progress_bar name="calibration_progress_bar"
-                  width="80%"
-                  bind_value="is_measuring_progress"
-                  style_opa="0" style_opa:checked="255">
-            <bind_state_if_not_eq subject="is_measuring_progress" state="checked" ref_value="0"/>
+          <!-- Progress bar during determinate phases (sweep, analysis) -->
+          <progress_bar name="calibration_progress_bar" width="80%" bind_value="is_measuring_progress">
+            <bind_flag_if_eq subject="is_measuring_has_progress" flag="hidden" ref_value="0"/>
           </progress_bar>
         </lv_obj>
         <!-- Abort button (bottom, like PID panel) -->
@@ -150,12 +147,12 @@
         <bind_flag_if_not_eq subject="input_shaper_state" flag="hidden" ref_value="2"/>
         <!-- Scrollable results area -->
         <lv_obj width="100%" flex_grow="1" style_pad_all="0" flex_flow="column"
-                style_pad_gap="#space_md" scrollable="true">
+                style_pad_gap="#space_sm" scrollable="true">
           <!-- Success header -->
           <lv_obj width="100%" height="content" style_pad_all="0" flex_flow="row"
-                  style_flex_main_place="center" style_flex_cross_place="center" style_pad_gap="#space_sm" scrollable="false">
-            <icon src="check_circle" size="md" variant="success"/>
-            <text_heading text="Calibration Complete!" translation_tag="Calibration Complete!"/>
+                  style_flex_main_place="center" style_flex_cross_place="center" style_pad_gap="#space_xs" scrollable="false">
+            <icon src="check_circle" size="sm" variant="success"/>
+            <text_body text="Calibration Complete!" translation_tag="Calibration Complete!"/>
           </lv_obj>
         <!-- X Axis Result Card -->
         <lv_obj name="result_card_x"
@@ -409,6 +406,7 @@
                     flex_flow="row" style_flex_cross_place="center"
                     style_bg_opa="0" style_bg_opa:checked="40" style_bg_color:checked="#primary" style_radius:checked="4"
                     scrollable="false">
+              <bind_flag_if_le subject="is_x_num_shapers" flag="hidden" ref_value="5"/>
               <bind_state_if_eq subject="is_x_recommended_row" state="checked" ref_value="5"/>
               <text_small width="28%" bind_text="is_x_cmp_5_type"/>
               <text_small width="22%" bind_text="is_x_cmp_5_freq"/>
@@ -422,6 +420,7 @@
                     flex_flow="row" style_flex_cross_place="center"
                     style_bg_opa="0" style_bg_opa:checked="40" style_bg_color:checked="#primary" style_radius:checked="4"
                     scrollable="false">
+              <bind_flag_if_le subject="is_x_num_shapers" flag="hidden" ref_value="6"/>
               <bind_state_if_eq subject="is_x_recommended_row" state="checked" ref_value="6"/>
               <text_small width="28%" bind_text="is_x_cmp_6_type"/>
               <text_small width="22%" bind_text="is_x_cmp_6_freq"/>
@@ -435,6 +434,7 @@
                     flex_flow="row" style_flex_cross_place="center"
                     style_bg_opa="0" style_bg_opa:checked="40" style_bg_color:checked="#primary" style_radius:checked="4"
                     scrollable="false">
+              <bind_flag_if_le subject="is_x_num_shapers" flag="hidden" ref_value="7"/>
               <bind_state_if_eq subject="is_x_recommended_row" state="checked" ref_value="7"/>
               <text_small width="28%" bind_text="is_x_cmp_7_type"/>
               <text_small width="22%" bind_text="is_x_cmp_7_freq"/>
@@ -448,6 +448,7 @@
                     flex_flow="row" style_flex_cross_place="center"
                     style_bg_opa="0" style_bg_opa:checked="40" style_bg_color:checked="#primary" style_radius:checked="4"
                     scrollable="false">
+              <bind_flag_if_le subject="is_x_num_shapers" flag="hidden" ref_value="8"/>
               <bind_state_if_eq subject="is_x_recommended_row" state="checked" ref_value="8"/>
               <text_small width="28%" bind_text="is_x_cmp_8_type"/>
               <text_small width="22%" bind_text="is_x_cmp_8_freq"/>
@@ -461,6 +462,7 @@
                     flex_flow="row" style_flex_cross_place="center"
                     style_bg_opa="0" style_bg_opa:checked="40" style_bg_color:checked="#primary" style_radius:checked="4"
                     scrollable="false">
+              <bind_flag_if_le subject="is_x_num_shapers" flag="hidden" ref_value="9"/>
               <bind_state_if_eq subject="is_x_recommended_row" state="checked" ref_value="9"/>
               <text_small width="28%" bind_text="is_x_cmp_9_type"/>
               <text_small width="22%" bind_text="is_x_cmp_9_freq"/>
@@ -474,6 +476,7 @@
                     flex_flow="row" style_flex_cross_place="center"
                     style_bg_opa="0" style_bg_opa:checked="40" style_bg_color:checked="#primary" style_radius:checked="4"
                     scrollable="false">
+              <bind_flag_if_le subject="is_x_num_shapers" flag="hidden" ref_value="10"/>
               <bind_state_if_eq subject="is_x_recommended_row" state="checked" ref_value="10"/>
               <text_small width="28%" bind_text="is_x_cmp_10_type"/>
               <text_small width="22%" bind_text="is_x_cmp_10_freq"/>
@@ -737,6 +740,7 @@
                     flex_flow="row" style_flex_cross_place="center"
                     style_bg_opa="0" style_bg_opa:checked="40" style_bg_color:checked="#primary" style_radius:checked="4"
                     scrollable="false">
+              <bind_flag_if_le subject="is_y_num_shapers" flag="hidden" ref_value="5"/>
               <bind_state_if_eq subject="is_y_recommended_row" state="checked" ref_value="5"/>
               <text_small width="28%" bind_text="is_y_cmp_5_type"/>
               <text_small width="22%" bind_text="is_y_cmp_5_freq"/>
@@ -750,6 +754,7 @@
                     flex_flow="row" style_flex_cross_place="center"
                     style_bg_opa="0" style_bg_opa:checked="40" style_bg_color:checked="#primary" style_radius:checked="4"
                     scrollable="false">
+              <bind_flag_if_le subject="is_y_num_shapers" flag="hidden" ref_value="6"/>
               <bind_state_if_eq subject="is_y_recommended_row" state="checked" ref_value="6"/>
               <text_small width="28%" bind_text="is_y_cmp_6_type"/>
               <text_small width="22%" bind_text="is_y_cmp_6_freq"/>
@@ -763,6 +768,7 @@
                     flex_flow="row" style_flex_cross_place="center"
                     style_bg_opa="0" style_bg_opa:checked="40" style_bg_color:checked="#primary" style_radius:checked="4"
                     scrollable="false">
+              <bind_flag_if_le subject="is_y_num_shapers" flag="hidden" ref_value="7"/>
               <bind_state_if_eq subject="is_y_recommended_row" state="checked" ref_value="7"/>
               <text_small width="28%" bind_text="is_y_cmp_7_type"/>
               <text_small width="22%" bind_text="is_y_cmp_7_freq"/>
@@ -776,6 +782,7 @@
                     flex_flow="row" style_flex_cross_place="center"
                     style_bg_opa="0" style_bg_opa:checked="40" style_bg_color:checked="#primary" style_radius:checked="4"
                     scrollable="false">
+              <bind_flag_if_le subject="is_y_num_shapers" flag="hidden" ref_value="8"/>
               <bind_state_if_eq subject="is_y_recommended_row" state="checked" ref_value="8"/>
               <text_small width="28%" bind_text="is_y_cmp_8_type"/>
               <text_small width="22%" bind_text="is_y_cmp_8_freq"/>
@@ -789,6 +796,7 @@
                     flex_flow="row" style_flex_cross_place="center"
                     style_bg_opa="0" style_bg_opa:checked="40" style_bg_color:checked="#primary" style_radius:checked="4"
                     scrollable="false">
+              <bind_flag_if_le subject="is_y_num_shapers" flag="hidden" ref_value="9"/>
               <bind_state_if_eq subject="is_y_recommended_row" state="checked" ref_value="9"/>
               <text_small width="28%" bind_text="is_y_cmp_9_type"/>
               <text_small width="22%" bind_text="is_y_cmp_9_freq"/>
@@ -802,6 +810,7 @@
                     flex_flow="row" style_flex_cross_place="center"
                     style_bg_opa="0" style_bg_opa:checked="40" style_bg_color:checked="#primary" style_radius:checked="4"
                     scrollable="false">
+              <bind_flag_if_le subject="is_y_num_shapers" flag="hidden" ref_value="10"/>
               <bind_state_if_eq subject="is_y_recommended_row" state="checked" ref_value="10"/>
               <text_small width="28%" bind_text="is_y_cmp_10_type"/>
               <text_small width="22%" bind_text="is_y_cmp_10_freq"/>
