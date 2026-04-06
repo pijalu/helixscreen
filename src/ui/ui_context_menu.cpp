@@ -3,6 +3,8 @@
 
 #include "ui_context_menu.h"
 
+#include "ui_utils.h"
+
 #include <spdlog/spdlog.h>
 
 namespace helix::ui {
@@ -88,11 +90,8 @@ void ContextMenu::hide() {
     if (!menu_)
         return;
 
-    // Use async delete since we may be called during event processing
-    if (lv_is_initialized()) {
-        lv_obj_delete_async(menu_);
-    }
-    menu_ = nullptr;
+    // Use deferred delete since we may be called during event processing
+    helix::ui::safe_delete_deferred(menu_);
     item_index_ = -1;
     spdlog::debug("[ContextMenu] hide()");
 }

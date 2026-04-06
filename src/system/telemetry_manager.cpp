@@ -459,7 +459,7 @@ bool TelemetryManager::is_enabled() const {
 // =============================================================================
 
 void TelemetryManager::record_session() {
-    if (!enabled_.load() || !initialized_.load()) {
+    if (shutting_down_.load() || !initialized_.load() || !enabled_.load()) {
         return;
     }
 
@@ -472,7 +472,7 @@ void TelemetryManager::record_print_outcome(const std::string& outcome, int dura
                                             int phases_completed, float filament_used_mm,
                                             const std::string& filament_type, int nozzle_temp,
                                             int bed_temp) {
-    if (!enabled_.load() || !initialized_.load()) {
+    if (shutting_down_.load() || !initialized_.load() || !enabled_.load()) {
         return;
     }
 
@@ -485,7 +485,7 @@ void TelemetryManager::record_print_outcome(const std::string& outcome, int dura
 void TelemetryManager::record_update_failure(const std::string& reason, const std::string& version,
                                              const std::string& platform, int http_code,
                                              int64_t file_size, int exit_code) {
-    if (!enabled_.load() || !initialized_.load()) {
+    if (shutting_down_.load() || !initialized_.load() || !enabled_.load()) {
         return;
     }
 
@@ -497,7 +497,7 @@ void TelemetryManager::record_update_failure(const std::string& reason, const st
 }
 
 void TelemetryManager::record_memory_snapshot(const std::string& trigger) {
-    if (!enabled_.load() || !initialized_.load()) {
+    if (shutting_down_.load() || !initialized_.load() || !enabled_.load()) {
         return;
     }
 
@@ -507,7 +507,7 @@ void TelemetryManager::record_memory_snapshot(const std::string& trigger) {
 }
 
 void TelemetryManager::record_memory_warning(const helix::MemoryWarningEvent& warning) {
-    if (!enabled_.load() || !initialized_.load()) {
+    if (shutting_down_.load() || !initialized_.load() || !enabled_.load()) {
         return;
     }
 
@@ -518,7 +518,7 @@ void TelemetryManager::record_memory_warning(const helix::MemoryWarningEvent& wa
 }
 
 void TelemetryManager::record_hardware_profile() {
-    if (!enabled_.load() || !initialized_.load()) {
+    if (shutting_down_.load() || !initialized_.load() || !enabled_.load()) {
         return;
     }
 
@@ -528,7 +528,7 @@ void TelemetryManager::record_hardware_profile() {
 }
 
 void TelemetryManager::record_settings_snapshot() {
-    if (!enabled_.load() || !initialized_.load()) {
+    if (shutting_down_.load() || !initialized_.load() || !enabled_.load()) {
         return;
     }
 
@@ -576,7 +576,7 @@ void TelemetryManager::notify_widget_interaction(const std::string& widget_id) {
 }
 
 void TelemetryManager::record_panel_usage() {
-    if (!enabled_.load() || !initialized_.load()) {
+    if (shutting_down_.load() || !initialized_.load() || !enabled_.load()) {
         return;
     }
 
@@ -651,7 +651,7 @@ void TelemetryManager::notify_klippy_state_changed(int state) {
 }
 
 void TelemetryManager::record_connection_stability() {
-    if (!enabled_.load() || !initialized_.load()) {
+    if (shutting_down_.load() || !initialized_.load() || !enabled_.load()) {
         return;
     }
 
@@ -1976,7 +1976,7 @@ void TelemetryManager::record_print_start_context(const std::string& source, boo
                                                   int estimated_duration_sec,
                                                   const std::string& slicer, int tool_count_used,
                                                   bool ams_active) {
-    if (!enabled_.load() || !initialized_.load()) {
+    if (shutting_down_.load() || !initialized_.load() || !enabled_.load()) {
         return;
     }
 

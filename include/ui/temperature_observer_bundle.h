@@ -155,16 +155,21 @@ template <typename Panel> class TemperatureObserverBundle {
                             NozzleTargetHandler&& on_nozzle_target) {
         clear(); // Release any existing observers before rebinding
 
-        auto* temp_subj = state.get_extruder_temp_subject(extruder_name);
-        auto* target_subj = state.get_extruder_target_subject(extruder_name);
+        // Per-extruder subjects are dynamic — require SubjectLifetime tokens
+        // to prevent use-after-free when subjects are reinitialized on reconnect.
+        auto* temp_subj = state.get_extruder_temp_subject(extruder_name, nozzle_temp_lifetime_);
+        auto* target_subj =
+            state.get_extruder_target_subject(extruder_name, nozzle_target_lifetime_);
 
         if (temp_subj) {
             nozzle_temp_observer_ = observe_int_sync<Panel>(
-                temp_subj, panel, std::forward<NozzleTempHandler>(on_nozzle_temp));
+                temp_subj, panel, std::forward<NozzleTempHandler>(on_nozzle_temp),
+                nozzle_temp_lifetime_);
         }
         if (target_subj) {
             nozzle_target_observer_ = observe_int_sync<Panel>(
-                target_subj, panel, std::forward<NozzleTargetHandler>(on_nozzle_target));
+                target_subj, panel, std::forward<NozzleTargetHandler>(on_nozzle_target),
+                nozzle_target_lifetime_);
         }
     }
 
@@ -174,6 +179,10 @@ template <typename Panel> class TemperatureObserverBundle {
      * Safe to call multiple times. Observers are released via RAII.
      */
     void clear() {
+        // Lifetime MUST be reset BEFORE observer — observer's weak_ptr only
+        // expires after the shared_ptr (SubjectLifetime) is destroyed.
+        nozzle_temp_lifetime_.reset();
+        nozzle_target_lifetime_.reset();
         nozzle_temp_observer_ = ObserverGuard();
         nozzle_target_observer_ = ObserverGuard();
         bed_temp_observer_ = ObserverGuard();
@@ -190,6 +199,11 @@ template <typename Panel> class TemperatureObserverBundle {
     }
 
   private:
+    // Lifetimes MUST be declared before observers — C++ destroys members in
+    // reverse declaration order, so observers are destroyed first (removing
+    // themselves from the subject's list) while the lifetime token is still alive.
+    SubjectLifetime nozzle_temp_lifetime_;
+    SubjectLifetime nozzle_target_lifetime_;
     ObserverGuard nozzle_temp_observer_;
     ObserverGuard nozzle_target_observer_;
     ObserverGuard bed_temp_observer_;

@@ -4,6 +4,8 @@
 
 #include "screensaver_starfield.h"
 
+#include "ui_utils.h"
+
 #include <spdlog/spdlog.h>
 
 #include <algorithm>
@@ -73,8 +75,7 @@ void StarfieldScreensaver::start() {
     draw_buf_ = static_cast<uint8_t*>(lv_malloc(buf_size));
     if (!draw_buf_) {
         spdlog::error("[Screensaver] Failed to allocate {}KB draw buffer", buf_size / 1024);
-        lv_obj_delete_async(overlay_);
-        overlay_ = nullptr;
+        helix::ui::safe_delete_deferred(overlay_);
         canvas_ = nullptr;
         return;
     }
@@ -90,7 +91,8 @@ void StarfieldScreensaver::start() {
     timer_ = lv_timer_create(frame_timer_cb, FRAME_PERIOD_MS, this);
 
     active_ = true;
-    spdlog::debug("[Screensaver] Starfield started ({}x{}, {} stars)", screen_w_, screen_h_, NUM_STARS);
+    spdlog::debug("[Screensaver] Starfield started ({}x{}, {} stars)", screen_w_, screen_h_,
+                  NUM_STARS);
 }
 
 void StarfieldScreensaver::stop() {
@@ -159,12 +161,14 @@ void StarfieldScreensaver::recycle_star(Star& star) {
 
 void StarfieldScreensaver::frame_timer_cb(lv_timer_t* timer) {
     auto* self = static_cast<StarfieldScreensaver*>(lv_timer_get_user_data(timer));
-    if (!self || !self->active_) return;
+    if (!self || !self->active_)
+        return;
     self->render_frame();
 }
 
 void StarfieldScreensaver::render_frame() {
-    if (!canvas_ || !draw_buf_) return;
+    if (!canvas_ || !draw_buf_)
+        return;
 
     auto* pixels = reinterpret_cast<uint32_t*>(draw_buf_);
     int w = screen_w_;
@@ -172,13 +176,15 @@ void StarfieldScreensaver::render_frame() {
 
     // Erase previous star positions (incremental clear — avoids full-buffer memset)
     for (auto& star : stars_) {
-        if (star.prev_size == 0) continue;
+        if (star.prev_size == 0)
+            continue;
         int sx = star.prev_sx;
         int sy = star.prev_sy;
         int sz = star.prev_size;
         for (int dy = 0; dy < sz; dy++) {
             int py = sy + dy;
-            if (py < 0 || py >= h) continue;
+            if (py < 0 || py >= h)
+                continue;
             int row = py * w;
             for (int dx = 0; dx < sz; dx++) {
                 int px = sx + dx;
@@ -223,20 +229,24 @@ void StarfieldScreensaver::render_frame() {
         uint8_t r, g, b;
         if (star.z < COLOR_THRESHOLD) {
             float tint_mix = (COLOR_THRESHOLD - star.z) / COLOR_THRESHOLD;
-            r = static_cast<uint8_t>(bright_f * (1.0f - tint_mix + tint_mix * star.tint_r / 255.0f));
-            g = static_cast<uint8_t>(bright_f * (1.0f - tint_mix + tint_mix * star.tint_g / 255.0f));
-            b = static_cast<uint8_t>(bright_f * (1.0f - tint_mix + tint_mix * star.tint_b / 255.0f));
+            r = static_cast<uint8_t>(bright_f *
+                                     (1.0f - tint_mix + tint_mix * star.tint_r / 255.0f));
+            g = static_cast<uint8_t>(bright_f *
+                                     (1.0f - tint_mix + tint_mix * star.tint_g / 255.0f));
+            b = static_cast<uint8_t>(bright_f *
+                                     (1.0f - tint_mix + tint_mix * star.tint_b / 255.0f));
         } else {
             r = g = b = static_cast<uint8_t>(bright_f);
         }
 
         // Write pixel(s) directly to canvas buffer (ARGB8888)
-        uint32_t pixel = PIXEL_BLACK | (static_cast<uint32_t>(r) << 16) |
-                         (static_cast<uint32_t>(g) << 8) | b;
+        uint32_t pixel =
+            PIXEL_BLACK | (static_cast<uint32_t>(r) << 16) | (static_cast<uint32_t>(g) << 8) | b;
 
         for (int dy = 0; dy < size; dy++) {
             int py = isy + dy;
-            if (py < 0 || py >= h) continue;
+            if (py < 0 || py >= h)
+                continue;
             int row = py * w;
             for (int dx = 0; dx < size; dx++) {
                 int px = isx + dx;

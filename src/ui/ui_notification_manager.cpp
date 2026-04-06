@@ -63,10 +63,7 @@ void NotificationManager::notification_history_clicked([[maybe_unused]] lv_event
     // where event_head is guaranteed NULL, preventing lv_event_mark_deleted from
     // corrupting the LVGL event linked list (issue #190, previously #179).
     if (mgr.notification_panel_obj_) {
-        lv_obj_t* old_panel = mgr.notification_panel_obj_;
-        mgr.notification_panel_obj_ = nullptr;
-        helix::ui::defocus_tree(old_panel);
-        lv_obj_delete_async(old_panel);
+        helix::ui::safe_delete_deferred(mgr.notification_panel_obj_);
     }
 
     // Now create XML component

@@ -653,7 +653,8 @@ void GridEditMode::remove_selected_widget() {
         config_->delete_entry(widget_id);
     } else {
         // Use page-scoped entry access instead of set_enabled() which only operates on page 0
-        config_->page_entries_mut(static_cast<size_t>(page_index_))[static_cast<size_t>(config_index)]
+        config_
+            ->page_entries_mut(static_cast<size_t>(page_index_))[static_cast<size_t>(config_index)]
             .enabled = false;
     }
 
@@ -904,7 +905,8 @@ bool GridEditMode::is_selected_widget_resizable() const {
     if (cfg_idx < 0) {
         return false;
     }
-    const auto& entry = config_->page_entries(static_cast<size_t>(page_index_))[static_cast<size_t>(cfg_idx)];
+    const auto& entry =
+        config_->page_entries(static_cast<size_t>(page_index_))[static_cast<size_t>(cfg_idx)];
     const auto* def = find_widget_def(entry.id);
     return def && def->is_scalable();
 }
@@ -1075,7 +1077,8 @@ void GridEditMode::handle_drag_start(lv_event_t* /*e*/) {
         return;
     }
 
-    const auto& entry = config_->page_entries(static_cast<size_t>(page_index_))[static_cast<size_t>(cfg_idx)];
+    const auto& entry =
+        config_->page_entries(static_cast<size_t>(page_index_))[static_cast<size_t>(cfg_idx)];
     spdlog::debug("[GridEditMode] handle_drag_start: cfg_idx={} id='{}' col={} row={} "
                   "colspan={} rowspan={} has_grid={}",
                   cfg_idx, entry.id, entry.col, entry.row, entry.colspan, entry.rowspan,
@@ -1400,7 +1403,10 @@ void GridEditMode::handle_drag_end(lv_event_t* /*e*/) {
     lv_obj_t* was_selected = selected_;
     std::string moved_id;
     if (drag_cfg_idx_ >= 0) {
-        moved_id = config_->page_entries(static_cast<size_t>(page_index_))[static_cast<size_t>(drag_cfg_idx_)].id;
+        moved_id =
+            config_
+                ->page_entries(static_cast<size_t>(page_index_))[static_cast<size_t>(drag_cfg_idx_)]
+                .id;
     }
     cleanup_drag_state();
 
@@ -1562,7 +1568,8 @@ void GridEditMode::handle_resize_move(lv_event_t* /*e*/) {
     if (cfg_idx < 0) {
         return;
     }
-    const auto& entry = config_->page_entries(static_cast<size_t>(page_index_))[static_cast<size_t>(cfg_idx)];
+    const auto& entry =
+        config_->page_entries(static_cast<size_t>(page_index_))[static_cast<size_t>(cfg_idx)];
     int pre_clamp_c = result.colspan;
     int pre_clamp_r = result.rowspan;
     auto [clamped_c, clamped_r] = clamp_span(entry.id, result.colspan, result.rowspan);
@@ -1621,11 +1628,7 @@ void GridEditMode::handle_resize_move(lv_event_t* /*e*/) {
 void GridEditMode::handle_resize_end(lv_event_t* /*e*/) {
     if (!selected_ || !container_ || !config_) {
         resizing_ = false;
-        if (resize_preview_) {
-            lv_obj_add_flag(resize_preview_, LV_OBJ_FLAG_HIDDEN);
-            lv_obj_delete_async(resize_preview_);
-            resize_preview_ = nullptr;
-        }
+        helix::ui::safe_delete_deferred(resize_preview_);
         return;
     }
 
@@ -1672,7 +1675,8 @@ void GridEditMode::handle_resize_end(lv_event_t* /*e*/) {
     bool did_resize = false;
 
     if (cfg_idx >= 0) {
-        const auto& entry = config_->page_entries(static_cast<size_t>(page_index_))[static_cast<size_t>(cfg_idx)];
+        const auto& entry =
+            config_->page_entries(static_cast<size_t>(page_index_))[static_cast<size_t>(cfg_idx)];
         auto [clamped_c, clamped_r] = clamp_span(entry.id, result.colspan, result.rowspan);
         result.colspan = clamped_c;
         result.rowspan = clamped_r;
@@ -1717,11 +1721,7 @@ void GridEditMode::handle_resize_end(lv_event_t* /*e*/) {
     } else {
         // Snap back: clean up previews and restore selection
         lv_obj_t* was_selected = selected_;
-        if (resize_preview_) {
-            lv_obj_add_flag(resize_preview_, LV_OBJ_FLAG_HIDDEN);
-            lv_obj_delete_async(resize_preview_);
-            resize_preview_ = nullptr;
-        }
+        helix::ui::safe_delete_deferred(resize_preview_);
         destroy_snap_preview();
         resizing_ = false;
         resize_edge_ = ResizeEdge::None;
@@ -1961,11 +1961,7 @@ void GridEditMode::commit_resize_with_snap(const ResizeResult& result) {
         resize_preview_ = nullptr; // Ownership transferred to animation
     } else {
         // No animation: clean up and rebuild immediately
-        if (resize_preview_) {
-            lv_obj_add_flag(resize_preview_, LV_OBJ_FLAG_HIDDEN);
-            lv_obj_delete_async(resize_preview_);
-            resize_preview_ = nullptr;
-        }
+        helix::ui::safe_delete_deferred(resize_preview_);
         do_rebuild();
     }
 }
@@ -2419,8 +2415,7 @@ void GridEditMode::place_widget_from_catalog(const std::string& widget_id) {
         // Widget not in this page's entries — add a new entry.
         // This happens for multi-instance widgets (user-created) and for any widget
         // being placed on a non-default page (pages beyond page 0 start empty).
-        mutable_entries.push_back(
-            {widget_id, true, {}, place_col, place_row, colspan, rowspan});
+        mutable_entries.push_back({widget_id, true, {}, place_col, place_row, colspan, rowspan});
         spdlog::info("[GridEditMode] Created new entry '{}' on page {}", widget_id, page_index_);
     }
 
