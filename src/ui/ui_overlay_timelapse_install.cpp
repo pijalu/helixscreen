@@ -209,6 +209,15 @@ void TimelapseInstallOverlay::step_check_webcam() {
         return;
     }
 
+    // If discovery already found a webcam (e.g. via local endpoint probing on
+    // devices like AD5M that don't configure Moonraker's webcam list), skip
+    // the API query and proceed directly.
+    if (get_printer_state().has_webcam()) {
+        spdlog::info("[{}] Webcam already detected by discovery, skipping API check", get_name());
+        step_check_plugin();
+        return;
+    }
+
     auto tok = lifetime_.token();
     api_->timelapse().get_webcam_list(
         [this, tok](const std::vector<WebcamInfo>& webcams) {
@@ -221,8 +230,7 @@ void TimelapseInstallOverlay::step_check_webcam() {
                     return;
                 if (empty) {
                     set_status(lv_tr("No webcam detected.\nA webcam is required for timelapse."));
-                    show_action_button(lv_tr("Close"),
-                                       []() { NavigationManager::instance().go_back(); });
+                    show_action_button(lv_tr("Check Again"), [this]() { step_check_webcam(); });
                     return;
                 }
                 spdlog::info("[{}] Found {} webcam(s)", get_name(), count);
@@ -237,7 +245,7 @@ void TimelapseInstallOverlay::step_check_webcam() {
                 if (!wizard_active_)
                     return;
                 set_status(lv_tr("Could not check webcam status.\nCheck printer connection."));
-                show_action_button(lv_tr("Retry"), [this]() { step_check_webcam(); });
+                show_action_button(lv_tr("Check Again"), [this]() { step_check_webcam(); });
             });
         });
 }

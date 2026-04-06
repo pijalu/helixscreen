@@ -1280,6 +1280,11 @@ class PrinterState {
                               const std::string& snapshot_url = "", bool flip_h = false,
                               bool flip_v = false);
 
+    /// True if at least one enabled webcam has been detected
+    bool has_webcam() const {
+        return lv_subject_get_int(capabilities_state_.get_printer_has_webcam_subject()) == 1;
+    }
+
     /// Get MJPEG stream URL of first enabled webcam
     const std::string& get_webcam_stream_url() const {
         return capabilities_state_.get_webcam_stream_url();
