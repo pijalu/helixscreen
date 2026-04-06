@@ -61,13 +61,12 @@ PrintStatusWidget::PrintStatusWidget() : printer_state_(get_printer_state()) {
         lv_subject_init_int(&column_mode_subject_, 0);
         lv_xml_register_subject(nullptr, "print_status_column_mode", &column_mode_subject_);
         column_mode_subject_initialized_ = true;
-        StaticSubjectRegistry::instance().register_deinit(
-            "PrintStatusWidgetSubjects", []() {
-                if (column_mode_subject_initialized_ && lv_is_initialized()) {
-                    lv_subject_deinit(&column_mode_subject_);
-                    column_mode_subject_initialized_ = false;
-                }
-            });
+        StaticSubjectRegistry::instance().register_deinit("PrintStatusWidgetSubjects", []() {
+            if (column_mode_subject_initialized_ && lv_is_initialized()) {
+                lv_subject_deinit(&column_mode_subject_);
+                column_mode_subject_initialized_ = false;
+            }
+        });
     }
 }
 
@@ -829,19 +828,21 @@ void PrintStatusWidget::show_configure_picker() {
 
     // Create checkbox rows for each toggle option
     struct Option {
+        const char* name; // lv_obj name for lookup in apply_picker_state()
         const char* label;
         bool checked;
     };
     Option options[] = {
-        {"Title", show_title_},
-        {"Print Files", show_print_files_},
-        {"Reprint Last", show_reprint_last_},
-        {"Recent Prints", show_recent_prints_},
-        {"Job Queue", show_job_queue_},
+        {"opt_title", "Title", show_title_},
+        {"opt_print_files", "Print Files", show_print_files_},
+        {"opt_reprint_last", "Reprint Last", show_reprint_last_},
+        {"opt_recent_prints", "Recent Prints", show_recent_prints_},
+        {"opt_job_queue", "Job Queue", show_job_queue_},
     };
 
     for (const auto& opt : options) {
         lv_obj_t* row = lv_obj_create(option_list);
+        lv_obj_set_name(row, opt.name);
         lv_obj_set_width(row, LV_PCT(100));
         lv_obj_set_height(row, LV_SIZE_CONTENT);
         lv_obj_set_style_pad_all(row, space_sm, 0);
@@ -948,26 +949,26 @@ void PrintStatusWidget::apply_picker_state() {
     if (!option_list)
         return;
 
-    // Read checkbox states in order: Title, Print Files, Reprint Last, Recent Prints, Job Queue
-    bool values[5] = {true, true, true, true, true};
-    uint32_t count = lv_obj_get_child_count(option_list);
-    for (uint32_t i = 0; i < count && i < 5; ++i) {
-        lv_obj_t* row = lv_obj_get_child(option_list, static_cast<int32_t>(i));
+    // Read checkbox states by named rows (not positional index)
+    auto read_checkbox = [&](const char* row_name) -> bool {
+        lv_obj_t* row = lv_obj_find_by_name(option_list, row_name);
+        if (!row)
+            return true;
         uint32_t row_count = lv_obj_get_child_count(row);
         for (uint32_t j = 0; j < row_count; ++j) {
             lv_obj_t* child = lv_obj_get_child(row, static_cast<int32_t>(j));
             if (lv_obj_check_type(child, &lv_checkbox_class)) {
-                values[i] = lv_obj_has_state(child, LV_STATE_CHECKED);
-                break;
+                return lv_obj_has_state(child, LV_STATE_CHECKED);
             }
         }
-    }
+        return true;
+    };
 
-    show_title_ = values[0];
-    show_print_files_ = values[1];
-    show_reprint_last_ = values[2];
-    show_recent_prints_ = values[3];
-    show_job_queue_ = values[4];
+    show_title_ = read_checkbox("opt_title");
+    show_print_files_ = read_checkbox("opt_print_files");
+    show_reprint_last_ = read_checkbox("opt_reprint_last");
+    show_recent_prints_ = read_checkbox("opt_recent_prints");
+    show_job_queue_ = read_checkbox("opt_job_queue");
 
     // Persist
     nlohmann::json new_config = config_;
