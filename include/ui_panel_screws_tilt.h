@@ -162,9 +162,9 @@ class ScrewsTiltPanel : public OverlayBase {
     State state_ = State::IDLE;
     void set_state(State new_state);
 
-
     // Command helpers
     void start_probing();
+    void start_screws_tilt_command();
     void cancel_probing();
 
     // UI setup (called by create())

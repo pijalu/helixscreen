@@ -9,8 +9,10 @@
 #include "ui_update_queue.h"
 #include "ui_utils.h"
 
+#include "app_globals.h"
 #include "moonraker_api.h"
 #include "moonraker_client.h"
+#include "printer_state.h"
 #include "static_panel_registry.h"
 #include "theme_manager.h"
 
@@ -317,6 +319,45 @@ void ScrewsTiltPanel::set_state(State new_state) {
 }
 
 // ============================================================================
+// ERROR MESSAGE SANITIZATION
+// ============================================================================
+
+static std::string sanitize_error_message(const std::string& raw) {
+    std::string msg = raw;
+
+    // Strip Klipper emergency/error prefixes
+    if (msg.rfind("!! ", 0) == 0)
+        msg = msg.substr(3);
+    if (msg.rfind("Error:", 0) == 0)
+        msg = msg.substr(6);
+    if (msg.rfind("error:", 0) == 0)
+        msg = msg.substr(6);
+
+    // Trim leading whitespace
+    auto start = msg.find_first_not_of(" \t");
+    if (start != std::string::npos && start > 0)
+        msg = msg.substr(start);
+
+    // Strip JSON-looking content (e.g. {"message": "Must home axis..."} → extract message)
+    if (!msg.empty() && msg.front() == '{') {
+        auto mpos = msg.find("\"message\"");
+        if (mpos != std::string::npos) {
+            auto colon = msg.find(':', mpos + 9);
+            if (colon != std::string::npos) {
+                auto qstart = msg.find('"', colon + 1);
+                auto qend =
+                    (qstart != std::string::npos) ? msg.find('"', qstart + 1) : std::string::npos;
+                if (qstart != std::string::npos && qend != std::string::npos) {
+                    msg = msg.substr(qstart + 1, qend - qstart - 1);
+                }
+            }
+        }
+    }
+
+    return msg;
+}
+
+// ============================================================================
 // COMMAND HELPERS
 // ============================================================================
 
@@ -332,6 +373,50 @@ void ScrewsTiltPanel::start_probing() {
 
     spdlog::info("[ScrewsTilt] Starting probe #{}", probe_count_);
 
+    // Check homing state — auto-home if needed before probing
+    const char* homed = lv_subject_get_string(get_printer_state().get_homed_axes_subject());
+    bool all_homed = homed && std::string(homed).find("xyz") != std::string::npos;
+
+    if (all_homed) {
+        start_screws_tilt_command();
+    } else {
+        spdlog::info("[ScrewsTilt] Not fully homed (axes={}), sending G28 first",
+                     homed ? homed : "none");
+
+        auto token = lifetime_.token();
+        api_->execute_gcode(
+            "G28",
+            [this, token]() {
+                if (token.expired())
+                    return;
+                token.defer("ScrewsTilt::g28_done", [this]() {
+                    if (cleanup_called())
+                        return;
+                    if (state_ != State::PROBING)
+                        return;
+                    spdlog::info("[ScrewsTilt] G28 complete, starting screws tilt");
+                    start_screws_tilt_command();
+                });
+            },
+            [this, token](const MoonrakerError& err) {
+                if (token.expired())
+                    return;
+                std::string msg = (err.type == MoonrakerErrorType::TIMEOUT)
+                                      ? "Homing timed out — printer may still be homing"
+                                      : "Homing failed: " + err.message;
+                token.defer("ScrewsTilt::g28_error", [this, msg]() {
+                    if (cleanup_called())
+                        return;
+                    if (state_ != State::PROBING)
+                        return;
+                    on_screws_tilt_error(msg);
+                });
+            },
+            MoonrakerAPI::HOMING_TIMEOUT_MS);
+    }
+}
+
+void ScrewsTiltPanel::start_screws_tilt_command() {
     auto token = lifetime_.token();
     api_->advanced().calculate_screws_tilt(
         [this, token](const std::vector<ScrewTiltResult>& results) {
@@ -391,7 +476,8 @@ void ScrewsTiltPanel::on_screws_tilt_results(const std::vector<ScrewTiltResult>&
 void ScrewsTiltPanel::on_screws_tilt_error(const std::string& message) {
     spdlog::error("[ScrewsTilt] Error: {}", message);
 
-    lv_subject_copy_string(&error_message_subject_, message.c_str());
+    std::string clean = sanitize_error_message(message);
+    lv_subject_copy_string(&error_message_subject_, clean.c_str());
     set_state(State::ERROR);
 }
 
