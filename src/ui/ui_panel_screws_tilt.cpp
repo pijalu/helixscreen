@@ -559,7 +559,7 @@ void ScrewsTiltPanel::create_screw_indicator(size_t index, const ScrewTiltResult
     }
 
     // Circular screw indicators - size based on icon
-    constexpr int INDICATOR_SIZE = 40; // Square for circle
+    constexpr int INDICATOR_SIZE = 52; // Square for circle
 
     // Create circular indicator
     lv_obj_t* indicator = lv_obj_create(bed_diagram_container_);
@@ -585,14 +585,14 @@ void ScrewsTiltPanel::create_screw_indicator(size_t index, const ScrewTiltResult
 
     if (screw.is_reference) {
         // Reference screw - show checkmark icon (no animation)
-        lv_obj_set_style_text_font(label, &mdi_icons_24, 0);
+        lv_obj_set_style_text_font(label, &mdi_icons_32, 0);
         // check icon (F012C)
         lv_label_set_text(label, "\xF3\xB0\x84\xAC");
     } else {
         // Adjustment needed - show animated rotation icon
         bool is_clockwise = screw.adjustment.find("CW") == 0 && screw.adjustment.find("CCW") != 0;
 
-        lv_obj_set_style_text_font(label, &mdi_icons_24, 0);
+        lv_obj_set_style_text_font(label, &mdi_icons_32, 0);
         // rotate-right (F0467) = clockwise/tighten, rotate-left (F0465) = CCW/loosen
         const char* dir_icon = is_clockwise ? "\xF3\xB0\x91\xA7" : "\xF3\xB0\x91\xA5";
         lv_label_set_text(label, dir_icon);
@@ -601,11 +601,12 @@ void ScrewsTiltPanel::create_screw_indicator(size_t index, const ScrewTiltResult
         lv_obj_set_style_transform_pivot_x(label, LV_PCT(50), 0);
         lv_obj_set_style_transform_pivot_y(label, LV_PCT(50), 0);
 
-        // Animate rotation continuously
+        // Animate rotation continuously with linear easing for smooth motion
         lv_anim_t anim;
         lv_anim_init(&anim);
         lv_anim_set_var(&anim, label);
         lv_anim_set_exec_cb(&anim, rotation_anim_cb);
+        lv_anim_set_path_cb(&anim, lv_anim_path_linear);
         lv_anim_set_duration(&anim, 2000); // 2 seconds per rotation
         lv_anim_set_repeat_count(&anim, LV_ANIM_REPEAT_INFINITE);
 
