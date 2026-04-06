@@ -73,6 +73,14 @@
                             description_tag="Configure timelapse recording"
                             callback="on_timelapse_settings_clicked"/>
       </lv_obj>
+      <!-- ================================================================== -->
+      <!-- MACRO BUTTONS -->
+      <!-- ================================================================== -->
+      <setting_action_row name="row_macro_buttons"
+                          label="Macro Buttons" label_tag="Macro Buttons" icon="script_text"
+                          description="Configure quick buttons and standard macros"
+                          description_tag="Configure quick buttons and standard macros"
+                          callback="on_macro_buttons_clicked"/>
     </lv_obj>
   </view>
 </component>
