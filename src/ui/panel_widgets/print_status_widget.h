@@ -88,8 +88,6 @@ class PrintStatusWidget : public PanelWidget {
 
     // Observers (RAII cleanup via ObserverGuard)
     ObserverGuard print_state_observer_;
-    ObserverGuard print_progress_observer_;
-    ObserverGuard print_time_left_observer_;
     ObserverGuard print_thumbnail_path_observer_;
     ObserverGuard filament_runout_observer_;
     ObserverGuard job_queue_count_observer_;
@@ -111,10 +109,7 @@ class PrintStatusWidget : public PanelWidget {
     [[nodiscard]] std::string get_last_print_thumbnail_path() const;
     void handle_print_card_clicked();
     void on_print_state_changed(PrintJobState state);
-    void on_print_progress_or_time_changed();
     void on_print_thumbnail_path_changed(const char* path);
-    void update_print_card_from_state();
-    void update_print_card_label(int progress, int time_left_secs);
     void reset_print_card_to_idle();
     void update_idle_compact_mode();
     void update_last_print_availability();

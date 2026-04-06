@@ -19,6 +19,7 @@
 #include "print_history_manager.h"
 #include "printer_state.h"
 #include "runtime_config.h"
+#include "static_subject_registry.h"
 #include "theme_manager.h"
 #include "thumbnail_cache.h"
 #include "thumbnail_load_context.h"
@@ -26,7 +27,6 @@
 
 #include <spdlog/spdlog.h>
 
-#include <cstdio>
 #include <unordered_set>
 
 namespace helix {
@@ -61,6 +61,12 @@ PrintStatusWidget::PrintStatusWidget() : printer_state_(get_printer_state()) {
         lv_subject_init_int(&column_mode_subject_, 0);
         lv_xml_register_subject(nullptr, "print_status_column_mode", &column_mode_subject_);
         column_mode_subject_initialized_ = true;
+        StaticSubjectRegistry::instance().register_deinit("PrintStatusWidgetSubjects", []() {
+            if (column_mode_subject_initialized_ && lv_is_initialized()) {
+                lv_subject_deinit(&column_mode_subject_);
+                column_mode_subject_initialized_ = false;
+            }
+        });
     }
 }
 
@@ -103,22 +109,6 @@ void PrintStatusWidget::attach(lv_obj_t* widget_obj, lv_obj_t* parent_screen) {
                                                        return;
                                                    self->on_print_state_changed(state);
                                                });
-
-    print_progress_observer_ =
-        observe_int_sync<PrintStatusWidget>(printer_state_.get_print_progress_subject(), this,
-                                            [](PrintStatusWidget* self, int /*progress*/) {
-                                                if (!self->widget_obj_)
-                                                    return;
-                                                self->on_print_progress_or_time_changed();
-                                            });
-
-    print_time_left_observer_ =
-        observe_int_sync<PrintStatusWidget>(printer_state_.get_print_time_left_subject(), this,
-                                            [](PrintStatusWidget* self, int /*time*/) {
-                                                if (!self->widget_obj_)
-                                                    return;
-                                                self->on_print_progress_or_time_changed();
-                                            });
 
     // Use observe_string_immediate: the thumbnail handler only calls lv_image_set_src
     // (no observer lifecycle changes), and set_print_thumbnail_path is always called
@@ -217,8 +207,6 @@ void PrintStatusWidget::detach() {
 
     // Release observers
     print_state_observer_.reset();
-    print_progress_observer_.reset();
-    print_time_left_observer_.reset();
     print_thumbnail_path_observer_.reset();
     filament_runout_observer_.reset();
     job_queue_count_observer_.reset();
@@ -454,16 +442,11 @@ void PrintStatusWidget::on_print_state_changed(PrintJobState state) {
     }
 
     if (is_active) {
-        spdlog::debug("[PrintStatusWidget] Print active - updating card progress display");
-        update_print_card_from_state();
+        spdlog::debug("[PrintStatusWidget] Print active - state updated via subject bindings");
     } else {
         spdlog::debug("[PrintStatusWidget] Print not active - reverting card to idle state");
         reset_print_card_to_idle();
     }
-}
-
-void PrintStatusWidget::on_print_progress_or_time_changed() {
-    update_print_card_from_state();
 }
 
 void PrintStatusWidget::on_print_thumbnail_path_changed(const char* path) {
@@ -478,16 +461,6 @@ void PrintStatusWidget::on_print_thumbnail_path_changed(const char* path) {
         lv_image_set_src(print_card_active_thumb_, "A:assets/images/benchy_thumbnail_white.png");
         spdlog::debug("[PrintStatusWidget] Active print thumbnail cleared (empty path)");
     }
-}
-
-void PrintStatusWidget::update_print_card_from_state() {
-    // Printing state display is driven by subject bindings in the XML:
-    // print_display_filename, print_progress, print_progress_text
-    // No manual widget updates needed from this widget.
-}
-
-void PrintStatusWidget::update_print_card_label(int /*progress*/, int /*time_left_secs*/) {
-    // Kept for interface compatibility — printing state display is subject-driven
 }
 
 std::string PrintStatusWidget::get_last_print_thumbnail_path() const {
