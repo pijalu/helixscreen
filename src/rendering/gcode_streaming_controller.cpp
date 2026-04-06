@@ -185,8 +185,15 @@ GCodeStreamingController::GCodeStreamingController(size_t cache_budget_bytes)
 }
 
 void GCodeStreamingController::register_memory_responder() {
+    // Capture weak_ptr so the callback becomes a no-op after destruction.
+    // MemoryMonitor copies the callback list before iterating, so
+    // remove_pressure_responder() in the destructor doesn't prevent an
+    // already-copied callback from firing (prestonbrown/helixscreen#733).
+    std::weak_ptr<bool> weak = prevent_uaf_sentinel_;
     memory_responder_id_ = helix::MemoryMonitor::instance().add_pressure_responder(
-        [this](helix::MemoryPressureLevel level) {
+        [this, weak](helix::MemoryPressureLevel level) {
+            if (weak.expired())
+                return;
             if (level >= helix::MemoryPressureLevel::warning) {
                 respond_to_memory_pressure();
             }
@@ -194,6 +201,11 @@ void GCodeStreamingController::register_memory_responder() {
 }
 
 GCodeStreamingController::~GCodeStreamingController() {
+    // Expire the sentinel FIRST so any in-flight MemoryMonitor callback
+    // (which captured a weak_ptr) becomes a no-op before we tear down
+    // members like cache_ (#733).
+    prevent_uaf_sentinel_.reset();
+
     if (memory_responder_id_ != 0) {
         helix::MemoryMonitor::instance().remove_pressure_responder(memory_responder_id_);
         memory_responder_id_ = 0;

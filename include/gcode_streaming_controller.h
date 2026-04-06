@@ -486,6 +486,9 @@ class GCodeStreamingController {
 
     void register_memory_responder();
     uint32_t memory_responder_id_{0};
+    // prevent use-after-free when MemoryMonitor invokes a copied callback
+    // after this object is destroyed (prestonbrown/helixscreen#733)
+    std::shared_ptr<bool> prevent_uaf_sentinel_{std::make_shared<bool>(true)};
 };
 
 } // namespace gcode
