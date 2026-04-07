@@ -275,6 +275,12 @@ class SettingsManager {
     /** @brief Set configured scanner device display name */
     void set_scanner_device_name(const std::string& name);
 
+    /** @brief Get configured BT scanner MAC address (empty = none) */
+    std::string get_scanner_bt_address() const;
+
+    /** @brief Set configured BT scanner MAC address (empty = clear) */
+    void set_scanner_bt_address(const std::string& address);
+
   private:
     SettingsManager();
     ~SettingsManager() = default;
@@ -299,8 +305,9 @@ class SettingsManager {
     std::string chamber_sensor_assignment_{"auto"};
 
     // Scanner device selection (plain strings, no LVGL subjects needed)
-    std::string scanner_device_id_;       // "vendor:product" or empty
-    std::string scanner_device_name_;     // display name for UI
+    std::string scanner_device_id_;   // "vendor:product" or empty
+    std::string scanner_device_name_; // display name for UI
+    std::string scanner_bt_address_;  // BT scanner MAC address or empty
 
     // State
     bool subjects_initialized_ = false;

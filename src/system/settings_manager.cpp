@@ -160,6 +160,11 @@ void SettingsManager::init_subjects() {
                      scanner_device_id_);
     }
 
+    scanner_bt_address_ = config->get<std::string>(config->df() + "scanner/bt_address", "");
+    if (!scanner_bt_address_.empty()) {
+        spdlog::info("[SettingsManager] Loaded scanner BT address: {}", scanner_bt_address_);
+    }
+
     subjects_initialized_ = true;
 
     // Self-register cleanup — ensures deinit runs before lv_deinit()
@@ -541,5 +546,17 @@ void SettingsManager::set_scanner_device_name(const std::string& name) {
     scanner_device_name_ = name;
     Config* config = Config::get_instance();
     config->set<std::string>(config->df() + "scanner/usb_device_name", name);
+    config->save();
+}
+
+std::string SettingsManager::get_scanner_bt_address() const {
+    return scanner_bt_address_;
+}
+
+void SettingsManager::set_scanner_bt_address(const std::string& address) {
+    spdlog::info("[SettingsManager] set_scanner_bt_address({})", address);
+    scanner_bt_address_ = address;
+    Config* config = Config::get_instance();
+    config->set<std::string>(config->df() + "scanner/bt_address", address);
     config->save();
 }
