@@ -514,6 +514,152 @@ export function printStartQueries(days: number, filters?: FilterParams): string[
   ];
 }
 
+export function performanceQueries(days: number, filters?: FilterParams): string[] {
+  const dataset = "helixscreen_telemetry";
+  const f = buildFilterClause(filters);
+  return [
+    // 0: Frame time percentiles over time
+    `SELECT
+      toDate(timestamp) as date,
+      avg(double2) as avg_p50,
+      avg(double3) as avg_p95,
+      avg(double4) as avg_p99
+    FROM ${dataset}
+    WHERE timestamp >= NOW() - INTERVAL '${days}' DAY AND index1 = 'performance_snapshot'${f}
+    GROUP BY date
+    ORDER BY date`,
+    // 1: Drop rate by platform
+    `SELECT
+      blob3 as platform,
+      sum(double5) as dropped,
+      sum(double6) as total
+    FROM ${dataset}
+    WHERE timestamp >= NOW() - INTERVAL '${days}' DAY AND index1 = 'performance_snapshot' AND blob3 != ''${f}
+    GROUP BY platform
+    ORDER BY dropped DESC`,
+    // 2: Drop rate by version over time
+    `SELECT
+      toDate(timestamp) as date,
+      blob2 as version,
+      sum(double5) as dropped,
+      sum(double6) as total
+    FROM ${dataset}
+    WHERE timestamp >= NOW() - INTERVAL '${days}' DAY AND index1 = 'performance_snapshot' AND blob2 != ''${f}
+    GROUP BY date, version
+    ORDER BY date`,
+    // 3: Worst panels
+    `SELECT
+      blob4 as panel,
+      count() as times_worst,
+      avg(double7) as avg_p95_ms
+    FROM ${dataset}
+    WHERE timestamp >= NOW() - INTERVAL '${days}' DAY AND index1 = 'performance_snapshot' AND blob4 != ''${f}
+    GROUP BY panel
+    ORDER BY times_worst DESC
+    LIMIT 20`,
+    // 4: Fleet-wide metrics
+    `SELECT
+      avg(double2) as fleet_p50,
+      sum(double5) as total_dropped,
+      sum(double6) as total_frames,
+      count(DISTINCT blob1) as total_devices
+    FROM ${dataset}
+    WHERE timestamp >= NOW() - INTERVAL '${days}' DAY AND index1 = 'performance_snapshot'${f}`,
+    // 5: Devices with high drop rate (>5%)
+    `SELECT count() as high_drop_devices
+    FROM (
+      SELECT blob1, sum(double5) as dropped, sum(double6) as total
+      FROM ${dataset}
+      WHERE timestamp >= NOW() - INTERVAL '${days}' DAY AND index1 = 'performance_snapshot'${f}
+      GROUP BY blob1
+      HAVING total > 0 AND dropped / total > 0.05
+    )`,
+  ];
+}
+
+export function featuresQueries(days: number, filters?: FilterParams): string[] {
+  const dataset = "helixscreen_telemetry";
+  const f = buildFilterClause(filters);
+  return [
+    // 0: Per-feature adoption rate (deduplicated by device)
+    `SELECT
+      avg(d1) as macros, avg(d2) as camera, avg(d3) as bed_mesh,
+      avg(d4) as console_gcode, avg(d5) as input_shaper,
+      avg(d6) as filament_management, avg(d7) as manual_probe,
+      avg(extra) as extra_bitmask_avg,
+      count() as total_devices
+    FROM (
+      SELECT blob1,
+        argMax(double1, timestamp) as d1, argMax(double2, timestamp) as d2,
+        argMax(double3, timestamp) as d3, argMax(double4, timestamp) as d4,
+        argMax(double5, timestamp) as d5, argMax(double6, timestamp) as d6,
+        argMax(double7, timestamp) as d7, argMax(double8, timestamp) as extra
+      FROM ${dataset}
+      WHERE timestamp >= NOW() - INTERVAL '${days}' DAY AND index1 = 'feature_adoption'${f}
+      GROUP BY blob1
+    )`,
+    // 1: Feature adoption by version
+    `SELECT
+      blob2 as version,
+      avg(double1) as macros, avg(double2) as camera, avg(double3) as bed_mesh,
+      avg(double4) as console_gcode, avg(double5) as input_shaper,
+      avg(double6) as filament_management, avg(double7) as manual_probe,
+      avg(double8) as extra_bitmask_avg,
+      count(DISTINCT blob1) as devices
+    FROM ${dataset}
+    WHERE timestamp >= NOW() - INTERVAL '${days}' DAY AND index1 = 'feature_adoption' AND blob2 != ''${f}
+    GROUP BY version
+    ORDER BY version`,
+    // 2: Total tracked devices
+    `SELECT count(DISTINCT blob1) as total_devices
+    FROM ${dataset}
+    WHERE timestamp >= NOW() - INTERVAL '${days}' DAY AND index1 = 'feature_adoption'${f}`,
+  ];
+}
+
+export function uxInsightsQueries(days: number, filters?: FilterParams): string[] {
+  const dataset = "helixscreen_telemetry";
+  const f = buildFilterClause(filters);
+  return [
+    // 0: Panel time distribution
+    `SELECT blob4 as panel, sum(double2) as total_time_sec
+    FROM ${dataset}
+    WHERE timestamp >= NOW() - INTERVAL '${days}' DAY AND index1 = 'panel_usage' AND blob4 != '' AND blob4 != 'home'${f}
+    GROUP BY panel
+    ORDER BY total_time_sec DESC`,
+    // 1: Panel visit frequency
+    `SELECT blob4 as panel, sum(double3) as total_visits, count(DISTINCT blob1) as devices
+    FROM ${dataset}
+    WHERE timestamp >= NOW() - INTERVAL '${days}' DAY AND index1 = 'panel_usage' AND blob4 != '' AND blob4 != 'home'${f}
+    GROUP BY panel
+    ORDER BY total_visits DESC`,
+    // 2: Settings change frequency
+    `SELECT blob4 as setting, count() as change_count
+    FROM ${dataset}
+    WHERE timestamp >= NOW() - INTERVAL '${days}' DAY AND index1 = 'settings_change' AND blob4 != ''${f}
+    GROUP BY setting
+    ORDER BY change_count DESC`,
+    // 3: Settings defaults (devices that changed each setting)
+    `SELECT blob4 as setting, count(DISTINCT blob1) as devices_changed
+    FROM ${dataset}
+    WHERE timestamp >= NOW() - INTERVAL '${days}' DAY AND index1 = 'settings_change' AND blob4 != ''${f}
+    GROUP BY setting
+    ORDER BY devices_changed DESC`,
+    // 4: Total devices for normalization
+    `SELECT count(DISTINCT blob1) as total_devices
+    FROM ${dataset}
+    WHERE timestamp >= NOW() - INTERVAL '${days}' DAY AND index1 = 'session'${f}`,
+    // 5: Avg session duration
+    `SELECT avg(double1) as avg_session_sec
+    FROM ${dataset}
+    WHERE timestamp >= NOW() - INTERVAL '${days}' DAY AND index1 = 'panel_usage'${f}`,
+    // 6: Settings change rate
+    `SELECT count() as total_changes, count(DISTINCT blob1) as devices
+    FROM ${dataset}
+    WHERE timestamp >= NOW() - INTERVAL '${days}' DAY AND index1 = 'settings_change'${f}`,
+  ];
+}
+
 export function releasesQueries(versions: string[]): string[] {
   const dataset = "helixscreen_telemetry";
   // Clean version strings — strip 'v' prefix if present for matching

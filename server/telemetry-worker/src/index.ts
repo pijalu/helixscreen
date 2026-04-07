@@ -18,6 +18,9 @@ import {
   reliabilityQueries,
   stabilityQueries,
   printStartQueries,
+  performanceQueries,
+  featuresQueries,
+  uxInsightsQueries,
   type QueryConfig,
   type FilterParams,
 } from "./queries";
@@ -979,6 +982,116 @@ export default {
                 total_crashes: r.total_crashes,
               };
             }),
+          });
+        }
+
+        // GET /v1/dashboard/performance
+        if (url.pathname === "/v1/dashboard/performance") {
+          const queries = performanceQueries(days, filters);
+          const [timeRes, platRes, verRes, worstRes, fleetRes, highDropRes] =
+            await Promise.all(queries.map((q) => executeQuery(queryConfig, q)));
+
+          const timeData = timeRes as { data: Array<{ date: string; avg_p50: number; avg_p95: number; avg_p99: number }> };
+          const platData = platRes as { data: Array<{ platform: string; dropped: number; total: number }> };
+          const verData = verRes as { data: Array<{ date: string; version: string; dropped: number; total: number }> };
+          const worstData = worstRes as { data: Array<{ panel: string; times_worst: number; avg_p95_ms: number }> };
+          const fleetData = fleetRes as { data: Array<{ fleet_p50: number; total_dropped: number; total_frames: number; total_devices: number }> };
+          const highDropData = highDropRes as { data: Array<{ high_drop_devices: number }> };
+
+          const fleet = fleetData.data?.[0] ?? { fleet_p50: 0, total_dropped: 0, total_frames: 0, total_devices: 0 };
+
+          return json({
+            fleet_p50_ms: Math.round(fleet.fleet_p50),
+            fleet_drop_rate: fleet.total_frames > 0 ? fleet.total_dropped / fleet.total_frames : 0,
+            high_drop_devices: highDropData.data?.[0]?.high_drop_devices ?? 0,
+            total_devices: fleet.total_devices,
+            worst_panel: worstData.data?.[0]?.panel ?? "",
+            frame_time_trend: (timeData.data ?? []).map(r => ({
+              date: r.date, p50: Math.round(r.avg_p50), p95: Math.round(r.avg_p95), p99: Math.round(r.avg_p99),
+            })),
+            drop_rate_by_platform: (platData.data ?? []).map(r => ({
+              platform: r.platform, rate: r.total > 0 ? r.dropped / r.total : 0, dropped: r.dropped, total: r.total,
+            })),
+            drop_rate_by_version: (verData.data ?? []).map(r => ({
+              date: r.date, version: r.version, rate: r.total > 0 ? r.dropped / r.total : 0,
+            })),
+            jankiest_panels: (worstData.data ?? []).map(r => ({
+              panel: r.panel, times_worst: r.times_worst, avg_p95_ms: Math.round(r.avg_p95_ms),
+            })),
+          });
+        }
+
+        // GET /v1/dashboard/features
+        if (url.pathname === "/v1/dashboard/features") {
+          const queries = featuresQueries(days, filters);
+          const [adoptionRes, byVersionRes, totalRes] =
+            await Promise.all(queries.map((q) => executeQuery(queryConfig, q)));
+
+          const adoptionData = adoptionRes as { data: Array<Record<string, number>> };
+          const byVersionData = byVersionRes as { data: Array<Record<string, unknown>> };
+          const totalData = totalRes as { data: Array<{ total_devices: number }> };
+
+          const row = adoptionData.data?.[0] ?? {};
+          const totalDevices = totalData.data?.[0]?.total_devices ?? 0;
+
+          const featureNames = ["macros", "camera", "bed_mesh", "console_gcode",
+            "input_shaper", "filament_management", "manual_probe"];
+
+          const features = featureNames.map(name => ({
+            name,
+            adoption_rate: Number(row[name] ?? 0),
+          }));
+
+          return json({
+            total_devices: totalDevices,
+            features: features.sort((a, b) => b.adoption_rate - a.adoption_rate),
+            by_version: (byVersionData.data ?? []).map(r => ({
+              version: String(r.version ?? ""),
+              devices: Number(r.devices ?? 0),
+              macros: Number(r.macros ?? 0),
+              camera: Number(r.camera ?? 0),
+              bed_mesh: Number(r.bed_mesh ?? 0),
+            })),
+          });
+        }
+
+        // GET /v1/dashboard/ux
+        if (url.pathname === "/v1/dashboard/ux") {
+          const queries = uxInsightsQueries(days, filters);
+          const [panelTimeRes, panelVisitRes, settingsFreqRes, settingsDefaultsRes,
+                 totalDevicesRes, avgSessionRes, changeRateRes] =
+            await Promise.all(queries.map((q) => executeQuery(queryConfig, q)));
+
+          const panelTime = panelTimeRes as { data: Array<{ panel: string; total_time_sec: number }> };
+          const panelVisits = panelVisitRes as { data: Array<{ panel: string; total_visits: number; devices: number }> };
+          const settingsFreq = settingsFreqRes as { data: Array<{ setting: string; change_count: number }> };
+          const settingsDefaults = settingsDefaultsRes as { data: Array<{ setting: string; devices_changed: number }> };
+          const totalDevices = totalDevicesRes as { data: Array<{ total_devices: number }> };
+          const avgSession = avgSessionRes as { data: Array<{ avg_session_sec: number }> };
+          const changeRate = changeRateRes as { data: Array<{ total_changes: number; devices: number }> };
+
+          const total = totalDevices.data?.[0]?.total_devices ?? 0;
+          const cr = changeRate.data?.[0] ?? { total_changes: 0, devices: 0 };
+          const panels = panelTime.data ?? [];
+          const mostVisited = panels[0]?.panel ?? "";
+          const leastVisited = panels.length > 0 ? panels[panels.length - 1].panel : "";
+
+          return json({
+            avg_session_sec: avgSession.data?.[0]?.avg_session_sec ?? 0,
+            most_visited_panel: mostVisited,
+            least_visited_panel: leastVisited,
+            settings_change_rate_per_device_per_week:
+              cr.devices > 0 ? (cr.total_changes / cr.devices) * (7 / Math.max(days, 1)) : 0,
+            panel_time: (panelTime.data ?? []).map(r => ({ panel: r.panel, total_time_sec: r.total_time_sec })),
+            panel_visits: (panelVisits.data ?? []).map(r => ({
+              panel: r.panel, total_visits: r.total_visits, visits_per_device: r.devices > 0 ? r.total_visits / r.devices : 0,
+            })),
+            settings_changes: (settingsFreq.data ?? []).map(r => ({ setting: r.setting, change_count: r.change_count })),
+            settings_defaults: (settingsDefaults.data ?? []).map(r => ({
+              setting: r.setting,
+              pct_changed: total > 0 ? r.devices_changed / total : 0,
+              devices_changed: r.devices_changed,
+            })),
           });
         }
 

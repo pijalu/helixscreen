@@ -496,6 +496,91 @@ function mapEventToDataPointInternal(
     };
   }
 
+  if (eventType === "performance_snapshot") {
+    return {
+      indexes: ["performance_snapshot"],
+      blobs: [
+        deviceId,
+        String(app.version ?? event.app_version ?? event.version ?? ""),
+        String(app.platform ?? event.app_platform ?? event.platform ?? ""),
+        String(event.worst_panel ?? ""),
+        "", "", "", "", "", "", "", "",
+      ],
+      doubles: [
+        Number(event.snapshot_seq ?? 0),
+        Number(event.frame_time_p50_ms ?? 0),
+        Number(event.frame_time_p95_ms ?? 0),
+        Number(event.frame_time_p99_ms ?? 0),
+        Number(event.dropped_frame_count ?? 0),
+        Number(event.total_frame_count ?? 0),
+        Number(event.worst_panel_p95_ms ?? 0),
+        Number(event.task_handler_max_ms ?? 0),
+      ],
+    };
+  }
+
+  if (eventType === "feature_adoption") {
+    const features = (event.features ?? {}) as Record<string, boolean>;
+    const featureOrder = [
+      "macros", "camera", "bed_mesh", "console_gcode",
+      "input_shaper", "filament_management", "manual_probe",
+      "spoolman",
+    ];
+    const doubles = featureOrder.map(f => features[f] ? 1 : 0);
+    const extraFeatures = [
+      "led_control", "power_devices", "multi_printer", "theme_changed",
+      "timelapse", "favorites", "pid_calibration", "firmware_retraction",
+    ];
+    let extraBitmask = 0;
+    for (let i = 0; i < extraFeatures.length; i++) {
+      if (features[extraFeatures[i]]) extraBitmask |= 1 << i;
+    }
+    // Replace last double (spoolman) with bitmask — spoolman goes into bitmask bit 0 instead
+    // Actually keep spoolman separate, use 8th slot for bitmask
+    doubles[7] = extraBitmask;
+
+    return {
+      indexes: ["feature_adoption"],
+      blobs: [
+        deviceId,
+        String(app.version ?? event.app_version ?? event.version ?? ""),
+        String(app.platform ?? event.app_platform ?? event.platform ?? ""),
+        "", "", "", "", "", "", "", "", "",
+      ],
+      doubles,
+    };
+  }
+
+  if (eventType === "settings_changes") {
+    const changes = (event.changes ?? []) as Array<{
+      setting: string;
+      old_value: string;
+      new_value: string;
+    }>;
+    const version = String(app.version ?? event.app_version ?? event.version ?? "");
+    const platform = String(app.platform ?? event.app_platform ?? event.platform ?? "");
+
+    if (changes.length > 0) {
+      return changes.map((c) => ({
+        indexes: ["settings_change"],
+        blobs: [
+          deviceId, version, platform,
+          String(c.setting ?? ""),
+          String(c.old_value ?? ""),
+          String(c.new_value ?? ""),
+          "", "", "", "", "", "",
+        ],
+        doubles: [1, 0, 0, 0, 0, 0, 0, 0] as number[],
+      }));
+    }
+
+    return {
+      indexes: ["settings_change"],
+      blobs: [deviceId, version, platform, "", "", "", "", "", "", "", "", ""],
+      doubles: [0, 0, 0, 0, 0, 0, 0, 0],
+    };
+  }
+
   // Unknown event type — still write basic info for discoverability
   return {
     indexes: [eventType],
