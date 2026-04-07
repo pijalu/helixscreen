@@ -69,14 +69,14 @@ TEST_CASE("AmsBackendMock realistic mode load operation phases",
           "[ams][mock][realistic][load][slow]") {
     FastTimingScope timing_guard; // RAII: 1000x speedup, auto-restored
 
+    // Declare before backend so they outlive it (backend destructor joins threads)
+    std::mutex actions_mtx;
+    std::vector<AmsAction> observed_actions;
+
     AmsBackendMock backend(4);
     backend.set_operation_delay(10); // Very fast for testing
     backend.set_realistic_mode(true);
     REQUIRE(backend.start());
-
-    // Track action state changes
-    std::mutex actions_mtx;
-    std::vector<AmsAction> observed_actions;
     backend.set_event_callback([&](const std::string& event, const std::string&) {
         if (event == AmsBackend::EVENT_STATE_CHANGED) {
             auto action = backend.get_current_action();
@@ -139,14 +139,14 @@ TEST_CASE("AmsBackendMock realistic mode unload operation phases",
           "[ams][mock][realistic][unload][slow]") {
     FastTimingScope timing_guard; // RAII: 1000x speedup, auto-restored
 
+    // Declare before backend so they outlive it (backend destructor joins threads)
+    std::mutex actions_mtx;
+    std::vector<AmsAction> observed_actions;
+
     AmsBackendMock backend(4);
     backend.set_operation_delay(10); // Very fast for testing
     backend.set_realistic_mode(true);
     REQUIRE(backend.start());
-
-    // Track action state changes
-    std::mutex actions_mtx;
-    std::vector<AmsAction> observed_actions;
     backend.set_event_callback([&](const std::string& event, const std::string&) {
         if (event == AmsBackend::EVENT_STATE_CHANGED) {
             auto action = backend.get_current_action();
@@ -197,15 +197,15 @@ TEST_CASE("AmsBackendMock realistic mode unload operation phases",
 TEST_CASE("AmsBackendMock simple mode skips extra phases", "[ams][mock][realistic][simple]") {
     FastTimingScope timing_guard; // RAII: 1000x speedup, auto-restored
 
+    // Declare before backend so they outlive it (backend destructor joins threads)
+    std::mutex actions_mtx;
+    std::vector<AmsAction> observed_actions;
+
     AmsBackendMock backend(4);
     backend.set_operation_delay(10); // Very fast for testing
     // Realistic mode is OFF by default
     REQUIRE_FALSE(backend.is_realistic_mode());
     REQUIRE(backend.start());
-
-    // Track action state changes
-    std::mutex actions_mtx;
-    std::vector<AmsAction> observed_actions;
     backend.set_event_callback([&](const std::string& event, const std::string&) {
         if (event == AmsBackend::EVENT_STATE_CHANGED) {
             auto action = backend.get_current_action();
@@ -320,14 +320,14 @@ TEST_CASE("AmsBackendMock tool change shows SELECTING phase",
           "[ams][mock][realistic][selecting][slow]") {
     FastTimingScope timing_guard; // RAII: 1000x speedup, auto-restored
 
+    // Declare before backend so they outlive it (backend destructor joins threads)
+    std::mutex actions_mtx;
+    std::vector<AmsAction> observed_actions;
+
     AmsBackendMock backend(4);
     backend.set_operation_delay(10);
     backend.set_realistic_mode(true);
     REQUIRE(backend.start());
-
-    // Track action state changes
-    std::mutex actions_mtx;
-    std::vector<AmsAction> observed_actions;
     backend.set_event_callback([&](const std::string& event, const std::string&) {
         if (event == AmsBackend::EVENT_STATE_CHANGED) {
             auto action = backend.get_current_action();
@@ -415,14 +415,14 @@ TEST_CASE("AmsBackendMock PAUSED state handling", "[ams][mock][realistic][paused
 TEST_CASE("AmsBackendMock error recovery sequence", "[ams][mock][realistic][recovery][slow]") {
     FastTimingScope timing_guard; // RAII: 1000x speedup, auto-restored
 
+    // Declare before backend so they outlive it (backend destructor joins threads)
+    std::mutex actions_mtx;
+    std::vector<AmsAction> observed_actions;
+
     AmsBackendMock backend(4);
     backend.set_operation_delay(10);
     backend.set_realistic_mode(true);
     REQUIRE(backend.start());
-
-    // Track action state changes
-    std::mutex actions_mtx;
-    std::vector<AmsAction> observed_actions;
     backend.set_event_callback([&](const std::string& event, const std::string&) {
         if (event == AmsBackend::EVENT_STATE_CHANGED) {
             auto action = backend.get_current_action();

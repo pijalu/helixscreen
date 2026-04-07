@@ -97,14 +97,14 @@ TEST_CASE("change_tool sets SELECTING immediately in mock toolchanger mode",
           "[ams][toolchanger][toolchanger_actions]") {
     FastTimingScopeTC timing_guard;
 
+    // Declare before backend so they outlive it (backend destructor joins threads)
+    std::mutex actions_mtx;
+    std::vector<AmsAction> observed_actions;
+
     AmsBackendMock backend(4);
     backend.set_tool_changer_mode(true);
     backend.set_operation_delay(50); // Nonzero so operation is still in flight
     REQUIRE(backend.start());
-
-    // Track the first action observed after calling change_tool
-    std::mutex actions_mtx;
-    std::vector<AmsAction> observed_actions;
     backend.set_event_callback([&](const std::string& event, const std::string&) {
         if (event == AmsBackend::EVENT_STATE_CHANGED) {
             auto action = backend.get_current_action();
@@ -440,14 +440,15 @@ TEST_CASE("Realistic mode tool change shows SELECTING phase in toolchanger mode"
           "[ams][toolchanger][toolchanger_actions][slow]") {
     FastTimingScopeTC timing_guard;
 
+    // Declare before backend so they outlive it (backend destructor joins threads)
+    std::mutex actions_mtx;
+    std::vector<AmsAction> observed_actions;
+
     AmsBackendMock backend(4);
     backend.set_tool_changer_mode(true);
     backend.set_operation_delay(10);
     backend.set_realistic_mode(true);
     REQUIRE(backend.start());
-
-    std::mutex actions_mtx;
-    std::vector<AmsAction> observed_actions;
     backend.set_event_callback([&](const std::string& event, const std::string&) {
         if (event == AmsBackend::EVENT_STATE_CHANGED) {
             auto action = backend.get_current_action();

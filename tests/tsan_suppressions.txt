@@ -1,0 +1,8 @@
+# TSAN suppressions for known false positives in third-party code
+#
+# LVGL internal race: render thread init vs main thread signal
+# The lv_thread_sync mutex is initialized by the render thread and signaled
+# by the main thread. TSAN sees the init/signal as a race on the mutex bytes,
+# but pthread_mutex_init completes before the mutex is usable, so this is safe.
+race:lv_thread_sync_init
+race:lv_thread_sync_signal

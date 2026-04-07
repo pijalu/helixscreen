@@ -813,7 +813,7 @@ test-tsan: clean-tests
 	$(ECHO) "$(CYAN)$(BOLD)Building tests with ThreadSanitizer...$(RESET)"
 	@$(MAKE) CXXFLAGS='$(CXXFLAGS) $(TSAN_FLAGS)' LDFLAGS='$(LDFLAGS) $(TSAN_FLAGS)' TEST_BIN=$(TEST_TSAN_BIN) $(TEST_TSAN_BIN)
 	$(ECHO) "$(CYAN)$(BOLD)Running tests with ThreadSanitizer...$(RESET)"
-	@TSAN_OPTIONS=halt_on_error=0 $(TEST_TSAN_BIN) "~[.]" 2>&1 | tee /tmp/tsan_output.txt
+	@TSAN_OPTIONS="halt_on_error=0 suppressions=$(CURDIR)/tests/tsan_suppressions.txt" $(TEST_TSAN_BIN) "~[.]" 2>&1 | tee /tmp/tsan_output.txt
 	$(ECHO) "$(GREEN)✓ TSAN test complete - check /tmp/tsan_output.txt for issues$(RESET)"
 
 # Run specific test with ASAN (usage: make test-asan-one TEST="[streaming]")
