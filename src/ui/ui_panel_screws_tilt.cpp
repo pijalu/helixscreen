@@ -583,8 +583,8 @@ void ScrewsTiltPanel::create_screw_indicator(size_t index, const ScrewTiltResult
     lv_obj_set_style_text_color(label, theme_manager_get_color("text"), 0);
     lv_obj_center(label);
 
-    if (screw.is_reference) {
-        // Reference screw - show checkmark icon (no animation)
+    if (screw.is_reference || !screw.needs_adjustment()) {
+        // Reference screw or level screw - show checkmark icon (no animation)
         lv_obj_set_style_text_font(label, &mdi_icons_32, 0);
         // check icon (F012C)
         lv_label_set_text(label, "\xF3\xB0\x84\xAC");
