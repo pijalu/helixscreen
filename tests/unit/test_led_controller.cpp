@@ -3,7 +3,10 @@
 #include "../ui_test_utils.h"
 #include "config.h"
 #include "led/led_controller.h"
+#include "moonraker_api_mock.h"
+#include "moonraker_client_mock.h"
 #include "printer_discovery.h"
+#include "printer_state.h"
 
 #include "../catch_amalgamated.hpp"
 #include "hv/json.hpp"
@@ -989,8 +992,7 @@ TEST_CASE("LedController: apply_startup_preference sets light_is_on true", "[led
 // Regression: toggle off must stop LED effects before SET_LED
 // ============================================================================
 
-TEST_CASE("LedController: light_set(false) stops LED effects when available",
-          "[led][controller]") {
+TEST_CASE("LedController: light_set(false) stops LED effects when available", "[led][controller]") {
     auto& ctrl = helix::led::LedController::instance();
     ctrl.deinit();
     ctrl.init(nullptr, nullptr);
@@ -1096,8 +1098,8 @@ TEST_CASE("LedController: valid selected strips preserved on discovery", "[led][
     ctrl.set_selected_strips({"neopixel chamber_light"});
 
     helix::PrinterDiscovery discovery;
-    nlohmann::json objects = nlohmann::json::array(
-        {"neopixel chamber_light", "led status_led", "extruder"});
+    nlohmann::json objects =
+        nlohmann::json::array({"neopixel chamber_light", "led status_led", "extruder"});
     discovery.parse_objects(objects);
     ctrl.discover_from_hardware(discovery);
 
@@ -1138,8 +1140,8 @@ TEST_CASE("LedController: all strips stale triggers auto-select", "[led][control
     ctrl.set_selected_strips({"led nonexistent_1", "led nonexistent_2"});
 
     helix::PrinterDiscovery discovery;
-    nlohmann::json objects = nlohmann::json::array(
-        {"neopixel actual_led_1", "led actual_led_2", "extruder"});
+    nlohmann::json objects =
+        nlohmann::json::array({"neopixel actual_led_1", "led actual_led_2", "extruder"});
     discovery.parse_objects(objects);
     ctrl.discover_from_hardware(discovery);
 
@@ -1149,4 +1151,173 @@ TEST_CASE("LedController: all strips stale triggers auto-select", "[led][control
     REQUIRE(ctrl.selected_strips()[1] == "led actual_led_2");
 
     ctrl.deinit();
+}
+
+// ============================================================================
+// Mock-API fixture for tests that verify actual color values sent
+// ============================================================================
+
+struct LedMockApiFixture {
+    MoonrakerClientMock mock_client{MoonrakerClientMock::PrinterType::VORON_24};
+    helix::PrinterState state;
+    std::unique_ptr<MoonrakerAPIMock> mock_api;
+
+    LedMockApiFixture() {
+        state.init_subjects(false);
+        mock_api = std::make_unique<MoonrakerAPIMock>(mock_client, state);
+    }
+
+    ~LedMockApiFixture() {
+        auto& ctrl = helix::led::LedController::instance();
+        ctrl.deinit();
+    }
+
+    void setup_controller_with_strip(const std::string& strip_id = "neopixel chamber") {
+        auto& ctrl = helix::led::LedController::instance();
+        ctrl.deinit();
+        ctrl.init(mock_api.get(), &mock_client);
+
+        helix::led::LedStripInfo strip;
+        strip.name = "Chamber";
+        strip.id = strip_id;
+        strip.backend = helix::led::LedBackendType::NATIVE;
+        strip.supports_color = true;
+        strip.supports_white = false;
+        ctrl.native().add_strip(strip);
+        ctrl.set_selected_strips({strip_id});
+    }
+};
+
+// ============================================================================
+// Regression: toggle on must use last_color + last_brightness, not full white
+// https://github.com/prestonbrown/helixscreen#toggle-brightness-regression
+// ============================================================================
+
+TEST_CASE_METHOD(LedMockApiFixture,
+                 "LedController: light_set(true) uses last_brightness not full white",
+                 "[led][controller][regression]") {
+    setup_controller_with_strip();
+    auto& ctrl = helix::led::LedController::instance();
+
+    ctrl.set_last_color(0xFFFFFF);
+    ctrl.set_last_brightness(50);
+
+    ctrl.light_set(true);
+    REQUIRE(ctrl.light_is_on());
+
+    // With white color at 50% brightness, RGB should be 0.5 each (not 1.0)
+    auto color = ctrl.native().get_strip_color("neopixel chamber");
+    REQUIRE(color.r == Catch::Approx(0.5).margin(0.01));
+    REQUIRE(color.g == Catch::Approx(0.5).margin(0.01));
+    REQUIRE(color.b == Catch::Approx(0.5).margin(0.01));
+}
+
+TEST_CASE_METHOD(LedMockApiFixture,
+                 "LedController: light_set(true) uses saved color not just white",
+                 "[led][controller][regression]") {
+    setup_controller_with_strip();
+    auto& ctrl = helix::led::LedController::instance();
+
+    // Red color at 100% brightness
+    ctrl.set_last_color(0xFF0000);
+    ctrl.set_last_brightness(100);
+
+    ctrl.light_set(true);
+
+    auto color = ctrl.native().get_strip_color("neopixel chamber");
+    REQUIRE(color.r == Catch::Approx(1.0).margin(0.01));
+    REQUIRE(color.g == Catch::Approx(0.0).margin(0.01));
+    REQUIRE(color.b == Catch::Approx(0.0).margin(0.01));
+}
+
+TEST_CASE_METHOD(LedMockApiFixture, "LedController: light_set(true) combines color and brightness",
+                 "[led][controller][regression]") {
+    setup_controller_with_strip();
+    auto& ctrl = helix::led::LedController::instance();
+
+    // Blue color (#0000FF) at 80% brightness → R=0, G=0, B=0.8
+    ctrl.set_last_color(0x0000FF);
+    ctrl.set_last_brightness(80);
+
+    ctrl.light_set(true);
+
+    auto color = ctrl.native().get_strip_color("neopixel chamber");
+    REQUIRE(color.r == Catch::Approx(0.0).margin(0.01));
+    REQUIRE(color.g == Catch::Approx(0.0).margin(0.01));
+    REQUIRE(color.b == Catch::Approx(0.8).margin(0.01));
+}
+
+TEST_CASE_METHOD(LedMockApiFixture, "LedController: light_toggle uses saved brightness",
+                 "[led][controller][regression]") {
+    setup_controller_with_strip();
+    auto& ctrl = helix::led::LedController::instance();
+
+    ctrl.set_last_color(0xFFFFFF);
+    ctrl.set_last_brightness(50);
+
+    // Start off, toggle on
+    ctrl.light_set(false);
+    ctrl.light_toggle();
+    REQUIRE(ctrl.light_is_on());
+
+    auto color = ctrl.native().get_strip_color("neopixel chamber");
+    REQUIRE(color.r == Catch::Approx(0.5).margin(0.01));
+    REQUIRE(color.g == Catch::Approx(0.5).margin(0.01));
+    REQUIRE(color.b == Catch::Approx(0.5).margin(0.01));
+}
+
+// ============================================================================
+// Unit tests: set_brightness_all respects last_color
+// ============================================================================
+
+TEST_CASE_METHOD(LedMockApiFixture,
+                 "LedController: set_brightness_all uses last_color not hardcoded white",
+                 "[led][controller]") {
+    setup_controller_with_strip();
+    auto& ctrl = helix::led::LedController::instance();
+
+    // Set color to yellow (#FFD700) and brightness to 100%
+    ctrl.set_last_color(0xFFD700);
+    ctrl.set_brightness_all(100);
+
+    auto color = ctrl.native().get_strip_color("neopixel chamber");
+    // #FFD700 → R=1.0, G=0.843, B=0.0 at 100%
+    REQUIRE(color.r == Catch::Approx(1.0).margin(0.01));
+    REQUIRE(color.g == Catch::Approx(0.843).margin(0.01));
+    REQUIRE(color.b == Catch::Approx(0.0).margin(0.01));
+}
+
+TEST_CASE_METHOD(LedMockApiFixture, "LedController: set_brightness_all scales color by brightness",
+                 "[led][controller]") {
+    setup_controller_with_strip();
+    auto& ctrl = helix::led::LedController::instance();
+
+    // Red at 50% → R=0.5, G=0, B=0
+    ctrl.set_last_color(0xFF0000);
+    ctrl.set_brightness_all(50);
+
+    auto color = ctrl.native().get_strip_color("neopixel chamber");
+    REQUIRE(color.r == Catch::Approx(0.5).margin(0.01));
+    REQUIRE(color.g == Catch::Approx(0.0).margin(0.01));
+    REQUIRE(color.b == Catch::Approx(0.0).margin(0.01));
+}
+
+TEST_CASE_METHOD(LedMockApiFixture,
+                 "LedController: apply_startup_preference uses startup_brightness with last_color",
+                 "[led][controller]") {
+    setup_controller_with_strip();
+    auto& ctrl = helix::led::LedController::instance();
+
+    ctrl.set_led_on_at_start(true);
+    ctrl.set_last_color(0xFF6B35); // Orange
+    ctrl.set_startup_brightness(80);
+
+    ctrl.apply_startup_preference();
+    REQUIRE(ctrl.light_is_on());
+
+    auto color = ctrl.native().get_strip_color("neopixel chamber");
+    // #FF6B35 → R=1.0, G=0.42, B=0.21 scaled by 80%
+    REQUIRE(color.r == Catch::Approx(0.8).margin(0.01));
+    REQUIRE(color.g == Catch::Approx(0.336).margin(0.01));
+    REQUIRE(color.b == Catch::Approx(0.165).margin(0.02));
 }

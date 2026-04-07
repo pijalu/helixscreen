@@ -2,6 +2,8 @@
 
 #include "led/led_controller.h"
 
+#include "ui_update_queue.h"
+
 #include "app_globals.h"
 #include "color_utils.h"
 #include "config.h"
@@ -10,7 +12,6 @@
 #include "moonraker_error.h"
 #include "printer_discovery.h"
 #include "static_subject_registry.h"
-#include "ui_update_queue.h"
 
 #include <spdlog/spdlog.h>
 
@@ -297,7 +298,8 @@ void LedController::discover_from_hardware(const helix::PrinterDiscovery& hardwa
         auto it = std::remove_if(selected_strips_.begin(), selected_strips_.end(),
                                  [&all_strips](const std::string& id) {
                                      for (const auto& s : all_strips) {
-                                         if (s.id == id) return false;
+                                         if (s.id == id)
+                                             return false;
                                      }
                                      return true;
                                  });
@@ -342,7 +344,8 @@ void LedController::discover_wled_strips() {
     auto token = lifetime_.token();
     api_->rest().wled_get_strips(
         [this, token](const RestResponse& resp) {
-            if (token.expired()) return;
+            if (token.expired())
+                return;
 
             // Response format: {"result": {strip_name: {details...}, ...}}
             if (!resp.data.is_object()) {
@@ -419,7 +422,8 @@ void LedController::discover_wled_strips() {
                 // Fetch server config to get WLED device addresses
                 this->api_->rest().get_server_config(
                     [this, token](const RestResponse& cfg_resp) {
-                        if (token.expired()) return;
+                        if (token.expired())
+                            return;
 
                         if (!cfg_resp.data.is_object())
                             return;
@@ -446,7 +450,8 @@ void LedController::discover_wled_strips() {
                                 // Attempt to fetch preset names from the WLED device
                                 wled_.fetch_presets_from_device(
                                     strip_name, [this, strip_name, token]() {
-                                        if (token.expired()) return;
+                                        if (token.expired())
+                                            return;
 
                                         // If fetch didn't populate presets (mock/offline), set
                                         // defaults
@@ -1701,10 +1706,9 @@ void LedController::load_config() {
     led_on_at_start_ = on_at_start_json.is_boolean() ? on_at_start_json.get<bool>() : false;
 
     auto& startup_brightness_json = cfg->get_json("/printer/leds/startup_brightness");
-    startup_brightness_ =
-        startup_brightness_json.is_number_integer()
-            ? std::clamp(startup_brightness_json.get<int>(), 0, 100)
-            : 80;
+    startup_brightness_ = startup_brightness_json.is_number_integer()
+                              ? std::clamp(startup_brightness_json.get<int>(), 0, 100)
+                              : 80;
 
     spdlog::debug("[LedController] Loaded config: {} strips, {} presets, {} macros",
                   selected_strips_.size(), color_presets_.size(), configured_macros_.size());
@@ -1804,7 +1808,12 @@ void LedController::toggle_all(bool on) {
         switch (backend_type) {
         case LedBackendType::NATIVE:
             if (on) {
-                native_.turn_on(strip_id);
+                // Use saved color + brightness instead of hardcoded full white
+                double r = ((last_color_ >> 16) & 0xFF) / 255.0;
+                double g = ((last_color_ >> 8) & 0xFF) / 255.0;
+                double b = (last_color_ & 0xFF) / 255.0;
+                double scale = last_brightness_ / 100.0;
+                native_.set_color(strip_id, r * scale, g * scale, b * scale, 0.0);
             } else {
                 native_.turn_off(strip_id);
             }
@@ -2006,23 +2015,22 @@ void LedController::query_tracked_led_state() {
     nlohmann::json query_objects = nlohmann::json::object();
     query_objects[tracked] = nullptr;
     client_->send_jsonrpc(
-        "printer.objects.query", {{"objects", query_objects}},
-        [tracked](nlohmann::json response) {
+        "printer.objects.query", {{"objects", query_objects}}, [tracked](nlohmann::json response) {
             if (!response.contains("result") || !response["result"].contains("status")) {
-                spdlog::warn("[LedController] query_tracked_led_state: no result/status in response");
+                spdlog::warn(
+                    "[LedController] query_tracked_led_state: no result/status in response");
                 return;
             }
             const auto& status = response["result"]["status"];
             if (!status.contains(tracked)) {
-                spdlog::warn("[LedController] query_tracked_led_state: '{}' not in response (keys: {})",
-                             tracked, nlohmann::json(status).dump().substr(0, 200));
+                spdlog::warn(
+                    "[LedController] query_tracked_led_state: '{}' not in response (keys: {})",
+                    tracked, nlohmann::json(status).dump().substr(0, 200));
                 return;
             }
-            spdlog::debug("[LedController] query_tracked_led_state: got {} = {}",
-                          tracked, status[tracked].dump().substr(0, 200));
-            helix::ui::queue_update([status]() {
-                get_printer_state().update_from_status(status);
-            });
+            spdlog::debug("[LedController] query_tracked_led_state: got {} = {}", tracked,
+                          status[tracked].dump().substr(0, 200));
+            helix::ui::queue_update([status]() { get_printer_state().update_from_status(status); });
         });
 }
 
@@ -2046,11 +2054,14 @@ void LedController::set_color_all(double r, double g, double b, double w) {
 
 void LedController::set_brightness_all(int brightness_pct) {
     light_on_ = (brightness_pct > 0);
+    double r = ((last_color_ >> 16) & 0xFF) / 255.0;
+    double g = ((last_color_ >> 8) & 0xFF) / 255.0;
+    double b = (last_color_ & 0xFF) / 255.0;
     double scale = brightness_pct / 100.0;
     for (const auto& strip_id : selected_strips_) {
         auto backend_type = backend_for_strip(strip_id);
         if (backend_type == LedBackendType::NATIVE) {
-            native_.set_color(strip_id, scale, scale, scale, 0.0);
+            native_.set_color(strip_id, r * scale, g * scale, b * scale, 0.0);
         } else if (backend_type == LedBackendType::OUTPUT_PIN) {
             output_pin_.set_brightness(strip_id, brightness_pct);
         }
@@ -2102,7 +2113,7 @@ void LedController::apply_startup_preference() {
 
     spdlog::info("[LedController] Applying startup preference: brightness={}%, turning LEDs on",
                  startup_brightness_);
-    set_brightness_all(startup_brightness_);
+    last_brightness_ = startup_brightness_;
     light_set(true);
 }
 

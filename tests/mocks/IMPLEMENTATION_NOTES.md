@@ -8,11 +8,11 @@ Comprehensive mocking infrastructure for wizard UI integration testing, enabling
 
 ### Core Mocks
 
-1. **tests/mocks/moonraker_client_mock.h** / **.cpp** (184 lines)
-   - Mock WebSocket client for Moonraker API
-   - Stores connection callbacks for manual triggering
-   - Tracks connection URL and RPC methods
-   - Test control API: `trigger_connected()`, `trigger_disconnected()`, `reset()`
+1. **include/moonraker_client_mock.h** / **src/api/moonraker_client_mock.cpp**
+   - Full mock client inheriting from `MoonrakerClient`
+   - Supports `PrinterType` for different printer configs (VORON_24, K1, AD5M, etc.)
+   - Print simulation, thermal model, gcode parsing
+   - Used by `MoonrakerAPIMock` for integration testing
 
 2. **tests/mocks/lvgl_mock.h** / **.cpp** (312 lines)
    - Minimal LVGL implementation for UI testing
