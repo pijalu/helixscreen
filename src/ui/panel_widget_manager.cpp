@@ -181,7 +181,9 @@ PanelWidgetManager::populate_widgets(const std::string& panel_id, lv_obj_t* cont
                 WidgetSlot slot;
                 slot.widget_id = "firmware_restart";
                 slot.component_name = "panel_widget_firmware_restart";
-                enabled_widgets.push_back(std::move(slot));
+                // Insert at front so auto-placement puts it upper-left (first in
+                // the free cell list), not bottom-right where it blocks real widgets.
+                enabled_widgets.insert(enabled_widgets.begin(), std::move(slot));
                 spdlog::debug("[PanelWidgetManager] Injected firmware_restart (Klipper {})", name);
             }
         }
@@ -380,6 +382,9 @@ PanelWidgetManager::populate_widgets(const std::string& panel_id, lv_obj_t* cont
     // Write computed positions back to config entries and persist to disk.
     // This ensures auto-placed positions survive the next load() call
     // (get_widget_config_impl always reloads from the JSON store).
+    // Only write positions for widgets that are enabled in config — skip
+    // temporarily injected widgets (e.g., firmware_restart during Klipper error)
+    // whose positions would block cells for real widgets on subsequent layouts.
     {
         auto& mut_entries = widget_config.page_entries_mut(page_index);
         bool any_written = false;
@@ -388,7 +393,7 @@ PanelWidgetManager::populate_widgets(const std::string& panel_id, lv_obj_t* cont
             auto entry_it =
                 std::find_if(mut_entries.begin(), mut_entries.end(),
                              [&](const PanelWidgetEntry& e) { return e.id == slot.widget_id; });
-            if (entry_it != mut_entries.end()) {
+            if (entry_it != mut_entries.end() && entry_it->enabled) {
                 if (entry_it->col != p.col || entry_it->row != p.row) {
                     any_written = true;
                 }
@@ -543,10 +548,8 @@ PanelWidgetManager::populate_widgets(const std::string& panel_id, lv_obj_t* cont
             while (!remaining.empty()) {
                 // Find top-left cell (min row, then min col)
                 auto top_left = *std::min_element(
-                    remaining.begin(), remaining.end(),
-                    [](const auto& a, const auto& b) {
-                        return a.second < b.second ||
-                               (a.second == b.second && a.first < b.first);
+                    remaining.begin(), remaining.end(), [](const auto& a, const auto& b) {
+                        return a.second < b.second || (a.second == b.second && a.first < b.first);
                     });
 
                 int start_col = top_left.first;
@@ -568,7 +571,8 @@ PanelWidgetManager::populate_widgets(const std::string& panel_id, lv_obj_t* cont
                             break;
                         }
                     }
-                    if (!can_extend) break;
+                    if (!can_extend)
+                        break;
                     end_row++;
                 }
 
@@ -639,23 +643,17 @@ PanelWidgetManager::populate_widgets(const std::string& panel_id, lv_obj_t* cont
                 // Overlay a "not available" cancel icon centered on the widget.
                 // FLOATING removes it from flex layout so it sits on top.
                 const char* icon_attrs[] = {
-                    "src", "cancel",
-                    "size", "xl",
-                    "variant", "muted",
-                    "align", "center",
-                    "clickable", "false",
-                    "event_bubble", "true",
-                    nullptr
-                };
-                auto* overlay_icon = static_cast<lv_obj_t*>(
-                    lv_xml_create(widget, "icon", icon_attrs));
+                    "src",    "cancel",    "size",  "xl",           "variant", "muted", "align",
+                    "center", "clickable", "false", "event_bubble", "true",    nullptr};
+                auto* overlay_icon =
+                    static_cast<lv_obj_t*>(lv_xml_create(widget, "icon", icon_attrs));
                 if (overlay_icon) {
                     lv_obj_add_flag(overlay_icon, LV_OBJ_FLAG_FLOATING);
                     lv_obj_set_style_opa(overlay_icon, LV_OPA_COVER, 0);
                 }
 
-                spdlog::debug("[PanelWidgetManager] Widget '{}' gated: {}",
-                              slot.widget_id, slot.gate_hint ? slot.gate_hint : "hardware not detected");
+                spdlog::debug("[PanelWidgetManager] Widget '{}' gated: {}", slot.widget_id,
+                              slot.gate_hint ? slot.gate_hint : "hardware not detected");
             }
 
             // Attach the pre-created PanelWidget instance if present and NOT gated
@@ -689,8 +687,8 @@ PanelWidgetManager::populate_widgets(const std::string& panel_id, lv_obj_t* cont
     return result;
 }
 
-std::vector<std::string>
-PanelWidgetManager::compute_visible_widget_ids(const std::string& panel_id, int page_index) {
+std::vector<std::string> PanelWidgetManager::compute_visible_widget_ids(const std::string& panel_id,
+                                                                        int page_index) {
     auto& widget_config = get_widget_config_impl(panel_id);
     std::vector<std::string> ids;
 

@@ -108,8 +108,6 @@ std::vector<PanelWidgetEntry> PanelWidgetConfig::parse_widget_array(const nlohma
     if (append_registry_defaults) {
         for (const auto& def : get_all_widget_defs()) {
             if (seen_ids.count(def.id) == 0) {
-                if (def.multi_instance)
-                    continue;
                 spdlog::debug("[PanelWidgetConfig] Appending new widget: {} (default_enabled={})",
                               def.id, def.default_enabled);
                 result.push_back(
@@ -489,10 +487,10 @@ std::vector<PanelWidgetEntry> PanelWidgetConfig::build_default_grid() {
 
     // All other widgets: enabled/disabled per registry, no grid position.
     // Positions computed dynamically at populate time.
+    // Multi-instance widgets (fan_stack, thermistor, etc.) are included once as their
+    // base ID — only additional instances (fan_stack:1, fan_stack:2) are user-added.
     for (const auto& def : defs) {
         if (fixed_ids.count(def.id) > 0)
-            continue;
-        if (def.multi_instance)
             continue;
         result.push_back({def.id, def.default_enabled, {}, -1, -1, def.colspan, def.rowspan});
     }
