@@ -186,6 +186,22 @@ setup() {
     fi
 }
 
+# --- Boot ordering tests (Plymouth, not multi-user.target) ---
+
+@test "service template waits for Plymouth quit in After=" {
+    grep -q '^After=plymouth-quit-wait.service' "$SERVICE_TEMPLATE"
+}
+
+@test "service template does NOT have After=multi-user.target" {
+    ! grep -q '^After=multi-user.target' "$SERVICE_TEMPLATE"
+}
+
+@test "service template still has WantedBy=multi-user.target in Install section" {
+    grep -q '^WantedBy=multi-user.target' "$SERVICE_TEMPLATE"
+}
+
+# --- Substitution edge cases ---
+
 @test "substitution replaces @@INSTALL_PARENT@@ with parent of install dir" {
     cp "$SERVICE_TEMPLATE" "$BATS_TEST_TMPDIR/test.service"
     sed -i '' "s|@@INSTALL_DIR@@|/opt/helixscreen|g;s|@@INSTALL_PARENT@@|/opt|g" "$BATS_TEST_TMPDIR/test.service" 2>/dev/null || \
