@@ -138,11 +138,9 @@ class PrinterManagerOverlay : public OverlayBase {
     /// Printer image widget (set programmatically - exception to declarative rule)
     lv_obj_t* printer_image_obj_ = nullptr;
 
-    // Name editing widgets
-    lv_obj_t* name_row_ = nullptr;
-    lv_obj_t* name_heading_ = nullptr;
+    // Name editing state (subject-driven visibility via bind_flag_if_eq in XML)
+    lv_subject_t name_editing_;
     lv_obj_t* name_input_ = nullptr;
-    bool name_editing_ = false;
 
     void start_name_edit();
     void finish_name_edit();
