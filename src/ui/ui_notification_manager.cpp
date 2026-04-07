@@ -242,6 +242,8 @@ void NotificationManager::deinit_subjects() {
     }
     subjects_.deinit_all();
     subjects_initialized_ = false;
+    callbacks_registered_ = false;
+    initialized_ = false;
     spdlog::debug("[NotificationManager] Subjects deinitialized");
 }
 
