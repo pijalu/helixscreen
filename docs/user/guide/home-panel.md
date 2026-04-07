@@ -621,7 +621,11 @@ This enables SIMD-accelerated JPEG decoding, which is **3-5x faster** than the b
 
 The name defaults to "My Printer" if left empty. It's saved to your config file and persists across restarts.
 
-> **Tip:** You can also set the name directly in the config file under the `printer.name` key — see [Configuration Reference](../CONFIGURATION.md#name).
+> **Auto-import:** If you've already named your printer in Mainsail or Fluidd, HelixScreen automatically picks up that name on first connection — no need to re-enter it.
+
+> **Sync:** When you rename your printer in HelixScreen, the new name is automatically pushed to Mainsail and Fluidd so all your interfaces stay in sync.
+
+> **Tip:** You can also set the name directly in the config file under the `printer_name` key — see [Configuration Reference](../CONFIGURATION.md#name).
 
 ### Changing the Printer Image
 

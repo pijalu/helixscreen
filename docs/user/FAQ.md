@@ -305,7 +305,7 @@ Your selection is saved to the `display.printer_image` config key and persists a
 
 ### Can I rename my printer?
 
-**Yes.** Tap the printer image on the Home Panel to open the Printer Manager. Then tap the printer name (shown with a pencil icon) to enable inline editing. Type the new name and press **Enter** to save, or **Escape** to cancel. The name is stored in the `printer.name` config key. See the [Printer Manager guide](guide/home-panel.md#changing-the-printer-name) for details.
+**Yes.** Tap the printer image on the Home Panel to open the Printer Manager. Then tap the printer name (shown with a pencil icon) to enable inline editing. Type the new name and press **Enter** to save, or **Escape** to cancel. The name syncs automatically with Mainsail and Fluidd. See the [Printer Manager guide](guide/home-panel.md#changing-the-printer-name) for details.
 
 ### What languages are supported?
 
