@@ -449,7 +449,7 @@ void ScannerPickerModal::start_bt_discovery() {
                 // Copy device info to avoid dangling pointers
                 BtDeviceInfo info;
                 info.mac = dev->mac ? dev->mac : "";
-                info.name = dev->name ? dev->name : lv_tr("Unknown");
+                info.name = dev->name ? dev->name : "Unknown";
                 info.paired = dev->paired;
                 info.is_ble = dev->is_ble;
 
