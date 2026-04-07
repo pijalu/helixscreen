@@ -401,6 +401,9 @@ void TelemetryManager::shutdown() {
         stop_auto_send();
     } else {
         auto_send_timer_ = nullptr;
+        snapshot_timer_ = nullptr;
+        feature_adoption_timer_ = nullptr;
+        settings_debounce_timer_ = nullptr;
     }
 
     // Persist queue to disk
