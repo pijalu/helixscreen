@@ -5,6 +5,7 @@
 
 #include "config.h"
 #include "grid_layout.h"
+#include "helix-xml/src/xml/lv_xml.h"
 #include "panel_widget_registry.h"
 #include "theme_manager.h"
 
@@ -493,6 +494,26 @@ std::vector<PanelWidgetEntry> PanelWidgetConfig::build_default_grid() {
         if (fixed_ids.count(def.id) > 0)
             continue;
         result.push_back({def.id, def.default_enabled, {}, -1, -1, def.colspan, def.rowspan});
+    }
+
+    // Bed temperature: always last, enabled conditionally.
+    // Large/xlarge: always enabled. Small/medium: only when no AMS present (no room).
+    {
+        auto it = std::find_if(result.begin(), result.end(),
+                               [](const PanelWidgetEntry& e) { return e.id == "bed_temperature"; });
+        if (it != result.end()) {
+            bool is_large = (breakpoint >= 3);
+            bool ams_present = false;
+            lv_subject_t* ams_subj = lv_xml_get_subject(nullptr, "ams_slot_count");
+            if (ams_subj && lv_subject_get_int(ams_subj) > 0)
+                ams_present = true;
+
+            it->enabled = is_large || !ams_present;
+            // Move to end so it's the last widget placed
+            auto entry = std::move(*it);
+            result.erase(it);
+            result.push_back(std::move(entry));
+        }
     }
 
     // Safety: ensure at least some widgets are enabled

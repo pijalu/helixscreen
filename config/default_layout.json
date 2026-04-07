@@ -16,7 +16,7 @@
       "placements": {
         "tiny":   { "col": 0, "row": 2, "colspan": 2, "rowspan": 2 },
         "small":  { "col": 0, "row": 2, "colspan": 2, "rowspan": 2 },
-        "medium": { "col": 0, "row": 2, "colspan": 2, "rowspan": 2 },
+        "medium": { "col": 0, "row": 2, "colspan": 3, "rowspan": 2 },
         "large":  { "col": 0, "row": 3, "colspan": 3, "rowspan": 2 },
         "xlarge": { "col": 0, "row": 3, "colspan": 3, "rowspan": 2 }
       }

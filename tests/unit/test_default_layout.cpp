@@ -1,8 +1,12 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+#include "helix-xml/src/xml/lv_xml.h"
+#include "helix-xml/src/xml/lv_xml_component.h"
 #include "panel_widget_config.h"
 #include "panel_widget_registry.h"
 #include "theme_manager.h"
+
+extern "C" void lv_xml_component_init(void);
 
 #include <algorithm>
 #include <cstdio>
@@ -82,17 +86,11 @@ class TempCwdGuard {
 // Helper: count of widget defs that build_default_grid() includes
 // ============================================================================
 //
-// build_default_grid() skips multi_instance widgets (they use dynamic IDs like
-// "favorite_macro:0"), so the expected entry count is grid_widget_count() minus
-// the number of multi_instance defs.
+// build_default_grid() includes every widget definition once (multi-instance
+// widgets are included as their base ID; additional instances are user-added).
 
 static size_t grid_widget_count() {
-    size_t count = 0;
-    for (const auto& def : get_all_widget_defs()) {
-        if (!def.multi_instance)
-            ++count;
-    }
-    return count;
+    return get_all_widget_defs().size();
 }
 
 // ============================================================================
@@ -569,4 +567,172 @@ TEST_CASE("default_layout: all registry widgets present in result regardless of 
             continue;
         CHECK(entry_ids.count(def.id) == 1);
     }
+}
+
+// ============================================================================
+// RAII helper: register an ams_slot_count subject for testing
+// ============================================================================
+//
+// Ensures the XML "globals" scope exists so lv_xml_register_subject() and
+// lv_xml_get_subject() work in the unit-test environment (no full lv_init).
+
+class AmsSubjectGuard {
+  public:
+    explicit AmsSubjectGuard(int slot_count) {
+        if (!lv_xml_component_get_scope("globals"))
+            lv_xml_component_init();
+        // Use a static subject so the pointer registered with the XML system
+        // remains valid after this guard is destroyed (avoids dangling pointer).
+        static bool initialized = false;
+        if (!initialized) {
+            lv_subject_init_int(&subject_, 0);
+            lv_xml_register_subject(nullptr, "ams_slot_count", &subject_);
+            initialized = true;
+        }
+        lv_subject_set_int(&subject_, slot_count);
+    }
+
+    void set(int val) {
+        lv_subject_set_int(&subject_, val);
+    }
+
+    ~AmsSubjectGuard() {
+        // Reset to 0 so subsequent tests see "no AMS" by default
+        lv_subject_set_int(&subject_, 0);
+    }
+
+    AmsSubjectGuard(const AmsSubjectGuard&) = delete;
+    AmsSubjectGuard& operator=(const AmsSubjectGuard&) = delete;
+
+  private:
+    static lv_subject_t subject_;
+};
+
+lv_subject_t AmsSubjectGuard::subject_{};
+
+// ============================================================================
+// Helper: set breakpoint and restore on scope exit
+// ============================================================================
+
+class BreakpointGuard {
+  public:
+    explicit BreakpointGuard(int bp) {
+        subj_ = theme_manager_get_breakpoint_subject();
+        if (subj_) {
+            if (subj_->type != LV_SUBJECT_TYPE_INT) {
+                // Zero-initialized subject in test env — init it properly
+                lv_subject_init_int(subj_, 0);
+            }
+            original_ = lv_subject_get_int(subj_);
+            lv_subject_set_int(subj_, bp);
+        }
+    }
+
+    ~BreakpointGuard() {
+        if (subj_)
+            lv_subject_set_int(subj_, original_);
+    }
+
+    BreakpointGuard(const BreakpointGuard&) = delete;
+    BreakpointGuard& operator=(const BreakpointGuard&) = delete;
+
+  private:
+    lv_subject_t* subj_ = nullptr;
+    int original_ = 0;
+};
+
+// ============================================================================
+// bed_temperature conditional placement tests
+// ============================================================================
+
+TEST_CASE("default_layout: bed_temperature is always last in result", "[default_layout]") {
+    TempCwdGuard guard;
+    guard.write_layout(R"({ "anchors": [] })");
+
+    auto entries = PanelWidgetConfig::build_default_grid();
+    REQUIRE(!entries.empty());
+    CHECK(entries.back().id == "bed_temperature");
+}
+
+TEST_CASE("default_layout: bed_temperature enabled at small breakpoint without AMS",
+          "[default_layout]") {
+    TempCwdGuard guard;
+    BreakpointGuard bp(1); // small
+    guard.write_layout(R"({ "anchors": [] })");
+
+    // No AMS subject registered → ams_slot_count lookup returns NULL → no AMS
+    auto entries = PanelWidgetConfig::build_default_grid();
+    auto* bed = find_entry(entries, "bed_temperature");
+    REQUIRE(bed);
+    CHECK(bed->enabled);
+    CHECK(entries.back().id == "bed_temperature");
+}
+
+TEST_CASE("default_layout: bed_temperature disabled at small breakpoint with AMS",
+          "[default_layout]") {
+    TempCwdGuard guard;
+    BreakpointGuard bp(1);  // small
+    AmsSubjectGuard ams(4); // 4 slots → AMS present
+    guard.write_layout(R"({ "anchors": [] })");
+
+    auto entries = PanelWidgetConfig::build_default_grid();
+    auto* bed = find_entry(entries, "bed_temperature");
+    REQUIRE(bed);
+    CHECK_FALSE(bed->enabled);
+    CHECK(entries.back().id == "bed_temperature");
+}
+
+TEST_CASE("default_layout: bed_temperature disabled at medium breakpoint with AMS",
+          "[default_layout]") {
+    TempCwdGuard guard;
+    BreakpointGuard bp(2); // medium
+    AmsSubjectGuard ams(4);
+    guard.write_layout(R"({ "anchors": [] })");
+
+    auto entries = PanelWidgetConfig::build_default_grid();
+    auto* bed = find_entry(entries, "bed_temperature");
+    REQUIRE(bed);
+    CHECK_FALSE(bed->enabled);
+    CHECK(entries.back().id == "bed_temperature");
+}
+
+TEST_CASE("default_layout: bed_temperature enabled at large breakpoint even with AMS",
+          "[default_layout]") {
+    TempCwdGuard guard;
+    BreakpointGuard bp(3); // large
+    AmsSubjectGuard ams(4);
+    guard.write_layout(R"({ "anchors": [] })");
+
+    auto entries = PanelWidgetConfig::build_default_grid();
+    auto* bed = find_entry(entries, "bed_temperature");
+    REQUIRE(bed);
+    CHECK(bed->enabled);
+    CHECK(entries.back().id == "bed_temperature");
+}
+
+TEST_CASE("default_layout: bed_temperature enabled at xlarge breakpoint even with AMS",
+          "[default_layout]") {
+    TempCwdGuard guard;
+    BreakpointGuard bp(4); // xlarge
+    AmsSubjectGuard ams(4);
+    guard.write_layout(R"({ "anchors": [] })");
+
+    auto entries = PanelWidgetConfig::build_default_grid();
+    auto* bed = find_entry(entries, "bed_temperature");
+    REQUIRE(bed);
+    CHECK(bed->enabled);
+    CHECK(entries.back().id == "bed_temperature");
+}
+
+TEST_CASE("default_layout: bed_temperature enabled at medium breakpoint without AMS",
+          "[default_layout]") {
+    TempCwdGuard guard;
+    BreakpointGuard bp(2); // medium
+    guard.write_layout(R"({ "anchors": [] })");
+
+    auto entries = PanelWidgetConfig::build_default_grid();
+    auto* bed = find_entry(entries, "bed_temperature");
+    REQUIRE(bed);
+    CHECK(bed->enabled);
+    CHECK(entries.back().id == "bed_temperature");
 }
