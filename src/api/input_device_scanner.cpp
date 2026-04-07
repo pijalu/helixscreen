@@ -1,8 +1,11 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include "input_device_scanner.h"
+
 #include "config.h"
 #include "touch_calibration.h"
+
+#include <spdlog/spdlog.h>
 
 #include <algorithm>
 #include <cstdlib>
@@ -14,18 +17,16 @@
 #include <unistd.h>
 #include <vector>
 
-#include <spdlog/spdlog.h>
-
 namespace {
 
 // Build sysfs path: /sys/class/input/eventN/device/<subpath>
 std::string sysfs_device_path(const std::string& sysfs_base, int event_num,
-                               const std::string& subpath) {
+                              const std::string& subpath) {
     return sysfs_base + "/event" + std::to_string(event_num) + "/device/" + subpath;
 }
 
 std::string read_sysfs_capability(const std::string& sysfs_base, int event_num,
-                                   const std::string& cap_name) {
+                                  const std::string& cap_name) {
     return helix::input::read_sysfs_line(
         sysfs_device_path(sysfs_base, event_num, "capabilities/" + cap_name));
 }
@@ -37,26 +38,25 @@ std::string read_device_name(const std::string& sysfs_base, int event_num) {
 // Read /sys/class/input/eventN/device/id/bustype — returns bus type as integer.
 // BUS_USB=3, BUS_BLUETOOTH=5. Returns 0 on failure.
 int read_bus_type(const std::string& sysfs_base, int event_num) {
-    std::string line = helix::input::read_sysfs_line(
-        sysfs_device_path(sysfs_base, event_num, "id/bustype"));
-    if (line.empty()) return 0;
+    std::string line =
+        helix::input::read_sysfs_line(sysfs_device_path(sysfs_base, event_num, "id/bustype"));
+    if (line.empty())
+        return 0;
     return static_cast<int>(std::strtol(line.c_str(), nullptr, 16));
 }
 
 std::string read_vendor_id(const std::string& sysfs_base, int event_num) {
-    return helix::input::read_sysfs_line(
-        sysfs_device_path(sysfs_base, event_num, "id/vendor"));
+    return helix::input::read_sysfs_line(sysfs_device_path(sysfs_base, event_num, "id/vendor"));
 }
 
 std::string read_product_id(const std::string& sysfs_base, int event_num) {
-    return helix::input::read_sysfs_line(
-        sysfs_device_path(sysfs_base, event_num, "id/product"));
+    return helix::input::read_sysfs_line(sysfs_device_path(sysfs_base, event_num, "id/product"));
 }
 
 constexpr int BUS_USB = 0x03;
 constexpr int BUS_BLUETOOTH = 0x05;
 
-}  // namespace
+} // namespace
 
 namespace helix::input {
 
@@ -106,7 +106,7 @@ bool check_capability_bit(const std::string& hex_bitmask, int bit) {
 }
 
 std::optional<ScannedDevice> find_mouse_device(const std::string& dev_base,
-                                                const std::string& sysfs_base) {
+                                               const std::string& sysfs_base) {
     auto dir = std::unique_ptr<DIR, decltype(&closedir)>(opendir(dev_base.c_str()), closedir);
     if (!dir) {
         spdlog::debug("[InputScanner] Cannot open {}", dev_base);
@@ -134,23 +134,23 @@ std::optional<ScannedDevice> find_mouse_device(const std::string& dev_base,
         std::string rel_caps = read_sysfs_capability(sysfs_base, event_num, "rel");
         std::string key_caps = read_sysfs_capability(sysfs_base, event_num, "key");
 
-        spdlog::debug("[InputScanner] Scanning {} ({}) abs=[{}] rel=[{}] key=[{}]",
-                      device_path, name, abs_caps, rel_caps, key_caps);
+        spdlog::debug("[InputScanner] Scanning {} ({}) abs=[{}] rel=[{}] key=[{}]", device_path,
+                      name, abs_caps, rel_caps, key_caps);
 
         // Skip touchscreens:
         //   - Legacy single-touch: ABS_X (bit 0) + ABS_Y (bit 1)
         //   - MT-only (e.g. Goodix gt9xxnew_ts): ABS_MT_POSITION_X (bit 53) +
         //     ABS_MT_POSITION_Y (bit 54) without legacy ABS_X/ABS_Y
         //   - Any device with BTN_TOUCH (bit 330) — touchscreens, not mice
-        bool has_legacy_abs = check_capability_bit(abs_caps, 0) &&
-                              check_capability_bit(abs_caps, 1);
-        bool has_mt_abs = check_capability_bit(abs_caps, 53) &&
-                          check_capability_bit(abs_caps, 54);
+        bool has_legacy_abs =
+            check_capability_bit(abs_caps, 0) && check_capability_bit(abs_caps, 1);
+        bool has_mt_abs = check_capability_bit(abs_caps, 53) && check_capability_bit(abs_caps, 54);
         bool has_btn_touch = check_capability_bit(key_caps, 330);
 
         if (has_legacy_abs || has_mt_abs || has_btn_touch) {
             spdlog::debug("[InputScanner] Skipping {} (touchscreen: legacy_abs={} mt_abs={} "
-                          "btn_touch={})", device_path, has_legacy_abs, has_mt_abs, has_btn_touch);
+                          "btn_touch={})",
+                          device_path, has_legacy_abs, has_mt_abs, has_btn_touch);
             continue;
         }
 
@@ -171,8 +171,8 @@ std::optional<ScannedDevice> find_mouse_device(const std::string& dev_base,
         // devices, and other non-physical "mice" that report mouse capabilities.
         int bus = read_bus_type(sysfs_base, event_num);
         if (bus != BUS_USB && bus != BUS_BLUETOOTH) {
-            spdlog::debug("[InputScanner] Skipping {} (bus type 0x{:04x}, not USB/BT)",
-                          device_path, bus);
+            spdlog::debug("[InputScanner] Skipping {} (bus type 0x{:04x}, not USB/BT)", device_path,
+                          bus);
             continue;
         }
 
@@ -188,8 +188,8 @@ std::optional<ScannedDevice> find_mouse_device() {
 }
 
 std::optional<ScannedDevice> find_keyboard_device(const std::string& dev_base,
-                                                   const std::string& sysfs_base,
-                                                   const std::string& exclude_vendor_product) {
+                                                  const std::string& sysfs_base,
+                                                  const std::string& exclude_vendor_product) {
     // Parse exclusion vendor:product pair if provided
     std::string exclude_vendor;
     std::string exclude_product;
@@ -275,8 +275,7 @@ std::optional<ScannedDevice> find_keyboard_device() {
     try {
         Config* config = Config::get_instance();
         if (config) {
-            exclude_id = config->get<std::string>(
-                config->df() + "scanner/usb_vendor_product", "");
+            exclude_id = config->get<std::string>(config->df() + "scanner/usb_vendor_product", "");
         }
     } catch (...) {
         // Config may not be initialized yet during very early startup
@@ -285,8 +284,8 @@ std::optional<ScannedDevice> find_keyboard_device() {
 }
 
 std::vector<ScannedDevice> find_hid_keyboard_devices(const std::string& dev_base,
-                                                      const std::string& sysfs_base) {
-    std::vector<ScannedDevice> named_scanners;   // "barcode"/"scanner" in name — high priority
+                                                     const std::string& sysfs_base) {
+    std::vector<ScannedDevice> named_scanners;    // "barcode"/"scanner" in name — high priority
     std::vector<ScannedDevice> generic_keyboards; // any other USB HID keyboard
 
     auto dir = std::unique_ptr<DIR, decltype(&closedir)>(opendir(dev_base.c_str()), closedir);
@@ -325,10 +324,9 @@ std::vector<ScannedDevice> find_hid_keyboard_devices(const std::string& dev_base
 
         // Skip touchscreens (have ABS_X/ABS_Y or ABS_MT_POSITION_X/Y)
         std::string abs_caps = read_sysfs_capability(sysfs_base, event_num, "abs");
-        bool has_legacy_abs = check_capability_bit(abs_caps, 0) &&
-                              check_capability_bit(abs_caps, 1);
-        bool has_mt_abs = check_capability_bit(abs_caps, 53) &&
-                          check_capability_bit(abs_caps, 54);
+        bool has_legacy_abs =
+            check_capability_bit(abs_caps, 0) && check_capability_bit(abs_caps, 1);
+        bool has_mt_abs = check_capability_bit(abs_caps, 53) && check_capability_bit(abs_caps, 54);
         if (has_legacy_abs || has_mt_abs) {
             continue;
         }
@@ -345,8 +343,8 @@ std::vector<ScannedDevice> find_hid_keyboard_devices(const std::string& dev_base
             spdlog::info("[InputScanner] Found named scanner device: {} ({})", device_path, name);
             named_scanners.push_back(std::move(dev));
         } else {
-            spdlog::info("[InputScanner] Found USB HID keyboard device: {} ({})",
-                         device_path, name);
+            spdlog::info("[InputScanner] Found USB HID keyboard device: {} ({})", device_path,
+                         name);
             generic_keyboards.push_back(std::move(dev));
         }
     }
@@ -354,8 +352,10 @@ std::vector<ScannedDevice> find_hid_keyboard_devices(const std::string& dev_base
     // Return named scanners first, then generic keyboards
     std::vector<ScannedDevice> result;
     result.reserve(named_scanners.size() + generic_keyboards.size());
-    for (auto& d : named_scanners) result.push_back(std::move(d));
-    for (auto& d : generic_keyboards) result.push_back(std::move(d));
+    for (auto& d : named_scanners)
+        result.push_back(std::move(d));
+    for (auto& d : generic_keyboards)
+        result.push_back(std::move(d));
     return result;
 }
 
@@ -364,8 +364,8 @@ std::vector<ScannedDevice> find_hid_keyboard_devices() {
 }
 
 std::vector<ScannedDevice> find_hid_keyboard_devices(const std::string& dev_base,
-                                                      const std::string& sysfs_base,
-                                                      const std::string& configured_vendor_product) {
+                                                     const std::string& sysfs_base,
+                                                     const std::string& configured_vendor_product) {
     if (configured_vendor_product.empty()) {
         return find_hid_keyboard_devices(dev_base, sysfs_base);
     }
@@ -382,20 +382,25 @@ std::vector<ScannedDevice> find_hid_keyboard_devices(const std::string& dev_base
 
     // Scan for the configured device
     auto dir = std::unique_ptr<DIR, decltype(&closedir)>(opendir(dev_base.c_str()), closedir);
-    if (!dir) return find_hid_keyboard_devices(dev_base, sysfs_base);
+    if (!dir)
+        return find_hid_keyboard_devices(dev_base, sysfs_base);
 
     struct dirent* entry;
     while ((entry = readdir(dir.get())) != nullptr) {
-        if (strncmp(entry->d_name, "event", 5) != 0) continue;
+        if (strncmp(entry->d_name, "event", 5) != 0)
+            continue;
 
         int event_num = -1;
-        if (sscanf(entry->d_name, "event%d", &event_num) != 1 || event_num < 0) continue;
+        if (sscanf(entry->d_name, "event%d", &event_num) != 1 || event_num < 0)
+            continue;
 
         std::string device_path = dev_base + "/" + entry->d_name;
-        if (access(device_path.c_str(), R_OK) != 0) continue;
+        if (access(device_path.c_str(), R_OK) != 0)
+            continue;
 
         int bus = read_bus_type(sysfs_base, event_num);
-        if (bus != BUS_USB && bus != BUS_BLUETOOTH) continue;
+        if (bus != BUS_USB && bus != BUS_BLUETOOTH)
+            continue;
 
         std::string vendor = read_vendor_id(sysfs_base, event_num);
         std::string product = read_product_id(sysfs_base, event_num);
@@ -403,7 +408,8 @@ std::vector<ScannedDevice> find_hid_keyboard_devices(const std::string& dev_base
         if (vendor == target_vendor && product == target_product) {
             std::string name = read_device_name(sysfs_base, event_num);
             spdlog::info("[InputScanner] Found configured scanner device: {} ({}) "
-                         "vendor={} product={}", device_path, name, vendor, product);
+                         "vendor={} product={}",
+                         device_path, name, vendor, product);
             return {{device_path, name, event_num}};
         }
     }
@@ -415,7 +421,8 @@ std::vector<ScannedDevice> find_hid_keyboard_devices(const std::string& dev_base
 
 std::string read_sysfs_line(const std::string& path) {
     std::ifstream file(path);
-    if (!file.is_open()) return "";
+    if (!file.is_open())
+        return "";
     std::string line;
     std::getline(file, line);
     return line;
@@ -432,7 +439,7 @@ std::string get_input_device_phys(int event_num) {
 }
 
 std::vector<UsbHidDevice> enumerate_usb_hid_devices(const std::string& dev_base,
-                                                     const std::string& sysfs_base) {
+                                                    const std::string& sysfs_base) {
     std::vector<UsbHidDevice> devices;
 
     auto dir = std::unique_ptr<DIR, decltype(&closedir)>(opendir(dev_base.c_str()), closedir);
@@ -443,24 +450,31 @@ std::vector<UsbHidDevice> enumerate_usb_hid_devices(const std::string& dev_base,
 
     struct dirent* entry;
     while ((entry = readdir(dir.get())) != nullptr) {
-        if (strncmp(entry->d_name, "event", 5) != 0) continue;
+        if (strncmp(entry->d_name, "event", 5) != 0)
+            continue;
 
         int event_num = -1;
-        if (sscanf(entry->d_name, "event%d", &event_num) != 1 || event_num < 0) continue;
+        if (sscanf(entry->d_name, "event%d", &event_num) != 1 || event_num < 0)
+            continue;
 
         std::string device_path = dev_base + "/" + entry->d_name;
-        if (access(device_path.c_str(), R_OK) != 0) continue;
+        if (access(device_path.c_str(), R_OK) != 0)
+            continue;
 
         int bus = read_bus_type(sysfs_base, event_num);
-        if (bus != BUS_USB && bus != BUS_BLUETOOTH) continue;
+        if (bus != BUS_USB && bus != BUS_BLUETOOTH)
+            continue;
 
         std::string key_caps = read_sysfs_capability(sysfs_base, event_num, "key");
-        if (!check_capability_bit(key_caps, 30)) continue;
+        if (!check_capability_bit(key_caps, 30))
+            continue;
 
         std::string abs_caps = read_sysfs_capability(sysfs_base, event_num, "abs");
-        bool has_legacy_abs = check_capability_bit(abs_caps, 0) && check_capability_bit(abs_caps, 1);
+        bool has_legacy_abs =
+            check_capability_bit(abs_caps, 0) && check_capability_bit(abs_caps, 1);
         bool has_mt_abs = check_capability_bit(abs_caps, 53) && check_capability_bit(abs_caps, 54);
-        if (has_legacy_abs || has_mt_abs) continue;
+        if (has_legacy_abs || has_mt_abs)
+            continue;
 
         std::string name = read_device_name(sysfs_base, event_num);
         std::string vendor = read_vendor_id(sysfs_base, event_num);
@@ -468,8 +482,8 @@ std::vector<UsbHidDevice> enumerate_usb_hid_devices(const std::string& dev_base,
 
         spdlog::info("[InputScanner] Enumerated USB HID device: {} ({}) vendor={} product={}",
                      device_path, name, vendor, product);
-        devices.push_back({std::move(name), std::move(vendor), std::move(product),
-                           std::move(device_path)});
+        devices.push_back(
+            {std::move(name), std::move(vendor), std::move(product), std::move(device_path), bus});
     }
 
     return devices;
@@ -483,10 +497,12 @@ bool get_input_touch_capabilities(int event_num, helix::AbsCapabilities* caps_ou
     std::string path =
         "/sys/class/input/event" + std::to_string(event_num) + "/device/capabilities/abs";
     std::string caps = read_sysfs_line(path);
-    if (caps.empty()) return false;
+    if (caps.empty())
+        return false;
 
     auto result = helix::parse_abs_capabilities(caps);
-    if (caps_out) *caps_out = result;
+    if (caps_out)
+        *caps_out = result;
 
     if (result.has_multitouch && !result.has_single_touch) {
         spdlog::debug("[InputScanner] event{}: MT-only touchscreen detected "
@@ -497,4 +513,4 @@ bool get_input_touch_capabilities(int event_num, helix::AbsCapabilities* caps_ou
     return result.has_single_touch || result.has_multitouch;
 }
 
-}  // namespace helix::input
+} // namespace helix::input
