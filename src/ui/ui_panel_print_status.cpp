@@ -2080,12 +2080,13 @@ void PrintStatusPanel::update_view_toggle_position(bool objects_visible) {
     if (!btn)
         return;
 
+    int32_t space_md = theme_manager_get_spacing("space_md");
     if (objects_visible) {
-        // Shift right: objects button width (36) + small gap
-        lv_obj_set_style_translate_x(btn, 36 + 6, LV_PART_MAIN);
+        lv_obj_t* btn_objects = lv_obj_find_by_name(card, "btn_objects");
+        int32_t obj_w = btn_objects ? lv_obj_get_width(btn_objects) : 36;
+        lv_obj_set_style_translate_x(btn, space_md + obj_w + space_md, LV_PART_MAIN);
     } else {
-        // Remove inline override so XML default (#space_md) applies
-        lv_obj_remove_local_style_prop(btn, LV_STYLE_TRANSLATE_X, LV_PART_MAIN);
+        lv_obj_set_style_translate_x(btn, space_md, LV_PART_MAIN);
     }
 }
 

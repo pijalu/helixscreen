@@ -946,8 +946,8 @@ static void apply_styles(lv_xml_parser_state_t * state, lv_obj_t * obj, const ch
     else SET_STYLE_IF(blend_mode, lv_xml_blend_mode_to_enum(value));
     else SET_STYLE_IF(transform_width, lv_xml_atoi(value));
     else SET_STYLE_IF(transform_height, lv_xml_atoi(value));
-    else SET_STYLE_IF(translate_x, lv_xml_atoi(value));
-    else SET_STYLE_IF(translate_y, lv_xml_atoi(value));
+    else SET_STYLE_IF(translate_x, lv_xml_to_size(value));
+    else SET_STYLE_IF(translate_y, lv_xml_to_size(value));
     else SET_STYLE_IF(translate_radial, lv_xml_atoi(value));
     else SET_STYLE_IF(transform_scale_x, lv_xml_atoi(value));
     else SET_STYLE_IF(transform_scale_y, lv_xml_atoi(value));
