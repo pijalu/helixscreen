@@ -122,20 +122,6 @@
           "reason": "TVOC sensor (matches stock 'tvocValue' and ForgeX 'TVOC_Level')"
         },
         {
-          "type": "sensor_match",
-          "field": "sensors",
-          "pattern": "load_cell",
-          "confidence": 80,
-          "reason": "Load cell sensor (ForgeX name for spool weight sensor)"
-        },
-        {
-          "type": "sensor_match",
-          "field": "sensors",
-          "pattern": "weightValue",
-          "confidence": 80,
-          "reason": "Spool weight sensor (stock firmware name)"
-        },
-        {
           "type": "kinematics_match",
           "field": "kinematics",
           "pattern": "corexy",
@@ -307,20 +293,6 @@
           "pattern": "tvoc",
           "confidence": 95,
           "reason": "TVOC sensor (matches stock 'tvocValue' and ForgeX 'TVOC_Level')"
-        },
-        {
-          "type": "sensor_match",
-          "field": "sensors",
-          "pattern": "load_cell",
-          "confidence": 80,
-          "reason": "Load cell sensor (ForgeX name for spool weight sensor)"
-        },
-        {
-          "type": "sensor_match",
-          "field": "sensors",
-          "pattern": "weightValue",
-          "confidence": 80,
-          "reason": "Spool weight sensor (stock firmware name)"
         },
         {
           "type": "kinematics_match",
