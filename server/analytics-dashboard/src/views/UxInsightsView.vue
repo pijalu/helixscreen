@@ -55,7 +55,7 @@
             </thead>
             <tbody>
               <tr v-for="s in data.settings_defaults" :key="s.setting">
-                <td>{{ formatSettingName(s.setting) }}</td>
+                <td>{{ titleCase(s.setting) }}</td>
                 <td>{{ (s.pct_changed * 100).toFixed(1) }}%</td>
                 <td>{{ s.devices_changed }}</td>
               </tr>
@@ -77,7 +77,7 @@ import { useFiltersStore } from '@/stores/filters'
 import { api } from '@/services/api'
 import type { UxInsightsData } from '@/services/api'
 import { horizontalBarOpts } from '@/utils/chart'
-import { formatDuration } from '@/utils/format'
+import { formatDuration, titleCase } from '@/utils/format'
 
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4', '#84cc16']
 
@@ -85,10 +85,6 @@ const filters = useFiltersStore()
 const data = ref<UxInsightsData | null>(null)
 const loading = ref(true)
 const error = ref('')
-
-function formatSettingName(id: string): string {
-  return id.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')
-}
 
 const panelTimePieData = computed(() => ({
   labels: data.value?.panel_time.map(p => p.panel) ?? [],
@@ -113,7 +109,7 @@ const panelVisitsBarData = computed(() => {
 const settingsChangesData = computed(() => {
   const sorted = [...(data.value?.settings_changes ?? [])].sort((a, b) => b.change_count - a.change_count)
   return {
-    labels: sorted.map(s => formatSettingName(s.setting)),
+    labels: sorted.map(s => titleCase(s.setting)),
     datasets: [{
       label: 'Changes',
       data: sorted.map(s => s.change_count),

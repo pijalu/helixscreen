@@ -39,7 +39,7 @@
             </thead>
             <tbody>
               <tr v-for="f in neverTouched" :key="f.name">
-                <td>{{ formatFeatureName(f.name) }}</td>
+                <td>{{ titleCase(f.name) }}</td>
                 <td>{{ (f.adoption_rate * 100).toFixed(1) }}%</td>
                 <td>{{ Math.round(f.adoption_rate * data.total_devices) }}</td>
               </tr>
@@ -60,31 +60,28 @@ import { useFiltersStore } from '@/stores/filters'
 import { api } from '@/services/api'
 import type { FeaturesData } from '@/services/api'
 import { horizontalBarOpts } from '@/utils/chart'
+import { titleCase } from '@/utils/format'
 
 const filters = useFiltersStore()
 const data = ref<FeaturesData | null>(null)
 const loading = ref(true)
 const error = ref('')
 
-function formatFeatureName(id: string): string {
-  return id.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')
-}
-
 const mostUsed = computed(() => {
   const f = data.value?.features[0]
-  return f ? `${formatFeatureName(f.name)} (${(f.adoption_rate * 100).toFixed(0)}%)` : 'N/A'
+  return f ? `${titleCase(f.name)} (${(f.adoption_rate * 100).toFixed(0)}%)` : 'N/A'
 })
 
 const leastUsed = computed(() => {
   const features = data.value?.features ?? []
   const f = features[features.length - 1]
-  return f ? `${formatFeatureName(f.name)} (${(f.adoption_rate * 100).toFixed(0)}%)` : 'N/A'
+  return f ? `${titleCase(f.name)} (${(f.adoption_rate * 100).toFixed(0)}%)` : 'N/A'
 })
 
 const adoptionChartData = computed(() => {
   const sorted = [...(data.value?.features ?? [])].sort((a, b) => b.adoption_rate - a.adoption_rate)
   return {
-    labels: sorted.map(f => formatFeatureName(f.name)),
+    labels: sorted.map(f => titleCase(f.name)),
     datasets: [{
       label: 'Adoption %',
       data: sorted.map(f => +(f.adoption_rate * 100).toFixed(1)),

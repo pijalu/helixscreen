@@ -22,3 +22,7 @@ export function shortDeviceId(id: string): string {
   if (!id) return '\u2014'
   return id.slice(0, 8) + '...'
 }
+
+export function titleCase(snakeId: string): string {
+  return snakeId.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')
+}
