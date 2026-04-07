@@ -4,6 +4,8 @@
 #include "ui_wizard.h"
 
 #include "ui_error_reporting.h"
+#include "ui_keyboard_manager.h"
+#include "ui_nav_manager.h"
 #include "ui_panel_home.h"
 #include "ui_subject_registry.h"
 #include "ui_utils.h"
@@ -24,8 +26,6 @@
 #include "ams_state.h"
 #include "app_globals.h"
 #include "config.h"
-#include "ui_keyboard_manager.h"
-#include "ui_nav_manager.h"
 #include "filament_sensor_manager.h"
 #include "hardware_validator.h"
 #include "helix-xml/src/xml/lv_xml.h"
@@ -33,6 +33,8 @@
 #include "lvgl/src/others/translation/lv_translation.h"
 #include "moonraker_api.h"
 #include "moonraker_client.h"
+#include "panel_widget_config.h"
+#include "panel_widget_manager.h"
 #include "platform_info.h"
 #include "runtime_config.h"
 #include "static_panel_registry.h"
@@ -236,8 +238,8 @@ void ui_wizard_init_subjects() {
                               wizard_subjects_);
     UI_MANAGED_SUBJECT_STRING(wizard_step_current, wizard_step_current_buffer, "1",
                               "wizard_step_current", wizard_subjects_);
-    UI_MANAGED_SUBJECT_STRING(wizard_step_total, wizard_step_total_buffer, "9",
-                              "wizard_step_total", wizard_subjects_);
+    UI_MANAGED_SUBJECT_STRING(wizard_step_total, wizard_step_total_buffer, "9", "wizard_step_total",
+                              wizard_subjects_);
     UI_MANAGED_SUBJECT_INT(wizard_is_final_step, 0, "wizard_is_final_step", wizard_subjects_);
     UI_MANAGED_SUBJECT_STRING(wizard_subtitle, wizard_subtitle_buffer, "", "wizard_subtitle",
                               wizard_subjects_);
@@ -658,10 +660,9 @@ static void ui_wizard_precalculate_skips() {
     int total_skipped = (touch_cal_step_skipped ? 1 : 0) + (language_step_skipped ? 1 : 0) +
                         (wifi_step_skipped ? 1 : 0) + (connection_step_skipped ? 1 : 0) +
                         (printer_identify_step_skipped ? 1 : 0) +
-                        (heater_select_step_skipped ? 1 : 0) +
-                        (fan_select_step_skipped ? 1 : 0) + (ams_step_skipped ? 1 : 0) +
-                        (led_step_skipped ? 1 : 0) + (filament_step_skipped ? 1 : 0) +
-                        (input_shaper_step_skipped ? 1 : 0) +
+                        (heater_select_step_skipped ? 1 : 0) + (fan_select_step_skipped ? 1 : 0) +
+                        (ams_step_skipped ? 1 : 0) + (led_step_skipped ? 1 : 0) +
+                        (filament_step_skipped ? 1 : 0) + (input_shaper_step_skipped ? 1 : 0) +
                         (summary_step_skipped ? 1 : 0) + (telemetry_step_skipped ? 1 : 0);
     spdlog::info("[Wizard] Pre-calculated skips: {} steps will be skipped, {} total steps",
                  total_skipped, 13 - total_skipped);
@@ -976,6 +977,13 @@ void ui_wizard_complete() {
                 if (!ams_hw_name.empty()) {
                     HardwareValidator::add_expected_hardware(config, ams_hw_name);
                     spdlog::info("[Wizard] Added '{}' to expected hardware", ams_hw_name);
+                }
+
+                // Enable AMS widget on home panel since AMS hardware was detected
+                auto& wc = PanelWidgetManager::instance().get_widget_config("home");
+                if (wc.set_enabled_by_id("ams", true)) {
+                    wc.save();
+                    spdlog::info("[Wizard] Enabled AMS widget on home panel");
                 }
             }
         }

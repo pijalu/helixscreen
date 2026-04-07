@@ -11,11 +11,11 @@
 
 #include "tool_state.h"
 
-#include "lvgl/src/others/translation/lv_translation.h"
 #include "ui_update_queue.h"
 
 #include "ams_state.h"
 #include "json_utils.h"
+#include "lvgl/src/others/translation/lv_translation.h"
 #include "moonraker_api.h"
 #include "printer_discovery.h"
 #include "state/subject_macros.h"
@@ -89,8 +89,9 @@ void ToolState::init_tools(const helix::PrinterDiscovery& hardware) {
             tool.name = fmt::format("T{}", i);
             tool.extruder_name = extruder_names[i];
             tool.heater_name = extruder_names[i];
-            tool.fan_name = (i == 0) ? std::optional<std::string>("fan")
-                                     : std::optional<std::string>(fmt::format("fan_generic e{}_fan", i));
+            tool.fan_name = (i == 0)
+                                ? std::optional<std::string>("fan")
+                                : std::optional<std::string>(fmt::format("fan_generic e{}_fan", i));
             spdlog::debug("[ToolState] Snapmaker tool {}: extruder={}, fan={}", i,
                           tool.extruder_name.value_or("none"), tool.fan_name.value_or("none"));
             tools_.push_back(std::move(tool));
@@ -499,8 +500,10 @@ nlohmann::json ToolState::spool_assignments_to_json() const {
 }
 
 void ToolState::apply_spool_assignments(const nlohmann::json& data) {
-    if (!data.is_object()) {
-        spdlog::warn("[ToolState] apply_spool_assignments: expected JSON object");
+    if (!data.is_object() || data.empty()) {
+        // Normal when spoolman is unconfigured or DB key doesn't exist yet
+        spdlog::debug("[ToolState] apply_spool_assignments: no spool data (type={})",
+                      data.type_name());
         return;
     }
 
@@ -597,6 +600,11 @@ void ToolState::save_spool_assignments(MoonrakerAPI* api) {
 }
 
 void ToolState::load_spool_assignments(MoonrakerAPI* api) {
+    if (spool_assignments_loaded_) {
+        spdlog::debug("[ToolState] Spool assignments already loaded, skipping");
+        return;
+    }
+
     if (!api) {
         // No API — try local JSON only
         load_spool_json();

@@ -15,7 +15,6 @@ namespace helix {
 void register_fan_stack_widget();
 void register_temperature_widget();
 void register_temp_stack_widget();
-void register_power_widget();
 void register_network_widget();
 void register_led_widget();
 void register_led_controls_widget();
@@ -59,7 +58,7 @@ static std::vector<PanelWidgetDef> s_widget_defs = {
     {"power_device",     "Power",            "power_cycle",      "Toggle Moonraker power devices",               "Power",            "power_device_count", "Requires Moonraker power device",     false, 1, 1, 1, 1, 1, 1, true},
     {"network",          "Network",          "wifi_strength_4",  "Wi-Fi and ethernet connection status",         "Network",          nullptr,              nullptr,                               false, 1, 1, 1, 1, 2, 1},
     {"firmware_restart", "Firmware Restart",  "refresh",          "Restart Klipper firmware",                     "Firmware Restart", nullptr,              nullptr,                               false, 1, 1, 1, 1, 1, 1},
-    {"ams",              "AMS Status",        "filament",         "Multi-material spool status and control",      "AMS Status",       "ams_slot_count",     "Requires AMS or MMU hardware",        true,  1, 1, 1, 1, 2, 2},
+    {"ams",              "AMS Status",        "filament",         "Multi-material spool status and control",      "AMS Status",       "ams_slot_count",     "Requires AMS or MMU hardware",        false, 1, 1, 1, 1, 2, 2},
     {"tool_switcher",    "Tool Switcher",     "arrow_left_right", "Quick tool switching for multi-tool printers",  "Tool Switcher",    nullptr,              nullptr,                               false, 1, 1, 1, 1, 2, 2},
     {"led",              "LED Light",         "lightbulb_outline","Quick toggle, long press for full control",    "LED Light",        "printer_has_led",    "No LED strips detected",              true,  1, 1, 1, 1, 2, 1},
     {"led_controls",     "LED Controls",      "led_strip",        "Open LED color and brightness controls",       "LED Controls",     "printer_has_led",    "No LED strips detected",              false, 1, 1, 1, 1, 1, 1},
@@ -148,7 +147,6 @@ void init_widget_registrations() {
 
     register_printer_image_widget();
     register_print_status_widget();
-    register_power_widget();
     register_power_device_widget();
     register_network_widget();
     register_temperature_widget();

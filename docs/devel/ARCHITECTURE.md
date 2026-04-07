@@ -428,7 +428,7 @@ PanelWidgets live in `src/ui/panel_widgets/` (implementations) and headers along
 | `temperature` | `TemperatureWidget` | Single temperature display |
 | `thermistor` | `ThermistorWidget` | Temperature sensor readings |
 | `led` | `LedWidget` | LED on/off toggle with brightness-reactive icon |
-| `power` | `PowerWidget` | Power device toggle |
+| `power_device` | `PowerDeviceWidget` | Power device toggle |
 | `network` | `NetworkWidget` | Network connection status |
 | `active_spool` | `ActiveSpoolWidget` | Currently loaded Spoolman spool — color, material, brand, weight |
 
@@ -601,7 +601,7 @@ void LedWidget::attach(lv_obj_t* widget_obj, lv_obj_t* parent_screen) {
 }
 ```
 
-**PowerWidget** uses the same pattern but observes `power_device_count` instead of a version counter — the count itself changes whenever devices are discovered.
+**PowerDeviceWidget** uses the same pattern but observes `power_device_count` instead of a version counter — the count itself changes whenever devices are discovered.
 
 The old pattern (removed) was a `HomePanel::reload_from_config()` dispatch loop that called `PanelWidget::reload_from_config()` on each widget. The version-observer pattern replaced it: each widget is responsible for its own rebinding.
 

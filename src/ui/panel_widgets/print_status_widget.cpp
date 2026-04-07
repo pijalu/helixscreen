@@ -13,6 +13,7 @@
 #include "app_constants.h"
 #include "app_globals.h"
 #include "filament_sensor_manager.h"
+#include "moonraker_client.h"
 #include "observer_factory.h"
 #include "panel_widget_manager.h"
 #include "panel_widget_registry.h"
@@ -168,6 +169,18 @@ void PrintStatusWidget::attach(lv_obj_t* widget_obj, lv_obj_t* parent_screen) {
         }
     }
 
+    // Observe connection state to fetch history once connected (widget may
+    // attach before the WebSocket connection is established)
+    connection_observer_ = helix::ui::observe_int_sync<PrintStatusWidget>(
+        printer_state_.get_printer_connection_state_subject(), this,
+        [](PrintStatusWidget* /*self*/, int state) {
+            if (state == static_cast<int>(ConnectionState::CONNECTED)) {
+                if (auto* hm = get_print_history_manager(); hm && !hm->is_loaded()) {
+                    hm->fetch();
+                }
+            }
+        });
+
     spdlog::debug("[PrintStatusWidget] Subscribed to print state/progress/time/thumbnail/runout");
 
     // Check initial print state
@@ -210,6 +223,7 @@ void PrintStatusWidget::detach() {
     print_thumbnail_path_observer_.reset();
     filament_runout_observer_.reset();
     job_queue_count_observer_.reset();
+    connection_observer_.reset();
 
     // Clear widget references
     print_card_thumb_ = nullptr;

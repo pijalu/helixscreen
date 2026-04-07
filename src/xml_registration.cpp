@@ -328,7 +328,6 @@ void register_xml_components() {
 
     // Panel widget components (dynamic instantiation from PanelWidgetConfig)
     register_xml("components/panel_widget_printer_image.xml");
-    register_xml("components/panel_widget_power.xml");
     register_xml("components/panel_widget_network.xml");
     register_xml("components/panel_widget_notifications.xml");
     register_xml("components/panel_widget_firmware_restart.xml");

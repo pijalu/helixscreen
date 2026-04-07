@@ -118,6 +118,9 @@ class PanelWidgetConfig {
     /// Operates on page 0 for backward compatibility.
     void set_enabled(size_t index, bool enabled);
 
+    /// Enable or disable a widget by ID. Returns true if found.
+    bool set_enabled_by_id(const std::string& id, bool enabled);
+
     void reset_to_defaults();
 
     /// Generate the next unique instance ID for a multi-instance base ID.

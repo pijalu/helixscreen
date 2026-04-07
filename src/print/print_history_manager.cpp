@@ -46,6 +46,11 @@ void PrintHistoryManager::fetch(int limit) {
         return;
     }
 
+    if (!api_->is_connected()) {
+        spdlog::debug("[HistoryManager] Not connected yet, deferring history fetch");
+        return;
+    }
+
     is_fetching_ = true;
     spdlog::debug("[HistoryManager] Fetching history (limit={})", limit);
 

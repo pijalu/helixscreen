@@ -91,6 +91,7 @@ class PrintStatusWidget : public PanelWidget {
     ObserverGuard print_thumbnail_path_observer_;
     ObserverGuard filament_runout_observer_;
     ObserverGuard job_queue_count_observer_;
+    ObserverGuard connection_observer_;
 
     // Guards async thumbnail callbacks and history observer from use-after-free
     helix::AsyncLifetimeGuard lifetime_;

@@ -110,9 +110,8 @@ std::vector<PanelWidgetEntry> PanelWidgetConfig::parse_widget_array(const nlohma
             if (seen_ids.count(def.id) == 0) {
                 if (def.multi_instance)
                     continue;
-                spdlog::debug(
-                    "[PanelWidgetConfig] Appending new widget: {} (default_enabled={})", def.id,
-                    def.default_enabled);
+                spdlog::debug("[PanelWidgetConfig] Appending new widget: {} (default_enabled={})",
+                              def.id, def.default_enabled);
                 result.push_back(
                     {def.id, def.default_enabled, {}, -1, -1, def.colspan, def.rowspan});
             }
@@ -280,6 +279,18 @@ void PanelWidgetConfig::set_enabled(size_t index, bool enabled) {
     e[index].enabled = enabled;
 }
 
+bool PanelWidgetConfig::set_enabled_by_id(const std::string& id, bool enabled) {
+    for (auto& page : pages_) {
+        auto it = std::find_if(page.widgets.begin(), page.widgets.end(),
+                               [&id](const PanelWidgetEntry& e) { return e.id == id; });
+        if (it != page.widgets.end()) {
+            it->enabled = enabled;
+            return true;
+        }
+    }
+    return false;
+}
+
 void PanelWidgetConfig::reset_to_defaults() {
     // Reset page 0 to defaults, remove all other pages
     pages_.resize(1);
@@ -296,8 +307,7 @@ std::string PanelWidgetConfig::mint_instance_id(const std::string& base_id) {
     // Scan ALL pages for existing instance IDs
     for (const auto& page : pages_) {
         for (const auto& entry : page.widgets) {
-            if (entry.id.size() > prefix.size() &&
-                entry.id.substr(0, prefix.size()) == prefix) {
+            if (entry.id.size() > prefix.size() && entry.id.substr(0, prefix.size()) == prefix) {
                 auto suffix = entry.id.substr(prefix.size());
                 try {
                     int n = std::stoi(suffix);

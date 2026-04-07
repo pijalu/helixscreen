@@ -52,7 +52,7 @@ LedControlOverlay (UI)             LedSettingsOverlay (UI)             LedWidget
 | `src/ui/ui_settings_led.cpp` | Strip selection chips, auto-state editor, macro device editor |
 | `include/ui_led_chip_factory.h` | Factory for creating LED action chips in overlay |
 | `src/ui/panel_widgets/led_widget.cpp` | `LedWidget` — home panel lightbulb button with version-observer binding |
-| `src/ui/panel_widgets/power_widget.cpp` | `PowerWidget` — home panel power toggle (included here as it interacts with LED-adjacent power state) |
+| `src/ui/widgets/power_device_widget.cpp` | `PowerDeviceWidget` — home panel power toggle (included here as it interacts with LED-adjacent power state) |
 
 ### XML Layouts
 
