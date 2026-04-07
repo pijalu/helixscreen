@@ -451,10 +451,20 @@ class LedController {
         return &led_config_version_;
     }
 
+    /// Cached last-used color including white channel
+    struct LastColor {
+        uint32_t rgb = 0xFFFFFF; // RGB as 0xRRGGBB (color picker compatibility)
+        double white = 0.0;      // White channel 0.0-1.0
+    };
+
     [[nodiscard]] uint32_t last_color() const {
-        return last_color_;
+        return last_color_.rgb;
+    }
+    [[nodiscard]] double last_white() const {
+        return last_color_.white;
     }
     void set_last_color(uint32_t color);
+    void set_last_white(double white);
 
     [[nodiscard]] int last_brightness() const {
         return last_brightness_;
@@ -498,7 +508,7 @@ class LedController {
 
     // Config state
     std::vector<std::string> selected_strips_;
-    uint32_t last_color_ = 0xFFFFFF;
+    LastColor last_color_;
     int last_brightness_ = 100;
     std::vector<uint32_t> color_presets_;
     std::vector<LedMacroInfo> configured_macros_;

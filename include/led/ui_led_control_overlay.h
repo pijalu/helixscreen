@@ -147,10 +147,9 @@ class LedControlOverlay : public OverlayBase {
     // State
     int current_brightness_ = 100;
     uint32_t current_color_ = 0xFFFFFF;
+    double current_white_ = 0.0; // White channel 0.0-1.0 (RGBW strips only)
     LedBackendType selected_backend_type_ = LedBackendType::NATIVE;
     bool strips_rebuild_pending_ = false; ///< Coalesces strip selector rebuild requests
-
-
 };
 
 } // namespace helix::led

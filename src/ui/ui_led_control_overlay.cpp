@@ -157,10 +157,12 @@ void LedControlOverlay::on_activate() {
                    controller.native().has_strip_color(active_strip)) {
             auto color = controller.native().get_strip_color(active_strip);
             color.decompose(current_color_, current_brightness_);
+            current_white_ = color.w;
         } else if (selected_backend_type_ != LedBackendType::WLED &&
                    selected_backend_type_ != LedBackendType::MACRO) {
             current_brightness_ = controller.last_brightness();
             current_color_ = controller.last_color();
+            current_white_ = controller.last_white();
         }
 
         // Update section visibility based on strip type
@@ -256,6 +258,7 @@ void LedControlOverlay::on_deactivate() {
     if (controller.is_initialized()) {
         controller.set_last_brightness(current_brightness_);
         controller.set_last_color(current_color_);
+        controller.set_last_white(current_white_);
         controller.save_config();
     }
 
@@ -659,13 +662,32 @@ void LedControlOverlay::populate_macro_controls(const LedMacroInfo& macro) {
 void LedControlOverlay::handle_color_preset(uint32_t color) {
     current_color_ = color;
 
+    // For RGBW strips, white swatch (0xFFFFFF) uses the dedicated white LED
+    auto& controller = LedController::instance();
+    std::string active_strip = controller.first_available_strip();
+    bool strip_has_white = false;
+    if (!active_strip.empty()) {
+        for (const auto& s : controller.native().strips()) {
+            if (s.id == active_strip) {
+                strip_has_white = s.supports_white;
+                break;
+            }
+        }
+    }
+
+    if (color == 0xFFFFFF && strip_has_white) {
+        current_white_ = 1.0;
+    } else {
+        current_white_ = 0.0;
+    }
+
     // Presets are defined at full brightness — reset brightness to 100%
     current_brightness_ = 100;
     update_brightness_text(current_brightness_);
     lv_subject_set_int(&brightness_subject_, current_brightness_);
 
     apply_current_color();
-    spdlog::info("[{}] Color preset applied: 0x{:06X}", get_name(), color);
+    spdlog::info("[{}] Color preset applied: 0x{:06X} W={:.1f}", get_name(), color, current_white_);
 }
 
 void LedControlOverlay::handle_brightness_change(int brightness) {
@@ -1038,12 +1060,17 @@ void LedControlOverlay::apply_current_color() {
         highlight_active_effect("");
     }
 
-    double r = static_cast<double>((current_color_ >> 16) & 0xFF) / 255.0;
-    double g = static_cast<double>((current_color_ >> 8) & 0xFF) / 255.0;
-    double b = static_cast<double>(current_color_ & 0xFF) / 255.0;
-
     double bf = static_cast<double>(current_brightness_) / 100.0;
-    send_color_to_strips(r * bf, g * bf, b * bf, 0.0);
+
+    if (current_white_ > 0.0) {
+        // RGBW white mode: use dedicated white LED, not RGB
+        send_color_to_strips(0.0, 0.0, 0.0, current_white_ * bf);
+    } else {
+        double r = static_cast<double>((current_color_ >> 16) & 0xFF) / 255.0;
+        double g = static_cast<double>((current_color_ >> 8) & 0xFF) / 255.0;
+        double b = static_cast<double>(current_color_ & 0xFF) / 255.0;
+        send_color_to_strips(r * bf, g * bf, b * bf, 0.0);
+    }
     update_current_color_swatch();
 }
 

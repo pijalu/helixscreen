@@ -110,7 +110,7 @@ void LedController::deinit() {
 
     // Reset config state to defaults
     selected_strips_.clear();
-    last_color_ = 0xFFFFFF;
+    last_color_ = LastColor{};
     last_brightness_ = 100;
     color_presets_.clear();
     configured_macros_.clear();
@@ -719,6 +719,19 @@ void NativeBackend::update_from_status(const nlohmann::json& status) {
         color.b = first[2].get<double>();
         color.w = (first.size() >= 4) ? first[3].get<double>() : 0.0;
         strip_colors_[strip.id] = color;
+
+        // Detect RGBW capability from actual color_data size (overrides prefix guess)
+        bool has_white = (first.size() >= 4);
+        for (auto& s : strips_) {
+            if (s.id == strip.id) {
+                if (s.supports_white != has_white) {
+                    spdlog::info("[NativeBackend] Strip '{}' RGBW detection updated: {} -> {}",
+                                 s.id, s.supports_white, has_white);
+                    s.supports_white = has_white;
+                }
+                break;
+            }
+        }
 
         if (color_change_cb_) {
             color_change_cb_(strip.id, color);
@@ -1560,7 +1573,7 @@ void LedController::load_config() {
 
     // Last color & brightness
     auto& color_json = cfg->get_json(cfg->df() + "leds/last_color");
-    last_color_ = parse_json_color(color_json, 0xFFFFFF);
+    last_color_.rgb = parse_json_color(color_json, 0xFFFFFF);
     auto& brightness_json = cfg->get_json(cfg->df() + "leds/last_brightness");
     last_brightness_ = brightness_json.is_number() ? brightness_json.get<int>() : 100;
 
@@ -1728,7 +1741,7 @@ void LedController::save_config() {
     cfg->set(cfg->df() + "leds/selected_strips", strips_arr);
 
     // Last color & brightness (saved as #RRGGBB hex strings)
-    cfg->set(cfg->df() + "leds/last_color", helix::color_to_hex_string(last_color_));
+    cfg->set(cfg->df() + "leds/last_color", helix::color_to_hex_string(last_color_.rgb));
     cfg->set(cfg->df() + "leds/last_brightness", last_brightness_);
 
     // Color presets (saved as #RRGGBB hex strings)
@@ -1809,11 +1822,12 @@ void LedController::toggle_all(bool on) {
         case LedBackendType::NATIVE:
             if (on) {
                 // Use saved color + brightness instead of hardcoded full white
-                double r = ((last_color_ >> 16) & 0xFF) / 255.0;
-                double g = ((last_color_ >> 8) & 0xFF) / 255.0;
-                double b = (last_color_ & 0xFF) / 255.0;
+                double r = ((last_color_.rgb >> 16) & 0xFF) / 255.0;
+                double g = ((last_color_.rgb >> 8) & 0xFF) / 255.0;
+                double b = (last_color_.rgb & 0xFF) / 255.0;
                 double scale = last_brightness_ / 100.0;
-                native_.set_color(strip_id, r * scale, g * scale, b * scale, 0.0);
+                native_.set_color(strip_id, r * scale, g * scale, b * scale,
+                                  last_color_.white * scale);
             } else {
                 native_.turn_off(strip_id);
             }
@@ -2040,6 +2054,8 @@ void LedController::turn_off_all() {
 
 void LedController::set_color_all(double r, double g, double b, double w) {
     light_on_ = (r > 0.0 || g > 0.0 || b > 0.0 || w > 0.0);
+    // Cache the white channel for toggle restore
+    last_color_.white = w;
     for (const auto& strip_id : selected_strips_) {
         auto backend_type = backend_for_strip(strip_id);
         if (backend_type == LedBackendType::NATIVE) {
@@ -2054,14 +2070,14 @@ void LedController::set_color_all(double r, double g, double b, double w) {
 
 void LedController::set_brightness_all(int brightness_pct) {
     light_on_ = (brightness_pct > 0);
-    double r = ((last_color_ >> 16) & 0xFF) / 255.0;
-    double g = ((last_color_ >> 8) & 0xFF) / 255.0;
-    double b = (last_color_ & 0xFF) / 255.0;
+    double r = ((last_color_.rgb >> 16) & 0xFF) / 255.0;
+    double g = ((last_color_.rgb >> 8) & 0xFF) / 255.0;
+    double b = (last_color_.rgb & 0xFF) / 255.0;
     double scale = brightness_pct / 100.0;
     for (const auto& strip_id : selected_strips_) {
         auto backend_type = backend_for_strip(strip_id);
         if (backend_type == LedBackendType::NATIVE) {
-            native_.set_color(strip_id, r * scale, g * scale, b * scale, 0.0);
+            native_.set_color(strip_id, r * scale, g * scale, b * scale, last_color_.white * scale);
         } else if (backend_type == LedBackendType::OUTPUT_PIN) {
             output_pin_.set_brightness(strip_id, brightness_pct);
         }
@@ -2127,7 +2143,11 @@ void LedController::set_selected_strips(const std::vector<std::string>& strips) 
 }
 
 void LedController::set_last_color(uint32_t color) {
-    last_color_ = color;
+    last_color_.rgb = color;
+}
+
+void LedController::set_last_white(double white) {
+    last_color_.white = std::clamp(white, 0.0, 1.0);
 }
 
 void LedController::set_last_brightness(int brightness) {

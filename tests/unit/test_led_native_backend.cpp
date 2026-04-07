@@ -63,3 +63,43 @@ TEST_CASE("NativeBackend: strip type detection", "[led][native]") {
 
     REQUIRE(backend.type() == helix::led::LedBackendType::NATIVE);
 }
+
+TEST_CASE("NativeBackend: update_from_status detects RGBW from 4-element color_data",
+          "[led][native][rgbw]") {
+    helix::led::NativeBackend backend;
+
+    helix::led::LedStripInfo strip;
+    strip.name = "Chamber";
+    strip.id = "neopixel chamber";
+    strip.backend = helix::led::LedBackendType::NATIVE;
+    strip.supports_color = true;
+    strip.supports_white = true; // prefix-based default
+    backend.add_strip(strip);
+
+    // 4-element color_data confirms RGBW
+    nlohmann::json status = {{"neopixel chamber", {{"color_data", {{0.0, 0.0, 0.0, 1.0}}}}}};
+    backend.update_from_status(status);
+    REQUIRE(backend.strips()[0].supports_white == true);
+
+    // 3-element color_data overrides to RGB-only
+    nlohmann::json status_rgb = {{"neopixel chamber", {{"color_data", {{1.0, 0.0, 0.0}}}}}};
+    backend.update_from_status(status_rgb);
+    REQUIRE(backend.strips()[0].supports_white == false);
+}
+
+TEST_CASE("NativeBackend: update_from_status corrects wrong RGBW guess", "[led][native][rgbw]") {
+    helix::led::NativeBackend backend;
+
+    // Neopixel guessed as RGBW but is actually RGB
+    helix::led::LedStripInfo strip;
+    strip.name = "Status";
+    strip.id = "neopixel status_led";
+    strip.backend = helix::led::LedBackendType::NATIVE;
+    strip.supports_color = true;
+    strip.supports_white = true; // wrong guess
+    backend.add_strip(strip);
+
+    nlohmann::json status = {{"neopixel status_led", {{"color_data", {{0.5, 0.5, 0.5}}}}}};
+    backend.update_from_status(status);
+    REQUIRE(backend.strips()[0].supports_white == false);
+}

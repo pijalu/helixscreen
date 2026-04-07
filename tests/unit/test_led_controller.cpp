@@ -1186,6 +1186,21 @@ struct LedMockApiFixture {
         ctrl.native().add_strip(strip);
         ctrl.set_selected_strips({strip_id});
     }
+
+    void setup_controller_with_rgbw_strip(const std::string& strip_id = "neopixel chamber") {
+        auto& ctrl = helix::led::LedController::instance();
+        ctrl.deinit();
+        ctrl.init(mock_api.get(), &mock_client);
+
+        helix::led::LedStripInfo strip;
+        strip.name = "Chamber";
+        strip.id = strip_id;
+        strip.backend = helix::led::LedBackendType::NATIVE;
+        strip.supports_color = true;
+        strip.supports_white = true;
+        ctrl.native().add_strip(strip);
+        ctrl.set_selected_strips({strip_id});
+    }
 };
 
 // ============================================================================
@@ -1320,4 +1335,62 @@ TEST_CASE_METHOD(LedMockApiFixture,
     REQUIRE(color.r == Catch::Approx(0.8).margin(0.01));
     REQUIRE(color.g == Catch::Approx(0.336).margin(0.01));
     REQUIRE(color.b == Catch::Approx(0.165).margin(0.02));
+}
+
+// ============================================================================
+// RGBW support: white channel toggle and brightness (#737)
+// ============================================================================
+
+TEST_CASE_METHOD(LedMockApiFixture,
+                 "LedController: light_set(true) restores white channel on RGBW strip",
+                 "[led][controller][rgbw]") {
+    setup_controller_with_rgbw_strip();
+    auto& ctrl = helix::led::LedController::instance();
+
+    // White-only mode: RGB=0, W=1.0 at 80% brightness
+    ctrl.set_last_color(0x000000);
+    ctrl.set_last_white(1.0);
+    ctrl.set_last_brightness(80);
+
+    ctrl.light_set(true);
+    REQUIRE(ctrl.light_is_on());
+
+    auto color = ctrl.native().get_strip_color("neopixel chamber");
+    REQUIRE(color.r == Catch::Approx(0.0).margin(0.01));
+    REQUIRE(color.g == Catch::Approx(0.0).margin(0.01));
+    REQUIRE(color.b == Catch::Approx(0.0).margin(0.01));
+    REQUIRE(color.w == Catch::Approx(0.8).margin(0.01)); // 1.0 * 80%
+}
+
+TEST_CASE_METHOD(LedMockApiFixture, "LedController: set_brightness_all preserves white channel",
+                 "[led][controller][rgbw]") {
+    setup_controller_with_rgbw_strip();
+    auto& ctrl = helix::led::LedController::instance();
+
+    ctrl.set_last_color(0x000000);
+    ctrl.set_last_white(1.0);
+    ctrl.set_brightness_all(50);
+
+    auto color = ctrl.native().get_strip_color("neopixel chamber");
+    REQUIRE(color.r == Catch::Approx(0.0).margin(0.01));
+    REQUIRE(color.g == Catch::Approx(0.0).margin(0.01));
+    REQUIRE(color.b == Catch::Approx(0.0).margin(0.01));
+    REQUIRE(color.w == Catch::Approx(0.5).margin(0.01)); // 1.0 * 50%
+}
+
+TEST_CASE_METHOD(LedMockApiFixture, "LedController: set_color_all caches white for toggle restore",
+                 "[led][controller][rgbw]") {
+    setup_controller_with_rgbw_strip();
+    auto& ctrl = helix::led::LedController::instance();
+
+    // Set white-only via set_color_all
+    ctrl.set_color_all(0.0, 0.0, 0.0, 1.0);
+    REQUIRE(ctrl.last_white() == Catch::Approx(1.0));
+
+    // Toggle off then on — should restore white
+    ctrl.light_set(false);
+    ctrl.light_set(true);
+
+    auto color = ctrl.native().get_strip_color("neopixel chamber");
+    REQUIRE(color.w == Catch::Approx(1.0).margin(0.01));
 }
