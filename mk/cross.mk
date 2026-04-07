@@ -264,8 +264,7 @@ else ifeq ($(PLATFORM_TARGET),ad5x)
         -Wno-error=conversion -Wno-error=sign-conversion -DHELIX_RELEASE_BUILD -DHELIX_PLATFORM_AD5X
     # -Wl,--gc-sections: Remove unused sections during linking (works with -ffunction-sections)
     # -flto: Must match compiler flag for LTO to work
-    # -Wl,-rpath: zmod overlay provides shared libs (libssl.so.3, etc.) at this path
-    TARGET_LDFLAGS := -Wl,--gc-sections -flto -Wl,-rpath,/usr/data/.mod/.zmod/usr/lib
+    TARGET_LDFLAGS := -Wl,--gc-sections -flto
     # SSL enabled for HTTPS/WSS support with Moonraker
     ENABLE_SSL := yes
     DISPLAY_BACKEND := fbdev
