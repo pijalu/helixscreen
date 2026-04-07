@@ -45,7 +45,8 @@ void PrinterNetworkState::init_subjects(bool register_xml) {
                      register_xml); // 0=DISCONNECTED, 1=CONNECTING, 2=CONNECTED
 
     // Klipper firmware state subject (default to SHUTDOWN until confirmed ready)
-    INIT_SUBJECT_INT(klippy_state, static_cast<int>(KlippyState::SHUTDOWN), subjects_, register_xml);
+    INIT_SUBJECT_INT(klippy_state, static_cast<int>(KlippyState::SHUTDOWN), subjects_,
+                     register_xml);
 
     // Combined nav button enabled subject (connected AND klippy ready)
     // Starts disabled (0) - will be updated when connection/klippy state changes
@@ -110,6 +111,18 @@ void PrinterNetworkState::set_klippy_state_internal(KlippyState state) {
                   state_int);
     lv_subject_set_int(&klippy_state_, state_int);
     update_nav_buttons_enabled();
+
+    // Clear state message when returning to READY (error is resolved)
+    if (state == KlippyState::READY) {
+        klippy_state_message_.clear();
+    }
+}
+
+void PrinterNetworkState::set_klippy_state_message(const std::string& message) {
+    klippy_state_message_ = message;
+    if (!message.empty()) {
+        spdlog::info("[PrinterNetworkState] Klippy state message: {}", message);
+    }
 }
 
 void PrinterNetworkState::update_nav_buttons_enabled() {

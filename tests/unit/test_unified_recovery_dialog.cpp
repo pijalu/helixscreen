@@ -4,6 +4,8 @@
 
 #include "../lvgl_test_fixture.h"
 #include "../lvgl_ui_test_fixture.h"
+#include "app_globals.h"
+#include "printer_state.h"
 
 #include <spdlog/spdlog.h>
 
@@ -238,4 +240,82 @@ TEST_CASE_METHOD(LVGLUITestFixture, "Recovery dialog - SHUTDOWN then DISCONNECTE
     lv_obj_t* firmware_btn = lv_obj_find_by_name(dialog, "firmware_restart_btn");
     REQUIRE(firmware_btn != nullptr);
     REQUIRE(lv_obj_has_flag(firmware_btn, LV_OBJ_FLAG_HIDDEN));
+}
+
+// ============================================================================
+// State message display tests
+// ============================================================================
+
+TEST_CASE_METHOD(LVGLUITestFixture, "Recovery dialog - SHUTDOWN shows state_message from webhooks",
+                 "[recovery][state_message]") {
+    auto& estop = EmergencyStopOverlay::instance();
+    auto& ps = get_printer_state();
+    estop.init(ps, nullptr);
+
+    // Simulate Klipper state_message arriving via webhooks subscription
+    const std::string error_msg = "flashforge_loadcell: Max force exceeded. Last weight was: 912g\n"
+                                  "Once the underlying issue is corrected, use the\n"
+                                  "\"FIRMWARE_RESTART\" command to reset the firmware.";
+    ps.set_klippy_state_message(error_msg);
+
+    // Trigger SHUTDOWN recovery dialog — the dialog content is set in the
+    // async callback which reads printer_state_->get_klippy_state_message()
+    estop.show_recovery_for(RecoveryReason::SHUTDOWN);
+    process_lvgl(100);
+
+    lv_obj_t* dialog = lv_obj_find_by_name(lv_screen_active(), "klipper_recovery_card");
+    REQUIRE(dialog != nullptr);
+
+    // Message should contain the actual Klipper error, not the generic text
+    lv_obj_t* message = lv_obj_find_by_name(dialog, "recovery_message");
+    REQUIRE(message != nullptr);
+    std::string displayed = lv_label_get_text(message);
+    REQUIRE(displayed.find("Max force exceeded") != std::string::npos);
+}
+
+TEST_CASE_METHOD(LVGLUITestFixture,
+                 "Recovery dialog - SHUTDOWN without state_message shows generic",
+                 "[recovery][state_message]") {
+    auto& estop = EmergencyStopOverlay::instance();
+    auto& ps = get_printer_state();
+    estop.init(ps, nullptr);
+
+    // Ensure no stale state_message from previous test
+    ps.set_klippy_state_message("");
+
+    // No state_message set — should show generic text
+    estop.show_recovery_for(RecoveryReason::SHUTDOWN);
+    process_lvgl(50);
+
+    lv_obj_t* dialog = lv_obj_find_by_name(lv_screen_active(), "klipper_recovery_card");
+    REQUIRE(dialog != nullptr);
+
+    lv_obj_t* message = lv_obj_find_by_name(dialog, "recovery_message");
+    REQUIRE(message != nullptr);
+    std::string displayed = lv_label_get_text(message);
+    // Generic message mentions "shutdown" or "emergency stop"
+    REQUIRE(displayed.find("shutdown") != std::string::npos);
+}
+
+TEST_CASE_METHOD(LVGLUITestFixture, "Recovery dialog - DISCONNECTED ignores state_message",
+                 "[recovery][state_message]") {
+    auto& estop = EmergencyStopOverlay::instance();
+    auto& ps = get_printer_state();
+    estop.init(ps, nullptr);
+
+    // Even with a state_message set, DISCONNECTED should show its own text
+    ps.set_klippy_state_message("some error");
+
+    estop.show_recovery_for(RecoveryReason::DISCONNECTED);
+    process_lvgl(50);
+
+    lv_obj_t* dialog = lv_obj_find_by_name(lv_screen_active(), "klipper_recovery_card");
+    REQUIRE(dialog != nullptr);
+
+    lv_obj_t* message = lv_obj_find_by_name(dialog, "recovery_message");
+    REQUIRE(message != nullptr);
+    std::string displayed = lv_label_get_text(message);
+    // Should show the disconnect-specific message, not the error
+    REQUIRE(displayed.find("some error") == std::string::npos);
+    REQUIRE(displayed.find("disconnected") != std::string::npos);
 }

@@ -524,7 +524,9 @@ EmergencyStopOverlay& EmergencyStopOverlay::instance() {
     return inst;
 }
 
-void EmergencyStopOverlay::init(PrinterState& /* printer_state */, MoonrakerAPI* /* api */) {}
+void EmergencyStopOverlay::init(PrinterState& printer_state, MoonrakerAPI* /* api */) {
+    printer_state_ = &printer_state;
+}
 
 void EmergencyStopOverlay::init_subjects() {
     if (subjects_initialized_)
@@ -612,18 +614,41 @@ void EmergencyStopOverlay::dismiss_recovery_dialog() {
 }
 
 void EmergencyStopOverlay::update_recovery_dialog_content() {
+    // Determine title and default message based on reason
     const char* title = "Printer Error";
-    const char* message = "An unexpected printer error occurred.";
+    const char* default_message = "An unexpected printer error occurred.";
+    bool use_state_message = false;
 
-    if (recovery_reason_ == RecoveryReason::SHUTDOWN) {
+    switch (recovery_reason_) {
+    case RecoveryReason::SHUTDOWN:
         title = "Printer Shutdown";
-        message = "Klipper has entered shutdown state.";
-    } else if (recovery_reason_ == RecoveryReason::DISCONNECTED) {
+        default_message = "Klipper has entered shutdown state.";
+        use_state_message = true;
+        break;
+    case RecoveryReason::ERROR:
+        title = "Printer Error";
+        default_message = "Klipper has entered an error state.";
+        use_state_message = true;
+        break;
+    case RecoveryReason::DISCONNECTED:
         title = "Printer Firmware Disconnected";
-        message = "Klipper firmware has disconnected from the host.";
+        default_message = "Klipper firmware has disconnected from the host.";
+        break;
+    default:
+        break;
     }
 
-    // Update subjects — XML bindings react automatically
+    // Use actual Klipper state_message when available (e.g. "Max force exceeded...")
+    const char* message = default_message;
+    std::string state_msg_copy;
+    if (use_state_message && printer_state_) {
+        const auto& state_msg = printer_state_->get_klippy_state_message();
+        if (!state_msg.empty()) {
+            state_msg_copy = state_msg;
+            message = state_msg_copy.c_str();
+        }
+    }
+
     lv_subject_copy_string(&recovery_title_subject_, title);
     lv_subject_copy_string(&recovery_message_subject_, message);
     lv_subject_set_int(&recovery_can_restart_,

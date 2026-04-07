@@ -20,6 +20,7 @@ enum class MoonrakerEventType {
     MESSAGE_OVERSIZED,   ///< Received message exceeds size limit
     RPC_ERROR,           ///< JSON-RPC request failed
     KLIPPY_DISCONNECTED, ///< Klipper firmware disconnected from Moonraker
+    KLIPPY_SHUTDOWN,     ///< Klipper firmware entered shutdown state (M112, thermal, error)
     KLIPPY_READY,        ///< Klipper firmware ready
     DISCOVERY_FAILED,    ///< Printer discovery failed
     REQUEST_TIMEOUT      ///< JSON-RPC request timed out

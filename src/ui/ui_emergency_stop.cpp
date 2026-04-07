@@ -401,9 +401,22 @@ bool EmergencyStopOverlay::is_recovery_suppressed() const {
 void EmergencyStopOverlay::update_recovery_dialog_content() {
     auto content = get_recovery_content(recovery_reason_);
 
+    // Use actual Klipper state_message if available (e.g. "Max force exceeded...")
+    std::string message;
+    if (printer_state_ && (recovery_reason_ == RecoveryReason::SHUTDOWN ||
+                           recovery_reason_ == RecoveryReason::ERROR)) {
+        const auto& state_msg = printer_state_->get_klippy_state_message();
+        if (!state_msg.empty()) {
+            message = state_msg;
+        }
+    }
+    if (message.empty()) {
+        message = lv_tr(content.message);
+    }
+
     // Update subjects — XML bindings in klipper_recovery_dialog.xml react automatically
     lv_subject_copy_string(&recovery_title_subject_, lv_tr(content.title));
-    lv_subject_copy_string(&recovery_message_subject_, lv_tr(content.message));
+    lv_subject_copy_string(&recovery_message_subject_, message.c_str());
     lv_subject_set_int(&recovery_can_restart_,
                        recovery_reason_ != RecoveryReason::DISCONNECTED ? 1 : 0);
 

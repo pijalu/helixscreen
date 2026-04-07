@@ -184,7 +184,7 @@ class EmergencyStopOverlay {
     lv_subject_t recovery_title_subject_;
     char recovery_title_buf_[64]{};
     lv_subject_t recovery_message_subject_;
-    char recovery_message_buf_[256]{};
+    char recovery_message_buf_[512]{};
     lv_subject_t recovery_can_restart_; // 1=show restart buttons, 0=hide (disconnected)
 
     bool subjects_initialized_ = false;

@@ -569,6 +569,18 @@ int MoonrakerClient::connect(const char* url, std::function<void()> on_connected
                         }
                     }
                 }
+                // Klippy entered shutdown state (M112, thermal runaway, config error)
+                // Distinct from disconnect — Klipper is still running but in shutdown mode
+                else if (method == "notify_klippy_shutdown") {
+                    spdlog::warn("[Moonraker Client] Klipper entered shutdown state");
+
+                    // Update klippy state in PrinterState
+                    get_printer_state().set_klippy_state(KlippyState::SHUTDOWN);
+
+                    // Emit event for UI layer — recovery dialog will show
+                    emit_event(MoonrakerEventType::KLIPPY_SHUTDOWN,
+                               "Klipper has entered shutdown state.", true);
+                }
                 // Klippy reconnected to Moonraker
                 else if (method == "notify_klippy_ready") {
                     spdlog::info("[Moonraker Client] Klipper ready");

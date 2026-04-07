@@ -4,6 +4,7 @@
 #include "subject_managed_panel.h"
 
 #include <lvgl.h>
+#include <string>
 
 // Forward declare ConnectionState and KlippyState (defined in moonraker_client.h and
 // printer_state.h)
@@ -90,6 +91,12 @@ class PrinterNetworkState {
      */
     void set_klippy_state_internal(KlippyState state);
 
+    /**
+     * @brief Set Klipper state message (error/shutdown reason from webhooks)
+     * @param message The state_message string from Moonraker webhooks
+     */
+    void set_klippy_state_message(const std::string& message);
+
     // ========================================================================
     // Subject accessors
     // ========================================================================
@@ -123,6 +130,11 @@ class PrinterNetworkState {
     /// Moonraker WebSocket connected (1 when WebSocket is up, independent of Klipper state)
     lv_subject_t* get_moonraker_connection_state_subject() {
         return &moonraker_connection_state_;
+    }
+
+    /// Klipper state message (error/shutdown reason from webhooks, e.g. "Max force exceeded...")
+    const std::string& get_klippy_state_message() const {
+        return klippy_state_message_;
     }
 
     // ========================================================================
@@ -168,6 +180,9 @@ class PrinterNetworkState {
 
     // String buffer for connection message
     char printer_connection_message_buf_[128];
+
+    // Klipper state message (error/shutdown reason from webhooks.state_message)
+    std::string klippy_state_message_;
 
     // Track if we've ever successfully connected (for UI display)
     bool was_ever_connected_ = false;

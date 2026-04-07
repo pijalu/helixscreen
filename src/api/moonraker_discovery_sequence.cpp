@@ -735,6 +735,9 @@ void MoonrakerDiscoverySequence::complete_discovery_subscription() {
     subscription_objects["system_stats"] = nullptr;
     subscription_objects["display_status"] = nullptr;
 
+    // Klipper firmware state (shutdown/error detection + state_message)
+    subscription_objects["webhooks"] = nullptr;
+
     // All discovered heaters (extruders, beds, generic heaters)
     for (const auto& heater : heaters_) {
         subscription_objects[heater] = nullptr;

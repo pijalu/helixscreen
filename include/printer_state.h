@@ -912,6 +912,17 @@ class PrinterState {
         return network_state_.get_klippy_state_subject();
     } // 0=ready, 1=startup, 2=shutdown, 3=error (matches KlippyState enum)
 
+    // Klipper state message (error/shutdown reason from webhooks)
+    // Main-thread only — called from update_from_status() via ui_queue_update
+    const std::string& get_klippy_state_message() const {
+        return network_state_.get_klippy_state_message();
+    }
+
+    // Main-thread only — production writes go through update_from_status()
+    void set_klippy_state_message(const std::string& message) {
+        network_state_.set_klippy_state_message(message);
+    }
+
     // Combined nav button enabled subject (for navbar icon visibility) - delegated to
     // PrinterNetworkState
     lv_subject_t* get_nav_buttons_enabled_subject() {

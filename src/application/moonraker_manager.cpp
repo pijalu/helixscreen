@@ -333,6 +333,10 @@ void MoonrakerManager::register_callbacks() {
             // Suppression checks are handled inside show_recovery_for()
             EmergencyStopOverlay::instance().show_recovery_for(RecoveryReason::DISCONNECTED);
             return;
+        } else if (evt.type == MoonrakerEventType::KLIPPY_SHUTDOWN) {
+            // Route through unified recovery dialog with actual error message
+            EmergencyStopOverlay::instance().show_recovery_for(RecoveryReason::SHUTDOWN);
+            return;
         } else if (evt.type == MoonrakerEventType::RPC_ERROR) {
             title = "Request Failed";
         }
