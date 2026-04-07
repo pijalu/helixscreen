@@ -1199,8 +1199,13 @@ int MoonrakerClientMock::gcode_script(const std::string& gcode) {
             reset_idle_timeout();
             spdlog::info("[MoonrakerClientMock] Bed target set to {}°C", target);
             dispatch_status_update({{"heater_bed", {{"target", target}}}});
-        } else if (gcode.find("HEATER=heater_generic chamber") != std::string::npos ||
-                   gcode.find("HEATER=chamber") != std::string::npos) {
+        } else if (gcode.find("HEATER=heater_generic ") != std::string::npos) {
+            // Reject invalid format: Klipper expects bare object name, not "heater_generic chamber"
+            spdlog::error(
+                "[MoonrakerClientMock] Invalid SET_HEATER_TEMPERATURE: HEATER must use bare object "
+                "name (e.g. HEATER=chamber), not prefixed type (HEATER=heater_generic chamber)");
+            return 1;
+        } else if (gcode.find("HEATER=chamber") != std::string::npos) {
             set_chamber_target(target);
             reset_idle_timeout();
             spdlog::info("[MoonrakerClientMock] Chamber target set to {}°C", target);

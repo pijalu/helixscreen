@@ -3,6 +3,7 @@
 
 #include "ui_error_reporting.h"
 #include "ui_notification.h"
+#include "ui_temperature_utils.h"
 
 #include "app_globals.h"
 #include "fan_gcode.h"
@@ -62,20 +63,24 @@ void MoonrakerAPI::set_temperature(const std::string& heater, double temperature
         return;
     }
 
-    std::ostringstream gcode;
-
-    // temperature_fan heaters use a different gcode command than standard heaters
-    if (heater.rfind("temperature_fan ", 0) == 0) {
-        std::string fan_name = heater.substr(16);
-        gcode << "SET_TEMPERATURE_FAN_TARGET TEMPERATURE_FAN=" << fan_name
-              << " TARGET=" << temperature;
-    } else {
-        gcode << "SET_HEATER_TEMPERATURE HEATER=" << heater << " TARGET=" << temperature;
+    char gcode_buf[128];
+    const char* gcode = helix::ui::temperature::build_heater_gcode(
+        heater, static_cast<int>(temperature), gcode_buf, sizeof(gcode_buf));
+    if (!gcode) {
+        spdlog::error("[Moonraker API] Cannot build gcode for empty heater name");
+        if (on_error) {
+            MoonrakerError err;
+            err.type = MoonrakerErrorType::VALIDATION_ERROR;
+            err.message = "Empty heater name";
+            err.method = "set_temperature";
+            on_error(err);
+        }
+        return;
     }
 
     spdlog::info("[Moonraker API] Setting {} temperature to {}°C", heater, temperature);
 
-    execute_gcode(gcode.str(), on_success, on_error);
+    execute_gcode(gcode, on_success, on_error);
 }
 
 void MoonrakerAPI::set_fan_speed(const std::string& fan, double speed, SuccessCallback on_success,
