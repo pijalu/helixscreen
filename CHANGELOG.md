@@ -7,6 +7,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.99.24] - 2026-04-07
+
+### Added
+- Printer name sync: automatically resolve and write back printer name via Mainsail/Fluidd database on connect, rename, and wizard save
+- Bed temperature widget as conditional last widget on home panel
+- AMS widget automatically enabled on home panel when AMS detected during setup wizard
+- Telemetry enhancements: periodic snapshots, frame time sampling, performance metrics, feature adoption tracking, and analytics dashboard with Performance, Features, and UX Insights views
+
+### Fixed
+- Render thread use-after-free from missing wait_for_finish_cb in SW draw unit (#739)
+- Network list corruption when clearing entries (safe_delete_deferred)
+- LED toggle on now respects saved brightness and color instead of defaulting to full white
+- Custom keypad temperature ignored due to expired lifetime token
+- Invalid text_primary theme token replaced with correct token
+- systemd service startup ordering: use plymouth-quit-wait.service instead of multi-user.target (#536)
+- Home screen widgets no longer disabled or show toast when grid is temporarily full during firmware_restart
+- Chamber temperature regression in heater gcode generation (#745)
+- Wi-Fi connection failures caused by PrivateTmp DGRAM socket isolation
+- AMS loading error modal button wiring (#735)
+- Use-after-free in bed/chamber observer subjects during grid edit (#734, #736)
+- Print status view toggle button padding
+- Print thumbnail now visible during Preparing Print phase on home screen
+- Fan widget crash when subjects missing at startup
+- Level screws showing checkmark icon for all screws, not just reference
+- Telemetry timer pointers not nulled when LVGL torn down before shutdown
+- Print completion dialog showing wrong icon for Failed/Cancelled states
+- Fan arc excluded from long-press rename to prevent conflict with speed control
+- Default widget grid layout bugs causing missing and misplaced widgets
+- ForgeX printer detection: removed non-specific sensor heuristics
+- Noisy warnings silenced on first unconfigured run
+- PID calibration ETA smoothed with EMA dampening and 1-second countdown updates
+- Artillery M1 Pro cooldown preset now includes chamber
+
+### Changed
+- Printer name editing converted to declarative subject binding
+
 ## [0.99.23] - 2026-04-06
 
 A stability and polish release focused on probe handling, PID calibration UX, print status improvements, settings reorganization, and crash fixes across multiple subsystems.
@@ -2667,6 +2703,7 @@ Initial tagged release. Foundation for all subsequent development.
 - Automated GitHub Actions release pipeline
 - One-liner installation script with platform auto-detection
 
+[0.99.24]: https://github.com/prestonbrown/helixscreen/compare/v0.99.23...v0.99.24
 [0.99.23]: https://github.com/prestonbrown/helixscreen/compare/v0.99.22...v0.99.23
 [0.99.22]: https://github.com/prestonbrown/helixscreen/compare/v0.99.21...v0.99.22
 [0.99.21]: https://github.com/prestonbrown/helixscreen/compare/v0.99.20...v0.99.21
