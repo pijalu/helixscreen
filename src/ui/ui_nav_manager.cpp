@@ -1339,8 +1339,14 @@ void NavigationManager::push_overlay(lv_obj_t* overlay_panel, bool hide_previous
         // Lifecycle: Activate new overlay
         auto* lifecycle = mgr.resolve_overlay_lifecycle(overlay_panel);
         if (!lifecycle) {
-            spdlog::warn("[NavigationManager] Overlay {} pushed without lifecycle registration",
-                         (void*)overlay_panel);
+            // Only warn if truly unregistered — overlays registered with nullptr
+            // lifecycle (e.g. keypad) are intentionally function-based.
+            bool registered = mgr.overlay_instances_.count(overlay_panel) ||
+                              mgr.persistent_overlay_instances_.count(overlay_panel);
+            if (!registered) {
+                spdlog::warn("[NavigationManager] Overlay {} pushed without lifecycle registration",
+                             (void*)overlay_panel);
+            }
         } else {
             spdlog::trace("[NavigationManager] Activating overlay {}", lifecycle->get_name());
             lifecycle->on_activate();
@@ -1422,8 +1428,12 @@ void NavigationManager::push_overlay_zoom_from(lv_obj_t* overlay_panel, lv_area_
         // Lifecycle: Activate new overlay
         auto* lifecycle = mgr.resolve_overlay_lifecycle(overlay_panel);
         if (!lifecycle) {
-            spdlog::warn("[NavigationManager] Overlay {} pushed without lifecycle registration",
-                         (void*)overlay_panel);
+            bool registered = mgr.overlay_instances_.count(overlay_panel) ||
+                              mgr.persistent_overlay_instances_.count(overlay_panel);
+            if (!registered) {
+                spdlog::warn("[NavigationManager] Overlay {} pushed without lifecycle registration",
+                             (void*)overlay_panel);
+            }
         } else {
             lifecycle->on_activate();
         }

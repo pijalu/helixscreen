@@ -24,7 +24,6 @@
 #include <spdlog/spdlog.h>
 
 #include <algorithm>
-#include <optional>
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Helpers
@@ -598,16 +597,14 @@ void TempGraphOverlay::on_temp_graph_custom_clicked(lv_event_t* e) {
 
     auto& heater = overlay.temp_control_panel_->heater(type);
 
-    // Store context for keypad callback (static because keypad outlives this scope)
-    // lifetime token protects against overlay destruction while keypad is open
+    // Store context for keypad callback (static because keypad outlives this scope).
+    // No lifetime token needed — the overlay is a global singleton that outlives the keypad.
     static struct KeypadCtxStatic {
         TempGraphOverlay* overlay = nullptr;
         helix::HeaterType type{};
-        std::optional<helix::LifetimeToken> token;
     } s_keypad_ctx;
     s_keypad_ctx.overlay = &overlay;
     s_keypad_ctx.type = type;
-    s_keypad_ctx.token = overlay.lifetime_.token();
 
     ui_keypad_config_t keypad_config = {
         .initial_value = static_cast<float>(heater.target / 10),
@@ -628,10 +625,9 @@ void TempGraphOverlay::keypad_value_cb(float value, void* user_data) {
     struct KeypadCtx {
         TempGraphOverlay* overlay;
         helix::HeaterType type;
-        std::optional<helix::LifetimeToken> token;
     };
     auto* ctx = static_cast<KeypadCtx*>(user_data);
-    if (!ctx || !ctx->overlay || !ctx->token || ctx->token->expired() || !ctx->overlay->api_)
+    if (!ctx || !ctx->overlay || !ctx->overlay->api_)
         return;
 
     int temp = static_cast<int>(value);
