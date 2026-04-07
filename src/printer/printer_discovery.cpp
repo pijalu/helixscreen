@@ -11,6 +11,7 @@
 #include "led/led_controller.h"
 #include "moonraker_api.h"
 #include "moonraker_client.h"
+#include "printer_name_sync.h"
 #include "probe_sensor_manager.h"
 #include "runtime_config.h"
 #include "spdlog/spdlog.h"
@@ -142,6 +143,9 @@ void init_subsystems_from_hardware(const PrinterDiscovery& hardware, MoonrakerAP
 
     // Restore persisted spool assignments (Moonraker DB primary, local JSON fallback)
     helix::ToolState::instance().load_spool_assignments(api);
+
+    // Sync printer name from Mainsail/Fluidd DB (seeds local config on first connect)
+    helix::PrinterNameSync::resolve(api, hardware.hostname());
 
     // Initialize standard macros
     StandardMacros::instance().init(hardware);

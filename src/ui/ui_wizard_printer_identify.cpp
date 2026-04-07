@@ -5,18 +5,18 @@
 
 #include "ui_error_reporting.h"
 #include "ui_event_safety.h"
-
-#include "lvgl/src/others/translation/lv_translation.h"
 #include "ui_subject_registry.h"
 #include "ui_wizard.h"
 
 #include "app_globals.h"
 #include "config.h"
 #include "lvgl/lvgl.h"
+#include "lvgl/src/others/translation/lv_translation.h"
 #include "moonraker_api.h"
 #include "moonraker_client.h"
 #include "printer_detector.h"
 #include "printer_images.h"
+#include "printer_name_sync.h"
 #include "static_panel_registry.h"
 #include "theme_manager.h"
 #include "wizard_config_paths.h"
@@ -496,6 +496,8 @@ void WizardPrinterIdentifyStep::cleanup() {
         if (current_name.length() > 0) {
             config->set<std::string>(config->df() + helix::wizard::PRINTER_NAME, current_name);
             spdlog::debug("[{}] Saving printer name to config: '{}'", get_name(), current_name);
+            // Sync name to Mainsail/Fluidd DB
+            helix::PrinterNameSync::write_back(get_moonraker_api(), current_name);
         } else {
             spdlog::debug("[{}] Printer name empty, not saving", get_name());
         }
@@ -513,8 +515,7 @@ void WizardPrinterIdentifyStep::cleanup() {
         // Some Allwinner platforms can't recover from backlight power-off during
         // sleep — wake-on-touch fails because the display controller loses state.
         // AD5X: issue #235, CC1: backlight_enable_ioctl already disabled in preset
-        if (type_name == "FlashForge Adventurer 5X" ||
-            type_name == "Elegoo Centauri Carbon") {
+        if (type_name == "FlashForge Adventurer 5X" || type_name == "Elegoo Centauri Carbon") {
             config->set<bool>("/display/backlight_enable_ioctl", false);
             config->set<int>("/display/hardware_blank", 0);
             config->set<bool>("/display/sleep_backlight_off", false);

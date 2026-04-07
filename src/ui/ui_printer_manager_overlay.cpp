@@ -26,6 +26,7 @@
 #include "printer_detector.h"
 #include "printer_image_manager.h"
 #include "printer_images.h"
+#include "printer_name_sync.h"
 #include "static_panel_registry.h"
 #include "subject_debug_registry.h"
 #include "ui/ui_lazy_panel_helper.h"
@@ -347,6 +348,8 @@ void PrinterManagerOverlay::finish_name_edit() {
         config->set<std::string>(config->df() + helix::wizard::PRINTER_NAME, name_str);
         config->save();
         spdlog::info("[{}] Printer name changed to: '{}'", get_name(), name_str);
+        // Sync name to Mainsail/Fluidd DB
+        helix::PrinterNameSync::write_back(get_moonraker_api(), name_str);
     }
 
     // Update the subject to reflect new name
