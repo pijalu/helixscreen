@@ -1746,3 +1746,70 @@ TEST_CASE_METHOD(TelemetryTestFixture, "New events do not leak PII", "[telemetry
         REQUIRE(event_str.find("\"username\"") == std::string::npos);
     }
 }
+
+// ============================================================================
+// Frame Time Sampling [telemetry][frame]
+// ============================================================================
+
+TEST_CASE_METHOD(TelemetryTestFixture, "Frame time: samples are recorded in ring buffer",
+                 "[telemetry][frame]") {
+    auto& tm = TelemetryManager::instance();
+    tm.set_enabled(true);
+
+    tm.notify_panel_changed("status");
+    tm.record_frame_time(8000);  // 8ms
+    tm.record_frame_time(12000); // 12ms
+    tm.record_frame_time(16000); // 16ms
+
+    tm.record_performance_snapshot();
+    REQUIRE(tm.queue_size() == 1);
+
+    auto snapshot = tm.get_queue_snapshot();
+    auto event = snapshot[0];
+    REQUIRE(event["event"] == "performance_snapshot");
+    REQUIRE(event.contains("frame_time_p50_ms"));
+    REQUIRE(event.contains("frame_time_p95_ms"));
+    REQUIRE(event.contains("frame_time_p99_ms"));
+    REQUIRE(event.contains("dropped_frame_count"));
+    REQUIRE(event.contains("total_frame_count"));
+    REQUIRE(event["total_frame_count"] == 3);
+    REQUIRE(event["dropped_frame_count"] == 0);
+}
+
+TEST_CASE_METHOD(TelemetryTestFixture, "Frame time: dropped frames detected above 33ms threshold",
+                 "[telemetry][frame]") {
+    auto& tm = TelemetryManager::instance();
+    tm.set_enabled(true);
+
+    tm.notify_panel_changed("temperature");
+    tm.record_frame_time(10000); // 10ms - ok
+    tm.record_frame_time(35000); // 35ms - dropped
+    tm.record_frame_time(50000); // 50ms - dropped
+
+    tm.record_performance_snapshot();
+    auto snapshot = tm.get_queue_snapshot();
+    auto event = snapshot[0];
+    REQUIRE(event["dropped_frame_count"] == 2);
+    REQUIRE(event["total_frame_count"] == 3);
+}
+
+TEST_CASE_METHOD(TelemetryTestFixture, "Frame time: worst panel is identified by p95",
+                 "[telemetry][frame]") {
+    auto& tm = TelemetryManager::instance();
+    tm.set_enabled(true);
+
+    tm.notify_panel_changed("status");
+    for (int i = 0; i < 20; ++i) {
+        tm.record_frame_time(8000);
+    }
+
+    tm.notify_panel_changed("temperature");
+    for (int i = 0; i < 20; ++i) {
+        tm.record_frame_time(25000);
+    }
+
+    tm.record_performance_snapshot();
+    auto snapshot = tm.get_queue_snapshot();
+    auto event = snapshot[0];
+    REQUIRE(event["worst_panel"] == "temperature");
+}

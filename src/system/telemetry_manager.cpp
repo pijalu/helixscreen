@@ -552,6 +552,15 @@ void TelemetryManager::notify_panel_changed(const std::string& panel_name) {
     panel_start_time_ = now;
     panel_visits_[panel_name]++;
 
+    // Maintain panel ID for frame time ring buffer
+    auto it = std::find(panel_names_.begin(), panel_names_.end(), panel_name);
+    if (it != panel_names_.end()) {
+        current_panel_id_ = static_cast<uint16_t>(std::distance(panel_names_.begin(), it));
+    } else {
+        panel_names_.push_back(panel_name);
+        current_panel_id_ = static_cast<uint16_t>(panel_names_.size() - 1);
+    }
+
     spdlog::trace("[TelemetryManager] Panel changed to '{}' (visits={})", panel_name,
                   panel_visits_[panel_name]);
 }
@@ -2180,6 +2189,126 @@ std::string TelemetryManager::get_queue_path() const {
 std::string TelemetryManager::get_device_id_path() const {
     return config_dir_ + "/telemetry_device.json";
 }
+
+// =============================================================================
+// Frame Time Sampling
+// =============================================================================
+
+void TelemetryManager::record_frame_time(uint32_t frame_time_us) {
+    // Always record (even when telemetry disabled) to keep buffer warm.
+    // No mutex needed — LVGL thread only.
+    auto& sample = frame_ring_[frame_ring_idx_ % FRAME_RING_SIZE];
+    sample.frame_time_us = frame_time_us;
+    sample.panel_id = current_panel_id_;
+    frame_ring_idx_++;
+    frame_ring_count_++;
+}
+
+nlohmann::json TelemetryManager::build_performance_snapshot_event() const {
+    json event;
+    event["schema_version"] = SCHEMA_VERSION;
+    event["event"] = "performance_snapshot";
+    event["device_id"] = get_hashed_device_id();
+    event["timestamp"] = get_timestamp();
+    event["app_version"] = HELIX_VERSION;
+    event["app_platform"] = UpdateChecker::get_platform_key();
+    event["snapshot_seq"] = snapshot_seq_;
+
+    size_t count = std::min(frame_ring_count_, FRAME_RING_SIZE);
+    if (count == 0) {
+        event["frame_time_p50_ms"] = 0;
+        event["frame_time_p95_ms"] = 0;
+        event["frame_time_p99_ms"] = 0;
+        event["dropped_frame_count"] = 0;
+        event["total_frame_count"] = 0;
+        event["worst_panel"] = "";
+        event["worst_panel_p95_ms"] = 0;
+        event["task_handler_max_ms"] = 0;
+        return event;
+    }
+
+    std::vector<uint32_t> times;
+    times.reserve(count);
+    int dropped = 0;
+    std::unordered_map<uint16_t, std::vector<uint32_t>> per_panel;
+
+    size_t start = (frame_ring_count_ > FRAME_RING_SIZE) ? (frame_ring_idx_ % FRAME_RING_SIZE) : 0;
+    for (size_t i = 0; i < count; ++i) {
+        size_t idx = (start + i) % FRAME_RING_SIZE;
+        uint32_t ft = frame_ring_[idx].frame_time_us;
+        times.push_back(ft);
+        if (ft > DROPPED_FRAME_THRESHOLD_US)
+            dropped++;
+        per_panel[frame_ring_[idx].panel_id].push_back(ft);
+    }
+
+    std::sort(times.begin(), times.end());
+
+    auto percentile = [&](double p) -> int {
+        size_t idx = static_cast<size_t>(p * static_cast<double>(times.size() - 1));
+        return static_cast<int>(times[idx] / 1000);
+    };
+
+    event["frame_time_p50_ms"] = percentile(0.50);
+    event["frame_time_p95_ms"] = percentile(0.95);
+    event["frame_time_p99_ms"] = percentile(0.99);
+    event["dropped_frame_count"] = dropped;
+    event["total_frame_count"] = static_cast<int>(frame_ring_count_);
+
+    std::string worst_panel;
+    int worst_p95 = 0;
+    for (auto& [pid, ptimes] : per_panel) {
+        std::sort(ptimes.begin(), ptimes.end());
+        size_t p95_idx = static_cast<size_t>(0.95 * static_cast<double>(ptimes.size() - 1));
+        int p95_ms = static_cast<int>(ptimes[p95_idx] / 1000);
+        if (p95_ms > worst_p95 && pid < panel_names_.size()) {
+            worst_p95 = p95_ms;
+            worst_panel = panel_names_[pid];
+        }
+    }
+    event["worst_panel"] = worst_panel;
+    event["worst_panel_p95_ms"] = worst_p95;
+    event["task_handler_max_ms"] = 0;
+
+    return event;
+}
+
+void TelemetryManager::record_performance_snapshot() {
+    if (shutting_down_.load() || !initialized_.load() || !enabled_.load())
+        return;
+
+    spdlog::debug("[TelemetryManager] Recording performance snapshot (seq={})", snapshot_seq_);
+    auto event = build_performance_snapshot_event();
+    enqueue_event(event);
+
+    frame_ring_count_ = 0;
+    frame_ring_idx_ = 0;
+}
+
+// =============================================================================
+// Stub implementations for methods declared in header (implemented in later tasks)
+// =============================================================================
+
+void TelemetryManager::record_feature_adoption() {}
+void TelemetryManager::notify_setting_changed(const std::string& /*setting_name*/,
+                                              const std::string& /*old_value*/,
+                                              const std::string& /*new_value*/) {}
+void TelemetryManager::flush_settings_changes() {}
+void TelemetryManager::fire_periodic_snapshot() {}
+nlohmann::json TelemetryManager::build_feature_adoption_event() const {
+    return {};
+}
+nlohmann::json TelemetryManager::build_settings_changes_event() const {
+    return {};
+}
+void TelemetryManager::start_snapshot_timer() {}
+void TelemetryManager::stop_snapshot_timer() {}
+void TelemetryManager::save_snapshot_state() const {}
+void TelemetryManager::load_snapshot_state() {}
+void TelemetryManager::start_feature_adoption_timer() {}
+void TelemetryManager::stop_feature_adoption_timer() {}
+void TelemetryManager::start_settings_debounce_timer() {}
+void TelemetryManager::stop_settings_debounce_timer() {}
 
 // =============================================================================
 // Print Outcome Observer

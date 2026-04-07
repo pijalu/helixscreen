@@ -2003,7 +2003,11 @@ void Application::setup_discovery_callbacks() {
             validator.save_session_snapshot(Config::get_instance(), c->hardware);
 
             // Auto-detect printer type if not already set (e.g., fresh install with preset)
-            PrinterDetector::auto_detect_and_save(c->hardware, Config::get_instance());
+            // Skip during wizard — the user selects their printer type in the identify step,
+            // and auto-detection here would overwrite PRINTER_TYPE before they choose.
+            if (!is_wizard_active()) {
+                PrinterDetector::auto_detect_and_save(c->hardware, Config::get_instance());
+            }
 
             // Record telemetry session event now that hardware data is available
             // (hardware_profile is deferred until after build volume is fetched below)
@@ -2666,7 +2670,12 @@ int Application::main_loop() {
         }
 
         // Run LVGL tasks — returns ms until next timer needs to fire
+        auto frame_start = std::chrono::steady_clock::now();
         uint32_t time_till_next = lv_timer_handler();
+        auto frame_end = std::chrono::steady_clock::now();
+        auto frame_us =
+            std::chrono::duration_cast<std::chrono::microseconds>(frame_end - frame_start).count();
+        TelemetryManager::instance().record_frame_time(static_cast<uint32_t>(frame_us));
 
         // Signal splash to exit when discovery completes (or timeout)
         m_splash_manager.check_and_signal();
