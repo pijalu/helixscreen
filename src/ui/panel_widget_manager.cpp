@@ -171,6 +171,7 @@ PanelWidgetManager::populate_widgets(const std::string& panel_id, lv_obj_t* cont
             break;
         }
     }
+    bool fw_restart_injected = false;
     if (!has_firmware_restart) {
         lv_subject_t* klippy = lv_xml_get_subject(nullptr, "klippy_state");
         if (klippy) {
@@ -184,6 +185,7 @@ PanelWidgetManager::populate_widgets(const std::string& panel_id, lv_obj_t* cont
                 // Insert at front so auto-placement puts it upper-left (first in
                 // the free cell list), not bottom-right where it blocks real widgets.
                 enabled_widgets.insert(enabled_widgets.begin(), std::move(slot));
+                fw_restart_injected = true;
                 spdlog::debug("[PanelWidgetManager] Injected firmware_restart (Klipper {})", name);
             }
         }
@@ -306,6 +308,13 @@ PanelWidgetManager::populate_widgets(const std::string& panel_id, lv_obj_t* cont
         auto pos = grid.find_available_bottom(colspan, rowspan);
         if (pos && grid.place({slot.widget_id, pos->first, pos->second, colspan, rowspan})) {
             placed.push_back({slot_idx, pos->first, pos->second, colspan, rowspan});
+        } else if (fw_restart_injected) {
+            // Grid is full only because the temporary firmware_restart widget
+            // is occupying a slot. Don't disable the widget or warn — it will
+            // get its space back once Klipper returns to READY.
+            spdlog::debug("[PanelWidgetManager] Skipping widget '{}' — grid full due to "
+                          "temporary firmware_restart injection",
+                          slot.widget_id);
         } else {
             // Grid is full — disable the widget so it goes back to the catalog
             // as an available widget. User can re-add it after freeing space.
@@ -360,6 +369,10 @@ PanelWidgetManager::populate_widgets(const std::string& panel_id, lv_obj_t* cont
             auto pos = grid.find_available_bottom(1, 1);
             if (pos && grid.place({slot.widget_id, pos->first, pos->second, 1, 1})) {
                 placed.push_back({slot_idx, pos->first, pos->second, 1, 1});
+            } else if (fw_restart_injected) {
+                spdlog::debug("[PanelWidgetManager] Skipping widget '{}' — grid full due to "
+                              "temporary firmware_restart injection",
+                              slot.widget_id);
             } else {
                 auto& mut_entries = widget_config.page_entries_mut(page_index);
                 auto cfg_it =
