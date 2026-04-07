@@ -33,7 +33,8 @@ struct SplitButtonData {
     lv_obj_t* dropdown{nullptr};
     lv_obj_t* icon{nullptr};
     lv_obj_t* label{nullptr};
-    char* text_format{nullptr}; // owned, nullable
+    lv_obj_t* click_overlay{nullptr}; // screen-level overlay for click-outside dismiss
+    char* text_format{nullptr};       // owned, nullable
     bool show_selection{true};
 };
 
@@ -187,7 +188,22 @@ void style_dropdown_list(lv_obj_t* sb, lv_obj_t* list) {
 }
 
 /**
- * @brief Arrow button clicked — open dropdown + play sound
+ * @brief Close dropdown and remove the click-outside overlay
+ */
+void close_dropdown(SplitButtonData* data) {
+    if (!data)
+        return;
+    if (data->click_overlay) {
+        lv_obj_delete(data->click_overlay);
+        data->click_overlay = nullptr;
+    }
+    if (data->dropdown) {
+        lv_dropdown_close(data->dropdown);
+    }
+}
+
+/**
+ * @brief Arrow button clicked — toggle dropdown open/close + play sound
  */
 void arrow_btn_clicked_cb(lv_event_t* e) {
     lv_obj_t* arrow_btn = lv_event_get_target_obj(e);
@@ -198,15 +214,62 @@ void arrow_btn_clicked_cb(lv_event_t* e) {
 
     lv_event_stop_bubbling(e); // Don't trigger container's CLICKED (main action)
     SoundManager::instance().play("button_tap");
+
+    // Toggle: close if already open
+    if (lv_dropdown_is_open(data->dropdown)) {
+        close_dropdown(data);
+        return;
+    }
+
     lv_dropdown_open(data->dropdown);
 
     // Style and reposition the list
     lv_obj_t* list = lv_dropdown_get_list(data->dropdown);
     if (list) {
         style_dropdown_list(sb, list);
-        // LVGL positions relative to the dropdown obj (right side of flex row).
-        // Reposition: align to the split button container, right-aligned with the arrow.
-        lv_obj_align_to(list, sb, LV_ALIGN_OUT_BOTTOM_RIGHT, 0, 0);
+
+        // Smart positioning: open upward if dropdown would overflow the screen bottom
+        lv_obj_update_layout(list);
+        int32_t sb_y = lv_obj_get_y(sb);
+        // Walk up parents to get absolute screen Y
+        lv_obj_t* p = lv_obj_get_parent(sb);
+        while (p && p != lv_screen_active()) {
+            sb_y += lv_obj_get_y(p) - lv_obj_get_scroll_y(p);
+            p = lv_obj_get_parent(p);
+        }
+        int32_t sb_h = lv_obj_get_height(sb);
+        int32_t list_h = lv_obj_get_height(list);
+        int32_t screen_h = lv_display_get_vertical_resolution(nullptr);
+
+        if (sb_y + sb_h + list_h > screen_h) {
+            lv_obj_align_to(list, sb, LV_ALIGN_OUT_TOP_RIGHT, 0, 0);
+        } else {
+            lv_obj_align_to(list, sb, LV_ALIGN_OUT_BOTTOM_RIGHT, 0, 0);
+        }
+
+        // Create a transparent fullscreen overlay behind the list to catch outside clicks
+        lv_obj_t* screen = lv_screen_active();
+        data->click_overlay = lv_obj_create(screen);
+        lv_obj_set_size(data->click_overlay, lv_pct(100), lv_pct(100));
+        lv_obj_set_style_bg_opa(data->click_overlay, LV_OPA_TRANSP, LV_PART_MAIN);
+        lv_obj_set_style_border_width(data->click_overlay, 0, LV_PART_MAIN);
+        lv_obj_remove_flag(data->click_overlay, LV_OBJ_FLAG_SCROLLABLE);
+        lv_obj_add_flag(data->click_overlay, LV_OBJ_FLAG_CLICKABLE);
+        lv_obj_set_user_data(data->click_overlay, sb);
+
+        // Move overlay behind the dropdown list but above everything else
+        lv_obj_move_to_index(data->click_overlay, -1);
+        lv_obj_move_to_index(list, -1);
+
+        lv_obj_add_event_cb(
+            data->click_overlay,
+            [](lv_event_t* ev) {
+                lv_obj_t* overlay = lv_event_get_target_obj(ev);
+                auto* split_btn = static_cast<lv_obj_t*>(lv_obj_get_user_data(overlay));
+                auto* d = get_data(split_btn);
+                close_dropdown(d);
+            },
+            LV_EVENT_CLICKED, nullptr);
     }
 }
 
@@ -219,6 +282,12 @@ void dropdown_value_changed_cb(lv_event_t* e) {
     auto* data = get_data(sb);
     if (!data)
         return;
+
+    // Clean up the click-outside overlay since the dropdown is closing
+    if (data->click_overlay) {
+        lv_obj_delete(data->click_overlay);
+        data->click_overlay = nullptr;
+    }
 
     update_label_from_selection(data);
     lv_obj_send_event(sb, LV_EVENT_VALUE_CHANGED, nullptr);
@@ -233,6 +302,10 @@ void split_button_delete_cb(lv_event_t* e) {
     if (!data)
         return;
 
+    if (data->click_overlay) {
+        lv_obj_delete(data->click_overlay);
+        data->click_overlay = nullptr;
+    }
     lv_free(data->text_format);
     if (data->main_btn) {
         lv_obj_set_user_data(data->main_btn, nullptr);
