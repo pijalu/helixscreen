@@ -104,10 +104,11 @@ lv_obj_t* PrinterManagerOverlay::create(lv_obj_t* parent) {
     // Find name editing widgets (visibility driven by pm_name_editing subject via XML bindings)
     name_input_ = lv_obj_find_by_name(overlay_root_, "pm_printer_name_input");
 
-    // Register READY/CANCEL on textarea for name edit lifecycle
+    // Register READY/CANCEL/DEFOCUSED on textarea for name edit lifecycle
     // (acceptable exception to declarative rule — textarea lifecycle event, like DELETE cleanup)
     if (name_input_) {
         lv_obj_add_event_cb(name_input_, pm_name_input_ready_cb, LV_EVENT_READY, nullptr);
+        lv_obj_add_event_cb(name_input_, pm_name_input_ready_cb, LV_EVENT_DEFOCUSED, nullptr);
         lv_obj_add_event_cb(name_input_, pm_name_input_cancel_cb, LV_EVENT_CANCEL, nullptr);
     }
 
@@ -347,13 +348,17 @@ void PrinterManagerOverlay::finish_name_edit() {
         helix::PrinterNameSync::write_back(get_moonraker_api(), name_str);
     }
 
-    // Update the subject to reflect new name
+    // Update subjects to reflect new name (local overlay + global PrinterState)
     std::strncpy(name_buf_, name_str.c_str(), sizeof(name_buf_) - 1);
     name_buf_[sizeof(name_buf_) - 1] = '\0';
     lv_subject_copy_string(&printer_manager_name_, name_buf_);
+    get_printer_state().set_active_printer_name(name_str);
 
     // Toggle back to viewing mode — XML bind_flag_if_eq handles visibility
     lv_subject_set_int(&name_editing_, 0);
+
+    // Hide keyboard
+    KeyboardManager::instance().hide();
 }
 
 void PrinterManagerOverlay::cancel_name_edit() {
