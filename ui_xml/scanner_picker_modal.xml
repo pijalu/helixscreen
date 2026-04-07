@@ -2,7 +2,7 @@
 <!-- Copyright (C) 2025-2026 356C LLC -->
 <!-- SPDX-License-Identifier: GPL-3.0-or-later -->
 <!-- Scanner Device Picker Modal -->
-<!-- Lists connected USB HID devices for manual barcode scanner selection -->
+<!-- Lists connected USB and Bluetooth HID devices for barcode scanner selection -->
 <component>
   <view name="scanner_picker_modal"
         extends="ui_dialog" width="70%" height="80%" align="center"
@@ -30,14 +30,32 @@
             style_flex_main_place="center" style_flex_cross_place="center"
             style_pad_gap="#space_sm" scrollable="false">
       <text_body name="empty_text"
-                 text="No USB HID devices detected." translation_tag="No USB HID devices detected."
+                 text="No devices detected." translation_tag="No devices detected."
                  style_text_align="center" width="100%"/>
-      <text_small text="Plug in your scanner and tap Refresh." translation_tag="Plug in your scanner and tap Refresh."
+      <text_small text="Plug in a USB scanner and tap Refresh, or scan for Bluetooth devices."
+                  translation_tag="Plug in a USB scanner and tap Refresh, or scan for Bluetooth devices."
                   style_text_color="#text_muted" style_text_align="center" width="100%"/>
     </lv_obj>
-    <!-- Bottom buttons: Refresh + Cancel -->
-    <modal_button_row
-        secondary_text="Refresh" secondary_tag="Refresh" secondary_callback="on_scanner_refresh"
-        primary_text="Cancel" primary_tag="Cancel" primary_callback="on_modal_cancel_clicked"/>
+    <!-- Bottom buttons: BT Scan + Refresh + Cancel -->
+    <lv_obj width="100%" height="content" flex_flow="row" style_flex_cross_place="center"
+            style_pad_all="#space_md" style_pad_gap="#space_sm" scrollable="false">
+      <!-- BT scan spinner (hidden by default) -->
+      <lv_spinner name="bt_scan_spinner" width="24" height="24"
+                  style_arc_width="3" style_arc_color="#accent"
+                  hidden="true"/>
+      <!-- Scan Bluetooth button -->
+      <ui_button name="btn_bt_scan" text="Scan Bluetooth" translation_tag="Scan Bluetooth"
+                 icon="bluetooth" variant="secondary" flex_grow="1">
+        <event_cb trigger="clicked" callback="on_scanner_bt_scan"/>
+      </ui_button>
+      <!-- Refresh (USB) button -->
+      <ui_button text="Refresh" translation_tag="Refresh" variant="secondary" flex_grow="1">
+        <event_cb trigger="clicked" callback="on_scanner_refresh"/>
+      </ui_button>
+      <!-- Cancel button -->
+      <ui_button name="btn_primary" text="Cancel" translation_tag="Cancel" variant="primary" flex_grow="1">
+        <event_cb trigger="clicked" callback="on_modal_cancel_clicked"/>
+      </ui_button>
+    </lv_obj>
   </view>
 </component>
