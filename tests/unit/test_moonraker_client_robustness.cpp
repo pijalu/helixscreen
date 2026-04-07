@@ -71,14 +71,15 @@ class MoonrakerRobustnessFixture {
     ~MoonrakerRobustnessFixture() {
         // Disconnect client while event loop is still running so libhv can
         // process the close and cancel any pending reconnect timers.
-        // Without this, loop_thread_->join() hangs when reconnect is active.
         client_->disconnect();
+
+        // Stop server before event loop so pending I/O completes promptly
+        server_->stop();
 
         loop_thread_->stop();
         loop_thread_->join();
 
         client_.reset();
-        server_->stop();
         server_.reset();
     }
 
