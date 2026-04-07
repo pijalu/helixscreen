@@ -1,0 +1,71 @@
+diff --git a/src/draw/sw/lv_draw_sw.c b/src/draw/sw/lv_draw_sw.c
+index efca2bdc7..8d0822d4b 100644
+--- a/src/draw/sw/lv_draw_sw.c
++++ b/src/draw/sw/lv_draw_sw.c
+@@ -55,6 +55,9 @@ static void execute_drawing(lv_draw_task_t * t);
+ static int32_t dispatch(lv_draw_unit_t * draw_unit, lv_layer_t * layer);
+ static int32_t evaluate(lv_draw_unit_t * draw_unit, lv_draw_task_t * task);
+ static int32_t lv_draw_sw_delete(lv_draw_unit_t * draw_unit);
++#if LV_USE_OS
++    static int32_t lv_draw_sw_wait_for_finish(lv_draw_unit_t * draw_unit);
++#endif
+ #if LV_USE_PARALLEL_DRAW_DEBUG
+     static void parallel_debug_draw(lv_draw_task_t * t, uint32_t idx);
+ #endif
+@@ -83,6 +86,9 @@ void lv_draw_sw_init(void)
+     draw_sw_unit->base_unit.dispatch_cb = dispatch;
+     draw_sw_unit->base_unit.evaluate_cb = evaluate;
+     draw_sw_unit->base_unit.delete_cb = LV_USE_OS ? lv_draw_sw_delete : NULL;
++#if LV_USE_OS
++    draw_sw_unit->base_unit.wait_for_finish_cb = lv_draw_sw_wait_for_finish;
++#endif
+ #if LV_USE_DRAW_ARM2D_SYNC
+     draw_sw_unit->base_unit.name = "SW_ARM2D";
+ #else
+@@ -123,6 +129,31 @@ void lv_draw_sw_deinit(void)
+ #endif
+ }
+ 
++#if LV_USE_OS
++/**
++ * Wait until all SW render threads finish their current task.
++ * Without this callback, lv_draw_dispatch() spins via self-signal and can
++ * free a draw task (cleanup_task → lv_free) while a render thread still
++ * holds a pointer to it — use-after-free crash in execute_drawing().
++ */
++static int32_t lv_draw_sw_wait_for_finish(lv_draw_unit_t * draw_unit)
++{
++    lv_draw_sw_unit_t * draw_sw_unit = (lv_draw_sw_unit_t *) draw_unit;
++
++    uint32_t i;
++    for(i = 0; i < LV_DRAW_SW_DRAW_UNIT_CNT; i++) {
++        /* Volatile cast: task_act is not declared volatile but is written by the
++         * render thread.  The cast ensures the compiler re-reads it each iteration
++         * and lv_sleep_ms provides a memory barrier on ARM64. */
++        while(*(volatile lv_draw_task_t * *)&draw_sw_unit->thread_dscs[i].task_act) {
++            lv_sleep_ms(1);
++        }
++    }
++
++    return 1;
++}
++#endif
++
+ static int32_t lv_draw_sw_delete(lv_draw_unit_t * draw_unit)
+ {
+ #if LV_USE_OS
+@@ -384,6 +415,14 @@ static void render_thread_cb(void * ptr)
+ static void execute_drawing(lv_draw_task_t * t)
+ {
+     LV_PROFILER_DRAW_BEGIN;
++
++    if(t->draw_dsc == NULL) {
++        LV_LOG_ERROR("draw task %p has NULL draw_dsc (type=%d, state=%d) — likely use-after-free",
++                     (void *)t, t->type, t->state);
++        LV_PROFILER_DRAW_END;
++        return;
++    }
++
+     /*Render the draw task*/
+     switch(t->type) {
+         case LV_DRAW_TASK_TYPE_FILL:

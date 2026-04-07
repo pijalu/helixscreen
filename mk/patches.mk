@@ -51,6 +51,7 @@ LVGL_PATCHED_FILES := \
 	src/core/lv_obj_pos.c \
 	src/core/lv_obj_tree.c \
 	src/core/lv_obj.c \
+	src/draw/sw/lv_draw_sw.c \
 	lv_conf_template.h
 
 # Files modified by libhv patches
@@ -422,6 +423,13 @@ $(PATCHES_STAMP): $(PATCH_FILES) $(LVGL_HEAD) $(LIBHV_HEAD)
 		fi \
 	else \
 		echo "$(GREEN)✓ LVGL label text transform patch already applied$(RESET)"; \
+	fi
+	$(Q)if git -C $(LVGL_DIR) apply --check ../../patches/lvgl-sw-draw-wait-for-finish.patch 2>/dev/null; then \
+		echo "$(YELLOW)→ Applying LVGL SW draw wait_for_finish + NULL guard patch (#739)...$(RESET)"; \
+		git -C $(LVGL_DIR) apply ../../patches/lvgl-sw-draw-wait-for-finish.patch && \
+		echo "$(GREEN)✓ SW draw wait_for_finish patch applied$(RESET)"; \
+	else \
+		echo "$(GREEN)✓ LVGL SW draw wait_for_finish patch already applied$(RESET)"; \
 	fi
 	$(ECHO) "$(CYAN)Checking libhv patches...$(RESET)"
 	$(Q)if git -C $(LIBHV_DIR) diff --quiet Makefile.in 2>/dev/null; then \
