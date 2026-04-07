@@ -254,7 +254,8 @@ static void draw_gradient_cb(lv_event_t* e) {
             if (py < peak_y)
                 peak_y = py;
         }
-        if (peak_y < cy1) peak_y = cy1;
+        if (peak_y < cy1)
+            peak_y = cy1;
         if (peak_y >= cy2)
             continue;
 
@@ -269,19 +270,24 @@ static void draw_gradient_cb(lv_event_t* e) {
 
             if (v0 == LV_CHART_POINT_NONE && v1 == LV_CHART_POINT_NONE)
                 continue;
-            if (v0 == LV_CHART_POINT_NONE) v0 = v1;
-            if (v1 == LV_CHART_POINT_NONE) v1 = v0;
+            if (v0 == LV_CHART_POINT_NONE)
+                v0 = v1;
+            if (v1 == LV_CHART_POINT_NONE)
+                v1 = v0;
 
             int32_t px0 = cx1 + lv_map(i, 0, pc - 1, 0, cw);
             int32_t px1 = cx1 + lv_map(i + 1, 0, pc - 1, 0, cw);
-            if (px0 >= px1) continue;
+            if (px0 >= px1)
+                continue;
 
             int32_t py0 = cy1 + ch - lv_map(v0, y_min, y_max, 0, ch);
             int32_t py1 = cy1 + ch - lv_map(v1, y_min, y_max, 0, ch);
 
             int32_t top_y = LV_MIN(py0, py1);
-            if (top_y < cy1) top_y = cy1;
-            if (top_y >= cy2) continue;
+            if (top_y < cy1)
+                top_y = cy1;
+            if (top_y >= cy2)
+                continue;
 
             // Map top_y into the global gradient range [peak_y..cy2] → frac [0..255]
             uint8_t top_frac = static_cast<uint8_t>((top_y - peak_y) * 255 / grad_span);
@@ -299,7 +305,7 @@ static void draw_gradient_cb(lv_event_t* e) {
             fill_dsc.grad.dir = LV_GRAD_DIR_VER;
             fill_dsc.grad.stops_count = 2;
             fill_dsc.grad.stops[0].color = meta->color;
-            fill_dsc.grad.stops[0].opa = top_opa;              // opacity at this line height
+            fill_dsc.grad.stops[0].opa = top_opa; // opacity at this line height
             fill_dsc.grad.stops[0].frac = 0;
             fill_dsc.grad.stops[1].color = meta->color;
             fill_dsc.grad.stops[1].opa = meta->gradient_bottom_opa;
@@ -313,6 +319,121 @@ static void draw_gradient_cb(lv_event_t* e) {
 
             lv_draw_fill(layer, &fill_dsc, &rect_area);
         }
+    }
+}
+
+// Draw legend chips in the upper-left of the chart content area.
+// Each chip is a semi-transparent rounded rectangle with a color swatch and series name.
+// Only drawn when TEMP_GRAPH_FEATURE_LEGEND is enabled (rowspan >= 2 or colspan >= 2).
+static void draw_legend_cb(lv_event_t* e) {
+    lv_obj_t* chart = lv_event_get_target_obj(e);
+    ui_temp_graph_t* graph = static_cast<ui_temp_graph_t*>(lv_event_get_user_data(e));
+    if (!graph || !graph->chart)
+        return;
+
+    if (!(graph->features & TEMP_GRAPH_FEATURE_LEGEND))
+        return;
+
+    lv_layer_t* layer = lv_event_get_layer(e);
+    if (!layer)
+        return;
+
+    // Count visible series — skip legend if only one series (no ambiguity)
+    int visible_count = 0;
+    for (int i = 0; i < UI_TEMP_GRAPH_MAX_SERIES; i++) {
+        if (graph->series_meta[i].chart_series && graph->series_meta[i].visible)
+            visible_count++;
+    }
+    if (visible_count <= 1)
+        return;
+
+    // Content area (inside padding)
+    lv_area_t coords;
+    lv_obj_get_coords(chart, &coords);
+    int32_t pad_left = lv_obj_get_style_pad_left(chart, LV_PART_MAIN);
+    int32_t pad_top = lv_obj_get_style_pad_top(chart, LV_PART_MAIN);
+    int32_t content_x1 = coords.x1 + pad_left;
+    int32_t content_y1 = coords.y1 + pad_top;
+
+    // Layout constants
+    const lv_font_t* font = theme_manager_get_font("font_xs");
+    int32_t font_h = theme_manager_get_font_height(font);
+    int32_t chip_h = font_h + 4;      // 2px vertical padding
+    int32_t swatch_size = font_h - 2; // Color swatch square
+    int32_t chip_pad_h = 4;           // Horizontal padding inside chip
+    int32_t chip_gap = 3;             // Gap between chips
+    int32_t chip_radius = chip_h / 2; // Fully rounded ends
+
+    // Starting position: upper-left with small inset
+    int32_t x = content_x1 + 4;
+    int32_t y = content_y1 + 3;
+
+    // Persistent string buffers for labels (LVGL may defer draw)
+    static char legend_bufs[UI_TEMP_GRAPH_MAX_SERIES][32];
+    int buf_idx = 0;
+
+    for (int i = 0; i < UI_TEMP_GRAPH_MAX_SERIES && buf_idx < UI_TEMP_GRAPH_MAX_SERIES; i++) {
+        ui_temp_series_meta_t* meta = &graph->series_meta[i];
+        if (!meta->chart_series || !meta->visible)
+            continue;
+
+        // Copy name to persistent buffer
+        strncpy(legend_bufs[buf_idx], meta->name, 31);
+        legend_bufs[buf_idx][31] = '\0';
+
+        // Measure text width
+        lv_point_t txt_size;
+        lv_text_get_size(&txt_size, legend_bufs[buf_idx], font, 0, 0, LV_COORD_MAX,
+                         LV_TEXT_FLAG_NONE);
+        int32_t chip_w = chip_pad_h + swatch_size + 3 + txt_size.x + chip_pad_h;
+
+        // Draw chip background (semi-transparent dark)
+        lv_draw_rect_dsc_t rect_dsc;
+        lv_draw_rect_dsc_init(&rect_dsc);
+        rect_dsc.bg_color = graph->cached_graph_bg;
+        rect_dsc.bg_opa = LV_OPA_70;
+        rect_dsc.radius = chip_radius;
+
+        lv_area_t chip_area;
+        chip_area.x1 = x;
+        chip_area.y1 = y;
+        chip_area.x2 = x + chip_w;
+        chip_area.y2 = y + chip_h;
+        lv_draw_rect(layer, &rect_dsc, &chip_area);
+
+        // Draw color swatch (small filled circle)
+        lv_draw_rect_dsc_t swatch_dsc;
+        lv_draw_rect_dsc_init(&swatch_dsc);
+        swatch_dsc.bg_color = meta->color;
+        swatch_dsc.bg_opa = LV_OPA_COVER;
+        swatch_dsc.radius = LV_RADIUS_CIRCLE;
+
+        lv_area_t swatch_area;
+        swatch_area.x1 = x + chip_pad_h;
+        swatch_area.y1 = y + (chip_h - swatch_size) / 2;
+        swatch_area.x2 = swatch_area.x1 + swatch_size;
+        swatch_area.y2 = swatch_area.y1 + swatch_size;
+        lv_draw_rect(layer, &swatch_dsc, &swatch_area);
+
+        // Draw series name label
+        lv_draw_label_dsc_t label_dsc;
+        lv_draw_label_dsc_init(&label_dsc);
+        label_dsc.color = lv_obj_get_style_text_color(chart, LV_PART_MAIN);
+        label_dsc.font = font;
+        label_dsc.opa = LV_OPA_80;
+        label_dsc.align = LV_TEXT_ALIGN_LEFT;
+        label_dsc.text = legend_bufs[buf_idx];
+
+        lv_area_t label_area;
+        label_area.x1 = swatch_area.x2 + 3;
+        label_area.y1 = y + (chip_h - font_h) / 2;
+        label_area.x2 = x + chip_w - chip_pad_h;
+        label_area.y2 = label_area.y1 + font_h;
+        lv_draw_label(layer, &label_dsc, &label_area);
+
+        // Advance to next chip position (horizontal flow)
+        x += chip_w + chip_gap;
+        buf_idx++;
     }
 }
 
@@ -355,11 +476,11 @@ static void draw_target_lines_cb(lv_event_t* e) {
             continue;
 
         // Compute pixel Y from target temperature
-        int32_t content_y = chart_height - lv_map(
-            static_cast<int32_t>(meta->target_temp * TEMP_SCALE),
-            static_cast<int32_t>(graph->min_temp * TEMP_SCALE),
-            static_cast<int32_t>(graph->max_temp * TEMP_SCALE),
-            0, chart_height);
+        int32_t content_y =
+            chart_height - lv_map(static_cast<int32_t>(meta->target_temp * TEMP_SCALE),
+                                  static_cast<int32_t>(graph->min_temp * TEMP_SCALE),
+                                  static_cast<int32_t>(graph->max_temp * TEMP_SCALE), 0,
+                                  chart_height);
         int32_t abs_y = cy1 + content_y;
 
         // Skip if outside content area
@@ -645,8 +766,10 @@ static void draw_y_axis_labels_cb(lv_event_t* e) {
         label_y -= label_height / 2;
 
         // Clamp so labels don't extend above or below the chart area
-        if (label_y < coords.y1) label_y = coords.y1;
-        if (label_y + label_height > coords.y2) continue;  // Skip if below chart
+        if (label_y < coords.y1)
+            label_y = coords.y1;
+        if (label_y + label_height > coords.y2)
+            continue; // Skip if below chart
 
         // Format temperature string into persistent buffer
         char* temp_str = temp_str_buf[temp_str_idx++ % 8];
@@ -720,7 +843,8 @@ ui_temp_graph_t* ui_temp_graph_create(lv_obj_t* parent) {
     graph->max_temp = UI_TEMP_GRAPH_DEFAULT_MAX_TEMP;
     graph->series_count = 0;
     graph->next_series_id = 0;
-    graph->features = TEMP_GRAPH_ALL_FEATURES & ~TEMP_GRAPH_FEATURE_Y_AXIS;  // Y-axis off until caller configures
+    graph->features =
+        TEMP_GRAPH_ALL_FEATURES & ~TEMP_GRAPH_FEATURE_Y_AXIS; // Y-axis off until caller configures
     graph->y_axis_increment = 0; // Disabled by default (caller must enable)
     graph->show_y_axis = false;
     graph->show_x_axis = true;
@@ -820,6 +944,9 @@ ui_temp_graph_t* ui_temp_graph_create(lv_obj_t* parent) {
     // Register custom target line draw callback (replaces LVGL's cursor rendering,
     // constrained to content area so lines don't bleed into Y-axis labels)
     lv_obj_add_event_cb(graph->chart, draw_target_lines_cb, LV_EVENT_DRAW_POST, graph);
+
+    // Register legend draw callback (renders color-coded series chips in upper-left)
+    lv_obj_add_event_cb(graph->chart, draw_legend_cb, LV_EVENT_DRAW_POST, graph);
 
     // Subscribe to theme changes for live color updates
     lv_subject_t* theme_subject = theme_manager_get_changed_subject();
@@ -1305,15 +1432,14 @@ void ui_temp_graph_set_features(ui_temp_graph_t* graph, uint32_t features) {
 
     lv_obj_invalidate(graph->chart);
 
-    spdlog::trace("[TempGraph] Features set: 0x{:02x} (lines={} targets={} legend={} "
-                  "y_axis={} x_axis={} gradients={} readouts={})",
-                  features, (features & TEMP_GRAPH_FEATURE_LINES) != 0,
-                  (features & TEMP_GRAPH_FEATURE_TARGET_LINES) != 0,
-                  (features & TEMP_GRAPH_FEATURE_LEGEND) != 0,
-                  (features & TEMP_GRAPH_FEATURE_Y_AXIS) != 0,
-                  (features & TEMP_GRAPH_FEATURE_X_AXIS) != 0,
-                  (features & TEMP_GRAPH_FEATURE_GRADIENTS) != 0,
-                  (features & TEMP_GRAPH_FEATURE_READOUTS) != 0);
+    spdlog::trace(
+        "[TempGraph] Features set: 0x{:02x} (lines={} targets={} legend={} "
+        "y_axis={} x_axis={} gradients={} readouts={})",
+        features, (features & TEMP_GRAPH_FEATURE_LINES) != 0,
+        (features & TEMP_GRAPH_FEATURE_TARGET_LINES) != 0,
+        (features & TEMP_GRAPH_FEATURE_LEGEND) != 0, (features & TEMP_GRAPH_FEATURE_Y_AXIS) != 0,
+        (features & TEMP_GRAPH_FEATURE_X_AXIS) != 0, (features & TEMP_GRAPH_FEATURE_GRADIENTS) != 0,
+        (features & TEMP_GRAPH_FEATURE_READOUTS) != 0);
 }
 
 // Get the current feature flags

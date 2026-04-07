@@ -3,23 +3,22 @@
 
 #include "temp_graph_widget.h"
 
+#include "ui_overlay_temp_graph.h"
+
 #include "app_globals.h"
+#include "helix-xml/src/xml/lv_xml.h"
 #include "panel_widget_registry.h"
 #include "printer_state.h"
 #include "temperature_sensor_manager.h"
-#include "ui_overlay_temp_graph.h"
 #include "theme_manager.h"
-
-#include "helix-xml/src/xml/lv_xml.h"
 
 #include <spdlog/spdlog.h>
 
 namespace helix {
 
 void register_temp_graph_widget() {
-    register_widget_factory("temp_graph", [](const std::string& id) {
-        return std::make_unique<TempGraphWidget>(id);
-    });
+    register_widget_factory(
+        "temp_graph", [](const std::string& id) { return std::make_unique<TempGraphWidget>(id); });
 
     lv_xml_register_event_cb(nullptr, "on_temp_graph_widget_clicked",
                              TempGraphWidget::on_temp_graph_widget_clicked);
@@ -33,8 +32,7 @@ using namespace helix;
 // Construction / Destruction
 // ============================================================================
 
-TempGraphWidget::TempGraphWidget(const std::string& instance_id)
-    : instance_id_(instance_id) {
+TempGraphWidget::TempGraphWidget(const std::string& instance_id) : instance_id_(instance_id) {
     spdlog::debug("[TempGraphWidget] Created instance '{}'", instance_id_);
 }
 
@@ -83,8 +81,8 @@ void TempGraphWidget::attach(lv_obj_t* widget_obj, lv_obj_t* parent_screen) {
         lv_obj_set_style_bg_opa(widget_obj_, LV_OPA_COVER, 0);
     }
 
-    spdlog::debug("[TempGraphWidget] Attached '{}' ({}x{})", instance_id_,
-                  current_colspan_, current_rowspan_);
+    spdlog::debug("[TempGraphWidget] Attached '{}' ({}x{})", instance_id_, current_colspan_,
+                  current_rowspan_);
 }
 
 void TempGraphWidget::detach() {
@@ -99,15 +97,16 @@ void TempGraphWidget::detach() {
     spdlog::debug("[TempGraphWidget] Detached '{}'", instance_id_);
 }
 
-void TempGraphWidget::on_size_changed(int colspan, int rowspan, int /*width_px*/, int /*height_px*/) {
+void TempGraphWidget::on_size_changed(int colspan, int rowspan, int /*width_px*/,
+                                      int /*height_px*/) {
     current_colspan_ = colspan;
     current_rowspan_ = rowspan;
 
     if (controller_) {
         uint32_t features = features_for_size(colspan, rowspan);
         controller_->set_features(features);
-        spdlog::debug("[TempGraphWidget] '{}' resized to {}x{}, features=0x{:x}",
-                      instance_id_, colspan, rowspan, features);
+        spdlog::debug("[TempGraphWidget] '{}' resized to {}x{}, features=0x{:x}", instance_id_,
+                      colspan, rowspan, features);
     }
 }
 
@@ -120,8 +119,7 @@ bool TempGraphWidget::on_edit_configure() {
     auto* saved_parent = parent_screen_;
 
     config_modal_ = std::make_unique<TempGraphConfigModal>(
-        config_,
-        [this, saved_widget, saved_parent](const nlohmann::json& new_config) {
+        config_, [this, saved_widget, saved_parent](const nlohmann::json& new_config) {
             config_ = new_config;
             save_widget_config(config_);
             detach();
@@ -140,9 +138,13 @@ uint32_t TempGraphWidget::features_for_size(int colspan, int rowspan) {
     uint32_t features = TEMP_GRAPH_FEATURE_LINES | TEMP_GRAPH_FEATURE_GRADIENTS;
 
     if (colspan >= 2 || rowspan >= 2) {
-        // Medium: add target lines and legend
-        features |= TEMP_GRAPH_FEATURE_TARGET_LINES
-                  | TEMP_GRAPH_FEATURE_LEGEND;
+        // Medium: add target lines
+        features |= TEMP_GRAPH_FEATURE_TARGET_LINES;
+    }
+
+    if (rowspan >= 2) {
+        // Tall: add legend chips (enough vertical space to not obscure data)
+        features |= TEMP_GRAPH_FEATURE_LEGEND;
     }
 
     if (rowspan >= 2) {
@@ -169,11 +171,13 @@ uint32_t TempGraphWidget::features_for_size(int colspan, int rowspan) {
 
 std::vector<TempGraphSeriesSpec> TempGraphWidget::build_series_from_config() {
     std::vector<TempGraphSeriesSpec> specs;
-    if (!config_.contains("sensors")) return specs;
+    if (!config_.contains("sensors"))
+        return specs;
 
     int color_idx = 0;
     for (const auto& entry : config_["sensors"]) {
-        if (!entry.contains("name") || !entry.value("enabled", true)) continue;
+        if (!entry.contains("name") || !entry.value("enabled", true))
+            continue;
 
         TempGraphSeriesSpec spec;
         spec.klipper_name = entry["name"].get<std::string>();
@@ -185,10 +189,9 @@ std::vector<TempGraphSeriesSpec> TempGraphWidget::build_series_from_config() {
         color_idx++;
 
         // Heaters have targets, sensors generally don't
-        spec.show_target = (spec.klipper_name == "extruder" ||
-                           spec.klipper_name.find("extruder") == 0 ||
-                           spec.klipper_name == "heater_bed" ||
-                           spec.klipper_name == "chamber");
+        spec.show_target =
+            (spec.klipper_name == "extruder" || spec.klipper_name.find("extruder") == 0 ||
+             spec.klipper_name == "heater_bed" || spec.klipper_name == "chamber");
         specs.push_back(std::move(spec));
     }
     return specs;
@@ -216,12 +219,12 @@ void TempGraphWidget::build_default_config() {
     auto& sensor_mgr = sensors::TemperatureSensorManager::instance();
     auto discovered = sensor_mgr.get_sensors_sorted();
     for (const auto& sensor : discovered) {
-        if (!sensor.enabled) continue;
+        if (!sensor.enabled)
+            continue;
         uint32_t color_hex = 0;
         lv_color_t c = TEMP_GRAPH_SERIES_COLORS[color_idx % TEMP_GRAPH_PALETTE_SIZE];
-        color_hex = (static_cast<uint32_t>(c.red) << 16)
-                  | (static_cast<uint32_t>(c.green) << 8)
-                  | static_cast<uint32_t>(c.blue);
+        color_hex = (static_cast<uint32_t>(c.red) << 16) | (static_cast<uint32_t>(c.green) << 8) |
+                    static_cast<uint32_t>(c.blue);
         color_idx++;
 
         sensors.push_back({
@@ -232,16 +235,16 @@ void TempGraphWidget::build_default_config() {
     }
 
     config_["sensors"] = sensors;
-    spdlog::debug("[TempGraphWidget] Built default config with {} sensors for '{}'",
-                  sensors.size(), instance_id_);
+    spdlog::debug("[TempGraphWidget] Built default config with {} sensors for '{}'", sensors.size(),
+                  instance_id_);
 }
 
 // ============================================================================
 // TempGraphConfigModal
 // ============================================================================
 
-TempGraphWidget::TempGraphConfigModal::TempGraphConfigModal(
-    const nlohmann::json& config, SaveCallback on_save)
+TempGraphWidget::TempGraphConfigModal::TempGraphConfigModal(const nlohmann::json& config,
+                                                            SaveCallback on_save)
     : config_(config), on_save_(std::move(on_save)) {}
 
 void TempGraphWidget::TempGraphConfigModal::on_show() {
@@ -263,9 +266,8 @@ void TempGraphWidget::TempGraphConfigModal::on_ok() {
         }
 
         lv_color_t c = TEMP_GRAPH_SERIES_COLORS[row.color_idx % TEMP_GRAPH_PALETTE_SIZE];
-        uint32_t color_hex = (static_cast<uint32_t>(c.red) << 16)
-                           | (static_cast<uint32_t>(c.green) << 8)
-                           | static_cast<uint32_t>(c.blue);
+        uint32_t color_hex = (static_cast<uint32_t>(c.red) << 16) |
+                             (static_cast<uint32_t>(c.green) << 8) | static_cast<uint32_t>(c.blue);
 
         sensors.push_back({
             {"name", row.name},
@@ -285,11 +287,14 @@ void TempGraphWidget::TempGraphConfigModal::on_ok() {
     hide();
 }
 
-std::string TempGraphWidget::TempGraphConfigModal::sensor_display_name(
-    const std::string& klipper_name) {
-    if (klipper_name == "extruder") return "Nozzle";
-    if (klipper_name == "heater_bed") return "Bed";
-    if (klipper_name == "chamber") return "Chamber";
+std::string
+TempGraphWidget::TempGraphConfigModal::sensor_display_name(const std::string& klipper_name) {
+    if (klipper_name == "extruder")
+        return "Nozzle";
+    if (klipper_name == "heater_bed")
+        return "Bed";
+    if (klipper_name == "chamber")
+        return "Chamber";
 
     // Strip common prefixes for auxiliary sensors
     std::string display = klipper_name;
@@ -308,7 +313,8 @@ std::string TempGraphWidget::TempGraphConfigModal::sensor_display_name(
 
     // Replace underscores with spaces
     for (auto& ch : display) {
-        if (ch == '_') ch = ' ';
+        if (ch == '_')
+            ch = ' ';
     }
 
     return display;
@@ -323,12 +329,14 @@ void TempGraphWidget::TempGraphConfigModal::populate_sensor_list() {
 
     rows_.clear();
 
-    if (!config_.contains("sensors")) return;
+    if (!config_.contains("sensors"))
+        return;
 
     const auto& sensors = config_["sensors"];
     for (size_t i = 0; i < sensors.size(); ++i) {
         const auto& entry = sensors[i];
-        if (!entry.contains("name")) continue;
+        if (!entry.contains("name"))
+            continue;
 
         SensorRow row;
         row.name = entry["name"].get<std::string>();
@@ -366,7 +374,8 @@ void TempGraphWidget::TempGraphConfigModal::populate_sensor_list() {
         lv_obj_set_size(swatch, 24, 24);
         lv_obj_set_style_radius(swatch, 4, 0);
         lv_obj_set_style_bg_opa(swatch, LV_OPA_COVER, 0);
-        lv_obj_set_style_bg_color(swatch, TEMP_GRAPH_SERIES_COLORS[row.color_idx % TEMP_GRAPH_PALETTE_SIZE], 0);
+        lv_obj_set_style_bg_color(
+            swatch, TEMP_GRAPH_SERIES_COLORS[row.color_idx % TEMP_GRAPH_PALETTE_SIZE], 0);
         lv_obj_set_style_border_width(swatch, 0, 0);
         lv_obj_add_flag(swatch, LV_OBJ_FLAG_CLICKABLE);
         row.swatch = swatch;
@@ -398,11 +407,13 @@ void TempGraphWidget::TempGraphConfigModal::color_swatch_clicked(lv_event_t* e) 
     auto* swatch = static_cast<lv_obj_t*>(lv_event_get_target(e));
     auto idx = static_cast<size_t>(reinterpret_cast<uintptr_t>(lv_obj_get_user_data(swatch)));
 
-    if (!modal || idx >= modal->rows_.size()) return;
+    if (!modal || idx >= modal->rows_.size())
+        return;
 
     auto& row = modal->rows_[idx];
     row.color_idx = (row.color_idx + 1) % TEMP_GRAPH_PALETTE_SIZE;
-    lv_obj_set_style_bg_color(swatch, TEMP_GRAPH_SERIES_COLORS[row.color_idx % TEMP_GRAPH_PALETTE_SIZE], 0);
+    lv_obj_set_style_bg_color(swatch,
+                              TEMP_GRAPH_SERIES_COLORS[row.color_idx % TEMP_GRAPH_PALETTE_SIZE], 0);
 
     spdlog::debug("[TempGraphConfigModal] Cycled '{}' to color index {}", row.name, row.color_idx);
 }
@@ -413,9 +424,9 @@ void TempGraphWidget::TempGraphConfigModal::color_swatch_clicked(lv_event_t* e) 
 
 void TempGraphWidget::on_temp_graph_widget_clicked(lv_event_t* e) {
     auto* self = panel_widget_from_event<TempGraphWidget>(e);
-    if (!self || !self->parent_screen_) return;
+    if (!self || !self->parent_screen_)
+        return;
 
     spdlog::debug("[TempGraphWidget] Clicked '{}', opening overlay", self->instance_id_);
-    get_global_temp_graph_overlay().open(TempGraphOverlay::Mode::GraphOnly,
-                                         self->parent_screen_);
+    get_global_temp_graph_overlay().open(TempGraphOverlay::Mode::GraphOnly, self->parent_screen_);
 }

@@ -46,7 +46,7 @@
 #define UI_TEMP_GRAPH_DEFAULT_MAX_TEMP 100.0f // Default Y-axis maximum
 
 // Gradient opacity defaults (stock chart style: visible at line, fades to transparent)
-#define UI_TEMP_GRAPH_GRADIENT_TOP_OPA 26           // At the line (~10%)
+#define UI_TEMP_GRAPH_GRADIENT_TOP_OPA 26          // At the line (~10%)
 #define UI_TEMP_GRAPH_GRADIENT_BOTTOM_OPA LV_OPA_0 // At chart bottom (fully transparent)
 
 /**
@@ -54,19 +54,18 @@
  * Used by ui_temp_graph_set_features() / ui_temp_graph_get_features().
  */
 enum ui_temp_graph_feature {
-    TEMP_GRAPH_FEATURE_LINES        = (1 << 0), // Temperature data lines (always forced on)
+    TEMP_GRAPH_FEATURE_LINES = (1 << 0),        // Temperature data lines (always forced on)
     TEMP_GRAPH_FEATURE_TARGET_LINES = (1 << 1), // Target temperature dashed lines
-    TEMP_GRAPH_FEATURE_LEGEND       = (1 << 2), // Legend labels (reserved for future use)
-    TEMP_GRAPH_FEATURE_Y_AXIS       = (1 << 3), // Y-axis temperature labels
-    TEMP_GRAPH_FEATURE_X_AXIS       = (1 << 4), // X-axis time labels
-    TEMP_GRAPH_FEATURE_GRADIENTS    = (1 << 5), // Gradient fills under lines
-    TEMP_GRAPH_FEATURE_READOUTS     = (1 << 6), // Reserved — managed by widget, not by this module
+    TEMP_GRAPH_FEATURE_LEGEND = (1 << 2),       // Legend chips (color swatch + series name)
+    TEMP_GRAPH_FEATURE_Y_AXIS = (1 << 3),       // Y-axis temperature labels
+    TEMP_GRAPH_FEATURE_X_AXIS = (1 << 4),       // X-axis time labels
+    TEMP_GRAPH_FEATURE_GRADIENTS = (1 << 5),    // Gradient fills under lines
+    TEMP_GRAPH_FEATURE_READOUTS = (1 << 6),     // Reserved — managed by widget, not by this module
 };
 
-#define TEMP_GRAPH_ALL_FEATURES \
-    (TEMP_GRAPH_FEATURE_LINES | TEMP_GRAPH_FEATURE_TARGET_LINES | \
-     TEMP_GRAPH_FEATURE_LEGEND | TEMP_GRAPH_FEATURE_Y_AXIS | \
-     TEMP_GRAPH_FEATURE_X_AXIS | TEMP_GRAPH_FEATURE_GRADIENTS | \
+#define TEMP_GRAPH_ALL_FEATURES                                                                    \
+    (TEMP_GRAPH_FEATURE_LINES | TEMP_GRAPH_FEATURE_TARGET_LINES | TEMP_GRAPH_FEATURE_LEGEND |      \
+     TEMP_GRAPH_FEATURE_Y_AXIS | TEMP_GRAPH_FEATURE_X_AXIS | TEMP_GRAPH_FEATURE_GRADIENTS |        \
      TEMP_GRAPH_FEATURE_READOUTS)
 
 /**
@@ -74,16 +73,16 @@ enum ui_temp_graph_feature {
  * Stores information about each temperature series (heater/sensor)
  */
 struct ui_temp_series_meta_t {
-    int id;                           // Series ID (index in series_meta array)
-    lv_chart_series_t* chart_series;  // LVGL chart series
-    lv_color_t color;                 // Series color
-    char name[32];                    // Series name (e.g., "Nozzle", "Bed")
-    bool visible;                     // Show/hide series
-    bool show_target;                 // Show/hide target temperature line
-    float target_temp;                // Target temperature for dashed line
-    lv_opa_t gradient_bottom_opa;     // Bottom gradient opacity
-    lv_opa_t gradient_top_opa;        // Top gradient opacity
-    bool first_value_received;        // True after first real data point (for backfill)
+    int id;                          // Series ID (index in series_meta array)
+    lv_chart_series_t* chart_series; // LVGL chart series
+    lv_color_t color;                // Series color
+    char name[32];                   // Series name (e.g., "Nozzle", "Bed")
+    bool visible;                    // Show/hide series
+    bool show_target;                // Show/hide target temperature line
+    float target_temp;               // Target temperature for dashed line
+    lv_opa_t gradient_bottom_opa;    // Bottom gradient opacity
+    lv_opa_t gradient_top_opa;       // Top gradient opacity
+    bool first_value_received;       // True after first real data point (for backfill)
 };
 
 /**
@@ -126,7 +125,6 @@ struct ui_temp_graph_t {
     // Cached theme colors for draw callbacks (avoid per-frame theme lookups)
     lv_color_t cached_grid_color;
     lv_color_t cached_graph_bg;
-
 };
 
 /**
