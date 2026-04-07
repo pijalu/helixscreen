@@ -52,7 +52,7 @@
       "startup_brightness": 51
     },
     "default_macros": {
-      "cooldown": "SET_HEATER_TEMPERATURE HEATER=extruder TARGET=0\nSET_HEATER_TEMPERATURE HEATER=heater_bed TARGET=0",
+      "cooldown": "SET_HEATER_TEMPERATURE HEATER=extruder TARGET=0\nSET_HEATER_TEMPERATURE HEATER=heater_bed TARGET=0\nSET_HEATER_TEMPERATURE HEATER=chamber TARGET=0",
       "load_filament": { "label": "Load", "gcode": "LOAD_FILAMENT" },
       "unload_filament": { "label": "Unload", "gcode": "UNLOAD_FILAMENT" },
       "macro_1": { "label": "Clean Nozzle", "gcode": "HELIX_CLEAN_NOZZLE" },
