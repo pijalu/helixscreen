@@ -288,26 +288,49 @@ struct HeaterDisplayResult {
 HeaterDisplayResult heater_display(int current_centi, int target_centi);
 
 // ============================================================================
-// Chamber Heater GCode
+// Heater GCode
 // ============================================================================
+
+/**
+ * @brief Build gcode to set a heater temperature (any type)
+ *
+ * Handles all Klipper heater types:
+ * - "temperature_fan X" → SET_TEMPERATURE_FAN_TARGET TEMPERATURE_FAN=X
+ * - "heater_generic X"  → SET_HEATER_TEMPERATURE HEATER=X
+ * - "extruder"          → SET_HEATER_TEMPERATURE HEATER=extruder
+ * - "heater_bed"        → SET_HEATER_TEMPERATURE HEATER=heater_bed
+ *
+ * @param heater_full_name Full Klipper heater name
+ * @param target_degrees   Target temperature in degrees
+ * @param buffer           Output buffer
+ * @param buffer_size      Size of buffer
+ * @return Pointer to buffer, or nullptr if heater_full_name is empty
+ */
+const char* build_heater_gcode(const std::string& heater_full_name, int target_degrees,
+                               char* buffer, size_t buffer_size);
+
+/**
+ * @brief Build gcode to turn off a heater (target=0)
+ *
+ * Convenience wrapper for build_heater_gcode with target_degrees=0.
+ */
+inline const char* build_heater_off_gcode(const std::string& heater_full_name, char* buffer,
+                                          size_t buffer_size) {
+    return build_heater_gcode(heater_full_name, 0, buffer, buffer_size);
+}
 
 /**
  * @brief Build the gcode command to set a chamber heater target temperature
  *
- * Chamber heaters can be either `heater_generic` or `temperature_fan` in Klipper,
- * each requiring a different gcode command. This function selects the correct one
- * based on the full heater name from PrinterDiscovery.
- *
- * @param heater_full_name Full Klipper object name (e.g., "heater_generic chamber"
- *                         or "temperature_fan chamber")
- * @param object_name      Short object name (e.g., "chamber")
- * @param target_degrees   Target temperature in degrees
- * @param buffer           Output buffer for gcode string
- * @param buffer_size      Size of output buffer (recommended: 128)
- * @return Pointer to buffer, or nullptr if heater_full_name is empty
+ * @deprecated Use build_heater_gcode() directly — this is a thin wrapper for
+ *             backward compatibility with existing cooldown gcode callers.
  */
-const char* build_chamber_gcode(const std::string& heater_full_name, const std::string& object_name,
-                                int target_degrees, char* buffer, size_t buffer_size);
+inline const char* build_chamber_gcode(const std::string& heater_full_name,
+                                       const std::string& object_name, int target_degrees,
+                                       char* buffer, size_t buffer_size) {
+    (void)object_name; // object_name is redundant — heater_full_name contains everything we need
+    return build_heater_gcode(heater_full_name, target_degrees, buffer, buffer_size);
+}
 
 /**
  * @brief Build gcode to turn off a chamber heater (target=0)

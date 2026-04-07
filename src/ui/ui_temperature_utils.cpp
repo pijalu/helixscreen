@@ -159,24 +159,26 @@ HeaterDisplayResult heater_display(int current_centi, int target_centi) {
     return result;
 }
 
-// NOTE: Parallel temperature_fan prefix detection exists in MoonrakerAPI::set_temperature()
-// (moonraker_api_controls.cpp). This function is only needed for cooldown's multi-line gcode batch.
-const char* build_chamber_gcode(const std::string& heater_full_name, const std::string& object_name,
-                                int target_degrees, char* buffer, size_t buffer_size) {
+// Used by cooldown's multi-line gcode batch and MoonrakerAPI::set_temperature().
+const char* build_heater_gcode(const std::string& heater_full_name, int target_degrees,
+                               char* buffer, size_t buffer_size) {
     if (heater_full_name.empty()) {
         return nullptr;
     }
 
     if (heater_full_name.rfind("temperature_fan ", 0) == 0) {
-        // temperature_fan uses SET_TEMPERATURE_FAN_TARGET
         std::string fan_name = heater_full_name.substr(16);
         std::snprintf(buffer, buffer_size,
                       "SET_TEMPERATURE_FAN_TARGET TEMPERATURE_FAN=%s TARGET=%d", fan_name.c_str(),
                       target_degrees);
-    } else {
-        // heater_generic and other heater types use SET_HEATER_TEMPERATURE
+    } else if (heater_full_name.rfind("heater_generic ", 0) == 0) {
+        std::string object_name = heater_full_name.substr(15);
         std::snprintf(buffer, buffer_size, "SET_HEATER_TEMPERATURE HEATER=%s TARGET=%d",
                       object_name.c_str(), target_degrees);
+    } else {
+        // Bare heater names (extruder, heater_bed, etc.)
+        std::snprintf(buffer, buffer_size, "SET_HEATER_TEMPERATURE HEATER=%s TARGET=%d",
+                      heater_full_name.c_str(), target_degrees);
     }
 
     return buffer;

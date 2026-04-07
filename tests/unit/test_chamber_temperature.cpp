@@ -1,5 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+#include "ui_temperature_utils.h"
+
+#include "../../include/moonraker_client_mock.h"
 #include "../lvgl_test_fixture.h"
 #include "lvgl.h"
 #include "printer_capabilities_state.h"
@@ -14,6 +17,10 @@
 using helix::PrinterCapabilitiesState;
 using helix::PrinterDiscovery;
 using helix::PrinterTemperatureState;
+using helix::ui::temperature::build_chamber_gcode;
+using helix::ui::temperature::build_chamber_off_gcode;
+using helix::ui::temperature::build_heater_gcode;
+using helix::ui::temperature::build_heater_off_gcode;
 
 // 1. PrinterDiscovery stores chamber sensor name
 TEST_CASE("PrinterDiscovery stores chamber sensor name", "[discovery][chamber]") {
@@ -421,4 +428,176 @@ TEST_CASE("PrinterDiscovery tracks both chamber heater and sensor independently"
     REQUIRE(discovery.chamber_heater_name() == "heater_generic chamber");
     REQUIRE(discovery.chamber_heater_object_name() == "chamber");
     REQUIRE(discovery.chamber_sensor_name() == "temperature_sensor chamber_temp");
+}
+
+// ============================================================================
+// G-code generation tests
+// ============================================================================
+
+// 19. build_heater_gcode generates correct gcode for all heater types
+TEST_CASE("build_heater_gcode generates correct gcode for all heater types", "[chamber][gcode]") {
+    char buf[128];
+
+    SECTION("heater_generic chamber") {
+        const char* result = build_heater_gcode("heater_generic chamber", 45, buf, sizeof(buf));
+        REQUIRE(result != nullptr);
+        REQUIRE(std::string(result) == "SET_HEATER_TEMPERATURE HEATER=chamber TARGET=45");
+    }
+
+    SECTION("heater_generic chamber_heater") {
+        const char* result =
+            build_heater_gcode("heater_generic chamber_heater", 60, buf, sizeof(buf));
+        REQUIRE(result != nullptr);
+        REQUIRE(std::string(result) == "SET_HEATER_TEMPERATURE HEATER=chamber_heater TARGET=60");
+    }
+
+    SECTION("temperature_fan chamber") {
+        const char* result = build_heater_gcode("temperature_fan chamber", 45, buf, sizeof(buf));
+        REQUIRE(result != nullptr);
+        REQUIRE(std::string(result) ==
+                "SET_TEMPERATURE_FAN_TARGET TEMPERATURE_FAN=chamber TARGET=45");
+    }
+
+    SECTION("temperature_fan chamber_fan") {
+        const char* result =
+            build_heater_gcode("temperature_fan chamber_fan", 50, buf, sizeof(buf));
+        REQUIRE(result != nullptr);
+        REQUIRE(std::string(result) ==
+                "SET_TEMPERATURE_FAN_TARGET TEMPERATURE_FAN=chamber_fan TARGET=50");
+    }
+
+    SECTION("extruder (bare name)") {
+        const char* result = build_heater_gcode("extruder", 210, buf, sizeof(buf));
+        REQUIRE(result != nullptr);
+        REQUIRE(std::string(result) == "SET_HEATER_TEMPERATURE HEATER=extruder TARGET=210");
+    }
+
+    SECTION("heater_bed (bare name)") {
+        const char* result = build_heater_gcode("heater_bed", 60, buf, sizeof(buf));
+        REQUIRE(result != nullptr);
+        REQUIRE(std::string(result) == "SET_HEATER_TEMPERATURE HEATER=heater_bed TARGET=60");
+    }
+
+    SECTION("target=0 (turn off)") {
+        const char* result = build_heater_gcode("heater_generic chamber", 0, buf, sizeof(buf));
+        REQUIRE(result != nullptr);
+        REQUIRE(std::string(result) == "SET_HEATER_TEMPERATURE HEATER=chamber TARGET=0");
+    }
+
+    SECTION("empty heater name returns nullptr") {
+        const char* result = build_heater_gcode("", 45, buf, sizeof(buf));
+        REQUIRE(result == nullptr);
+    }
+}
+
+// 20. build_heater_off_gcode convenience wrapper
+TEST_CASE("build_heater_off_gcode generates correct off gcode", "[chamber][gcode]") {
+    char buf[128];
+
+    SECTION("heater_generic chamber off") {
+        const char* result = build_heater_off_gcode("heater_generic chamber", buf, sizeof(buf));
+        REQUIRE(std::string(result) == "SET_HEATER_TEMPERATURE HEATER=chamber TARGET=0");
+    }
+
+    SECTION("temperature_fan chamber off") {
+        const char* result = build_heater_off_gcode("temperature_fan chamber", buf, sizeof(buf));
+        REQUIRE(std::string(result) ==
+                "SET_TEMPERATURE_FAN_TARGET TEMPERATURE_FAN=chamber TARGET=0");
+    }
+
+    SECTION("extruder off") {
+        const char* result = build_heater_off_gcode("extruder", buf, sizeof(buf));
+        REQUIRE(std::string(result) == "SET_HEATER_TEMPERATURE HEATER=extruder TARGET=0");
+    }
+}
+
+// 21. build_chamber_gcode backward compatibility wrapper
+TEST_CASE("build_chamber_gcode backward compatibility", "[chamber][gcode]") {
+    char buf[128];
+
+    SECTION("heater_generic chamber delegates to build_heater_gcode") {
+        const char* result =
+            build_chamber_gcode("heater_generic chamber", "chamber", 45, buf, sizeof(buf));
+        REQUIRE(result != nullptr);
+        REQUIRE(std::string(result) == "SET_HEATER_TEMPERATURE HEATER=chamber TARGET=45");
+    }
+
+    SECTION("temperature_fan chamber delegates correctly") {
+        const char* result =
+            build_chamber_gcode("temperature_fan chamber", "chamber", 45, buf, sizeof(buf));
+        REQUIRE(result != nullptr);
+        REQUIRE(std::string(result) ==
+                "SET_TEMPERATURE_FAN_TARGET TEMPERATURE_FAN=chamber TARGET=45");
+    }
+
+    SECTION("object_name parameter is ignored (redundant)") {
+        char buf1[128], buf2[128];
+        const char* r1 =
+            build_chamber_gcode("heater_generic chamber", "chamber", 45, buf1, sizeof(buf1));
+        const char* r2 =
+            build_chamber_gcode("heater_generic chamber", "WRONG_NAME", 45, buf2, sizeof(buf2));
+        REQUIRE(std::string(r1) == std::string(r2));
+    }
+}
+
+// 22. build_chamber_off_gcode backward compatibility wrapper
+TEST_CASE("build_chamber_off_gcode backward compatibility", "[chamber][gcode]") {
+    char buf[128];
+
+    SECTION("heater_generic chamber off") {
+        const char* result =
+            build_chamber_off_gcode("heater_generic chamber", "chamber", buf, sizeof(buf));
+        REQUIRE(result != nullptr);
+        REQUIRE(std::string(result) == "SET_HEATER_TEMPERATURE HEATER=chamber TARGET=0");
+    }
+
+    SECTION("temperature_fan chamber off") {
+        const char* result =
+            build_chamber_off_gcode("temperature_fan chamber", "chamber", buf, sizeof(buf));
+        REQUIRE(result != nullptr);
+        REQUIRE(std::string(result) ==
+                "SET_TEMPERATURE_FAN_TARGET TEMPERATURE_FAN=chamber TARGET=0");
+    }
+}
+
+// ============================================================================
+// Mock client validation tests
+// ============================================================================
+
+// 23. Mock client accepts correct chamber gcode format (HEATER=chamber)
+TEST_CASE("Mock client accepts correct SET_HEATER_TEMPERATURE HEATER=chamber format",
+          "[chamber][gcode][mock]") {
+    LVGLTestFixture fixture;
+
+    MoonrakerClientMock mock(MoonrakerClientMock::PrinterType::VORON_24);
+    mock.connect("ws://mock/websocket", []() {}, []() {});
+
+    SECTION("correct format succeeds") {
+        int result = mock.gcode_script("SET_HEATER_TEMPERATURE HEATER=chamber TARGET=45");
+        REQUIRE(result == 0);
+    }
+
+    SECTION("correct format with target=0 turns off") {
+        int result = mock.gcode_script("SET_HEATER_TEMPERATURE HEATER=chamber TARGET=0");
+        REQUIRE(result == 0);
+    }
+
+    mock.disconnect();
+}
+
+// 24. Mock client rejects invalid format (HEATER=heater_generic chamber)
+TEST_CASE("Mock client rejects invalid SET_HEATER_TEMPERATURE HEATER=heater_generic format",
+          "[chamber][gcode][mock]") {
+    LVGLTestFixture fixture;
+
+    MoonrakerClientMock mock(MoonrakerClientMock::PrinterType::VORON_24);
+    mock.connect("ws://mock/websocket", []() {}, []() {});
+
+    SECTION("invalid prefix format fails") {
+        int result =
+            mock.gcode_script("SET_HEATER_TEMPERATURE HEATER=heater_generic chamber TARGET=45");
+        REQUIRE(result != 0);
+    }
+
+    mock.disconnect();
 }
