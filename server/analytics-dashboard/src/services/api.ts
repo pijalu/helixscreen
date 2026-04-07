@@ -136,6 +136,35 @@ export interface PrintStartData {
   sources: { name: string; count: number }[]
 }
 
+export interface PerformanceData {
+  fleet_p50_ms: number
+  fleet_drop_rate: number
+  high_drop_devices: number
+  total_devices: number
+  worst_panel: string
+  frame_time_trend: { date: string; p50: number; p95: number; p99: number }[]
+  drop_rate_by_platform: { platform: string; rate: number; dropped: number; total: number }[]
+  drop_rate_by_version: { date: string; version: string; rate: number }[]
+  jankiest_panels: { panel: string; times_worst: number; avg_p95_ms: number }[]
+}
+
+export interface FeaturesData {
+  total_devices: number
+  features: { name: string; adoption_rate: number }[]
+  by_version: { version: string; devices: number; macros: number; camera: number; bed_mesh: number }[]
+}
+
+export interface UxInsightsData {
+  avg_session_sec: number
+  most_visited_panel: string
+  least_visited_panel: string
+  settings_change_rate_per_device_per_week: number
+  panel_time: { panel: string; total_time_sec: number }[]
+  panel_visits: { panel: string; total_visits: number; visits_per_device: number }[]
+  settings_changes: { setting: string; change_count: number }[]
+  settings_defaults: { setting: string; pct_changed: number; devices_changed: number }[]
+}
+
 async function apiFetch<T>(path: string, params?: Record<string, string>): Promise<T> {
   const auth = useAuthStore()
   let url = `${API_BASE}${path}`
@@ -210,5 +239,17 @@ export const api = {
 
   getStability(queryString: string): Promise<StabilityData> {
     return apiFetch(`/v1/dashboard/stability?${queryString}`)
-  }
+  },
+
+  getPerformance(queryString: string): Promise<PerformanceData> {
+    return apiFetch(`/v1/dashboard/performance?${queryString}`)
+  },
+
+  getFeatures(queryString: string): Promise<FeaturesData> {
+    return apiFetch(`/v1/dashboard/features?${queryString}`)
+  },
+
+  getUxInsights(queryString: string): Promise<UxInsightsData> {
+    return apiFetch(`/v1/dashboard/ux?${queryString}`)
+  },
 }

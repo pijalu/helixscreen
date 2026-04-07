@@ -30,6 +30,15 @@
         <router-link to="/engagement" class="nav-link" :class="{ active: route.path === '/engagement' }">
           Engagement
         </router-link>
+        <router-link to="/performance" class="nav-link" :class="{ active: route.path === '/performance' }">
+          Performance
+        </router-link>
+        <router-link to="/features" class="nav-link" :class="{ active: route.path === '/features' }">
+          Features
+        </router-link>
+        <router-link to="/ux" class="nav-link" :class="{ active: route.path === '/ux' }">
+          UX Insights
+        </router-link>
       </nav>
       <div class="sidebar-footer">
         <button class="logout-btn" @click="handleLogout">Logout</button>

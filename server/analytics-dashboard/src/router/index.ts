@@ -65,7 +65,25 @@ export const router = createRouter({
     {
       path: '/reliability',
       redirect: '/stability'
-    }
+    },
+    {
+      path: '/performance',
+      name: 'performance',
+      component: () => import('@/views/PerformanceView.vue'),
+      meta: { requiresAuth: true }
+    },
+    {
+      path: '/features',
+      name: 'features',
+      component: () => import('@/views/FeaturesView.vue'),
+      meta: { requiresAuth: true }
+    },
+    {
+      path: '/ux',
+      name: 'ux',
+      component: () => import('@/views/UxInsightsView.vue'),
+      meta: { requiresAuth: true }
+    },
   ]
 })
 
