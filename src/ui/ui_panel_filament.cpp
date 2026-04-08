@@ -54,7 +54,7 @@ static constexpr const char* PRESET_MATERIAL_NAMES[] = {"PLA", "PETG", "ABS", "T
 static constexpr int PRESET_COUNT = 4;
 
 // Format string for safety warning (used in constructor and set_limits)
-static constexpr const char* SAFETY_WARNING_FMT = "Heat to at least %d°C to load/unload";
+static constexpr const char* SAFETY_WARNING_FMT = "Heat to at least %d°C for filament operations";
 
 using helix::ui::observe_int_async;
 using helix::ui::observe_int_sync;
@@ -936,17 +936,27 @@ void FilamentPanel::handle_unload_button() {
 }
 
 void FilamentPanel::handle_extrude_button() {
-    if (!is_extrusion_allowed()) {
-        NOTIFY_WARNING(lv_tr("Nozzle too cold for extrude ({}°C, min: {}°C)"), nozzle_current_,
-                       min_extrude_temp_);
-        return;
-    }
-
     if (operation_guard_.is_active()) {
         NOTIFY_WARNING(lv_tr("Operation already in progress"));
         return;
     }
 
+    if (pending_preheat_op_ != PreheatOp::NONE) {
+        cancel_pending_preheat();
+        return;
+    }
+
+    if (!is_extrusion_allowed()) {
+        start_preheat_for_op(PreheatOp::EXTRUDE);
+        NOTIFY_WARNING(lv_tr("Nozzle too cold for extrude ({}°C, min: {}°C)"), nozzle_current_,
+                       min_extrude_temp_);
+        return;
+    }
+
+    execute_extrude();
+}
+
+void FilamentPanel::execute_extrude() {
     spdlog::info("[{}] Extruding {}mm", get_name(), purge_amount_);
 
     if (!api_) {
@@ -981,17 +991,27 @@ void FilamentPanel::handle_extrude_button() {
 }
 
 void FilamentPanel::handle_purge_button() {
-    if (!is_extrusion_allowed()) {
-        NOTIFY_WARNING(lv_tr("Nozzle too cold for purge ({}°C, min: {}°C)"), nozzle_current_,
-                       min_extrude_temp_);
-        return;
-    }
-
     if (operation_guard_.is_active()) {
         NOTIFY_WARNING(lv_tr("Operation already in progress"));
         return;
     }
 
+    if (pending_preheat_op_ != PreheatOp::NONE) {
+        cancel_pending_preheat();
+        return;
+    }
+
+    if (!is_extrusion_allowed()) {
+        start_preheat_for_op(PreheatOp::PURGE);
+        NOTIFY_WARNING(lv_tr("Nozzle too cold for purge ({}°C, min: {}°C)"), nozzle_current_,
+                       min_extrude_temp_);
+        return;
+    }
+
+    execute_purge();
+}
+
+void FilamentPanel::execute_purge() {
     spdlog::info("[{}] Purging", get_name());
 
     if (!api_) {
@@ -1086,17 +1106,27 @@ void FilamentPanel::handle_purge_button() {
 }
 
 void FilamentPanel::handle_retract_button() {
-    if (!is_extrusion_allowed()) {
-        NOTIFY_WARNING(lv_tr("Nozzle too cold for retract ({}°C, min: {}°C)"), nozzle_current_,
-                       min_extrude_temp_);
-        return;
-    }
-
     if (operation_guard_.is_active()) {
         NOTIFY_WARNING(lv_tr("Operation already in progress"));
         return;
     }
 
+    if (pending_preheat_op_ != PreheatOp::NONE) {
+        cancel_pending_preheat();
+        return;
+    }
+
+    if (!is_extrusion_allowed()) {
+        start_preheat_for_op(PreheatOp::RETRACT);
+        NOTIFY_WARNING(lv_tr("Nozzle too cold for retract ({}°C, min: {}°C)"), nozzle_current_,
+                       min_extrude_temp_);
+        return;
+    }
+
+    execute_retract();
+}
+
+void FilamentPanel::execute_retract() {
     spdlog::info("[{}] Retracting {}mm", get_name(), purge_amount_);
 
     if (!api_) {
@@ -1804,6 +1834,23 @@ FilamentPanel::PreheatTempResult FilamentPanel::resolve_preheat_temp() const {
     return {min_extrude_temp_, ""};
 }
 
+const char* FilamentPanel::preheat_op_name(PreheatOp op) {
+    switch (op) {
+    case PreheatOp::LOAD:
+        return "load";
+    case PreheatOp::UNLOAD:
+        return "unload";
+    case PreheatOp::EXTRUDE:
+        return "extrude";
+    case PreheatOp::RETRACT:
+        return "retract";
+    case PreheatOp::PURGE:
+        return "purge";
+    default:
+        return "unknown";
+    }
+}
+
 void FilamentPanel::start_preheat_for_op(PreheatOp op) {
     auto [target, material_name] = resolve_preheat_temp();
 
@@ -1824,9 +1871,8 @@ void FilamentPanel::start_preheat_for_op(PreheatOp op) {
         NOTIFY_INFO(lv_tr("Heating to {}°C for {}..."), target, material_name);
     }
 
-    const char* op_name = (op == PreheatOp::LOAD) ? "load" : "unload";
     spdlog::info("[{}] Starting preheat to {}°C ({}) for {}", get_name(), target,
-                 material_name.empty() ? "fallback" : material_name, op_name);
+                 material_name.empty() ? "fallback" : material_name, preheat_op_name(op));
 }
 
 void FilamentPanel::check_pending_preheat() {
@@ -1843,13 +1889,26 @@ void FilamentPanel::check_pending_preheat() {
     pending_preheat_op_ = PreheatOp::NONE;
     pending_preheat_target_ = 0;
 
-    spdlog::info("[{}] Preheat complete, executing {}", get_name(),
-                 op == PreheatOp::LOAD ? "load" : "unload");
+    spdlog::info("[{}] Preheat complete, executing {}", get_name(), preheat_op_name(op));
 
-    if (op == PreheatOp::LOAD) {
+    switch (op) {
+    case PreheatOp::LOAD:
         execute_load();
-    } else {
+        break;
+    case PreheatOp::UNLOAD:
         execute_unload();
+        break;
+    case PreheatOp::EXTRUDE:
+        execute_extrude();
+        break;
+    case PreheatOp::RETRACT:
+        execute_retract();
+        break;
+    case PreheatOp::PURGE:
+        execute_purge();
+        break;
+    default:
+        break;
     }
 }
 

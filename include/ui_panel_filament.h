@@ -250,8 +250,9 @@ class FilamentPanel : public PanelBase {
     int chamber_max_temp_ = 150;
     int min_extrude_temp_ = 170; ///< Klipper's min_extrude_temp (default 170°C)
 
-    // Auto-preheat state for load/unload
-    enum class PreheatOp { NONE, LOAD, UNLOAD };
+    // Auto-preheat state for filament operations
+    enum class PreheatOp { NONE, LOAD, UNLOAD, EXTRUDE, RETRACT, PURGE };
+    static const char* preheat_op_name(PreheatOp op);
     PreheatOp pending_preheat_op_ = PreheatOp::NONE;
     int pending_preheat_target_ = 0; ///< Target temp in °C for pending preheat
     int prior_nozzle_target_ = 0; ///< Nozzle target before preheat (0 = was off → cool down after)
@@ -381,6 +382,9 @@ class FilamentPanel : public PanelBase {
     void show_unload_warning();
     void execute_load();
     void execute_unload();
+    void execute_extrude();
+    void execute_retract();
+    void execute_purge();
     void run_filament_macro(const std::string& macro_name, const std::string& op_label,
                             const helix::MacroParamResult& params);
 
