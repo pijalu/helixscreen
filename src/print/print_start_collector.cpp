@@ -813,15 +813,15 @@ void PrintStartCollector::update_eta_display() {
     state_.set_preprint_elapsed_seconds(total_elapsed);
     feed_thermal_sample();
 
-    // Snapshot predictor data under lock — save_prediction_entry() can call
-    // predictor_.add_entry() from the background thread (via update_phase).
+    // Compute remaining from composite weights (thermal model + predictor).
+    // This handles heating phases correctly (predictor alone doesn't track them).
     int remaining;
     int predicted_total;
     int current_snap = 0;
     int phase_elapsed_snap = 0;
     {
         std::lock_guard<std::mutex> lock(state_mutex_);
-        if (!predictor_.has_predictions()) {
+        if (predicted_phase_weights_.empty()) {
             return;
         }
 
@@ -835,8 +835,28 @@ void PrintStartCollector::update_eta_display() {
                                                  .count());
         }
 
-        remaining = predictor_.remaining_seconds(completed, current, phase_elapsed);
-        predicted_total = predictor_.predicted_total();
+        // Compute remaining from composite per-phase durations (weights * total)
+        float remaining_f = 0.0f;
+        for (const auto& [phase, weight] : predicted_phase_weights_) {
+            float phase_dur = weight * predicted_total_seconds_;
+            if (completed.count(phase) && phase != current) {
+                continue; // completed phase
+            } else if (phase == current) {
+                // Current phase: use heating fraction for heating, elapsed for others
+                if (current == static_cast<int>(PrintStartPhase::HEATING_BED) ||
+                    current == static_cast<int>(PrintStartPhase::HEATING_NOZZLE)) {
+                    float frac = compute_heating_fraction();
+                    remaining_f += phase_dur * (1.0f - frac);
+                } else {
+                    remaining_f += std::max(0.0f, phase_dur - static_cast<float>(phase_elapsed));
+                }
+            } else {
+                remaining_f += phase_dur; // future phase
+            }
+        }
+        remaining = static_cast<int>(remaining_f);
+
+        predicted_total = static_cast<int>(predicted_total_seconds_);
         current_snap = current;
         phase_elapsed_snap = phase_elapsed;
     }

@@ -200,6 +200,13 @@ int PreprintPredictor::predicted_total() const {
 
 int PreprintPredictor::remaining_seconds(const std::set<int>& completed_phases, int current_phase,
                                          int elapsed_in_current_phase_seconds) const {
+    // Only return remaining time when we have real history entries.
+    // Defaults are useful for predicted_total()/has_predictions() but not here —
+    // the collector uses thermal model for heating and profile weights for progress
+    // when no history exists yet.
+    if (entries_.empty()) {
+        return 0;
+    }
     auto phases = predicted_phases();
     int remaining = 0;
 

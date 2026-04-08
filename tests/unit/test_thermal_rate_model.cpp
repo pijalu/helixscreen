@@ -2,6 +2,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include "../../include/thermal_rate_model.h"
+#include "preprint_predictor.h"
+#include "printer_state.h"
 
 #include "../catch_amalgamated.hpp"
 
@@ -165,4 +167,81 @@ TEST_CASE("ThermalRateManager apply_archetype_defaults", "[thermal_rate]") {
     ThermalRateManager manager2;
     manager2.apply_archetype_defaults(235.0f);
     REQUIRE(manager2.get_model("heater_bed").best_rate() == Catch::Approx(1.2f));
+}
+
+// ============================================================================
+// Composite Remaining: thermal model + predictor defaults (no history)
+// ============================================================================
+
+TEST_CASE("ThermalRateManager composite estimate without predictor history", "[thermal_rate]") {
+    // Simulates what the collector does: thermal model for heating + predictor defaults
+    ThermalRateManager manager;
+    manager.get_model("extruder").set_default_rate(0.5f);   // 0.5 s/°C
+    manager.get_model("heater_bed").set_default_rate(1.5f); // 1.5 s/°C
+
+    // Heating estimates: 25→200°C nozzle, 25→60°C bed
+    float ext_heat = manager.estimate_heating_seconds("extruder", 25.0f, 200.0f);
+    float bed_heat = manager.estimate_heating_seconds("heater_bed", 25.0f, 60.0f);
+    REQUIRE(ext_heat == Catch::Approx(87.5f)); // 175°C * 0.5
+    REQUIRE(bed_heat == Catch::Approx(52.5f)); // 35°C * 1.5
+
+    // Predictor defaults (no history)
+    helix::PreprintPredictor predictor;
+    REQUIRE(predictor.has_predictions());
+    auto defaults = predictor.predicted_phases();
+    REQUIRE_FALSE(defaults.empty());
+
+    // remaining_seconds returns 0 without history — collector uses thermal model instead
+    REQUIRE(predictor.remaining_seconds({}, 0, 0) == 0);
+
+    // Composite total = heating + operation defaults
+    float total = ext_heat + bed_heat;
+    for (const auto& [phase, dur] : defaults) {
+        total += static_cast<float>(dur);
+    }
+    // Should be heating (~140s) + defaults (homing=20 + mesh=90 + qgl=60 + z_tilt=45 + clean=15 +
+    // purge=10 = 240)
+    REQUIRE(total > 350.0f);
+    REQUIRE(total < 420.0f);
+}
+
+TEST_CASE("ThermalRateManager composite estimate with predictor history", "[thermal_rate]") {
+    ThermalRateManager manager;
+    manager.get_model("extruder").set_default_rate(0.5f);
+    manager.get_model("heater_bed").set_default_rate(1.5f);
+
+    // Predictor WITH history — learned bed mesh takes 166s, not the 90s default
+    helix::PreprintPredictor predictor;
+    int mesh_phase = static_cast<int>(helix::PrintStartPhase::BED_MESH);
+    int homing_phase = static_cast<int>(helix::PrintStartPhase::HOMING);
+    predictor.load_entries({{186, 1700000000, {{homing_phase, 5}, {mesh_phase, 166}}}});
+
+    REQUIRE(predictor.has_predictions());
+    auto phases = predictor.predicted_phases();
+    REQUIRE(phases[mesh_phase] == 166); // learned, not default 90
+
+    // remaining_seconds works with history
+    int remaining = predictor.remaining_seconds({}, 0, 0);
+    REQUIRE(remaining == 171); // 5 + 166
+
+    // Learned bed mesh (166s) should be larger than default (90s)
+    helix::PreprintPredictor predictor_default;
+    auto defaults = predictor_default.predicted_phases();
+    REQUIRE(phases[mesh_phase] > defaults[mesh_phase]);
+}
+
+TEST_CASE("ThermalRateManager heating estimate decreases as temp rises", "[thermal_rate]") {
+    // Verifies the thermal model correctly reduces remaining as temperature increases
+    ThermalRateManager manager;
+    manager.get_model("heater_bed").set_default_rate(1.5f); // 1.5 s/°C
+
+    float cold = manager.estimate_heating_seconds("heater_bed", 25.0f, 60.0f);      // 52.5s
+    float warm = manager.estimate_heating_seconds("heater_bed", 45.0f, 60.0f);      // 22.5s
+    float hot = manager.estimate_heating_seconds("heater_bed", 58.0f, 60.0f);       // 3.0s
+    float at_target = manager.estimate_heating_seconds("heater_bed", 60.0f, 60.0f); // 0s
+
+    REQUIRE(cold > warm);
+    REQUIRE(warm > hot);
+    REQUIRE(hot > at_target);
+    REQUIRE(at_target == Catch::Approx(0.0f));
 }

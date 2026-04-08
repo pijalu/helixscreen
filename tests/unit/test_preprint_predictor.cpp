@@ -30,8 +30,8 @@ TEST_CASE("PreprintPredictor: defaults without history", "[print][predictor]") {
     auto defaults = predictor.predicted_phases();
     REQUIRE_FALSE(defaults.empty());
     REQUIRE(predictor.predicted_total() > 0);
-    // remaining_seconds uses defaults when no history loaded
-    REQUIRE(predictor.remaining_seconds({}, 0, 0) == predictor.predicted_total());
+    // remaining_seconds returns 0 with no history (collector uses thermal model instead)
+    REQUIRE(predictor.remaining_seconds({}, 0, 0) == 0);
 }
 
 TEST_CASE("PreprintPredictor: default_phase_durations returns expected phases",
