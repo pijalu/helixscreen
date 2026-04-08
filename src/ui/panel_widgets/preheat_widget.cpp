@@ -119,12 +119,13 @@ void PreheatWidget::attach(lv_obj_t* widget_obj, lv_obj_t* parent_screen) {
                                             self->cached_extruder_target_ = target;
                                             self->update_heater_state();
                                         });
-    bed_target_obs_ =
-        observe_int_sync<PreheatWidget>(printer_state_.get_bed_target_subject(bed_target_lifetime_),
-                                        this, [](PreheatWidget* self, int target) {
-                                            self->cached_bed_target_ = target;
-                                            self->update_heater_state();
-                                        });
+    bed_target_obs_ = observe_int_sync<PreheatWidget>(
+        printer_state_.get_bed_target_subject(bed_target_lifetime_), this,
+        [](PreheatWidget* self, int target) {
+            self->cached_bed_target_ = target;
+            self->update_heater_state();
+        },
+        bed_target_lifetime_);
 
     spdlog::debug("[PreheatWidget] Attached (material={}, tool_target={})",
                   PRESET_NAMES[selected_material_], tool_target_);

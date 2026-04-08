@@ -206,27 +206,31 @@ void NozzleTempsWidget::rebuild_rows() {
     if (bed_temp_subj) {
         cached_bed_temp_ = lv_subject_get_int(bed_temp_subj);
         bed_temp_observer_ = helix::ui::observe_int_sync<NozzleTempsWidget>(
-            bed_temp_subj, this, [token](NozzleTempsWidget* self, int temp) {
+            bed_temp_subj, this,
+            [token](NozzleTempsWidget* self, int temp) {
                 if (token.expired())
                     return;
                 self->cached_bed_temp_ = temp;
                 self->update_row_display(self->bed_temp_label_, self->bed_target_label_,
                                          self->bed_progress_bar_, temp, self->cached_bed_target_,
                                          true);
-            });
+            },
+            bed_temp_lifetime_);
     }
 
     if (bed_target_subj) {
         cached_bed_target_ = lv_subject_get_int(bed_target_subj);
         bed_target_observer_ = helix::ui::observe_int_sync<NozzleTempsWidget>(
-            bed_target_subj, this, [token](NozzleTempsWidget* self, int target) {
+            bed_target_subj, this,
+            [token](NozzleTempsWidget* self, int target) {
                 if (token.expired())
                     return;
                 self->cached_bed_target_ = target;
                 self->update_row_display(self->bed_temp_label_, self->bed_target_label_,
                                          self->bed_progress_bar_, self->cached_bed_temp_, target,
                                          true);
-            });
+            },
+            bed_target_lifetime_);
     }
 
     update_row_display(bed_temp_label_, bed_target_label_, bed_progress_bar_, cached_bed_temp_,

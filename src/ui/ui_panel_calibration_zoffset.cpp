@@ -428,7 +428,8 @@ void ZOffsetCalibrationPanel::start_calibration() {
                     self->bed_temp_observer_.reset();
                     self->begin_probe_sequence();
                 }
-            });
+            },
+            bed_temp_lifetime_);
     } else {
         // No warming, go straight to probing
         begin_probe_sequence();

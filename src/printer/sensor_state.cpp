@@ -81,11 +81,15 @@ bool SensorState::is_energy_sensor(const SensorInfo& info) {
 void SensorState::set_sensors(const std::vector<SensorInfo>& sensors) {
     std::lock_guard<std::recursive_mutex> lock(mutex_);
 
-    // Tear down existing subjects (freeze queue to prevent new callbacks during teardown)
+    // Tear down existing subjects (freeze queue to prevent new callbacks during teardown).
+    // Do NOT drain() here — it processes arbitrary queued callbacks re-entrantly from
+    // within process_pending(), which can trigger UI rebuilds (e.g. NozzleTempsWidget
+    // rebuild_rows) while subjects are in a half-torn-down state (#746). The
+    // SubjectLifetime mechanism and weak_alive tokens in deferred lambdas already
+    // ensure stale callbacks safely no-op after subjects are freed.
     if (subjects_initialized_) {
         lifetime_.invalidate();
         auto freeze = helix::ui::UpdateQueue::instance().scoped_freeze();
-        helix::ui::UpdateQueue::instance().drain();
         for (auto& [id, entry] : sensors_) {
             for (auto& [key, subj] : entry.value_subjects) {
                 subj->lifetime.reset();
@@ -161,7 +165,7 @@ void SensorState::set_sensors(const std::vector<SensorInfo>& sensors,
 }
 
 lv_subject_t* SensorState::get_value_subject(const std::string& sensor_id, const std::string& key,
-                                              SubjectLifetime& lt) {
+                                             SubjectLifetime& lt) {
     std::lock_guard<std::recursive_mutex> lock(mutex_);
 
     auto sit = sensors_.find(sensor_id);
