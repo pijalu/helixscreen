@@ -43,6 +43,7 @@
 #include "streaming_policy.h"
 #include "subject_initializer.h"
 #include "temperature_history_manager.h"
+#include "thermal_rate_model.h"
 #include "timelapse_state.h"
 #include "wizard_config_paths.h"
 
@@ -803,6 +804,9 @@ bool Application::init_config() {
 
     // Initialize streaming policy from config (auto-detects thresholds from RAM)
     helix::StreamingPolicy::instance().load_from_config();
+
+    // Load persisted thermal heating rates so estimates are available immediately
+    ThermalRateManager::instance().load_from_config(*m_config);
 
     return true;
 }
@@ -2058,6 +2062,10 @@ void Application::setup_discovery_callbacks() {
                             get_global_filament_panel().set_limits(min_temp, max_temp, min_extrude);
                             spdlog::debug("[Application] Safety limits propagated to panels");
                         });
+
+                        // Apply archetype-based thermal rate defaults using build volume
+                        float bed_x_max = api_ptr->hardware().build_volume().x_max;
+                        ThermalRateManager::instance().apply_archetype_defaults(bed_x_max);
 
                         // Record hardware profile after build volume is populated
                         TelemetryManager::instance().record_hardware_profile();
