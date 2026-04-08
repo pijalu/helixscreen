@@ -352,7 +352,7 @@ jobs:
 
     - name: Configure ccache
       run: |
-        ccache --set-config=max_size=500M
+        ccache --set-config=max_size=1G
         ccache --set-config=compression=true
         ccache -z
 
@@ -365,7 +365,9 @@ jobs:
     - name: Build and run with TSAN
       timeout-minutes: 230
       run: |
-        make test-tsan
+        # Exclude [eventloop] tests — they have their own dedicated CI job and
+        # are extremely slow under TSAN's 10-50x overhead (WebSocket + threads)
+        make test-tsan TSAN_FILTER="~[.] ~[eventloop]"
         echo "TSAN tests complete"
 
     - name: Upload TSAN report
@@ -417,7 +419,7 @@ jobs:
         submodules: recursive
 
     - name: Install dependencies
-      run: brew install sdl2 libusb ccache
+      run: brew install sdl2 libusb ccache coreutils
 
     - name: Cache compiled dependencies
       uses: actions/cache@v5
@@ -467,7 +469,8 @@ jobs:
         make test-run
         # Slow tests sequentially, excluding [eventloop] tests which hang
         # on macOS CI due to libhv kqueue event loop not waking on stop()
-        ./build/bin/helix-tests "[slow] ~[eventloop]" --durations yes
+        # Use timeout to prevent orphaned helix-tests process if a test hangs
+        timeout 600 ./build/bin/helix-tests "[slow] ~[eventloop]" --durations yes
 
   # ===========================================================================
   # Final status gate
