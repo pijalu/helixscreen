@@ -1552,8 +1552,9 @@ TEST_CASE("Print characterization: slicer estimated_print_time used as fallback"
         REQUIRE(lv_subject_get_int(state.get_print_time_left_subject()) == 83);
     }
 
-    SECTION("low progress blends slicer and progress-based estimates") {
-        // At 3% progress with slicer estimate, blend window is 15%
+    SECTION("low progress uses slicer estimate directly") {
+        // At 3% progress (< 5%) with slicer estimate, use slicer directly
+        // (extrapolation too noisy at low progress)
         state.set_estimated_print_time(2700); // 45 min
 
         json progress_status = {{"virtual_sdcard", {{"progress", 0.03}}}};
@@ -1562,13 +1563,9 @@ TEST_CASE("Print characterization: slicer estimated_print_time used as fallback"
         json status = {{"print_stats", {{"print_duration", 90.0}, {"total_duration", 100.0}}}};
         state.update_from_status(status);
 
-        // Progress-based: 90 * 97 / 3 = 2910
         // Slicer-based: 2700 * 97 / 100 = 2619
-        // Blend weight at 3%: (15-3)/15 = 0.8 slicer, 0.2 progress
-        // Blended: 0.8 * 2619 + 0.2 * 2910 = 2095.2 + 582.0 = 2677
-        // EMA seeds on first call
         int time_left = lv_subject_get_int(state.get_print_time_left_subject());
-        REQUIRE(time_left == 2677);
+        REQUIRE(time_left == 2619);
     }
 
     SECTION("blend still active at 5% progress") {
