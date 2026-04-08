@@ -199,6 +199,11 @@ PrintStatusPanel::PrintStatusPanel(PrinterState& printer_state, MoonrakerAPI* ap
         AmsState::instance().get_current_color_subject(), this,
         [](PrintStatusPanel* self, int /*color_rgb*/) { self->build_and_apply_tool_colors(); });
 
+    // Also refresh gcode viewer colors when tool_to_slot_map changes (user remap)
+    tool_map_version_observer_ = observe_int_sync<PrintStatusPanel>(
+        AmsState::instance().get_tool_map_version_subject(), this,
+        [](PrintStatusPanel* self, int /*version*/) { self->build_and_apply_tool_colors(); });
+
     // Subscribe to shared print thumbnail path set by ActivePrintMediaManager.
     // Use observe_string_immediate: the handler only calls lv_image_set_src
     // (no observer lifecycle changes), and set_print_thumbnail_path is always called

@@ -397,6 +397,18 @@ class AmsState {
         return &slots_version_;
     }
 
+    /**
+     * @brief Get tool map version subject
+     *
+     * Incremented whenever tool_to_slot_map changes (e.g. user remaps
+     * T0→T2). UI can observe this to refresh tool-color-dependent displays.
+     *
+     * @return Subject holding version counter
+     */
+    lv_subject_t* get_tool_map_version_subject() {
+        return &tool_map_version_;
+    }
+
     // ========================================================================
     // Filament Path Visualization Subjects
     // ========================================================================
@@ -557,25 +569,41 @@ class AmsState {
      * @brief Get clog meter mode subject
      * @return Subject holding mode (0=none, 1=encoder, 2=flowguard, 3=afc_buffer)
      */
-    lv_subject_t* get_clog_meter_mode_subject() { return &clog_meter_mode_; }
+    lv_subject_t* get_clog_meter_mode_subject() {
+        return &clog_meter_mode_;
+    }
 
     /**
      * @brief Get clog meter value subject
      * @return Subject holding 0-100 (encoder/afc) or -100..+100 (flowguard)
      */
-    lv_subject_t* get_clog_meter_value_subject() { return &clog_meter_value_; }
+    lv_subject_t* get_clog_meter_value_subject() {
+        return &clog_meter_value_;
+    }
 
     /**
      * @brief Get clog meter warning subject
      * @return Subject holding 0=ok, 1=warning
      */
-    lv_subject_t* get_clog_meter_warning_subject() { return &clog_meter_warning_; }
+    lv_subject_t* get_clog_meter_warning_subject() {
+        return &clog_meter_warning_;
+    }
 
-    lv_subject_t* get_clog_meter_danger_pct_subject() { return &clog_meter_danger_pct_; }
-    lv_subject_t* get_clog_meter_peak_pct_subject() { return &clog_meter_peak_pct_; }
-    lv_subject_t* get_clog_meter_center_text_subject() { return &clog_meter_center_text_; }
-    lv_subject_t* get_clog_meter_label_left_subject() { return &clog_meter_label_left_; }
-    lv_subject_t* get_clog_meter_label_right_subject() { return &clog_meter_label_right_; }
+    lv_subject_t* get_clog_meter_danger_pct_subject() {
+        return &clog_meter_danger_pct_;
+    }
+    lv_subject_t* get_clog_meter_peak_pct_subject() {
+        return &clog_meter_peak_pct_;
+    }
+    lv_subject_t* get_clog_meter_center_text_subject() {
+        return &clog_meter_center_text_;
+    }
+    lv_subject_t* get_clog_meter_label_left_subject() {
+        return &clog_meter_label_left_;
+    }
+    lv_subject_t* get_clog_meter_label_right_subject() {
+        return &clog_meter_label_right_;
+    }
 
     /**
      * @brief Set source override for clog meter display
@@ -630,7 +658,6 @@ class AmsState {
      * @param duration_min Duration in minutes
      */
     void set_modal_preset(int temp_c, int duration_min);
-
 
     // ========================================================================
     // Currently Loaded Display Subjects (for reactive "Currently Loaded" card)
@@ -1001,6 +1028,8 @@ class AmsState {
     lv_subject_t supports_bypass_;
     lv_subject_t ams_slot_count_;
     lv_subject_t slots_version_;
+    lv_subject_t tool_map_version_;
+    std::vector<int> last_tool_map_; ///< Cached for change detection in sync_from_backend
 
     // String subjects (need buffers)
     lv_subject_t ams_action_detail_;
@@ -1013,11 +1042,11 @@ class AmsState {
     char ams_current_tool_text_buf_[16]; // "T0" to "T15" or "---"
 
     // Tool change progress (AFC multi-color prints)
-    lv_subject_t toolchange_visible_;          // 1 when swaps expected, 0 otherwise
-    lv_subject_t ams_current_toolchange_;      // 0-based current toolchange index (-1=none)
-    lv_subject_t ams_number_of_toolchanges_;   // Total expected toolchanges
-    lv_subject_t toolchange_text_;    // "2 / 5" formatted display
-    char toolchange_text_buf_[32]{};  // Buffer for formatted text
+    lv_subject_t toolchange_visible_;        // 1 when swaps expected, 0 otherwise
+    lv_subject_t ams_current_toolchange_;    // 0-based current toolchange index (-1=none)
+    lv_subject_t ams_number_of_toolchanges_; // Total expected toolchanges
+    lv_subject_t toolchange_text_;           // "2 / 5" formatted display
+    char toolchange_text_buf_[32]{};         // Buffer for formatted text
 
     // Filament path visualization subjects
     lv_subject_t path_topology_;
@@ -1052,28 +1081,28 @@ class AmsState {
     char dryer_modal_temp_text_buf_[16];
     lv_subject_t dryer_modal_duration_text_;
     char dryer_modal_duration_text_buf_[16];
-    lv_subject_t modal_target_temp_;   ///< Modal's target temp in °C (raw int subject)
-    lv_subject_t modal_duration_min_;  ///< Modal's duration in minutes (raw int subject)
+    lv_subject_t modal_target_temp_;  ///< Modal's target temp in °C (raw int subject)
+    lv_subject_t modal_duration_min_; ///< Modal's duration in minutes (raw int subject)
 
     // Clog detection config overrides (set by ClogDetectionConfigModal)
     int source_override_ = 0;           // 0=auto, 1=encoder, 2=flowguard, 3=afc
     int danger_threshold_override_ = 0; // 0=use computed default
 
     // Clog detection meter subjects
-    lv_subject_t clog_meter_mode_;       // 0=none, 1=encoder, 2=flowguard, 3=afc_buffer
-    lv_subject_t clog_meter_value_;      // 0-100 (encoder/afc) or -100..+100 (flowguard)
-    lv_subject_t clog_meter_warning_;    // 0=ok, 1=warning
+    lv_subject_t clog_meter_mode_;    // 0=none, 1=encoder, 2=flowguard, 3=afc_buffer
+    lv_subject_t clog_meter_value_;   // 0-100 (encoder/afc) or -100..+100 (flowguard)
+    lv_subject_t clog_meter_warning_; // 0=ok, 1=warning
     lv_subject_t clog_meter_value_text_;
     char clog_meter_value_text_buf_[16]{};
     lv_subject_t clog_meter_mode_text_;
     char clog_meter_mode_text_buf_[24]{};
-    lv_subject_t clog_meter_danger_pct_;   // 0-100, where danger zone starts
-    lv_subject_t clog_meter_peak_pct_;     // 0-100, peak-hold marker position
-    lv_subject_t clog_meter_center_text_;  // Enhanced center display
+    lv_subject_t clog_meter_danger_pct_;  // 0-100, where danger zone starts
+    lv_subject_t clog_meter_peak_pct_;    // 0-100, peak-hold marker position
+    lv_subject_t clog_meter_center_text_; // Enhanced center display
     char clog_meter_center_text_buf_[16]{};
-    lv_subject_t clog_meter_label_left_;   // Left endpoint label
+    lv_subject_t clog_meter_label_left_; // Left endpoint label
     char clog_meter_label_left_buf_[16]{};
-    lv_subject_t clog_meter_label_right_;  // Right endpoint label
+    lv_subject_t clog_meter_label_right_; // Right endpoint label
     char clog_meter_label_right_buf_[16]{};
 
     // Currently Loaded display subjects (reactive binding for "Currently Loaded" card)
@@ -1089,12 +1118,12 @@ class AmsState {
     // Per-slot subjects (color, status, remaining filament)
     lv_subject_t slot_colors_[MAX_SLOTS];
     lv_subject_t slot_statuses_[MAX_SLOTS];
-    lv_subject_t slot_remaining_[MAX_SLOTS];     // string: "52m" or "432g" or ""
-    char slot_remaining_buf_[MAX_SLOTS][16];      // buffers for remaining strings
+    lv_subject_t slot_remaining_[MAX_SLOTS]; // string: "52m" or "432g" or ""
+    char slot_remaining_buf_[MAX_SLOTS][16]; // buffers for remaining strings
 
     // Per-unit environment subjects (CFS temp/humidity)
-    lv_subject_t unit_temp_[MAX_UNITS];           // int: tenths of C (270 = 27.0C), 0 = no data
-    lv_subject_t unit_humidity_[MAX_UNITS];       // int: percentage, 0 = no data
+    lv_subject_t unit_temp_[MAX_UNITS];     // int: tenths of C (270 = 27.0C), 0 = no data
+    lv_subject_t unit_humidity_[MAX_UNITS]; // int: percentage, 0 = no data
 
     // Per-unit environment indicator display subjects (formatted text for XML binding)
     static constexpr int ENV_IND_TEXT_BUF_SIZE = 16;

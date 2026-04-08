@@ -17,6 +17,7 @@
 #include "ui_update_queue.h"
 
 #include "app_globals.h"
+#include "filament_database.h"
 #include "lvgl/src/others/translation/lv_translation.h"
 #include "moonraker_api.h"
 #include "printer_discovery.h"
@@ -25,7 +26,6 @@
 #include "settings_manager.h"
 #include "state/subject_macros.h"
 #include "static_subject_registry.h"
-#include "filament_database.h"
 #include "tool_state.h"
 
 #include <spdlog/spdlog.h>
@@ -195,6 +195,7 @@ void AmsState::init_subjects(bool register_xml) {
         lv_xml_register_subject(nullptr, "ams_supports_bypass", &supports_bypass_);
     INIT_SUBJECT_INT(ams_slot_count, 0, subjects_, register_xml);
     INIT_SUBJECT_INT(slots_version, 0, subjects_, register_xml);
+    INIT_SUBJECT_INT(tool_map_version, 0, subjects_, register_xml);
 
     // String subjects (buffer names don't match macro convention)
     lv_subject_init_string(&ams_action_detail_, action_detail_buf_, nullptr,
@@ -931,8 +932,8 @@ void AmsState::sync_from_backend() {
     }
 
     // Update action detail string
-    const char* detail_str =
-        !info.operation_detail.empty() ? info.operation_detail.c_str() : ams_action_to_string(info.action);
+    const char* detail_str = !info.operation_detail.empty() ? info.operation_detail.c_str()
+                                                            : ams_action_to_string(info.action);
     if (strcmp(lv_subject_get_string(&ams_action_detail_), detail_str) != 0) {
         lv_subject_copy_string(&ams_action_detail_, detail_str);
     }
@@ -989,6 +990,15 @@ void AmsState::sync_from_backend() {
         }
     }
 
+    // Detect tool_to_slot_map changes (e.g. user remapped T0→T2) and bump
+    // tool_map_version_ so the gcode renderer can refresh tool colors.
+    if (info.tool_to_slot_map != last_tool_map_) {
+        last_tool_map_ = info.tool_to_slot_map;
+        int v = lv_subject_get_int(&tool_map_version_);
+        lv_subject_set_int(&tool_map_version_, v + 1);
+        spdlog::debug("[AmsState] tool_to_slot_map changed, version now {}", v + 1);
+    }
+
     // Sync spool assignments to ToolState for slots with mapped tools
     for (int i = 0; i < std::min(info.total_slots, MAX_SLOTS); ++i) {
         const SlotInfo* slot = info.get_slot_global(i);
@@ -1010,8 +1020,7 @@ void AmsState::sync_from_backend() {
             const SlotInfo* slot = info.get_slot_global(i);
             if (slot && slot->mapped_tool >= 0 && slot->spoolman_id == 0) {
                 int ti = slot->mapped_tool;
-                if (ti >= 0 && ti < static_cast<int>(tools.size()) &&
-                    tools[ti].spoolman_id > 0) {
+                if (ti >= 0 && ti < static_cast<int>(tools.size()) && tools[ti].spoolman_id > 0) {
                     SlotInfo updated = *slot;
                     updated.spoolman_id = tools[ti].spoolman_id;
                     updated.spool_name = tools[ti].spool_name;
@@ -1062,12 +1071,14 @@ void AmsState::sync_from_backend() {
     // Update per-unit environment indicator display subjects (formatted text for XML)
     for (const auto& unit : info.units) {
         int idx = unit.unit_index;
-        if (idx < 0 || idx >= MAX_UNITS) continue;
+        if (idx < 0 || idx >= MAX_UNITS)
+            continue;
         if (unit.environment.has_value()) {
             // Format temperature text (e.g., "24°C")
             char buf[ENV_IND_TEXT_BUF_SIZE];
-            snprintf(buf, sizeof(buf), "%d\xC2\xB0"
-                                       "C",
+            snprintf(buf, sizeof(buf),
+                     "%d\xC2\xB0"
+                     "C",
                      static_cast<int>(unit.environment->temperature_c));
             if (strcmp(lv_subject_get_string(&env_ind_temp_text_[idx]), buf) != 0) {
                 lv_subject_copy_string(&env_ind_temp_text_[idx], buf);
@@ -1385,7 +1396,6 @@ void AmsState::sync_dryer_from_backend() {
     if (lv_subject_get_int(&dryer_info_visible_) != new_visible) {
         lv_subject_set_int(&dryer_info_visible_, new_visible);
     }
-
 }
 
 lv_subject_t* AmsState::get_dryer_humidity_text_subject() {
@@ -1467,7 +1477,8 @@ void AmsState::sync_clog_meter_from_info(const AmsSystemInfo& info) {
         float max_clog = std::abs(info.flowguard_info.max_clog);
         float max_tangle = std::abs(info.flowguard_info.max_tangle);
         new_peak_pct = static_cast<int>(std::max(max_clog, max_tangle) * 100);
-        snprintf(center_buf, sizeof(center_buf), "%+d%%", static_cast<int>(info.flowguard_info.level * 100));
+        snprintf(center_buf, sizeof(center_buf), "%+d%%",
+                 static_cast<int>(info.flowguard_info.level * 100));
         snprintf(left_buf, sizeof(left_buf), "TANGLE");
         snprintf(right_buf, sizeof(right_buf), "CLOG");
 
@@ -1530,8 +1541,7 @@ void AmsState::sync_clog_meter_from_info(const AmsSystemInfo& info) {
                     snprintf(value_text, sizeof(value_text), "%.0fmm", dist);
                 }
 
-                snprintf(mode_text, sizeof(mode_text), "%s",
-                         unit.buffer_health->state.c_str());
+                snprintf(mode_text, sizeof(mode_text), "%s", unit.buffer_health->state.c_str());
 
                 // Enhanced clog detection widget subjects
                 new_danger_pct = 75;
@@ -1599,8 +1609,8 @@ void AmsState::sync_clog_meter_from_info(const AmsSystemInfo& info) {
         lv_subject_copy_string(&clog_meter_label_right_, right_buf);
     }
 
-    spdlog::trace("[AMS State] Synced clog meter - mode={}, value={}, warning={}",
-                  mode, value, warning);
+    spdlog::trace("[AMS State] Synced clog meter - mode={}, value={}, warning={}", mode, value,
+                  warning);
 }
 
 void AmsState::set_source_override(int source) {
@@ -1924,8 +1934,8 @@ void AmsState::sync_current_loaded_from_backend(const AmsSystemInfo& primary_inf
                 }
                 if (!unit_display.empty() && sys.units.size() > 1) {
                     // Multi-unit: show unit name + slot number on one line
-                    snprintf(tmp, sizeof(tmp), lv_tr("Current: %s · Slot %d"),
-                             unit_display.c_str(), display_slot);
+                    snprintf(tmp, sizeof(tmp), lv_tr("Current: %s · Slot %d"), unit_display.c_str(),
+                             display_slot);
                 } else {
                     snprintf(tmp, sizeof(tmp), lv_tr("Current: Slot %d"), display_slot);
                 }
