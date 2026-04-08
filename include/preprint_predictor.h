@@ -94,6 +94,14 @@ class PreprintPredictor {
     [[nodiscard]] bool has_predictions() const;
 
     /**
+     * @brief Default phase durations for when no history is available
+     *
+     * Returns reasonable defaults for non-heating phases based on
+     * typical printer behavior.
+     */
+    static std::map<int, int> default_phase_durations();
+
+    /**
      * @brief Load entries from Config's print_start_history
      *
      * Single source of truth for Config→PreprintEntry deserialization.

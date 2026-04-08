@@ -22,13 +22,28 @@ using helix::PreprintPredictor;
 // Empty State
 // ============================================================================
 
-TEST_CASE("PreprintPredictor: no predictions without history", "[print][predictor]") {
+TEST_CASE("PreprintPredictor: defaults without history", "[print][predictor]") {
     PreprintPredictor predictor;
 
     REQUIRE_FALSE(predictor.has_predictions());
-    REQUIRE(predictor.predicted_total() == 0);
-    REQUIRE(predictor.predicted_phases().empty());
+    // With no history, predicted_phases() returns sensible defaults
+    auto defaults = predictor.predicted_phases();
+    REQUIRE_FALSE(defaults.empty());
+    REQUIRE(predictor.predicted_total() > 0);
+    // remaining_seconds still returns 0 when no entries loaded (no history)
     REQUIRE(predictor.remaining_seconds({}, 0, 0) == 0);
+}
+
+TEST_CASE("PreprintPredictor: default_phase_durations returns expected phases",
+          "[print][predictor]") {
+    auto defaults = PreprintPredictor::default_phase_durations();
+    REQUIRE(defaults.size() == 6);
+    REQUIRE(defaults[static_cast<int>(PrintStartPhase::HOMING)] == 20);
+    REQUIRE(defaults[static_cast<int>(PrintStartPhase::BED_MESH)] == 90);
+    REQUIRE(defaults[static_cast<int>(PrintStartPhase::QGL)] == 60);
+    REQUIRE(defaults[static_cast<int>(PrintStartPhase::Z_TILT)] == 45);
+    REQUIRE(defaults[static_cast<int>(PrintStartPhase::CLEANING)] == 15);
+    REQUIRE(defaults[static_cast<int>(PrintStartPhase::PURGING)] == 10);
 }
 
 // ============================================================================
