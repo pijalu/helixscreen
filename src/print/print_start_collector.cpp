@@ -813,20 +813,6 @@ void PrintStartCollector::update_eta_display() {
     state_.set_preprint_elapsed_seconds(total_elapsed);
     feed_thermal_sample();
 
-    // Re-check temp bucket — on printers like K1C, nozzle target starts at an
-    // intermediate value (170°C during CX_ROUGH_G28) and only reaches the final
-    // target (e.g., 260°C for ASA) later. Reload predictions if bucket changed.
-    {
-        int ext_target = lv_subject_get_int(state_.get_active_extruder_target_subject()) / 10;
-        int current_bucket = (ext_target > 0) ? ((ext_target + 12) / 25) * 25 : 0;
-        if (current_bucket != loaded_temp_bucket_ && current_bucket > 0) {
-            spdlog::info("[PrintStartCollector] Temp bucket changed: {}°C → {}°C, reloading "
-                         "predictions",
-                         loaded_temp_bucket_, current_bucket);
-            load_prediction_history();
-        }
-    }
-
     // Snapshot predictor data under lock — save_prediction_entry() can call
     // predictor_.add_entry() from the background thread (via update_phase).
     int remaining;
@@ -893,18 +879,19 @@ void PrintStartCollector::update_eta_display() {
 void PrintStartCollector::load_prediction_history() {
     auto entries = helix::PreprintPredictor::load_entries_from_config();
 
-    // Filter by temperature bucket if nozzle target is known
-    int ext_target = lv_subject_get_int(state_.get_active_extruder_target_subject()) / 10;
-    int temp_bucket = (ext_target > 0) ? ((ext_target + 12) / 25) * 25 : 0;
+    // Cold (1) vs Warm (2) based on current bed temp
+    int bed_temp = lv_subject_get_int(state_.get_bed_temp_subject()) / 10;
+    int temp_bucket = (bed_temp >= 40) ? 2 : 1;
 
     std::lock_guard<std::mutex> lock(state_mutex_);
     predictor_.load_entries(entries, temp_bucket);
     loaded_temp_bucket_ = temp_bucket;
 
     if (!entries.empty()) {
-        spdlog::debug("[PrintStartCollector] Loaded {} prediction entries for {}°C bucket "
+        spdlog::debug("[PrintStartCollector] Loaded {} prediction entries for {} bucket "
                       "(predicted total: {}s)",
-                      predictor_.get_entries().size(), temp_bucket, predictor_.predicted_total());
+                      predictor_.get_entries().size(), temp_bucket == 2 ? "warm" : "cold",
+                      predictor_.predicted_total());
     }
 }
 
@@ -1042,15 +1029,12 @@ void PrintStartCollector::save_prediction_entry() {
         return;
     }
 
-    // Compute temperature bucket from nozzle target (decidegrees / 10, rounded to 25°C)
-    int ext_target = lv_subject_get_int(state_.get_active_extruder_target_subject()) / 10;
-    int temp_bucket = (ext_target > 0) ? ((ext_target + 12) / 25) * 25 : 0;
-
+    // Cold (1) vs Warm (2) based on bed temp at start
     helix::PreprintEntry entry;
     entry.total_seconds = total_seconds;
     entry.timestamp = static_cast<int64_t>(std::time(nullptr));
     entry.phase_durations = std::move(phase_durations);
-    entry.temp_bucket = temp_bucket;
+    entry.temp_bucket = (start_bed_temp_ >= 40) ? 2 : 1;
 
     std::vector<helix::PreprintEntry> bucket_entries;
     {
@@ -1060,6 +1044,7 @@ void PrintStartCollector::save_prediction_entry() {
     }
 
     // Persist to config: merge bucket entries with entries from other buckets
+    int temp_bucket = entry.temp_bucket;
     helix::ui::queue_update([bucket_entries, temp_bucket]() {
         // Load all existing entries, keep those from OTHER buckets
         auto all_entries = helix::PreprintPredictor::load_entries_from_config();
