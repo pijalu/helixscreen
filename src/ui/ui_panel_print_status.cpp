@@ -375,9 +375,7 @@ void PrintStatusPanel::init_subjects() {
         {"on_print_status_tune", on_tune_clicked},
         {"on_print_status_cancel", on_cancel_clicked},
         {"on_print_status_reprint", on_reprint_clicked},
-        {"on_print_temp_nozzle_clicked", on_nozzle_card_clicked},
-        {"on_print_temp_bed_clicked", on_bed_card_clicked},
-        {"on_print_temp_chamber_clicked", on_chamber_card_clicked},
+        {"on_temp_card_clicked", on_temp_card_clicked},
         {"on_print_status_objects", on_objects_clicked},
         {"on_view_toggle", on_view_toggle_clicked},
         {"on_print_status_dismiss_overlay", on_dismiss_overlay_clicked},
@@ -1178,19 +1176,9 @@ void PrintStatusPanel::update_all_displays() {
 // INSTANCE HANDLERS
 // ============================================================================
 
-void PrintStatusPanel::handle_nozzle_card_click() {
-    spdlog::debug("[{}] Nozzle temp card clicked - opening temperature graph", get_name());
-    get_global_temp_graph_overlay().open(TempGraphOverlay::Mode::Nozzle, parent_screen_);
-}
-
-void PrintStatusPanel::handle_bed_card_click() {
-    spdlog::debug("[{}] Bed temp card clicked - opening temperature graph", get_name());
-    get_global_temp_graph_overlay().open(TempGraphOverlay::Mode::Bed, parent_screen_);
-}
-
-void PrintStatusPanel::handle_chamber_card_click() {
-    spdlog::debug("[{}] Chamber temp card clicked - opening temperature graph", get_name());
-    get_global_temp_graph_overlay().open(TempGraphOverlay::Mode::Chamber, parent_screen_);
+void PrintStatusPanel::handle_temp_card_click() {
+    spdlog::debug("[{}] Temp card clicked - opening temperature graph", get_name());
+    get_global_temp_graph_overlay().open(TempGraphOverlay::Mode::GraphOnly, parent_screen_);
 }
 
 void PrintStatusPanel::handle_pause_button() {
@@ -1354,24 +1342,10 @@ void PrintStatusPanel::handle_resize() {
 // STATIC TRAMPOLINES
 // ============================================================================
 
-void PrintStatusPanel::on_nozzle_card_clicked(lv_event_t* e) {
-    LVGL_SAFE_EVENT_CB_BEGIN("[PrintStatusPanel] on_nozzle_card_clicked");
+void PrintStatusPanel::on_temp_card_clicked(lv_event_t* e) {
+    LVGL_SAFE_EVENT_CB_BEGIN("[PrintStatusPanel] on_temp_card_clicked");
     (void)e;
-    get_global_print_status_panel().handle_nozzle_card_click();
-    LVGL_SAFE_EVENT_CB_END();
-}
-
-void PrintStatusPanel::on_bed_card_clicked(lv_event_t* e) {
-    LVGL_SAFE_EVENT_CB_BEGIN("[PrintStatusPanel] on_bed_card_clicked");
-    (void)e;
-    get_global_print_status_panel().handle_bed_card_click();
-    LVGL_SAFE_EVENT_CB_END();
-}
-
-void PrintStatusPanel::on_chamber_card_clicked(lv_event_t* e) {
-    LVGL_SAFE_EVENT_CB_BEGIN("[PrintStatusPanel] on_chamber_card_clicked");
-    (void)e;
-    get_global_print_status_panel().handle_chamber_card_click();
+    get_global_print_status_panel().handle_temp_card_click();
     LVGL_SAFE_EVENT_CB_END();
 }
 

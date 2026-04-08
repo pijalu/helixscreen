@@ -446,9 +446,7 @@ class PrintStatusPanel : public OverlayBase {
     // === Instance Handlers ===
     //
 
-    void handle_nozzle_card_click();
-    void handle_bed_card_click();
-    void handle_chamber_card_click();
+    void handle_temp_card_click();
     void update_chamber_status();
     void handle_pause_button();
     void handle_tune_button();
@@ -460,9 +458,7 @@ class PrintStatusPanel : public OverlayBase {
     // === Static Trampolines ===
     //
 
-    static void on_nozzle_card_clicked(lv_event_t* e);
-    static void on_bed_card_clicked(lv_event_t* e);
-    static void on_chamber_card_clicked(lv_event_t* e);
+    static void on_temp_card_clicked(lv_event_t* e);
     static void on_dismiss_overlay_clicked(lv_event_t* e);
     static void on_pause_clicked(lv_event_t* e);
     static void on_tune_clicked(lv_event_t* e);
