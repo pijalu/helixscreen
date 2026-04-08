@@ -30,6 +30,7 @@ inline constexpr int kContributorCount = 1;
 #include "helix_version.h"
 #include "lvgl/src/others/translation/lv_translation.h"
 #include "moonraker_api.h"
+#include "platform_info.h"
 #include "static_panel_registry.h"
 #include "system/update_checker.h"
 #include "system_settings_manager.h"
@@ -46,6 +47,7 @@ inline constexpr int kContributorCount = 1;
 #include <spdlog/fmt/fmt.h>
 #include <spdlog/spdlog.h>
 
+#include <SDL.h>
 #include <memory>
 
 namespace helix::settings {
@@ -461,8 +463,19 @@ void AboutSettingsOverlay::on_about_check_updates_clicked(lv_event_t* /*e*/) {
 
 void AboutSettingsOverlay::on_about_install_update_clicked(lv_event_t* /*e*/) {
     LVGL_SAFE_EVENT_CB_BEGIN("[AboutSettings] on_about_install_update_clicked");
-    spdlog::info("[AboutSettings] Install update requested");
-    get_about_settings_overlay().show_update_download_modal();
+
+    if (helix::is_android_platform()) {
+        spdlog::info("[AboutSettings] Opening Play Store for update");
+        int result = SDL_OpenURL("market://details?id=org.helixscreen.app");
+        if (result != 0) {
+            spdlog::warn("[AboutSettings] market:// failed, trying web URL: {}", SDL_GetError());
+            SDL_OpenURL("https://play.google.com/store/apps/details?id=org.helixscreen.app");
+        }
+    } else {
+        spdlog::info("[AboutSettings] Install update requested");
+        get_about_settings_overlay().show_update_download_modal();
+    }
+
     LVGL_SAFE_EVENT_CB_END();
 }
 
