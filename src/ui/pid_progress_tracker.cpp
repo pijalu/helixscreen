@@ -13,8 +13,9 @@ void PidProgressTracker::start(Heater heater, int target_temp, float current_tem
     last_temp_ = current_temp;
     start_tick_ = 0;
     last_tick_ = 0;
-    measured_heat_rate_ = 0;
-    has_measured_heat_rate_ = false;
+    thermal_model_.reset(current_temp);
+    thermal_model_.set_default_rate(heater == Heater::EXTRUDER ? DEFAULT_EXTRUDER_HEAT_RATE
+                                                               : DEFAULT_BED_HEAT_RATE);
     was_above_target_ = false;
     oscillation_count_ = 0;
     first_oscillation_tick_ = 0;
@@ -37,24 +38,8 @@ void PidProgressTracker::on_temperature(float temp, uint32_t tick_ms) {
     bool is_above = temp >= static_cast<float>(target_temp_);
 
     if (phase_ == Phase::HEATING) {
-        // Measure heating rate using EMA for stability.
-        // Compute instantaneous rate from the last reading, then blend with
-        // the running estimate. Early readings (small delta) are noisy, so
-        // require >=2°C movement from last sample and >=5°C total before
-        // the estimate is considered usable.
-        float delta_from_last = temp - last_temp_;
-        if (delta_from_last >= 2.0f && tick_ms > last_tick_ && last_tick_ > 0) {
-            float inst_rate = static_cast<float>(tick_ms - last_tick_) / 1000.0f / delta_from_last;
-            if (has_measured_heat_rate_) {
-                // EMA: 30% new, 70% old — heavy damping for smooth ETA
-                measured_heat_rate_ = 0.3f * inst_rate + 0.7f * measured_heat_rate_;
-            } else if (temp - start_temp_ >= 5.0f) {
-                // First usable measurement — seed from cumulative rate
-                float elapsed_s = static_cast<float>(tick_ms - start_tick_) / 1000.0f;
-                measured_heat_rate_ = elapsed_s / (temp - start_temp_);
-                has_measured_heat_rate_ = true;
-            }
-        }
+        // Delegate heating rate measurement to ThermalRateModel
+        thermal_model_.record_sample(temp, tick_ms);
 
         // Detect phase transition: must go above target first, then come back down
         if (is_above) {
@@ -186,9 +171,11 @@ float PidProgressTracker::measured_oscillation_duration() const {
 }
 
 void PidProgressTracker::set_history(float heat_rate_s_per_deg, float oscillation_duration_s) {
-    hist_heat_rate_ = heat_rate_s_per_deg;
-    hist_oscillation_duration_ = oscillation_duration_s;
-    has_history_ = true;
+    thermal_model_.load_history(heat_rate_s_per_deg);
+    if (oscillation_duration_s > 0.0f) {
+        hist_oscillation_duration_ = oscillation_duration_s;
+        has_history_ = true;
+    }
 }
 
 void PidProgressTracker::on_kalico_sample(int sample, int estimated_total) {
@@ -206,11 +193,7 @@ float PidProgressTracker::default_oscillation_duration() const {
 }
 
 float PidProgressTracker::best_heat_rate() const {
-    if (has_measured_heat_rate_)
-        return measured_heat_rate_;
-    if (has_history_ && hist_heat_rate_ > 0)
-        return hist_heat_rate_;
-    return default_heat_rate();
+    return thermal_model_.best_rate();
 }
 
 float PidProgressTracker::best_oscillation_duration() const {

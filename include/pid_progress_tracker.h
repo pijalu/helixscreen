@@ -3,6 +3,8 @@
 
 #pragma once
 
+#include "thermal_rate_model.h"
+
 #include <cstdint>
 #include <optional>
 
@@ -45,9 +47,19 @@ class PidProgressTracker {
         return oscillation_count_;
     }
 
+    /// Whether a live heating rate measurement has been established
+    bool has_measured_heat_rate() const {
+        return thermal_model_.measured_rate().has_value();
+    }
+
     /// Measured heating rate in seconds per degree (0 if not yet measured)
     float measured_heat_rate() const {
-        return measured_heat_rate_;
+        return thermal_model_.measured_rate().value_or(0.0f);
+    }
+
+    /// Access the underlying thermal rate model
+    const ThermalRateModel& thermal_model() const {
+        return thermal_model_;
     }
 
     /// Measured total oscillation duration in seconds (0 if not complete)
@@ -82,13 +94,12 @@ class PidProgressTracker {
     Heater heater_ = Heater::EXTRUDER;
     int target_temp_ = 0;
 
-    // Heating measurement
+    // Heating rate measurement (delegated to ThermalRateModel)
+    ThermalRateModel thermal_model_;
     float start_temp_ = 0;
     uint32_t start_tick_ = 0;
     float last_temp_ = 0;
     uint32_t last_tick_ = 0;
-    float measured_heat_rate_ = 0; // seconds per degree (live-measured)
-    bool has_measured_heat_rate_ = false;
     bool was_above_target_ = false; // for downward crossing detection
 
     // Oscillation measurement
@@ -99,9 +110,8 @@ class PidProgressTracker {
     bool has_measured_cycle_ = false;
 
     // Historical estimates (from previous calibrations)
-    float hist_heat_rate_ = 0;
     float hist_oscillation_duration_ = 0;
-    bool has_history_ = false;
+    bool has_history_ = false; // for oscillation history only
 
     // Kalico sample tracking
     bool has_kalico_ = false;
