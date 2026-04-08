@@ -150,6 +150,10 @@ void PrintSelectDetailView::init_subjects() {
     // Filament mismatch warning (0=hidden, 1=visible)
     UI_MANAGED_SUBJECT_INT(filament_mismatch_, 0, "filament_mismatch", subjects_);
 
+    // Pre-print time estimate (formatted string for bind_text)
+    UI_MANAGED_SUBJECT_STRING(prep_time_estimate_subject_, prep_time_estimate_buf_, "",
+                              "preprint_estimate_text", subjects_);
+
     subjects_initialized_ = true;
     spdlog::debug("[DetailView] Initialized pre-print option subjects");
 }
@@ -1018,15 +1022,8 @@ static void update_prep_time_label() {
 
     int estimate_s = lv_subject_get_int(mgr->get_preprint_estimate_subject());
 
-    auto* root = s_detail_view_instance->get_widget();
-    if (!root)
-        return;
-    auto* label = lv_obj_find_by_name(root, "prep_time_estimate");
-    if (!label)
-        return;
-
     if (estimate_s <= 0) {
-        lv_label_set_text(label, "");
+        lv_subject_copy_string(s_detail_view_instance->get_prep_time_estimate_subject(), "");
         return;
     }
 
@@ -1034,7 +1031,7 @@ static void update_prep_time_label() {
     int rounded = estimate_s > 120 ? ((estimate_s + 15) / 30) * 30 : ((estimate_s + 5) / 10) * 10;
     int mins = rounded / 60;
     int secs = rounded % 60;
-    char buf[32];
+    char buf[48];
     if (mins > 0 && secs > 0) {
         snprintf(buf, sizeof(buf), "~%d:%02d prep time", mins, secs);
     } else if (mins > 0) {
@@ -1042,7 +1039,7 @@ static void update_prep_time_label() {
     } else {
         snprintf(buf, sizeof(buf), "~%d sec prep time", secs);
     }
-    lv_label_set_text(label, buf);
+    lv_subject_copy_string(s_detail_view_instance->get_prep_time_estimate_subject(), buf);
 }
 
 // ============================================================================

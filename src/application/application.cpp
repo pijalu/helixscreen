@@ -2064,8 +2064,11 @@ void Application::setup_discovery_callbacks() {
                         });
 
                         // Apply archetype-based thermal rate defaults using build volume
+                        // Must marshal to main thread — runs in JSONRPC response callback
                         float bed_x_max = api_ptr->hardware().build_volume().x_max;
-                        ThermalRateManager::instance().apply_archetype_defaults(bed_x_max);
+                        helix::ui::queue_update([bed_x_max]() {
+                            ThermalRateManager::instance().apply_archetype_defaults(bed_x_max);
+                        });
 
                         // Record hardware profile after build volume is populated
                         TelemetryManager::instance().record_hardware_profile();

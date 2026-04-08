@@ -169,8 +169,7 @@ class PrintSelectDetailView : public OverlayBase {
     void show(const std::string& filename, const std::string& current_path,
               const std::string& filament_type,
               const std::vector<std::string>& filament_colors = {},
-              const std::vector<std::string>& filament_materials = {},
-              size_t file_size_bytes = 0);
+              const std::vector<std::string>& filament_materials = {}, size_t file_size_bytes = 0);
 
     /**
      * @brief Hide the detail view overlay
@@ -271,6 +270,9 @@ class PrintSelectDetailView : public OverlayBase {
     [[nodiscard]] lv_subject_t* get_preprint_purge_line_subject() {
         return &preprint_purge_line_;
     }
+    [[nodiscard]] lv_subject_t* get_prep_time_estimate_subject() {
+        return &prep_time_estimate_subject_;
+    }
 
     // === Resize Handling ===
 
@@ -345,8 +347,10 @@ class PrintSelectDetailView : public OverlayBase {
     lv_subject_t preprint_nozzle_clean_{};
     lv_subject_t preprint_purge_line_{};
     lv_subject_t preprint_timelapse_{};
-    lv_subject_t filament_mismatch_{}; // 1 = material mismatch warning visible
-    SubjectManager subjects_; // RAII manager for subject cleanup
+    lv_subject_t filament_mismatch_{};          // 1 = material mismatch warning visible
+    lv_subject_t prep_time_estimate_subject_{}; // formatted prep time string for bind_text
+    char prep_time_estimate_buf_[64]{};         // buffer backing the string subject
+    SubjectManager subjects_;                   // RAII manager for subject cleanup
     // Note: subjects_initialized_ inherited from OverlayBase
 
     // Print preparation manager (owns it)

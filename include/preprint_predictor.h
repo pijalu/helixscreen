@@ -7,10 +7,10 @@
 #include <set>
 #include <vector>
 
+namespace helix {
+
 /// Whether the printer bed was cold or warm at print start
 enum class StartCondition { COLD, WARM };
-
-namespace helix {
 
 /**
  * @brief A single recorded pre-print timing entry

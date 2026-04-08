@@ -265,8 +265,9 @@
           <!-- Spacer pushes buttons to bottom when options card is hidden -->
           <lv_obj flex_grow="1"/>
 
-          <!-- Pre-print time estimate (updated by C++ when checkboxes toggle) -->
-          <text_small name="prep_time_estimate" style_text_color="#text_secondary"
+          <!-- Pre-print time estimate (bound to string subject) -->
+          <text_small name="prep_time_estimate" bind_text="preprint_estimate_text"
+                      style_text_color="#text_secondary"
                       width="100%" style_text_align="center" style_pad_bottom="#space_xs"/>
 
           <!-- Button row -->
