@@ -9,7 +9,7 @@
     <px name="metadata_clip_height_medium" value="105"/>
     <px name="metadata_clip_height_large" value="113"/>
     <!-- Thumbnail vertical offset to clear metadata overlay at bottom -->
-    <percentage name="thumbnail_offset_y" value="-40%"/>
+    <percentage name="thumbnail_offset_y" value="-15%"/>
     <!-- metadata_overlay_height: Inner metadata overlay (slightly taller than clip) -->
     <px name="metadata_overlay_height_small" value="101"/>
     <px name="metadata_overlay_height_medium" value="111"/>

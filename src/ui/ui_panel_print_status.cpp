@@ -665,9 +665,20 @@ void PrintStatusPanel::on_activate() {
     // XML bindings may have been lost during overlay lifecycle transitions (#546).
     update_button_states();
 
-    // Restore G-code viewer state based on current print conditions
-    // This ensures the viewer is properly restored when returning from overlays like Tune panel
-    show_gcode_viewer(lifecycle_.want_viewer() && gcode_loaded_);
+    // Restore render mode from settings before showing the viewer.
+    // The render mode observer only fires when is_active_, so settings
+    // changed while the panel was hidden must be applied here.
+    int render_mode_val = DisplaySettingsManager::instance().get_gcode_render_mode();
+    bool thumbnail_only = (render_mode_val == 3);
+    if (gcode_viewer_ && !thumbnail_only) {
+        auto render_mode = static_cast<GcodeViewerRenderMode>(render_mode_val);
+        ui_gcode_viewer_set_render_mode(gcode_viewer_, render_mode);
+    }
+
+    // Restore G-code viewer state based on current print conditions.
+    // Thumbnail Only mode forces the viewer off regardless of gcode state.
+    bool show_viewer = !thumbnail_only && lifecycle_.want_viewer() && gcode_loaded_;
+    show_gcode_viewer(show_viewer);
 
     // Sync gcode viewer to current print layer (may have advanced while panel was hidden)
     if (gcode_viewer_ && gcode_loaded_ && !lv_obj_has_flag(gcode_viewer_, LV_OBJ_FLAG_HIDDEN)) {
