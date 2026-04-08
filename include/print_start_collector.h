@@ -39,6 +39,8 @@
  * @see helix::PrintStartPhase enum in printer_state.h
  */
 class PrintStartCollector : public std::enable_shared_from_this<PrintStartCollector> {
+    friend class PrintStartCollectorTestAccess;
+
   public:
     /**
      * @brief Construct a PrintStartCollector

@@ -458,6 +458,7 @@ TEST_CASE("PrintStart: typical noise lines should not match phases", "[print][ne
 #include "ui_update_queue.h"
 
 #include "../lvgl_test_fixture.h"
+#include "../test_helpers/print_start_collector_test_access.h"
 #include "../test_helpers/update_queue_test_access.h"
 #include "moonraker_client_mock.h"
 #include "print_start_collector.h"
@@ -1580,5 +1581,200 @@ TEST_CASE_METHOD(PrintStartCollectorSequentialFixture,
     // PRINTING signal maps to COMPLETE phase → always 100%
     send_gcode_response("// State: PRINTING...");
     REQUIRE(get_current_progress() == 100);
+    REQUIRE(get_current_phase() == PrintStartPhase::COMPLETE);
+}
+
+// ============================================================================
+// ADAPTIVE TIMEOUT TESTS
+//
+// Tests for the adaptive timeout behavior introduced to prevent premature
+// completion on bed-first macros (e.g., AD5M with ABS). Uses
+// PrintStartCollectorTestAccess to simulate elapsed time and set predictions.
+// ============================================================================
+
+TEST_CASE_METHOD(PrintStartCollectorHeaterFixture,
+                 "Timeout fallback does not fire when nozzle target is zero",
+                 "[print][collector][timeout]") {
+    // Simulate AD5M ABS scenario: bed at target, nozzle target not yet set by macro
+    collector().start();
+    drain_async_updates();
+    reset_collector_to_idle();
+    collector().enable_fallbacks();
+
+    // Force no predictions so FALLBACK_TIMEOUT (300s) applies directly
+    PrintStartCollectorTestAccess::set_predicted_total(collector(), 0.0f);
+
+    // Bed at target (105°C), nozzle target = 0 (M109 not issued yet)
+    set_all_temps(1050, 1050, 500, 0);
+    // Simulate 400s elapsed (well past FALLBACK_TIMEOUT of 300s)
+    PrintStartCollectorTestAccess::set_elapsed_seconds(collector(), 400);
+
+    collector().check_fallback_completion();
+    drain_async_updates();
+    drain_async_updates();
+
+    // Should NOT complete — nozzle target unknown means temps_near is false
+    REQUIRE(get_current_phase() != PrintStartPhase::COMPLETE);
+}
+
+TEST_CASE_METHOD(PrintStartCollectorHeaterFixture,
+                 "Timeout fallback fires when both targets set and near",
+                 "[print][collector][timeout]") {
+    collector().start();
+    drain_async_updates();
+    reset_collector_to_idle();
+    collector().enable_fallbacks();
+    REQUIRE(collector().is_active());
+
+    // Force no predictions so FALLBACK_TIMEOUT (300s) applies directly
+    PrintStartCollectorTestAccess::set_predicted_total(collector(), 0.0f);
+
+    // Both heaters within 5°C tolerance (not "heating") AND above 90% of target
+    set_all_temps(1050, 1050, 2610, 2650);
+    // Simulate 310s elapsed (past FALLBACK_TIMEOUT of 300s)
+    PrintStartCollectorTestAccess::set_elapsed_seconds(collector(), 310);
+
+    collector().check_fallback_completion();
+    drain_async_updates();
+    drain_async_updates();
+
+    REQUIRE(get_current_phase() == PrintStartPhase::COMPLETE);
+}
+
+TEST_CASE_METHOD(PrintStartCollectorHeaterFixture,
+                 "Adaptive timeout extends deadline when predictions available",
+                 "[print][collector][timeout]") {
+    collector().start();
+    drain_async_updates();
+    reset_collector_to_idle();
+    collector().enable_fallbacks();
+
+    // Set predicted total to 500s (adaptive timeout = 500 * 1.5 = 750s)
+    PrintStartCollectorTestAccess::set_predicted_total(collector(), 500.0f);
+
+    // Both heaters within tolerance (not "heating") and above 90% of target
+    set_all_temps(1050, 1050, 2610, 2650);
+
+    SECTION("Does not fire before adaptive timeout") {
+        // 400s elapsed — past FALLBACK_TIMEOUT but before adaptive (750s)
+        PrintStartCollectorTestAccess::set_elapsed_seconds(collector(), 400);
+        collector().check_fallback_completion();
+        drain_async_updates();
+        drain_async_updates();
+        REQUIRE(get_current_phase() != PrintStartPhase::COMPLETE);
+    }
+
+    SECTION("Fires after adaptive timeout with temps near") {
+        // 760s elapsed — past adaptive timeout (750s)
+        PrintStartCollectorTestAccess::set_elapsed_seconds(collector(), 760);
+        collector().check_fallback_completion();
+        drain_async_updates();
+        drain_async_updates();
+        REQUIRE(get_current_phase() == PrintStartPhase::COMPLETE);
+    }
+}
+
+TEST_CASE_METHOD(PrintStartCollectorHeaterFixture,
+                 "Absolute timeout fires even without temps near when predicted",
+                 "[print][collector][timeout]") {
+    collector().start();
+    drain_async_updates();
+    reset_collector_to_idle();
+    collector().enable_fallbacks();
+
+    // Set predicted total to 400s (absolute timeout = max(400*2.5, 900) = 1000s)
+    PrintStartCollectorTestAccess::set_predicted_total(collector(), 400.0f);
+
+    // Nozzle target still 0 — temps_near will be false
+    set_all_temps(1050, 1050, 500, 0);
+
+    SECTION("Does not fire before absolute timeout") {
+        PrintStartCollectorTestAccess::set_elapsed_seconds(collector(), 950);
+        collector().check_fallback_completion();
+        drain_async_updates();
+        drain_async_updates();
+        REQUIRE(get_current_phase() != PrintStartPhase::COMPLETE);
+    }
+
+    SECTION("Fires at absolute timeout regardless of temps") {
+        PrintStartCollectorTestAccess::set_elapsed_seconds(collector(), 1010);
+        collector().check_fallback_completion();
+        drain_async_updates();
+        drain_async_updates();
+        REQUIRE(get_current_phase() == PrintStartPhase::COMPLETE);
+    }
+}
+
+TEST_CASE_METHOD(PrintStartCollectorHeaterFixture, "Absolute max timeout fires without predictions",
+                 "[print][collector][timeout]") {
+    collector().start();
+    drain_async_updates();
+    reset_collector_to_idle();
+    collector().enable_fallbacks();
+
+    // Force no predictions — FALLBACK_TIMEOUT (300s) applies
+    PrintStartCollectorTestAccess::set_predicted_total(collector(), 0.0f);
+
+    // Nozzle target = 0 — temps_near stays false, FALLBACK_TIMEOUT won't fire
+    set_all_temps(1050, 1050, 500, 0);
+
+    SECTION("FALLBACK_TIMEOUT does not fire with unknown nozzle target") {
+        PrintStartCollectorTestAccess::set_elapsed_seconds(collector(), 400);
+        collector().check_fallback_completion();
+        drain_async_updates();
+        drain_async_updates();
+        REQUIRE(get_current_phase() != PrintStartPhase::COMPLETE);
+    }
+
+    SECTION("ABSOLUTE_MAX_TIMEOUT fires as hard ceiling") {
+        PrintStartCollectorTestAccess::set_elapsed_seconds(collector(), 910);
+        collector().check_fallback_completion();
+        drain_async_updates();
+        drain_async_updates();
+        REQUIRE(get_current_phase() == PrintStartPhase::COMPLETE);
+    }
+}
+
+TEST_CASE_METHOD(PrintStartCollectorHeaterFixture,
+                 "Nozzle hot but target=0 blocks timeout completion",
+                 "[print][collector][timeout]") {
+    // Even with nozzle physically hot, ext_target=0 means the macro hasn't
+    // commanded M109 yet — temps_near must be false
+    collector().start();
+    drain_async_updates();
+    reset_collector_to_idle();
+    collector().enable_fallbacks();
+    PrintStartCollectorTestAccess::set_predicted_total(collector(), 0.0f);
+
+    set_all_temps(1050, 1050, 2610, 0); // Nozzle hot but target=0 (not set by macro)
+    PrintStartCollectorTestAccess::set_elapsed_seconds(collector(), 400);
+
+    collector().check_fallback_completion();
+    drain_async_updates();
+    drain_async_updates();
+
+    REQUIRE(get_current_phase() != PrintStartPhase::COMPLETE);
+}
+
+TEST_CASE_METHOD(PrintStartCollectorHeaterFixture,
+                 "Nozzle within tolerance and above 90% satisfies temps_near",
+                 "[print][collector][timeout]") {
+    collector().start();
+    drain_async_updates();
+    reset_collector_to_idle();
+    collector().enable_fallbacks();
+
+    // Force no predictions so FALLBACK_TIMEOUT (300s) applies directly
+    PrintStartCollectorTestAccess::set_predicted_total(collector(), 0.0f);
+
+    // Nozzle at 261°C with target 265°C: within 5°C tolerance (not "heating")
+    // and above 90% of target (238.5°C). This satisfies temps_near.
+    set_all_temps(1050, 1050, 2610, 2650);
+    PrintStartCollectorTestAccess::set_elapsed_seconds(collector(), 400);
+
+    collector().check_fallback_completion();
+    drain_async_updates();
+    drain_async_updates();
+
     REQUIRE(get_current_phase() == PrintStartPhase::COMPLETE);
 }
