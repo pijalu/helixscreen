@@ -19,6 +19,7 @@
 #include "lvgl/src/others/translation/lv_translation.h"
 #include "moonraker_api.h"
 #include "moonraker_client.h"
+#include "platform_info.h"
 #include "printer_discovery.h"
 #include "runtime_config.h"
 #include "static_panel_registry.h"
@@ -97,7 +98,7 @@ void WizardConnectionStep::init_subjects() {
 
     // Load existing values from config if available
     Config* config = Config::get_instance();
-    std::string default_ip = "127.0.0.1";
+    std::string default_ip = helix::is_android_platform() ? "" : "127.0.0.1";
     std::string default_port = "7125"; // Default Moonraker port
 
     try {
@@ -516,8 +517,12 @@ void WizardConnectionStep::attempt_auto_probe() {
     const char* ip = lv_subject_get_string(&connection_ip_);
     std::string port_clean = sanitize_port(lv_subject_get_string(&connection_port_));
 
-    // If IP is empty, use localhost as default probe target
-    std::string probe_ip = (ip && strlen(ip) > 0) ? ip : "127.0.0.1";
+    std::string probe_ip = (ip && strlen(ip) > 0) ? ip : "";
+    if (probe_ip.empty()) {
+        spdlog::debug("[{}] Auto-probe: No IP configured, skipping", get_name());
+        auto_probe_state_.store(AutoProbeState::FAILED);
+        return;
+    }
     std::string probe_port = !port_clean.empty() ? port_clean : "7125";
 
     spdlog::debug("[{}] Starting auto-probe to {}:{}", get_name(), probe_ip, probe_port);
