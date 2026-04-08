@@ -2,11 +2,11 @@
 
 #include "ui_filament_mapping_modal.h"
 
-#include "settings_manager.h"
-#include "theme_manager.h"
 #include "ui_fonts.h"
 
 #include "lvgl/src/others/translation/lv_translation.h"
+#include "settings_manager.h"
+#include "theme_manager.h"
 
 #include <spdlog/spdlog.h>
 
@@ -90,6 +90,9 @@ void FilamentMappingModal::rebuild_rows() {
     lv_obj_clean(tool_list_);
     toggle_switch_ = nullptr;
 
+    trigger_widgets_.clear();
+    trigger_widgets_.resize(mappings_.size(), nullptr);
+
     // Toggle row first, then tool rows
     create_toggle_row();
 
@@ -99,8 +102,7 @@ void FilamentMappingModal::rebuild_rows() {
 }
 
 lv_obj_t* FilamentMappingModal::create_tool_row(int tool_index) {
-    if (!tool_list_ || tool_index < 0 ||
-        tool_index >= static_cast<int>(mappings_.size()) ||
+    if (!tool_list_ || tool_index < 0 || tool_index >= static_cast<int>(mappings_.size()) ||
         tool_index >= static_cast<int>(tool_info_.size())) {
         return nullptr;
     }
@@ -114,7 +116,8 @@ lv_obj_t* FilamentMappingModal::create_tool_row(int tool_index) {
     int32_t swatch_sz = theme_manager_get_spacing("space_xl");
     int32_t row_radius = theme_manager_get_spacing("space_sm");
 
-    // Entire row is tappable — layout: [T0] [gcode_swatch] → [chosen_swatch] [slot_text] [warn?] [>]
+    // Entire row is tappable — layout: [T0] [gcode_swatch] → [chosen_swatch] [slot_text] [warn?]
+    // [>]
     lv_obj_t* row = lv_obj_create(tool_list_);
     lv_obj_remove_style_all(row);
     lv_obj_set_width(row, LV_PCT(100));
@@ -178,39 +181,94 @@ lv_obj_t* FilamentMappingModal::create_tool_row(int tool_index) {
     const auto* mapped = find_mapped_slot(mapping);
     uint32_t slot_color = mapped ? mapped->color_rgb : 0x808080;
 
-    // Right swatch: chosen slot color
-    lv_obj_t* chosen_swatch = lv_obj_create(row);
-    lv_obj_remove_style_all(chosen_swatch);
-    lv_obj_set_size(chosen_swatch, swatch_sz, swatch_sz);
-    lv_obj_set_style_radius(chosen_swatch, LV_RADIUS_CIRCLE, 0);
-    lv_obj_set_style_bg_color(chosen_swatch, lv_color_hex(slot_color), 0);
-    lv_obj_set_style_bg_opa(chosen_swatch, LV_OPA_COVER, 0);
-    lv_obj_set_style_border_width(chosen_swatch, 1, 0);
-    lv_obj_set_style_border_color(chosen_swatch, theme_manager_get_color("text_muted"), 0);
-    lv_obj_set_style_border_opa(chosen_swatch, SWATCH_BORDER_OPA, 0);
-    lv_obj_remove_flag(chosen_swatch, LV_OBJ_FLAG_SCROLLABLE);
-    lv_obj_remove_flag(chosen_swatch, LV_OBJ_FLAG_CLICKABLE);
-    lv_obj_add_flag(chosen_swatch, LV_OBJ_FLAG_EVENT_BUBBLE);
+    // Dropdown trigger container
+    int32_t trigger_radius = theme_manager_get_spacing("space_sm");
+    int32_t trigger_pad_h = theme_manager_get_spacing("space_sm");
+    int32_t trigger_pad_v = theme_manager_get_spacing("space_xs");
+    int32_t trigger_gap = theme_manager_get_spacing("space_sm");
 
-    // Slot text (fills remaining space)
-    lv_obj_t* slot_text = lv_label_create(row);
+    lv_obj_t* trigger = lv_obj_create(row);
+    lv_obj_remove_style_all(trigger);
+    lv_obj_set_height(trigger, LV_SIZE_CONTENT);
+    lv_obj_set_flex_grow(trigger, 1);
+    lv_obj_set_flex_flow(trigger, LV_FLEX_FLOW_ROW);
+    lv_obj_set_style_flex_cross_place(trigger, LV_FLEX_ALIGN_CENTER, 0);
+    lv_obj_set_style_pad_hor(trigger, trigger_pad_h, 0);
+    lv_obj_set_style_pad_ver(trigger, trigger_pad_v, 0);
+    lv_obj_set_style_pad_gap(trigger, trigger_gap, 0);
+    lv_obj_set_style_radius(trigger, trigger_radius, 0);
+    lv_obj_set_style_bg_color(trigger, theme_manager_get_color("card_bg"), 0);
+    lv_obj_set_style_bg_opa(trigger, LV_OPA_COVER, 0);
+    lv_obj_set_style_border_width(trigger, 1, 0);
+    lv_obj_set_style_border_color(trigger, theme_manager_get_color("text_muted"), 0);
+    lv_obj_set_style_border_opa(trigger, SWATCH_BORDER_OPA, 0);
+    lv_obj_remove_flag(trigger, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_remove_flag(trigger, LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_add_flag(trigger, LV_OBJ_FLAG_EVENT_BUBBLE);
+
+    // Store trigger for picker anchoring
+    trigger_widgets_[static_cast<size_t>(tool_index)] = trigger;
+
+    // Slot color swatch (inside trigger)
+    if (mapped && !mapped->is_empty) {
+        lv_obj_t* chosen_swatch = lv_obj_create(trigger);
+        lv_obj_remove_style_all(chosen_swatch);
+        lv_obj_set_size(chosen_swatch, swatch_sz, swatch_sz);
+        lv_obj_set_style_radius(chosen_swatch, LV_RADIUS_CIRCLE, 0);
+        lv_obj_set_style_bg_color(chosen_swatch, lv_color_hex(slot_color), 0);
+        lv_obj_set_style_bg_opa(chosen_swatch, LV_OPA_COVER, 0);
+        lv_obj_set_style_border_width(chosen_swatch, 1, 0);
+        lv_obj_set_style_border_color(chosen_swatch, theme_manager_get_color("text_muted"), 0);
+        lv_obj_set_style_border_opa(chosen_swatch, SWATCH_BORDER_OPA, 0);
+        lv_obj_remove_flag(chosen_swatch, LV_OBJ_FLAG_SCROLLABLE);
+        lv_obj_remove_flag(chosen_swatch, LV_OBJ_FLAG_CLICKABLE);
+        lv_obj_add_flag(chosen_swatch, LV_OBJ_FLAG_EVENT_BUBBLE);
+    } else if (mapped && mapped->is_empty) {
+        // Empty slot: hollow swatch with warning border
+        lv_obj_t* chosen_swatch = lv_obj_create(trigger);
+        lv_obj_remove_style_all(chosen_swatch);
+        lv_obj_set_size(chosen_swatch, swatch_sz, swatch_sz);
+        lv_obj_set_style_radius(chosen_swatch, LV_RADIUS_CIRCLE, 0);
+        lv_obj_set_style_bg_opa(chosen_swatch, LV_OPA_TRANSP, 0);
+        lv_obj_set_style_border_width(chosen_swatch, 2, 0);
+        lv_obj_set_style_border_color(chosen_swatch, theme_manager_get_color("warning"), 0);
+        lv_obj_set_style_border_opa(chosen_swatch, LV_OPA_COVER, 0);
+        lv_obj_remove_flag(chosen_swatch, LV_OBJ_FLAG_SCROLLABLE);
+        lv_obj_remove_flag(chosen_swatch, LV_OBJ_FLAG_CLICKABLE);
+        lv_obj_add_flag(chosen_swatch, LV_OBJ_FLAG_EVENT_BUBBLE);
+    }
+    // No swatch for Auto/Unmapped (mapped == nullptr)
+
+    // Slot text label (inside trigger, fills remaining space)
+    lv_obj_t* slot_text = lv_label_create(trigger);
     std::string display = get_slot_display_text(mapping);
     lv_label_set_text(slot_text, display.c_str());
     lv_obj_set_style_text_font(slot_text, theme_manager_get_font("font_body"), 0);
     lv_obj_set_style_text_color(slot_text, theme_manager_get_color("text"), 0);
     lv_obj_set_flex_grow(slot_text, 1);
+    lv_label_set_long_mode(slot_text, LV_LABEL_LONG_DOT);
     lv_obj_remove_flag(slot_text, LV_OBJ_FLAG_CLICKABLE);
     lv_obj_add_flag(slot_text, LV_OBJ_FLAG_EVENT_BUBBLE);
 
-    // Warning indicator: material mismatch or empty slot
+    // Warning indicator (inside trigger, before chevron)
     bool mapped_to_empty = mapped && mapped->is_empty;
     if (mapping.material_mismatch || mapped_to_empty) {
-        lv_obj_t* warn = lv_label_create(row);
+        lv_obj_t* warn = lv_label_create(trigger);
         lv_label_set_text(warn, ICON_TRIANGLE_EXCLAMATION);
-        lv_obj_set_style_text_font(warn, &mdi_icons_24, 0);
+        lv_obj_set_style_text_font(warn, &mdi_icons_16, 0);
         lv_obj_set_style_text_color(warn, theme_manager_get_color("warning"), 0);
         lv_obj_remove_flag(warn, LV_OBJ_FLAG_CLICKABLE);
         lv_obj_add_flag(warn, LV_OBJ_FLAG_EVENT_BUBBLE);
+    }
+
+    // Chevron (inside trigger, rightmost — hidden in auto-color mode)
+    if (!auto_color_map_) {
+        lv_obj_t* chevron = lv_label_create(trigger);
+        lv_label_set_text(chevron, ICON_CHEVRON_DOWN);
+        lv_obj_set_style_text_font(chevron, &mdi_icons_16, 0);
+        lv_obj_set_style_text_color(chevron, theme_manager_get_color("text_muted"), 0);
+        lv_obj_remove_flag(chevron, LV_OBJ_FLAG_CLICKABLE);
+        lv_obj_add_flag(chevron, LV_OBJ_FLAG_EVENT_BUBBLE);
     }
 
     if (auto_color_map_) {
@@ -223,8 +281,7 @@ lv_obj_t* FilamentMappingModal::create_tool_row(int tool_index) {
             row,
             [](lv_event_t* e) {
                 auto* self = static_cast<FilamentMappingModal*>(lv_event_get_user_data(e));
-                lv_obj_t* target =
-                    static_cast<lv_obj_t*>(lv_event_get_current_target(e));
+                lv_obj_t* target = static_cast<lv_obj_t*>(lv_event_get_current_target(e));
                 int idx =
                     static_cast<int>(reinterpret_cast<intptr_t>(lv_obj_get_user_data(target)));
                 self->on_row_tapped(idx);
@@ -240,8 +297,8 @@ lv_obj_t* FilamentMappingModal::create_tool_row(int tool_index) {
 // Display text helpers
 // ============================================================================
 
-const helix::AvailableSlot* FilamentMappingModal::find_mapped_slot(
-    const helix::ToolMapping& mapping) const {
+const helix::AvailableSlot*
+FilamentMappingModal::find_mapped_slot(const helix::ToolMapping& mapping) const {
     if (mapping.is_auto || mapping.mapped_slot < 0) {
         return nullptr;
     }
@@ -290,20 +347,16 @@ void FilamentMappingModal::on_row_tapped(int tool_index) {
     FilamentSlotPicker::Selection current{mapping.mapped_slot, mapping.mapped_backend,
                                           mapping.is_auto};
 
-    // Capture click point from the active input device
-    lv_point_t click_pt;
-    lv_indev_get_point(lv_indev_active(), &click_pt);
+    lv_obj_t* trigger = trigger_widgets_[static_cast<size_t>(tool_index)];
 
-    slot_picker_.show(
-        lv_screen_active(), click_pt,
-        tool_index, tool.material, available_slots_, current,
-        [this, tool_index](const FilamentSlotPicker::Selection& sel) {
-            on_slot_selected(tool_index, sel);
-        });
+    slot_picker_.show(lv_screen_active(), trigger, tool_index, tool.material, available_slots_,
+                      current, [this, tool_index](const FilamentSlotPicker::Selection& sel) {
+                          on_slot_selected(tool_index, sel);
+                      });
 }
 
 void FilamentMappingModal::on_slot_selected(int tool_index,
-                                             const FilamentSlotPicker::Selection& selection) {
+                                            const FilamentSlotPicker::Selection& selection) {
     if (tool_index < 0 || tool_index >= static_cast<int>(mappings_.size())) {
         return;
     }
@@ -325,8 +378,8 @@ void FilamentMappingModal::on_slot_selected(int tool_index,
         }
     }
 
-    spdlog::info("[FilamentMappingModal] T{} mapped to: auto={}, slot={}, backend={}",
-                 tool_index, selection.is_auto, selection.slot_index, selection.backend_index);
+    spdlog::info("[FilamentMappingModal] T{} mapped to: auto={}, slot={}, backend={}", tool_index,
+                 selection.is_auto, selection.slot_index, selection.backend_index);
 
     // Rebuild UI to reflect changes
     rebuild_rows();

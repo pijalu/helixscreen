@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #pragma once
 
-#include "filament_mapper.h"
 #include "ui_filament_slot_picker.h"
 #include "ui_modal.h"
+
+#include "filament_mapper.h"
 
 #include <functional>
 #include <string>
@@ -21,8 +22,12 @@ namespace helix::ui {
  */
 class FilamentMappingModal : public Modal {
   public:
-    const char* get_name() const override { return "Filament Mapping"; }
-    const char* component_name() const override { return "filament_mapping_modal"; }
+    const char* get_name() const override {
+        return "Filament Mapping";
+    }
+    const char* component_name() const override {
+        return "filament_mapping_modal";
+    }
 
     /// Set G-code tool info (colors, materials)
     void set_tool_info(const std::vector<helix::GcodeToolInfo>& tools);
@@ -69,6 +74,9 @@ class FilamentMappingModal : public Modal {
     lv_obj_t* tool_list_ = nullptr;
     lv_obj_t* toggle_switch_ = nullptr;
     FilamentSlotPicker slot_picker_;
+
+    // Per-row dropdown trigger widgets (indexed by tool_index)
+    std::vector<lv_obj_t*> trigger_widgets_;
 };
 
 } // namespace helix::ui
