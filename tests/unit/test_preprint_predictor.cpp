@@ -25,13 +25,13 @@ using helix::PreprintPredictor;
 TEST_CASE("PreprintPredictor: defaults without history", "[print][predictor]") {
     PreprintPredictor predictor;
 
-    REQUIRE_FALSE(predictor.has_predictions());
-    // With no history, predicted_phases() returns sensible defaults
+    // Defaults always count as predictions (consistent API)
+    REQUIRE(predictor.has_predictions());
     auto defaults = predictor.predicted_phases();
     REQUIRE_FALSE(defaults.empty());
     REQUIRE(predictor.predicted_total() > 0);
-    // remaining_seconds still returns 0 when no entries loaded (no history)
-    REQUIRE(predictor.remaining_seconds({}, 0, 0) == 0);
+    // remaining_seconds uses defaults when no history loaded
+    REQUIRE(predictor.remaining_seconds({}, 0, 0) == predictor.predicted_total());
 }
 
 TEST_CASE("PreprintPredictor: default_phase_durations returns expected phases",

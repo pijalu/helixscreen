@@ -28,11 +28,12 @@ struct PreprintEntry {
 /**
  * @brief Predicts pre-print duration from historical per-phase timing
  *
- * Tracks last 3 print start timing entries and computes weighted averages
- * to predict future pre-print remaining time. Weighting favors recent entries:
- * - 1 entry: 100%
- * - 2 entries: 60% newest, 40% older
- * - 3 entries: 50% newest, 30% middle, 20% oldest
+ * Tracks up to 10 entries and computes exponential time-decay weighted averages
+ * to predict future pre-print remaining time. Weighting uses lambda=0.23 decay,
+ * giving the oldest of 10 entries ~10% of the weight of the newest.
+ *
+ * Supports cold/warm start condition bucketing and applies MAD-based per-phase
+ * anomaly rejection (3x MAD threshold) to filter outliers.
  *
  * Pure logic class with no LVGL or Config dependencies.
  */

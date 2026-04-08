@@ -817,6 +817,8 @@ void PrintStartCollector::update_eta_display() {
     // predictor_.add_entry() from the background thread (via update_phase).
     int remaining;
     int predicted_total;
+    int current_snap = 0;
+    int phase_elapsed_snap = 0;
     {
         std::lock_guard<std::mutex> lock(state_mutex_);
         if (!predictor_.has_predictions()) {
@@ -835,6 +837,22 @@ void PrintStartCollector::update_eta_display() {
 
         remaining = predictor_.remaining_seconds(completed, current, phase_elapsed);
         predicted_total = predictor_.predicted_total();
+        current_snap = current;
+        phase_elapsed_snap = phase_elapsed;
+    }
+
+    // --- Diagnostic: monotonic bias data collection ---
+    {
+        auto pred_phases = predictor_.predicted_phases();
+        int cur_phase_predicted = 0;
+        auto pp_it = pred_phases.find(current_snap);
+        if (pp_it != pred_phases.end())
+            cur_phase_predicted = pp_it->second;
+
+        spdlog::debug("[PrintStartCollector] ETA update: phase={} elapsed={}s, remaining={}s, "
+                      "predicted_total={:.0f}s, phase_predicted={}s",
+                      current_snap, phase_elapsed_snap, remaining, predicted_total_seconds_,
+                      cur_phase_predicted);
     }
 
     // Always update the int subject for print time integration
@@ -844,7 +862,21 @@ void PrintStartCollector::update_eta_display() {
             float overrun_pct = static_cast<float>(remaining - last_remaining_) /
                                 std::max(1.0f, predicted_total_seconds_) * 100.0f;
             if (overrun_pct < 20.0f) {
+                auto pred_phases = predictor_.predicted_phases();
+                int cur_phase_predicted = 0;
+                auto pp_it = pred_phases.find(current_snap);
+                if (pp_it != pred_phases.end())
+                    cur_phase_predicted = pp_it->second;
+                float per_phase_overrun_pct =
+                    static_cast<float>(remaining - last_remaining_) /
+                    std::max(1.0f, static_cast<float>(cur_phase_predicted)) * 100.0f;
+                int remaining_before_bias = remaining;
                 remaining = last_remaining_;
+                spdlog::debug("[PrintStartCollector] Monotonic bias: suppressed {}s→{}s, "
+                              "overrun={:.1f}% (total denom={:.0f}s), "
+                              "per-phase would be {:.1f}% (phase denom={}s)",
+                              last_remaining_, remaining_before_bias, overrun_pct,
+                              predicted_total_seconds_, per_phase_overrun_pct, cur_phase_predicted);
             }
         }
     }
@@ -1022,6 +1054,19 @@ void PrintStartCollector::save_prediction_entry() {
                     .count());
             phase_durations[phase_int] = duration;
             total_seconds += duration;
+        }
+
+        // --- Diagnostic: predicted vs actual per-phase ---
+        auto predicted = predictor_.predicted_phases();
+        spdlog::debug("[PrintStartCollector] Print complete — predicted vs actual:");
+        for (const auto& [phase, actual] : phase_durations) {
+            auto p_it = predicted.find(phase);
+            int pred = (p_it != predicted.end()) ? p_it->second : 0;
+            float error_pct =
+                pred > 0 ? ((static_cast<float>(actual) - pred) / pred * 100.0f) : 0.0f;
+            spdlog::debug(
+                "[PrintStartCollector]   phase {}: predicted={}s actual={}s error={:.1f}%", phase,
+                pred, actual, error_pct);
         }
     }
 

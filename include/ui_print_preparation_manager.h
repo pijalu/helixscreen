@@ -461,6 +461,14 @@ class PrintPreparationManager {
     void recalculate_estimate();
 
     /**
+     * @brief Invalidate the cached PreprintPredictor
+     *
+     * Forces the next recalculate_estimate() call to reload entries from config.
+     * Call this after a print completes so timing data is re-read.
+     */
+    void invalidate_predictor_cache();
+
+    /**
      * @brief Check if a print is currently being started
      *
      * Delegates to PrinterState::is_print_in_progress(). Returns true from
@@ -499,6 +507,11 @@ class PrintPreparationManager {
     // === Pre-print estimate ===
     lv_subject_t preprint_estimate_subject_{};
     bool estimate_subject_initialized_ = false;
+
+    // === Predictor Cache ===
+    // Avoids reparsing config JSON on every checkbox toggle; invalidated after print completes
+    helix::PreprintPredictor cached_predictor_;
+    bool predictor_cached_ = false;
 
     // === Scan Cache ===
     std::optional<gcode::ScanResult> cached_scan_result_;

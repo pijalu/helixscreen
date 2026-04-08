@@ -155,12 +155,16 @@ void PrintPreparationManager::recalculate_estimate() {
     // Homing always happens
     total += 20.0f;
 
-    // Non-heating ops from predictor
-    auto entries = helix::PreprintPredictor::load_entries_from_config();
-    helix::PreprintPredictor predictor;
-    bool is_warm = bed_temp >= 40.0f;
-    predictor.load_entries(entries, is_warm ? StartCondition::WARM : StartCondition::COLD);
-    auto phases = predictor.predicted_phases();
+    // Non-heating ops from predictor (cached to avoid reparsing config JSON on every toggle)
+    if (!predictor_cached_) {
+        auto entries = helix::PreprintPredictor::load_entries_from_config();
+        bool is_warm = bed_temp >= 40.0f;
+        cached_predictor_ = helix::PreprintPredictor{};
+        cached_predictor_.load_entries(entries,
+                                       is_warm ? StartCondition::WARM : StartCondition::COLD);
+        predictor_cached_ = true;
+    }
+    auto phases = cached_predictor_.predicted_phases();
 
     // Add phase estimate if checkbox is enabled
     auto add_if_enabled = [&](lv_subject_t* subj, int phase_int, float default_s) {
@@ -187,6 +191,10 @@ void PrintPreparationManager::recalculate_estimate() {
     }
 
     spdlog::debug("[PrintPreparationManager] Pre-print estimate: {}s", estimate_s);
+}
+
+void PrintPreparationManager::invalidate_predictor_cache() {
+    predictor_cached_ = false;
 }
 
 // ============================================================================

@@ -84,6 +84,9 @@ class Config;
  *
  * Singleton that provides printer-archetype-aware defaults and persists
  * learned heating rates to Config between sessions.
+ *
+ * @thread_safety Main thread only. No internal synchronization.
+ * apply_archetype_defaults() must be called via ui_queue_update() from background threads.
  */
 class ThermalRateManager {
   public:

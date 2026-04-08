@@ -76,7 +76,7 @@ std::vector<PreprintEntry> PreprintPredictor::get_entries() const {
 }
 
 bool PreprintPredictor::has_predictions() const {
-    return !entries_.empty();
+    return true;
 }
 
 std::vector<double> PreprintPredictor::compute_weights() const {
@@ -200,10 +200,6 @@ int PreprintPredictor::predicted_total() const {
 
 int PreprintPredictor::remaining_seconds(const std::set<int>& completed_phases, int current_phase,
                                          int elapsed_in_current_phase_seconds) const {
-    if (entries_.empty()) {
-        return 0;
-    }
-
     auto phases = predicted_phases();
     int remaining = 0;
 
