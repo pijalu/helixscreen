@@ -3,9 +3,9 @@
 
 #pragma once
 
-#include "async_lifetime_guard.h"
 #include "ui_observer_guard.h"
 
+#include "async_lifetime_guard.h"
 #include "panel_widget.h"
 
 #include <functional>
@@ -75,10 +75,13 @@ class FanStackWidget : public PanelWidget {
 
     helix::AsyncLifetimeGuard lifetime_;
 
-    // Resolved fan object names
+    // Resolved fan object names and display names
     std::string part_fan_name_;
     std::string hotend_fan_name_;
     std::string aux_fan_name_;
+    std::string part_display_name_;
+    std::string hotend_display_name_;
+    std::string aux_display_name_;
 
     // Cached speeds for animation updates
     int part_speed_ = 0;

@@ -233,7 +233,7 @@ void FanStackWidget::on_size_changed(int colspan, int rowspan, int /*width_px*/,
 
     // Size tiers:
     //   1x1 (compact):  xs fonts, single-letter labels (P, H, C)
-    //   wider or taller: sm fonts, short labels (Part, HE, Chm)
+    //   2x1+ (bigger):  sm fonts, resolved display names from PrinterFanState
     bool bigger = (colspan >= 2 || rowspan >= 2);
 
     const char* font_token = bigger ? "font_small" : "font_xs";
@@ -259,29 +259,28 @@ void FanStackWidget::on_size_changed(int colspan, int rowspan, int /*width_px*/,
         }
     }
 
-    // Name labels — three tiers of text:
-    //   1x1 or 1x2: single letter (P, H, C)
-    //   2x1 (wide but short): abbreviations (Part, HE, Chm)
-    //   2x2+ (wide AND tall): full words (Part, Hotend, Chamber)
-    bool wide = (colspan >= 2);
-    bool roomy = (colspan >= 2 && rowspan >= 2);
+    // Name labels: 1x1 = single letter, 2x1+ = resolved display name
     struct NameMapping {
         const char* obj_name;
-        const char* compact; // narrow: single letter
-        const char* abbrev;  // wide: short abbreviation
-        const char* full;    // wide+tall: full word
+        const char* compact;        // 1x1: single letter
+        const std::string* display; // 2x1+: resolved fan display name
+        const char* fallback;       // fallback if display name empty
     };
-    static constexpr NameMapping name_map[] = {
-        {"fan_stack_part_name", "P", "Part", "Part"},
-        {"fan_stack_hotend_name", "H", "HE", "Hotend"},
-        {"fan_stack_aux_name", "C", "Chm", "Chamber"},
+    const NameMapping name_map[] = {
+        {"fan_stack_part_name", "P", &part_display_name_, "Part"},
+        {"fan_stack_hotend_name", "H", &hotend_display_name_, "Hotend"},
+        {"fan_stack_aux_name", "C", &aux_display_name_, "Chamber"},
     };
     for (const auto& m : name_map) {
         lv_obj_t* lbl = lv_obj_find_by_name(widget_obj_, m.obj_name);
         if (lbl) {
             lv_obj_set_style_text_font(lbl, text_font, 0);
-            const char* text = roomy ? m.full : (wide ? m.abbrev : m.compact);
-            lv_label_set_text(lbl, lv_tr(text));
+            if (bigger) {
+                const char* text = m.display->empty() ? m.fallback : m.display->c_str();
+                lv_label_set_text(lbl, lv_tr(text));
+            } else {
+                lv_label_set_text(lbl, lv_tr(m.compact));
+            }
         }
     }
 
@@ -297,8 +296,10 @@ void FanStackWidget::on_size_changed(int colspan, int rowspan, int /*width_px*/,
         // First pass: set rows to content width and measure the widest
         for (const char* rn : row_names) {
             lv_obj_t* row = lv_obj_find_by_name(widget_obj_, rn);
-            if (row)
+            if (row) {
                 lv_obj_set_width(row, LV_SIZE_CONTENT);
+                lv_obj_set_style_flex_main_place(row, LV_FLEX_ALIGN_START, 0);
+            }
         }
         lv_obj_update_layout(widget_obj_);
 
@@ -319,10 +320,13 @@ void FanStackWidget::on_size_changed(int colspan, int rowspan, int /*width_px*/,
                 lv_obj_set_width(row, max_w);
         }
     } else {
+        // 1x1: center content within each row (labels are short: P, H, C)
         for (const char* rn : row_names) {
             lv_obj_t* row = lv_obj_find_by_name(widget_obj_, rn);
-            if (row)
+            if (row) {
                 lv_obj_set_width(row, LV_PCT(100));
+                lv_obj_set_style_flex_main_place(row, LV_FLEX_ALIGN_CENTER, 0);
+            }
         }
     }
 
@@ -350,20 +354,22 @@ void FanStackWidget::bind_fans() {
         return;
     }
 
-    // Classify fans into our three rows and set name labels
-    std::string part_display, hotend_display, aux_display;
+    // Classify fans into our three rows
+    part_display_name_.clear();
+    hotend_display_name_.clear();
+    aux_display_name_.clear();
     for (const auto& fan : fans) {
         switch (fan.type) {
         case FanType::PART_COOLING:
             if (part_fan_name_.empty()) {
                 part_fan_name_ = fan.object_name;
-                part_display = fan.display_name;
+                part_display_name_ = fan.display_name;
             }
             break;
         case FanType::HEATER_FAN:
             if (hotend_fan_name_.empty()) {
                 hotend_fan_name_ = fan.object_name;
-                hotend_display = fan.display_name;
+                hotend_display_name_ = fan.display_name;
             }
             break;
         case FanType::CONTROLLER_FAN:
@@ -372,7 +378,7 @@ void FanStackWidget::bind_fans() {
         case FanType::OUTPUT_PIN_FAN:
             if (aux_fan_name_.empty()) {
                 aux_fan_name_ = fan.object_name;
-                aux_display = fan.display_name;
+                aux_display_name_ = fan.display_name;
             }
             break;
         }
