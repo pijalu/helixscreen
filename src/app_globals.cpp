@@ -14,6 +14,10 @@
 
 #include "app_globals.h"
 
+#ifdef __ANDROID__
+#include <SDL.h>
+#endif
+
 #include "ui_modal.h"
 
 #include "config.h"
@@ -288,7 +292,8 @@ void app_request_restart_service() {
 }
 
 char** app_get_stored_argv() {
-    if (g_stored_argv.empty()) return nullptr;
+    if (g_stored_argv.empty())
+        return nullptr;
     return g_stored_argv.data();
 }
 
@@ -380,6 +385,18 @@ std::string get_helix_cache_dir(const std::string& subdir) {
         if (try_create_dir(path)) {
             spdlog::info("[App Globals] Cache dir (MIPS/K2): {}", path);
             return path;
+        }
+    }
+#elif defined(HELIX_PLATFORM_ANDROID) || defined(__ANDROID__)
+    {
+        // Use SDL's Android internal storage path (app-private, no permissions needed)
+        const char* android_path = SDL_AndroidGetInternalStoragePath();
+        if (android_path) {
+            std::string path = std::string(android_path) + "/cache/" + subdir;
+            if (try_create_dir(path)) {
+                spdlog::info("[App Globals] Cache dir (Android): {}", path);
+                return path;
+            }
         }
     }
 #endif
