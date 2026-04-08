@@ -92,12 +92,22 @@ void FilamentSlotPicker::show(lv_obj_t* parent, lv_obj_t* trigger, int tool_inde
     // Position anchored to trigger widget
     position_card(card);
 
+    // Highlight the trigger to show it's active
+    lv_obj_set_style_border_color(trigger_, theme_manager_get_color("primary"), 0);
+    lv_obj_set_style_border_opa(trigger_, LV_OPA_50, 0);
+
     spdlog::debug("[FilamentSlotPicker] Shown with {} slots", slots_.size());
 }
 
 void FilamentSlotPicker::hide() {
     if (!backdrop_) {
         return;
+    }
+
+    // Restore trigger border before clearing reference
+    if (trigger_) {
+        lv_obj_set_style_border_color(trigger_, theme_manager_get_color("text_muted"), 0);
+        lv_obj_set_style_border_opa(trigger_, SWATCH_BORDER_OPA, 0);
     }
 
     helix::ui::safe_delete_deferred(backdrop_);
