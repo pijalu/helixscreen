@@ -229,6 +229,15 @@ jobs:
         ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
       run: ./gradlew assembleRelease -PuseCcache
 
+    - name: Build Android AAB (release)
+      working-directory: android
+      env:
+        ANDROID_KEYSTORE_PATH: ${{ secrets.ANDROID_KEYSTORE_PATH }}
+        ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+        ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+        ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+      run: ./gradlew bundleRelease -PuseCcache
+
     - name: Extract version
       id: version
       run: |
@@ -261,6 +270,22 @@ jobs:
         path: release-apks/*.apk
         retention-days: 7
 
+    - name: Rename AAB
+      run: |
+        VERSION="${{ steps.version.outputs.version }}"
+        AAB_DIR="android/app/build/outputs/bundle/release"
+        mkdir -p release-aab
+        cp "$AAB_DIR"/*.aab "release-aab/helixscreen-android-v${VERSION}.aab"
+        echo "Android AAB:"
+        ls -lh release-aab/
+
+    - name: Upload Android AAB artifact
+      uses: actions/upload-artifact@v7
+      with:
+        name: release-android-aab
+        path: release-aab/*.aab
+        retention-days: 7
+
   # ============================================================================
   # Create GitHub Release with all artifacts
   # ============================================================================
@@ -286,6 +311,7 @@ jobs:
         find artifacts -name '*.tar.gz' -exec mv {} release-files/ \;
         find artifacts -name '*.zip' -exec mv {} release-files/ \;
         find artifacts -name '*.apk' -exec mv {} release-files/ \;
+        find artifacts -name '*.aab' -exec mv {} release-files/ \;
         # Include install.sh so users can download it directly from the release
         cp scripts/install.sh release-files/
         echo "Release files:"
@@ -421,13 +447,14 @@ jobs:
         - **arm64**: `helixscreen-android-arm64-${{ steps.version.outputs.version }}.apk` (most Android phones/tablets)
         - **x86_64**: `helixscreen-android-x86_64-${{ steps.version.outputs.version }}.apk` (emulators, Chromebooks)
         - **universal**: `helixscreen-android-universal-${{ steps.version.outputs.version }}.apk` (all architectures)
+        - **Play Store bundle**: `helixscreen-android-${{ steps.version.outputs.version }}.aab`
 
         Sideload via `adb install` or download directly on device.
 
         ## Checksums
 
         ```
-        $(cd release-files && sha256sum *.tar.gz *.zip *.apk 2>/dev/null)
+        $(cd release-files && sha256sum *.tar.gz *.zip *.apk *.aab 2>/dev/null)
         ```
         EOF
         fi
@@ -443,6 +470,7 @@ jobs:
           release-files/*.tar.gz
           release-files/*.zip
           release-files/*.apk
+          release-files/*.aab
           release-files/*.sym
           release-files/install.sh
         fail_on_unmatched_files: false
