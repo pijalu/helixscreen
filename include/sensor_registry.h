@@ -46,23 +46,6 @@ class ISensorManager {
         (void)moonraker_info;
     }
 
-    /// @brief Inject mock sensor objects for testing UI
-    /// @param objects Klipper objects list to append to
-    /// @param config_keys Config keys to append to
-    /// @param moonraker_info Moonraker info to append to
-    /// @note Called by SensorRegistry when should_mock_sensors() is true
-    virtual void inject_mock_sensors(std::vector<std::string>& objects, nlohmann::json& config_keys,
-                                     nlohmann::json& moonraker_info) {
-        (void)objects;
-        (void)config_keys;
-        (void)moonraker_info;
-    }
-
-    /// @brief Inject mock status data for testing UI
-    /// @param status Status JSON to append to
-    /// @note Called by SensorRegistry when should_mock_sensors() is true
-    virtual void inject_mock_status(nlohmann::json& status) { (void)status; }
-
     /// @brief Update state from Moonraker status JSON
     virtual void update_from_status(const nlohmann::json& status) = 0;
 

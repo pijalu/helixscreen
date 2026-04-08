@@ -330,6 +330,24 @@ TEST_CASE_METHOD(TemperatureSensorTestFixture, "TemperatureSensorManager - displ
             REQUIRE_FALSE(config.display_name.empty());
         }
     }
+
+    SECTION("Two chamber sensors produce distinct display names") {
+        // Regression: "chamber" and "chamber_temp" both resolved to "Chamber Temperature",
+        // causing duplicate entries in the thermistor widget sensor picker.
+        std::vector<std::string> sensors = {"temperature_sensor chamber",
+                                            "temperature_sensor chamber_temp"};
+        mgr().discover(sensors);
+
+        auto sorted = mgr().get_sensors_sorted();
+        REQUIRE(sorted.size() == 2);
+
+        // Both should have CHAMBER role
+        REQUIRE(sorted[0].role == TemperatureSensorRole::CHAMBER);
+        REQUIRE(sorted[1].role == TemperatureSensorRole::CHAMBER);
+
+        // They must have distinct klipper_names (the unique key)
+        REQUIRE(sorted[0].klipper_name != sorted[1].klipper_name);
+    }
 }
 
 // ============================================================================

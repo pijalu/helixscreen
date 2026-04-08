@@ -646,22 +646,6 @@ void FilamentSensorManager::update_from_status(const json& status) {
     }
 }
 
-void FilamentSensorManager::inject_mock_sensors(std::vector<std::string>& objects,
-                                                nlohmann::json& /*config_keys*/,
-                                                nlohmann::json& /*moonraker_info*/) {
-    // Filament sensors are discovered from Klipper objects
-    objects.emplace_back("filament_switch_sensor runout");
-    objects.emplace_back("filament_switch_sensor toolhead");
-    spdlog::debug(
-        "[FilamentSensorManager] Injected mock sensors: filament_switch_sensor runout, toolhead");
-}
-
-void FilamentSensorManager::inject_mock_status(nlohmann::json& status) {
-    // Filament switch sensors report filament_detected and enabled state
-    status["filament_switch_sensor runout"] = {{"filament_detected", true}, {"enabled", true}};
-    status["filament_switch_sensor toolhead"] = {{"filament_detected", true}, {"enabled", true}};
-}
-
 void FilamentSensorManager::set_state_change_callback(StateChangeCallback callback) {
     std::lock_guard<std::recursive_mutex> lock(mutex_);
     state_change_callback_ = std::move(callback);

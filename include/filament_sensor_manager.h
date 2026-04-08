@@ -264,13 +264,6 @@ class FilamentSensorManager : public helix::sensors::ISensorManager {
      */
     void update_from_status(const nlohmann::json& status) override;
 
-    /// @brief Inject mock sensor objects for testing UI
-    void inject_mock_sensors(std::vector<std::string>& objects, nlohmann::json& config_keys,
-                             nlohmann::json& moonraker_info) override;
-
-    /// @brief Inject mock status data for testing UI
-    void inject_mock_status(nlohmann::json& status) override;
-
     /**
      * @brief Register callback for state changes
      *

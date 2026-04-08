@@ -3101,6 +3101,24 @@ void MoonrakerClientMock::dispatch_initial_state() {
     initial_status["hall_filament_width_sensor"] = {
         {"Diameter", 1.75}, {"Raw", 500.0}, {"is_active", true}};
 
+    // Add probe sensor status data (matches objects added in populate_capabilities)
+    {
+        const char* probe_env = std::getenv("HELIX_MOCK_PROBE_TYPE");
+        std::string mock_probe_type = (probe_env && probe_env[0]) ? probe_env : "cartographer";
+
+        if (mock_probe_type == "cartographer") {
+            initial_status["cartographer"] = {{"last_z_result", -0.425}, {"z_offset", 0.0}};
+        } else if (mock_probe_type == "beacon") {
+            initial_status["beacon"] = {{"last_z_result", -0.312}, {"z_offset", 0.0}};
+        } else if (mock_probe_type == "bltouch") {
+            initial_status["bltouch"] = {{"last_z_result", 0.130}, {"z_offset", -1.850}};
+        } else if (mock_probe_type == "loadcell") {
+            initial_status["probe"] = {{"last_z_result", 0.0}, {"z_offset", nullptr}};
+        } else if (mock_probe_type != "none") {
+            initial_status["probe"] = {{"last_z_result", 0.0}, {"z_offset", -0.250}};
+        }
+    }
+
     spdlog::debug("[MoonrakerClientMock] Dispatching initial state: extruder={}/{}°C, bed={}/{}°C, "
                   "homed_axes='{}', leds={}, filament_sensors={}",
                   ext_temp, ext_target, bed_temp_val, bed_target_val, homed, led_json.size(),

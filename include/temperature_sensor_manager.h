@@ -3,9 +3,9 @@
 
 #pragma once
 
-#include "async_lifetime_guard.h"
 #include "ui_observer_guard.h" // SubjectLifetime
 
+#include "async_lifetime_guard.h"
 #include "lvgl.h"
 #include "sensor_registry.h"
 #include "subject_managed_panel.h"
@@ -102,13 +102,6 @@ class TemperatureSensorManager : public ISensorManager {
 
     /// @brief Update state from Moonraker status JSON
     void update_from_status(const nlohmann::json& status) override;
-
-    /// @brief Inject mock sensor objects for testing UI
-    void inject_mock_sensors(std::vector<std::string>& objects, nlohmann::json& config_keys,
-                             nlohmann::json& moonraker_info) override;
-
-    /// @brief Inject mock status data for testing UI
-    void inject_mock_status(nlohmann::json& status) override;
 
     /**
      * @brief Load sensor configuration from JSON

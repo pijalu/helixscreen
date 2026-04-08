@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "sensor_registry.h"
 
-#include "runtime_config.h"
-
 #include <spdlog/spdlog.h>
 
 namespace helix::sensors {
@@ -35,22 +33,10 @@ void SensorRegistry::discover_all(const std::vector<std::string>& klipper_object
     spdlog::debug("[SensorRegistry] Discovering sensors in {} managers from all sources",
                   managers_.size());
 
-    // In mock mode, ask each manager to inject its mock sensor objects
-    std::vector<std::string> objects_to_use = klipper_objects;
-    nlohmann::json config_to_use = config_keys;
-    nlohmann::json moonraker_to_use = moonraker_info;
-
-    if (get_runtime_config()->should_mock_sensors()) {
-        spdlog::info("[SensorRegistry] Mock mode: asking managers to inject mock sensors");
-        for (auto& [category, manager] : managers_) {
-            manager->inject_mock_sensors(objects_to_use, config_to_use, moonraker_to_use);
-        }
-    }
-
     for (auto& [category, manager] : managers_) {
         // Discovery from Klipper objects (printer.objects.list)
         try {
-            manager->discover(objects_to_use);
+            manager->discover(klipper_objects);
         } catch (const std::exception& e) {
             spdlog::error("[SensorRegistry] Exception during discover for '{}': {}", category,
                           e.what());
@@ -58,7 +44,7 @@ void SensorRegistry::discover_all(const std::vector<std::string>& klipper_object
 
         // Discovery from Klipper config (configfile.config keys)
         try {
-            manager->discover_from_config(config_to_use);
+            manager->discover_from_config(config_keys);
         } catch (const std::exception& e) {
             spdlog::error("[SensorRegistry] Exception during discover_from_config for '{}': {}",
                           category, e.what());
@@ -66,7 +52,7 @@ void SensorRegistry::discover_all(const std::vector<std::string>& klipper_object
 
         // Discovery from Moonraker API info
         try {
-            manager->discover_from_moonraker(moonraker_to_use);
+            manager->discover_from_moonraker(moonraker_info);
         } catch (const std::exception& e) {
             spdlog::error("[SensorRegistry] Exception during discover_from_moonraker for '{}': {}",
                           category, e.what());
@@ -77,17 +63,9 @@ void SensorRegistry::discover_all(const std::vector<std::string>& klipper_object
 void SensorRegistry::update_all_from_status(const nlohmann::json& status) {
     std::lock_guard<std::recursive_mutex> lock(mutex_);
 
-    // In mock mode, ask each manager to inject its mock status data
-    nlohmann::json status_to_use = status;
-    if (get_runtime_config()->should_mock_sensors()) {
-        for (auto& [category, manager] : managers_) {
-            manager->inject_mock_status(status_to_use);
-        }
-    }
-
     for (auto& [category, manager] : managers_) {
         try {
-            manager->update_from_status(status_to_use);
+            manager->update_from_status(status);
         } catch (const std::exception& e) {
             spdlog::error("[SensorRegistry] Exception during status update for '{}': {}", category,
                           e.what());

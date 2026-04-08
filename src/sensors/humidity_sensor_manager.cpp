@@ -177,10 +177,10 @@ void HumiditySensorManager::update_from_status(const nlohmann::json& status) {
                     std::lround(state.temperature * 10) !=
                         std::lround(old_state.temperature * 10) ||
                     std::lround(state.pressure * 10) != std::lround(old_state.pressure * 10)) {
-                    spdlog::trace(
-                        "[HumiditySensorManager] Sensor {} updated: humidity={:.1f}%, "
-                        "temp={:.1f}C, pressure={:.1f}hPa",
-                        sensor.sensor_name, state.humidity, state.temperature, state.pressure);
+                    spdlog::trace("[HumiditySensorManager] Sensor {} updated: humidity={:.1f}%, "
+                                  "temp={:.1f}C, pressure={:.1f}hPa",
+                                  sensor.sensor_name, state.humidity, state.temperature,
+                                  state.pressure);
                 }
             }
         }
@@ -196,23 +196,6 @@ void HumiditySensorManager::update_from_status(const nlohmann::json& status) {
             }
         }
     }
-}
-
-void HumiditySensorManager::inject_mock_sensors(std::vector<std::string>& objects,
-                                                nlohmann::json& /*config_keys*/,
-                                                nlohmann::json& /*moonraker_info*/) {
-    // Humidity sensors are discovered from Klipper objects
-    objects.emplace_back("bme280 chamber");
-    objects.emplace_back("htu21d dryer");
-    spdlog::debug("[HumiditySensorManager] Injected mock sensors: bme280 chamber, htu21d dryer");
-}
-
-void HumiditySensorManager::inject_mock_status(nlohmann::json& status) {
-    // BME280 has humidity, temperature, pressure
-    status["bme280 chamber"] = {
-        {"humidity", 45.0f}, {"temperature", 25.0f}, {"pressure", 1013.25f}};
-    // HTU21D has humidity and temperature (no pressure)
-    status["htu21d dryer"] = {{"humidity", 15.0f}, {"temperature", 55.0f}};
 }
 
 void HumiditySensorManager::load_config(const nlohmann::json& config) {

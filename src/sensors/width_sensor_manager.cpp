@@ -175,20 +175,6 @@ void WidthSensorManager::update_from_status(const nlohmann::json& status) {
     }
 }
 
-void WidthSensorManager::inject_mock_sensors(std::vector<std::string>& objects,
-                                             nlohmann::json& /*config_keys*/,
-                                             nlohmann::json& /*moonraker_info*/) {
-    // Width sensors are discovered from Klipper objects
-    objects.emplace_back("hall_filament_width_sensor");
-    spdlog::debug("[WidthSensorManager] Injected mock sensors: hall_filament_width_sensor");
-}
-
-void WidthSensorManager::inject_mock_status(nlohmann::json& status) {
-    // Width sensor reports Raw value, Diameter, and is_active state
-    status["hall_filament_width_sensor"] = {
-        {"Raw", 500.0f}, {"Diameter", 1.75f}, {"is_active", true}};
-}
-
 void WidthSensorManager::load_config(const nlohmann::json& config) {
     std::lock_guard<std::recursive_mutex> lock(mutex_);
 

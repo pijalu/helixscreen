@@ -277,66 +277,6 @@ void ProbeSensorManager::update_from_status(const nlohmann::json& status) {
     }
 }
 
-/// Get the mock probe type from HELIX_MOCK_PROBE_TYPE env var.
-/// Valid values: cartographer, tap, bltouch, beacon, klicky, loadcell, standard (default)
-static std::string get_mock_probe_type() {
-    const char* env = std::getenv("HELIX_MOCK_PROBE_TYPE");
-    if (env && env[0] != '\0') {
-        return env;
-    }
-    return "cartographer"; // Default mock type
-}
-
-void ProbeSensorManager::inject_mock_sensors(std::vector<std::string>& objects,
-                                             nlohmann::json& config_keys,
-                                             nlohmann::json& /*moonraker_info*/) {
-    std::string type = get_mock_probe_type();
-    spdlog::info("[ProbeSensorManager] Mock probe type: {} (set HELIX_MOCK_PROBE_TYPE to change)",
-                 type);
-
-    if (type == "cartographer") {
-        objects.emplace_back("cartographer");
-        objects.emplace_back("probe_eddy_current carto");
-    } else if (type == "beacon") {
-        objects.emplace_back("beacon");
-        objects.emplace_back("probe_eddy_current beacon");
-    } else if (type == "tap") {
-        objects.emplace_back("probe");
-        // Tap is detected as STANDARD (no macro heuristic differentiates it in mock)
-    } else if (type == "bltouch") {
-        objects.emplace_back("bltouch");
-    } else if (type == "klicky") {
-        objects.emplace_back("probe");
-        objects.emplace_back("gcode_macro ATTACH_PROBE");
-        objects.emplace_back("gcode_macro DOCK_PROBE");
-    } else if (type == "loadcell") {
-        objects.emplace_back("probe");
-        objects.emplace_back("flashforge_loadcell");
-        // Loadcell z_offset comes from config, not status
-        config_keys["probe"] = {{"z_offset", "-0.250"}};
-    } else {
-        // "standard" or any other value
-        objects.emplace_back("probe");
-    }
-}
-
-void ProbeSensorManager::inject_mock_status(nlohmann::json& status) {
-    std::string type = get_mock_probe_type();
-
-    if (type == "cartographer") {
-        status["cartographer"] = {{"last_z_result", -0.425f}, {"z_offset", 0.0f}};
-    } else if (type == "beacon") {
-        status["beacon"] = {{"last_z_result", -0.312f}, {"z_offset", 0.0f}};
-    } else if (type == "bltouch") {
-        status["bltouch"] = {{"last_z_result", 0.130f}, {"z_offset", -1.850f}};
-    } else if (type == "loadcell") {
-        // Loadcell probes return null z_offset in status (seeded from config instead)
-        status["probe"] = {{"last_z_result", 0.0f}, {"z_offset", nullptr}};
-    } else {
-        status["probe"] = {{"last_z_result", 0.0f}, {"z_offset", -0.250f}};
-    }
-}
-
 void ProbeSensorManager::load_config(const nlohmann::json& config) {
     std::lock_guard<std::recursive_mutex> lock(mutex_);
 

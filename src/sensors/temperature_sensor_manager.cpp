@@ -238,29 +238,6 @@ void TemperatureSensorManager::update_from_status(const nlohmann::json& status) 
     }
 }
 
-void TemperatureSensorManager::inject_mock_sensors(std::vector<std::string>& objects,
-                                                   nlohmann::json& /*config_keys*/,
-                                                   nlohmann::json& /*moonraker_info*/) {
-    objects.emplace_back("temperature_sensor mcu_temp");
-    objects.emplace_back("temperature_sensor raspberry_pi");
-    objects.emplace_back("temperature_sensor chamber_temp");
-    objects.emplace_back("temperature_fan exhaust_fan");
-    objects.emplace_back("tmc2240 stepper_x");
-    objects.emplace_back("tmc2240 stepper_y");
-    spdlog::debug("[TemperatureSensorManager] Injected mock sensors: mcu_temp, raspberry_pi, "
-                  "chamber_temp, exhaust_fan, tmc2240 stepper_x/y");
-}
-
-void TemperatureSensorManager::inject_mock_status(nlohmann::json& status) {
-    status["temperature_sensor mcu_temp"] = {{"temperature", 45.2f}};
-    status["temperature_sensor raspberry_pi"] = {{"temperature", 55.8f}};
-    status["temperature_sensor chamber_temp"] = {{"temperature", 35.0f}};
-    status["temperature_fan exhaust_fan"] = {
-        {"temperature", 38.5f}, {"target", 40.0f}, {"speed", 0.65f}};
-    status["tmc2240 stepper_x"] = {{"temperature", 62.4f}};
-    status["tmc2240 stepper_y"] = {{"temperature", 68.1f}};
-}
-
 void TemperatureSensorManager::load_config(const nlohmann::json& config) {
     std::lock_guard<std::recursive_mutex> lock(mutex_);
 
@@ -432,8 +409,7 @@ void TemperatureSensorManager::apply_chamber_sensor_override(const std::string& 
                 config.role = TemperatureSensorRole::MCU;
                 config.priority = 10;
             } else if (name_lower.find("raspberry") != std::string::npos ||
-                       name_lower == "host_temp" || name_lower == "host" ||
-                       name_lower == "rpi") {
+                       name_lower == "host_temp" || name_lower == "host" || name_lower == "rpi") {
                 config.role = TemperatureSensorRole::HOST;
                 config.priority = 20;
             } else {

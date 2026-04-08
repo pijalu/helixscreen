@@ -69,13 +69,6 @@ class WidthSensorManager : public ISensorManager {
     /// @brief Update state from Moonraker status JSON
     void update_from_status(const nlohmann::json& status) override;
 
-    /// @brief Inject mock sensor objects for testing UI
-    void inject_mock_sensors(std::vector<std::string>& objects, nlohmann::json& config_keys,
-                             nlohmann::json& moonraker_info) override;
-
-    /// @brief Inject mock status data for testing UI
-    void inject_mock_status(nlohmann::json& status) override;
-
     /**
      * @brief Load sensor configuration from JSON
      * @note MUST be called from main LVGL thread (updates subjects directly)

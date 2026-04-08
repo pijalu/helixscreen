@@ -200,19 +200,6 @@ void ColorSensorManager::update_from_status(const nlohmann::json& status) {
     }
 }
 
-void ColorSensorManager::inject_mock_sensors(std::vector<std::string>& /*objects*/,
-                                             nlohmann::json& /*config_keys*/,
-                                             nlohmann::json& moonraker_info) {
-    // Color sensors (TD-1) are discovered from Moonraker info
-    moonraker_info["components"]["td1_sensor"] = nlohmann::json::array({"default"});
-    spdlog::debug("[ColorSensorManager] Injected mock sensors: td1_sensor default");
-}
-
-void ColorSensorManager::inject_mock_status(nlohmann::json& status) {
-    // TD-1 sensor reports color and transmission distance
-    status["td1_sensor default"] = {{"color", {255, 200, 150}}, {"detected", true}};
-}
-
 void ColorSensorManager::load_config(const nlohmann::json& config) {
     std::lock_guard<std::recursive_mutex> lock(mutex_);
 
