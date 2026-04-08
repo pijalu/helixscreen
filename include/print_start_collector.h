@@ -241,6 +241,13 @@ class PrintStartCollector : public std::enable_shared_from_this<PrintStartCollec
     helix::PreprintPredictor predictor_;
     int loaded_temp_bucket_{0};
 
+    // Duration-proportional progress weights (protected by state_mutex_)
+    std::map<int, float> predicted_phase_weights_; ///< Phase -> fraction of total (0.0-1.0)
+    float predicted_total_seconds_ = 0.0f;         ///< Total predicted pre-print duration
+    int start_ext_temp_ = 0; ///< Extruder temp at collector start (decideg/10)
+    int start_bed_temp_ = 0; ///< Bed temp at collector start (decideg/10)
+    int last_remaining_ = 0; ///< For monotonic bias
+
     // LVGL timer for periodic ETA updates (main thread only)
     lv_timer_t* eta_timer_ = nullptr;
     static constexpr uint32_t ETA_UPDATE_INTERVAL_MS = 5000;
@@ -259,6 +266,23 @@ class PrintStartCollector : public std::enable_shared_from_this<PrintStartCollec
      * @brief Load prediction entries from helix::Config on start()
      */
     void load_prediction_history();
+
+    /**
+     * @brief Compute duration-proportional weights from predicted durations
+     *
+     * Combines thermal model estimates for heating phases with predictor
+     * estimates for non-heating phases to assign each phase a weight
+     * proportional to its fraction of total predicted time.
+     */
+    void compute_predicted_weights();
+
+    /**
+     * @brief Compute heating fraction for current phase based on temperature progress
+     *
+     * Returns 0.0-1.0 representing how far the current heater has progressed
+     * from its starting temperature toward the target.
+     */
+    float compute_heating_fraction() const;
 
     /**
      * @brief Save current print's phase timings to prediction history

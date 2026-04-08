@@ -14,6 +14,7 @@
 
 #include <spdlog/spdlog.h>
 
+#include <algorithm>
 #include <atomic>
 #include <ctime>
 
@@ -91,17 +92,23 @@ void PrintStartCollector::start() {
                  baseline_progress_);
     helix::MemoryMonitor::log_now("print_start_collector_start", spdlog::level::debug);
 
+    // Capture start temperatures for heating fraction calculation
+    start_ext_temp_ = lv_subject_get_int(state_.get_active_extruder_temp_subject()) / 10;
+    start_bed_temp_ = lv_subject_get_int(state_.get_bed_temp_subject()) / 10;
+    last_remaining_ = 0;
+
     // Reset thermal rate models with current temperatures
     {
         auto& mgr = ThermalRateManager::instance();
-        int ext_temp = lv_subject_get_int(state_.get_active_extruder_temp_subject()) / 10;
-        int bed_temp = lv_subject_get_int(state_.get_bed_temp_subject()) / 10;
-        mgr.get_model("extruder").reset(static_cast<float>(ext_temp));
-        mgr.get_model("heater_bed").reset(static_cast<float>(bed_temp));
+        mgr.get_model("extruder").reset(static_cast<float>(start_ext_temp_));
+        mgr.get_model("heater_bed").reset(static_cast<float>(start_bed_temp_));
     }
 
     // Load prediction history from config
     load_prediction_history();
+
+    // Compute duration-proportional weights from predictions + thermal model
+    compute_predicted_weights();
 
     // Ensure we have a profile for pattern matching
     if (!profile_) {
@@ -688,17 +695,56 @@ int PrintStartCollector::calculate_progress() const {
 }
 
 int PrintStartCollector::calculate_progress_locked() const {
-    if (!profile_) {
-        return 0;
+    if (predicted_phase_weights_.empty()) {
+        // Fallback to profile weights if no predictions
+        if (!profile_)
+            return 0;
+        int total_weight = 0;
+        for (const auto& phase : detected_phases_) {
+            total_weight += profile_->get_phase_weight(phase);
+        }
+        return std::min(total_weight, 95);
     }
 
-    int total_weight = 0;
+    float progress = 0.0f;
+
+    // Completed phases (not the current one)
     for (const auto& phase : detected_phases_) {
-        total_weight += profile_->get_phase_weight(phase);
+        if (phase == current_phase_)
+            continue;
+        auto it = predicted_phase_weights_.find(static_cast<int>(phase));
+        if (it != predicted_phase_weights_.end()) {
+            progress += it->second;
+        }
     }
 
-    // Cap at 95% - final 5% is for completion transition
-    return std::min(total_weight, 95);
+    // Partial progress for current phase
+    auto cur_it = predicted_phase_weights_.find(static_cast<int>(current_phase_));
+    if (cur_it != predicted_phase_weights_.end()) {
+        float phase_frac = 0.0f;
+
+        if (current_phase_ == PrintStartPhase::HEATING_BED ||
+            current_phase_ == PrintStartPhase::HEATING_NOZZLE) {
+            phase_frac = compute_heating_fraction();
+        } else {
+            // Time-based for non-heating phases
+            auto enter_it = phase_enter_times_.find(static_cast<int>(current_phase_));
+            if (enter_it != phase_enter_times_.end()) {
+                float elapsed =
+                    static_cast<float>(std::chrono::duration_cast<std::chrono::seconds>(
+                                           std::chrono::steady_clock::now() - enter_it->second)
+                                           .count());
+                auto pred = predictor_.predicted_phases();
+                auto pred_it = pred.find(static_cast<int>(current_phase_));
+                if (pred_it != pred.end() && pred_it->second > 0) {
+                    phase_frac = std::min(elapsed / static_cast<float>(pred_it->second), 0.95f);
+                }
+            }
+        }
+        progress += cur_it->second * phase_frac;
+    }
+
+    return std::min(static_cast<int>(progress * 95.0f), 95);
 }
 
 bool PrintStartCollector::is_print_start_marker(const std::string& line) const {
@@ -806,11 +852,21 @@ void PrintStartCollector::update_eta_display() {
     }
 
     // Always update the int subject for print time integration
+    // Monotonic bias: once under 2 minutes, only decrease unless overrun > 20%
+    if (remaining < 120 && last_remaining_ > 0 && last_remaining_ < 120) {
+        if (remaining > last_remaining_) {
+            float overrun_pct = static_cast<float>(remaining - last_remaining_) /
+                                std::max(1.0f, predicted_total_seconds_) * 100.0f;
+            if (overrun_pct < 20.0f) {
+                remaining = last_remaining_;
+            }
+        }
+    }
+    last_remaining_ = remaining;
+
     state_.set_preprint_remaining_seconds(remaining);
     if (predicted_total > 0) {
-        int time_progress = std::min(95, total_elapsed * 95 / predicted_total);
-        int phase_progress = calculate_progress();
-        int effective_progress = std::max(time_progress, phase_progress);
+        int effective_progress = calculate_progress();
         auto* subj = state_.get_print_start_progress_subject();
         if (subj && lv_subject_get_int(subj) != effective_progress) {
             lv_subject_set_int(subj, effective_progress);
@@ -872,6 +928,82 @@ void PrintStartCollector::feed_thermal_sample() {
         mgr.get_model("extruder").record_sample(ext_temp / 10.0f, now_ms);
         mgr.get_model("heater_bed").record_sample(bed_temp / 10.0f, now_ms);
     }
+}
+
+void PrintStartCollector::compute_predicted_weights() {
+    auto& mgr = ThermalRateManager::instance();
+
+    int ext_target = lv_subject_get_int(state_.get_active_extruder_target_subject()) / 10;
+    int bed_target = lv_subject_get_int(state_.get_bed_target_subject()) / 10;
+
+    std::map<int, float> durations;
+
+    // Heating phases from thermal model
+    float ext_heat = mgr.estimate_heating_seconds("extruder", static_cast<float>(start_ext_temp_),
+                                                  static_cast<float>(ext_target));
+    float bed_heat = mgr.estimate_heating_seconds("heater_bed", static_cast<float>(start_bed_temp_),
+                                                  static_cast<float>(bed_target));
+    if (ext_heat > 0)
+        durations[static_cast<int>(PrintStartPhase::HEATING_NOZZLE)] = ext_heat;
+    if (bed_heat > 0)
+        durations[static_cast<int>(PrintStartPhase::HEATING_BED)] = bed_heat;
+
+    // Non-heating phases from predictor
+    std::map<int, int> pred_phases;
+    {
+        std::lock_guard<std::mutex> lock(state_mutex_);
+        pred_phases = predictor_.predicted_phases();
+    }
+    for (const auto& [phase, secs] : pred_phases) {
+        if (phase != static_cast<int>(PrintStartPhase::HEATING_BED) &&
+            phase != static_cast<int>(PrintStartPhase::HEATING_NOZZLE)) {
+            durations[phase] = static_cast<float>(secs);
+        }
+    }
+
+    // Ensure homing has at least a default
+    int homing = static_cast<int>(PrintStartPhase::HOMING);
+    if (durations.find(homing) == durations.end()) {
+        durations[homing] = 20.0f;
+    }
+
+    predicted_total_seconds_ = 0.0f;
+    for (const auto& [_, dur] : durations) {
+        predicted_total_seconds_ += dur;
+    }
+
+    predicted_phase_weights_.clear();
+    if (predicted_total_seconds_ > 0.0f) {
+        for (const auto& [phase, dur] : durations) {
+            predicted_phase_weights_[phase] = dur / predicted_total_seconds_;
+        }
+    }
+
+    spdlog::debug("[PrintStartCollector] Predicted weights: total={:.0f}s, {} phases",
+                  predicted_total_seconds_, predicted_phase_weights_.size());
+}
+
+float PrintStartCollector::compute_heating_fraction() const {
+    int ext_temp = lv_subject_get_int(state_.get_active_extruder_temp_subject()) / 10;
+    int ext_target = lv_subject_get_int(state_.get_active_extruder_target_subject()) / 10;
+    int bed_temp = lv_subject_get_int(state_.get_bed_temp_subject()) / 10;
+    int bed_target = lv_subject_get_int(state_.get_bed_target_subject()) / 10;
+
+    if (current_phase_ == PrintStartPhase::HEATING_NOZZLE && ext_target > 0) {
+        float start = start_ext_temp_ > 0 ? static_cast<float>(start_ext_temp_) : 25.0f;
+        float range = static_cast<float>(ext_target) - start;
+        if (range > 0.0f) {
+            return std::clamp((static_cast<float>(ext_temp) - start) / range, 0.0f, 1.0f);
+        }
+    }
+    if (current_phase_ == PrintStartPhase::HEATING_BED && bed_target > 0) {
+        float start = start_bed_temp_ > 0 ? static_cast<float>(start_bed_temp_) : 25.0f;
+        float range = static_cast<float>(bed_target) - start;
+        if (range > 0.0f) {
+            return std::clamp((static_cast<float>(bed_temp) - start) / range, 0.0f, 1.0f);
+        }
+    }
+    return 0.0f;
 }
 
 void PrintStartCollector::save_prediction_entry() {
