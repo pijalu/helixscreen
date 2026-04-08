@@ -51,6 +51,11 @@ ScannerPickerModal::ScannerPickerModal(SelectionCallback on_select)
     // Read current selection from SettingsManager
     current_device_id_ = helix::SettingsManager::instance().get_scanner_device_id();
 
+    // Register BT availability subject for XML bindings (before show() creates XML)
+    auto& loader = helix::bluetooth::BluetoothLoader::instance();
+    lv_subject_init_int(&bt_available_subject_, loader.is_available() ? 1 : 0);
+    lv_xml_register_subject(nullptr, "scanner_bt_available", &bt_available_subject_);
+
     // Register XML callbacks BEFORE show() creates the XML component.
     // Modal::show() calls create_and_show() before on_show(), so callbacks
     // must be registered in the constructor to be available during XML parsing.
@@ -89,6 +94,8 @@ ScannerPickerModal::~ScannerPickerModal() {
         }
         bt_ctx_ = nullptr;
     }
+
+    lv_subject_deinit(&bt_available_subject_);
 }
 
 // ============================================================================
@@ -112,20 +119,6 @@ void ScannerPickerModal::on_show() {
     empty_state_ = find_widget("scanner_empty_state");
     bt_scan_btn_ = find_widget("btn_bt_scan");
     bt_spinner_ = find_widget("bt_scan_spinner");
-
-    // Hide BT scan button if Bluetooth is not available
-    auto& loader = helix::bluetooth::BluetoothLoader::instance();
-    if (!loader.is_available()) {
-        if (bt_scan_btn_) {
-            lv_obj_add_flag(bt_scan_btn_, LV_OBJ_FLAG_HIDDEN);
-        }
-        spdlog::debug("[{}] Bluetooth not available, hiding BT scan button", get_name());
-    }
-
-    // Hide spinner initially
-    if (bt_spinner_) {
-        lv_obj_add_flag(bt_spinner_, LV_OBJ_FLAG_HIDDEN);
-    }
 
     populate_device_list();
 

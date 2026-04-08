@@ -81,6 +81,7 @@ class ScannerPickerModal : public Modal {
         std::optional<LifetimeToken> token; ///< For safe deferred callbacks from BG thread
     };
 
+    lv_subject_t bt_available_subject_{};
     helix_bt_context* bt_ctx_ = nullptr;
     std::unique_ptr<BtDiscoveryContext> bt_discovery_ctx_;
     std::vector<BtDeviceInfo> bt_devices_;

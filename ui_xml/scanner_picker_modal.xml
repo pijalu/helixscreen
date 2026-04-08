@@ -32,20 +32,30 @@
       <text_body name="empty_text"
                  text="No devices detected." translation_tag="No devices detected."
                  style_text_align="center" width="100%"/>
+      <!-- Hint with Bluetooth (shown when BT available) -->
       <text_small text="Plug in a USB scanner and tap Refresh, or scan for Bluetooth devices."
                   translation_tag="Plug in a USB scanner and tap Refresh, or scan for Bluetooth devices."
-                  style_text_color="#text_muted" style_text_align="center" width="100%"/>
+                  style_text_color="#text_muted" style_text_align="center" width="100%">
+        <bind_flag_if_eq subject="scanner_bt_available" flag="hidden" ref_value="0"/>
+      </text_small>
+      <!-- Hint without Bluetooth (shown when BT unavailable) -->
+      <text_small text="Plug in a USB scanner and tap Refresh."
+                  translation_tag="Plug in a USB scanner and tap Refresh."
+                  style_text_color="#text_muted" style_text_align="center" width="100%">
+        <bind_flag_if_eq subject="scanner_bt_available" flag="hidden" ref_value="1"/>
+      </text_small>
     </lv_obj>
     <!-- Bottom buttons: BT Scan + Refresh + Cancel -->
     <lv_obj width="100%" height="content" flex_flow="row" style_flex_cross_place="center"
             style_pad_all="#space_md" style_pad_gap="#space_sm" scrollable="false">
-      <!-- BT scan spinner (hidden by default) -->
+      <!-- BT scan spinner (hidden when not scanning) -->
       <lv_spinner name="bt_scan_spinner" width="24" height="24"
                   style_arc_width="3" style_arc_color="#accent"
                   hidden="true"/>
-      <!-- Scan Bluetooth button -->
+      <!-- Scan Bluetooth button (hidden when BT unavailable) -->
       <ui_button name="btn_bt_scan" text="Scan Bluetooth" translation_tag="Scan Bluetooth"
                  icon="bluetooth" variant="secondary" flex_grow="1">
+        <bind_flag_if_eq subject="scanner_bt_available" flag="hidden" ref_value="0"/>
         <event_cb trigger="clicked" callback="on_scanner_bt_scan"/>
       </ui_button>
       <!-- Refresh (USB) button -->
