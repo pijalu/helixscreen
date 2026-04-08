@@ -83,6 +83,13 @@ void PrintStartCollector::start() {
         print_start_detected_ = false;
         max_sequential_progress_ = 0;
         phase_enter_times_.clear();
+        // Reset mesh probe tracking
+        mesh_probe_current_ = 0;
+        mesh_probe_total_ = 0;
+        mesh_probe_fallback_count_ = 0;
+        mesh_first_probe_time_ = {};
+        mesh_last_probe_time_ = {};
+        mesh_seconds_per_probe_ = 0.0f;
         // Snapshot stale subject values so fallbacks only trigger on real changes
         baseline_layer_ = lv_subject_get_int(state_.get_print_layer_current_subject());
         baseline_progress_ = lv_subject_get_int(state_.get_print_progress_subject());
@@ -267,6 +274,12 @@ void PrintStartCollector::reset() {
         max_sequential_progress_ = 0;
         printing_state_start_ = std::chrono::steady_clock::now();
         phase_enter_times_.clear();
+        mesh_probe_current_ = 0;
+        mesh_probe_total_ = 0;
+        mesh_probe_fallback_count_ = 0;
+        mesh_first_probe_time_ = {};
+        mesh_last_probe_time_ = {};
+        mesh_seconds_per_probe_ = 0.0f;
     }
     fallbacks_enabled_.store(false);
 
@@ -472,6 +485,124 @@ void PrintStartCollector::on_gcode_response(const json& msg) {
         return;
     }
 
+    // Check for bed mesh probe progress (sub-phase tracking within BED_MESH).
+    // Also detects BED_MESH phase entry from probe lines on printers that don't
+    // emit a separate BED_MESH_CALIBRATE command line before probing starts.
+    {
+        bool in_mesh = false;
+        {
+            std::lock_guard<std::mutex> lock(state_mutex_);
+            in_mesh = (current_phase_ == PrintStartPhase::BED_MESH);
+        }
+
+        // If we see a probe line but aren't in BED_MESH yet, enter the phase
+        if (!in_mesh && (helix::parse_probe_progress(line) || helix::is_probe_result_line(line))) {
+            update_phase(PrintStartPhase::BED_MESH, lv_tr("Bed Mesh..."));
+            in_mesh = true;
+        }
+
+        if (in_mesh) {
+            if (auto pp = helix::parse_probe_progress(line)) {
+                // "Probing point X/Y" — firmware provides current and total
+                int progress;
+                char msg_buf[64];
+                {
+                    std::lock_guard<std::mutex> lock(state_mutex_);
+                    auto now = std::chrono::steady_clock::now();
+
+                    // Gap reset: if >30s since last probe, earlier probes were
+                    // from a different operation (e.g. nozzle wipe)
+                    if (mesh_probe_current_ > 0 &&
+                        (now - mesh_last_probe_time_) > MESH_PROBE_GAP_RESET) {
+                        spdlog::info("[PrintStartCollector] Mesh probe gap reset "
+                                     "({}s since last probe)",
+                                     std::chrono::duration_cast<std::chrono::seconds>(
+                                         now - mesh_last_probe_time_)
+                                         .count());
+                        mesh_probe_current_ = 0;
+                        mesh_seconds_per_probe_ = 0.0f;
+                    }
+
+                    if (mesh_probe_current_ == 0) {
+                        mesh_first_probe_time_ = now;
+                    } else if (pp->current > 1) {
+                        float elapsed = static_cast<float>(
+                                            std::chrono::duration_cast<std::chrono::milliseconds>(
+                                                now - mesh_first_probe_time_)
+                                                .count()) /
+                                        1000.0f;
+                        mesh_seconds_per_probe_ = elapsed / static_cast<float>(pp->current - 1);
+                    }
+                    mesh_last_probe_time_ = now;
+
+                    mesh_probe_current_ = pp->current;
+                    mesh_probe_total_ = pp->total;
+                    progress = calculate_progress_locked();
+                }
+                spdlog::debug("[PrintStartCollector] Mesh probe {}/{} ({:.1f}s/probe)", pp->current,
+                              pp->total, mesh_seconds_per_probe_);
+                snprintf(msg_buf, sizeof(msg_buf), "%s (%d/%d)", lv_tr("Bed Mesh"), pp->current,
+                         pp->total);
+                state_.set_print_start_state(PrintStartPhase::BED_MESH, msg_buf, progress);
+                return; // Handled — skip check_phase_patterns
+            }
+
+            if (helix::is_probe_result_line(line)) {
+                // "probe at X,Y is z=Z" fallback — no total from firmware
+                int count;
+                int total;
+                int progress;
+                {
+                    std::lock_guard<std::mutex> lock(state_mutex_);
+                    auto now = std::chrono::steady_clock::now();
+
+                    // Gap reset: if >30s since last probe, earlier probes were
+                    // from a different operation (e.g. nozzle wipe on AD5M)
+                    if (mesh_probe_fallback_count_ > 0 &&
+                        (now - mesh_last_probe_time_) > MESH_PROBE_GAP_RESET) {
+                        spdlog::info("[PrintStartCollector] Mesh probe gap reset "
+                                     "({}s since last probe)",
+                                     std::chrono::duration_cast<std::chrono::seconds>(
+                                         now - mesh_last_probe_time_)
+                                         .count());
+                        mesh_probe_fallback_count_ = 0;
+                        mesh_probe_current_ = 0;
+                        mesh_seconds_per_probe_ = 0.0f;
+                    }
+
+                    mesh_probe_fallback_count_++;
+                    if (mesh_probe_fallback_count_ == 1) {
+                        mesh_first_probe_time_ = now;
+                    } else {
+                        float elapsed = static_cast<float>(
+                                            std::chrono::duration_cast<std::chrono::milliseconds>(
+                                                now - mesh_first_probe_time_)
+                                                .count()) /
+                                        1000.0f;
+                        mesh_seconds_per_probe_ =
+                            elapsed / static_cast<float>(mesh_probe_fallback_count_ - 1);
+                    }
+                    mesh_last_probe_time_ = now;
+
+                    mesh_probe_current_ = mesh_probe_fallback_count_;
+                    count = mesh_probe_fallback_count_;
+                    total = mesh_probe_total_;
+                    progress = calculate_progress_locked();
+                }
+                spdlog::debug("[PrintStartCollector] Mesh probe fallback #{}/{} ({:.1f}s/probe)",
+                              count, total, mesh_seconds_per_probe_);
+                char msg_buf[64];
+                if (total > 0) {
+                    snprintf(msg_buf, sizeof(msg_buf), "%s (%d/%d)", lv_tr("Bed Mesh"), count,
+                             total);
+                } else {
+                    snprintf(msg_buf, sizeof(msg_buf), "%s (%d)", lv_tr("Bed Mesh"), count);
+                }
+                state_.set_print_start_state(PrintStartPhase::BED_MESH, msg_buf, progress);
+            }
+        }
+    }
+
     // Check phase patterns
     check_phase_patterns(line);
 }
@@ -586,10 +717,13 @@ void PrintStartCollector::update_phase(PrintStartPhase phase, const char* messag
     int progress;
     bool should_save = false;
     bool has_predictions = false;
+    bool entering_mesh = false;
     {
         std::lock_guard<std::mutex> lock(state_mutex_);
         if (phase == PrintStartPhase::COMPLETE && current_phase_ == PrintStartPhase::COMPLETE)
             return;
+        entering_mesh =
+            (phase == PrintStartPhase::BED_MESH && current_phase_ != PrintStartPhase::BED_MESH);
         current_phase_ = phase;
 
         // Record phase enter timestamp (skip IDLE and INITIALIZING)
@@ -618,6 +752,11 @@ void PrintStartCollector::update_phase(PrintStartPhase phase, const char* messag
         }
     }
 
+    // Query probe count when entering BED_MESH for the first time
+    if (entering_mesh) {
+        query_mesh_probe_count();
+    }
+
     // Call PrinterState outside the lock to avoid potential deadlocks
     state_.set_print_start_state(phase, message, progress);
 
@@ -630,10 +769,13 @@ void PrintStartCollector::update_phase(PrintStartPhase phase, const std::string&
                                        int progress) {
     int effective_progress;
     bool should_save = false;
+    bool entering_mesh = false;
     {
         std::lock_guard<std::mutex> lock(state_mutex_);
         if (phase == PrintStartPhase::COMPLETE && current_phase_ == PrintStartPhase::COMPLETE)
             return;
+        entering_mesh =
+            (phase == PrintStartPhase::BED_MESH && current_phase_ != PrintStartPhase::BED_MESH);
         current_phase_ = phase;
         detected_phases_.insert(phase);
 
@@ -657,6 +799,11 @@ void PrintStartCollector::update_phase(PrintStartPhase phase, const std::string&
         }
         max_sequential_progress_ = effective_progress;
     }
+
+    if (entering_mesh) {
+        query_mesh_probe_count();
+    }
+
     state_.set_print_start_state(phase, message.c_str(), effective_progress);
 
     if (should_save) {
@@ -728,6 +875,11 @@ int PrintStartCollector::calculate_progress_locked() const {
         if (current_phase_ == PrintStartPhase::HEATING_BED ||
             current_phase_ == PrintStartPhase::HEATING_NOZZLE) {
             phase_frac = compute_heating_fraction();
+        } else if (current_phase_ == PrintStartPhase::BED_MESH && mesh_probe_total_ > 0) {
+            // Use exact probe count for deterministic progress
+            phase_frac = std::min(static_cast<float>(mesh_probe_current_) /
+                                      static_cast<float>(mesh_probe_total_),
+                                  0.95f);
         } else {
             // Time-based for non-heating phases
             auto enter_it = phase_enter_times_.find(static_cast<int>(current_phase_));
@@ -844,11 +996,17 @@ void PrintStartCollector::update_eta_display() {
             if (completed.count(phase) && phase != current) {
                 continue; // completed phase
             } else if (phase == current) {
-                // Current phase: use heating fraction for heating, elapsed for others
+                // Current phase: use heating fraction for heating, probe
+                // extrapolation for bed mesh, elapsed for others
                 if (current == static_cast<int>(PrintStartPhase::HEATING_BED) ||
                     current == static_cast<int>(PrintStartPhase::HEATING_NOZZLE)) {
                     float frac = compute_heating_fraction();
                     remaining_f += phase_dur * (1.0f - frac);
+                } else if (current == static_cast<int>(PrintStartPhase::BED_MESH) &&
+                           mesh_probe_total_ > 0 && mesh_seconds_per_probe_ > 0.0f) {
+                    // Live per-probe time extrapolation overrides historical prediction
+                    int probes_left = mesh_probe_total_ - mesh_probe_current_;
+                    remaining_f += mesh_seconds_per_probe_ * static_cast<float>(probes_left);
                 } else {
                     remaining_f += std::max(0.0f, phase_dur - static_cast<float>(phase_elapsed));
                 }
@@ -1046,6 +1204,46 @@ float PrintStartCollector::compute_heating_fraction() const {
         }
     }
     return 0.0f;
+}
+
+void PrintStartCollector::query_mesh_probe_count() {
+    if (!active_.load())
+        return;
+
+    auto self = shared_from_this();
+    json params = {{"objects", json::object({{"configfile", json::array({"settings"})}})}};
+
+    client_.send_jsonrpc(
+        "printer.objects.query", params,
+        [self](json response) {
+            if (!self->active_.load())
+                return;
+
+            int total = 0;
+            try {
+                const auto& settings = response["result"]["status"]["configfile"]["settings"];
+                if (settings.contains("bed_mesh") && settings["bed_mesh"].contains("probe_count")) {
+                    const auto& pc = settings["bed_mesh"]["probe_count"];
+                    if (pc.is_array() && pc.size() >= 2) {
+                        total = pc[0].template get<int>() * pc[1].template get<int>();
+                    } else if (pc.is_number_integer()) {
+                        int n = pc.template get<int>();
+                        total = n * n; // square grid
+                    }
+                }
+            } catch (...) {
+                // Non-fatal — fallback mode continues without total
+            }
+
+            if (total > 0) {
+                std::lock_guard<std::mutex> lock(self->state_mutex_);
+                self->mesh_probe_total_ = total;
+                spdlog::info("[PrintStartCollector] Mesh probe count from config: {}", total);
+            }
+        },
+        [](const MoonrakerError& /*err*/) {
+            spdlog::debug("[PrintStartCollector] Failed to query bed_mesh probe_count");
+        });
 }
 
 void PrintStartCollector::save_prediction_entry() {

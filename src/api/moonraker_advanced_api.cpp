@@ -7,6 +7,7 @@
 #include "ui_notification.h"
 
 #include "accel_sensor_manager.h"
+#include "bed_mesh_probe_parser.h"
 #include "json_utils.h"
 #include "moonraker_api.h"
 #include "shaper_csv_parser.h"
@@ -1565,29 +1566,12 @@ class BedMeshProgressCollector : public std::enable_shared_from_this<BedMeshProg
 
   private:
     void parse_probe_line(const std::string& line) {
-        // Static regex for performance - handles formats:
-        // "Probing point 5/25", "Probe point 5 of 25", "Probing mesh point 5/25"
-        static const std::regex probe_regex(
-            R"(Prob(?:ing (?:mesh )?point|e point) (\d+)[/\s]+(?:of\s+)?(\d+))");
-
-        std::smatch match;
-        if (std::regex_search(line, match, probe_regex) && match.size() == 3) {
-            try {
-                int current = std::stoi(match[1].str());
-                int total = std::stoi(match[2].str());
-
-                // Update tracked values
-                current_probe_ = current;
-                total_probes_ = total;
-
-                spdlog::debug("[BedMeshProgressCollector] Progress: {}/{}", current, total);
-
-                // Invoke progress callback
-                if (on_progress_) {
-                    on_progress_(current, total);
-                }
-            } catch (const std::exception& e) {
-                spdlog::warn("[BedMeshProgressCollector] Failed to parse values: {}", e.what());
+        if (auto pp = helix::parse_probe_progress(line)) {
+            current_probe_ = pp->current;
+            total_probes_ = pp->total;
+            spdlog::debug("[BedMeshProgressCollector] Progress: {}/{}", pp->current, pp->total);
+            if (on_progress_) {
+                on_progress_(pp->current, pp->total);
             }
             return;
         }
@@ -1595,15 +1579,11 @@ class BedMeshProgressCollector : public std::enable_shared_from_this<BedMeshProg
         // Fallback: count "probe at X,Y is z=Z" lines (standard Klipper probe
         // output).  Some firmware variants don't emit the "Probing point X/Y"
         // progress line but do emit per-probe result lines.
-        if (line.find("probe at ") != std::string::npos &&
-            line.find(" is z=") != std::string::npos) {
+        if (helix::is_probe_result_line(line)) {
             probe_at_count_++;
             spdlog::debug("[BedMeshProgressCollector] Probe result line #{} (expected: {})",
                           probe_at_count_, expected_probes_);
-
             if (on_progress_) {
-                // Use expected_probes_ from configfile query as denominator.
-                // 0 = unknown → indeterminate spinner in UI.
                 on_progress_(probe_at_count_, expected_probes_);
             }
         }

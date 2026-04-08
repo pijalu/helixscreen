@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include "bed_mesh_probe_parser.h"
 #include "moonraker_client.h"
 #include "preprint_predictor.h"
 #include "print_start_profile.h"
@@ -249,6 +250,21 @@ class PrintStartCollector : public std::enable_shared_from_this<PrintStartCollec
     int last_remaining_ = 0;           ///< For monotonic bias
     bool fallback_completion_ = false; ///< True if COMPLETE was triggered by timeout fallback
 
+    // Bed mesh probe tracking (protected by state_mutex_)
+    // Parsed from G-code responses during BED_MESH phase to provide sub-phase
+    // progress and per-probe time extrapolation for ETA.
+    int mesh_probe_current_ = 0;
+    int mesh_probe_total_ = 0;
+    int mesh_probe_fallback_count_ = 0; ///< Fallback counter for "probe at" lines
+    std::chrono::steady_clock::time_point mesh_first_probe_time_;
+    std::chrono::steady_clock::time_point mesh_last_probe_time_;
+    float mesh_seconds_per_probe_ = 0.0f; ///< Running average from observed probe intervals
+
+    /// Max gap between consecutive probe lines before resetting counters.
+    /// Handles printers that emit "probe at" for non-mesh operations (e.g.
+    /// nozzle wipe) before the actual mesh calibration begins.
+    static constexpr auto MESH_PROBE_GAP_RESET = std::chrono::seconds(30);
+
     // LVGL timer for periodic ETA updates (main thread only)
     lv_timer_t* eta_timer_ = nullptr;
     static constexpr uint32_t ETA_UPDATE_INTERVAL_MS = 5000;
@@ -257,6 +273,14 @@ class PrintStartCollector : public std::enable_shared_from_this<PrintStartCollec
      * @brief Update ETA display from timer callback (main thread)
      */
     void update_eta_display();
+
+    /**
+     * @brief Query configfile for bed_mesh probe_count to get expected total
+     *
+     * Fires an async query when entering BED_MESH phase. The response sets
+     * mesh_probe_total_ for deterministic progress and ETA extrapolation.
+     */
+    void query_mesh_probe_count();
 
     /**
      * @brief Feed current temperature readings to ThermalRateModel during heating phases
