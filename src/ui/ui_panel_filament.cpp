@@ -1203,6 +1203,15 @@ void FilamentPanel::update_multi_filament_card_visibility() {
         }
     }
 
+    // Center the external spool row within the card when in external spool mode
+    if (external_spool_mode) {
+        lv_obj_set_style_flex_main_place(ams_status_card_, LV_FLEX_ALIGN_CENTER, 0);
+        lv_obj_set_style_flex_cross_place(ams_status_card_, LV_FLEX_ALIGN_CENTER, 0);
+    } else {
+        lv_obj_set_style_flex_main_place(ams_status_card_, LV_FLEX_ALIGN_START, 0);
+        lv_obj_set_style_flex_cross_place(ams_status_card_, LV_FLEX_ALIGN_START, 0);
+    }
+
     // Update card title dynamically (for AMS/multi-tool modes)
     const char* title = external_spool_mode ? lv_tr("External Spool") : lv_tr("Multi-Filament");
     std::strncpy(card_title_buf_, title, sizeof(card_title_buf_) - 1);
