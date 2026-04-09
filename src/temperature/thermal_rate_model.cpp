@@ -132,24 +132,24 @@ void ThermalRateManager::save_to_config(helix::Config& config) {
 }
 
 void ThermalRateManager::apply_archetype_defaults(float bed_x_max) {
-    // Extruder: universal default
-    models_["extruder"].set_default_rate(0.4f);
+    // Extruder: most hotends heat at 0.2-0.3 s/°C (e.g. AD5M does 183°C in ~40s)
+    models_["extruder"].set_default_rate(0.25f);
 
-    // Bed: size-dependent defaults
+    // Bed: size-dependent defaults (larger beds heat slower)
     float bed_rate;
     if (bed_x_max >= 350.0f) {
-        bed_rate = 2.0f;
+        bed_rate = 2.0f; // Large beds (350mm+)
     } else if (bed_x_max >= 250.0f) {
-        bed_rate = 1.5f;
+        bed_rate = 1.5f; // Medium beds (250-350mm)
     } else if (bed_x_max > 0.0f) {
-        bed_rate = 1.2f;
+        bed_rate = 1.0f; // Small beds (<250mm, e.g. AD5M ~235mm)
     } else {
         // Unknown size
-        bed_rate = 1.5f;
+        bed_rate = 1.2f;
     }
     models_["heater_bed"].set_default_rate(bed_rate);
 
-    spdlog::info("thermal: archetype defaults — extruder=0.4, bed={:.1f} (bed_x_max={:.0f})",
+    spdlog::info("thermal: archetype defaults — extruder=0.25, bed={:.1f} (bed_x_max={:.0f})",
                  bed_rate, bed_x_max);
 }
 

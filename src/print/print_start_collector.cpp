@@ -90,6 +90,8 @@ void PrintStartCollector::start() {
         mesh_first_probe_time_ = {};
         mesh_last_probe_time_ = {};
         mesh_seconds_per_probe_ = 0.0f;
+        pre_mesh_probe_count_ = 0;
+        pre_mesh_last_probe_time_ = {};
         // Snapshot stale subject values so fallbacks only trigger on real changes
         baseline_layer_ = lv_subject_get_int(state_.get_print_layer_current_subject());
         baseline_progress_ = lv_subject_get_int(state_.get_print_progress_subject());
@@ -286,6 +288,8 @@ void PrintStartCollector::reset() {
         mesh_first_probe_time_ = {};
         mesh_last_probe_time_ = {};
         mesh_seconds_per_probe_ = 0.0f;
+        pre_mesh_probe_count_ = 0;
+        pre_mesh_last_probe_time_ = {};
     }
     fallbacks_enabled_.store(false);
 
@@ -343,6 +347,25 @@ void PrintStartCollector::check_fallback_completion() {
     cached_ext_target_.store(ext_target / 10, std::memory_order_relaxed);
     cached_bed_temp_.store(bed_temp / 10, std::memory_order_relaxed);
     cached_bed_target_.store(bed_target / 10, std::memory_order_relaxed);
+
+    // Recompute predicted weights when heater targets increase from 0.
+    // This handles macros that heat bed first, then issue M109 later —
+    // at start() time the nozzle target is 0, so HEATING_NOZZLE gets no weight.
+    // Only recompute on 0→positive transitions to avoid churn from temporary
+    // M104 S0 (nozzle cooldown for probe cleaning) that would remove the
+    // heating phase and cause progress regression.
+    {
+        int new_ext = ext_target / 10;
+        int new_bed = bed_target / 10;
+        bool ext_newly_set = (weights_ext_target_ == 0 && new_ext > 0);
+        bool bed_newly_set = (weights_bed_target_ == 0 && new_bed > 0);
+        if (ext_newly_set || bed_newly_set) {
+            spdlog::info("[PrintStartCollector] Heater targets changed "
+                         "(ext: {}→{}°C, bed: {}→{}°C), recomputing weights",
+                         weights_ext_target_, new_ext, weights_bed_target_, new_bed);
+            compute_predicted_weights();
+        }
+    }
 
     // Temps are in decidegrees (value * 10), targets may be 0 if not set
     bool bed_heating = bed_target > 0 && bed_temp < bed_target - TEMP_TOLERANCE_DECIDEGREES;
@@ -419,6 +442,20 @@ void PrintStartCollector::check_fallback_completion() {
                      progress, baseline_progress_);
         update_phase(PrintStartPhase::COMPLETE, lv_tr("Starting Print..."));
         return;
+    }
+
+    // Suppress timeout while mesh probing is actively progressing.
+    // During mesh, the nozzle target may be 0 (macro cleared it for cooldown),
+    // making temps_near unreliable. Active probing = we're making real progress.
+    {
+        std::lock_guard<std::mutex> lock(state_mutex_);
+        if (current_phase_ == PrintStartPhase::BED_MESH &&
+            (mesh_probe_current_ > 0 || mesh_probe_fallback_count_ > 0)) {
+            auto since_last = std::chrono::steady_clock::now() - mesh_last_probe_time_;
+            if (since_last < MESH_PROBE_GAP_RESET) {
+                return; // Active probing — don't timeout
+            }
+        }
     }
 
     // Fallback 3: Adaptive timeout with temp awareness
@@ -561,10 +598,71 @@ void PrintStartCollector::on_gcode_response(const json& msg) {
             in_mesh = (current_phase_ == PrintStartPhase::BED_MESH);
         }
 
-        // If we see a probe line but aren't in BED_MESH yet, enter the phase
-        if (!in_mesh && (helix::parse_probe_progress(line) || helix::is_probe_result_line(line))) {
-            update_phase(PrintStartPhase::BED_MESH, lv_tr("Bed Mesh..."));
-            in_mesh = true;
+        bool is_probe_line =
+            !in_mesh && (helix::parse_probe_progress(line) || helix::is_probe_result_line(line));
+
+        // If we see a probe line but aren't in BED_MESH yet, buffer probes
+        // before entering the phase. Some printers (e.g. AD5M Klipper mod)
+        // emit 1-2 PROBE commands for nozzle wipe before mesh calibration.
+        // Require MESH_PROBE_ENTRY_THRESHOLD consecutive probes to confirm
+        // this is actual mesh probing, not an isolated operation.
+        if (is_probe_line) {
+            bool should_enter = false;
+            {
+                std::lock_guard<std::mutex> lock(state_mutex_);
+                auto now = std::chrono::steady_clock::now();
+
+                // Gap reset for pre-mesh buffer
+                if (pre_mesh_probe_count_ > 0 &&
+                    (now - pre_mesh_last_probe_time_) > MESH_PROBE_GAP_RESET) {
+                    spdlog::debug("[PrintStartCollector] Pre-mesh probe gap reset "
+                                  "({}s since last probe)",
+                                  std::chrono::duration_cast<std::chrono::seconds>(
+                                      now - pre_mesh_last_probe_time_)
+                                      .count());
+                    pre_mesh_probe_count_ = 0;
+                }
+
+                pre_mesh_probe_count_++;
+                pre_mesh_last_probe_time_ = now;
+
+                if (pre_mesh_probe_count_ >= MESH_PROBE_ENTRY_THRESHOLD) {
+                    should_enter = true;
+                    // Seed mesh tracking with buffered count so probes aren't lost
+                    mesh_probe_fallback_count_ = pre_mesh_probe_count_;
+                    mesh_probe_current_ = pre_mesh_probe_count_;
+                    mesh_first_probe_time_ = now;
+                    mesh_last_probe_time_ = now;
+                } else {
+                    spdlog::debug("[PrintStartCollector] Pre-mesh probe {}/{} (buffering)",
+                                  pre_mesh_probe_count_, MESH_PROBE_ENTRY_THRESHOLD);
+                }
+            }
+
+            if (should_enter) {
+                update_phase(PrintStartPhase::BED_MESH, lv_tr("Bed Mesh..."));
+                in_mesh = true;
+                // This probe line was already counted in the buffer transfer above,
+                // so skip the per-probe counting below and return.
+                char msg_buf[64];
+                int count, total;
+                {
+                    std::lock_guard<std::mutex> lock(state_mutex_);
+                    count = mesh_probe_fallback_count_;
+                    total = mesh_probe_total_;
+                }
+                if (total > 0) {
+                    snprintf(msg_buf, sizeof(msg_buf), "%s (%d/%d)", lv_tr("Bed Mesh"), count,
+                             total);
+                } else {
+                    snprintf(msg_buf, sizeof(msg_buf), "%s (%d)", lv_tr("Bed Mesh"), count);
+                }
+                state_.set_print_start_state(PrintStartPhase::BED_MESH, msg_buf,
+                                             calculate_progress());
+                return;
+            }
+            // Below threshold — don't enter BED_MESH yet, skip probe counting
+            return;
         }
 
         if (in_mesh) {
@@ -1127,14 +1225,31 @@ void PrintStartCollector::update_eta_display() {
             }
         }
     }
+    // Strict monotonic guard: remaining time should never increase.
+    // Weight recomputation (e.g. new heater target discovered) can cause
+    // a large upward spike that looks jarring on screen. The underlying
+    // estimate will naturally catch up as heating progresses.
+    if (last_remaining_ > 0 && remaining > last_remaining_) {
+        spdlog::debug("[PrintStartCollector] Clamping remaining {}s→{}s (monotonic)", remaining,
+                      last_remaining_);
+        remaining = last_remaining_;
+    }
     last_remaining_ = remaining;
 
     state_.set_preprint_remaining_seconds(remaining);
     if (predicted_total > 0) {
         int effective_progress = calculate_progress();
+        // Monotonic progress: never go backwards. When weights recompute
+        // (e.g. new heater target discovered), the progress may recalculate
+        // lower against a larger predicted total. Users should never see
+        // the progress bar regress.
         auto* subj = state_.get_print_start_progress_subject();
-        if (subj && lv_subject_get_int(subj) != effective_progress) {
-            lv_subject_set_int(subj, effective_progress);
+        if (subj) {
+            int current_progress = lv_subject_get_int(subj);
+            effective_progress = std::max(effective_progress, current_progress);
+            if (effective_progress != current_progress) {
+                lv_subject_set_int(subj, effective_progress);
+            }
         }
     }
 
@@ -1233,6 +1348,14 @@ void PrintStartCollector::compute_predicted_weights() {
             durations[homing] = 20.0f;
         }
 
+        // When nozzle target is unknown (common with bed-first macros that
+        // issue M109 after homing/mesh), include a placeholder so progress
+        // doesn't over-inflate by assigning all weight to known phases.
+        int nozzle_phase = static_cast<int>(PrintStartPhase::HEATING_NOZZLE);
+        if (ext_target == 0 && durations.find(nozzle_phase) == durations.end()) {
+            durations[nozzle_phase] = 60.0f; // Conservative placeholder
+        }
+
         predicted_total_seconds_ = 0.0f;
         for (const auto& [_, dur] : durations) {
             predicted_total_seconds_ += dur;
@@ -1246,8 +1369,14 @@ void PrintStartCollector::compute_predicted_weights() {
         }
     }
 
-    spdlog::debug("[PrintStartCollector] Predicted weights: total={:.0f}s, {} phases",
-                  predicted_total_seconds_, predicted_phase_weights_.size());
+    // Track targets used so we can detect changes and recompute
+    weights_ext_target_ = ext_target;
+    weights_bed_target_ = bed_target;
+
+    spdlog::debug("[PrintStartCollector] Predicted weights: total={:.0f}s, {} phases "
+                  "(ext_target={}°C, bed_target={}°C)",
+                  predicted_total_seconds_, predicted_phase_weights_.size(), ext_target,
+                  bed_target);
 }
 
 float PrintStartCollector::compute_heating_fraction() const {

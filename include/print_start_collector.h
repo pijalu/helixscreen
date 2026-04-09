@@ -280,6 +280,19 @@ class PrintStartCollector : public std::enable_shared_from_this<PrintStartCollec
     /// nozzle wipe) before the actual mesh calibration begins.
     static constexpr auto MESH_PROBE_GAP_RESET = std::chrono::seconds(30);
 
+    // Pre-mesh probe buffering: don't auto-enter BED_MESH from probe lines
+    // until we've seen enough consecutive probes to distinguish mesh calibration
+    // from isolated PROBE commands (e.g. nozzle wipe on AD5M Klipper mod).
+    int pre_mesh_probe_count_ = 0;
+    std::chrono::steady_clock::time_point pre_mesh_last_probe_time_;
+    static constexpr int MESH_PROBE_ENTRY_THRESHOLD = 3;
+
+    // Targets used in last compute_predicted_weights() call — used to detect
+    // when heater targets change (e.g. macro issues M109 after bed-first heating)
+    // and weights need recomputing to include the new heating phase.
+    int weights_ext_target_ = 0;
+    int weights_bed_target_ = 0;
+
     // LVGL timer for periodic ETA updates (main thread only)
     lv_timer_t* eta_timer_ = nullptr;
     static constexpr uint32_t ETA_UPDATE_INTERVAL_MS = 5000;

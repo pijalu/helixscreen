@@ -31,8 +31,9 @@ class ThermalRateModel {
     static constexpr float SAVE_NEW_WEIGHT = 0.7f; // Weight for current measurement when saving
     static constexpr float SAVE_OLD_WEIGHT = 0.3f; // Weight for historical rate when saving
 
-    // Fallback when no history or measurement exists
-    static constexpr float FALLBACK_DEFAULT_RATE = 0.5f; // s/°C (reasonable extruder default)
+    // Fallback when no history or measurement exists.
+    // Most extruders heat at ~0.2-0.3 s/°C, beds at ~1.0-2.0 s/°C.
+    static constexpr float FALLBACK_DEFAULT_RATE = 0.25f; // s/°C (typical extruder)
 
     /// Feed a temperature sample. tick_ms should be monotonically increasing.
     void record_sample(float temp_c, uint32_t tick_ms);

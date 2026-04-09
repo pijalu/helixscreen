@@ -161,12 +161,12 @@ TEST_CASE("ThermalRateManager estimate_heating_seconds", "[thermal_rate]") {
 TEST_CASE("ThermalRateManager apply_archetype_defaults", "[thermal_rate]") {
     ThermalRateManager manager;
     manager.apply_archetype_defaults(350.0f);
-    REQUIRE(manager.get_model("extruder").best_rate() == Catch::Approx(0.4f));
+    REQUIRE(manager.get_model("extruder").best_rate() == Catch::Approx(0.25f));
     REQUIRE(manager.get_model("heater_bed").best_rate() == Catch::Approx(2.0f));
 
     ThermalRateManager manager2;
     manager2.apply_archetype_defaults(235.0f);
-    REQUIRE(manager2.get_model("heater_bed").best_rate() == Catch::Approx(1.2f));
+    REQUIRE(manager2.get_model("heater_bed").best_rate() == Catch::Approx(1.0f));
 }
 
 // ============================================================================

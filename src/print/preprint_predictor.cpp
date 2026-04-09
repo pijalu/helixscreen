@@ -99,12 +99,12 @@ std::vector<double> PreprintPredictor::compute_weights() const {
 
 std::map<int, int> PreprintPredictor::default_phase_durations() {
     return {
-        {static_cast<int>(PrintStartPhase::HOMING), 20},
+        {static_cast<int>(PrintStartPhase::HOMING), 30},
         {static_cast<int>(PrintStartPhase::BED_MESH), 90},
         {static_cast<int>(PrintStartPhase::QGL), 60},
         {static_cast<int>(PrintStartPhase::Z_TILT), 45},
-        {static_cast<int>(PrintStartPhase::CLEANING), 15},
-        {static_cast<int>(PrintStartPhase::PURGING), 10},
+        {static_cast<int>(PrintStartPhase::CLEANING), 20},
+        {static_cast<int>(PrintStartPhase::PURGING), 15},
     };
 }
 
