@@ -153,6 +153,7 @@ translations:
   Auto-Detect: 自动检测
   Auto-Heat on Load: 加载时自动加热
   Auto-detect: 自动检测
+  Auto-detect (default): ''
   Auto-lock: 自动锁定
   Auto-poll for weight updates: 自动轮询重量更新
   Auto-probe or manually check screw heights: 自动探测或手动检查螺丝高度
@@ -170,12 +171,15 @@ translations:
   Back: 返回
   Back to Results: 返回结果
   Barcode Scanner: 条码扫描器
+  Beacon auto-calibrate sent: Beacon自动校准已发送
+  Beacon calibrate sent: Beacon校准已发送
   Bed: 热床
   Bed Heater: 热床加热器
   Bed Level: 热床调平
   Bed Leveling: 热床调平
   Bed Mesh: 热床网格
   Bed Mesh Render: 热床网格渲染
+  Bed Mesh...: ''
   Bed Moves: 热床移动
   Bed Screw Adjustment: 热床螺丝调整
   Bed Screws: 热床螺丝
@@ -274,6 +278,8 @@ translations:
   'Cannot start print: internal error': '无法开始打印: 内部错误'
   'Cannot start print: not connected to printer': '无法开始打印: 未连接打印机'
   'Cannot start print: printer is {}': '无法开始打印: 打印机状态为 {}'
+  Cartographer scan calibrate sent — use Z-Offset panel to adjust: 'Cartographer扫描校准已发送 — 使用Z偏移面板进行调整'
+  Cartographer touch calibrate sent: Cartographer触摸校准已发送
   Center QR code in frame: 将 QR 码对准画面中央
   'Chamb:': '腔:'
   Chamber: 腔体
@@ -444,6 +450,7 @@ translations:
   Date (newest): 日期（最新）
   Date (oldest): 日期（最早）
   Day: 日
+  Debug: 调试
   Default border thickness: 默认边框厚度
   Define macros in your printer.cfg: 在 printer.cfg 中定义宏
   Delete: 删除
@@ -801,6 +808,7 @@ translations:
   Inactive: 未激活
   Include Klipper/Moonraker logs: 包含 Klipper/Moonraker 日志
   Indexing G-code...: 正在索引 G-code...
+  Info: 信息
   Initializing...: 初始化中...
   Input: 输入
   Input Shaper: 输入整形器
@@ -899,6 +907,7 @@ translations:
   Lock B: 锁定 B
   Lock screen after idle timeout: 空闲超时后锁定屏幕
   Locked during print: 打印期间锁定
+  Log Level: 日志级别
   Loosen Path A belt.: 松开路径A的皮带。
   Loosen Path B belt.: 松开路径B的皮带。
   'Lot # (optional)': 批号（可选）
@@ -951,6 +960,7 @@ translations:
   Material: 材料
   Material Comfort: 材料舒适度
   Material Design Spinner: Material Design 加载动画
+  Material Mismatch: ''
   Material Temperatures: 材料温度
   Max: 最大
   Max Accel: 最大加速
@@ -1042,6 +1052,7 @@ translations:
   No buffer data available: 无可用缓冲区数据
   No changes selected.\n\nClick Cancel to close.: 未选择任何更改。\n\n点击取消以关闭。
   No changes to revert: 没有可撤销的更改
+  No devices detected.: ''
   No dryer available. Store filament in a sealed dry box with desiccant for best results.: 无可用烘干机。建议将耗材存放在带干燥剂的密封干燥箱中。
   No effects available: 无可用特效
   No events queued: 无排队事件
@@ -1152,6 +1163,7 @@ translations:
   PROBE SENSORS: 探针传感器
   Pair: 配对
   Pair Bluetooth Printer: 配对蓝牙打印机
+  Pair Bluetooth Scanner: ''
   Pair with: 配对
   Paired: 已配对
   Paired successfully: 配对成功
@@ -1194,6 +1206,8 @@ translations:
   Please enter an IP address or hostname.: 请输入 IP 地址或主机名。
   Please wait while the printer homes and probes.: 请等待打印机归位和探测。
   Please wait while the printer probes each screw position.: 请等待打印机探测每个螺丝位置。
+  Plug in a USB scanner and tap Refresh, or scan for Bluetooth devices.: ''
+  Plug in a USB scanner and tap Refresh.: ''
   Plug in your scanner and tap Refresh.: 插入扫描器并点击刷新。
   Plugin already installed: 插件已安装
   Plugin disabled: 插件已禁用
@@ -1274,6 +1288,7 @@ translations:
   Printing: 正在打印
   Printing label...: 正在打印标签...
   Printing test label...: 正在打印测试标签...
+  'Printing with the wrong material can cause clogs, poor adhesion, ': ''
   Prints: 打印次数
   Prints Trend: 打印趋势
   'Private:': 私有：
@@ -1442,6 +1457,7 @@ translations:
   Save Z-Offset?: 保存 Z 偏移？
   Save changes to persist them across restarts?: 保存更改以便在重启后保留？
   'Save failed: {}': '保存失败: {}'
+  Saved: ''
   Saved Z-Offset: 已保存 Z 偏移
   Saved to crash_report.txt (QR not available): 已保存到 crash_report.txt（二维码不可用）
   Saved to printer configuration.: 已保存到打印机配置。
@@ -1450,6 +1466,7 @@ translations:
   Saving Z-offset...: 正在保存 Z 偏移...
   Saving config... Klipper will restart.: 正在保存配置... Klipper 将重启。
   Saving will restart Klipper and CANCEL any active print!: 保存将重启 Klipper 并取消任何正在进行的打印！
+  Scan Bluetooth: ''
   Scan Cal: 扫描校准
   Scan QR Code: 扫描 QR 码
   Scan Spool QR Code: 扫描料盘 QR 码
@@ -1511,6 +1528,7 @@ translations:
   Set Active: 设为活动
   Set PIN: 设置 PIN
   Set local timezone for time display: 设置本地时区以显示时间
+  Set logging verbosity for troubleshooting: 设置日志详细级别以便故障排除
   Set up your label printer in Settings: 在设置中配置标签打印机
   Settings: 设置
   Settings reset to defaults. Restarting...: 设置已重置为默认值。正在重启...
@@ -1605,6 +1623,7 @@ translations:
   Stop Drying: 停止干燥
   Stop Print?: 停止打印？
   Stop failed: 停止失败
+  Stops all motion: 停止所有运动
   Stops all motion. Requires firmware restart.: 停止所有运动。需要固件重启。
   Stow: 收回
   Strobe LED: 频闪LED
@@ -1675,10 +1694,12 @@ translations:
   Theme changes apply after restart.: 主题更改在重启后生效。
   Theme reset to defaults: 主题已重置为默认值
   Theme, brightness, and sleep settings: 主题、亮度和休眠设置
+  'These tools have incompatible materials loaded:': ''
   'These tools have no matching filament loaded:': 以下工具未加载匹配的耗材：
   This calibration uses the paper friction method to set your Z-offset.: 此校准使用纸张摩擦法设置
     Z 偏移。
   This cannot be undone.: 此操作无法撤销。
+  This file was sliced for {} but {} is loaded.: ''
   This is exactly the data that will be sent: 这正是将要发送的数据
   This is what data would be sent if enabled: 这是启用后将发送的数据
   This may take up to 30 seconds: 这可能需要 30 秒
@@ -1737,6 +1758,7 @@ translations:
   Touch screen to wake from sleep: 触摸屏幕唤醒
   Touch the target (point %1$d of 3) \xe2\x80\x94 touch %2$d of %3$d: 触摸目标（第 %1$d
     个点，共 3 个）\xe2\x80\x94 触摸 %2$d / %3$d
+  Trace: 跟踪
   Travels: 空驶
   'Troubleshooting:': 故障排除：
   Try adjusting your search or filters: 尝试调整搜索或筛选条件
@@ -1785,6 +1807,7 @@ translations:
   Upload gcode files to get started: 上传 gcode 文件开始使用
   Use G10/G11 firmware retraction: 使用 G10/G11 固件回抽
   Use printer type to select image: 使用打印机类型选择图片
+  Uses name-based priority: ''
   Value must be between {:.0f} and {:.0f}: 值必须在 {:.0f} 到 {:.0f} 之间
   Velocity and acceleration limits: 速度和加速度限制
   Vendor: 供应商
@@ -1817,6 +1840,7 @@ translations:
   Waiting for bed to reach temperature for accurate calibration.: 等待热床达到温度以进行精确校准。
   Warm Bed: 预热热床
   Warming Bed...: 正在预热热床...
+  Warn: 警告
   Warning: 警告
   Weak battery: 电池电量低
   Webcam: 摄像头
@@ -1892,6 +1916,7 @@ translations:
   'Z:': 'Z:'
   'Z: 0.000': 'Z: 0.000'
   Zoom: 缩放
+  bed: ''
   by Preston Brown: by Preston Brown
   disable: 禁用
   disabled: 已禁用
@@ -1903,7 +1928,9 @@ translations:
   layers: 层
   left: 剩余
   mm before clog: 毫米后堵料
+  needs: ''
   not detected: 未检测到
+  nozzle: ''
   of: 的
   'off': 关闭
   prints: 打印次数

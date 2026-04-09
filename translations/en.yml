@@ -162,6 +162,7 @@ translations:
   Auto-Detect: Auto-Detect
   Auto-Heat on Load: Auto-Heat on Load
   Auto-detect: Auto-detect
+  Auto-detect (default): Auto-detect (default)
   Auto-lock: Auto-lock
   Auto-poll for weight updates: Auto-poll for weight updates
   Auto-probe or manually check screw heights: Auto-probe or manually check screw heights
@@ -179,12 +180,15 @@ translations:
   Back: Back
   Back to Results: Back to Results
   Barcode Scanner: Barcode Scanner
+  Beacon auto-calibrate sent: Beacon auto-calibrate sent
+  Beacon calibrate sent: Beacon calibrate sent
   Bed: Bed
   Bed Heater: Bed Heater
   Bed Level: Bed Level
   Bed Leveling: Bed Leveling
   Bed Mesh: Bed Mesh
   Bed Mesh Render: Bed Mesh Render
+  Bed Mesh...: Bed Mesh...
   Bed Moves: Bed Moves
   Bed Screw Adjustment: Bed Screw Adjustment
   Bed Screws: Bed Screws
@@ -299,6 +303,9 @@ translations:
   'Cannot start print: not connected to printer': 'Cannot start print: not connected
     to printer'
   'Cannot start print: printer is {}': 'Cannot start print: printer is {}'
+  Cartographer scan calibrate sent — use Z-Offset panel to adjust: Cartographer scan
+    calibrate sent — use Z-Offset panel to adjust
+  Cartographer touch calibrate sent: Cartographer touch calibrate sent
   Center QR code in frame: Center QR code in frame
   'Chamb:': 'Chamb:'
   Chamber: Chamber
@@ -488,6 +495,7 @@ translations:
   Date (newest): Date (newest)
   Date (oldest): Date (oldest)
   Day: Day
+  Debug: Debug
   Default border thickness: Default border thickness
   Define macros in your printer.cfg: Define macros in your printer.cfg
   Delete: Delete
@@ -865,6 +873,7 @@ translations:
   Inactive: Inactive
   Include Klipper/Moonraker logs: Include Klipper/Moonraker logs
   Indexing G-code...: Indexing G-code...
+  Info: Info
   Initializing...: Initializing...
   Input: Input
   Input Shaper: Input Shaper
@@ -973,6 +982,7 @@ translations:
   Lock B: Lock B
   Lock screen after idle timeout: Lock screen after idle timeout
   Locked during print: Locked during print
+  Log Level: Log Level
   Loosen Path A belt.: Loosen Path A belt.
   Loosen Path B belt.: Loosen Path B belt.
   'Lot # (optional)': 'Lot # (optional)'
@@ -1028,6 +1038,7 @@ translations:
   Material: Material
   Material Comfort: Material Comfort
   Material Design Spinner: Material Design Spinner
+  Material Mismatch: Material Mismatch
   Material Temperatures: Material Temperatures
   Max: Max
   Max Accel: Max Accel
@@ -1126,6 +1137,7 @@ translations:
   No changes selected.\n\nClick Cancel to close.: No changes selected.\n\nClick Cancel
     to close.
   No changes to revert: No changes to revert
+  No devices detected.: No devices detected.
   No dryer available. Store filament in a sealed dry box with desiccant for best results.: No
     dryer available. Store filament in a sealed dry box with desiccant for best results.
   No effects available: No effects available
@@ -1244,6 +1256,7 @@ translations:
   PROBE SENSORS: PROBE SENSORS
   Pair: Pair
   Pair Bluetooth Printer: Pair Bluetooth Printer
+  Pair Bluetooth Scanner: Pair Bluetooth Scanner
   Pair with: Pair with
   Paired: Paired
   Paired successfully: Paired successfully
@@ -1289,6 +1302,9 @@ translations:
     and probes.
   Please wait while the printer probes each screw position.: Please wait while the
     printer probes each screw position.
+  Plug in a USB scanner and tap Refresh, or scan for Bluetooth devices.: Plug in a
+    USB scanner and tap Refresh, or scan for Bluetooth devices.
+  Plug in a USB scanner and tap Refresh.: Plug in a USB scanner and tap Refresh.
   Plug in your scanner and tap Refresh.: Plug in your scanner and tap Refresh.
   Plugin already installed: Plugin already installed
   Plugin disabled: Plugin disabled
@@ -1371,6 +1387,8 @@ translations:
   Printing: Printing
   Printing label...: Printing label...
   Printing test label...: Printing test label...
+  'Printing with the wrong material can cause clogs, poor adhesion, ': 'Printing with
+    the wrong material can cause clogs, poor adhesion, '
   Prints: Prints
   Prints Trend: Prints Trend
   'Private:': 'Private:'
@@ -1551,6 +1569,7 @@ translations:
   Save changes to persist them across restarts?: Save changes to persist them across
     restarts?
   'Save failed: {}': 'Save failed: {}'
+  Saved: Saved
   Saved Z-Offset: Saved Z-Offset
   Saved to crash_report.txt (QR not available): Saved to crash_report.txt (QR not
     available)
@@ -1562,6 +1581,7 @@ translations:
   Saving config... Klipper will restart.: Saving config... Klipper will restart.
   Saving will restart Klipper and CANCEL any active print!: Saving will restart Klipper
     and CANCEL any active print!
+  Scan Bluetooth: Scan Bluetooth
   Scan Cal: Scan Cal
   Scan QR Code: Scan QR Code
   Scan Spool QR Code: Scan Spool QR Code
@@ -1631,6 +1651,7 @@ translations:
   Set Active: Set Active
   Set PIN: Set PIN
   Set local timezone for time display: Set local timezone for time display
+  Set logging verbosity for troubleshooting: Set logging verbosity for troubleshooting
   Set up your label printer in Settings: Set up your label printer in Settings
   Settings: Settings
   Settings reset to defaults. Restarting...: Settings reset to defaults. Restarting...
@@ -1730,6 +1751,7 @@ translations:
   Stop Drying: Stop Drying
   Stop Print?: Stop Print?
   Stop failed: Stop failed
+  Stops all motion: Stops all motion
   Stops all motion. Requires firmware restart.: Stops all motion. Requires firmware
     restart.
   Stow: Stow
@@ -1811,11 +1833,15 @@ translations:
   Theme changes apply after restart.: Theme changes apply after restart.
   Theme reset to defaults: Theme reset to defaults
   Theme, brightness, and sleep settings: Theme, brightness, and sleep settings
+  'These tools have incompatible materials loaded:': 'These tools have incompatible
+    materials loaded:'
   'These tools have no matching filament loaded:': 'These tools have no matching filament
     loaded:'
   This calibration uses the paper friction method to set your Z-offset.: This calibration
     uses the paper friction method to set your Z-offset.
   This cannot be undone.: This cannot be undone.
+  This file was sliced for {} but {} is loaded.: This file was sliced for {} but {}
+    is loaded.
   This is exactly the data that will be sent: This is exactly the data that will be
     sent
   This is what data would be sent if enabled: This is what data would be sent if enabled
@@ -1885,6 +1911,7 @@ translations:
   Touch screen to wake from sleep: Touch screen to wake from sleep
   Touch the target (point %1$d of 3) \xe2\x80\x94 touch %2$d of %3$d: Touch the target
     (point %1$d of 3) \xe2\x80\x94 touch %2$d of %3$d
+  Trace: Trace
   Travels: Travels
   'Troubleshooting:': 'Troubleshooting:'
   Try adjusting your search or filters: Try adjusting your search or filters
@@ -1936,6 +1963,7 @@ translations:
   Upload gcode files to get started: Upload gcode files to get started
   Use G10/G11 firmware retraction: Use G10/G11 firmware retraction
   Use printer type to select image: Use printer type to select image
+  Uses name-based priority: Uses name-based priority
   Value must be between {:.0f} and {:.0f}: Value must be between {:.0f} and {:.0f}
   Velocity and acceleration limits: Velocity and acceleration limits
   Vendor: Vendor
@@ -1969,6 +1997,7 @@ translations:
     to reach temperature for accurate calibration.
   Warm Bed: Warm Bed
   Warming Bed...: Warming Bed...
+  Warn: Warn
   Warning: Warning
   Weak battery: Weak battery
   Webcam: Webcam
@@ -2054,6 +2083,7 @@ translations:
   'Z:': 'Z:'
   'Z: 0.000': 'Z: 0.000'
   Zoom: Zoom
+  bed: bed
   by Preston Brown: by Preston Brown
   disable: disable
   disabled: disabled
@@ -2065,7 +2095,9 @@ translations:
   layers: layers
   left: left
   mm before clog: mm before clog
+  needs: needs
   not detected: not detected
+  nozzle: nozzle
   of: of
   'off': 'off'
   prints: prints

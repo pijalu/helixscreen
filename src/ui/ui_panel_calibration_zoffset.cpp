@@ -15,6 +15,8 @@
 #include "moonraker_api.h"
 #include "observer_factory.h"
 #include "printer_state.h"
+#include "probe_sensor_manager.h"
+#include "probe_sensor_types.h"
 #include "standard_macros.h"
 #include "static_panel_registry.h"
 #include "z_offset_utils.h"
@@ -518,9 +520,27 @@ void ZOffsetCalibrationPanel::begin_probe_sequence() {
             spdlog::info("[ZOffsetCal] Adding nozzle clean: {}", clean_slot.get_macro());
         }
 
-        const char* calibrate_cmd = (strategy == ZOffsetCalibrationStrategy::ENDSTOP)
-                                        ? "Z_ENDSTOP_CALIBRATE"
-                                        : "PROBE_CALIBRATE";
+        const char* calibrate_cmd = nullptr;
+        if (strategy == ZOffsetCalibrationStrategy::ENDSTOP) {
+            calibrate_cmd = "Z_ENDSTOP_CALIBRATE";
+        } else {
+            // Check probe type for probe-specific calibration commands
+            auto& probe_mgr = helix::sensors::ProbeSensorManager::instance();
+            auto sensors = probe_mgr.get_sensors();
+            auto probe_type =
+                sensors.empty() ? helix::sensors::ProbeSensorType::STANDARD : sensors[0].type;
+            switch (probe_type) {
+            case helix::sensors::ProbeSensorType::CARTOGRAPHER:
+                calibrate_cmd = "CARTOGRAPHER_SCAN_CALIBRATE";
+                break;
+            case helix::sensors::ProbeSensorType::BEACON:
+                calibrate_cmd = "BEACON_CALIBRATE";
+                break;
+            default:
+                calibrate_cmd = "PROBE_CALIBRATE";
+                break;
+            }
+        }
         gcode += calibrate_cmd;
 
         spdlog::info("[ZOffsetCal] Starting {} (strategy={})", calibrate_cmd,

@@ -154,6 +154,7 @@ translations:
   Auto-Detect: 自動検出
   Auto-Heat on Load: 装填時に自動加熱
   Auto-detect: 自動検出
+  Auto-detect (default): ''
   Auto-lock: 自動ロック
   Auto-poll for weight updates: 重量更新の自動ポーリング
   Auto-probe or manually check screw heights: 自動プローブまたは手動でネジの高さを確認
@@ -171,12 +172,15 @@ translations:
   Back: 戻る
   Back to Results: 結果に戻る
   Barcode Scanner: バーコードスキャナー
+  Beacon auto-calibrate sent: Beacon自動キャリブレーション送信済み
+  Beacon calibrate sent: Beaconキャリブレーション送信済み
   Bed: ベッド
   Bed Heater: ベッドヒーター
   Bed Level: ベッドレベル
   Bed Leveling: ベッドレベリング
   Bed Mesh: ベッドメッシュ
   Bed Mesh Render: ベッドメッシュ描画
+  Bed Mesh...: ''
   Bed Moves: ベッド移動
   Bed Screw Adjustment: ベッドネジ調整
   Bed Screws: ベッドネジ
@@ -277,6 +281,8 @@ translations:
   'Cannot start print: internal error': '印刷を開始できません: 内部エラー'
   'Cannot start print: not connected to printer': '印刷を開始できません: プリンター未接続'
   'Cannot start print: printer is {}': '印刷を開始できません: プリンターは {} 状態です'
+  Cartographer scan calibrate sent — use Z-Offset panel to adjust: 'Cartographerスキャンキャリブレーション送信済み — Z-Offsetパネルで調整してください'
+  Cartographer touch calibrate sent: Cartographerタッチキャリブレーション送信済み
   Center QR code in frame: QR コードをフレームの中央に合わせてください
   'Chamb:': 'チャンバ:'
   Chamber: チャンバー
@@ -446,6 +452,7 @@ translations:
   Date (newest): 日付（新しい順）
   Date (oldest): 日付（古い順）
   Day: 日
+  Debug: デバッグ
   Default border thickness: デフォルトの境界線の太さ
   Define macros in your printer.cfg: printer.cfg でマクロを定義してください
   Delete: 削除
@@ -801,6 +808,7 @@ translations:
   Inactive: 非アクティブ
   Include Klipper/Moonraker logs: Klipper/Moonrakerのログを含める
   Indexing G-code...: G-codeをインデックス中...
+  Info: 情報
   Initializing...: 初期化中...
   Input: 入力
   Input Shaper: インプットシェーパー
@@ -898,6 +906,7 @@ translations:
   Lock B: ロック B
   Lock screen after idle timeout: アイドルタイムアウト後に画面をロック
   Locked during print: 印刷中はロックされています
+  Log Level: ログレベル
   Loosen Path A belt.: パスAのベルトを緩めてください。
   Loosen Path B belt.: パスBのベルトを緩めてください。
   'Lot # (optional)': ロット番号（オプション）
@@ -950,6 +959,7 @@ translations:
   Material: 素材
   Material Comfort: 素材コンフォート
   Material Design Spinner: マテリアルデザインスピナー
+  Material Mismatch: ''
   Material Temperatures: 素材温度
   Max: 最大
   Max Accel: 最大加速
@@ -1041,6 +1051,7 @@ translations:
   No buffer data available: バッファーデータがありません
   No changes selected.\n\nClick Cancel to close.: 変更が選択されていません。\n\n「キャンセル」をクリックして閉じてください。
   No changes to revert: 元に戻す変更はありません
+  No devices detected.: ''
   No dryer available. Store filament in a sealed dry box with desiccant for best results.: 乾燥機がありません。最良の結果を得るには、乾燥剤入りの密封ドライボックスにフィラメントを保管してください。
   No effects available: 利用可能なエフェクトがありません
   No events queued: キューにイベントはありません
@@ -1152,6 +1163,7 @@ translations:
   PROBE SENSORS: プローブセンサー
   Pair: ペアリング
   Pair Bluetooth Printer: Bluetooth プリンターをペアリング
+  Pair Bluetooth Scanner: ''
   Pair with: ペアリング先
   Paired: ペアリング済み
   Paired successfully: ペアリング成功
@@ -1193,6 +1205,8 @@ translations:
   Please enter an IP address or hostname.: IPアドレスまたはホスト名を入力してください。
   Please wait while the printer homes and probes.: プリンターがホーミングとプローブを行う間お待ちください。
   Please wait while the printer probes each screw position.: プリンターが各ネジ位置をプローブする間お待ちください。
+  Plug in a USB scanner and tap Refresh, or scan for Bluetooth devices.: ''
+  Plug in a USB scanner and tap Refresh.: ''
   Plug in your scanner and tap Refresh.: スキャナーを接続して「更新」をタップしてください。
   Plugin already installed: プラグインは既にインストール済みです
   Plugin disabled: プラグインが無効になりました
@@ -1273,6 +1287,7 @@ translations:
   Printing: 印刷中
   Printing label...: ラベル印刷中...
   Printing test label...: テストラベル印刷中...
+  'Printing with the wrong material can cause clogs, poor adhesion, ': ''
   Prints: 印刷
   Prints Trend: 印刷傾向
   'Private:': 'プライベート:'
@@ -1441,6 +1456,7 @@ translations:
   Save Z-Offset?: Z-Offset を保存しますか？
   Save changes to persist them across restarts?: 再起動後も変更を保持するために保存しますか？
   'Save failed: {}': '保存に失敗しました: {}'
+  Saved: ''
   Saved Z-Offset: 保存されたZ-Offset
   Saved to crash_report.txt (QR not available): crash_report.txt に保存しました（QR 利用不可）
   Saved to printer configuration.: プリンター設定に保存しました。
@@ -1449,6 +1465,7 @@ translations:
   Saving Z-offset...: Zオフセットを保存中...
   Saving config... Klipper will restart.: 設定を保存中... Klipper が再起動します。
   Saving will restart Klipper and CANCEL any active print!: 保存すると Klipper が再起動し、アクティブな印刷がキャンセルされます！
+  Scan Bluetooth: ''
   Scan Cal: スキャンキャリブレーション
   Scan QR Code: QR コードをスキャン
   Scan Spool QR Code: スプール QR コードをスキャン
@@ -1510,6 +1527,7 @@ translations:
   Set Active: アクティブに設定
   Set PIN: PIN を設定
   Set local timezone for time display: 時刻表示用のローカルタイムゾーンを設定
+  Set logging verbosity for troubleshooting: トラブルシューティング用のログの詳細レベルを設定
   Set up your label printer in Settings: 設定でラベルプリンターをセットアップしてください
   Settings: 設定
   Settings reset to defaults. Restarting...: 設定をデフォルトにリセットしました。再起動中...
@@ -1604,6 +1622,7 @@ translations:
   Stop Drying: 乾燥を停止
   Stop Print?: 印刷を停止しますか？
   Stop failed: 停止に失敗
+  Stops all motion: すべての動作を停止
   Stops all motion. Requires firmware restart.: すべての動作を停止します。ファームウェアの再起動が必要です。
   Stow: 格納
   Strobe LED: ストロボLED
@@ -1674,10 +1693,12 @@ translations:
   Theme changes apply after restart.: テーマの変更は再起動後に適用されます。
   Theme reset to defaults: テーマをデフォルトにリセットしました
   Theme, brightness, and sleep settings: テーマ、明るさ、スリープ設定
+  'These tools have incompatible materials loaded:': ''
   'These tools have no matching filament loaded:': 'これらのツールに一致するフィラメントが装填されていません:'
   This calibration uses the paper friction method to set your Z-offset.: このキャリブレーションは紙の摩擦方式を使用して
     Z-offset を設定します。
   This cannot be undone.: この操作は元に戻せません。
+  This file was sliced for {} but {} is loaded.: ''
   This is exactly the data that will be sent: これが送信されるデータです
   This is what data would be sent if enabled: これは有効にした場合に送信されるデータです
   This may take up to 30 seconds: 最大30秒かかる場合があります
@@ -1737,6 +1758,7 @@ translations:
   Touch screen to wake from sleep: 画面をタッチしてスリープ解除
   Touch the target (point %1$d of 3) \xe2\x80\x94 touch %2$d of %3$d: ターゲットをタッチ（ポイント
     %1$d / 3）\xe2\x80\x94 タッチ %2$d / %3$d
+  Trace: トレース
   Travels: 移動
   'Troubleshooting:': 'トラブルシューティング:'
   Try adjusting your search or filters: 検索やフィルターを調整してみてください
@@ -1785,6 +1807,7 @@ translations:
   Upload gcode files to get started: 開始するには gcode ファイルをアップロードしてください
   Use G10/G11 firmware retraction: G10/G11 ファームウェアリトラクションを使用
   Use printer type to select image: プリンタータイプで画像を選択
+  Uses name-based priority: ''
   Value must be between {:.0f} and {:.0f}: 値は {:.0f} から {:.0f} の間で入力してください
   Velocity and acceleration limits: 速度と加速度の制限
   Vendor: ベンダー
@@ -1817,6 +1840,7 @@ translations:
   Waiting for bed to reach temperature for accurate calibration.: 正確なキャリブレーションのためにベッド温度到達を待機中。
   Warm Bed: ベッドを予熱
   Warming Bed...: ベッド予熱中...
+  Warn: 警告
   Warning: 警告
   Weak battery: バッテリー残量低下
   Webcam: ウェブカメラ
@@ -1893,6 +1917,7 @@ translations:
   'Z:': 'Z:'
   'Z: 0.000': 'Z: 0.000'
   Zoom: ズーム
+  bed: ''
   by Preston Brown: by Preston Brown
   disable: 無効化
   disabled: 無効
@@ -1904,7 +1929,9 @@ translations:
   layers: レイヤー
   left: 残り
   mm before clog: 詰まりまでの距離 (mm)
+  needs: ''
   not detected: 未検出
+  nozzle: ''
   of: の
   'off': オフ
   prints: 印刷

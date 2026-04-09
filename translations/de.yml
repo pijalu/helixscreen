@@ -173,6 +173,7 @@ translations:
   Auto-Detect: Auto-Erkennung
   Auto-Heat on Load: Automatisches Heizen beim Laden
   Auto-detect: Auto-Erkennung
+  Auto-detect (default): ''
   Auto-lock: Auto-Sperre
   Auto-poll for weight updates: Automatisch auf Gewichtsaktualisierungen prüfen
   Auto-probe or manually check screw heights: Automatisches Abtasten oder manuelle
@@ -191,12 +192,15 @@ translations:
   Back: Zurück
   Back to Results: Zurück zu Ergebnissen
   Barcode Scanner: Barcode-Scanner
+  Beacon auto-calibrate sent: Beacon Auto-Kalibrierung gesendet
+  Beacon calibrate sent: Beacon Kalibrierung gesendet
   Bed: Heizbett
   Bed Heater: Bettheizung
   Bed Level: Bettnivellierung
   Bed Leveling: Bettnivellierung
   Bed Mesh: Bettnetz
   Bed Mesh Render: Bettnetz-Darstellung
+  Bed Mesh...: ''
   Bed Moves: Bett bewegt sich
   Bed Screw Adjustment: Bettschrauben-Einstellung
   Bed Screws: Bettschrauben
@@ -314,6 +318,8 @@ translations:
     nicht mit Drucker verbunden'
   'Cannot start print: printer is {}': 'Druck kann nicht gestartet werden: Drucker
     ist {}'
+  Cartographer scan calibrate sent — use Z-Offset panel to adjust: 'Cartographer Scan-Kalibrierung gesendet — Z-Offset-Panel zum Anpassen verwenden'
+  Cartographer touch calibrate sent: Cartographer Touch-Kalibrierung gesendet
   Center QR code in frame: QR-Code im Rahmen zentrieren
   'Chamb:': 'Chamb:'
   Chamber: Kammer
@@ -506,6 +512,7 @@ translations:
   Date (newest): Datum (neueste)
   Date (oldest): Datum (älteste)
   Day: Tag
+  Debug: Debug
   Default border thickness: Standard-Rahmendicke
   Define macros in your printer.cfg: Makros in Ihrer printer.cfg definieren
   Delete: Löschen
@@ -891,6 +898,7 @@ translations:
   Inactive: Inaktiv
   Include Klipper/Moonraker logs: Klipper/Moonraker-Protokolle einschließen
   Indexing G-code...: G-Code wird indiziert...
+  Info: Info
   Initializing...: Initialisiere...
   Input: Eingabe
   Input Shaper: Input Shaper
@@ -1002,6 +1010,7 @@ translations:
   Lock B: Sperre B
   Lock screen after idle timeout: Bildschirm nach Inaktivität sperren
   Locked during print: Während des Drucks gesperrt
+  Log Level: Protokollstufe
   Loosen Path A belt.: Riemen von Pfad A lockern.
   Loosen Path B belt.: Riemen von Pfad B lockern.
   'Lot # (optional)': Los-Nr. (optional)
@@ -1058,6 +1067,7 @@ translations:
   Material: Material
   Material Comfort: Materialkomfort
   Material Design Spinner: Material Design Spinner
+  Material Mismatch: ''
   Material Temperatures: Material-Temperaturen
   Max: Max
   Max Accel: Max. Beschl.
@@ -1157,6 +1167,7 @@ translations:
   No changes selected.\n\nClick Cancel to close.: Keine Änderungen ausgewählt.\n\nKlicken
     Sie auf Abbrechen, um zu schließen.
   No changes to revert: Keine Änderungen zum Zurücksetzen
+  No devices detected.: ''
   No dryer available. Store filament in a sealed dry box with desiccant for best results.: Kein
     Trockner verfügbar. Filament in einer versiegelten Trockenbox mit Trockenmittel
     lagern.
@@ -1277,6 +1288,7 @@ translations:
   PROBE SENSORS: TASTSENSOREN
   Pair: Koppeln
   Pair Bluetooth Printer: Bluetooth-Drucker koppeln
+  Pair Bluetooth Scanner: ''
   Pair with: Koppeln mit
   Paired: Gekoppelt
   Paired successfully: Erfolgreich gekoppelt
@@ -1324,6 +1336,8 @@ translations:
     referenziert und abtastet.
   Please wait while the printer probes each screw position.: Bitte warten Sie, während
     der Drucker jede Schraubenposition abtastet.
+  Plug in a USB scanner and tap Refresh, or scan for Bluetooth devices.: ''
+  Plug in a USB scanner and tap Refresh.: ''
   Plug in your scanner and tap Refresh.: Scanner anschließen und auf Aktualisieren
     tippen.
   Plugin already installed: Plugin bereits installiert
@@ -1407,6 +1421,7 @@ translations:
   Printing: Drucken
   Printing label...: Etikett wird gedruckt...
   Printing test label...: Testetikett wird gedruckt...
+  'Printing with the wrong material can cause clogs, poor adhesion, ': ''
   Prints: Drucke
   Prints Trend: Drucktrend
   'Private:': 'Privat:'
@@ -1586,6 +1601,7 @@ translations:
   Save changes to persist them across restarts?: Änderungen speichern, um sie über
     Neustarts hinweg zu erhalten?
   'Save failed: {}': 'Speichern fehlgeschlagen: {}'
+  Saved: ''
   Saved Z-Offset: Gespeicherter Z-Offset
   Saved to crash_report.txt (QR not available): In crash_report.txt gespeichert (QR
     nicht verfügbar)
@@ -1598,6 +1614,7 @@ translations:
     wird neu starten.
   Saving will restart Klipper and CANCEL any active print!: Speichern startet Klipper
     neu und BRICHT jeden aktiven Druck ab!
+  Scan Bluetooth: ''
   Scan Cal: Scan-Kal.
   Scan QR Code: QR-Code scannen
   Scan Spool QR Code: Spulen-QR-Code scannen
@@ -1668,6 +1685,8 @@ translations:
   Set Active: Aktiv setzen
   Set PIN: PIN festlegen
   Set local timezone for time display: Lokale Zeitzone für Zeitanzeige festlegen
+  Set logging verbosity for troubleshooting: Protokollierungsdetailgrad für Fehlerbehebung
+    festlegen
   Set up your label printer in Settings: Etikettendrucker in Einstellungen einrichten
   Settings: Einstellungen
   Settings reset to defaults. Restarting...: Einstellungen auf Standardwerte zurückgesetzt.
@@ -1769,6 +1788,7 @@ translations:
   Stop Drying: Trocknen stoppen
   Stop Print?: Druck stoppen?
   Stop failed: Stopp fehlgeschlagen
+  Stops all motion: Stoppt alle Bewegungen
   Stops all motion. Requires firmware restart.: Stoppt alle Bewegung. Erfordert Firmware-Neustart.
   Stow: Einfahren
   Strobe LED: Strobe-LED
@@ -1849,11 +1869,13 @@ translations:
   Theme changes apply after restart.: Themenänderungen werden nach dem Neustart wirksam.
   Theme reset to defaults: Thema auf Standardwerte zurückgesetzt
   Theme, brightness, and sleep settings: Thema, Helligkeit und Ruhezustandseinstellungen
+  'These tools have incompatible materials loaded:': ''
   'These tools have no matching filament loaded:': 'Diese Werkzeuge haben kein passendes
     Filament geladen:'
   This calibration uses the paper friction method to set your Z-offset.: Diese Kalibrierung
     verwendet die Papierreibungsmethode zur Einstellung Ihres Z-Offsets.
   This cannot be undone.: Dies kann nicht rückgängig gemacht werden.
+  This file was sliced for {} but {} is loaded.: ''
   This is exactly the data that will be sent: Dies sind genau die Daten, die gesendet
     werden
   This is what data would be sent if enabled: Diese Daten würden bei Aktivierung gesendet
@@ -1914,7 +1936,7 @@ translations:
   Tool Changer: Werkzeugwechsler
   'Tool change failed: {}': 'Werkzeugwechsel fehlgeschlagen: {}'
   Toolhead Style: Toolhead-Stil
-  Toolhead, G-code, limits, and materials: 'Druckkopf, G-Code, Grenzen und Materialien'
+  Toolhead, G-code, limits, and materials: Druckkopf, G-Code, Grenzen und Materialien
   Top: Oben
   Total Prints: Gesamte Drucke
   Touch Cal: Touch-Kal.
@@ -1926,6 +1948,7 @@ translations:
   Touch screen to wake from sleep: Touchscreen berühren zum Aufwecken
   Touch the target (point %1$d of 3) \xe2\x80\x94 touch %2$d of %3$d: Ziel berühren
     (Punkt %1$d von 3) \xe2\x80\x94 Berührung %2$d von %3$d
+  Trace: Trace
   Travels: Verfahrwege
   'Troubleshooting:': 'Fehlerbehebung:'
   Try adjusting your search or filters: Versuchen Sie Suche oder Filter anzupassen
@@ -1977,6 +2000,7 @@ translations:
   Upload gcode files to get started: Laden Sie G-Code-Dateien hoch, um zu beginnen
   Use G10/G11 firmware retraction: G10/G11-Firmware-Retraktion verwenden
   Use printer type to select image: Druckertyp zur Bildauswahl verwenden
+  Uses name-based priority: ''
   Value must be between {:.0f} and {:.0f}: Wert muss zwischen {:.0f} und {:.0f} liegen
   Velocity and acceleration limits: Geschwindigkeits- und Beschleunigungslimits
   Vendor: Hersteller
@@ -2010,6 +2034,7 @@ translations:
     für genaue Kalibrierung.
   Warm Bed: Bett vorheizen
   Warming Bed...: Bett wird vorgeheizt...
+  Warn: Warnung
   Warning: Warnung
   Weak battery: Schwache Batterie
   Webcam: Webcam
@@ -2098,6 +2123,7 @@ translations:
   'Z:': 'Z:'
   'Z: 0.000': 'Z: 0.000'
   Zoom: Zoom
+  bed: ''
   by Preston Brown: von Preston Brown
   disable: deaktivieren
   disabled: deaktiviert
@@ -2109,7 +2135,9 @@ translations:
   layers: Schichten
   left: übrig
   mm before clog: mm vor Verstopfung
+  needs: ''
   not detected: nicht erkannt
+  nozzle: ''
   of: von
   'off': aus
   prints: Drucke

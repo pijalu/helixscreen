@@ -145,25 +145,31 @@ void ui_probe_overlay_register_callbacks() {
          }},
 
         // Cartographer controls
-        {"on_carto_calibrate",
-         [](lv_event_t* /*e*/) {
-             send_probe_gcode("CARTOGRAPHER_CALIBRATE", "Cartographer Calibrate");
-         }},
         {"on_carto_touch_cal",
          [](lv_event_t* /*e*/) {
              send_probe_gcode("CARTOGRAPHER_TOUCH_CALIBRATE", "Cartographer Touch Calibrate");
+             ToastManager::instance().show(ToastSeverity::INFO,
+                                           lv_tr("Cartographer touch calibrate sent"));
          }},
         {"on_carto_scan_cal",
          [](lv_event_t* /*e*/) {
              send_probe_gcode("CARTOGRAPHER_SCAN_CALIBRATE", "Cartographer Scan Calibrate");
+             ToastManager::instance().show(
+                 ToastSeverity::INFO,
+                 lv_tr("Cartographer scan calibrate sent — use Z-Offset panel to adjust"));
          }},
 
         // Beacon controls
         {"on_beacon_calibrate",
-         [](lv_event_t* /*e*/) { send_probe_gcode("BEACON_CALIBRATE", "Beacon Calibrate"); }},
+         [](lv_event_t* /*e*/) {
+             send_probe_gcode("BEACON_CALIBRATE", "Beacon Calibrate");
+             ToastManager::instance().show(ToastSeverity::INFO, lv_tr("Beacon calibrate sent"));
+         }},
         {"on_beacon_auto_cal",
          [](lv_event_t* /*e*/) {
              send_probe_gcode("BEACON_AUTO_CALIBRATE", "Beacon Auto-Calibrate");
+             ToastManager::instance().show(ToastSeverity::INFO,
+                                           lv_tr("Beacon auto-calibrate sent"));
          }},
 
         // Klicky controls
@@ -437,7 +443,7 @@ void ProbeOverlay::update_display_subjects() {
     const char* type_label = "Standard Probe";
     switch (sensor.type) {
     case ProbeSensorType::CARTOGRAPHER:
-        type_label = "Eddy Current Scanning Probe";
+        type_label = "Cartographer 3D Scanner";
         break;
     case ProbeSensorType::BEACON:
         type_label = "Eddy Current Probe";

@@ -166,6 +166,7 @@ translations:
   Auto-Detect: Автоопределение
   Auto-Heat on Load: Автонагрев при загрузке
   Auto-detect: Автоопределение
+  Auto-detect (default): ''
   Auto-lock: Автоблокировка
   Auto-poll for weight updates: Автоопрос обновлений веса
   Auto-probe or manually check screw heights: Автозондирование или ручная проверка
@@ -184,12 +185,15 @@ translations:
   Back: Назад
   Back to Results: Назад к результатам
   Barcode Scanner: Сканер штрих-кодов
+  Beacon auto-calibrate sent: Beacon автокалибровка отправлена
+  Beacon calibrate sent: Beacon калибровка отправлена
   Bed: Стол
   Bed Heater: Нагреватель стола
   Bed Level: Уровень стола
   Bed Leveling: Выравнивание стола
   Bed Mesh: Сетка стола
   Bed Mesh Render: Рендер сетки стола
+  Bed Mesh...: ''
   Bed Moves: Стол движется
   Bed Screw Adjustment: Регулировка винтов стола
   Bed Screws: Винты стола
@@ -306,6 +310,8 @@ translations:
   'Cannot start print: not connected to printer': 'Невозможно начать печать: не подключено
     к принтеру'
   'Cannot start print: printer is {}': 'Невозможно начать печать: принтер {}'
+  Cartographer scan calibrate sent — use Z-Offset panel to adjust: 'Cartographer сканирующая калибровка отправлена — используйте панель Z-Offset для настройки'
+  Cartographer touch calibrate sent: Cartographer тактильная калибровка отправлена
   Center QR code in frame: Расположите QR-код в центре кадра
   'Chamb:': 'Камера:'
   Chamber: Камера
@@ -498,6 +504,7 @@ translations:
   Date (newest): Дата (новые)
   Date (oldest): Дата (старые)
   Day: День
+  Debug: Отладка
   Default border thickness: Толщина границы по умолчанию
   Define macros in your printer.cfg: Определите макросы в вашем printer.cfg
   Delete: Удалить
@@ -878,6 +885,7 @@ translations:
   Inactive: Неактивно
   Include Klipper/Moonraker logs: Включить логи Klipper/Moonraker
   Indexing G-code...: Индексация G-code...
+  Info: Инфо
   Initializing...: Инициализация...
   Input: Ввод
   Input Shaper: Input Shaper
@@ -988,6 +996,7 @@ translations:
   Lock B: Блокировка B
   Lock screen after idle timeout: Блокировать экран после простоя
   Locked during print: Заблокировано во время печати
+  Log Level: Уровень журнала
   Loosen Path A belt.: Ослабьте ремень Пути A.
   Loosen Path B belt.: Ослабьте ремень Пути B.
   'Lot # (optional)': 'Партия # (необязательно)'
@@ -1044,6 +1053,7 @@ translations:
   Material: Материал
   Material Comfort: Комфорт материала
   Material Design Spinner: Индикатор загрузки Material Design
+  Material Mismatch: ''
   Material Temperatures: Температуры материалов
   Max: Макс
   Max Accel: Макс. ускор.
@@ -1141,6 +1151,7 @@ translations:
   No changes selected.\n\nClick Cancel to close.: Изменения не выбраны.\n\nНажмите
     «Отмена», чтобы закрыть.
   No changes to revert: Нет изменений для отката
+  No devices detected.: ''
   No dryer available. Store filament in a sealed dry box with desiccant for best results.: Сушилка
     недоступна. Храните филамент в герметичном контейнере с влагопоглотителем для
     лучших результатов.
@@ -1260,6 +1271,7 @@ translations:
   PROBE SENSORS: ДАТЧИКИ ЗОНДА
   Pair: Сопряжение
   Pair Bluetooth Printer: Подключить Bluetooth-принтер
+  Pair Bluetooth Scanner: ''
   Pair with: Сопряжение с
   Paired: Сопряжено
   Paired successfully: Сопряжение выполнено
@@ -1305,6 +1317,8 @@ translations:
     паркуется и зондирует.
   Please wait while the printer probes each screw position.: Пожалуйста, подождите,
     пока принтер возьмет пробу на позиции каждого винта.
+  Plug in a USB scanner and tap Refresh, or scan for Bluetooth devices.: ''
+  Plug in a USB scanner and tap Refresh.: ''
   Plug in your scanner and tap Refresh.: Подключите сканер и нажмите «Обновить».
   Plugin already installed: Плагин уже установлен
   Plugin disabled: Плагин отключен
@@ -1387,6 +1401,7 @@ translations:
   Printing: Печать
   Printing label...: Печать этикетки...
   Printing test label...: Печать тестовой этикетки...
+  'Printing with the wrong material can cause clogs, poor adhesion, ': ''
   Prints: Печати
   Prints Trend: Тренд печатей
   'Private:': 'Закрытая:'
@@ -1567,6 +1582,7 @@ translations:
   Save changes to persist them across restarts?: Сохранить изменения, чтобы они сохранились
     после перезапуска?
   'Save failed: {}': 'Ошибка сохранения: {}'
+  Saved: ''
   Saved Z-Offset: Сохранённый Z-Offset
   Saved to crash_report.txt (QR not available): Сохранено в crash_report.txt (QR недоступен)
   Saved to printer configuration.: Сохранено в конфигурацию принтера.
@@ -1577,6 +1593,7 @@ translations:
   Saving config... Klipper will restart.: Сохранение конфигурации... Klipper перезапустится.
   Saving will restart Klipper and CANCEL any active print!: Сохранение перезапустит
     Klipper и ОТМЕНИТ любую активную печать!
+  Scan Bluetooth: ''
   Scan Cal: Кал. скана
   Scan QR Code: Сканировать QR-код
   Scan Spool QR Code: Сканировать QR-код катушки
@@ -1646,6 +1663,8 @@ translations:
   Set Active: Сделать активной
   Set PIN: Установить PIN
   Set local timezone for time display: Установить часовой пояс для отображения времени
+  Set logging verbosity for troubleshooting: Установить уровень детализации журнала
+    для устранения неполадок
   Set up your label printer in Settings: Настройте принтер этикеток в Настройках
   Settings: Настройки
   Settings reset to defaults. Restarting...: Настройки сброшены к значениям по умолчанию.
@@ -1749,6 +1768,7 @@ translations:
   Stop Drying: Остановить сушку
   Stop Print?: Остановить печать?
   Stop failed: Ошибка остановки
+  Stops all motion: Остановить всё движение
   Stops all motion. Requires firmware restart.: Останавливает всё движение. Требуется
     перезапуск прошивки.
   Stow: Убрать
@@ -1756,7 +1776,8 @@ translations:
   Success: Успех
   Success Rate: Процент успеха
   Success!: Успешно!
-  Support, documentation, and version info: Поддержка, документация и информация о версии
+  Support, documentation, and version info: Поддержка, документация и информация о
+    версии
   Surfaces inherit app background tokens for light and dark modes.: Поверхности наследуют
     токены фона приложения для светлого и тёмного режимов.
   Switch Printer: Переключить принтер
@@ -1830,11 +1851,13 @@ translations:
   Theme changes apply after restart.: Изменения темы применяются после перезапуска.
   Theme reset to defaults: Тема сброшена к настройкам по умолчанию
   Theme, brightness, and sleep settings: Тема, яркость и настройки сна
+  'These tools have incompatible materials loaded:': ''
   'These tools have no matching filament loaded:': 'В этих инструментах нет подходящего
     филамента:'
   This calibration uses the paper friction method to set your Z-offset.: Эта калибровка
     использует метод трения бумаги об сопло для установки Z-смещения.
   This cannot be undone.: Это действие нельзя отменить.
+  This file was sliced for {} but {} is loaded.: ''
   This is exactly the data that will be sent: Это именно те данные, которые будут
     отправлены
   This is what data would be sent if enabled: Эти данные были бы отправлены при включении
@@ -1893,7 +1916,7 @@ translations:
   Tool Changer: Сменщик инструментов
   'Tool change failed: {}': 'Ошибка смены инструмента: {}'
   Toolhead Style: Стиль печатающей головки
-  Toolhead, G-code, limits, and materials: 'Печатающая головка, G-code, лимиты и материалы'
+  Toolhead, G-code, limits, and materials: Печатающая головка, G-code, лимиты и материалы
   Top: Сверху
   Total Prints: Всего печатей
   Touch Cal: Кал. касания
@@ -1903,6 +1926,7 @@ translations:
   Touch screen to wake from sleep: Коснитесь экрана для выхода из сна
   Touch the target (point %1$d of 3) \xe2\x80\x94 touch %2$d of %3$d: Коснитесь цели
     (точка %1$d из 3) \xe2\x80\x94 касание %2$d из %3$d
+  Trace: Трассировка
   Travels: Перемещения
   'Troubleshooting:': 'Устранение неполадок:'
   Try adjusting your search or filters: Попробуйте изменить поиск или фильтры
@@ -1954,6 +1978,7 @@ translations:
   Upload gcode files to get started: Загрузите gcode-файлы для начала
   Use G10/G11 firmware retraction: Использовать аппаратный ретракт G10/G11
   Use printer type to select image: Использовать тип принтера для выбора изображения
+  Uses name-based priority: ''
   Value must be between {:.0f} and {:.0f}: Значение должно быть от {:.0f} до {:.0f}
   Velocity and acceleration limits: Ограничения скорости и ускорения
   Vendor: Производитель
@@ -1987,6 +2012,7 @@ translations:
     стола для точной калибровки.
   Warm Bed: Прогреть стол
   Warming Bed...: Прогрев стола...
+  Warn: Предупреждение
   Warning: Предупреждение
   Weak battery: Слабый заряд
   Webcam: Веб-камера
@@ -2072,6 +2098,7 @@ translations:
   'Z:': 'Z:'
   'Z: 0.000': 'Z: 0.000'
   Zoom: Масштаб
+  bed: ''
   by Preston Brown: by Preston Brown
   disable: отключить
   disabled: отключено
@@ -2083,7 +2110,9 @@ translations:
   layers: слои
   left: осталось
   mm before clog: мм до засора
+  needs: ''
   not detected: не обнаружено
+  nozzle: ''
   of: из
   'off': выкл
   prints: печатей

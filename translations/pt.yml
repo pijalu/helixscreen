@@ -169,6 +169,7 @@ translations:
   Auto-Detect: Auto-Detectar
   Auto-Heat on Load: Aquecer Automaticamente ao Carregar
   Auto-detect: Auto-detectar
+  Auto-detect (default): ''
   Auto-lock: Bloqueio automático
   Auto-poll for weight updates: Consultar peso automaticamente
   Auto-probe or manually check screw heights: Sondagem automática ou verificação manual
@@ -187,12 +188,15 @@ translations:
   Back: Voltar
   Back to Results: Voltar aos resultados
   Barcode Scanner: Leitor de Código de Barras
+  Beacon auto-calibrate sent: Beacon auto-calibração enviada
+  Beacon calibrate sent: Beacon calibração enviada
   Bed: Mesa
   Bed Heater: Aquecedor da Mesa
   Bed Level: Nível da Mesa
   Bed Leveling: Nivelamento da Mesa
   Bed Mesh: Malha da Mesa
   Bed Mesh Render: Renderização da Malha da Mesa
+  Bed Mesh...: ''
   Bed Moves: Mesa se move
   Bed Screw Adjustment: Ajuste dos Parafusos da Mesa
   Bed Screws: Parafusos da Mesa
@@ -310,6 +314,8 @@ translations:
     não conectado à impressora'
   'Cannot start print: printer is {}': 'Não é possível iniciar impressão: impressora
     está {}'
+  Cartographer scan calibrate sent — use Z-Offset panel to adjust: 'Cartographer calibração de varredura enviada — use o painel Z-Offset para ajustar'
+  Cartographer touch calibrate sent: Cartographer calibração por toque enviada
   Center QR code in frame: Centralize o código QR no quadro
   'Chamb:': 'Câmara:'
   Chamber: Câmara
@@ -506,6 +512,7 @@ translations:
   Date (newest): Data (mais recente)
   Date (oldest): Data (mais antigo)
   Day: Dia
+  Debug: Depuração
   Default border thickness: Espessura padrão da borda
   Define macros in your printer.cfg: Defina macros no seu printer.cfg
   Delete: Excluir
@@ -887,6 +894,7 @@ translations:
   Inactive: Inativo
   Include Klipper/Moonraker logs: Incluir logs do Klipper/Moonraker
   Indexing G-code...: Indexando G-code...
+  Info: Info
   Initializing...: Inicializando...
   Input: Entrada
   Input Shaper: Input Shaper
@@ -999,6 +1007,7 @@ translations:
   Lock B: Travar B
   Lock screen after idle timeout: Bloquear tela após tempo ocioso
   Locked during print: Bloqueado durante impressão
+  Log Level: Nível de log
   Loosen Path A belt.: Afrouxar a correia do Caminho A.
   Loosen Path B belt.: Afrouxar a correia do Caminho B.
   'Lot # (optional)': 'Lote # (opcional)'
@@ -1055,6 +1064,7 @@ translations:
   Material: Material
   Material Comfort: Conforto do material
   Material Design Spinner: Indicador de Carregamento Material Design
+  Material Mismatch: ''
   Material Temperatures: Temperaturas de Material
   Max: Máx
   Max Accel: Acel Máx
@@ -1155,6 +1165,7 @@ translations:
   No changes selected.\n\nClick Cancel to close.: Nenhuma alteração selecionada.\n\nClique
     em Cancelar para fechar.
   No changes to revert: Nenhuma alteração para reverter
+  No devices detected.: ''
   No dryer available. Store filament in a sealed dry box with desiccant for best results.: Nenhum
     secador disponível. Armazene o filamento em uma caixa seca selada com dessecante
     para melhores resultados.
@@ -1275,6 +1286,7 @@ translations:
   PROBE SENSORS: SENSORES DE SONDA
   Pair: Parear
   Pair Bluetooth Printer: Parear Impressora Bluetooth
+  Pair Bluetooth Scanner: ''
   Pair with: Parear com
   Paired: Emparelhado
   Paired successfully: Pareado com sucesso
@@ -1320,6 +1332,8 @@ translations:
     faz home e sonda.
   Please wait while the printer probes each screw position.: Por favor, aguarde enquanto
     a impressora sonda cada posição de parafuso.
+  Plug in a USB scanner and tap Refresh, or scan for Bluetooth devices.: ''
+  Plug in a USB scanner and tap Refresh.: ''
   Plug in your scanner and tap Refresh.: Conecte seu leitor e toque em Atualizar.
   Plugin already installed: Plugin já instalado
   Plugin disabled: Plugin desabilitado
@@ -1399,10 +1413,12 @@ translations:
   Printer name: Nome da impressora
   Printer ready: Impressora pronta
   Printers: Impressoras
-  Printers, AMS, fans, sensors, and LEDs: Impressoras, AMS, ventoinhas, sensores e LEDs
+  Printers, AMS, fans, sensors, and LEDs: Impressoras, AMS, ventoinhas, sensores e
+    LEDs
   Printing: Imprimindo
   Printing label...: Imprimindo etiqueta...
   Printing test label...: Imprimindo etiqueta de teste...
+  'Printing with the wrong material can cause clogs, poor adhesion, ': ''
   Prints: Impressões
   Prints Trend: Tendência de Impressões
   'Private:': 'Privado:'
@@ -1584,6 +1600,7 @@ translations:
   Save changes to persist them across restarts?: Salvar alterações para persistir
     entre reinicializações?
   'Save failed: {}': 'Falha ao salvar: {}'
+  Saved: ''
   Saved Z-Offset: Z-Offset Salvo
   Saved to crash_report.txt (QR not available): Salvo em crash_report.txt (QR não
     disponível)
@@ -1595,6 +1612,7 @@ translations:
   Saving config... Klipper will restart.: Salvando config... Klipper será reiniciado.
   Saving will restart Klipper and CANCEL any active print!: Salvar reiniciará o Klipper
     e CANCELARÁ qualquer impressão ativa!
+  Scan Bluetooth: ''
   Scan Cal: Cal de Scan
   Scan QR Code: Escanear Código QR
   Scan Spool QR Code: Escanear Código QR da Bobina
@@ -1666,6 +1684,8 @@ translations:
   Set Active: Definir Ativo
   Set PIN: Definir PIN
   Set local timezone for time display: Definir fuso horário local para exibição
+  Set logging verbosity for troubleshooting: Definir nível de detalhe do log para
+    solução de problemas
   Set up your label printer in Settings: Configure sua impressora de etiquetas em
     Configurações
   Settings: Configurações
@@ -1771,6 +1791,7 @@ translations:
   Stop Drying: Parar Secagem
   Stop Print?: Parar Impressão?
   Stop failed: Falha ao parar
+  Stops all motion: Para todo o movimento
   Stops all motion. Requires firmware restart.: Para todo movimento. Requer reinício
     do firmware.
   Stow: Guardar
@@ -1778,7 +1799,8 @@ translations:
   Success: Sucesso
   Success Rate: Taxa de Sucesso
   Success!: Sucesso!
-  Support, documentation, and version info: Suporte, documentação e informações de versão
+  Support, documentation, and version info: Suporte, documentação e informações de
+    versão
   Surfaces inherit app background tokens for light and dark modes.: Superfícies herdam
     tokens de fundo do aplicativo para modos claro e escuro.
   Switch Printer: Trocar Impressora
@@ -1852,11 +1874,13 @@ translations:
   Theme changes apply after restart.: Alterações de tema aplicam após reiniciar.
   Theme reset to defaults: Tema redefinido para os padrões
   Theme, brightness, and sleep settings: Tema, brilho e configurações de suspensão
+  'These tools have incompatible materials loaded:': ''
   'These tools have no matching filament loaded:': 'Estas ferramentas não têm filamento
     correspondente carregado:'
   This calibration uses the paper friction method to set your Z-offset.: Esta calibração
     usa o método de fricção de papel para definir seu Z-offset.
   This cannot be undone.: Isso não pode ser desfeito.
+  This file was sliced for {} but {} is loaded.: ''
   This is exactly the data that will be sent: Estes são exatamente os dados que serão
     enviados
   This is what data would be sent if enabled: Estes são os dados que seriam enviados
@@ -1918,7 +1942,7 @@ translations:
   Tool Changer: Trocador de Ferramentas
   'Tool change failed: {}': 'Falha ao trocar ferramenta: {}'
   Toolhead Style: Estilo do Cabeçote
-  Toolhead, G-code, limits, and materials: 'Cabeçote, G-code, limites e materiais'
+  Toolhead, G-code, limits, and materials: Cabeçote, G-code, limites e materiais
   Top: Topo
   Total Prints: Total de Impressões
   Touch Cal: Cal de Toque
@@ -1928,6 +1952,7 @@ translations:
   Touch screen to wake from sleep: Toque na tela para acordar da suspensão
   Touch the target (point %1$d of 3) \xe2\x80\x94 touch %2$d of %3$d: Toque no alvo
     (ponto %1$d de 3) \xe2\x80\x94 toque %2$d de %3$d
+  Trace: Rastreamento
   Travels: Deslocamentos
   'Troubleshooting:': 'Solução de Problemas:'
   Try adjusting your search or filters: Tente ajustar sua busca ou filtros
@@ -1979,6 +2004,7 @@ translations:
   Upload gcode files to get started: Faça upload de arquivos gcode para começar
   Use G10/G11 firmware retraction: Usar retração de firmware G10/G11
   Use printer type to select image: Usar tipo de impressora para selecionar imagem
+  Uses name-based priority: ''
   Value must be between {:.0f} and {:.0f}: O valor deve estar entre {:.0f} e {:.0f}
   Velocity and acceleration limits: Limites de velocidade e aceleração
   Vendor: Fabricante
@@ -2013,6 +2039,7 @@ translations:
     atingir a temperatura para calibração precisa.
   Warm Bed: Aquecer Mesa
   Warming Bed...: Aquecendo Mesa...
+  Warn: Aviso
   Warning: Aviso
   Weak battery: Bateria fraca
   Webcam: Webcam
@@ -2098,6 +2125,7 @@ translations:
   'Z:': 'Z:'
   'Z: 0.000': 'Z: 0.000'
   Zoom: Zoom
+  bed: ''
   by Preston Brown: by Preston Brown
   disable: desabilitar
   disabled: desabilitado
@@ -2109,7 +2137,9 @@ translations:
   layers: camadas
   left: restante
   mm before clog: mm antes da obstrução
+  needs: ''
   not detected: não detectado
+  nozzle: ''
   of: de
   'off': desligado
   prints: impressões
