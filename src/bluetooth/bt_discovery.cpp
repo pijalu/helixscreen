@@ -12,9 +12,10 @@
  * No background thread is used.
  */
 
+#include "bluetooth_plugin.h"
 #include "bt_context.h"
 #include "bt_discovery_utils.h"
-#include "bluetooth_plugin.h"
+#include "bt_scanner_discovery_utils.h"
 
 #include <cstdio>
 #include <cstring>
@@ -36,13 +37,13 @@ struct discover_ctx {
 /// if it matches a label printer UUID.
 /// The message iterator should be positioned at the properties dict for
 /// "org.bluez.Device1" interface.
-static void parse_device_properties(sd_bus_message* msg, discover_ctx* dctx)
-{
+static void parse_device_properties(sd_bus_message* msg, discover_ctx* dctx) {
     int r;
     // We are inside a dict entry for an interface.
     // The properties are an array of dict entries: a{sv}
     r = sd_bus_message_enter_container(msg, 'a', "{sv}");
-    if (r < 0) return;
+    if (r < 0)
+        return;
 
     std::string address, name;
     bool paired = false;
@@ -61,7 +62,8 @@ static void parse_device_properties(sd_bus_message* msg, discover_ctx* dctx)
             r = sd_bus_message_enter_container(msg, 'v', "s");
             if (r >= 0) {
                 sd_bus_message_read(msg, "s", &val);
-                if (val) address = val;
+                if (val)
+                    address = val;
                 sd_bus_message_exit_container(msg);
             }
         } else if (strcmp(prop, "Name") == 0 || strcmp(prop, "Alias") == 0) {
@@ -69,7 +71,8 @@ static void parse_device_properties(sd_bus_message* msg, discover_ctx* dctx)
             r = sd_bus_message_enter_container(msg, 'v', "s");
             if (r >= 0) {
                 sd_bus_message_read(msg, "s", &val);
-                if (val && name.empty()) name = val;
+                if (val && name.empty())
+                    name = val;
                 sd_bus_message_exit_container(msg);
             }
         } else if (strcmp(prop, "Paired") == 0) {
@@ -87,7 +90,8 @@ static void parse_device_properties(sd_bus_message* msg, discover_ctx* dctx)
                 if (r >= 0) {
                     const char* val = nullptr;
                     while (sd_bus_message_read(msg, "s", &val) > 0) {
-                        if (val) uuids.emplace_back(val);
+                        if (val)
+                            uuids.emplace_back(val);
                     }
                     sd_bus_message_exit_container(msg);
                 }
@@ -98,12 +102,13 @@ static void parse_device_properties(sd_bus_message* msg, discover_ctx* dctx)
             sd_bus_message_skip(msg, "v");
         }
 
-        sd_bus_message_exit_container(msg);  // dict entry "sv"
+        sd_bus_message_exit_container(msg); // dict entry "sv"
     }
-    sd_bus_message_exit_container(msg);  // array "a{sv}"
+    sd_bus_message_exit_container(msg); // array "a{sv}"
 
     // Skip devices with no name (raw MAC-only entries are not useful)
-    if (address.empty()) return;
+    if (address.empty())
+        return;
     bool has_real_name = !name.empty() && name != address;
 
     // Determine BLE vs Classic from UUIDs if available
@@ -123,20 +128,31 @@ static void parse_device_properties(sd_bus_message* msg, discover_ctx* dctx)
     //  1. Has a known printer UUID (SPP or Phomemo BLE)
     //  2. Name matches a known label printer brand/pattern
     //  3. Previously paired (user explicitly set it up)
+    //  4. Has a HID scanner UUID or name matches barcode scanner pattern
     bool dominated_by_uuid = has_printer_uuid;
-    bool dominated_by_name = has_real_name &&
-        helix::bluetooth::is_likely_label_printer(name.c_str());
+    bool dominated_by_name =
+        has_real_name && helix::bluetooth::is_likely_label_printer(name.c_str());
     bool dominated_by_paired = paired && has_real_name;
+    bool dominated_by_scanner = false;
+    for (const auto& uuid : uuids) {
+        if (helix::bluetooth::is_hid_scanner_uuid(uuid.c_str())) {
+            dominated_by_scanner = true;
+            break;
+        }
+    }
+    if (!dominated_by_scanner && has_real_name) {
+        dominated_by_scanner = helix::bluetooth::is_likely_bt_scanner(name.c_str());
+    }
 
-    if (!dominated_by_uuid && !dominated_by_name && !dominated_by_paired) {
-        fprintf(stderr, "[bt] filtered: %s '%s' (not a likely printer)\n",
+    if (!dominated_by_uuid && !dominated_by_name && !dominated_by_paired && !dominated_by_scanner) {
+        fprintf(stderr, "[bt] filtered: %s '%s' (not a likely printer or scanner)\n",
                 address.c_str(), name.c_str());
         return;
     }
 
-    fprintf(stderr, "[bt] accept: %s '%s' (uuid=%d name=%d paired=%d)\n",
-            address.c_str(), name.c_str(),
-            dominated_by_uuid, dominated_by_name, dominated_by_paired);
+    fprintf(stderr, "[bt] accept: %s '%s' (uuid=%d name=%d paired=%d scanner=%d)\n",
+            address.c_str(), name.c_str(), dominated_by_uuid, dominated_by_name,
+            dominated_by_paired, dominated_by_scanner);
 
     // Name-based BLE override: some BLE printers (e.g. MakeID/YichipFPGA) also
     // advertise SPP UUID but actually communicate via BLE GATT. The brand table
@@ -160,20 +176,21 @@ static void parse_device_properties(sd_bus_message* msg, discover_ctx* dctx)
 }
 
 /// Signal handler for org.freedesktop.DBus.ObjectManager.InterfacesAdded
-static int on_interfaces_added(sd_bus_message* msg, void* userdata,
-                               sd_bus_error* /*ret_error*/)
-{
+static int on_interfaces_added(sd_bus_message* msg, void* userdata, sd_bus_error* /*ret_error*/) {
     auto* dctx = static_cast<discover_ctx*>(userdata);
-    if (!dctx || !dctx->bt->discovering.load()) return 0;
+    if (!dctx || !dctx->bt->discovering.load())
+        return 0;
 
     int r;
     const char* path = nullptr;
     r = sd_bus_message_read(msg, "o", &path);
-    if (r < 0) return 0;
+    if (r < 0)
+        return 0;
 
     // Enter interfaces dict: a{sa{sv}}
     r = sd_bus_message_enter_container(msg, 'a', "{sa{sv}}");
-    if (r < 0) return 0;
+    if (r < 0)
+        return 0;
 
     while ((r = sd_bus_message_enter_container(msg, 'e', "sa{sv}")) > 0) {
         const char* iface = nullptr;
@@ -190,27 +207,20 @@ static int on_interfaces_added(sd_bus_message* msg, void* userdata,
             sd_bus_message_skip(msg, "a{sv}");
         }
 
-        sd_bus_message_exit_container(msg);  // dict entry
+        sd_bus_message_exit_container(msg); // dict entry
     }
-    sd_bus_message_exit_container(msg);  // array
+    sd_bus_message_exit_container(msg); // array
 
     return 0;
 }
 
 /// Find the BlueZ adapter path (typically /org/bluez/hci0)
-static std::string find_adapter_path(sd_bus* bus)
-{
+static std::string find_adapter_path(sd_bus* bus) {
     sd_bus_error error = SD_BUS_ERROR_NULL;
     sd_bus_message* reply = nullptr;
 
-    int r = sd_bus_call_method(bus,
-                               "org.bluez",
-                               "/",
-                               "org.freedesktop.DBus.ObjectManager",
-                               "GetManagedObjects",
-                               &error,
-                               &reply,
-                               "");
+    int r = sd_bus_call_method(bus, "org.bluez", "/", "org.freedesktop.DBus.ObjectManager",
+                               "GetManagedObjects", &error, &reply, "");
     if (r < 0) {
         sd_bus_error_free(&error);
         return {};
@@ -220,7 +230,8 @@ static std::string find_adapter_path(sd_bus* bus)
 
     // Parse response: a{oa{sa{sv}}}
     r = sd_bus_message_enter_container(reply, 'a', "{oa{sa{sv}}}");
-    if (r < 0) goto done;
+    if (r < 0)
+        goto done;
 
     while ((r = sd_bus_message_enter_container(reply, 'e', "oa{sa{sv}}")) > 0) {
         const char* path = nullptr;
@@ -246,12 +257,13 @@ static std::string find_adapter_path(sd_bus* bus)
             sd_bus_message_skip(reply, "a{sv}");
             sd_bus_message_exit_container(reply);
         }
-        sd_bus_message_exit_container(reply);  // interfaces array
-        sd_bus_message_exit_container(reply);  // object entry
+        sd_bus_message_exit_container(reply); // interfaces array
+        sd_bus_message_exit_container(reply); // object entry
 
-        if (!adapter_path.empty()) break;
+        if (!adapter_path.empty())
+            break;
     }
-    sd_bus_message_exit_container(reply);  // top-level array
+    sd_bus_message_exit_container(reply); // top-level array
 
 done:
     sd_bus_message_unref(reply);
@@ -260,19 +272,12 @@ done:
 }
 
 /// Enumerate already-known devices from BlueZ's object manager
-static void enumerate_known_devices(sd_bus* bus, discover_ctx* dctx)
-{
+static void enumerate_known_devices(sd_bus* bus, discover_ctx* dctx) {
     sd_bus_error error = SD_BUS_ERROR_NULL;
     sd_bus_message* reply = nullptr;
 
-    int r = sd_bus_call_method(bus,
-                               "org.bluez",
-                               "/",
-                               "org.freedesktop.DBus.ObjectManager",
-                               "GetManagedObjects",
-                               &error,
-                               &reply,
-                               "");
+    int r = sd_bus_call_method(bus, "org.bluez", "/", "org.freedesktop.DBus.ObjectManager",
+                               "GetManagedObjects", &error, &reply, "");
     if (r < 0) {
         sd_bus_error_free(&error);
         return;
@@ -280,7 +285,8 @@ static void enumerate_known_devices(sd_bus* bus, discover_ctx* dctx)
 
     // Parse: a{oa{sa{sv}}}
     r = sd_bus_message_enter_container(reply, 'a', "{oa{sa{sv}}}");
-    if (r < 0) goto done;
+    if (r < 0)
+        goto done;
 
     while ((r = sd_bus_message_enter_container(reply, 'e', "oa{sa{sv}}")) > 0) {
         const char* path = nullptr;
@@ -307,8 +313,8 @@ static void enumerate_known_devices(sd_bus* bus, discover_ctx* dctx)
             }
             sd_bus_message_exit_container(reply);
         }
-        sd_bus_message_exit_container(reply);  // interfaces array
-        sd_bus_message_exit_container(reply);  // object entry
+        sd_bus_message_exit_container(reply); // interfaces array
+        sd_bus_message_exit_container(reply); // object entry
     }
     sd_bus_message_exit_container(reply);
 
@@ -321,10 +327,10 @@ done:
 // Public API
 // ---------------------------------------------------------------------------
 
-extern "C" int helix_bt_discover(helix_bt_context* ctx, int timeout_ms,
-                                  helix_bt_discover_cb cb, void* user_data)
-{
-    if (!ctx) return -EINVAL;
+extern "C" int helix_bt_discover(helix_bt_context* ctx, int timeout_ms, helix_bt_discover_cb cb,
+                                 void* user_data) {
+    if (!ctx)
+        return -EINVAL;
     if (!ctx->bus) {
         std::lock_guard<std::mutex> lock(ctx->mutex);
         ctx->last_error = "bus not initialized";
@@ -355,14 +361,9 @@ extern "C" int helix_bt_discover(helix_bt_context* ctx, int timeout_ms,
     enumerate_known_devices(ctx->bus, dctx);
 
     // Add InterfacesAdded signal match
-    int r = sd_bus_match_signal(ctx->bus,
-                                &ctx->discovery_slot,
-                                "org.bluez",
-                                "/",
-                                "org.freedesktop.DBus.ObjectManager",
-                                "InterfacesAdded",
-                                on_interfaces_added,
-                                dctx);
+    int r = sd_bus_match_signal(ctx->bus, &ctx->discovery_slot, "org.bluez", "/",
+                                "org.freedesktop.DBus.ObjectManager", "InterfacesAdded",
+                                on_interfaces_added, dctx);
     if (r < 0) {
         fprintf(stderr, "[bt] failed to add signal match: %s\n", strerror(-r));
         std::lock_guard<std::mutex> lock(ctx->mutex);
@@ -374,14 +375,8 @@ extern "C" int helix_bt_discover(helix_bt_context* ctx, int timeout_ms,
 
     // Start discovery
     sd_bus_error error = SD_BUS_ERROR_NULL;
-    r = sd_bus_call_method(ctx->bus,
-                           "org.bluez",
-                           adapter.c_str(),
-                           "org.bluez.Adapter1",
-                           "StartDiscovery",
-                           &error,
-                           nullptr,
-                           "");
+    r = sd_bus_call_method(ctx->bus, "org.bluez", adapter.c_str(), "org.bluez.Adapter1",
+                           "StartDiscovery", &error, nullptr, "");
     if (r < 0) {
         // InProgress is acceptable — discovery may already be running
         if (!sd_bus_error_has_name(&error, "org.bluez.Error.InProgress")) {
@@ -411,13 +406,14 @@ extern "C" int helix_bt_discover(helix_bt_context* ctx, int timeout_ms,
             fprintf(stderr, "[bt] sd_bus_process error: %s\n", strerror(-r));
             break;
         }
-        if (r > 0) continue;  // More to process
+        if (r > 0)
+            continue; // More to process
 
         // Check timeout
         struct timespec now;
         clock_gettime(CLOCK_MONOTONIC, &now);
-        long elapsed_ms = (now.tv_sec - start.tv_sec) * 1000 +
-                          (now.tv_nsec - start.tv_nsec) / 1000000;
+        long elapsed_ms =
+            (now.tv_sec - start.tv_sec) * 1000 + (now.tv_nsec - start.tv_nsec) / 1000000;
         if (elapsed_ms >= timeout_ms) {
             fprintf(stderr, "[bt] discovery timeout reached (%ldms)\n", elapsed_ms);
             break;
@@ -431,14 +427,8 @@ extern "C" int helix_bt_discover(helix_bt_context* ctx, int timeout_ms,
 
     // Stop discovery
     sd_bus_error error2 = SD_BUS_ERROR_NULL;
-    sd_bus_call_method(ctx->bus,
-                       "org.bluez",
-                       adapter.c_str(),
-                       "org.bluez.Adapter1",
-                       "StopDiscovery",
-                       &error2,
-                       nullptr,
-                       "");
+    sd_bus_call_method(ctx->bus, "org.bluez", adapter.c_str(), "org.bluez.Adapter1",
+                       "StopDiscovery", &error2, nullptr, "");
     sd_bus_error_free(&error2);
 
     // Cleanup
@@ -453,8 +443,8 @@ extern "C" int helix_bt_discover(helix_bt_context* ctx, int timeout_ms,
     return 0;
 }
 
-extern "C" void helix_bt_stop_discovery(helix_bt_context* ctx)
-{
-    if (!ctx) return;
+extern "C" void helix_bt_stop_discovery(helix_bt_context* ctx) {
+    if (!ctx)
+        return;
     ctx->discovering.store(false);
 }
