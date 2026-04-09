@@ -39,12 +39,12 @@ TEST_CASE("PreprintPredictor: default_phase_durations returns expected phases",
           "[print][predictor]") {
     auto defaults = PreprintPredictor::default_phase_durations();
     REQUIRE(defaults.size() == 6);
-    REQUIRE(defaults[static_cast<int>(PrintStartPhase::HOMING)] == 20);
+    REQUIRE(defaults[static_cast<int>(PrintStartPhase::HOMING)] == 30);
     REQUIRE(defaults[static_cast<int>(PrintStartPhase::BED_MESH)] == 90);
     REQUIRE(defaults[static_cast<int>(PrintStartPhase::QGL)] == 60);
     REQUIRE(defaults[static_cast<int>(PrintStartPhase::Z_TILT)] == 45);
-    REQUIRE(defaults[static_cast<int>(PrintStartPhase::CLEANING)] == 15);
-    REQUIRE(defaults[static_cast<int>(PrintStartPhase::PURGING)] == 10);
+    REQUIRE(defaults[static_cast<int>(PrintStartPhase::CLEANING)] == 20);
+    REQUIRE(defaults[static_cast<int>(PrintStartPhase::PURGING)] == 15);
 }
 
 // ============================================================================
