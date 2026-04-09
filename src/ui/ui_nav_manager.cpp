@@ -1290,7 +1290,9 @@ void NavigationManager::push_overlay(lv_obj_t* overlay_panel, bool hide_previous
         bool is_first_overlay = (mgr.panel_stack_.size() == 1);
 
         // Track overlay opens for telemetry panel_usage event
-        TelemetryManager::instance().notify_overlay_opened();
+        auto* lc = mgr.resolve_overlay_lifecycle(overlay_panel);
+        std::string overlay_name = lc ? lc->get_name() : "unknown";
+        TelemetryManager::instance().notify_overlay_opened(overlay_name);
 
         // Lifecycle: Deactivate what's currently visible before showing new overlay
         if (is_first_overlay) {
@@ -1380,6 +1382,11 @@ void NavigationManager::push_overlay_zoom_from(lv_obj_t* overlay_panel, lv_area_
         }
 
         bool is_first_overlay = (mgr.panel_stack_.size() == 1);
+
+        // Track overlay opens for telemetry panel_usage event
+        auto* lc = mgr.resolve_overlay_lifecycle(overlay_panel);
+        std::string overlay_name = lc ? lc->get_name() : "unknown";
+        TelemetryManager::instance().notify_overlay_opened(overlay_name);
 
         // Lifecycle: Deactivate what's currently visible
         if (is_first_overlay) {

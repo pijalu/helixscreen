@@ -1518,8 +1518,9 @@ TEST_CASE_METHOD(TelemetryTestFixture, "record_panel_usage creates valid event",
     TelemetryManager::instance().notify_panel_changed("home");
     TelemetryManager::instance().notify_panel_changed("controls");
     TelemetryManager::instance().notify_panel_changed("settings");
-    TelemetryManager::instance().notify_overlay_opened();
-    TelemetryManager::instance().notify_overlay_opened();
+    TelemetryManager::instance().notify_overlay_opened("temp_graph");
+    TelemetryManager::instance().notify_overlay_opened("wifi_settings");
+    TelemetryManager::instance().notify_overlay_opened("temp_graph");
 
     TelemetryManager::instance().record_panel_usage();
 
@@ -1532,13 +1533,19 @@ TEST_CASE_METHOD(TelemetryTestFixture, "record_panel_usage creates valid event",
     CHECK(event.contains("session_duration_sec"));
     CHECK(event.contains("panel_time_sec"));
     CHECK(event.contains("panel_visits"));
-    CHECK(event["overlay_open_count"] == 2);
+    CHECK(event["overlay_open_count"] == 3);
 
     // Check panel visits are tracked
     auto& visits = event["panel_visits"];
     CHECK(visits["home"] == 1);
     CHECK(visits["controls"] == 1);
     CHECK(visits["settings"] == 1);
+
+    // Check per-overlay visits are tracked
+    REQUIRE(event.contains("overlay_visits"));
+    auto& overlay_visits = event["overlay_visits"];
+    CHECK(overlay_visits["temp_graph"] == 2);
+    CHECK(overlay_visits["wifi_settings"] == 1);
 }
 
 // ============================================================================

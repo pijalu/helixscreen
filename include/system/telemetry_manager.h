@@ -274,10 +274,12 @@ class TelemetryManager {
     /**
      * @brief Notify that an overlay was opened
      *
-     * Increments the overlay open counter. Always tracks regardless
-     * of enabled state.
+     * Increments the overlay open counter and per-overlay visit count.
+     * Always tracks regardless of enabled state.
+     *
+     * @param overlay_name Human-readable overlay name (from IPanelLifecycle::get_name())
      */
-    void notify_overlay_opened();
+    void notify_overlay_opened(const std::string& overlay_name);
 
     /**
      * @brief Notify that a home widget was interacted with
@@ -1026,6 +1028,7 @@ class TelemetryManager {
     std::string current_panel_;
     std::chrono::steady_clock::time_point panel_start_time_;
     int overlay_open_count_{0};
+    std::unordered_map<std::string, int> overlay_visits_;
 
     // Error rate limiting (max 1 event per category per 5 minutes).
     // Protected by mutex_ — accessed from background threads via record_error().

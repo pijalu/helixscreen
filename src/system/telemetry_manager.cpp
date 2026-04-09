@@ -304,6 +304,7 @@ void TelemetryManager::init(const std::string& config_dir) {
     panel_visits_.clear();
     current_panel_.clear();
     overlay_open_count_ = 0;
+    overlay_visits_.clear();
     connect_count_ = 0;
     disconnect_count_ = 0;
     total_connected_sec_ = 0;
@@ -591,9 +592,11 @@ void TelemetryManager::notify_panel_changed(const std::string& panel_name) {
                   panel_visits_[panel_name]);
 }
 
-void TelemetryManager::notify_overlay_opened() {
+void TelemetryManager::notify_overlay_opened(const std::string& overlay_name) {
     overlay_open_count_++;
-    spdlog::trace("[TelemetryManager] Overlay opened (count={})", overlay_open_count_);
+    overlay_visits_[overlay_name]++;
+    spdlog::trace("[TelemetryManager] Overlay '{}' opened (total={}, visits={})", overlay_name,
+                  overlay_open_count_, overlay_visits_[overlay_name]);
 }
 
 void TelemetryManager::notify_widget_interaction(const std::string& widget_id) {
@@ -1984,6 +1987,13 @@ nlohmann::json TelemetryManager::build_panel_usage_event() const {
     event["widget_interactions"] = widget_map;
 
     event["overlay_open_count"] = overlay_open_count_;
+
+    json overlay_visit_map = json::object();
+    for (const auto& [name, count] : overlay_visits_) {
+        overlay_visit_map[name] = count;
+    }
+    event["overlay_visits"] = overlay_visit_map;
+
     event["snapshot_seq"] = snapshot_seq_;
     event["is_shutdown"] = is_shutdown_snapshot_;
 
@@ -2551,6 +2561,13 @@ void TelemetryManager::save_snapshot_state() const {
     state["widget_interactions"] = widget_map;
 
     state["overlay_open_count"] = overlay_open_count_;
+
+    json overlay_visit_map = json::object();
+    for (const auto& [name, count] : overlay_visits_) {
+        overlay_visit_map[name] = count;
+    }
+    state["overlay_visits"] = overlay_visit_map;
+
     state["connect_count"] = connect_count_;
     state["disconnect_count"] = disconnect_count_;
     state["total_connected_sec"] = total_connected_sec_;
@@ -2601,6 +2618,11 @@ void TelemetryManager::load_snapshot_state() {
         }
 
         overlay_open_count_ = state.value("overlay_open_count", 0);
+        if (state.contains("overlay_visits")) {
+            for (auto& [key, val] : state["overlay_visits"].items()) {
+                overlay_visits_[key] = val.get<int>();
+            }
+        }
         connect_count_ = state.value("connect_count", 0);
         disconnect_count_ = state.value("disconnect_count", 0);
         total_connected_sec_ = state.value("total_connected_sec", 0);

@@ -620,6 +620,18 @@ void TelemetryDataOverlay::populate_events() {
                     make_label(card, "Time: " + panels, "text_subtle");
                 }
             }
+            if (event.contains("overlay_visits") && event["overlay_visits"].is_object()) {
+                std::string overlays;
+                for (auto it = event["overlay_visits"].begin(); it != event["overlay_visits"].end();
+                     ++it) {
+                    if (!overlays.empty())
+                        overlays += ", ";
+                    overlays += it.key() + ": " + std::to_string(it.value().get<int>());
+                }
+                if (!overlays.empty()) {
+                    make_label(card, "Overlay Visits: " + overlays, "text_subtle");
+                }
+            }
             if (event.contains("panel_visits") && event["panel_visits"].is_object()) {
                 std::string visits;
                 for (auto it = event["panel_visits"].begin(); it != event["panel_visits"].end();
