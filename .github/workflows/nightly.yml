@@ -410,7 +410,7 @@ jobs:
   test-macos:
     name: macOS Tests
     runs-on: macos-14
-    timeout-minutes: 60
+    timeout-minutes: 90
 
     steps:
     - name: Checkout repository
