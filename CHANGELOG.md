@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.99.27] - 2026-04-09
+
+### Added
+- Enhanced 2D G-code shading with normal-based lighting, anti-aliased lines, and silhouette outlines
+- Per-overlay visit tracking in telemetry dashboard
+
+### Fixed
+- Thumbnail display bugs in print select and detail views
+- Print start timing heuristics for AD5M Klipper mod
+- Use-after-free crashes in scanner picker modal and four overlay subclasses with shadowed lifetime guards
+- Camera buffer use-after-free and timer deletion crash in setup wizard
+- Unbounded mDNS pending records map growth from incomplete entries
+- x86 self-update downloading wrong platform tarball (missing HELIX_PLATFORM_X86)
+- Bluetooth discovery filter blocking barcode scanners
+- WebSocket connection missing proper User-Agent header
+- Race condition in G-code render completion flag ordering
+- Modal button styling inconsistencies in action prompt and color picker
+- Invalid text_secondary XML token replaced with text_muted
+
 ## [0.99.26] - 2026-04-08
 
 ### Added
@@ -2778,6 +2797,7 @@ Initial tagged release. Foundation for all subsequent development.
 - Automated GitHub Actions release pipeline
 - One-liner installation script with platform auto-detection
 
+[0.99.27]: https://github.com/prestonbrown/helixscreen/compare/v0.99.26...v0.99.27
 [0.99.26]: https://github.com/prestonbrown/helixscreen/compare/v0.99.25...v0.99.26
 [0.99.25]: https://github.com/prestonbrown/helixscreen/compare/v0.99.24...v0.99.25
 [0.99.24]: https://github.com/prestonbrown/helixscreen/compare/v0.99.23...v0.99.24
