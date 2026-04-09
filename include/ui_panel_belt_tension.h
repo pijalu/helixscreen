@@ -5,7 +5,6 @@
 
 #include "belt_tension_calibrator.h"
 #include "belt_tension_types.h"
-#include "async_lifetime_guard.h"
 #include "overlay_base.h"
 #include "subject_managed_panel.h"
 
@@ -169,9 +168,6 @@ class BeltTensionPanel : public OverlayBase {
 
     // Last results for re-display
     helix::calibration::BeltTensionResult last_result_;
-
-    // Async callback safety: destructor auto-invalidates all outstanding tokens
-    helix::AsyncLifetimeGuard lifetime_;
 };
 
 // Global instance accessor

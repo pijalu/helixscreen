@@ -4,7 +4,6 @@
 
 #include "ui_modal.h"
 
-#include "async_lifetime_guard.h"
 #include "input_device_scanner.h"
 
 #include <atomic>
@@ -38,6 +37,7 @@ class ScannerPickerModal : public Modal {
 
   protected:
     void on_show() override;
+    void on_hide() override;
 
   private:
     // Device list
@@ -83,10 +83,9 @@ class ScannerPickerModal : public Modal {
 
     lv_subject_t bt_available_subject_{};
     helix_bt_context* bt_ctx_ = nullptr;
-    std::unique_ptr<BtDiscoveryContext> bt_discovery_ctx_;
+    std::shared_ptr<BtDiscoveryContext> bt_discovery_ctx_;
     std::vector<BtDeviceInfo> bt_devices_;
     bool bt_discovering_ = false;
-    AsyncLifetimeGuard lifetime_;
 
     /// Active instance pointer (only one picker modal open at a time)
     static ScannerPickerModal* s_active_instance_;

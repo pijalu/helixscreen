@@ -85,6 +85,15 @@ ScannerPickerModal::ScannerPickerModal(SelectionCallback on_select)
 // ============================================================================
 
 ScannerPickerModal::~ScannerPickerModal() {
+    s_active_instance_ = nullptr;
+
+    // Null widget pointers BEFORE stop_bt_discovery — they may already be freed
+    // if on_hide() ran (exit animation destroyed the widget tree)
+    device_list_ = nullptr;
+    empty_state_ = nullptr;
+    bt_scan_btn_ = nullptr;
+    bt_spinner_ = nullptr;
+
     stop_bt_discovery();
 
     if (bt_ctx_) {
@@ -124,6 +133,22 @@ void ScannerPickerModal::on_show() {
 
     spdlog::debug("[{}] Shown, current device: '{}'", get_name(),
                   current_device_id_.empty() ? "auto-detect" : current_device_id_);
+}
+
+void ScannerPickerModal::on_hide() {
+    s_active_instance_ = nullptr;
+
+    // Stop BT discovery while widgets are still alive (before exit animation
+    // destroys the widget tree). This is the safe point to touch bt_spinner_.
+    stop_bt_discovery();
+
+    // Null widget pointers — the widget tree will be destroyed after on_hide
+    // returns (via exit animation + safe_delete_deferred). Prevents the
+    // destructor from accessing dangling pointers.
+    device_list_ = nullptr;
+    empty_state_ = nullptr;
+    bt_scan_btn_ = nullptr;
+    bt_spinner_ = nullptr;
 }
 
 // ============================================================================
@@ -406,13 +431,13 @@ void ScannerPickerModal::start_bt_discovery() {
         lv_obj_remove_flag(bt_spinner_, LV_OBJ_FLAG_HIDDEN);
     }
 
-    // Set up C callback safety context
-    bt_discovery_ctx_ = std::make_unique<BtDiscoveryContext>();
+    // Set up C callback safety context (shared_ptr so detached thread keeps it alive)
+    bt_discovery_ctx_ = std::make_shared<BtDiscoveryContext>();
     bt_discovery_ctx_->alive.store(true);
     bt_discovery_ctx_->modal = this;
     bt_discovery_ctx_->token = lifetime_.token();
 
-    auto* disc_ctx = bt_discovery_ctx_.get();
+    auto disc_ctx = bt_discovery_ctx_; // shared_ptr copy for thread
     auto* ctx = bt_ctx_;
 
     // Run discovery on a detached thread
@@ -467,7 +492,7 @@ void ScannerPickerModal::start_bt_discovery() {
                     }
                 });
             },
-            disc_ctx);
+            disc_ctx.get());
 
         // Discovery completed (timeout or stopped)
         disc_ctx->token->defer([disc_ctx]() {

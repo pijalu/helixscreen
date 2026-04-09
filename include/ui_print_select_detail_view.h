@@ -6,7 +6,6 @@
 #include "ui_filament_mapping_card.h"
 #include "ui_print_preparation_manager.h"
 
-#include "async_lifetime_guard.h"
 #include "overlay_base.h"
 #include "print_file_data.h" // For FileHistoryStatus
 #include "subject_managed_panel.h"
@@ -383,9 +382,6 @@ class PrintSelectDetailView : public OverlayBase {
     std::vector<std::string> current_filament_colors_;
     std::vector<std::string> current_filament_materials_;
     size_t current_file_size_bytes_ = 0;
-
-    // Async callback safety: destructor auto-invalidates all outstanding tokens
-    helix::AsyncLifetimeGuard lifetime_;
 
     // === Callbacks ===
     DeleteConfirmedCallback on_delete_confirmed_;

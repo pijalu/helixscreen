@@ -359,9 +359,6 @@ class InputShaperPanel : public OverlayBase {
     // Calibrator for delegating operations
     std::unique_ptr<helix::calibration::InputShaperCalibrator> calibrator_;
 
-    // Async callback safety: destructor auto-invalidates all outstanding tokens
-    helix::AsyncLifetimeGuard lifetime_;
-
   public:
     /**
      * @brief Request demo results injection after next on_activate()
