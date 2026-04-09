@@ -1963,14 +1963,11 @@ void FilamentPanel::set_limits(int min_temp, int max_temp, int min_extrude_temp)
 // ============================================================================
 
 void FilamentPanel::execute_load() {
-    // When an AMS backend is active (ACE, AFC, etc.), the generic LOAD_FILAMENT
-    // macro is wrong — it just runs the extruder motor endlessly without going
-    // through the backend's tool change sequence (which includes cut/purge).
-    // Redirect the user to the AMS panel where they can select a specific slot.
-    // Exception: bypass mode means the user is feeding filament directly, so
-    // treat it like no AMS and fall through to the standard macro / G-code path.
+    // When an AMS backend is active and requires slot selection, redirect to the
+    // AMS panel so the user can pick a specific slot. The backend decides — e.g.
+    // bypass mode returns false so we fall through to standard macros instead.
     AmsBackend* backend = AmsState::instance().get_backend();
-    if (backend && !backend->is_bypass_active()) {
+    if (backend && backend->requires_slot_selection_for_load()) {
         spdlog::info("[{}] AMS backend active ({}), redirecting to AMS panel for slot selection",
                      get_name(), ams_type_to_string(backend->get_type()));
         NOTIFY_INFO(lv_tr("Select a filament slot to load"));
@@ -2049,9 +2046,10 @@ void FilamentPanel::execute_load() {
 void FilamentPanel::execute_unload() {
     // When an AMS backend is active, route unload through it so the backend's
     // tool change sequence runs (retract, cut, purge) instead of raw extrusion.
-    // Exception: bypass mode means direct filament feed — use standard macro path.
+    // Note: bypass unload stays routed through the backend — AFC calls the user's
+    // unload_filament macro itself when bypass is enabled.
     AmsBackend* backend = AmsState::instance().get_backend();
-    if (backend && !backend->is_bypass_active()) {
+    if (backend) {
         AmsSystemInfo sys_info = backend->get_system_info();
         if (!sys_info.filament_loaded && sys_info.current_slot < 0) {
             NOTIFY_WARNING(lv_tr("No filament loaded to unload"));

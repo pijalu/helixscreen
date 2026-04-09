@@ -308,6 +308,22 @@ class AmsBackend {
     // ========================================================================
 
     /**
+     * @brief Whether the UI should redirect to the AMS panel for slot selection
+     *        before loading filament.
+     *
+     * When true, the filament panel navigates to the AMS management UI so the
+     * user can pick a specific slot. When false, the UI falls through to the
+     * standard LOAD_FILAMENT macro or raw G-code (e.g. bypass mode where the
+     * user is feeding filament directly).
+     *
+     * Default: true (most backends need slot selection). Override in backends
+     * where bypass or other modes allow loading without slot selection.
+     */
+    [[nodiscard]] virtual bool requires_slot_selection_for_load() const {
+        return !is_bypass_active();
+    }
+
+    /**
      * @brief Load filament from specified slot (async)
      *
      * Initiates filament load from the specified slot to the extruder.
@@ -548,8 +564,7 @@ class AmsBackend {
      * @param fan_pct Fan speed percentage (0-100, -1 = use backend default)
      * @return AmsError with SUCCESS result on success, or error with reason
      */
-    virtual AmsError start_drying(float temp_c, int duration_min, int fan_pct = -1,
-                                   int unit = 0) {
+    virtual AmsError start_drying(float temp_c, int duration_min, int fan_pct = -1, int unit = 0) {
         (void)temp_c;
         (void)duration_min;
         (void)fan_pct;
@@ -788,7 +803,9 @@ class AmsBackend {
      *
      * @return true if backend provides environment sensor data per unit
      */
-    [[nodiscard]] virtual bool has_environment_sensors() const { return false; }
+    [[nodiscard]] virtual bool has_environment_sensors() const {
+        return false;
+    }
 
     // ========================================================================
     // Discovery Configuration (Optional - default implementations are no-ops)

@@ -6,9 +6,15 @@
  * Run with: ./build/bin/helix-tests "[filament][bypass][char]"
  *
  * Tests the routing decision in FilamentPanel::execute_load() and execute_unload():
- * - AMS backend active + bypass OFF → route through AMS (slot selection / backend unload)
- * - AMS backend active + bypass ON  → use standard macro / G-code fallback
- * - No AMS backend                  → use standard macro / G-code fallback
+ *
+ * LOAD:
+ * - Backend says requires_slot_selection_for_load() → redirect to AMS panel
+ * - Backend says !requires_slot_selection_for_load() → standard macro / G-code
+ * - No backend → standard macro / G-code
+ *
+ * UNLOAD:
+ * - Backend active → always route through backend (it handles bypass internally)
+ * - No backend → standard macro / G-code
  *
  * The actual FilamentPanel is tightly coupled to LVGL, so this characterization test
  * mirrors the routing decision logic with a lightweight state machine.
@@ -38,7 +44,7 @@ class FilamentRoutingStateMachine {
 
     struct AmsState {
         bool backend_active = false;
-        bool bypass_active = false;
+        bool requires_slot_selection = true; // backend->requires_slot_selection_for_load()
         bool filament_loaded = false;
         int current_slot = -1; // -2 = bypass, -1 = none, 0+ = slot index
     };
@@ -55,14 +61,13 @@ class FilamentRoutingStateMachine {
      * @brief Determine load routing — mirrors execute_load() decision tree
      *
      * From ui_panel_filament.cpp:
-     *   AmsBackend* backend = AmsState::instance().get_backend();
-     *   if (backend && !backend->is_bypass_active()) {
+     *   if (backend && backend->requires_slot_selection_for_load()) {
      *       // redirect to AMS panel
      *   }
      *   // else: standard macro or fallback G-code
      */
     Route resolve_load() const {
-        if (ams.backend_active && !ams.bypass_active) {
+        if (ams.backend_active && ams.requires_slot_selection) {
             return Route::AMS_PANEL;
         }
 
@@ -77,14 +82,16 @@ class FilamentRoutingStateMachine {
      * @brief Determine unload routing — mirrors execute_unload() decision tree
      *
      * From ui_panel_filament.cpp:
-     *   AmsBackend* backend = AmsState::instance().get_backend();
-     *   if (backend && !backend->is_bypass_active()) {
+     *   if (backend) {
      *       // check filament_loaded / current_slot, then backend->unload_filament()
      *   }
      *   // else: standard macro or fallback G-code
+     *
+     * Unload always routes through the backend when one is active — the backend
+     * handles bypass internally (e.g. AFC calls the user's unload_filament macro).
      */
     Route resolve_unload() const {
-        if (ams.backend_active && !ams.bypass_active) {
+        if (ams.backend_active) {
             if (!ams.filament_loaded && ams.current_slot < 0) {
                 return Route::BLOCKED_NO_LOAD;
             }
@@ -122,25 +129,25 @@ TEST_CASE("Filament load routing", "[filament][bypass][char]") {
         REQUIRE(sm.resolve_load() == Route::FALLBACK_GCODE);
     }
 
-    SECTION("AMS active, bypass OFF — redirects to AMS panel") {
+    SECTION("AMS active, requires slot selection — redirects to AMS panel") {
         sm.ams.backend_active = true;
-        sm.ams.bypass_active = false;
+        sm.ams.requires_slot_selection = true;
         sm.macros.load_macro_available = true; // should be ignored
 
         REQUIRE(sm.resolve_load() == Route::AMS_PANEL);
     }
 
-    SECTION("AMS active, bypass ON — uses standard macro (not AMS panel)") {
+    SECTION("AMS active, bypass (no slot selection) — uses standard macro") {
         sm.ams.backend_active = true;
-        sm.ams.bypass_active = true;
+        sm.ams.requires_slot_selection = false;
         sm.macros.load_macro_available = true;
 
         REQUIRE(sm.resolve_load() == Route::STANDARD_MACRO);
     }
 
-    SECTION("AMS active, bypass ON, no macro — uses fallback G-code") {
+    SECTION("AMS active, bypass, no macro — uses fallback G-code") {
         sm.ams.backend_active = true;
-        sm.ams.bypass_active = true;
+        sm.ams.requires_slot_selection = false;
         sm.macros.load_macro_available = false;
 
         REQUIRE(sm.resolve_load() == Route::FALLBACK_GCODE);
@@ -168,74 +175,60 @@ TEST_CASE("Filament unload routing", "[filament][bypass][char]") {
         REQUIRE(sm.resolve_unload() == Route::FALLBACK_GCODE);
     }
 
-    SECTION("AMS active, bypass OFF, filament loaded — AMS backend unload") {
+    SECTION("AMS active, filament loaded — routes through AMS backend") {
         sm.ams.backend_active = true;
-        sm.ams.bypass_active = false;
         sm.ams.filament_loaded = true;
         sm.ams.current_slot = 2;
 
         REQUIRE(sm.resolve_unload() == Route::AMS_UNLOAD);
     }
 
-    SECTION("AMS active, bypass OFF, no filament — blocked") {
+    SECTION("AMS active, no filament — blocked") {
         sm.ams.backend_active = true;
-        sm.ams.bypass_active = false;
         sm.ams.filament_loaded = false;
         sm.ams.current_slot = -1;
 
         REQUIRE(sm.resolve_unload() == Route::BLOCKED_NO_LOAD);
     }
 
-    SECTION("AMS active, bypass ON — uses standard macro (not AMS unload)") {
+    SECTION("AMS active, bypass ON — still routes through AMS backend") {
+        // Backend handles bypass unload internally (e.g. AFC calls user's
+        // unload_filament macro when bypass is enabled)
         sm.ams.backend_active = true;
-        sm.ams.bypass_active = true;
+        sm.ams.filament_loaded = true;
         sm.ams.current_slot = -2; // bypass slot
-        sm.macros.unload_macro_available = true;
 
-        REQUIRE(sm.resolve_unload() == Route::STANDARD_MACRO);
-    }
-
-    SECTION("AMS active, bypass ON, no macro — uses fallback G-code") {
-        sm.ams.backend_active = true;
-        sm.ams.bypass_active = true;
-        sm.ams.current_slot = -2;
-        sm.macros.unload_macro_available = false;
-
-        REQUIRE(sm.resolve_unload() == Route::FALLBACK_GCODE);
+        REQUIRE(sm.resolve_unload() == Route::AMS_UNLOAD);
     }
 }
 
 // ============================================================================
-// AmsBackendMock integration — verify bypass state affects routing condition
+// AmsBackendMock integration — verify requires_slot_selection_for_load()
 // ============================================================================
 
 #include "ams_backend_mock.h"
 
-TEST_CASE("AMS bypass routing condition with real mock backend", "[filament][bypass][ams]") {
+TEST_CASE("AMS backend requires_slot_selection_for_load", "[filament][bypass][ams]") {
     AmsBackendMock backend(4);
     backend.set_operation_delay(0);
     REQUIRE(backend.start());
 
-    SECTION("backend active, bypass off — would route to AMS") {
-        // Mirrors: if (backend && !backend->is_bypass_active())
-        bool routes_to_ams = !backend.is_bypass_active();
-        REQUIRE(routes_to_ams);
+    SECTION("default — requires slot selection") {
+        REQUIRE(backend.requires_slot_selection_for_load());
     }
 
-    SECTION("backend active, bypass on — would skip AMS routing") {
+    SECTION("bypass active — does not require slot selection") {
         auto result = backend.enable_bypass();
         REQUIRE(result);
 
-        bool routes_to_ams = !backend.is_bypass_active();
-        REQUIRE_FALSE(routes_to_ams);
+        REQUIRE_FALSE(backend.requires_slot_selection_for_load());
     }
 
-    SECTION("bypass toggled off again — routes to AMS again") {
+    SECTION("bypass toggled off — requires slot selection again") {
         backend.enable_bypass();
         backend.disable_bypass();
 
-        bool routes_to_ams = !backend.is_bypass_active();
-        REQUIRE(routes_to_ams);
+        REQUIRE(backend.requires_slot_selection_for_load());
     }
 
     backend.stop();
