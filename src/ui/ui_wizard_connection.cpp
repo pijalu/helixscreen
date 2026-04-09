@@ -103,7 +103,8 @@ void WizardConnectionStep::init_subjects() {
     std::string default_port = "7125"; // Default Moonraker port
 
     try {
-        default_ip = config->get<std::string>(config->df() + helix::wizard::MOONRAKER_HOST, "");
+        default_ip =
+            config->get<std::string>(config->df() + helix::wizard::MOONRAKER_HOST, default_ip);
         int port_num = config->get<int>(config->df() + helix::wizard::MOONRAKER_PORT, 7125);
         default_port = std::to_string(port_num);
 
