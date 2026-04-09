@@ -266,6 +266,13 @@ void AmsBackendAd5xIfs::parse_save_variables(const json& vars) {
                 continue;
             }
             colors_[i] = incoming;
+
+            // Latch port_presence for non-empty colors from save_variables,
+            // same logic as parse_adventurer_json. Without per-port sensors,
+            // a non-empty color in the IFS variables means filament is present.
+            if (!incoming.empty() && !has_per_port_sensors_) {
+                port_presence_[i] = true;
+            }
         }
     }
 
@@ -636,8 +643,15 @@ AmsError AmsBackendAd5xIfs::set_slot_info(int slot_index, const SlotInfo& info, 
 
         materials_[idx] = info.material;
 
-        spdlog::debug("{} set_slot_info: slot {} dirty=true, color={}, material={}",
-                      backend_log_tag(), slot_index, hex, info.material);
+        // Without per-port sensors, infer presence from user-provided data.
+        // Setting color/material marks the slot occupied; clearing both marks it empty.
+        if (!has_per_port_sensors_) {
+            bool has_data = !info.material.empty() || info.color_rgb != AMS_DEFAULT_SLOT_COLOR;
+            port_presence_[idx] = has_data;
+        }
+
+        spdlog::debug("{} set_slot_info: slot {} dirty=true, color={}, material={}, presence={}",
+                      backend_log_tag(), slot_index, hex, info.material, port_presence_[idx]);
 
         // Update entry directly
         entry->info.color_rgb = info.color_rgb;
@@ -645,6 +659,9 @@ AmsError AmsBackendAd5xIfs::set_slot_info(int slot_index, const SlotInfo& info, 
         entry->info.spoolman_id = info.spoolman_id;
         entry->info.remaining_weight_g = info.remaining_weight_g;
         entry->info.total_weight_g = info.total_weight_g;
+
+        // Recalculate slot status now that port_presence may have changed
+        update_slot_from_state(slot_index);
     }
 
     if (persist) {

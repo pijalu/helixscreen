@@ -619,8 +619,18 @@ TEST_CASE("AD5X IFS path segments", "[ams][ad5x_ifs]") {
     }
 
     SECTION("get_slot_filament_segment: empty slot → NONE") {
-        Ad5xIfsTestAccess::handle_status(backend, make_save_variables(standard_variables()));
+        // Use variables where slot 2 has no color data (truly empty)
+        json vars = standard_variables();
+        vars["less_waste_colors"][2] = "";
+        vars["less_waste_types"][2] = "";
+        Ad5xIfsTestAccess::handle_status(backend, make_save_variables(vars));
         REQUIRE(backend.get_slot_filament_segment(2) == PathSegment::NONE);
+    }
+
+    SECTION("get_slot_filament_segment: non-active slot with color data → HUB") {
+        // Slot 2 has color data in save_variables → inferred present → HUB
+        Ad5xIfsTestAccess::handle_status(backend, make_save_variables(standard_variables()));
+        REQUIRE(backend.get_slot_filament_segment(2) == PathSegment::HUB);
     }
 
     SECTION("get_slot_filament_segment: out of range → NONE") {
@@ -840,9 +850,10 @@ TEST_CASE("AD5X IFS native ZMOD infers active slot from head sensor", "[ams][ad5
     auto info = backend.get_slot_info(0);
     REQUIRE(info.status == SlotStatus::LOADED);
 
-    // Non-active slots remain EMPTY (no per-port sensor data to infer from)
+    // Non-active slots with color data in save_variables are AVAILABLE (not EMPTY),
+    // because port_presence is inferred from the IFS variable color data.
     auto info1 = backend.get_slot_info(1);
-    REQUIRE(info1.status == SlotStatus::EMPTY);
+    REQUIRE(info1.status == SlotStatus::AVAILABLE);
 }
 
 // ==========================================================================
@@ -1292,5 +1303,140 @@ TEST_CASE("AD5X IFS dirty flag cleared when save_variables match local edit", "[
         Ad5xIfsTestAccess::parse_vars(backend, vars);
 
         REQUIRE_FALSE(Ad5xIfsTestAccess::dirty(backend, 0));
+    }
+}
+
+// ==========================================================================
+// Port presence inference from save_variables and set_slot_info
+// ==========================================================================
+
+TEST_CASE("AD5X IFS port_presence inferred from save_variables colors", "[ams][ad5x_ifs]") {
+    AmsBackendAd5xIfs backend(nullptr, nullptr);
+
+    SECTION("non-empty colors latch port_presence true") {
+        Ad5xIfsTestAccess::handle_status(backend, make_save_variables(standard_variables()));
+        // All 4 slots have colors in standard_variables → all present
+        REQUIRE(Ad5xIfsTestAccess::port_presence(backend, 0));
+        REQUIRE(Ad5xIfsTestAccess::port_presence(backend, 1));
+        REQUIRE(Ad5xIfsTestAccess::port_presence(backend, 2));
+        REQUIRE(Ad5xIfsTestAccess::port_presence(backend, 3));
+    }
+
+    SECTION("empty color strings do not latch port_presence") {
+        json vars = standard_variables();
+        vars["less_waste_colors"] = json::array({"FF0000", "", "", ""});
+        Ad5xIfsTestAccess::handle_status(backend, make_save_variables(vars));
+
+        REQUIRE(Ad5xIfsTestAccess::port_presence(backend, 0));
+        REQUIRE_FALSE(Ad5xIfsTestAccess::port_presence(backend, 1));
+        REQUIRE_FALSE(Ad5xIfsTestAccess::port_presence(backend, 2));
+        REQUIRE_FALSE(Ad5xIfsTestAccess::port_presence(backend, 3));
+    }
+
+    SECTION("slots with color data show as AVAILABLE not EMPTY") {
+        Ad5xIfsTestAccess::handle_status(backend, make_save_variables(standard_variables()));
+
+        // Active slot (T0 → port 1 → slot 0) without head filament → AVAILABLE
+        auto info0 = backend.get_slot_info(0);
+        REQUIRE(info0.status == SlotStatus::AVAILABLE);
+
+        // Non-active slot with color data → AVAILABLE
+        auto info1 = backend.get_slot_info(1);
+        REQUIRE(info1.status == SlotStatus::AVAILABLE);
+    }
+
+    SECTION("slots without color data remain EMPTY") {
+        json vars = standard_variables();
+        vars["less_waste_colors"] = json::array({"FF0000", "", "", ""});
+        vars["less_waste_types"] = json::array({"PLA", "", "", ""});
+        Ad5xIfsTestAccess::handle_status(backend, make_save_variables(vars));
+
+        auto info0 = backend.get_slot_info(0);
+        REQUIRE(info0.status == SlotStatus::AVAILABLE);
+
+        auto info1 = backend.get_slot_info(1);
+        REQUIRE(info1.status == SlotStatus::EMPTY);
+    }
+
+    SECTION("per-port sensor printers skip save_variables presence inference") {
+        // Feed per-port sensor data first to set has_per_port_sensors_ = true
+        Ad5xIfsTestAccess::handle_status(backend, make_port_sensor(1, true));
+        REQUIRE(Ad5xIfsTestAccess::has_per_port_sensors(backend));
+
+        // Now feed save_variables — colors should NOT latch port_presence
+        // because per-port sensors are authoritative
+        Ad5xIfsTestAccess::handle_status(backend, make_save_variables(standard_variables()));
+
+        // Port 1 has sensor data → present; port 2 has no sensor data → not present
+        REQUIRE(Ad5xIfsTestAccess::port_presence(backend, 0));
+        REQUIRE_FALSE(Ad5xIfsTestAccess::port_presence(backend, 1));
+    }
+}
+
+TEST_CASE("AD5X IFS set_slot_info updates port_presence", "[ams][ad5x_ifs]") {
+    AmsBackendAd5xIfs backend(nullptr, nullptr);
+
+    // Start with empty save_variables so no color data
+    json vars = standard_variables();
+    vars["less_waste_colors"] = json::array({"", "", "", ""});
+    vars["less_waste_types"] = json::array({"", "", "", ""});
+    Ad5xIfsTestAccess::handle_status(backend, make_save_variables(vars));
+
+    REQUIRE_FALSE(Ad5xIfsTestAccess::port_presence(backend, 0));
+
+    SECTION("setting color on empty slot latches port_presence") {
+        SlotInfo info;
+        info.color_rgb = 0xFF0000;
+        info.material = "PLA";
+        backend.set_slot_info(0, info, false);
+
+        REQUIRE(Ad5xIfsTestAccess::port_presence(backend, 0));
+        auto slot = backend.get_slot_info(0);
+        REQUIRE(slot.status == SlotStatus::AVAILABLE);
+    }
+
+    SECTION("clearing slot resets port_presence") {
+        // First assign filament
+        SlotInfo info;
+        info.color_rgb = 0xFF0000;
+        info.material = "PLA";
+        backend.set_slot_info(0, info, false);
+        REQUIRE(Ad5xIfsTestAccess::port_presence(backend, 0));
+
+        // Now clear it
+        SlotInfo cleared;
+        cleared.color_rgb = AMS_DEFAULT_SLOT_COLOR;
+        cleared.material = "";
+        backend.set_slot_info(0, cleared, false);
+
+        REQUIRE_FALSE(Ad5xIfsTestAccess::port_presence(backend, 0));
+        auto slot = backend.get_slot_info(0);
+        REQUIRE(slot.status == SlotStatus::EMPTY);
+    }
+
+    SECTION("setting only material (default color) latches port_presence") {
+        SlotInfo info;
+        info.color_rgb = AMS_DEFAULT_SLOT_COLOR;
+        info.material = "PETG";
+        backend.set_slot_info(0, info, false);
+
+        REQUIRE(Ad5xIfsTestAccess::port_presence(backend, 0));
+    }
+
+    SECTION("set_slot_info skips presence for per-port sensor printers") {
+        // Enable per-port sensors
+        json notification;
+        notification["filament_switch_sensor _ifs_port_sensor_1"] =
+            json{{"filament_detected", false}};
+        Ad5xIfsTestAccess::handle_status(backend, notification);
+        REQUIRE(Ad5xIfsTestAccess::has_per_port_sensors(backend));
+
+        // set_slot_info should not alter port_presence (sensors are authoritative)
+        SlotInfo info;
+        info.color_rgb = 0xFF0000;
+        info.material = "PLA";
+        backend.set_slot_info(0, info, false);
+
+        REQUIRE_FALSE(Ad5xIfsTestAccess::port_presence(backend, 0));
     }
 }
