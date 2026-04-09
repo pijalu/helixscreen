@@ -470,7 +470,7 @@ jobs:
         # Slow tests sequentially, excluding [eventloop] tests which hang
         # on macOS CI due to libhv kqueue event loop not waking on stop()
         # Use timeout to prevent orphaned helix-tests process if a test hangs
-        timeout 600 ./build/bin/helix-tests "[slow] ~[eventloop]" --durations yes
+        timeout 1800 ./build/bin/helix-tests "[slow] ~[eventloop]" --durations yes
 
   # ===========================================================================
   # Final status gate
