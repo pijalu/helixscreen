@@ -7,6 +7,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.99.26] - 2026-04-08
+
+### Added
+- Material mismatch warning before starting a print when loaded filament doesn't match slicer expectations
+- Telemetry tracking for in-app vs external print source distribution
+- Zero G Nebula 370 printer image
+
+### Fixed
+- IFS native ZMOD port presence now inferred from save_variables and slot edits on AD5X
+- Pre-print prediction history returning true with no entries, causing stale progress estimates
+- Predicted total using dual atomics instead of mutex, risking torn reads
+- Predicted weight computation not holding mutex during write
+- Legacy bucket 0 entries lost when saving prediction history
+- Weighted phase update not tracking detected phases for progress display
+- Adaptive pre-print timeout completing prematurely on bed-first start macros
+- BusyBox curl detection and HTTP mirror fallback for K1/AD5M installer downloads
+- Filament mapping rows restyled as dropdown triggers with anchored picker and overflow clamp
+- Dropdown trigger border not highlighted while filament picker is open
+- Redundant 'nozzle too cold' warning toasts during filament preheat
+- Part fan slider handle clipping at left edge
+- Scanner picker not using declarative XML binding for Bluetooth availability
+- Telemetry thumbnail/AMS rates, build volume source, and print source field corrections
+- macOS CI test hang and TSAN timeout in nightly suite
+- Moonraker external update not triggering restart on all platforms
+
+### Changed
+- Filament mapping rows now display as dropdown triggers instead of flat list items
+- Bypass load routing encapsulated in AmsBackend::requires_slot_selection_for_load()
+
 ## [0.99.25] - 2026-04-08
 
 ### Added
@@ -2749,6 +2778,7 @@ Initial tagged release. Foundation for all subsequent development.
 - Automated GitHub Actions release pipeline
 - One-liner installation script with platform auto-detection
 
+[0.99.26]: https://github.com/prestonbrown/helixscreen/compare/v0.99.25...v0.99.26
 [0.99.25]: https://github.com/prestonbrown/helixscreen/compare/v0.99.24...v0.99.25
 [0.99.24]: https://github.com/prestonbrown/helixscreen/compare/v0.99.23...v0.99.24
 [0.99.23]: https://github.com/prestonbrown/helixscreen/compare/v0.99.22...v0.99.23

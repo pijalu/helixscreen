@@ -185,9 +185,9 @@ TEST_CASE("ThermalRateManager composite estimate without predictor history", "[t
     REQUIRE(ext_heat == Catch::Approx(87.5f)); // 175°C * 0.5
     REQUIRE(bed_heat == Catch::Approx(52.5f)); // 35°C * 1.5
 
-    // Predictor defaults (no history)
+    // Predictor defaults (no history — has_predictions is false without entries)
     helix::PreprintPredictor predictor;
-    REQUIRE(predictor.has_predictions());
+    REQUIRE_FALSE(predictor.has_predictions());
     auto defaults = predictor.predicted_phases();
     REQUIRE_FALSE(defaults.empty());
 

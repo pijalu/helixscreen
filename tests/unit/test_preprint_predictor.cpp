@@ -25,8 +25,9 @@ using helix::PreprintPredictor;
 TEST_CASE("PreprintPredictor: defaults without history", "[print][predictor]") {
     PreprintPredictor predictor;
 
-    // Defaults always count as predictions (consistent API)
-    REQUIRE(predictor.has_predictions());
+    // Empty predictor has no predictions (entries-based)
+    REQUIRE_FALSE(predictor.has_predictions());
+    // But default phase durations are still available via predicted_phases()
     auto defaults = predictor.predicted_phases();
     REQUIRE_FALSE(defaults.empty());
     REQUIRE(predictor.predicted_total() > 0);
