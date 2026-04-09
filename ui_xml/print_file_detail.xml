@@ -60,7 +60,8 @@
         </lv_obj>
         <!-- No-thumbnail placeholder - shown when file has no real thumbnail -->
         <icon name="detail_no_thumbnail_icon"
-              src="cube_outline" size="xl" variant="tertiary" align="center" style_translate_y="-20" hidden="true"/>
+              src="cube_outline" size="xl" variant="tertiary" align="center" style_translate_y="-20"
+              style_transform_scale_x="512" style_transform_scale_y="512" hidden="true"/>
         <!-- Metadata clip - content-sized, hides top rounded corners of inner overlay -->
         <lv_obj name="detail_metadata_clip"
                 width="100%" height="content" style_radius="0" style_pad_all="0"

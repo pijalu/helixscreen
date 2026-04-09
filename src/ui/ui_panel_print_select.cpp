@@ -1266,6 +1266,30 @@ void PrintSelectPanel::process_metadata_result(size_t i, const std::string& file
                                             t->filename,
                                             t->panel->file_list_[t->index].thumbnail_path);
                                         t->panel->schedule_view_refresh();
+
+                                        // Update detail view thumbnail if this file is selected
+                                        // (handles metascan flow where thumbnail arrives after
+                                        // metadata)
+                                        if (strcmp(t->panel->selected_filename_buffer_,
+                                                   t->filename.c_str()) == 0) {
+                                            const auto& file = t->panel->file_list_[t->index];
+                                            std::string filament_display =
+                                                file.filament_name.empty() ? file.filament_type
+                                                                           : file.filament_name;
+                                            t->panel->set_selected_file(
+                                                file.filename.c_str(), file.thumbnail_path.c_str(),
+                                                file.original_thumbnail_url.c_str(),
+                                                file.print_time_str.c_str(),
+                                                file.filament_str.c_str(),
+                                                file.layer_count_str.c_str(),
+                                                file.print_height_str.c_str(),
+                                                file.modified_timestamp,
+                                                file.layer_height_str.c_str(),
+                                                filament_display.c_str());
+                                            spdlog::debug(
+                                                "[{}] Updated detail view thumbnail for {}",
+                                                t->panel->get_name(), t->filename);
+                                        }
                                     }
                                 });
                         },
@@ -1723,18 +1747,28 @@ void PrintSelectPanel::set_selected_file(const char* filename, const char* thumb
     }
     lv_subject_set_pointer(&selected_detail_thumbnail_subject_, selected_detail_thumbnail_buffer_);
 
-    // Toggle no-thumbnail placeholder icon in detail view
+    // Toggle no-thumbnail placeholder icon and gradient background in detail view
     if (detail_view_ && detail_view_->get_widget()) {
         lv_obj_t* no_thumb =
             lv_obj_find_by_name(detail_view_->get_widget(), "detail_no_thumbnail_icon");
+        lv_obj_t* gradient = lv_obj_find_by_name(detail_view_->get_widget(), "gradient_bg");
         if (no_thumb) {
             bool has_real =
                 thumbnail_src && thumbnail_src[0] != '\0' &&
                 !helix::ui::PrintSelectCardView::is_placeholder_thumbnail(thumbnail_src);
             if (has_real) {
                 lv_obj_add_flag(no_thumb, LV_OBJ_FLAG_HIDDEN);
+                // Restore gradient opacity behind real thumbnails
+                if (gradient) {
+                    lv_obj_set_style_image_opa(gradient, LV_OPA_COVER, 0);
+                }
             } else {
                 lv_obj_remove_flag(no_thumb, LV_OBJ_FLAG_HIDDEN);
+                // Make gradient transparent when showing placeholder to prevent
+                // the gradient shape appearing behind the placeholder icon
+                if (gradient) {
+                    lv_obj_set_style_image_opa(gradient, LV_OPA_TRANSP, 0);
+                }
             }
         }
     }

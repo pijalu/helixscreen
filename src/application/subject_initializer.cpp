@@ -17,6 +17,7 @@
 #include "ui_overlay_timelapse_videos.h"
 #include "ui_panel_advanced.h"
 #include "ui_panel_bed_mesh.h"
+#include "ui_panel_belt_tension.h"
 #include "ui_panel_calibration_pid.h"
 #include "ui_panel_calibration_zoffset.h"
 #include "ui_panel_console.h"
@@ -25,7 +26,6 @@
 #include "ui_panel_history_dashboard.h"
 #include "ui_panel_history_list.h"
 #include "ui_panel_home.h"
-#include "ui_panel_belt_tension.h"
 #include "ui_panel_input_shaper.h"
 #include "ui_panel_motion.h"
 #include "ui_panel_print_select.h"
@@ -33,14 +33,12 @@
 #include "ui_panel_screws_tilt.h"
 #include "ui_panel_settings.h"
 #include "ui_panel_spoolman.h"
-#include "temperature_service.h"
 #include "ui_printer_status_icon.h"
 #include "ui_probe_overlay.h"
 #include "ui_update_queue.h"
 #include "ui_wizard.h"
 
 #include "abort_manager.h"
-#include "lock_manager.h"
 #include "accel_sensor_manager.h"
 #include "active_print_media_manager.h"
 #include "ams_state.h"
@@ -49,6 +47,7 @@
 #include "filament_sensor_manager.h"
 #include "humidity_sensor_manager.h"
 #include "led/ui_led_control_overlay.h"
+#include "lock_manager.h"
 #include "lvgl/lvgl.h"
 #include "panel_widget_manager.h"
 #include "print_completion.h"
@@ -59,6 +58,7 @@
 #include "spoolman_manager.h"
 #include "system/telemetry_manager.h"
 #include "temperature_sensor_manager.h"
+#include "temperature_service.h"
 #include "timelapse_state.h"
 #include "tool_state.h"
 #include "usb_manager.h"
@@ -122,9 +122,9 @@ void SubjectInitializer::init_post(const RuntimeConfig& runtime_config) {
 
 void SubjectInitializer::init_core_subjects() {
     spdlog::trace("[SubjectInitializer] Initializing core subjects");
-    app_globals_init_subjects();                   // Global subjects (notification subject, etc.)
-    PrinterStatusIcon::instance().init_subjects(); // Printer icon state
-    helix::ui::notification_init_subjects();       // Notification badge subjects
+    app_globals_init_subjects();                    // Global subjects (notification subject, etc.)
+    PrinterStatusIcon::instance().init_subjects();  // Printer icon state
+    helix::ui::notification_init_subjects();        // Notification badge subjects
     helix::LockManager::instance().init_subjects(); // Lock screen pin_set subject
 }
 
@@ -237,10 +237,11 @@ void SubjectInitializer::init_panel_subjects(MoonrakerAPI* api) {
 
     // PrinterStatusIcon and StatusBar subjects — cleanup self-registered inside init_subjects()
 
-    // Panels with API injection at construction
     // Note: PrintSelectPanel registers its own deinit+destroy callback in get_print_select_panel()
     m_print_select_panel = get_print_select_panel(get_printer_state(), api);
     m_print_select_panel->init_subjects();
+    if (api)
+        m_print_select_panel->set_api(api);
 
     m_print_status_panel = &get_global_print_status_panel();
     if (api)
