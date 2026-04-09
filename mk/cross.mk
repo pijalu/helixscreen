@@ -479,7 +479,7 @@ else ifeq ($(PLATFORM_TARGET),x86)
     TARGET_TRIPLE := x86_64-linux-gnu
     # -funwind-tables: Emit unwind info so backtrace() can walk the full
     # call stack in crash reports. Negligible code size cost, zero runtime cost.
-    TARGET_CFLAGS := -march=x86-64 -funwind-tables -I/usr/include/libdrm -Wno-error=conversion -Wno-error=sign-conversion -DHELIX_RELEASE_BUILD -DHELIX_BINARY_VARIANT=\"drm\"
+    TARGET_CFLAGS := -march=x86-64 -funwind-tables -I/usr/include/libdrm -Wno-error=conversion -Wno-error=sign-conversion -DHELIX_RELEASE_BUILD -DHELIX_PLATFORM_X86 -DHELIX_BINARY_VARIANT=\"drm\"
     DISPLAY_BACKEND := drm
     ENABLE_OPENGLES := yes
     ENABLE_SDL := no
@@ -501,7 +501,7 @@ else ifeq ($(PLATFORM_TARGET),x86-fbdev)
     TARGET_TRIPLE := x86_64-linux-gnu
     TARGET_CFLAGS := -march=x86-64 -funwind-tables \
         -Wno-error=conversion -Wno-error=sign-conversion \
-        -DHELIX_RELEASE_BUILD -DHELIX_BINARY_VARIANT=\"fbdev\"
+        -DHELIX_RELEASE_BUILD -DHELIX_PLATFORM_X86 -DHELIX_BINARY_VARIANT=\"fbdev\"
     DISPLAY_BACKEND := fbdev
     ENABLE_OPENGLES := no
     ENABLE_SDL := no
@@ -522,7 +522,7 @@ else ifeq ($(PLATFORM_TARGET),x86-both)
     CROSS_COMPILE :=
     TARGET_ARCH := x86_64
     TARGET_TRIPLE := x86_64-linux-gnu
-    TARGET_CFLAGS := -march=x86-64 -funwind-tables -I/usr/include/libdrm -Wno-error=conversion -Wno-error=sign-conversion -DHELIX_RELEASE_BUILD -DHELIX_BINARY_VARIANT=\"drm\"
+    TARGET_CFLAGS := -march=x86-64 -funwind-tables -I/usr/include/libdrm -Wno-error=conversion -Wno-error=sign-conversion -DHELIX_RELEASE_BUILD -DHELIX_PLATFORM_X86 -DHELIX_BINARY_VARIANT=\"drm\"
     DISPLAY_BACKEND := drm
     ENABLE_OPENGLES := yes
     ENABLE_SDL := no

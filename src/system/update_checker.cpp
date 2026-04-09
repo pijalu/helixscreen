@@ -1052,6 +1052,10 @@ bool UpdateChecker::validate_elf_architecture(const std::string& tarball_path) {
         expected_class = 2;      // ELFCLASS64
         expected_machine = 0xB7; // EM_AARCH64
         expected_arch_name = "AARCH64 64-bit";
+    } else if (platform == "x86") {
+        expected_class = 2;      // ELFCLASS64
+        expected_machine = 0x3E; // EM_X86_64
+        expected_arch_name = "x86_64 64-bit";
     } else {
         spdlog::info("[UpdateChecker] Platform '{}' — skipping ELF validation", platform);
         return true;
@@ -1904,6 +1908,8 @@ std::string UpdateChecker::get_platform_key() {
     }
 #elif defined(HELIX_PLATFORM_K2)
     return "k2";
+#elif defined(HELIX_PLATFORM_X86)
+    return "x86";
 #elif defined(HELIX_PLATFORM_PI32)
     return "pi32";
 #else
