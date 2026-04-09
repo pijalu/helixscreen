@@ -76,12 +76,6 @@
     </lv_obj>
     <!-- Horizontal divider above buttons -->
     <divider_horizontal/>
-    <!-- Warning text about emergency stop (probing state only) -->
-    <text_small width="100%"
-                text="Stops all motion. Requires firmware restart." translation_tag="Stops all motion. Requires firmware restart." style_text_align="center"
-                style_pad_top="#space_sm" style_pad_bottom="#space_sm" hidden="true">
-      <bind_flag_if_not_eq subject="bed_mesh_calibrate_state" flag="hidden" ref_value="1"/>
-    </text_small>
     <!-- ============================================================ -->
     <!-- Button row: PROBING state (state=1) - Cancel only -->
     <!-- ============================================================ -->
@@ -96,6 +90,13 @@
         <event_cb trigger="clicked" callback="on_bed_mesh_emergency_stop"/>
       </ui_button>
     </lv_obj>
+    <!-- Warning text about emergency stop (probing state only) -->
+    <text_small width="100%"
+                text="Stops all motion. Requires firmware restart."
+                translation_tag="Stops all motion. Requires firmware restart." style_text_align="center"
+                style_pad_top="#space_sm" style_pad_bottom="#space_sm" hidden="true">
+      <bind_flag_if_not_eq subject="bed_mesh_calibrate_state" flag="hidden" ref_value="1"/>
+    </text_small>
     <!-- ============================================================ -->
     <!-- Button row: NAMING state (state=2) - Don't Save | Save -->
     <!-- ============================================================ -->

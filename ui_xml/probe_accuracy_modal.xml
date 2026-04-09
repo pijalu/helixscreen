@@ -96,11 +96,6 @@
     <!-- ============================================================ -->
     <!-- Button row: PROBING state (state=1) - E-Stop                 -->
     <!-- ============================================================ -->
-    <text_small width="100%"
-                text="Stops all motion. Requires firmware restart." translation_tag="Stops all motion. Requires firmware restart." style_text_align="center"
-                style_pad_top="#space_sm" style_pad_bottom="#space_sm" hidden="true">
-      <bind_flag_if_not_eq subject="probe_acc_state" flag="hidden" ref_value="1"/>
-    </text_small>
     <lv_obj name="probing_button_row"
             width="100%" height="#button_height" style_pad_all="0" style_pad_gap="0" flex_flow="row" hidden="true"
             scrollable="false">
@@ -111,6 +106,12 @@
         <event_cb trigger="clicked" callback="on_probe_accuracy_estop"/>
       </ui_button>
     </lv_obj>
+    <text_small width="100%"
+                text="Stops all motion. Requires firmware restart."
+                translation_tag="Stops all motion. Requires firmware restart." style_text_align="center"
+                style_pad_top="#space_sm" style_pad_bottom="#space_sm" hidden="true">
+      <bind_flag_if_not_eq subject="probe_acc_state" flag="hidden" ref_value="1"/>
+    </text_small>
 
     <!-- ============================================================ -->
     <!-- Button row: RESULTS state (state=2) - OK                     -->
