@@ -128,7 +128,7 @@
             <lv_obj width="100%"
                     height="content" flex_flow="row" style_flex_cross_place="center" style_pad_all="0"
                     style_pad_gap="#space_sm" scrollable="false">
-              <icon src="heater" size="sm" variant="primary"/>
+              <icon src="thermometer" size="sm" variant="secondary"/>
               <text_small text="Temperatures"
                           translation_tag="Temperatures" style_translate_y="2" style_text_color="#text"/>
             </lv_obj>
@@ -143,7 +143,6 @@
                       style_flex_cross_place="center" style_pad_gap="#space_xs" clickable="false" event_bubble="true">
                 <icon name="nozzle_heater_icon"
                       src="heater" size="xs" variant="secondary" clickable="false" event_bubble="true"/>
-                <text_small bind_text="controls_nozzle_label"/>
                 <temp_display name="nozzle_temp_display"
                               size="md" show_target="true" bind_current="extruder_temp" bind_target="extruder_target"
                               clickable="false" event_bubble="true"/>
@@ -173,7 +172,6 @@
                       style_flex_cross_place="center" style_pad_gap="#space_xs" clickable="false" event_bubble="true">
                 <icon name="bed_heater_icon"
                       src="radiator" size="xs" variant="secondary" clickable="false" event_bubble="true"/>
-                <text_small text="Bed" translation_tag="Bed"/>
                 <temp_display name="bed_temp_display"
                               size="md" show_target="true" bind_current="bed_temp" bind_target="bed_target"
                               clickable="false" event_bubble="true"/>
@@ -201,7 +199,6 @@
                       height="content" flex_flow="row" style_pad_all="0" scrollable="false"
                       style_flex_cross_place="center" style_pad_gap="#space_xs" clickable="false" event_bubble="true">
                 <icon src="fridge_industrial" size="xs" variant="secondary" clickable="false" event_bubble="true"/>
-                <text_small text="Chamb:" translation_tag="Chamb:" clickable="false" event_bubble="true"/>
                 <temp_display name="chamber_temp_display"
                               size="md" show_target="true" bind_current="chamber_temp" bind_target="chamber_target"
                               clickable="false" event_bubble="true"/>
