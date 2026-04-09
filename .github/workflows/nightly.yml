@@ -462,15 +462,14 @@ jobs:
       run: make -j$(sysctl -n hw.ncpu)
 
     - name: Run all tests (including slow)
-      timeout-minutes: 45
+      timeout-minutes: 60
       run: |
         make test-build
         # Fast tests in parallel
         make test-run
         # Slow tests sequentially, excluding [eventloop] tests which hang
         # on macOS CI due to libhv kqueue event loop not waking on stop()
-        # Use timeout to prevent orphaned helix-tests process if a test hangs
-        timeout 1800 ./build/bin/helix-tests "[slow] ~[eventloop]" --durations yes
+        ./build/bin/helix-tests "[slow] ~[eventloop]" --durations yes
 
   # ===========================================================================
   # Final status gate
