@@ -345,7 +345,7 @@ translations:
   Choose 12-hour or 24-hour time display: Выберите 12-часовой или 24-часовой формат
     времени
   Choose Saved Spool: Выбрать сохранённую катушку
-  Choose Spool: ''
+  Choose Spool: Выбрать катушку
   Choose an existing filament, or tap + New to create one.: Выберите существующий
     филамент или нажмите + Новый, чтобы создать.
   Choose display language: Выберите язык интерфейса
@@ -489,7 +489,7 @@ translations:
   DETECTED USB PRINTERS: ОБНАРУЖЕННЫЕ USB-ПРИНТЕРЫ
   DISABLED: ОТКЛЮЧЕНО
   DISCOVERED PRINTERS: НАЙДЕННЫЕ ПРИНТЕРЫ
-  DISPLAY: ''
+  DISPLAY: ДИСПЛЕЙ
   Damping (Kd): Демпфирование (Kd)
   Danger: Опасность
   Danger Zone: Опасная зона
@@ -525,7 +525,7 @@ translations:
   Discord Community: Сообщество Discord
   Discovered Printers: Обнаруженные принтеры
   Dismiss: Отклонить
-  Display & Sound: ''
+  Display & Sound: Дисплей и звук
   Display Mode: Режим отображения
   Display Settings: Настройки дисплея
   Display Sleep: Спящий режим экрана
@@ -566,7 +566,7 @@ translations:
   Emergency Stop: Аварийная остановка
   Emergency Stop?: Аварийная остановка?
   Emergency stop activated: Аварийная остановка активирована
-  Emergency stop and print alerts: ''
+  Emergency stop and print alerts: Аварийная остановка и оповещения печати
   'Emergency stop failed: not connected': 'Аварийная остановка не удалась: нет подключения'
   Empty: Пусто
   Empty slots disable the associated functionality: Пустые слоты отключают связанный
@@ -603,7 +603,7 @@ translations:
   Escalate to emergency stop if cancel doesn't respond: Эскалация до аварийной остановки,
     если отмена не отвечает
   Escalation Timeout: Тайм-аут эскалации
-  Estimating...: ''
+  Estimating...: Оценка...
   Ethernet: Ethernet
   Events appear here after sessions and prints: События появятся здесь после сессий
     и печатей
@@ -754,7 +754,7 @@ translations:
   Fine: Точно
   Fine-Tune: Тонкая настройка
   Finish: Завершить
-  Finishing up...: ''
+  Finishing up...: Завершение...
   Firmware Restart: Перезапуск прошивки
   Firmware restarting...: Перезапуск прошивки...
   FlashForge IFS: FlashForge IFS
@@ -791,7 +791,7 @@ translations:
   Hang on, we'll be right back!: Подождите, мы скоро вернёмся!
   Happy Hare MMU: Happy Hare MMU
   Hardware: Оборудование
-  Hardware & Devices: ''
+  Hardware & Devices: Оборудование и устройства
   Hardware Health: Состояние оборудования
   Hardware Issues: Проблемы оборудования
   Hardware Name: Название оборудования
@@ -821,7 +821,7 @@ translations:
   Heating (%d°C below minimum): Нагрев (%d°C ниже минимума)
   Heating Bed...: Нагрев стола...
   Heating Nozzle...: Нагрев сопла...
-  Heating to %d\xC2\xB0: ''
+  Heating to %d\xC2\xB0: Нагрев до %d\xC2\xB0
   Heating to %d°C...: Нагрев до %d°C...
   Heating to target...: Нагрев до целевой температуры...
   Heating to {}°C for {}...: Нагрев до {}°C в течение {}...
@@ -833,7 +833,7 @@ translations:
     дисплея
   HelixScreen will integrate with your filament changer for multi-spool/color print operations.: HelixScreen
     интегрируется с вашим сменщиком филамента для многокатушечной/многоцветной печати.
-  Help & About: ''
+  Help & About: Помощь и о программе
   Help Improve HelixScreen: Помогите улучшить HelixScreen
   Help improve HelixScreen?: Помочь улучшить HelixScreen?
   Higher = faster: Выше = быстрее
@@ -946,7 +946,7 @@ translations:
   Labels: Этикетки
   Labels Per Sheet: Этикеток на листе
   Language: Язык
-  Language, theme, brightness, and sound: ''
+  Language, theme, brightness, and sound: Язык, тема, яркость и звук
   Last: Последняя
   Last print cancelled: Последняя печать отменена
   Last print failed: Последняя печать не удалась
@@ -1091,7 +1091,7 @@ translations:
     2-3 минуты. Принтер будет шуметь — это нормально.
   Multi-Filament: Мульти-филамент
   Multi-Filament Overview: Обзор мульти-филамента
-  Multi-Filament System Management: ''
+  Multi-Filament System Management: Управление мульти-филаментной системой
   'Multi-Filament:': 'Мульти-филамент:'
   Multi-Material: Мульти-материал
   Multi-Material System Detected: Обнаружена мульти-материальная система
@@ -1240,7 +1240,7 @@ translations:
     — выберите основной источник освещения или пропустите, если его нет
   Or Enter Manually: Или введите вручную
   Oscillating around target...: Колебания вокруг цели...
-  Oscillating... cycle %d/%d: ''
+  Oscillating... cycle %d/%d: Осцилляция... цикл %d/%d
   Out of range: Вне диапазона
   Output Mode: Режим вывода
   Output Pin: Выходной пин
@@ -1383,7 +1383,7 @@ translations:
   Printer name: Название принтера
   Printer ready: Принтер готов
   Printers: Принтеры
-  Printers, AMS, fans, sensors, and LEDs: ''
+  Printers, AMS, fans, sensors, and LEDs: Принтеры, AMS, вентиляторы, датчики и светодиоды
   Printing: Печать
   Printing label...: Печать этикетки...
   Printing test label...: Печать тестовой этикетки...
@@ -1540,17 +1540,17 @@ translations:
     преднагреве этого материала
   Running {}...: Выполнение {}...
   Runout Sensor: Датчик окончания
-  SETTINGS: ''
+  SETTINGS: НАСТРОЙКИ
   SHIPPED IMAGES: ВСТРОЕННЫЕ ИЗОБРАЖЕНИЯ
   SOFTWARE: ПО
-  SOUND: ''
+  SOUND: ЗВУК
   STANDARD MACROS: СТАНДАРТНЫЕ МАКРОСЫ
   STARTUP: ЗАПУСК
   STOP: СТОП
   STYLE PROPERTIES: СВОЙСТВА СТИЛЯ
   SWITCH SENSORS: КОНЦЕВЫЕ ДАТЧИКИ
   SYSTEM: СИСТЕМА
-  Safety & Notifications: ''
+  Safety & Notifications: Безопасность и уведомления
   Sample: Образец
   Sample %d/%d: Образец %d/%d
   Sample Dialog: Пример диалога
@@ -1601,7 +1601,7 @@ translations:
   Secondary: Вторичный
   Section Detail: Детали раздела
   Security: Безопасность
-  Security, network, host, and administration: ''
+  Security, network, host, and administration: Безопасность, сеть, хост и администрирование
   See exactly what data will be sent: Посмотрите, какие именно данные будут отправлены
   Select: Выбрать
   Select 'None' if you don't have a filament sensor, or if you don't want to pause on runout.: Выберите
@@ -1645,7 +1645,7 @@ translations:
   'Set ': 'Установить '
   Set Active: Сделать активной
   Set PIN: Установить PIN
-  Set local timezone for time display: ''
+  Set local timezone for time display: Установить часовой пояс для отображения времени
   Set up your label printer in Settings: Настройте принтер этикеток в Настройках
   Settings: Настройки
   Settings reset to defaults. Restarting...: Настройки сброшены к значениям по умолчанию.
@@ -1756,7 +1756,7 @@ translations:
   Success: Успех
   Success Rate: Процент успеха
   Success!: Успешно!
-  Support, documentation, and version info: ''
+  Support, documentation, and version info: Поддержка, документация и информация о версии
   Surfaces inherit app background tokens for light and dark modes.: Поверхности наследуют
     токены фона приложения для светлого и тёмного режимов.
   Switch Printer: Переключить принтер
@@ -1883,7 +1883,7 @@ translations:
   Timelapse plugin is already installed!: Плагин таймлапса уже установлен!
   Timelapse plugin is installed!: Плагин таймлапса установлен!
   Timelapse rendered successfully: Таймлапс успешно отрендерен
-  Timezone: ''
+  Timezone: Часовой пояс
   'Tip:': 'Совет:'
   Toggle: Переключить
   Toggle (fire-and-forget): Переключение (без отслеживания)
@@ -1893,7 +1893,7 @@ translations:
   Tool Changer: Сменщик инструментов
   'Tool change failed: {}': 'Ошибка смены инструмента: {}'
   Toolhead Style: Стиль печатающей головки
-  Toolhead, G-code, limits, and materials: ''
+  Toolhead, G-code, limits, and materials: 'Печатающая головка, G-code, лимиты и материалы'
   Top: Сверху
   Total Prints: Всего печатей
   Touch Cal: Кал. касания
@@ -2087,7 +2087,7 @@ translations:
   of: из
   'off': выкл
   prints: печатей
-  remaining: ''
+  remaining: осталось
   remaining before clog detection triggers: осталось до срабатывания обнаружения засора
   set to: установлено на
   started: запущено

@@ -349,7 +349,7 @@ translations:
   Checking timelapse plugin...: Verifica plugin timelapse...
   Choose 12-hour or 24-hour time display: Scegli formato orario 12 ore o 24 ore
   Choose Saved Spool: Scegli bobina salvata
-  Choose Spool: ''
+  Choose Spool: Scegli bobina
   Choose an existing filament, or tap + New to create one.: Scegli un filamento esistente,
     o tocca + Nuovo per crearne uno.
   Choose display language: Scegli lingua di visualizzazione
@@ -494,7 +494,7 @@ translations:
   DETECTED USB PRINTERS: STAMPANTI USB RILEVATE
   DISABLED: DISABILITATO
   DISCOVERED PRINTERS: STAMPANTI SCOPERTE
-  DISPLAY: ''
+  DISPLAY: SCHERMO
   Damping (Kd): Smorzamento (Kd)
   Danger: Pericolo
   Danger Zone: Zona pericolosa
@@ -530,7 +530,7 @@ translations:
   Discord Community: Comunità Discord
   Discovered Printers: Stampanti rilevate
   Dismiss: Ignora
-  Display & Sound: ''
+  Display & Sound: Schermo e suono
   Display Mode: Modalità visualizzazione
   Display Settings: Impostazioni schermo
   Display Sleep: Schermo in standby
@@ -572,7 +572,7 @@ translations:
   Emergency Stop: Arresto emergenza
   Emergency Stop?: Arresto emergenza?
   Emergency stop activated: Arresto emergenza attivato
-  Emergency stop and print alerts: ''
+  Emergency stop and print alerts: Arresto di emergenza e avvisi di stampa
   'Emergency stop failed: not connected': 'Arresto emergenza fallito: non connesso'
   Empty: Vuoto
   Empty slots disable the associated functionality: Gli slot vuoti disabilitano le
@@ -610,7 +610,7 @@ translations:
   Escalate to emergency stop if cancel doesn't respond: Escalation ad arresto di emergenza
     se annulla non risponde
   Escalation Timeout: Timeout escalation
-  Estimating...: ''
+  Estimating...: Stima in corso...
   Ethernet: Ethernet
   Events appear here after sessions and prints: Gli eventi appaiono qui dopo sessioni
     e stampe
@@ -764,7 +764,7 @@ translations:
   Fine: Preciso
   Fine-Tune: Regolazione fine
   Finish: Fine
-  Finishing up...: ''
+  Finishing up...: Completamento...
   Firmware Restart: Riavvio firmware
   Firmware restarting...: Riavvio firmware...
   FlashForge IFS: FlashForge IFS
@@ -800,7 +800,7 @@ translations:
   Hang on, we'll be right back!: Aspetta, torniamo subito!
   Happy Hare MMU: Happy Hare MMU
   Hardware: Hardware
-  Hardware & Devices: ''
+  Hardware & Devices: Hardware e dispositivi
   Hardware Health: Stato hardware
   Hardware Issues: Problemi hardware
   Hardware Name: Nome hardware
@@ -830,7 +830,7 @@ translations:
   Heating (%d°C below minimum): Riscaldamento (%d°C sotto il minimo)
   Heating Bed...: Riscaldamento piatto...
   Heating Nozzle...: Riscaldamento ugello...
-  Heating to %d\xC2\xB0: ''
+  Heating to %d\xC2\xB0: Riscaldamento a %d\xC2\xB0
   Heating to %d°C...: Riscaldamento a %d°C...
   Heating to target...: Riscaldamento al target...
   Heating to {}°C for {}...: Riscaldamento a {}°C per {}...
@@ -842,7 +842,7 @@ translations:
     del display
   HelixScreen will integrate with your filament changer for multi-spool/color print operations.: HelixScreen
     si integrerà con il tuo cambia-filamento per operazioni di stampa multi-bobina/colore.
-  Help & About: ''
+  Help & About: Aiuto e info
   Help Improve HelixScreen: Aiuta a migliorare HelixScreen
   Help improve HelixScreen?: Aiutare a migliorare HelixScreen?
   Higher = faster: Più alto = più veloce
@@ -957,7 +957,7 @@ translations:
   Labels: Etichette
   Labels Per Sheet: Etichette per foglio
   Language: Lingua
-  Language, theme, brightness, and sound: ''
+  Language, theme, brightness, and sound: Lingua, tema, luminosità e suono
   Last: Ultima
   Last print cancelled: Ultima stampa annullata
   Last print failed: Ultima stampa fallita
@@ -1104,7 +1104,7 @@ translations:
     2-3 minuti. La stampante farà rumore — è normale.
   Multi-Filament: Multi-filamento
   Multi-Filament Overview: Panoramica multi-filamento
-  Multi-Filament System Management: ''
+  Multi-Filament System Management: Gestione sistema multi-filamento
   'Multi-Filament:': 'Multi-filamento:'
   Multi-Material: Multi-materiale
   Multi-Material System Detected: Sistema multi-materiale rilevato
@@ -1254,7 +1254,7 @@ translations:
     ne ha una
   Or Enter Manually: Oppure inserisci manualmente
   Oscillating around target...: Oscillazione intorno al target...
-  Oscillating... cycle %d/%d: ''
+  Oscillating... cycle %d/%d: Oscillazione... ciclo %d/%d
   Out of range: Fuori intervallo
   Output Mode: Modalità uscita
   Output Pin: Pin di uscita
@@ -1399,7 +1399,7 @@ translations:
   Printer name: Nome stampante
   Printer ready: Stampante pronta
   Printers: Stampanti
-  Printers, AMS, fans, sensors, and LEDs: ''
+  Printers, AMS, fans, sensors, and LEDs: Stampanti, AMS, ventole, sensori e LED
   Printing: Stampa in corso
   Printing label...: Stampa etichetta in corso...
   Printing test label...: Stampa etichetta di prova...
@@ -1557,17 +1557,17 @@ translations:
     il preriscaldamento di questo materiale
   Running {}...: Esecuzione {}...
   Runout Sensor: Sensore esaurimento
-  SETTINGS: ''
+  SETTINGS: IMPOSTAZIONI
   SHIPPED IMAGES: IMMAGINI INCLUSE
   SOFTWARE: SOFTWARE
-  SOUND: ''
+  SOUND: SUONO
   STANDARD MACROS: MACRO STANDARD
   STARTUP: AVVIO
   STOP: STOP
   STYLE PROPERTIES: PROPRIETÀ STILE
   SWITCH SENSORS: SENSORI INTERRUTTORE
   SYSTEM: SISTEMA
-  Safety & Notifications: ''
+  Safety & Notifications: Sicurezza e notifiche
   Sample: Campione
   Sample %d/%d: Campione %d/%d
   Sample Dialog: Dialogo di esempio
@@ -1620,7 +1620,7 @@ translations:
   Secondary: Secondario
   Section Detail: Dettaglio sezione
   Security: Sicurezza
-  Security, network, host, and administration: ''
+  Security, network, host, and administration: Sicurezza, rete, host e amministrazione
   See exactly what data will be sent: Vedi esattamente quali dati verranno inviati
   Select: Seleziona
   Select 'None' if you don't have a filament sensor, or if you don't want to pause on runout.: Selezionare
@@ -1665,7 +1665,7 @@ translations:
   'Set ': 'Imposta '
   Set Active: Imposta attivo
   Set PIN: Imposta PIN
-  Set local timezone for time display: ''
+  Set local timezone for time display: Imposta fuso orario locale per l'ora
   Set up your label printer in Settings: Configura la stampante etichette nelle Impostazioni
   Settings: Impostazioni
   Settings reset to defaults. Restarting...: Impostazioni ripristinate ai valori predefiniti.
@@ -1777,7 +1777,7 @@ translations:
   Success: Successo
   Success Rate: Tasso di successo
   Success!: Successo!
-  Support, documentation, and version info: ''
+  Support, documentation, and version info: Supporto, documentazione e info versione
   Surfaces inherit app background tokens for light and dark modes.: Le superfici ereditano
     i token sfondo app per modalità chiara e scura.
   Switch Printer: Cambia stampante
@@ -1908,7 +1908,7 @@ translations:
   Timelapse plugin is already installed!: Plugin timelapse già installato!
   Timelapse plugin is installed!: Plugin timelapse installato!
   Timelapse rendered successfully: Timelapse renderizzato con successo
-  Timezone: ''
+  Timezone: Fuso orario
   'Tip:': 'Suggerimento:'
   Toggle: Alterna
   Toggle (fire-and-forget): Alterna (senza tracciamento)
@@ -1918,7 +1918,7 @@ translations:
   Tool Changer: Cambia utensile
   'Tool change failed: {}': 'Cambio utensile fallito: {}'
   Toolhead Style: Stile testina
-  Toolhead, G-code, limits, and materials: ''
+  Toolhead, G-code, limits, and materials: 'Testina, G-code, limiti e materiali'
   Top: Alto
   Total Prints: Stampe totali
   Touch Cal: Cal. touch
@@ -2114,7 +2114,7 @@ translations:
   of: di
   'off': spento
   prints: stampe
-  remaining: ''
+  remaining: rimanente
   remaining before clog detection triggers: rimanente prima che si attivi il rilevamento
     intasamento
   set to: impostato a

@@ -306,7 +306,7 @@ translations:
   Checking timelapse plugin...: 正在检查延时摄影插件...
   Choose 12-hour or 24-hour time display: 选择 12 小时制或 24 小时制
   Choose Saved Spool: 选择已保存的料盘
-  Choose Spool: ''
+  Choose Spool: 选择线轴
   Choose an existing filament, or tap + New to create one.: 选择已有耗材，或点击 + 新建来创建。
   Choose display language: 选择显示语言
   Choose how frames are captured during printing: 选择打印期间的帧捕获方式
@@ -435,7 +435,7 @@ translations:
   DETECTED USB PRINTERS: 已检测到的 USB 打印机
   DISABLED: 已禁用
   DISCOVERED PRINTERS: 已发现的打印机
-  DISPLAY: ''
+  DISPLAY: 显示
   Damping (Kd): 阻尼 (Kd)
   Danger: 危险
   Danger Zone: 危险区域
@@ -471,7 +471,7 @@ translations:
   Discord Community: Discord 社区
   Discovered Printers: 已发现的打印机
   Dismiss: 忽略
-  Display & Sound: ''
+  Display & Sound: 显示与声音
   Display Mode: 显示模式
   Display Settings: 显示设置
   Display Sleep: 显示休眠
@@ -511,7 +511,7 @@ translations:
   Emergency Stop: 紧急停止
   Emergency Stop?: 紧急停止？
   Emergency stop activated: 紧急停止已激活
-  Emergency stop and print alerts: ''
+  Emergency stop and print alerts: 紧急停止和打印警报
   'Emergency stop failed: not connected': '紧急停止失败: 未连接'
   Empty: 空
   Empty slots disable the associated functionality: 空料仓将禁用相关功能
@@ -544,7 +544,7 @@ translations:
   Error state: 错误状态
   Escalate to emergency stop if cancel doesn't respond: 如果取消无响应则升级为紧急停止
   Escalation Timeout: 升级超时
-  Estimating...: ''
+  Estimating...: 估算中...
   Ethernet: 以太网
   Events appear here after sessions and prints: 会话和打印后事件将显示在此处
   Excellent Accuracy: 精度极佳
@@ -685,7 +685,7 @@ translations:
   Fine: 细调
   Fine-Tune: 微调
   Finish: 完成
-  Finishing up...: ''
+  Finishing up...: 即将完成...
   Firmware Restart: 固件重启
   Firmware restarting...: 固件重启中...
   FlashForge IFS: FlashForge IFS
@@ -721,7 +721,7 @@ translations:
   Hang on, we'll be right back!: 请稍候，马上回来！
   Happy Hare MMU: Happy Hare MMU
   Hardware: 硬件
-  Hardware & Devices: ''
+  Hardware & Devices: 硬件与设备
   Hardware Health: 硬件状态
   Hardware Issues: 硬件问题
   Hardware Name: 硬件名称
@@ -747,7 +747,7 @@ translations:
   Heating (%d°C below minimum): 加热中（低于最低温度 %d°C）
   Heating Bed...: 正在加热热床...
   Heating Nozzle...: 正在加热喷嘴...
-  Heating to %d\xC2\xB0: ''
+  Heating to %d\xC2\xB0: 加热至 %d\xC2\xB0
   Heating to %d°C...: 正在加热至 %d°C...
   Heating to target...: 正在加热至目标温度...
   Heating to {}°C for {}...: 正在加热至{}°C，持续{}...
@@ -758,7 +758,7 @@ translations:
   HelixScreen is detecting your display orientation: HelixScreen正在检测显示屏方向
   HelixScreen will integrate with your filament changer for multi-spool/color print operations.: HelixScreen
     将与您的耗材更换器集成，用于多料盘/多色打印操作。
-  Help & About: ''
+  Help & About: 帮助与关于
   Help Improve HelixScreen: 帮助改进 HelixScreen
   Help improve HelixScreen?: 帮助改进 HelixScreen？
   Higher = faster: 越高 = 越快
@@ -861,7 +861,7 @@ translations:
   Labels: 标签
   Labels Per Sheet: 每页标签数
   Language: 语言
-  Language, theme, brightness, and sound: ''
+  Language, theme, brightness, and sound: 语言、主题、亮度和声音
   Last: 最近
   Last print cancelled: 上次打印已取消
   Last print failed: 上次打印失败
@@ -994,7 +994,7 @@ translations:
   : 移动打印头以测量每个轴上的振动频率。需要 2-3 分钟。打印机会发出噪音——这是正常的。
   Multi-Filament: 多耗材
   Multi-Filament Overview: 多耗材概览
-  Multi-Filament System Management: ''
+  Multi-Filament System Management: 多耗材系统管理
   'Multi-Filament:': 多耗材：
   Multi-Material: 多材料
   Multi-Material System Detected: 检测到多材料系统
@@ -1132,7 +1132,7 @@ translations:
     - 选择主照明源，如打印机没有可跳过
   Or Enter Manually: 或手动输入
   Oscillating around target...: 正在围绕目标振荡...
-  Oscillating... cycle %d/%d: ''
+  Oscillating... cycle %d/%d: 振荡中... 循环 %d/%d
   Out of range: 超出范围
   Output Mode: 输出模式
   Output Pin: 输出引脚
@@ -1270,7 +1270,7 @@ translations:
   Printer name: 打印机名称
   Printer ready: 打印机就绪
   Printers: 打印机
-  Printers, AMS, fans, sensors, and LEDs: ''
+  Printers, AMS, fans, sensors, and LEDs: 打印机、AMS、风扇、传感器和LED
   Printing: 正在打印
   Printing label...: 正在打印标签...
   Printing test label...: 正在打印测试标签...
@@ -1416,17 +1416,17 @@ translations:
   Run a Klipper macro when preheating this material: 预热此材料时运行 Klipper 宏
   Running {}...: 正在运行 {}...
   Runout Sensor: 断料传感器
-  SETTINGS: ''
+  SETTINGS: 设置
   SHIPPED IMAGES: 内置图片
   SOFTWARE: 软件
-  SOUND: ''
+  SOUND: 声音
   STANDARD MACROS: 标准宏
   STARTUP: 启动
   STOP: 停止
   STYLE PROPERTIES: 样式属性
   SWITCH SENSORS: 开关传感器
   SYSTEM: 系统
-  Safety & Notifications: ''
+  Safety & Notifications: 安全与通知
   Sample: 样本
   Sample %d/%d: 样本 %d/%d
   Sample Dialog: 示例对话框
@@ -1472,7 +1472,7 @@ translations:
   Secondary: 次要
   Section Detail: 区域详情
   Security: 安全
-  Security, network, host, and administration: ''
+  Security, network, host, and administration: 安全、网络、主机和管理
   See exactly what data will be sent: 查看将发送的确切数据
   Select: 选择
   Select 'None' if you don't have a filament sensor, or if you don't want to pause on runout.: 如果您没有耗材传感器，或不想在断料时暂停，请选择「无」。
@@ -1510,7 +1510,7 @@ translations:
   'Set ': '设置 '
   Set Active: 设为活动
   Set PIN: 设置 PIN
-  Set local timezone for time display: ''
+  Set local timezone for time display: 设置本地时区以显示时间
   Set up your label printer in Settings: 在设置中配置标签打印机
   Settings: 设置
   Settings reset to defaults. Restarting...: 设置已重置为默认值。正在重启...
@@ -1611,7 +1611,7 @@ translations:
   Success: 成功
   Success Rate: 成功率
   Success!: 成功！
-  Support, documentation, and version info: ''
+  Support, documentation, and version info: 支持、文档和版本信息
   Surfaces inherit app background tokens for light and dark modes.: 表面继承应用背景色用于浅色和深色模式。
   Switch Printer: 切换打印机
   Switch Tests: 开关测试
@@ -1717,7 +1717,7 @@ translations:
   Timelapse plugin is already installed!: 延时摄影插件已安装！
   Timelapse plugin is installed!: 延时摄影插件已安装！
   Timelapse rendered successfully: 延时视频渲染成功
-  Timezone: ''
+  Timezone: 时区
   'Tip:': 提示：
   Toggle: 切换
   Toggle (fire-and-forget): 切换（无状态跟踪）
@@ -1727,7 +1727,7 @@ translations:
   Tool Changer: 换刀器
   'Tool change failed: {}': '工具切换失败: {}'
   Toolhead Style: 工具头样式
-  Toolhead, G-code, limits, and materials: ''
+  Toolhead, G-code, limits, and materials: 打印头、G代码、限制和材料
   Top: 顶部
   Total Prints: 总打印数
   Touch Cal: 触摸校准
@@ -1907,7 +1907,7 @@ translations:
   of: 的
   'off': 关闭
   prints: 打印次数
-  remaining: ''
+  remaining: 剩余
   remaining before clog detection triggers: 剩余即触发堵料检测
   set to: 设置为
   started: 已启动

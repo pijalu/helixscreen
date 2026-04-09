@@ -309,7 +309,7 @@ translations:
   Checking timelapse plugin...: タイムラプスプラグインを確認中...
   Choose 12-hour or 24-hour time display: 12時間表示または24時間表示を選択
   Choose Saved Spool: 保存済みスプールを選択
-  Choose Spool: ''
+  Choose Spool: スプールを選択
   Choose an existing filament, or tap + New to create one.: 既存のフィラメントを選択するか、+ 新規をタップして作成してください。
   Choose display language: 表示言語を選択
   Choose how frames are captured during printing: 印刷中のフレームキャプチャ方法を選択
@@ -437,7 +437,7 @@ translations:
   DETECTED USB PRINTERS: 検出されたUSBプリンター
   DISABLED: 無効
   DISCOVERED PRINTERS: 検出されたプリンター
-  DISPLAY: ''
+  DISPLAY: ディスプレイ
   Damping (Kd): 減衰 (Kd)
   Danger: 危険
   Danger Zone: 危険ゾーン
@@ -473,7 +473,7 @@ translations:
   Discord Community: Discordコミュニティ
   Discovered Printers: 検出されたプリンター
   Dismiss: 閉じる
-  Display & Sound: ''
+  Display & Sound: ディスプレイとサウンド
   Display Mode: 表示モード
   Display Settings: ディスプレイ設定
   Display Sleep: ディスプレイスリープ
@@ -513,7 +513,7 @@ translations:
   Emergency Stop: 緊急停止
   Emergency Stop?: 緊急停止しますか？
   Emergency stop activated: 緊急停止が作動しました
-  Emergency stop and print alerts: ''
+  Emergency stop and print alerts: 緊急停止と印刷アラート
   'Emergency stop failed: not connected': '緊急停止に失敗: 未接続'
   Empty: 空
   Empty slots disable the associated functionality: 空のスロットは関連機能を無効にします
@@ -546,7 +546,7 @@ translations:
   Error state: エラー状態
   Escalate to emergency stop if cancel doesn't respond: キャンセルが応答しない場合は緊急停止にエスカレート
   Escalation Timeout: エスカレーションタイムアウト
-  Estimating...: ''
+  Estimating...: 推定中...
   Ethernet: イーサネット
   Events appear here after sessions and prints: セッションと印刷の後にイベントがここに表示されます
   Excellent Accuracy: 非常に高精度
@@ -685,7 +685,7 @@ translations:
   Fine: 微動
   Fine-Tune: 微調整
   Finish: 完了
-  Finishing up...: ''
+  Finishing up...: 完了中...
   Firmware Restart: ファームウェア再起動
   Firmware restarting...: ファームウェア再起動中...
   FlashForge IFS: FlashForge IFS
@@ -721,7 +721,7 @@ translations:
   Hang on, we'll be right back!: しばらくお待ちください。すぐに戻ります！
   Happy Hare MMU: Happy Hare MMU
   Hardware: ハードウェア
-  Hardware & Devices: ''
+  Hardware & Devices: ハードウェアとデバイス
   Hardware Health: ハードウェア状態
   Hardware Issues: ハードウェアの問題
   Hardware Name: ハードウェア名
@@ -747,7 +747,7 @@ translations:
   Heating (%d°C below minimum): '"加熱中（最低温度より%d°C低い）"'
   Heating Bed...: ベッド加熱中...
   Heating Nozzle...: ノズル加熱中...
-  Heating to %d\xC2\xB0: ''
+  Heating to %d\xC2\xB0: '%d\xC2\xB0に加熱中'
   Heating to %d°C...: '"%d°Cまで加熱中..."'
   Heating to target...: 目標温度まで加熱中...
   Heating to {}°C for {}...: '{}°Cに加熱中（{}）...'
@@ -758,7 +758,7 @@ translations:
   HelixScreen is detecting your display orientation: HelixScreenがディスプレイの向きを検出しています
   HelixScreen will integrate with your filament changer for multi-spool/color print operations.: HelixScreen
     はマルチスプール/カラー印刷操作のためにフィラメントチェンジャーと連携します。
-  Help & About: ''
+  Help & About: ヘルプと情報
   Help Improve HelixScreen: HelixScreen の改善にご協力ください
   Help improve HelixScreen?: HelixScreenの改善に協力しますか？
   Higher = faster: 高い = 速い
@@ -860,7 +860,7 @@ translations:
   Labels: ラベル
   Labels Per Sheet: シートあたりのラベル数
   Language: 言語
-  Language, theme, brightness, and sound: ''
+  Language, theme, brightness, and sound: 言語、テーマ、明るさ、サウンド
   Last: 最後
   Last print cancelled: 前回の印刷がキャンセルされました
   Last print failed: 前回の印刷が失敗しました
@@ -993,7 +993,7 @@ translations:
   : プリントヘッドを移動させて各軸の振動周波数を測定します。2〜3分かかります。プリンターから音がしますが、これは正常です。
   Multi-Filament: マルチフィラメント
   Multi-Filament Overview: マルチフィラメント概要
-  Multi-Filament System Management: ''
+  Multi-Filament System Management: マルチフィラメントシステム管理
   'Multi-Filament:': マルチフィラメント：
   Multi-Material: マルチマテリアル
   Multi-Material System Detected: マルチマテリアルシステムを検出
@@ -1132,7 +1132,7 @@ translations:
     - メイン照明を選択するか、照明がない場合はスキップしてください
   Or Enter Manually: または手動で入力
   Oscillating around target...: 目標値付近で振動中...
-  Oscillating... cycle %d/%d: ''
+  Oscillating... cycle %d/%d: 振動中... サイクル %d/%d
   Out of range: 範囲外
   Output Mode: 出力モード
   Output Pin: 出力ピン
@@ -1269,7 +1269,7 @@ translations:
   Printer name: プリンター名
   Printer ready: プリンター準備完了
   Printers: プリンター
-  Printers, AMS, fans, sensors, and LEDs: ''
+  Printers, AMS, fans, sensors, and LEDs: プリンター、AMS、ファン、センサー、LED
   Printing: 印刷中
   Printing label...: ラベル印刷中...
   Printing test label...: テストラベル印刷中...
@@ -1415,17 +1415,17 @@ translations:
   Run a Klipper macro when preheating this material: この素材の予熱時に Klipper マクロを実行
   Running {}...: '{} を実行中...'
   Runout Sensor: フィラメント切れセンサー
-  SETTINGS: ''
+  SETTINGS: 設定
   SHIPPED IMAGES: 付属画像
   SOFTWARE: ソフトウェア
-  SOUND: ''
+  SOUND: サウンド
   STANDARD MACROS: 標準マクロ
   STARTUP: 起動
   STOP: 停止
   STYLE PROPERTIES: スタイルプロパティ
   SWITCH SENSORS: スイッチセンサー
   SYSTEM: システム
-  Safety & Notifications: ''
+  Safety & Notifications: 安全と通知
   Sample: サンプル
   Sample %d/%d: サンプル %d/%d
   Sample Dialog: サンプルダイアログ
@@ -1471,7 +1471,7 @@ translations:
   Secondary: セカンダリ
   Section Detail: セクション詳細
   Security: セキュリティ
-  Security, network, host, and administration: ''
+  Security, network, host, and administration: セキュリティ、ネットワーク、ホスト、管理
   See exactly what data will be sent: 送信されるデータを正確に確認
   Select: 選択
   Select 'None' if you don't have a filament sensor, or if you don't want to pause on runout.: フィラメントセンサーがない場合、またはフィラメント切れで一時停止したくない場合は「なし」を選択してください。
@@ -1509,7 +1509,7 @@ translations:
   'Set ': '設定 '
   Set Active: アクティブに設定
   Set PIN: PIN を設定
-  Set local timezone for time display: ''
+  Set local timezone for time display: 時刻表示用のローカルタイムゾーンを設定
   Set up your label printer in Settings: 設定でラベルプリンターをセットアップしてください
   Settings: 設定
   Settings reset to defaults. Restarting...: 設定をデフォルトにリセットしました。再起動中...
@@ -1610,7 +1610,7 @@ translations:
   Success: 成功
   Success Rate: 成功率
   Success!: 成功！
-  Support, documentation, and version info: ''
+  Support, documentation, and version info: サポート、ドキュメント、バージョン情報
   Surfaces inherit app background tokens for light and dark modes.: サーフェスはライトモードとダークモードのアプリ背景トークンを継承します。
   Switch Printer: プリンターを切り替え
   Switch Tests: スイッチテスト
@@ -1717,7 +1717,7 @@ translations:
   Timelapse plugin is already installed!: タイムラプスプラグインは既にインストール済みです！
   Timelapse plugin is installed!: タイムラプスプラグインがインストールされています！
   Timelapse rendered successfully: タイムラプスのレンダリングが完了しました
-  Timezone: ''
+  Timezone: タイムゾーン
   'Tip:': 'ヒント:'
   Toggle: トグル
   Toggle (fire-and-forget): トグル（状態追跡なし）
@@ -1727,7 +1727,7 @@ translations:
   Tool Changer: ツールチェンジャー
   'Tool change failed: {}': 'ツール変更に失敗しました: {}'
   Toolhead Style: ツールヘッドスタイル
-  Toolhead, G-code, limits, and materials: ''
+  Toolhead, G-code, limits, and materials: ツールヘッド、Gコード、制限、材料
   Top: 上
   Total Prints: 総印刷数
   Touch Cal: タッチキャリブレーション
@@ -1908,7 +1908,7 @@ translations:
   of: の
   'off': オフ
   prints: 印刷
-  remaining: ''
+  remaining: 残り
   remaining before clog detection triggers: 残りで詰まり検出が作動します
   set to: に設定
   started: 開始
