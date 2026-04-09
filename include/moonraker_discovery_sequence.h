@@ -181,13 +181,16 @@ class MoonrakerDiscoverySequence {
      */
     bool is_stale() const;
 
+    /** @brief Check if a captured sequence number matches the current discovery */
+    bool is_current_sequence(uint64_t seq) const;
+
     /**
      * @brief Continue discovery after server.connection.identify
      *
      * Calls server.info to check klippy_state (gate). If Klippy is ready
      * or shutdown, proceeds to continue_discovery_objects(). Otherwise aborts.
      */
-    void continue_discovery();
+    void continue_discovery(uint64_t seq);
 
     /**
      * @brief Discover Moonraker-managed power devices (fire-and-forget)
@@ -211,7 +214,7 @@ class MoonrakerDiscoverySequence {
      *
      * Chains: objects.list → server.info → printer.info → MCU queries → subscribe
      */
-    void continue_discovery_objects();
+    void continue_discovery_objects(uint64_t seq);
 
     /**
      * @brief Complete discovery by subscribing to printer objects
@@ -219,7 +222,7 @@ class MoonrakerDiscoverySequence {
      * Builds subscription JSON from discovered objects, subscribes,
      * dispatches initial state to all registered callbacks.
      */
-    void complete_discovery_subscription();
+    void complete_discovery_subscription(uint64_t seq);
 
     MoonrakerClient& client_;
 
@@ -227,6 +230,7 @@ class MoonrakerDiscoverySequence {
     std::function<void()> on_complete_discovery_;
     std::function<void(const std::string&)> on_error_discovery_;
     uint64_t discovery_generation_{0};
+    uint64_t discovery_sequence_{0}; // Monotonic counter to invalidate prior discoveries
 
     // Hardware vectors
     std::vector<std::string> heaters_;
