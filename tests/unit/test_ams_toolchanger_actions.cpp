@@ -157,7 +157,7 @@ TEST_CASE("Lockout rejects operations during in-flight tool change",
 
     AmsBackendMock backend(4);
     backend.set_tool_changer_mode(true);
-    backend.set_operation_delay(100); // Long enough to test lockout
+    backend.set_operation_delay(500); // Must be long enough that op is still in-flight on slow CI
     REQUIRE(backend.start());
 
     SECTION("change_tool rejected while load is in progress") {
@@ -171,7 +171,7 @@ TEST_CASE("Lockout rejects operations during in-flight tool change",
         CHECK(result2.result == AmsResult::BUSY);
 
         // Wait for first operation to complete
-        std::this_thread::sleep_for(std::chrono::milliseconds(300));
+        std::this_thread::sleep_for(std::chrono::milliseconds(800));
     }
 
     SECTION("load_filament rejected while change_tool is in progress") {
@@ -182,7 +182,7 @@ TEST_CASE("Lockout rejects operations during in-flight tool change",
         CHECK_FALSE(result2);
         CHECK(result2.result == AmsResult::BUSY);
 
-        std::this_thread::sleep_for(std::chrono::milliseconds(300));
+        std::this_thread::sleep_for(std::chrono::milliseconds(800));
     }
 
     SECTION("unload_filament rejected while change_tool is in progress") {
@@ -193,7 +193,7 @@ TEST_CASE("Lockout rejects operations during in-flight tool change",
         CHECK_FALSE(result2);
         CHECK(result2.result == AmsResult::BUSY);
 
-        std::this_thread::sleep_for(std::chrono::milliseconds(300));
+        std::this_thread::sleep_for(std::chrono::milliseconds(800));
     }
 
     backend.stop();
