@@ -7,6 +7,7 @@
 
 #include "display_backend_drm.h"
 
+#include "../../include/drm_mode_matching.h"
 #include "../../include/pending_startup_warnings.h"
 #include "config.h"
 #include "drm_rotation_strategy.h"
@@ -300,15 +301,82 @@ DetectedResolution DisplayBackendDRM::detect_resolution() const {
 }
 
 lv_display_t* DisplayBackendDRM::create_display(int width, int height) {
-    LV_UNUSED(width);
-    LV_UNUSED(height);
-
     spdlog::info("[DRM Backend] Creating DRM display on {}", drm_device_);
+
+    // Enumerate the connected connector's modes so we can honor a
+    // user-requested resolution via -s. Mirrors the pattern in
+    // detect_resolution() above.
+    std::vector<helix::DrmModeInfo> modes;
+    int enum_fd = open(drm_device_.c_str(), O_RDWR | O_CLOEXEC);
+    if (enum_fd >= 0) {
+        drmModeRes* resources = drmModeGetResources(enum_fd);
+        if (resources) {
+            for (int i = 0; i < resources->count_connectors; i++) {
+                drmModeConnector* connector =
+                    drmModeGetConnector(enum_fd, resources->connectors[i]);
+                if (!connector)
+                    continue;
+                if (connector->connection == DRM_MODE_CONNECTED) {
+                    for (int m = 0; m < connector->count_modes; m++) {
+                        const auto& mm = connector->modes[m];
+                        modes.push_back({mm.hdisplay, mm.vdisplay, mm.vrefresh,
+                                         (mm.type & DRM_MODE_TYPE_PREFERRED) != 0});
+                    }
+                    drmModeFreeConnector(connector);
+                    break; // first connected connector only
+                }
+                drmModeFreeConnector(connector);
+            }
+            drmModeFreeResources(resources);
+        }
+        close(enum_fd);
+    }
+
+    // Decide which mode to use based on the user's request.
+    uint32_t chosen_w = 0, chosen_h = 0;
+    bool mismatch_warned = false;
+    if (width > 0 && height > 0) {
+        int match_idx = helix::find_matching_mode(modes, static_cast<uint32_t>(width),
+                                                  static_cast<uint32_t>(height));
+        if (match_idx != helix::DrmModeMatch::kNoMatch) {
+            chosen_w = modes[match_idx].hdisplay;
+            chosen_h = modes[match_idx].vdisplay;
+            spdlog::info("[DRM Backend] Using requested mode {}x{}", chosen_w, chosen_h);
+        } else if (size_was_explicit_ && !modes.empty()) {
+            int pref = helix::find_preferred_mode_index(modes);
+            if (pref != helix::DrmModeMatch::kNoMatch) {
+                chosen_w = modes[pref].hdisplay;
+                chosen_h = modes[pref].vdisplay;
+            }
+            spdlog::warn("[DRM Backend] Requested resolution {}x{} not available "
+                         "on the connected display. Available modes:",
+                         width, height);
+            for (const auto& m : modes) {
+                spdlog::warn("[DRM Backend]   {}x{}@{}{}", m.hdisplay, m.vdisplay, m.vrefresh,
+                             m.is_preferred ? " (preferred)" : "");
+            }
+            spdlog::warn("[DRM Backend] Falling back to preferred mode {}x{}.", chosen_w, chosen_h);
+
+            char toast_msg[160];
+            snprintf(toast_msg, sizeof(toast_msg),
+                     "Cannot set HelixScreen to selected resolution (%dx%d); "
+                     "using fallback %ux%u instead.",
+                     width, height, chosen_w, chosen_h);
+            helix::PendingStartupWarnings::instance().enqueue(
+                helix::PendingStartupWarnings::Severity::ERROR, toast_msg);
+            mismatch_warned = true;
+        }
+    }
 
     display_ = lv_linux_drm_create();
     if (display_ == nullptr) {
         spdlog::error("[DRM Backend] Failed to create DRM display");
         return nullptr;
+    }
+
+    // Apply the preferred-mode override BEFORE lv_linux_drm_set_file picks a mode.
+    if (chosen_w > 0 && chosen_h > 0) {
+        lv_linux_drm_set_preferred_mode(display_, chosen_w, chosen_h);
     }
 
     lv_result_t result = lv_linux_drm_set_file(display_, drm_device_.c_str(), -1);
@@ -317,6 +385,25 @@ lv_display_t* DisplayBackendDRM::create_display(int width, int height) {
         lv_display_delete(display_); // NOLINT(helix-shutdown) init error path, not shutdown
         display_ = nullptr;
         return nullptr;
+    }
+
+    // Belt and suspenders: after LVGL sets up, check the actual resolution
+    // it landed on. If it differs from what the user asked for and we
+    // haven't already warned, enqueue a warning now.
+    if (size_was_explicit_ && width > 0 && height > 0 && !mismatch_warned) {
+        int32_t actual_w = lv_display_get_horizontal_resolution(display_);
+        int32_t actual_h = lv_display_get_vertical_resolution(display_);
+        if (actual_w != width || actual_h != height) {
+            spdlog::warn("[DRM Backend] LVGL ended up at {}x{} despite requested {}x{}", actual_w,
+                         actual_h, width, height);
+            char toast_msg[160];
+            snprintf(toast_msg, sizeof(toast_msg),
+                     "Cannot set HelixScreen to selected resolution (%dx%d); "
+                     "using fallback %dx%d instead.",
+                     width, height, actual_w, actual_h);
+            helix::PendingStartupWarnings::instance().enqueue(
+                helix::PendingStartupWarnings::Severity::ERROR, toast_msg);
+        }
     }
 
 #ifdef HELIX_ENABLE_OPENGLES

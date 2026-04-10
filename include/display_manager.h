@@ -7,8 +7,8 @@
 #include "display_backend.h"
 #include "touch_calibration.h"
 
-#include <lvgl.h>
 #include <functional>
+#include <lvgl.h>
 #include <memory>
 #include <vector>
 
@@ -50,13 +50,14 @@ class DisplayManager {
      * @brief Display configuration options
      */
     struct Config {
-        int width = 0;               ///< Display width in pixels (0 = auto-detect)
-        int height = 0;              ///< Display height in pixels (0 = auto-detect)
-        int rotation = 0;            ///< Display rotation in degrees (0, 90, 180, 270)
-        int scroll_throw = 25;       ///< Scroll momentum decay (1-99, higher = faster decay)
-        int scroll_limit = 10;       ///< Pixels before scrolling starts
-        bool require_pointer = true; ///< Fail init if no pointer device (embedded only)
-        bool splash_active = false;  ///< External splash owns framebuffer — skip unblank/pan
+        int width = 0;                  ///< Display width in pixels (0 = auto-detect)
+        int height = 0;                 ///< Display height in pixels (0 = auto-detect)
+        int rotation = 0;               ///< Display rotation in degrees (0, 90, 180, 270)
+        int scroll_throw = 25;          ///< Scroll momentum decay (1-99, higher = faster decay)
+        int scroll_limit = 10;          ///< Pixels before scrolling starts
+        bool require_pointer = true;    ///< Fail init if no pointer device (embedded only)
+        bool splash_active = false;     ///< External splash owns framebuffer — skip unblank/pan
+        bool size_was_explicit = false; ///< True if width/height came from user's -s flag
     };
 
     DisplayManager();
@@ -397,6 +398,7 @@ class DisplayManager {
     bool m_shutting_down = false;
     int m_width = 0;
     int m_height = 0;
+    bool m_size_was_explicit = false;
 
     std::unique_ptr<DisplayBackend> m_backend;
     lv_display_t* m_display = nullptr;

@@ -869,6 +869,7 @@ bool Application::init_display() {
     config.width = m_screen_width;
     config.height = m_screen_height;
     config.rotation = m_args.rotation;
+    config.size_was_explicit = m_args.size_was_explicit;
 
     // Get scroll config from settings.json
     config.scroll_throw = m_config->get<int>("/input/scroll_throw", 25);

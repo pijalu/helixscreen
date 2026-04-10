@@ -84,6 +84,17 @@ class DisplayBackendFbdev : public DisplayBackend {
     }
 
     /**
+     * @brief Tell the backend the user explicitly requested a size via -s.
+     *
+     * When true, the backend will log warnings and enqueue toasts if the
+     * requested resolution cannot be honored. Must be called before
+     * create_display().
+     */
+    void set_size_was_explicit(bool explicit_size) {
+        size_was_explicit_ = explicit_size;
+    }
+
+    /**
      * @brief Apply touch calibration at runtime
      *
      * Sets the affine transform coefficients used to convert raw touch
@@ -171,6 +182,9 @@ class DisplayBackendFbdev : public DisplayBackend {
 
     /// External splash process owns framebuffer — skip FBIOBLANK in create_display
     bool splash_active_ = false;
+
+    /// True if the user explicitly requested a resolution via -s
+    bool size_was_explicit_ = false;
 
     /**
      * @brief Suppress kernel console text output to framebuffer

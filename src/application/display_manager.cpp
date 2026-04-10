@@ -134,6 +134,7 @@ bool DisplayManager::init(const Config& config) {
     // Determine display dimensions
     m_width = config.width;
     m_height = config.height;
+    m_size_was_explicit = config.size_was_explicit;
 
     // Auto-detect resolution for non-SDL backends when no dimensions specified
     if (m_width == 0 && m_height == 0 && m_backend->type() != DisplayBackendType::SDL) {
@@ -170,6 +171,27 @@ bool DisplayManager::init(const Config& config) {
         m_backend->set_splash_active(true);
     }
 
+    // Propagate the "user explicitly asked for -s WxH" flag into the concrete
+    // backend so it can log warnings / enqueue toasts on fallback. Neither
+    // setter is virtual (different semantics per backend), so downcast here.
+    auto propagate_size_explicit = [&](DisplayBackend* backend) {
+        if (!backend)
+            return;
+#ifdef HELIX_DISPLAY_DRM
+        if (backend->type() == DisplayBackendType::DRM) {
+            static_cast<DisplayBackendDRM*>(backend)->set_size_was_explicit(
+                config.size_was_explicit);
+        }
+#endif
+#ifdef HELIX_DISPLAY_FBDEV
+        if (backend->type() == DisplayBackendType::FBDEV) {
+            static_cast<DisplayBackendFbdev*>(backend)->set_size_was_explicit(
+                config.size_was_explicit);
+        }
+#endif
+    };
+    propagate_size_explicit(m_backend.get());
+
     // Create LVGL display
     m_display = m_backend->create_display(m_width, m_height);
 
@@ -186,6 +208,7 @@ bool DisplayManager::init(const Config& config) {
             if (config.splash_active) {
                 m_backend->set_splash_active(true);
             }
+            propagate_size_explicit(m_backend.get());
             m_display = m_backend->create_display(m_width, m_height);
             if (m_display) {
                 spdlog::info("[DisplayManager] Fbdev fallback succeeded at {}x{}", m_width,
@@ -1052,6 +1075,10 @@ bool DisplayManager::try_drm_to_fbdev_fallback(lv_display_rotation_t rot, bool s
         if (splash_active) {
             m_backend->set_splash_active(true);
         }
+#ifdef HELIX_DISPLAY_FBDEV
+        static_cast<DisplayBackendFbdev*>(m_backend.get())
+            ->set_size_was_explicit(m_size_was_explicit);
+#endif
         m_display = m_backend->create_display(m_width, m_height);
     }
     if (!m_display) {

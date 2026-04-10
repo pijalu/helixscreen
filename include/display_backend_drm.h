@@ -88,6 +88,17 @@ class DisplayBackendDRM : public DisplayBackend {
         drm_device_ = path;
     }
 
+    /**
+     * @brief Tell the backend the user explicitly requested a size via -s.
+     *
+     * When true, the backend will log warnings and enqueue toasts if the
+     * requested resolution cannot be honored. Must be called before
+     * create_display().
+     */
+    void set_size_was_explicit(bool explicit_size) {
+        size_was_explicit_ = explicit_size;
+    }
+
     /// Whether GPU-accelerated rendering (EGL/OpenGL ES) is active
     bool is_gpu_accelerated() const {
         return using_egl_;
@@ -95,8 +106,12 @@ class DisplayBackendDRM : public DisplayBackend {
 
     // Touch calibration
     bool set_calibration(const helix::TouchCalibration& cal) override;
-    helix::TouchCalibration get_calibration() const override { return calibration_; }
-    bool needs_touch_calibration() const override { return needs_calibration_; }
+    helix::TouchCalibration get_calibration() const override {
+        return calibration_;
+    }
+    bool needs_touch_calibration() const override {
+        return needs_calibration_;
+    }
     void disable_affine_calibration() override;
     void enable_affine_calibration() override;
 
@@ -111,14 +126,14 @@ class DisplayBackendDRM : public DisplayBackend {
     lv_indev_t* pointer_ = nullptr;
     lv_indev_t* mouse_ = nullptr;
     lv_indev_t* keyboard_ = nullptr;
-    int tty_fd_ = -1;           ///< TTY fd for KD_GRAPHICS console suppression
-    bool using_egl_ = false;    ///< Track if GPU-accelerated path is active
+    int tty_fd_ = -1;        ///< TTY fd for KD_GRAPHICS console suppression
+    bool using_egl_ = false; ///< Track if GPU-accelerated path is active
     helix::TouchCalibration calibration_;
     helix::CalibrationContext calibration_context_;
     bool needs_calibration_ = false;
     int screen_width_ = 0;
     int screen_height_ = 0;
-
+    bool size_was_explicit_ = false;
 };
 
 #endif // HELIX_DISPLAY_DRM
