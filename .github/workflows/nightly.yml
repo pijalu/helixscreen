@@ -461,15 +461,18 @@ jobs:
       timeout-minutes: 30
       run: make -j$(sysctl -n hw.ncpu)
 
-    - name: Run all tests (including slow)
-      timeout-minutes: 90
+    - name: Run fast tests
+      timeout-minutes: 20
       run: |
         make test-build
-        # Fast tests in parallel
-        make test-run
-        # Slow tests sequentially, excluding [eventloop] tests which hang
-        # on macOS CI due to libhv kqueue event loop not waking on stop()
-        ./build/bin/helix-tests "[slow] ~[eventloop]" --durations yes
+        # Exclude [slow] and [eventloop] on macOS:
+        #  - [slow]: MoonrakerClientMock fixture is 1-2s each; 48+ min total.
+        #  - [eventloop]: libhv's kqueue-based WebSocket server can't reliably
+        #    get an ephemeral port on macOS CI runners and hangs in
+        #    http_server_stop -> pthread_join. Linux test-eventloop job covers
+        #    these. macOS CI exists for cross-platform build validation and
+        #    fast test coverage.
+        ./build/bin/helix-tests "~[.] ~[slow] ~[eventloop]"
 
   # ===========================================================================
   # Final status gate
