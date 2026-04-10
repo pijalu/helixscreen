@@ -7,6 +7,7 @@
 
 #include "display_backend_drm.h"
 
+#include "../../include/pending_startup_warnings.h"
 #include "config.h"
 #include "drm_rotation_strategy.h"
 #include "input_device_scanner.h"
@@ -57,6 +58,33 @@ bool drm_device_supports_display(const std::string& device_path) {
         close(fd);
         spdlog::debug("[DRM Backend] {}: no dumb buffer support", device_path);
         return false;
+    }
+
+    // Check driver name. simpledrm is the kernel fallback that presents the
+    // firmware/bootloader framebuffer as a DRM device. It advertises dumb
+    // buffer support but the buffers cannot be mmap'd into userspace, so
+    // LVGL's drm_allocate_dumb() fails on the mmap() step. Skip simpledrm
+    // entirely and let the backend fall back to fbdev.
+    // See prestonbrown/helixscreen#766.
+    drmVersionPtr version = drmGetVersion(fd);
+    if (version && version->name && std::string(version->name) == "simpledrm") {
+        drmFreeVersion(version);
+        close(fd);
+        spdlog::warn("[DRM Backend] {}: driver is 'simpledrm' (firmware framebuffer). "
+                     "simpledrm cannot allocate renderable buffers; HelixScreen "
+                     "will use the fbdev backend instead.",
+                     device_path);
+        spdlog::warn("[DRM Backend] To enable full DRM acceleration on Raspberry Pi / "
+                     "RatOS: add 'dtoverlay=vc4-kms-v3d' to /boot/firmware/config.txt "
+                     "and reboot.");
+        helix::PendingStartupWarnings::instance().enqueue(
+            helix::PendingStartupWarnings::Severity::WARNING,
+            "DRM driver is 'simpledrm' — using framebuffer fallback. "
+            "Add 'dtoverlay=vc4-kms-v3d' to your boot config for full DRM.");
+        return false;
+    }
+    if (version) {
+        drmFreeVersion(version);
     }
 
     // Check if there's at least one connected connector
@@ -426,25 +454,28 @@ lv_indev_t* DisplayBackendDRM::create_input_pointer() {
                     close(fd);
 
                     if (got_x && got_y) {
-                        spdlog::info("[DRM Backend] Touch ABS range: X({}..{}), Y({}..{}) — display: {}x{}",
-                                     abs_x.minimum, abs_x.maximum, abs_y.minimum, abs_y.maximum,
-                                     screen_width_, screen_height_);
+                        spdlog::info(
+                            "[DRM Backend] Touch ABS range: X({}..{}), Y({}..{}) — display: {}x{}",
+                            abs_x.minimum, abs_x.maximum, abs_y.minimum, abs_y.maximum,
+                            screen_width_, screen_height_);
 
                         if (abs_x.maximum <= 0 && abs_y.maximum <= 0) {
                             needs_calibration_ = true;
                             spdlog::warn("[DRM Backend] ABS range is zero — forcing calibration");
                         } else if (helix::has_abs_display_mismatch(abs_x.maximum, abs_y.maximum,
-                                                                    screen_width_, screen_height_)) {
+                                                                   screen_width_, screen_height_)) {
                             needs_calibration_ = true;
-                            spdlog::warn("[DRM Backend] ABS range ({},{}) mismatches display ({}x{}) — forcing calibration",
-                                         abs_x.maximum, abs_y.maximum, screen_width_, screen_height_);
+                            spdlog::warn("[DRM Backend] ABS range ({},{}) mismatches display "
+                                         "({}x{}) — forcing calibration",
+                                         abs_x.maximum, abs_y.maximum, screen_width_,
+                                         screen_height_);
                         }
                     }
                 }
             }
 
-            spdlog::info("[DRM Backend] Touch device '{}' phys='{}' — calibration {}",
-                         dev_name, dev_phys, needs_calibration_ ? "needed" : "not needed");
+            spdlog::info("[DRM Backend] Touch device '{}' phys='{}' — calibration {}", dev_name,
+                         dev_phys, needs_calibration_ ? "needed" : "not needed");
 
             // Load stored calibration and install wrapper
             calibration_ = helix::load_touch_calibration();
@@ -515,8 +546,8 @@ lv_indev_t* DisplayBackendDRM::create_input_pointer() {
         if (mouse_dev) {
             mouse_ = lv_evdev_create(LV_INDEV_TYPE_POINTER, mouse_dev->path.c_str());
             if (mouse_) {
-                spdlog::info("[DRM Backend] Mouse created on {} via evdev ({})",
-                             mouse_dev->path, mouse_dev->name);
+                spdlog::info("[DRM Backend] Mouse created on {} via evdev ({})", mouse_dev->path,
+                             mouse_dev->name);
             } else {
                 spdlog::warn("[DRM Backend] Failed to create evdev mouse on {}", mouse_dev->path);
             }
@@ -570,8 +601,8 @@ lv_indev_t* DisplayBackendDRM::create_input_keyboard() {
     if (kb_dev) {
         keyboard_ = lv_evdev_create(LV_INDEV_TYPE_KEYPAD, kb_dev->path.c_str());
         if (keyboard_) {
-            spdlog::info("[DRM Backend] Keyboard created on {} via evdev ({})",
-                         kb_dev->path, kb_dev->name);
+            spdlog::info("[DRM Backend] Keyboard created on {} via evdev ({})", kb_dev->path,
+                         kb_dev->name);
             return keyboard_;
         }
         spdlog::warn("[DRM Backend] Failed to create evdev keyboard on {}", kb_dev->path);
@@ -783,10 +814,8 @@ static bool is_fbcon_bound() {
         }
 
         // Check if this vtconsole is a framebuffer type
-        std::string name_path =
-            std::string("/sys/class/vtconsole/") + entry->d_name + "/name";
-        std::string bind_path =
-            std::string("/sys/class/vtconsole/") + entry->d_name + "/bind";
+        std::string name_path = std::string("/sys/class/vtconsole/") + entry->d_name + "/name";
+        std::string bind_path = std::string("/sys/class/vtconsole/") + entry->d_name + "/bind";
 
         // Read name — look for "frame buffer"
         int name_fd = open(name_path.c_str(), O_RDONLY);
@@ -878,7 +907,8 @@ bool DisplayBackendDRM::set_calibration(const helix::TouchCalibration& cal) {
         auto* ctx = static_cast<helix::CalibrationContext*>(lv_indev_get_user_data(pointer_));
         if (ctx) {
             ctx->calibration = cal;
-            spdlog::info("[DRM Backend] Calibration updated: a={:.4f} b={:.4f} c={:.4f} d={:.4f} e={:.4f} f={:.4f}",
+            spdlog::info("[DRM Backend] Calibration updated: a={:.4f} b={:.4f} c={:.4f} d={:.4f} "
+                         "e={:.4f} f={:.4f}",
                          cal.a, cal.b, cal.c, cal.d, cal.e, cal.f);
         } else {
             // Wrapper not yet installed — install it now
@@ -906,7 +936,8 @@ void DisplayBackendDRM::enable_affine_calibration() {
         auto* ctx = static_cast<helix::CalibrationContext*>(lv_indev_get_user_data(pointer_));
         if (ctx) {
             ctx->calibration = calibration_;
-            spdlog::debug("[DRM Backend] Affine calibration re-enabled (valid={})", calibration_.valid);
+            spdlog::debug("[DRM Backend] Affine calibration re-enabled (valid={})",
+                          calibration_.valid);
         }
     }
 }
