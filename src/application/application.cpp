@@ -32,6 +32,7 @@
 #include "led/led_controller.h"
 #include "moonraker_manager.h"
 #include "panel_factory.h"
+#include "pending_startup_warnings.h"
 #include "post_op_cooldown_manager.h"
 #include "power_device_state.h"
 #include "print_history_manager.h"
@@ -1294,6 +1295,29 @@ bool Application::init_ui() {
 
     // Initialize toast system
     ToastManager::instance().init();
+
+    // Drain any warnings that backends enqueued during pre-UI initialization
+    // (e.g. "simpledrm detected", "requested resolution not available").
+    // See prestonbrown/helixscreen#766.
+    helix::PendingStartupWarnings::instance().drain(
+        [](helix::PendingStartupWarnings::Severity sev, const std::string& msg) {
+            ToastSeverity toast_sev = ToastSeverity::INFO;
+            switch (sev) {
+            case helix::PendingStartupWarnings::Severity::INFO:
+                toast_sev = ToastSeverity::INFO;
+                break;
+            case helix::PendingStartupWarnings::Severity::SUCCESS:
+                toast_sev = ToastSeverity::SUCCESS;
+                break;
+            case helix::PendingStartupWarnings::Severity::WARNING:
+                toast_sev = ToastSeverity::WARNING;
+                break;
+            case helix::PendingStartupWarnings::Severity::ERROR:
+                toast_sev = ToastSeverity::ERROR;
+                break;
+            }
+            ToastManager::instance().show(toast_sev, msg.c_str(), 8000);
+        });
 
     // Initialize overlay backdrop
     NavigationManager::instance().init_overlay_backdrop(m_screen);
