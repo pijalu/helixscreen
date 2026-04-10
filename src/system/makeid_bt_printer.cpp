@@ -3,18 +3,21 @@
 #if HELIX_HAS_LABEL_PRINTER
 
 #include "makeid_bt_printer.h"
-#include "bluetooth_loader.h"
-#include "makeid_protocol.h"
+
 #include "ui_update_queue.h"
+
+#include "bluetooth_loader.h"
+#include "bt_print_utils.h"
+#include "label_printer_settings.h"
+#include "makeid_protocol.h"
 
 #include <spdlog/spdlog.h>
 
-#include <poll.h>
-#include <unistd.h>
-
 #include <cstring>
 #include <mutex>
+#include <poll.h>
 #include <thread>
+#include <unistd.h>
 
 namespace helix::label {
 
@@ -25,10 +28,12 @@ static std::string s_connected_mac;
 static std::string hex_dump(const uint8_t* data, int len) {
     std::string hex;
     for (int i = 0; i < std::min(len, 40); i++) {
-        if (!hex.empty()) hex += ' ';
+        if (!hex.empty())
+            hex += ' ';
         hex += fmt::format("{:02X}", data[i]);
     }
-    if (len > 40) hex += "...";
+    if (len > 40)
+        hex += "...";
     return hex;
 }
 
@@ -50,8 +55,10 @@ static int rfcomm_read(int fd, uint8_t* buf, int buf_len, int timeout_ms) {
     pfd.fd = fd;
     pfd.events = POLLIN;
     int ret = poll(&pfd, 1, timeout_ms);
-    if (ret <= 0) return ret;
-    if (pfd.revents & (POLLERR | POLLHUP | POLLNVAL)) return -EIO;
+    if (ret <= 0)
+        return ret;
+    if (pfd.revents & (POLLERR | POLLHUP | POLLNVAL))
+        return -EIO;
     ssize_t n = ::read(fd, buf, static_cast<size_t>(buf_len));
     return (n >= 0) ? static_cast<int>(n) : -errno;
 }
@@ -63,8 +70,10 @@ static void rfcomm_drain(int fd) {
         struct pollfd pfd{};
         pfd.fd = fd;
         pfd.events = POLLIN;
-        if (poll(&pfd, 1, 50) <= 0) break;
-        if (::read(fd, junk, sizeof(junk)) <= 0) break;
+        if (poll(&pfd, 1, 50) <= 0)
+            break;
+        if (::read(fd, junk, sizeof(junk)) <= 0)
+            break;
     }
 }
 
@@ -123,10 +132,24 @@ static int ensure_connected(helix::bluetooth::BluetoothLoader& loader, const std
         return -1;
     }
 
-    spdlog::info("MakeID BT: RFCOMM socket connect to {} channel 1", mac);
-    int fd = loader.connect_rfcomm(ctx, mac.c_str(), 1);
+    int channel = helix::label::resolve_label_printer_channel(mac, 1);
+    if (channel <= 0) {
+        spdlog::error("MakeID BT: no RFCOMM channel resolved for {}", mac);
+        return -1;
+    }
+    spdlog::info("MakeID BT: RFCOMM connect to {} ch{}", mac, channel);
+    int fd = loader.connect_rfcomm(ctx, mac.c_str(), channel);
     if (fd < 0) {
         spdlog::error("MakeID BT: RFCOMM connect failed ({})", fd);
+        // If we used a cached channel, invalidate it so the next print tries
+        // a fresh SDP lookup. MakeID's async dispatcher makes in-call retry
+        // impractical, so we rely on the next print to reconnect cleanly.
+        int cached = helix::LabelPrinterSettingsManager::instance().get_bt_channel();
+        if (cached > 0 && cached == channel) {
+            spdlog::warn("MakeID BT: cached channel {} failed; invalidating for next print",
+                         channel);
+            helix::LabelPrinterSettingsManager::instance().set_bt_channel(0);
+        }
         return -1;
     }
     s_rfcomm_fd = fd;
@@ -147,9 +170,11 @@ static int ensure_connected(helix::bluetooth::BluetoothLoader& loader, const std
 static bool wait_for_ready(int fd, int max_polls = 10) {
     auto pkt = makeid_build_handshake(MakeIdHandshakeState::Search);
     for (int i = 0; i < max_polls; i++) {
-        if (!rfcomm_write(fd, pkt.data(), pkt.size())) return false;
+        if (!rfcomm_write(fd, pkt.data(), pkt.size()))
+            return false;
         auto resp = read_response(fd, "ready-poll", 2000);
-        if (resp.status == MakeIdResponseStatus::Success) return true;
+        if (resp.status == MakeIdResponseStatus::Success)
+            return true;
         if (resp.status == MakeIdResponseStatus::Error ||
             resp.status == MakeIdResponseStatus::Exit) {
             spdlog::warn("MakeID BT: not ready (err={})", resp.error_code);
@@ -174,17 +199,19 @@ std::vector<LabelSize> MakeIdBluetoothPrinter::supported_sizes() const {
 }
 
 void MakeIdBluetoothPrinter::print(const LabelBitmap& bitmap, const LabelSize& size,
-                                     PrintCallback callback) {
+                                   PrintCallback callback) {
     auto& loader = helix::bluetooth::BluetoothLoader::instance();
     if (!loader.is_available()) {
         helix::ui::queue_update([callback]() {
-            if (callback) callback(false, "Bluetooth not available");
+            if (callback)
+                callback(false, "Bluetooth not available");
         });
         return;
     }
     if (mac_.empty()) {
         helix::ui::queue_update([callback]() {
-            if (callback) callback(false, "Bluetooth device not configured");
+            if (callback)
+                callback(false, "Bluetooth device not configured");
         });
         return;
     }
@@ -264,7 +291,8 @@ void MakeIdBluetoothPrinter::print(const LabelBitmap& bitmap, const LabelSize& s
                     std::this_thread::sleep_for(std::chrono::milliseconds(500));
                 }
                 if (!print_finished) {
-                    spdlog::error("MakeID BT: print-wait timed out after {} polls", max_print_polls);
+                    spdlog::error("MakeID BT: print-wait timed out after {} polls",
+                                  max_print_polls);
                     ok = false;
                     error = "Print timed out waiting for completion";
                 }
@@ -278,13 +306,15 @@ void MakeIdBluetoothPrinter::print(const LabelBitmap& bitmap, const LabelSize& s
             }
         }
 
-        if (!error.empty()) spdlog::error("MakeID BT: {}", error);
+        if (!error.empty())
+            spdlog::error("MakeID BT: {}", error);
         helix::ui::queue_update([callback, success, error]() {
-            if (callback) callback(success, error);
+            if (callback)
+                callback(success, error);
         });
     }).detach();
 }
 
-}  // namespace helix::label
+} // namespace helix::label
 
 #endif // HELIX_HAS_LABEL_PRINTER
