@@ -507,10 +507,16 @@ void PrintSelectCardView::populate(const std::vector<PrintFileData>& file_list,
     // Update visible cards (this also updates spacer heights)
     update_visible(file_list, dims);
 
-    // Restore or reset scroll position
+    // Restore or reset scroll position.
+    //
+    // Note on the clamp: lv_obj_get_scroll_bottom() returns the *remaining* scrollable
+    // distance below the current position, NOT the total max scroll offset. The total
+    // range is (current_y + scroll_bottom). Clamping against scroll_bottom alone would
+    // pull a scrolled-down user back toward the top every refresh tick — see #scroll-bug.
     if (preserve_scroll && saved_scroll > 0) {
         lv_obj_update_layout(container_);
-        int32_t max_scroll = lv_obj_get_scroll_bottom(container_);
+        int32_t current_y = lv_obj_get_scroll_y(container_);
+        int32_t max_scroll = current_y + lv_obj_get_scroll_bottom(container_);
         lv_obj_scroll_to_y(container_, std::min(saved_scroll, max_scroll), LV_ANIM_OFF);
     } else {
         lv_obj_scroll_to_y(container_, 0, LV_ANIM_OFF);
