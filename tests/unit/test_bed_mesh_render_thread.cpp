@@ -24,14 +24,14 @@ using helix::mesh::BedMeshRenderThread;
 // Lifecycle tests
 // ============================================================================
 
-TEST_CASE("BedMeshRenderThread stop without start is safe", "[bed_mesh][slow]") {
+TEST_CASE("BedMeshRenderThread stop without start is safe", "[bed_mesh]") {
     BedMeshRenderThread thread;
     REQUIRE_FALSE(thread.is_running());
     thread.stop(); // should be a no-op
     REQUIRE_FALSE(thread.is_running());
 }
 
-TEST_CASE("BedMeshRenderThread start and stop", "[bed_mesh][slow]") {
+TEST_CASE("BedMeshRenderThread start and stop", "[bed_mesh]") {
     BedMeshRenderThread thread;
     thread.start(100, 100);
     REQUIRE(thread.is_running());
@@ -39,7 +39,7 @@ TEST_CASE("BedMeshRenderThread start and stop", "[bed_mesh][slow]") {
     REQUIRE_FALSE(thread.is_running());
 }
 
-TEST_CASE("BedMeshRenderThread double stop is safe", "[bed_mesh][slow]") {
+TEST_CASE("BedMeshRenderThread double stop is safe", "[bed_mesh]") {
     BedMeshRenderThread thread;
     thread.start(100, 100);
     REQUIRE(thread.is_running());
@@ -49,7 +49,7 @@ TEST_CASE("BedMeshRenderThread double stop is safe", "[bed_mesh][slow]") {
     REQUIRE_FALSE(thread.is_running());
 }
 
-TEST_CASE("BedMeshRenderThread destructor stops cleanly", "[bed_mesh][slow]") {
+TEST_CASE("BedMeshRenderThread destructor stops cleanly", "[bed_mesh]") {
     auto thread = std::make_unique<BedMeshRenderThread>();
     thread->start(100, 100);
     REQUIRE(thread->is_running());
@@ -60,7 +60,7 @@ TEST_CASE("BedMeshRenderThread destructor stops cleanly", "[bed_mesh][slow]") {
 // Buffer access tests
 // ============================================================================
 
-TEST_CASE("BedMeshRenderThread buffer state before any render", "[bed_mesh][slow]") {
+TEST_CASE("BedMeshRenderThread buffer state before any render", "[bed_mesh]") {
     BedMeshRenderThread thread;
     thread.start(64, 64);
 
@@ -83,7 +83,7 @@ TEST_CASE("BedMeshRenderThread buffer state before any render", "[bed_mesh][slow
 // Request coalescing / no-crash tests
 // ============================================================================
 
-TEST_CASE("BedMeshRenderThread request without renderer does not crash", "[bed_mesh][slow]") {
+TEST_CASE("BedMeshRenderThread request without renderer does not crash", "[bed_mesh]") {
     BedMeshRenderThread thread;
     thread.start(64, 64);
 
@@ -98,7 +98,7 @@ TEST_CASE("BedMeshRenderThread request without renderer does not crash", "[bed_m
     thread.stop();
 }
 
-TEST_CASE("BedMeshRenderThread multiple rapid requests do not deadlock", "[bed_mesh][slow]") {
+TEST_CASE("BedMeshRenderThread multiple rapid requests do not deadlock", "[bed_mesh]") {
     BedMeshRenderThread thread;
     thread.start(64, 64);
 
@@ -114,7 +114,7 @@ TEST_CASE("BedMeshRenderThread multiple rapid requests do not deadlock", "[bed_m
     thread.stop();
 }
 
-TEST_CASE("BedMeshRenderThread frame ready callback is invocable", "[bed_mesh][slow]") {
+TEST_CASE("BedMeshRenderThread frame ready callback is invocable", "[bed_mesh]") {
     BedMeshRenderThread thread;
 
     std::atomic<int> callback_count{0};
@@ -129,7 +129,7 @@ TEST_CASE("BedMeshRenderThread frame ready callback is invocable", "[bed_mesh][s
     SUCCEED("No crash during callback lifecycle");
 }
 
-TEST_CASE("BedMeshRenderThread set_colors is safe while running", "[bed_mesh][slow]") {
+TEST_CASE("BedMeshRenderThread set_colors is safe while running", "[bed_mesh]") {
     BedMeshRenderThread thread;
     thread.start(64, 64);
 
