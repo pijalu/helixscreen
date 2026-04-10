@@ -3,8 +3,9 @@
 
 #include "asset_manager.h"
 
-#include "theme_manager.h"
 #include "ui_fonts.h"
+
+#include "theme_manager.h"
 
 #include <spdlog/spdlog.h>
 
@@ -30,11 +31,12 @@ void AssetManager::register_fonts() {
     }
     const bool is_medium_plus = (ver_res > UI_BREAKPOINT_SMALL_MAX);
     const bool is_large_plus = (ver_res > UI_BREAKPOINT_MEDIUM_MAX);
+    const bool is_micro = (ver_res <= UI_BREAKPOINT_MICRO_MAX);
 
     int skipped = 0;
 
-    spdlog::trace("[AssetManager] Registering fonts (ver_res={}, medium+={}, large+={})",
-                  ver_res, is_medium_plus, is_large_plus);
+    spdlog::trace("[AssetManager] Registering fonts (ver_res={}, micro={}, medium+={}, large+={})",
+                  ver_res, is_micro, is_medium_plus, is_large_plus);
 
     // Material Design Icons (various sizes for different UI elements)
     // Source: https://pictogrammers.com/library/mdi/
@@ -45,6 +47,14 @@ void AssetManager::register_fonts() {
     lv_xml_register_font(nullptr, "mdi_icons_24", &mdi_icons_24);
     lv_xml_register_font(nullptr, "mdi_icons_16", &mdi_icons_16);
     lv_xml_register_font(nullptr, "mdi_icons_14", &mdi_icons_14);
+
+    // Micro fonts (480x272 screens only) — skip on larger screens to save memory
+    if (is_micro) {
+        lv_xml_register_font(nullptr, "noto_sans_8", &noto_sans_8);
+        lv_xml_register_font(nullptr, "source_code_pro_8", &source_code_pro_8);
+    } else {
+        skipped += 2;
+    }
 
     // Montserrat text fonts - used by semantic text components:
     // - text_heading uses font_heading (14/20/26/28 for tiny/small/medium/large)

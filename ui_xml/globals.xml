@@ -223,36 +223,42 @@
          runtime by ui_theme_register_responsive_fonts() - do NOT define them
          here or responsive overrides will be silently ignored. -->
     <!-- font_heading variants (section headings, large text) -->
+    <string name="font_heading_micro" value="noto_sans_14"/>
     <string name="font_heading_tiny" value="noto_sans_16"/>
     <string name="font_heading_small" value="noto_sans_20"/>
     <string name="font_heading_medium" value="noto_sans_26"/>
     <string name="font_heading_large" value="noto_sans_28"/>
     <!-- NO BASE font_heading - registered at runtime -->
     <!-- font_xl variants (extra-large display text, e.g. clock digits) - uses Bold weight -->
+    <string name="font_xl_micro" value="noto_sans_bold_16"/>
     <string name="font_xl_tiny" value="noto_sans_bold_18"/>
     <string name="font_xl_small" value="noto_sans_bold_20"/>
     <string name="font_xl_medium" value="noto_sans_bold_28"/>
     <string name="font_xl_large" value="noto_sans_bold_28"/>
     <!-- NO BASE font_xl - registered at runtime -->
     <!-- font_body variants (standard body text) -->
+    <string name="font_body_micro" value="noto_sans_10"/>
     <string name="font_body_tiny" value="noto_sans_12"/>
     <string name="font_body_small" value="noto_sans_14"/>
     <string name="font_body_medium" value="noto_sans_18"/>
     <string name="font_body_large" value="noto_sans_20"/>
     <!-- NO BASE font_body - registered at runtime -->
     <!-- font_small variants (hints, helpers, chart labels) - uses Light weight -->
+    <string name="font_small_micro" value="noto_sans_light_10"/>
     <string name="font_small_tiny" value="noto_sans_light_11"/>
     <string name="font_small_small" value="noto_sans_light_12"/>
     <string name="font_small_medium" value="noto_sans_light_16"/>
     <string name="font_small_large" value="noto_sans_light_18"/>
     <!-- NO BASE font_small - registered at runtime -->
     <!-- font_xs variants (compact metadata, card overlays, badges) - uses Light weight -->
+    <string name="font_xs_micro" value="noto_sans_light_10"/>
     <string name="font_xs_tiny" value="noto_sans_light_10"/>
     <string name="font_xs_small" value="noto_sans_light_10"/>
     <string name="font_xs_medium" value="noto_sans_light_12"/>
     <string name="font_xs_large" value="noto_sans_light_14"/>
     <!-- NO BASE font_xs - registered at runtime -->
     <!-- font_mono variants (monospace for console/terminal displays) - Source Code Pro -->
+    <string name="font_mono_micro" value="source_code_pro_8"/>
     <string name="font_mono_tiny" value="source_code_pro_10"/>
     <string name="font_mono_small" value="source_code_pro_12"/>
     <string name="font_mono_medium" value="source_code_pro_14"/>
