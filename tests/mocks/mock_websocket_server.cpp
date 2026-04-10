@@ -84,11 +84,18 @@ int MockWebSocketServer::start(int port) {
                 }
             }
 
-            // If we still couldn't get a valid port, fail the start
+            // If we still couldn't get a valid port, fail the start.
+            // IMPORTANT: On macOS, libhv's partially-initialized server hangs in
+            // http_server_stop → pthread_join when the listen socket never became
+            // ready (kqueue issue). Also the ~WebSocketServer destructor will
+            // try to stop/join the same way. So we release() the unique_ptr and
+            // intentionally leak the partially-started libhv server. running_ stays
+            // false so our own stop()/destructor short-circuits.
             if (actual_port <= 0) {
-                spdlog::error("[MockWS] Timed out waiting for ephemeral port assignment");
+                spdlog::error("[MockWS] Timed out waiting for ephemeral port assignment — "
+                              "leaking partially-started libhv server to avoid hang");
                 running_.store(false);
-                server_->stop();
+                [[maybe_unused]] auto* leaked = server_.release();
                 return -1;
             }
         }

@@ -90,7 +90,7 @@ class MoonrakerClientSecurityFixture {
 // ============================================================================
 
 TEST_CASE("MoonrakerClient destructor clears callbacks (UAF prevention)",
-          "[connection][security][uaf][issue4][eventloop][slow]") {
+          "[connection][security][uaf][issue4][eventloop]") {
     SECTION("Destroy client before connection completes") {
         auto loop = std::make_shared<hv::EventLoop>();
         auto client = std::make_unique<MoonrakerClient>(loop);
@@ -270,7 +270,7 @@ TEST_CASE_METHOD(MoonrakerClientSecurityFixture,
 // TODO: Test actual JSON-RPC validation with MockWebSocketServer
 TEST_CASE_METHOD(MoonrakerClientSecurityFixture,
                  "MoonrakerClient unconnected send returns error for any input",
-                 "[connection][security][validation][issue7][eventloop][slow]") {
+                 "[connection][security][validation][issue7][eventloop]") {
     // All send_jsonrpc calls return -1 when not connected. This verifies graceful
     // failure (no crash, no UB) across representative input variations.
 
@@ -309,7 +309,7 @@ TEST_CASE_METHOD(MoonrakerClientSecurityFixture,
 
 TEST_CASE_METHOD(MoonrakerClientSecurityFixture,
                  "MoonrakerClient state change callback is exception safe",
-                 "[connection][security][exception][issue9][eventloop][slow]") {
+                 "[connection][security][exception][issue9][eventloop]") {
     SECTION("State change callback that throws doesn't crash") {
         bool callback_invoked = false;
 
@@ -331,7 +331,7 @@ TEST_CASE_METHOD(MoonrakerClientSecurityFixture,
 
 TEST_CASE_METHOD(MoonrakerClientSecurityFixture,
                  "MoonrakerClient success callbacks are exception safe",
-                 "[connection][security][exception][issue9][eventloop][slow]") {
+                 "[connection][security][exception][issue9][eventloop]") {
     SECTION("Success callback throwing doesn't crash client") {
         // Register request with throwing callback
         // Note: Since not connected, request will timeout and error callback invoked
@@ -348,14 +348,14 @@ TEST_CASE_METHOD(MoonrakerClientSecurityFixture,
 
         // Verify request was sent without throwing (actual exception handling
         // requires a real server response, but registration must not crash)
-        REQUIRE_NOTHROW(client->send_jsonrpc("test.noop", json(), [](json) {},
-                                              [](const MoonrakerError&) {}));
+        REQUIRE_NOTHROW(
+            client->send_jsonrpc("test.noop", json(), [](json) {}, [](const MoonrakerError&) {}));
     }
 }
 
 TEST_CASE_METHOD(MoonrakerClientSecurityFixture,
                  "MoonrakerClient error callbacks are exception safe",
-                 "[connection][security][exception][issue9][eventloop][slow]") {
+                 "[connection][security][exception][issue9][eventloop]") {
     SECTION("Error callback throwing doesn't crash during cleanup") {
         bool first_callback_called = false;
         bool second_callback_called = false;
@@ -412,7 +412,7 @@ TEST_CASE_METHOD(MoonrakerClientSecurityFixture,
 
 TEST_CASE_METHOD(MoonrakerClientSecurityFixture,
                  "MoonrakerClient notify callbacks are exception safe",
-                 "[connection][security][exception][issue9][eventloop][slow]") {
+                 "[connection][security][exception][issue9][eventloop]") {
     SECTION("Notify callback throwing doesn't crash") {
         bool callback_invoked = false;
 
@@ -444,7 +444,7 @@ TEST_CASE_METHOD(MoonrakerClientSecurityFixture,
 }
 
 TEST_CASE("MoonrakerClient all callback types exception-safe (comprehensive)",
-          "[connection][security][exception][issue9][eventloop][slow]") {
+          "[connection][security][exception][issue9][eventloop]") {
     SECTION("Exception in every callback type doesn't crash") {
         auto loop = std::make_shared<hv::EventLoop>();
         auto client = std::make_unique<MoonrakerClient>(loop);
@@ -483,7 +483,7 @@ TEST_CASE("MoonrakerClient all callback types exception-safe (comprehensive)",
 // ============================================================================
 
 TEST_CASE("MoonrakerClient destructor waits for in-flight callbacks (issue #357)",
-          "[connection][security][uaf][issue357][eventloop][slow]") {
+          "[connection][security][uaf][issue357][eventloop]") {
     SECTION("Rapid create/connect/destroy stress test with callback contention") {
         // Stress test: rapidly create clients, start connections, and destroy them.
         // The callback_lifecycle_mutex_ ensures the destructor waits for any
@@ -502,13 +502,11 @@ TEST_CASE("MoonrakerClient destructor waits for in-flight callbacks (issue #357)
 
             // Start connection (will trigger onclose when destroyed)
             client->connect(
-                "ws://127.0.0.1:19999/websocket",
-                [&callback_count]() { callback_count++; },
+                "ws://127.0.0.1:19999/websocket", [&callback_count]() { callback_count++; },
                 [&callback_count]() { callback_count++; });
 
             // Send pending requests
-            client->send_jsonrpc("printer.info", json(), [](json) {},
-                                 [](const MoonrakerError&) {});
+            client->send_jsonrpc("printer.info", json(), [](json) {}, [](const MoonrakerError&) {});
 
             // Destroy immediately — destructor must set is_destroying_ FIRST,
             // then acquire exclusive lock to wait for any in-flight callbacks
@@ -555,7 +553,7 @@ TEST_CASE("MoonrakerClient destructor waits for in-flight callbacks (issue #357)
 // to MoonrakerClient. Callbacks now capture weak_ptr<bool> to safely detect
 // when the client is being destroyed, preventing use-after-free.
 TEST_CASE("MoonrakerClient security properties work together correctly",
-          "[connection][security][integration][eventloop][slow]") {
+          "[connection][security][integration][eventloop]") {
     SECTION("Cleanup with exceptions, large IDs, and nested requests") {
         auto loop = std::make_shared<hv::EventLoop>();
         auto client = std::make_unique<MoonrakerClient>(loop);
