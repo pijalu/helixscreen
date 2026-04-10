@@ -16,7 +16,7 @@ WATCHDOG_BIN := $(BUILD_DIR)/bin/helix-watchdog
 WATCHDOG_CXXFLAGS := $(CXXFLAGS) -I$(INC_DIR) -isystem lib $(LVGL_INC) $(SPDLOG_INC) $(LIBHV_INC) -DHELIX_WATCHDOG
 # Note: LVGL is compiled as objects, not a library - link directly against LVGL_OBJS
 # Include TARGET_LDFLAGS to inherit -static flag for AD5M (glibc 2.25 compatibility)
-WATCHDOG_LDFLAGS := $(TARGET_LDFLAGS) -lm -lpthread
+WATCHDOG_LDFLAGS := $(TARGET_LDFLAGS) $(LIBHV_LIBS) -lm -lpthread
 # GCC 7.5 (K1 dynamic) needs -lstdc++fs for <experimental/filesystem>
 ifeq ($(PLATFORM_TARGET),k1-dynamic)
     WATCHDOG_LDFLAGS += -lstdc++fs
