@@ -1644,6 +1644,9 @@ void LedController::load_config() {
     last_color_.rgb = parse_json_color(color_json, 0xFFFFFF);
     auto& brightness_json = cfg->get_json(cfg->df() + "leds/last_brightness");
     last_brightness_ = brightness_json.is_number() ? brightness_json.get<int>() : 100;
+    auto& white_json = cfg->get_json(cfg->df() + "leds/last_white");
+    last_color_.white =
+        white_json.is_number() ? std::clamp(white_json.get<double>(), 0.0, 1.0) : 0.0;
 
     // Color presets
     color_presets_.clear();
@@ -1811,6 +1814,7 @@ void LedController::save_config() {
     // Last color & brightness (saved as #RRGGBB hex strings)
     cfg->set(cfg->df() + "leds/last_color", helix::color_to_hex_string(last_color_.rgb));
     cfg->set(cfg->df() + "leds/last_brightness", last_brightness_);
+    cfg->set(cfg->df() + "leds/last_white", last_color_.white);
 
     // Color presets (saved as #RRGGBB hex strings)
     nlohmann::json presets_arr = nlohmann::json::array();
@@ -1859,6 +1863,31 @@ void LedController::save_config() {
     spdlog::debug("[LedController] Saved config");
 }
 
+LedController::ScaledColor LedController::compute_scaled_last_color(int brightness_pct) const {
+    const bool has_color = (last_color_.rgb != 0 || last_color_.white != 0.0);
+    if (!has_color) {
+        // Safety net: saved state would produce no visible light at all.
+        // Fall back to full white so "turn on" always produces light. Honor
+        // the requested brightness — a slider drag to 75% should still land at
+        // 75% white, not 100%. If brightness is zero here too, default to 100%.
+        const int effective = brightness_pct > 0 ? brightness_pct : 100;
+        const double scale = effective / 100.0;
+        spdlog::info("[LedController] compute_scaled_last_color: no saved color, using full white "
+                     "at {}%",
+                     effective);
+        return {scale, scale, scale, 0.0};
+    }
+    // Preserve saved color; if brightness is zero but we have color, treat as 100%
+    // so toggling on from a dimmed-to-zero state lights at full intensity rather
+    // than silently falling back to white.
+    const int effective = brightness_pct > 0 ? brightness_pct : 100;
+    const double scale = effective / 100.0;
+    const double r = ((last_color_.rgb >> 16) & 0xFF) / 255.0;
+    const double g = ((last_color_.rgb >> 8) & 0xFF) / 255.0;
+    const double b = (last_color_.rgb & 0xFF) / 255.0;
+    return {r * scale, g * scale, b * scale, last_color_.white * scale};
+}
+
 void LedController::toggle_all(bool on) {
     if (selected_strips_.empty()) {
         spdlog::debug("[LedController] toggle_all({}) - no strips selected", on);
@@ -1889,13 +1918,10 @@ void LedController::toggle_all(bool on) {
         switch (backend_type) {
         case LedBackendType::NATIVE:
             if (on) {
-                // Use saved color + brightness instead of hardcoded full white
-                double r = ((last_color_.rgb >> 16) & 0xFF) / 255.0;
-                double g = ((last_color_.rgb >> 8) & 0xFF) / 255.0;
-                double b = (last_color_.rgb & 0xFF) / 255.0;
-                double scale = last_brightness_ / 100.0;
-                native_.set_color(strip_id, r * scale, g * scale, b * scale,
-                                  last_color_.white * scale);
+                // Shared helper handles the no-saved-color safety floor and the
+                // brightness==0-but-color-nonzero restore-at-100% semantics.
+                auto c = compute_scaled_last_color(last_brightness_);
+                native_.set_color(strip_id, c.r, c.g, c.b, c.w);
             } else {
                 native_.turn_off(strip_id);
             }
@@ -2138,14 +2164,13 @@ void LedController::set_color_all(double r, double g, double b, double w) {
 
 void LedController::set_brightness_all(int brightness_pct) {
     light_on_ = (brightness_pct > 0);
-    double r = ((last_color_.rgb >> 16) & 0xFF) / 255.0;
-    double g = ((last_color_.rgb >> 8) & 0xFF) / 255.0;
-    double b = (last_color_.rgb & 0xFF) / 255.0;
-    double scale = brightness_pct / 100.0;
+    // Use shared helper so slider drags honor the same safety floor and
+    // RGBW white-channel preservation as toggle_all(true).
+    auto c = compute_scaled_last_color(brightness_pct);
     for (const auto& strip_id : selected_strips_) {
         auto backend_type = backend_for_strip(strip_id);
         if (backend_type == LedBackendType::NATIVE) {
-            native_.set_color(strip_id, r * scale, g * scale, b * scale, last_color_.white * scale);
+            native_.set_color(strip_id, c.r, c.g, c.b, c.w);
         } else if (backend_type == LedBackendType::OUTPUT_PIN) {
             output_pin_.set_brightness(strip_id, brightness_pct);
         }

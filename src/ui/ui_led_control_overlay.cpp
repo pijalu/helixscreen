@@ -156,8 +156,17 @@ void LedControlOverlay::on_activate() {
                    selected_backend_type_ != LedBackendType::MACRO && !active_strip.empty() &&
                    controller.native().has_strip_color(active_strip)) {
             auto color = controller.native().get_strip_color(active_strip);
-            color.decompose(current_color_, current_brightness_);
-            current_white_ = color.w;
+            // If the reported color is all-off (LED currently off), fall back to
+            // the controller's saved last_* values so we don't poison them with
+            // zeros when this overlay later persists on deactivate.
+            if (color.r == 0.0 && color.g == 0.0 && color.b == 0.0 && color.w == 0.0) {
+                current_brightness_ = controller.last_brightness();
+                current_color_ = controller.last_color();
+                current_white_ = controller.last_white();
+            } else {
+                color.decompose(current_color_, current_brightness_);
+                current_white_ = color.w;
+            }
         } else if (selected_backend_type_ != LedBackendType::WLED &&
                    selected_backend_type_ != LedBackendType::MACRO) {
             current_brightness_ = controller.last_brightness();

@@ -528,6 +528,16 @@ class LedController {
     /// Dispatch on/off to all selected strips (low-level — callers should use light_set())
     void toggle_all(bool on);
 
+    /// RGBW (0.0-1.0) values computed from saved last_color_/last_white for a
+    /// "turn on at given brightness" operation. Applies a safety floor: if
+    /// saved state has no color at all (RGB==0 && white==0), returns full
+    /// white. If brightness_pct is 0 but saved color is nonzero, treats
+    /// effective brightness as 100% to preserve user intent.
+    struct ScaledColor {
+        double r, g, b, w;
+    };
+    [[nodiscard]] ScaledColor compute_scaled_last_color(int brightness_pct) const;
+
     lv_subject_t led_config_version_{}; // Bumped on discover/config changes
     bool version_subject_initialized_ = false;
 
