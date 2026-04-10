@@ -8,7 +8,9 @@
 #include "display_backend_fbdev.h"
 
 #include "config.h"
+#include "fbdev_size_helper.h"
 #include "input_device_scanner.h"
+#include "pending_startup_warnings.h"
 #include "touch_calibration.h"
 #include "touch_calibration_wrapper.h"
 
@@ -140,6 +142,39 @@ lv_display_t* DisplayBackendFbdev::create_display(int width, int height) {
     screen_width_ = width;
     screen_height_ = height;
 
+    // Query the kernel framebuffer's actual size. If the user explicitly
+    // asked for a different size via -s, warn loudly — kernel fb size is
+    // controlled by the kernel display driver and cannot be changed at
+    // runtime. See prestonbrown/helixscreen#766.
+    if (size_was_explicit_ && width > 0 && height > 0) {
+        int fb_fd = open(fb_device_.c_str(), O_RDWR | O_CLOEXEC);
+        if (fb_fd >= 0) {
+            struct fb_var_screeninfo vinfo{};
+            if (ioctl(fb_fd, FBIOGET_VSCREENINFO, &vinfo) == 0) {
+                helix::FbSize actual = helix::fb_size_from_var_screeninfo(vinfo);
+                if (actual.valid && (actual.width != static_cast<uint32_t>(width) ||
+                                     actual.height != static_cast<uint32_t>(height))) {
+                    spdlog::warn("[Fbdev Backend] Requested resolution {}x{} but kernel "
+                                 "framebuffer is {}x{}. Framebuffer size is controlled "
+                                 "by the kernel display driver and cannot be changed at "
+                                 "runtime.",
+                                 width, height, actual.width, actual.height);
+                    spdlog::warn("[Fbdev Backend] To change: edit your HDMI/display "
+                                 "kernel config (e.g. /boot/firmware/config.txt on "
+                                 "Raspberry Pi / RatOS) and reboot.");
+                    char toast_msg[160];
+                    snprintf(toast_msg, sizeof(toast_msg),
+                             "Cannot set HelixScreen to selected resolution (%dx%d); "
+                             "using fallback %ux%u instead.",
+                             width, height, actual.width, actual.height);
+                    helix::PendingStartupWarnings::instance().enqueue(
+                        helix::PendingStartupWarnings::Severity::ERROR, toast_msg);
+                }
+            }
+            close(fb_fd);
+        }
+    }
+
     // LVGL's framebuffer driver
     // Note: LVGL 9.x uses lv_linux_fbdev_create()
     display_ = lv_linux_fbdev_create();
@@ -235,7 +270,8 @@ lv_indev_t* DisplayBackendFbdev::create_input_pointer() {
         dev_phys = helix::input::get_input_device_phys(event_num);
     }
     helix::AbsCapabilities abs_caps;
-    bool has_abs = (event_num >= 0) && helix::input::get_input_touch_capabilities(event_num, &abs_caps);
+    bool has_abs =
+        (event_num >= 0) && helix::input::get_input_touch_capabilities(event_num, &abs_caps);
 
     needs_calibration_ = helix::device_needs_calibration(dev_name, dev_phys, has_abs);
 
@@ -259,9 +295,12 @@ lv_indev_t* DisplayBackendFbdev::create_input_pointer() {
         needs_calibration_ ? "needed" : "not needed", cal_reason);
 
     if (helix::is_touch_debug_enabled()) {
-        spdlog::warn("[TouchDebug] device detection: name='{}' phys='{}' event={}", dev_name, dev_phys, event_num);
-        spdlog::warn("[TouchDebug]   abs={} single_touch={} multitouch={}", has_abs, abs_caps.has_single_touch, abs_caps.has_multitouch);
-        spdlog::warn("[TouchDebug]   needs_calibration={} reason='{}'", needs_calibration_, cal_reason);
+        spdlog::warn("[TouchDebug] device detection: name='{}' phys='{}' event={}", dev_name,
+                     dev_phys, event_num);
+        spdlog::warn("[TouchDebug]   abs={} single_touch={} multitouch={}", has_abs,
+                     abs_caps.has_single_touch, abs_caps.has_multitouch);
+        spdlog::warn("[TouchDebug]   needs_calibration={} reason='{}'", needs_calibration_,
+                     cal_reason);
     }
 
     // Read and log ABS ranges for diagnostic purposes, and check for mismatch
@@ -279,12 +318,11 @@ lv_indev_t* DisplayBackendFbdev::create_input_pointer() {
             // Also fall back when EVIOCGABS succeeds but returns zero range — some
             // MT-only controllers report ABS_X with all-zero data (not an error).
             bool used_mt_fallback = false;
-            bool range_is_zero =
-                got_x && got_y && abs_x.maximum == 0 && abs_y.maximum == 0;
+            bool range_is_zero = got_x && got_y && abs_x.maximum == 0 && abs_y.maximum == 0;
             if (abs_caps.has_multitouch && (!got_x || !got_y || range_is_zero)) {
                 used_mt_fallback = true;
-                spdlog::info(
-                    "[Fbdev Backend] ABS_X/ABS_Y not available or zero-range, falling back to MT axes");
+                spdlog::info("[Fbdev Backend] ABS_X/ABS_Y not available or zero-range, falling "
+                             "back to MT axes");
                 got_x = (ioctl(fd, EVIOCGABS(ABS_MT_POSITION_X), &abs_x) == 0);
                 got_y = (ioctl(fd, EVIOCGABS(ABS_MT_POSITION_Y), &abs_y) == 0);
             }
@@ -296,9 +334,9 @@ lv_indev_t* DisplayBackendFbdev::create_input_pointer() {
             if (used_mt_fallback && got_x && got_y && abs_x.maximum > abs_x.minimum) {
                 lv_evdev_set_calibration(touch_, abs_x.minimum, abs_y.minimum, abs_x.maximum,
                                          abs_y.maximum);
-                spdlog::info(
-                    "[Fbdev Backend] Applied MT axis range to LVGL calibration: X({}..{}) Y({}..{})",
-                    abs_x.minimum, abs_x.maximum, abs_y.minimum, abs_y.maximum);
+                spdlog::info("[Fbdev Backend] Applied MT axis range to LVGL calibration: X({}..{}) "
+                             "Y({}..{})",
+                             abs_x.minimum, abs_x.maximum, abs_y.minimum, abs_y.maximum);
             }
 
             if (got_x && got_y) {
@@ -371,7 +409,8 @@ lv_indev_t* DisplayBackendFbdev::create_input_pointer() {
     // transform and affine calibration independently. Without this, rotation
     // transform wouldn't be applied on devices that don't need affine cal.
     // Note: jitter filtering is applied generically in lvgl_init.cpp after this.
-    helix::install_calibration_wrapper(touch_, calibration_context_, calibration_, screen_width_, screen_height_);
+    helix::install_calibration_wrapper(touch_, calibration_context_, calibration_, screen_width_,
+                                       screen_height_);
 
     spdlog::info("[Fbdev Backend] Evdev touch input created on {}", touch_path);
 
@@ -389,8 +428,8 @@ lv_indev_t* DisplayBackendFbdev::create_input_pointer() {
         if (mouse_dev) {
             mouse_ = lv_evdev_create(LV_INDEV_TYPE_POINTER, mouse_dev->path.c_str());
             if (mouse_) {
-                spdlog::info("[Fbdev Backend] Mouse created on {} ({})",
-                             mouse_dev->path, mouse_dev->name);
+                spdlog::info("[Fbdev Backend] Mouse created on {} ({})", mouse_dev->path,
+                             mouse_dev->name);
             }
         }
     }
@@ -428,8 +467,7 @@ lv_indev_t* DisplayBackendFbdev::create_input_keyboard() {
     if (kb_dev) {
         keyboard_ = lv_evdev_create(LV_INDEV_TYPE_KEYPAD, kb_dev->path.c_str());
         if (keyboard_) {
-            spdlog::info("[Fbdev Backend] Keyboard created on {} ({})",
-                         kb_dev->path, kb_dev->name);
+            spdlog::info("[Fbdev Backend] Keyboard created on {} ({})", kb_dev->path, kb_dev->name);
             return keyboard_;
         }
     }
@@ -551,7 +589,8 @@ std::string DisplayBackendFbdev::auto_detect_touch_device() const {
                     continue;
                 std::string fallback_path = std::string(input_dir) + "/" + fb_entry->d_name;
                 if (access(fallback_path.c_str(), R_OK) == 0) {
-                    std::string fb_name = helix::input::get_input_device_name(atoi(fb_entry->d_name + 5));
+                    std::string fb_name =
+                        helix::input::get_input_device_name(atoi(fb_entry->d_name + 5));
                     spdlog::info(
                         "[Fbdev Backend] No touchscreen found, using fallback input: {} ({})",
                         fallback_path, fb_name);
@@ -786,7 +825,8 @@ bool DisplayBackendFbdev::set_calibration(const helix::TouchCalibration& cal) {
             spdlog::warn("[Fbdev Backend] Calibrated callback was not pre-installed — "
                          "installing at runtime (unexpected code path)");
 
-            helix::install_calibration_wrapper(touch_, calibration_context_, cal, screen_width_, screen_height_);
+            helix::install_calibration_wrapper(touch_, calibration_context_, cal, screen_width_,
+                                               screen_height_);
 
             spdlog::info("[Fbdev Backend] Calibration callback installed at runtime: "
                          "a={:.4f} b={:.4f} c={:.4f} d={:.4f} e={:.4f} f={:.4f}",
@@ -813,7 +853,7 @@ void DisplayBackendFbdev::enable_affine_calibration() {
         if (ctx) {
             ctx->calibration = calibration_;
             spdlog::debug("[Fbdev Backend] Affine calibration re-enabled (valid={})",
-                         calibration_.valid);
+                          calibration_.valid);
         }
     }
 }
