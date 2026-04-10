@@ -1812,10 +1812,13 @@ void PrintSelectPanel::hide_detail_view() {
 }
 
 void PrintSelectPanel::show_delete_confirmation() {
-    if (detail_view_) {
-        std::string filename(selected_filename_buffer_);
-        detail_view_->show_delete_confirmation(filename);
+    if (!detail_view_) {
+        spdlog::warn("[{}] Cannot show delete confirmation: detail_view_ not initialized",
+                     get_name());
+        return;
     }
+    std::string filename(selected_filename_buffer_);
+    detail_view_->show_delete_confirmation(filename);
 }
 
 void PrintSelectPanel::set_print_status_panel(lv_obj_t* panel) {
