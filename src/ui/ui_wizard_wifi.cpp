@@ -509,10 +509,13 @@ void WizardWifiStep::handle_wifi_toggle_changed(lv_event_t* e) {
 
                 spdlog::info("[{}] Scan callback with {} networks", get_name(), networks.size());
 
-                cached_networks_ = networks;
                 // Marshal to UI thread via token.defer() — TOCTOU-safe lifetime
-                // guard + UI thread safety
-                token.defer([this]() {
+                // guard + UI thread safety. Move the vector into the lambda so
+                // cached_networks_ is only written on the UI thread; otherwise
+                // a back-to-back scan callback on the BG thread could rewrite
+                // cached_networks_ while the UI thread is mid-sort (#769).
+                token.defer([this, scanned = networks]() mutable {
+                    cached_networks_ = std::move(scanned);
                     lv_subject_set_int(&wifi_scanning_, 0);
                     populate_network_list(cached_networks_);
                 });
