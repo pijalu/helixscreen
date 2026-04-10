@@ -410,7 +410,7 @@ jobs:
   test-macos:
     name: macOS Tests
     runs-on: macos-14
-    timeout-minutes: 90
+    timeout-minutes: 120
 
     steps:
     - name: Checkout repository
@@ -462,7 +462,7 @@ jobs:
       run: make -j$(sysctl -n hw.ncpu)
 
     - name: Run all tests (including slow)
-      timeout-minutes: 60
+      timeout-minutes: 90
       run: |
         make test-build
         # Fast tests in parallel
