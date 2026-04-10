@@ -279,7 +279,10 @@
               width="100%" height="content" style_pad_all="0" scrollable="false"
               flex_flow="column" style_pad_gap="#space_sm">
         <!-- Filament Operations Header -->
-        <text_body text="Operations" translation_tag="Operations" text_transform="uppercase" align="left_mid"/>
+        <text_body text="Operations" translation_tag="Operations" text_transform="uppercase" align="left_mid">
+            <!-- Text label for TINY+ breakpoints -->
+            <bind_flag_if_lt subject="ui_breakpoint" flag="hidden" ref_value="1"/>
+        </text_body>
         <!-- Load/Unload/Purge Row (macro-based, no length selector) -->
         <lv_obj width="100%"
                 height="#button_height" style_pad_all="0" scrollable="false"
