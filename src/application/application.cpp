@@ -1928,49 +1928,38 @@ void Application::setup_discovery_callbacks() {
     MoonrakerClient* client = m_moonraker->client();
     MoonrakerAPI* api = m_moonraker->api();
 
-    client->set_on_hardware_discovered([api, client](const helix::PrinterDiscovery& hardware) {
-        struct HardwareDiscoveredCtx {
-            helix::PrinterDiscovery hardware;
-            MoonrakerAPI* api;
-            MoonrakerClient* client;
-        };
-        auto ctx =
-            std::make_unique<HardwareDiscoveredCtx>(HardwareDiscoveredCtx{hardware, api, client});
-        helix::ui::queue_update<HardwareDiscoveredCtx>(
-            std::move(ctx), [](HardwareDiscoveredCtx* c) {
-                // Update API's hardware data (replaces MoonrakerAPI constructor callback)
-                c->api->hardware() = c->hardware;
-                helix::init_subsystems_from_hardware(c->hardware, c->api, c->client);
-            });
-    });
-
-    // Capture Application pointer for callback - used to check shutdown state and access plugin
-    // manager
     Application* app = this;
+
+    client->set_on_hardware_discovered([api, client, app](const helix::PrinterDiscovery& hardware) {
+        // Copy hardware into an immutable snapshot on the BG thread so the
+        // queued main-thread callback owns a stable, non-aliased copy. Previous
+        // implementations used an aggregate ctx struct which triggered multiple
+        // PrinterDiscovery copies and a crash on main-thread copy-assign (#761).
+        auto snapshot = std::make_shared<const helix::PrinterDiscovery>(hardware);
+        helix::ui::queue_update([api, client, app, snapshot]() {
+            if (app->m_shutdown_complete)
+                return;
+            api->hardware() = *snapshot;
+            helix::init_subsystems_from_hardware(*snapshot, api, client);
+        });
+    });
 
     client->set_on_discovery_complete([api, client, app](const helix::PrinterDiscovery& hardware,
                                                          const nlohmann::json& initial_status) {
-        struct DiscoveryCompleteCtx {
-            helix::PrinterDiscovery hardware;
-            nlohmann::json initial_status;
-            MoonrakerAPI* api;
-            MoonrakerClient* client;
-            Application* app;
-        };
-        auto ctx = std::make_unique<DiscoveryCompleteCtx>(
-            DiscoveryCompleteCtx{hardware, initial_status, api, client, app});
-        helix::ui::queue_update<DiscoveryCompleteCtx>(std::move(ctx), [](DiscoveryCompleteCtx* c) {
+        auto snapshot = std::make_shared<const helix::PrinterDiscovery>(hardware);
+        auto status_snapshot = std::make_shared<const nlohmann::json>(initial_status);
+        helix::ui::queue_update([api, client, app, snapshot, status_snapshot]() {
             // Safety check: if Application is shutting down, skip all processing
             // This prevents use-after-free if shutdown races with callback delivery
-            if (c->app->m_shutdown_complete) {
+            if (app->m_shutdown_complete) {
                 return;
             }
 
             // Update API's hardware data (replaces MoonrakerAPI constructor callback)
-            c->api->hardware() = c->hardware;
+            api->hardware() = *snapshot;
 
             // Mark discovery complete so splash can exit
-            c->app->m_splash_manager.on_discovery_complete();
+            app->m_splash_manager.on_discovery_complete();
             spdlog::info("[Application] Moonraker discovery complete, splash can exit");
 
             // Clean up self-update sentinel — the app started successfully,
@@ -1988,21 +1977,21 @@ void Application::setup_discovery_callbacks() {
                 fs::remove("/tmp/helixscreen_self_restart", ec);
             }
 
-            get_printer_state().set_hardware(c->hardware);
+            get_printer_state().set_hardware((*snapshot));
             get_printer_state().init_fans(
-                c->hardware.fans(), helix::FanRoleConfig::from_config(Config::get_instance()));
+                (*snapshot).fans(), helix::FanRoleConfig::from_config(Config::get_instance()));
 
             // Dispatch initial subscription status AFTER init_fans so fan/sensor subjects
             // exist when the status data is processed. The initial status is passed from the
             // discovery sequence rather than dispatched separately to guarantee ordering.
-            if (!c->initial_status.empty()) {
-                c->client->dispatch_status_update(c->initial_status);
+            if (!(*status_snapshot).empty()) {
+                client->dispatch_status_update((*status_snapshot));
             }
 
-            get_printer_state().set_klipper_version(c->hardware.software_version());
-            get_printer_state().set_moonraker_version(c->hardware.moonraker_version());
-            if (!c->hardware.os_version().empty()) {
-                get_printer_state().set_os_version(c->hardware.os_version());
+            get_printer_state().set_klipper_version((*snapshot).software_version());
+            get_printer_state().set_moonraker_version((*snapshot).moonraker_version());
+            if (!(*snapshot).os_version().empty()) {
+                get_printer_state().set_os_version((*snapshot).os_version());
             }
 
             // Populate LED chips now that hardware is discovered
@@ -2010,7 +1999,7 @@ void Application::setup_discovery_callbacks() {
 
             // Fetch print hours now that connection is live, and refresh on job changes
             helix::settings::get_about_settings_overlay().fetch_print_hours();
-            c->client->register_method_callback(
+            client->register_method_callback(
                 "notify_history_changed", "AboutOverlay_print_hours",
                 [](const nlohmann::json& /*data*/) {
                     helix::ui::queue_update([]() {
@@ -2019,7 +2008,7 @@ void Application::setup_discovery_callbacks() {
                 });
 
             // Register for timelapse events when timelapse is detected
-            c->client->register_method_callback(
+            client->register_method_callback(
                 "notify_timelapse_event", "timelapse_state", [](const nlohmann::json& data) {
                     helix::TimelapseState::instance().handle_timelapse_event(data);
                 });
@@ -2027,7 +2016,7 @@ void Application::setup_discovery_callbacks() {
             // Detect when Moonraker finishes updating HelixScreen (e.g. via Mainsail).
             // On SysV platforms (AD5X, AD5M, K1) there is no systemd path watcher,
             // so this WebSocket-based detection is the only restart trigger.
-            c->client->register_method_callback(
+            client->register_method_callback(
                 "notify_update_response", "external_update_restart", [](const nlohmann::json& msg) {
                     // notify_update_response params: [{"application":"helixscreen",
                     //   "proc_id":N, "message":"...", "complete":true/false}]
@@ -2054,14 +2043,14 @@ void Application::setup_discovery_callbacks() {
                 });
 
             // Subscribe to power device and sensor state change notifications
-            if (c->api) {
-                helix::PowerDeviceState::instance().subscribe(*c->api);
-                helix::SensorState::instance().subscribe(*c->api);
+            if (api) {
+                helix::PowerDeviceState::instance().subscribe(*api);
+                helix::SensorState::instance().subscribe(*api);
             }
 
             // Hardware validation: check config expectations vs discovered hardware
             HardwareValidator validator;
-            auto validation_result = validator.validate(Config::get_instance(), c->hardware);
+            auto validation_result = validator.validate(Config::get_instance(), (*snapshot));
             get_printer_state().set_hardware_validation_result(validation_result);
 
             if (validation_result.has_issues() && !Config::get_instance()->is_wizard_required() &&
@@ -2070,13 +2059,13 @@ void Application::setup_discovery_callbacks() {
             }
 
             // Save session snapshot for next comparison (even if no issues)
-            validator.save_session_snapshot(Config::get_instance(), c->hardware);
+            validator.save_session_snapshot(Config::get_instance(), (*snapshot));
 
             // Auto-detect printer type if not already set (e.g., fresh install with preset)
             // Skip during wizard — the user selects their printer type in the identify step,
             // and auto-detection here would overwrite PRINTER_TYPE before they choose.
             if (!is_wizard_active()) {
-                PrinterDetector::auto_detect_and_save(c->hardware, Config::get_instance());
+                PrinterDetector::auto_detect_and_save((*snapshot), Config::get_instance());
             }
 
             // Record telemetry session event now that hardware data is available
@@ -2088,8 +2077,8 @@ void Application::setup_discovery_callbacks() {
             // Fetch safety limits and build volume from Klipper config (stepper ranges,
             // min_extrude_temp, max_temp, etc.) — runs for ALL discovery completions
             // (normal startup AND post-wizard) so we don't duplicate this in callers
-            if (c->api) {
-                MoonrakerAPI* api_ptr = c->api;
+            if (api) {
+                MoonrakerAPI* api_ptr = api;
                 api_ptr->update_safety_limits_from_printer(
                     [api_ptr]() {
                         const auto& limits = api_ptr->get_safety_limits();
@@ -2122,7 +2111,7 @@ void Application::setup_discovery_callbacks() {
 
             // Detect helix_print plugin during discovery (not UI-initiated)
             // This ensures plugin status is known early for UI gating
-            c->api->job().check_helix_plugin(
+            api->job().check_helix_plugin(
                 [](bool available) { get_printer_state().set_helix_plugin_installed(available); },
                 [](const MoonrakerError&) {
                     // Silently treat errors as "plugin not installed"
@@ -2185,7 +2174,7 @@ void Application::setup_discovery_callbacks() {
             // This ensures the filament panel shows the correct spool on startup,
             // even if the active spool was changed via Spoolman's web UI or another client
             {
-                MoonrakerAPI* api_for_spool = c->api;
+                MoonrakerAPI* api_for_spool = api;
                 api_for_spool->spoolman().get_spoolman_status(
                     [api_for_spool, sync_external_spool](bool connected, int active_spool_id) {
                         if (!connected || active_spool_id <= 0) {
@@ -2234,8 +2223,8 @@ void Application::setup_discovery_callbacks() {
             // Listen for Moonraker active spool changes (user changes spool in
             // Spoolman web UI or another client while HelixScreen is running)
             {
-                MoonrakerAPI* api_for_notify = c->api;
-                c->client->register_method_callback(
+                MoonrakerAPI* api_for_notify = api;
+                client->register_method_callback(
                     "notify_active_spool_set", "external_spool_sync",
                     [api_for_notify, sync_external_spool](const nlohmann::json& data) {
                         // Callback receives full JSON-RPC message — extract params
@@ -2273,13 +2262,13 @@ void Application::setup_discovery_callbacks() {
             }
 
             // Fetch job queue now that WebSocket is actually connected
-            if (c->app->m_job_queue_state) {
-                c->app->m_job_queue_state->fetch();
+            if (app->m_job_queue_state) {
+                app->m_job_queue_state->fetch();
             }
 
             // Notify plugins that Moonraker is connected
-            if (c->app->m_plugin_manager) {
-                c->app->m_plugin_manager->on_moonraker_connected();
+            if (app->m_plugin_manager) {
+                app->m_plugin_manager->on_moonraker_connected();
             }
 
             // Apply LED startup preference (turn on LED if user preference is enabled)
@@ -2292,8 +2281,8 @@ void Application::setup_discovery_callbacks() {
             // (e.g., PROBE_CALIBRATE started from Mainsail or console before HelixScreen launched)
             // Deferred one tick: status updates from the subscription response are queued
             // via ui_queue_update and may not have landed yet at this point.
-            MoonrakerAPI* api_ptr_zoffset = c->api;
-            lv_obj_t* screen = c->app->m_screen;
+            MoonrakerAPI* api_ptr_zoffset = api;
+            lv_obj_t* screen = app->m_screen;
             helix::ui::queue_update([api_ptr_zoffset, screen]() {
                 auto& ps = get_printer_state();
                 int probe_active = lv_subject_get_int(ps.get_manual_probe_active_subject());
