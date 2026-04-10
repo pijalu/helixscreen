@@ -169,6 +169,7 @@ jobs:
           build/${{ matrix.build_dir || matrix.platform }}/bin/helix-screen.debug
           build/${{ matrix.build_dir || matrix.platform }}-fbdev/bin/helix-screen.sym
           build/${{ matrix.build_dir || matrix.platform }}-fbdev/bin/helix-screen.debug
+        if-no-files-found: error
         retention-days: 30
 
     - name: Move cache
@@ -760,6 +761,8 @@ jobs:
         done
 
         echo "=== Uploading debug info (zstd compressed) ==="
+        sym_count=$(find symbol-files -maxdepth 1 -name '*.sym' | wc -l)
+        dbg_uploaded=0
         for dbgfile in symbol-files/*.debug; do
           [ -f "$dbgfile" ] || continue
           filename=$(basename "$dbgfile")
@@ -771,7 +774,19 @@ jobs:
             "s3://${R2_BUCKET}/symbols/v${RELEASE_VERSION}/${platform}.debug.zst" \
             --endpoint-url "$R2_ENDPOINT" \
             --content-type "application/zstd"
+          dbg_uploaded=$((dbg_uploaded + 1))
         done
+
+        # Sanity check: every .sym must have a corresponding .debug.zst.
+        # Catches silent disk-exhaustion or missing .debug artifacts that
+        # otherwise leave R2 with .sym only and no DWARF (see v0.99.27).
+        echo "Symbol upload: ${sym_count} .sym files, ${dbg_uploaded} .debug.zst files"
+        if [ "$dbg_uploaded" -ne "$sym_count" ]; then
+          echo "::error::.debug.zst upload count (${dbg_uploaded}) does not match .sym count (${sym_count})"
+          echo "Likely causes: disk exhaustion during zstd, missing .debug in build artifact, or aws s3 cp failure."
+          df -h /
+          exit 1
+        fi
         echo "=== Symbol upload complete ==="
 
         echo "All uploads complete!"
