@@ -26,7 +26,9 @@ class BluetoothLoader {
     helix_bt_pair_fn pair = nullptr;
     helix_bt_is_paired_fn is_paired = nullptr;
     helix_bt_is_connected_fn is_connected = nullptr;
+    helix_bt_remove_device_fn remove_device = nullptr;
     helix_bt_connect_rfcomm_fn connect_rfcomm = nullptr;
+    helix_bt_sdp_find_rfcomm_channel_fn sdp_find_rfcomm_channel = nullptr;
     helix_bt_connect_ble_fn connect_ble = nullptr;
     helix_bt_ble_write_fn ble_write = nullptr;
     helix_bt_ble_read_fn ble_read = nullptr;
@@ -54,4 +56,4 @@ class BluetoothLoader {
     helix_bt_context* shared_ctx_ = nullptr;
 };
 
-}  // namespace helix::bluetooth
+} // namespace helix::bluetooth
