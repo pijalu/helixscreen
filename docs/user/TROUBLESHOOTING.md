@@ -421,6 +421,45 @@ sudo systemctl restart helixscreen
 
 ---
 
+### Resolution stuck at the wrong size, or `-s` has no effect
+
+**Symptoms:**
+- HelixScreen shows a "Cannot set HelixScreen to selected resolution" message on startup
+- Display is locked at 800x480 (or similar) even though you passed `-s large` or `-s 1024x600`
+- System journal contains `[DRM Backend]` or `[fbdev Backend]` warnings about the requested size
+
+**Cause:** HelixScreen can only use resolutions the kernel exposes to it. If the kernel display driver is misconfigured, or if a fallback driver like `simpledrm` is active, the display is locked to whatever the bootloader programmed at power-on — HelixScreen cannot override this at runtime.
+
+**Fix on Raspberry Pi / RatOS:**
+
+1. Open the boot config:
+   ```bash
+   sudo nano /boot/firmware/config.txt
+   ```
+
+2. Make sure this line is present and not commented out:
+   ```
+   dtoverlay=vc4-kms-v3d
+   ```
+
+3. If you are using a specific HDMI mode (e.g., 1024x600), add the appropriate `hdmi_cvt` / `hdmi_group` / `hdmi_mode` lines per the Raspberry Pi HDMI documentation.
+
+4. Reboot.
+
+5. After reboot, verify the real DRM driver is now active:
+   ```bash
+   ls /sys/class/drm/
+   ```
+   You should see something like `card0-HDMI-A-1`. If you still see only `card0` and `dmesg | grep -i drm` mentions `simpledrm`, the vc4 overlay did not load — double-check `/boot/firmware/config.txt` for typos and any conflicting `dtoverlay` lines.
+
+**Check what modes the kernel knows about:**
+```bash
+cat /sys/class/drm/card0-HDMI-A-1/modes
+```
+This lists the resolutions the DRM driver will accept for the `-s` flag.
+
+---
+
 ### Display upside down or rotated
 
 **Symptoms:**
