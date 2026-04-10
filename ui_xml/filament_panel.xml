@@ -45,7 +45,7 @@
                   height="content" style_pad_all="0" scrollable="false"
                   flex_flow="row" style_flex_main_place="start" style_flex_cross_place="center" style_pad_gap="#space_sm">
             <icon src="thermometer" size="sm" variant="secondary"/>
-            <text_body text="Temperatures" translation_tag="Temperatures" text_transform="uppercase" style_translate_y="2"/>
+            <text_body text="Temperature" translation_tag="Temperature" text_transform="uppercase" style_translate_y="2"/>
           </lv_obj>
 
           <!-- Nozzle Row: Current / Target (entire row tappable) -->
