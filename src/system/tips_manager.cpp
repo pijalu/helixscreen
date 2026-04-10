@@ -180,24 +180,28 @@ PrintingTip TipsManager::get_random_unique_tip() {
         viewed_tip_ids_.clear();
     }
 
-    // Build list of unviewed tips
-    std::vector<PrintingTip> unviewed_tips;
-    for (const auto& tip : tips_cache) {
-        // Check if this tip ID is in the viewed list
+    // Build list of unviewed tip *indices* — not full PrintingTip copies. Copying
+    // the whole cache into a temporary vector every 60s allocated 4 strings + 2
+    // string-vectors per tip, fragmenting the heap on memory-constrained ARM
+    // devices and eventually tripping glibc's heap-consistency detector (#771).
+    std::vector<size_t> unviewed_indices;
+    unviewed_indices.reserve(tips_cache.size());
+    for (size_t i = 0; i < tips_cache.size(); ++i) {
+        const auto& tip = tips_cache[i];
         if (std::find(viewed_tip_ids_.begin(), viewed_tip_ids_.end(), tip.id) ==
             viewed_tip_ids_.end()) {
-            unviewed_tips.push_back(tip);
+            unviewed_indices.push_back(i);
         }
     }
 
-    if (unviewed_tips.empty()) {
+    if (unviewed_indices.empty()) {
         spdlog::error("[TipsManager] Logic error: no unviewed tips found but viewed count < total");
         return PrintingTip{};
     }
 
     // Select random unviewed tip
-    std::uniform_int_distribution<size_t> dist(0, unviewed_tips.size() - 1);
-    PrintingTip selected = unviewed_tips[dist(random_generator)];
+    std::uniform_int_distribution<size_t> dist(0, unviewed_indices.size() - 1);
+    const PrintingTip& selected = tips_cache[unviewed_indices[dist(random_generator)]];
 
     // Mark as viewed
     viewed_tip_ids_.push_back(selected.id);
@@ -205,7 +209,7 @@ PrintingTip TipsManager::get_random_unique_tip() {
     spdlog::trace("[TipsManager] Selected unique tip '{}' ({}/{})", selected.id,
                   viewed_tip_ids_.size(), tips_cache.size());
 
-    return selected;
+    return selected; // single copy on return (NRVO when possible)
 }
 
 void TipsManager::reset_viewed_tips() {

@@ -194,7 +194,16 @@ void TipsWidget::on_size_changed(int colspan, int /*rowspan*/, int /*width_px*/,
 }
 
 void TipsWidget::update_tip_of_day() {
-    auto tip = TipsManager::get_instance()->get_random_unique_tip();
+    // Tip selection allocates on the heap; on memory-constrained ARM devices
+    // (ad5x, k1) a std::bad_alloc here would otherwise unwind out of a
+    // 60-second LVGL timer callback and terminate the process (#771).
+    PrintingTip tip;
+    try {
+        tip = TipsManager::get_instance()->get_random_unique_tip();
+    } catch (const std::exception& e) {
+        spdlog::warn("[TipsWidget] get_random_unique_tip threw: {} — skipping rotation", e.what());
+        return;
+    }
 
     if (!tip.title.empty()) {
         // Use animated transition if label is available and not already animating
