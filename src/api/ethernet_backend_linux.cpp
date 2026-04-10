@@ -10,9 +10,11 @@
 #include <spdlog/spdlog.h>
 
 #include <algorithm>
+#include <cstring>
 #include <dirent.h>
 #include <fstream>
 #include <memory>
+#include <sys/stat.h>
 
 EthernetBackendLinux::EthernetBackendLinux() {
     spdlog::debug("[EthernetLinux] Linux backend created");
@@ -24,47 +26,89 @@ EthernetBackendLinux::~EthernetBackendLinux() {
 }
 
 bool EthernetBackendLinux::is_ethernet_interface(const std::string& name) {
-    // Linux physical Ethernet interface patterns:
-    // - eth0, eth1, ...           (traditional naming)
-    // - eno1, eno2, ...           (onboard, firmware naming)
-    // - enp<bus>s<slot>           (PCI bus/slot naming, e.g., enp3s0)
-    // - enP<domain>p<bus>s<slot>  (Rockchip/Orange Pi PCI domain naming)
-    // - ens<slot>                 (hot-plug naming, e.g., ens33)
+    // Linux physical Ethernet interface detection.
     //
-    // Exclude:
-    // - lo                        (loopback)
-    // - wlan*, wlp*               (WiFi)
-    // - docker*, br-*, virbr*     (virtual bridges)
-    // - veth*                     (virtual Ethernet pairs for containers)
-    // - tun*, tap*                (VPN/tunnels)
+    // Strategy:
+    //   1. Reject loopback and known virtual / wireless prefixes up front.
+    //   2. Fast-path accept well-known physical Ethernet prefixes.
+    //   3. For anything else, consult sysfs: accept only if it has a real
+    //      backing device, is not wireless, and reports ARPHRD_ETHER.
+    //
+    // The sysfs fallback catches interfaces that don't match any known prefix
+    // (e.g. USB NICs named `enx<mac>`, Rockchip `end0`, older Dell `em0`, or
+    // kernel-renamed interfaces on embedded boards).
 
-    // Accept eth*
-    if (name.compare(0, 3, "eth") == 0) {
-        return true;
+    if (name.empty() || name == "lo") {
+        return false;
     }
 
-    // Accept eno* (onboard Ethernet)
-    if (name.compare(0, 3, "eno") == 0) {
-        return true;
+    // Reject obviously non-Ethernet prefixes.
+    static const char* const kRejectPrefixes[] = {
+        "wlan",   "wlp", "wlx",    // WiFi
+        "docker", "br-", "virbr",  // Virtual bridges
+        "veth",                    // Container virtual Ethernet pairs
+        "tun",    "tap",           // VPN / tunnels
+        "bond",                    // Bonded interfaces (aggregate, not physical)
+        "ppp",                     // Point-to-point (cellular, dial-up)
+        "can",                     // CAN bus
+        "sit",    "gre", "ip6tnl", // IP-over-IP tunnels
+    };
+    for (const char* prefix : kRejectPrefixes) {
+        size_t len = std::strlen(prefix);
+        if (name.compare(0, len, prefix) == 0) {
+            return false;
+        }
     }
 
-    // Accept enp* (PCI naming)
-    if (name.compare(0, 3, "enp") == 0) {
-        return true;
+    // Fast-path: well-known physical Ethernet naming schemes. Accepting these
+    // without sysfs lets `get_info()` work against libhv's ifconfig_t list
+    // even if sysfs is unavailable (e.g. containerized test environments).
+    static const char* const kEthernetPrefixes[] = {
+        "eth", // Traditional kernel naming (eth0, eth1, ...)
+        "eno", // systemd onboard / firmware index (eno1, ...)
+        "enp", // systemd PCI bus/slot (enp3s0, ...)
+        "enP", // Rockchip / Orange Pi PCI domain (enP4p65s0, ...)
+        "ens", // systemd hot-plug slot (ens33, ...)
+        "end", // RK3588 / NanoPi / some Radxa boards (end0, ...)
+        "enx", // systemd MAC-based (USB NICs: enx001122334455)
+        "em",  // biosdevname (older Dell / Fedora: em1, em2)
+    };
+    for (const char* prefix : kEthernetPrefixes) {
+        size_t len = std::strlen(prefix);
+        if (name.compare(0, len, prefix) == 0) {
+            return true;
+        }
     }
 
-    // Accept enP* (Orange Pi / Rockchip specific naming)
-    if (name.compare(0, 3, "enP") == 0) {
-        return true;
+    // Unknown naming scheme — probe sysfs to classify it.
+    const std::string base = "/sys/class/net/" + name;
+    struct stat st;
+
+    // Must have a backing hardware device (excludes most virtual interfaces
+    // that slipped past the reject list).
+    if (stat((base + "/device").c_str(), &st) != 0) {
+        return false;
     }
 
-    // Accept ens* (hot-plug naming)
-    if (name.compare(0, 3, "ens") == 0) {
-        return true;
+    // Must not be a wireless device (WiFi drivers expose a `wireless/` dir).
+    if (stat((base + "/wireless").c_str(), &st) == 0) {
+        return false;
     }
 
-    // Reject everything else (lo, wlan*, docker*, etc.)
-    return false;
+    // Check ARPHRD type — 1 == ARPHRD_ETHER. Anything else (772=loopback,
+    // 776=SIT tunnel, 778=IPGRE, 823=IEEE802154, etc.) is not Ethernet.
+    std::ifstream type_file(base + "/type");
+    if (!type_file.is_open()) {
+        return false;
+    }
+    int arp_type = -1;
+    type_file >> arp_type;
+    if (arp_type != 1) {
+        return false;
+    }
+
+    spdlog::debug("[EthernetLinux] Accepted interface via sysfs probe: {}", name);
+    return true;
 }
 
 std::string EthernetBackendLinux::read_operstate(const std::string& interface) {

@@ -15,16 +15,24 @@
  * interfaces, plus Linux-specific /sys/class/net for detailed status.
  *
  * Interface detection strategy:
- * - Filters for physical Ethernet interfaces (eth*, eno*, enp*, ens*)
- * - Excludes loopback, WiFi, virtual interfaces (docker*, virbr*, etc.)
+ * - Accepts known physical Ethernet prefixes by name (fast path)
+ * - Falls back to a sysfs probe (device/, wireless/, type) for unknown names
+ * - Excludes loopback, WiFi, virtual interfaces (docker*, virbr*, veth*, ...)
  * - Checks /sys/class/net/<interface>/operstate for link status
  * - Returns first interface with "up" operstate and valid IP
  *
- * Linux interface naming:
- * - eth0, eth1: Traditional naming (older systems)
- * - eno1: Onboard Ethernet (BIOS/firmware naming)
- * - enp*s*: PCI bus/slot naming (e.g., enp3s0)
- * - ens*: Hot-plug naming scheme
+ * Linux interface naming accepted (fast path):
+ * - eth0, eth1:   Traditional kernel naming
+ * - eno1:         systemd onboard / firmware index
+ * - enp3s0:       systemd PCI bus/slot
+ * - enP4p65s0:    Rockchip / Orange Pi PCI domain
+ * - ens33:        systemd hot-plug slot
+ * - end0:         RK3588 / NanoPi / some Radxa boards
+ * - enx001122...: systemd MAC-based (USB Ethernet adapters)
+ * - em1:          biosdevname (older Dell / Fedora)
+ *
+ * Anything else (e.g. kernel-renamed interfaces on embedded boards) is
+ * classified by probing /sys/class/net/<name>/ directly.
  */
 class EthernetBackendLinux : public EthernetBackend {
   public:
