@@ -26,17 +26,17 @@ extern "C" {
 typedef struct {
     int api_version;
     const char* name;
-    bool has_classic;  ///< Supports SPP/RFCOMM
-    bool has_ble;      ///< Supports BLE GATT
+    bool has_classic; ///< Supports SPP/RFCOMM
+    bool has_ble;     ///< Supports BLE GATT
 } helix_bt_plugin_info;
 
 /// Discovered Bluetooth device
 typedef struct {
-    const char* mac;           ///< "AA:BB:CC:DD:EE:FF"
-    const char* name;          ///< Human-readable name
+    const char* mac;  ///< "AA:BB:CC:DD:EE:FF"
+    const char* name; ///< Human-readable name
     bool paired;
-    bool is_ble;               ///< false=Classic, true=BLE
-    const char* service_uuid;  ///< Primary service UUID (SPP or vendor)
+    bool is_ble;              ///< false=Classic, true=BLE
+    const char* service_uuid; ///< Primary service UUID (SPP or vendor)
 } helix_bt_device;
 
 /// Opaque context — allocated by plugin, freed by plugin
@@ -61,8 +61,8 @@ typedef void (*helix_bt_deinit_fn)(helix_bt_context*);
 
 /// Start discovery. Calls cb per device found. Stops after timeout_ms.
 /// Returns 0 on success, negative on error.
-typedef int (*helix_bt_discover_fn)(helix_bt_context*, int timeout_ms,
-                                    helix_bt_discover_cb cb, void* user_data);
+typedef int (*helix_bt_discover_fn)(helix_bt_context*, int timeout_ms, helix_bt_discover_cb cb,
+                                    void* user_data);
 
 /// Stop an in-progress discovery early.
 typedef void (*helix_bt_stop_discovery_fn)(helix_bt_context*);
@@ -81,18 +81,16 @@ typedef int (*helix_bt_is_connected_fn)(helix_bt_context*, const char* mac);
 typedef int (*helix_bt_connect_rfcomm_fn)(helix_bt_context*, const char* mac, int channel);
 
 /// Connect via BLE GATT. Returns handle on success, negative on error.
-typedef int (*helix_bt_connect_ble_fn)(helix_bt_context*, const char* mac,
-                                       const char* write_uuid);
+typedef int (*helix_bt_connect_ble_fn)(helix_bt_context*, const char* mac, const char* write_uuid);
 
 /// Write data to BLE GATT characteristic. Handles chunking to MTU internally.
 /// Returns 0 on success, negative on error.
-typedef int (*helix_bt_ble_write_fn)(helix_bt_context*, int handle,
-                                     const uint8_t* data, int len);
+typedef int (*helix_bt_ble_write_fn)(helix_bt_context*, int handle, const uint8_t* data, int len);
 
 /// Read data from BLE GATT notifications. Blocks up to timeout_ms.
 /// Returns bytes read on success, 0 on timeout, negative on error.
-typedef int (*helix_bt_ble_read_fn)(helix_bt_context*, int handle,
-                                     uint8_t* buf, int buf_len, int timeout_ms);
+typedef int (*helix_bt_ble_read_fn)(helix_bt_context*, int handle, uint8_t* buf, int buf_len,
+                                    int timeout_ms);
 
 /// Disconnect a connection (RFCOMM fd or BLE handle).
 typedef void (*helix_bt_disconnect_fn)(helix_bt_context*, int handle);
@@ -100,31 +98,43 @@ typedef void (*helix_bt_disconnect_fn)(helix_bt_context*, int handle);
 /// Get human-readable error string for last failure.
 typedef const char* (*helix_bt_last_error_fn)(helix_bt_context*);
 
+/// Remove (unpair) a device from the adapter. Returns 0 on success,
+/// negative errno on failure. Sets ctx->last_error on failure.
+typedef int (*helix_bt_remove_device_fn)(helix_bt_context* ctx, const char* mac);
+
+/// Look up the RFCOMM channel for a given service UUID via SDP.
+/// Returns 0 on success and writes channel (1..30) to *out_channel.
+/// Returns negative on failure; *out_channel untouched on failure.
+/// Sets ctx->last_error on failure.
+typedef int (*helix_bt_sdp_find_rfcomm_channel_fn)(helix_bt_context* ctx, const char* mac,
+                                                   uint16_t uuid16, int* out_channel);
+
 // ============================================================================
 // Symbol name macros for dlsym()
 // ============================================================================
 
-#define HELIX_BT_SYM_GET_INFO       "helix_bt_get_info"
-#define HELIX_BT_SYM_INIT           "helix_bt_init"
-#define HELIX_BT_SYM_DEINIT         "helix_bt_deinit"
-#define HELIX_BT_SYM_DISCOVER       "helix_bt_discover"
+#define HELIX_BT_SYM_GET_INFO "helix_bt_get_info"
+#define HELIX_BT_SYM_INIT "helix_bt_init"
+#define HELIX_BT_SYM_DEINIT "helix_bt_deinit"
+#define HELIX_BT_SYM_DISCOVER "helix_bt_discover"
 #define HELIX_BT_SYM_STOP_DISCOVERY "helix_bt_stop_discovery"
-#define HELIX_BT_SYM_PAIR           "helix_bt_pair"
-#define HELIX_BT_SYM_IS_PAIRED      "helix_bt_is_paired"
-#define HELIX_BT_SYM_IS_CONNECTED   "helix_bt_is_connected"
+#define HELIX_BT_SYM_PAIR "helix_bt_pair"
+#define HELIX_BT_SYM_IS_PAIRED "helix_bt_is_paired"
+#define HELIX_BT_SYM_IS_CONNECTED "helix_bt_is_connected"
 #define HELIX_BT_SYM_CONNECT_RFCOMM "helix_bt_connect_rfcomm"
-#define HELIX_BT_SYM_CONNECT_BLE    "helix_bt_connect_ble"
-#define HELIX_BT_SYM_BLE_WRITE      "helix_bt_ble_write"
-#define HELIX_BT_SYM_BLE_READ       "helix_bt_ble_read"
-#define HELIX_BT_SYM_DISCONNECT     "helix_bt_disconnect"
-#define HELIX_BT_SYM_LAST_ERROR     "helix_bt_last_error"
+#define HELIX_BT_SYM_CONNECT_BLE "helix_bt_connect_ble"
+#define HELIX_BT_SYM_BLE_WRITE "helix_bt_ble_write"
+#define HELIX_BT_SYM_BLE_READ "helix_bt_ble_read"
+#define HELIX_BT_SYM_DISCONNECT "helix_bt_disconnect"
+#define HELIX_BT_SYM_LAST_ERROR "helix_bt_last_error"
+#define HELIX_BT_SYM_REMOVE_DEVICE "helix_bt_remove_device"
+#define HELIX_BT_SYM_SDP_FIND_RFCOMM_CHANNEL "helix_bt_sdp_find_rfcomm_channel"
 
 /// LZO1X-1 compress data. Returns compressed size on success, negative on error.
 /// out_buf must be at least (in_len + in_len/16 + 64 + 3) bytes.
-typedef int (*helix_bt_lzo_compress_fn)(const uint8_t* in, int in_len,
-                                         uint8_t* out, int out_len);
+typedef int (*helix_bt_lzo_compress_fn)(const uint8_t* in, int in_len, uint8_t* out, int out_len);
 
-#define HELIX_BT_SYM_LZO_COMPRESS  "helix_bt_lzo_compress"
+#define HELIX_BT_SYM_LZO_COMPRESS "helix_bt_lzo_compress"
 
 #ifdef __cplusplus
 }
