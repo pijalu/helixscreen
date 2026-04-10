@@ -98,7 +98,7 @@
         </lv_obj>
         <!-- Motion panel navigation button -->
         <ui_button name="btn_motion"
-                   width="100%" height="#button_height_sm" icon="cursor_move" text="Motion" translation_tag="Motion">
+                   width="100%" height="#button_height_sm" icon="cursor_move" text="Motion" translation_tag="Motion" style_text_font="#font_small">
           <event_cb trigger="clicked" callback="on_controls_quick_actions"/>
         </ui_button>
       </ui_card>

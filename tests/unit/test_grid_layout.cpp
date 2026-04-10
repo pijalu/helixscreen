@@ -38,8 +38,8 @@ TEST_CASE("GridLayout dimensions: MEDIUM (bp 2) = 6x4", "[grid_layout][dimension
     CHECK(dims.rows == 4);
 }
 
-TEST_CASE("GridLayout dimensions: LARGE (bp 3) = 8x5", "[grid_layout][dimensions]") {
-    auto dims = GridLayout::get_dimensions(3);
+TEST_CASE("GridLayout dimensions: LARGE (bp 4) = 8x5", "[grid_layout][dimensions]") {
+    auto dims = GridLayout::get_dimensions(4);
     CHECK(dims.cols == 8);
     CHECK(dims.rows == 5);
 }
@@ -313,7 +313,7 @@ TEST_CASE("GridLayout filter_for_breakpoint: all fit in LARGE", "[grid_layout][f
         {"w2", 4, 0, 4, 2},
     };
 
-    auto [fits, no_fit] = GridLayout::filter_for_breakpoint(3, all); // LARGE 8x5
+    auto [fits, no_fit] = GridLayout::filter_for_breakpoint(4, all); // LARGE 8x5
     CHECK(fits.size() == 2);
     CHECK(no_fit.empty());
 }
@@ -334,7 +334,7 @@ TEST_CASE("GridLayout breakpoint transition: 8x5 placement does not fit in TINY"
     CHECK(no_fit.size() == 1);
 
     // Same placement fits in LARGE (8x5)
-    auto [fits2, no_fit2] = GridLayout::filter_for_breakpoint(3, placements);
+    auto [fits2, no_fit2] = GridLayout::filter_for_breakpoint(4, placements);
     CHECK(fits2.size() == 1);
     CHECK(no_fit2.empty());
 }
@@ -354,7 +354,7 @@ TEST_CASE("GridLayout breakpoint transition: LARGE placement partially fits in S
     CHECK(small_no.size() == 2);
 
     // LARGE (8x5): all fit
-    auto [large_fits, large_no] = GridLayout::filter_for_breakpoint(3, placements);
+    auto [large_fits, large_no] = GridLayout::filter_for_breakpoint(4, placements);
     CHECK(large_fits.size() == 3);
     CHECK(large_no.empty());
 }
@@ -468,76 +468,72 @@ struct GridLayoutFixture {
     }
 };
 
-TEST_CASE_METHOD(GridLayoutFixture,
-                 "GridLayout dimensions: ULTRAWIDE scales cols from width",
+TEST_CASE_METHOD(GridLayoutFixture, "GridLayout dimensions: ULTRAWIDE scales cols from width",
                  "[grid_layout][dimensions][ultrawide]") {
     auto& lm = helix::LayoutManager::instance();
 
     SECTION("1920x440 -> 12 cols, rows from SMALL breakpoint (4)") {
-        lm.init(1920, 440);  // ULTRAWIDE, SMALL breakpoint
+        lm.init(1920, 440);                        // ULTRAWIDE, SMALL breakpoint
         auto dims = GridLayout::get_dimensions(1); // SMALL
-        CHECK(dims.cols == 12);  // 1920 / 160 = 12
-        CHECK(dims.rows == 4);   // SMALL base rows
+        CHECK(dims.cols == 12);                    // 1920 / 160 = 12
+        CHECK(dims.rows == 4);                     // SMALL base rows
     }
     SECTION("2560x600 -> 16 cols (clamped), rows from LARGE breakpoint (5)") {
-        lm.init(2560, 600);  // ULTRAWIDE, LARGE breakpoint
-        auto dims = GridLayout::get_dimensions(3); // LARGE
-        CHECK(dims.cols == 16);  // 2560 / 160 = 16 (at max clamp)
-        CHECK(dims.rows == 5);   // LARGE base rows
+        lm.init(2560, 600);                        // ULTRAWIDE, LARGE breakpoint
+        auto dims = GridLayout::get_dimensions(4); // LARGE
+        CHECK(dims.cols == 16);                    // 2560 / 160 = 16 (at max clamp)
+        CHECK(dims.rows == 5);                     // LARGE base rows
     }
     SECTION("640x200 -> 4 cols (min clamp)") {
-        lm.init(640, 200);  // ratio 3.2 -> ULTRAWIDE
+        lm.init(640, 200);                         // ratio 3.2 -> ULTRAWIDE
         auto dims = GridLayout::get_dimensions(0); // TINY
-        CHECK(dims.cols == 4);   // 640 / 160 = 4 (at min clamp)
-        CHECK(dims.rows == 4);   // TINY base rows
+        CHECK(dims.cols == 4);                     // 640 / 160 = 4 (at min clamp)
+        CHECK(dims.rows == 4);                     // TINY base rows
     }
 }
 
-TEST_CASE_METHOD(GridLayoutFixture,
-                 "GridLayout dimensions: PORTRAIT scales rows from height",
+TEST_CASE_METHOD(GridLayoutFixture, "GridLayout dimensions: PORTRAIT scales rows from height",
                  "[grid_layout][dimensions][portrait]") {
     auto& lm = helix::LayoutManager::instance();
 
     SECTION("480x1600 -> base cols, 10 rows") {
-        lm.init(480, 1600);  // PORTRAIT, XLARGE breakpoint
+        lm.init(480, 1600);                        // PORTRAIT, XLARGE breakpoint
         auto dims = GridLayout::get_dimensions(4); // XLARGE
-        CHECK(dims.cols == 8);   // XLARGE base cols (unchanged)
-        CHECK(dims.rows == 10);  // 1600 / 160 = 10
+        CHECK(dims.cols == 8);                     // XLARGE base cols (unchanged)
+        CHECK(dims.rows == 10);                    // 1600 / 160 = 10
     }
     SECTION("480x800 -> base cols, 5 rows (same as table)") {
-        lm.init(480, 800);  // PORTRAIT
+        lm.init(480, 800);                         // PORTRAIT
         auto dims = GridLayout::get_dimensions(4); // XLARGE
-        CHECK(dims.cols == 8);   // XLARGE base cols
-        CHECK(dims.rows == 5);   // 800 / 160 = 5
+        CHECK(dims.cols == 8);                     // XLARGE base cols
+        CHECK(dims.rows == 5);                     // 800 / 160 = 5
     }
     SECTION("480x1920 -> 12 rows (max clamp)") {
-        lm.init(480, 1920);  // PORTRAIT
+        lm.init(480, 1920);                        // PORTRAIT
         auto dims = GridLayout::get_dimensions(4); // XLARGE
         CHECK(dims.cols == 8);
-        CHECK(dims.rows == 12);  // 1920 / 160 = 12, at max clamp
+        CHECK(dims.rows == 12); // 1920 / 160 = 12, at max clamp
     }
     SECTION("320x480 -> 3 rows (min clamp)") {
-        lm.init(320, 480);  // TINY_PORTRAIT (max_dim <=480), not PORTRAIT
+        lm.init(320, 480); // TINY_PORTRAIT (max_dim <=480), not PORTRAIT
         // TINY_PORTRAIT uses table, not dynamic
         auto dims = GridLayout::get_dimensions(0); // TINY
-        CHECK(dims.cols == 6);   // TINY base
-        CHECK(dims.rows == 4);   // TINY base (table, not dynamic)
+        CHECK(dims.cols == 6);                     // TINY base
+        CHECK(dims.rows == 4);                     // TINY base (table, not dynamic)
     }
 }
 
-TEST_CASE_METHOD(GridLayoutFixture,
-                 "GridLayout dimensions: STANDARD layout uses table (unchanged)",
+TEST_CASE_METHOD(GridLayoutFixture, "GridLayout dimensions: STANDARD layout uses table (unchanged)",
                  "[grid_layout][dimensions][standard]") {
     auto& lm = helix::LayoutManager::instance();
-    lm.init(800, 480);  // STANDARD
+    lm.init(800, 480); // STANDARD
 
     auto dims = GridLayout::get_dimensions(2); // MEDIUM
     CHECK(dims.cols == 6);
     CHECK(dims.rows == 4);
 }
 
-TEST_CASE_METHOD(GridLayoutFixture,
-                 "GridLayout dimensions: uninitialized LayoutManager uses table",
+TEST_CASE_METHOD(GridLayoutFixture, "GridLayout dimensions: uninitialized LayoutManager uses table",
                  "[grid_layout][dimensions]") {
     // LayoutManager not initialized (reset by fixture) — should fall back to table
     auto dims = GridLayout::get_dimensions(2); // MEDIUM
@@ -553,10 +549,10 @@ TEST_CASE_METHOD(GridLayoutFixture,
                  "GridLayout make_col_dsc: ultrawide produces correct descriptor length",
                  "[grid_layout][descriptor][ultrawide]") {
     auto& lm = helix::LayoutManager::instance();
-    lm.init(1920, 440);  // ULTRAWIDE -> 12 cols
+    lm.init(1920, 440); // ULTRAWIDE -> 12 cols
 
     auto dsc = GridLayout::make_col_dsc(1); // SMALL breakpoint
-    REQUIRE(dsc.size() == 13); // 12 FR values + terminator
+    REQUIRE(dsc.size() == 13);              // 12 FR values + terminator
     for (int i = 0; i < 12; ++i) {
         CHECK(dsc[static_cast<size_t>(i)] == LV_GRID_FR(1));
     }
@@ -567,10 +563,10 @@ TEST_CASE_METHOD(GridLayoutFixture,
                  "GridLayout make_row_dsc: portrait produces correct descriptor length",
                  "[grid_layout][descriptor][portrait]") {
     auto& lm = helix::LayoutManager::instance();
-    lm.init(480, 1600);  // PORTRAIT -> 10 rows
+    lm.init(480, 1600); // PORTRAIT -> 10 rows
 
     auto dsc = GridLayout::make_row_dsc(4); // XLARGE breakpoint
-    REQUIRE(dsc.size() == 11); // 10 FR values + terminator
+    REQUIRE(dsc.size() == 11);              // 10 FR values + terminator
     for (int i = 0; i < 10; ++i) {
         CHECK(dsc[static_cast<size_t>(i)] == LV_GRID_FR(1));
     }
@@ -581,7 +577,7 @@ TEST_CASE_METHOD(GridLayoutFixture,
                  "GridLayout instance: ultrawide dimensions match static accessors",
                  "[grid_layout][instance][ultrawide]") {
     auto& lm = helix::LayoutManager::instance();
-    lm.init(1920, 440);  // ULTRAWIDE
+    lm.init(1920, 440); // ULTRAWIDE
 
     GridLayout grid(1); // SMALL breakpoint
     CHECK(grid.cols() == 12);

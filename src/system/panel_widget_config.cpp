@@ -426,10 +426,10 @@ std::vector<PanelWidgetEntry> PanelWidgetConfig::build_default_grid() {
 
     // Determine current breakpoint for per-breakpoint anchor sizing
     lv_subject_t* bp_subj = theme_manager_get_breakpoint_subject();
-    int breakpoint = bp_subj ? lv_subject_get_int(bp_subj) : 2; // Default MEDIUM
+    int breakpoint = bp_subj ? lv_subject_get_int(bp_subj) : 3; // Default MEDIUM
 
-    static const char* bp_names[] = {"tiny", "small", "medium", "large", "xlarge"};
-    const char* bp_name = (breakpoint >= 0 && breakpoint <= 4) ? bp_names[breakpoint] : "medium";
+    static const char* bp_names[] = {"micro", "tiny", "small", "medium", "large", "xlarge"};
+    const char* bp_name = (breakpoint >= 0 && breakpoint <= 5) ? bp_names[breakpoint] : "medium";
 
     // Load anchor placements from config/default_layout.json (runtime-editable).
     // Falls back to registry defaults if file is missing or malformed.
@@ -502,7 +502,7 @@ std::vector<PanelWidgetEntry> PanelWidgetConfig::build_default_grid() {
         auto it = std::find_if(result.begin(), result.end(),
                                [](const PanelWidgetEntry& e) { return e.id == "bed_temperature"; });
         if (it != result.end()) {
-            bool is_large = (breakpoint >= 3);
+            bool is_large = (breakpoint >= 4);
             bool ams_present = false;
             lv_subject_t* ams_subj = lv_xml_get_subject(nullptr, "ams_slot_count");
             if (ams_subj && lv_subject_get_int(ams_subj) > 0)

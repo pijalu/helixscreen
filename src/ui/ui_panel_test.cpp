@@ -73,8 +73,13 @@ void TestPanel::populate_labels() {
     int switch_width, switch_height;
     int row_height;
 
-    if (greater_res <= UI_BREAKPOINT_SMALL_MAX) { // ≤480: 480x320
-        size_category = "SMALL";
+    if (greater_res <= UI_BREAKPOINT_MICRO_MAX) { // ≤272: 480x272
+        size_category = "MICRO";
+        switch_width = 28;
+        switch_height = 14;
+        row_height = 22;
+    } else if (greater_res <= UI_BREAKPOINT_SMALL_MAX) { // 273-460
+        size_category = "TINY/SMALL";
         switch_width = 36;
         switch_height = 18;
         row_height = 26;

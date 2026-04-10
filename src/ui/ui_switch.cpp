@@ -48,12 +48,18 @@ static void ui_switch_init_size_presets() {
     // Margin calculation: knob extends ~25% beyond track on each side
     // vert_margin = height * 0.25 (rounded up)
     // horiz_margin = similar, but knob extends horizontally too
-    if (ver_res <= UI_BREAKPOINT_SMALL_MAX) { // ≤480: 480x320
+    if (ver_res <= UI_BREAKPOINT_MICRO_MAX) { // ≤272: 480x272
+        SIZE_TINY = {24, 12, 1, 3, 3};
+        SIZE_SMALL = {32, 16, 1, 4, 4};
+        SIZE_MEDIUM = {40, 20, 1, 5, 5};
+        SIZE_LARGE = {48, 24, 2, 6, 6};
+        spdlog::trace("[Switch] Initialized MICRO screen presets (ver_res={}px)", ver_res);
+    } else if (ver_res <= UI_BREAKPOINT_SMALL_MAX) { // 273-460: 480x320, 480x400, 1920x440
         SIZE_TINY = {32, 16, 1, 4, 4};
         SIZE_SMALL = {40, 20, 1, 5, 5};
         SIZE_MEDIUM = {48, 24, 2, 6, 6};
         SIZE_LARGE = {56, 28, 2, 7, 7};
-        spdlog::trace("[Switch] Initialized SMALL screen presets (ver_res={}px)", ver_res);
+        spdlog::trace("[Switch] Initialized TINY/SMALL screen presets (ver_res={}px)", ver_res);
     } else if (ver_res <= UI_BREAKPOINT_MEDIUM_MAX) { // 481-800: 800x480
         SIZE_TINY = {48, 24, 2, 6, 6};
         SIZE_SMALL = {64, 32, 2, 8, 8};
@@ -349,7 +355,20 @@ void ui_switch_register_responsive_constants() {
     const char* switch_height_large;
     const char* knob_pad_large;
 
-    if (greater_res <= UI_BREAKPOINT_SMALL_MAX) { // ≤480: 480x320
+    if (greater_res <= UI_BREAKPOINT_MICRO_MAX) { // ≤272: 480x272
+        switch_height = "16";
+        switch_width = "32";
+        knob_pad = "1";
+        row_height = "50";
+        row_height_large = "60";
+        label_font = "montserrat_10";
+        label_large_font = "montserrat_12";
+        switch_height_large = "20";
+        switch_width_large = "40";
+        knob_pad_large = "1";
+        spdlog::trace("[Switch] Screen: MICRO (greater_res={}px), switch: {}x{}, row: {}px",
+                      greater_res, switch_width, switch_height, row_height);
+    } else if (greater_res <= UI_BREAKPOINT_SMALL_MAX) { // 273-460
         switch_height = "20";
         switch_width = "40";
         knob_pad = "1";
@@ -363,7 +382,7 @@ void ui_switch_register_responsive_constants() {
         switch_width_large = "56";
         knob_pad_large = "2";
 
-        spdlog::trace("[Switch] Screen: SMALL (greater_res={}px), switch: {}x{}, row: {}px",
+        spdlog::trace("[Switch] Screen: TINY/SMALL (greater_res={}px), switch: {}x{}, row: {}px",
                       greater_res, switch_width, switch_height, row_height);
     } else if (greater_res <= UI_BREAKPOINT_MEDIUM_MAX) { // 481-800: 800x480
         switch_height = "28";

@@ -15,11 +15,11 @@
             flex_flow="row" style_flex_cross_place="center" clickable="false" event_bubble="true">
       <!-- Icon label for TINY/SMALL breakpoints -->
       <icon src="heater" size="sm" variant="muted" clickable="false" event_bubble="true">
-        <bind_flag_if_gt subject="ui_breakpoint" flag="hidden" ref_value="1"/>
+        <bind_flag_if_gt subject="ui_breakpoint" flag="hidden" ref_value="2"/>
       </icon>
       <!-- Text label for MEDIUM+ breakpoints -->
       <text_small text="Nozzle" translation_tag="Nozzle" clickable="false" event_bubble="true">
-        <bind_flag_if_lt subject="ui_breakpoint" flag="hidden" ref_value="2"/>
+        <bind_flag_if_lt subject="ui_breakpoint" flag="hidden" ref_value="3"/>
       </text_small>
       <temp_display name="nozzle_temp" size="md" show_target="true"
                     bind_current="extruder_temp" bind_target="extruder_target" flex_grow="1"
@@ -35,11 +35,11 @@
             flex_flow="row" style_flex_cross_place="center" clickable="false" event_bubble="true">
       <!-- Icon label for TINY/SMALL breakpoints -->
       <icon src="radiator" size="sm" variant="muted" clickable="false" event_bubble="true">
-        <bind_flag_if_gt subject="ui_breakpoint" flag="hidden" ref_value="1"/>
+        <bind_flag_if_gt subject="ui_breakpoint" flag="hidden" ref_value="2"/>
       </icon>
       <!-- Text label for MEDIUM+ breakpoints -->
       <text_small text="Bed" translation_tag="Bed" clickable="false" event_bubble="true">
-        <bind_flag_if_lt subject="ui_breakpoint" flag="hidden" ref_value="2"/>
+        <bind_flag_if_lt subject="ui_breakpoint" flag="hidden" ref_value="3"/>
       </text_small>
       <temp_display name="bed_temp" size="md" show_target="true"
                     bind_current="bed_temp" bind_target="bed_target" flex_grow="1"
@@ -57,11 +57,11 @@
       <bind_flag_if_eq subject="printer_has_chamber" flag="hidden" ref_value="0"/>
       <!-- Icon label for TINY/SMALL breakpoints -->
       <icon src="fridge_industrial" size="sm" variant="muted" clickable="false" event_bubble="true">
-        <bind_flag_if_gt subject="ui_breakpoint" flag="hidden" ref_value="1"/>
+        <bind_flag_if_gt subject="ui_breakpoint" flag="hidden" ref_value="2"/>
       </icon>
       <!-- Text label for MEDIUM+ breakpoints -->
       <text_small text="Chamber" translation_tag="Chamber" clickable="false" event_bubble="true">
-        <bind_flag_if_lt subject="ui_breakpoint" flag="hidden" ref_value="2"/>
+        <bind_flag_if_lt subject="ui_breakpoint" flag="hidden" ref_value="3"/>
       </text_small>
       <temp_display name="chamber_temp_display" size="md" show_target="true"
                     bind_current="chamber_temp" bind_target="chamber_target" flex_grow="1"

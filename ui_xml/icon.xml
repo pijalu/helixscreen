@@ -9,11 +9,16 @@
     <prop name="color" type="string" default=""/>
   </api>
   <consts>
-    <!-- Size constants (font size in pixels) -->
+    <!-- Size constants (font size in pixels) — responsive via _micro/_tiny/_small/_medium/_large -->
+    <px name="size_xs_micro" value="12"/>
     <px name="size_xs" value="16"/>
+    <px name="size_sm_micro" value="16"/>
     <px name="size_sm" value="24"/>
+    <px name="size_md_micro" value="20"/>
     <px name="size_md" value="32"/>
+    <px name="size_lg_micro" value="24"/>
     <px name="size_lg" value="48"/>
+    <px name="size_xl_micro" value="32"/>
     <px name="size_xl" value="64"/>
   </consts>
   <!--

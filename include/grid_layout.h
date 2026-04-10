@@ -34,7 +34,7 @@ struct GridPlacement {
 class GridLayout {
   public:
     /// Number of defined breakpoints
-    static constexpr int NUM_BREAKPOINTS = 5;
+    static constexpr int NUM_BREAKPOINTS = 6;
 
     /// Target cell size in pixels for dynamic grid computation.
     /// ULTRAWIDE/PORTRAIT layouts divide screen resolution by this to determine

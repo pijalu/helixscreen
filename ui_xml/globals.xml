@@ -77,6 +77,7 @@
     <!-- Runtime selects appropriate variant via ui_theme_register_responsive_fonts()
          Unified icon size for cards, nav bar, and other standard icons
          Values: xs(16), sm(24), md(32), lg(48), xl(64) -->
+    <string name="icon_size_micro" value="md"/>
     <string name="icon_size_tiny" value="md"/>
     <string name="icon_size_small" value="md"/>
     <string name="icon_size_medium" value="lg"/>
@@ -168,17 +169,21 @@
     <px name="button_padding" value="12"/>
 
     <!-- Icon buttons, back buttons -->
+    <!-- _micro variants for 480x272 screen (15% shorter than TINY 480x320) -->
+    <px name="button_height_sm_micro" value="24"/>
     <px name="button_height_sm_tiny" value="28"/>
     <px name="button_height_sm_small" value="40"/>
     <px name="button_height_sm_medium" value="40"/>
     <px name="button_height_sm_large" value="40"/>
 
     <!-- button_height is responsive: _small/_medium/_large registered as button_height based on screen size -->
+    <px name="button_height_micro" value="26"/>
     <px name="button_height_tiny" value="32"/>
     <px name="button_height_small" value="48"/>
     <px name="button_height_medium" value="52"/>
     <px name="button_height_large" value="72"/>
 
+    <px name="button_height_lg_micro" value="34"/>
     <px name="button_height_lg_tiny" value="40"/>
     <px name="button_height_lg_small" value="64"/>
     <px name="button_height_lg_medium" value="70"/>
@@ -186,6 +191,7 @@
 
     <!-- Other component dimensions -->
     <!-- header_height is responsive: _small/_medium/_large registered as header_height based on screen height -->
+    <px name="header_height_micro" value="28"/>
     <px name="header_height_tiny" value="32"/>
     <px name="header_height_small" value="48"/>
     <px name="header_height_medium" value="56"/>
@@ -195,6 +201,7 @@
     <!-- Responsive Panel Heights (print status, file detail, history)         -->
     <!-- ===================================================================== -->
     <!-- temp_card_height: Temperature card height in print status panel -->
+    <px name="temp_card_height_micro" value="42"/>
     <px name="temp_card_height_tiny" value="48"/>
     <px name="temp_card_height_small" value="64"/>
     <px name="temp_card_height_medium" value="72"/>
@@ -255,30 +262,35 @@
     <!-- Icon Typography - Responsive Material Design Icon Fonts               -->
     <!-- ===================================================================== -->
     <!-- icon_font_xs: Extra-small icons (compact badges, minimal UI elements) -->
+    <string name="icon_font_xs_micro" value="mdi_icons_16"/>
     <string name="icon_font_xs_tiny" value="mdi_icons_16"/>
     <string name="icon_font_xs_small" value="mdi_icons_16"/>
     <string name="icon_font_xs_medium" value="mdi_icons_16"/>
     <string name="icon_font_xs_large" value="mdi_icons_16"/>
     <!-- NO BASE icon_font_xs - registered at runtime -->
     <!-- icon_font_sm: Small inline icons (metadata, hints, small indicators) -->
+    <string name="icon_font_sm_micro" value="mdi_icons_16"/>
     <string name="icon_font_sm_tiny" value="mdi_icons_24"/>
     <string name="icon_font_sm_small" value="mdi_icons_24"/>
     <string name="icon_font_sm_medium" value="mdi_icons_24"/>
     <string name="icon_font_sm_large" value="mdi_icons_24"/>
     <!-- NO BASE icon_font_sm - registered at runtime -->
     <!-- icon_font_md: Standard UI icons (buttons, status, notifications) -->
+    <string name="icon_font_md_micro" value="mdi_icons_24"/>
     <string name="icon_font_md_tiny" value="mdi_icons_32"/>
     <string name="icon_font_md_small" value="mdi_icons_32"/>
     <string name="icon_font_md_medium" value="mdi_icons_32"/>
     <string name="icon_font_md_large" value="mdi_icons_32"/>
     <!-- NO BASE icon_font_md - registered at runtime -->
     <!-- icon_font_lg: Large icons (cards, status panels, emphasis) -->
+    <string name="icon_font_lg_micro" value="mdi_icons_24"/>
     <string name="icon_font_lg_tiny" value="mdi_icons_32"/>
     <string name="icon_font_lg_small" value="mdi_icons_48"/>
     <string name="icon_font_lg_medium" value="mdi_icons_48"/>
     <string name="icon_font_lg_large" value="mdi_icons_48"/>
     <!-- NO BASE icon_font_lg - registered at runtime -->
     <!-- icon_font_xl: Navigation/hero icons (nav bar, large displays) -->
+    <string name="icon_font_xl_micro" value="mdi_icons_32"/>
     <string name="icon_font_xl_tiny" value="mdi_icons_48"/>
     <string name="icon_font_xl_small" value="mdi_icons_64"/>
     <string name="icon_font_xl_medium" value="mdi_icons_64"/>

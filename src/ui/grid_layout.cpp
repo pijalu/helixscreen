@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include "grid_layout.h"
+
 #include "layout_manager.h"
 
 #include <spdlog/spdlog.h>
@@ -12,13 +13,15 @@
 namespace helix {
 
 // Grid dimensions per breakpoint: {cols, rows}
-// TINY (<=390px height): 6x4 (same as SMALL/MEDIUM — cells are smaller)
-// SMALL (391-460px):     6x4
-// MEDIUM (461-550px):    6x4
-// LARGE (551-700px):     8x5
-// XLARGE (>700px):       8x5
+// MICRO (≤272px height):  6x4 (same as TINY/SMALL/MEDIUM — cells are smaller)
+// TINY (273-390px):       6x4
+// SMALL (391-460px):      6x4
+// MEDIUM (461-550px):     6x4
+// LARGE (551-700px):      8x5
+// XLARGE (>700px):        8x5
 static constexpr std::array<GridDimensions, GridLayout::NUM_BREAKPOINTS> GRID_DIMS = {{
-    {6, 4}, // TINY (same grid as SMALL/MEDIUM)
+    {6, 4}, // MICRO (same grid as TINY/SMALL/MEDIUM)
+    {6, 4}, // TINY
     {6, 4}, // SMALL
     {6, 4}, // MEDIUM
     {8, 5}, // LARGE

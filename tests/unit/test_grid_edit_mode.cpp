@@ -345,7 +345,7 @@ TEST_CASE("auto-place entries get positions written back after placement", "[gri
     }
 
     // Replicate the two-pass placement from populate_widgets
-    int breakpoint = 2; // MEDIUM = 6x4
+    int breakpoint = 3; // MEDIUM = 6x4
     GridLayout grid(breakpoint);
 
     struct PlacedSlot {
@@ -513,7 +513,7 @@ TEST_CASE("GridLayout: can_place rejects negative coordinates and zero spans", "
 // =============================================================================
 
 TEST_CASE("print_status bottom-left pin on 6x4 grid", "[grid]") {
-    // On a 6x4 grid (MEDIUM breakpoint=2), print_status with rowspan=2
+    // On a 6x4 grid (MEDIUM breakpoint=3), print_status with rowspan=2
     // should be pinned to row = 4 - 2 = 2
     GridLayout grid(2);
     REQUIRE(grid.cols() == 6);
@@ -529,9 +529,9 @@ TEST_CASE("print_status bottom-left pin on 6x4 grid", "[grid]") {
 }
 
 TEST_CASE("print_status bottom-left pin on 8x5 grid", "[grid]") {
-    // On an 8x5 grid (LARGE breakpoint=3), print_status with rowspan=2
+    // On an 8x5 grid (LARGE breakpoint=4), print_status with rowspan=2
     // should be pinned to row = 5 - 2 = 3
-    GridLayout grid(3);
+    GridLayout grid(4);
     REQUIRE(grid.cols() == 8);
     REQUIRE(grid.rows() == 5);
 

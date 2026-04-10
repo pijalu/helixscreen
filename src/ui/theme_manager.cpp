@@ -701,8 +701,8 @@ static void theme_manager_register_color_pairs(lv_xml_component_scope_t* scope, 
  * These static constants are registered first so dynamic variants can override them.
  */
 static void theme_manager_register_static_constants(lv_xml_component_scope_t* scope) {
-    const std::vector<std::string> skip_suffixes = {"_light",  "_dark",  "_tiny",  "_small",
-                                                    "_medium", "_large", "_xlarge"};
+    const std::vector<std::string> skip_suffixes = {"_light", "_dark",   "_micro", "_tiny",
+                                                    "_small", "_medium", "_large", "_xlarge"};
 
     auto has_dynamic_suffix = [&](const std::string& name) {
         for (const auto& suffix : skip_suffixes) {
@@ -750,7 +750,9 @@ static void theme_manager_register_static_constants(lv_xml_component_scope_t* sc
  * @return Suffix string: "_small" (≤460), "_medium" (461-700), or "_large" (>700)
  */
 const char* theme_manager_get_breakpoint_suffix(int32_t resolution) {
-    if (resolution <= UI_BREAKPOINT_TINY_MAX) {
+    if (resolution <= UI_BREAKPOINT_MICRO_MAX) {
+        return "_micro";
+    } else if (resolution <= UI_BREAKPOINT_TINY_MAX) {
         return "_tiny";
     } else if (resolution <= UI_BREAKPOINT_SMALL_MAX) {
         return "_small";
@@ -781,7 +783,8 @@ void theme_manager_register_responsive_spacing(lv_display_t* display) {
 
     // Use screen height for breakpoint selection — vertical space is the constraint
     const char* size_suffix = theme_manager_get_breakpoint_suffix(ver_res);
-    const char* size_label = (ver_res <= UI_BREAKPOINT_TINY_MAX)     ? "TINY"
+    const char* size_label = (ver_res <= UI_BREAKPOINT_MICRO_MAX)    ? "MICRO"
+                             : (ver_res <= UI_BREAKPOINT_TINY_MAX)   ? "TINY"
                              : (ver_res <= UI_BREAKPOINT_SMALL_MAX)  ? "SMALL"
                              : (ver_res <= UI_BREAKPOINT_MEDIUM_MAX) ? "MEDIUM"
                              : (ver_res <= UI_BREAKPOINT_LARGE_MAX)  ? "LARGE"
@@ -796,12 +799,14 @@ void theme_manager_register_responsive_spacing(lv_display_t* display) {
     // ========================================================================
     // Pre-register nav_width using HORIZONTAL breakpoint (before auto-discovery)
     // ========================================================================
-    // Nav width is a horizontal concern — ultrawide 1920x440 needs large nav
-    // despite having a tiny vertical breakpoint. Register first so auto-discovery
-    // (which uses vertical breakpoint) silently skips it (LVGL ignores duplicates).
+    // Nav width is primarily a horizontal concern, but we use VERTICAL resolution
+    // to distinguish micro (480x272) from tiny (480x320) since they share the same
+    // horizontal resolution. Register first so auto-discovery silently skips duplicates.
     {
         const char* nav_suffix;
-        if (hor_res <= 520)
+        if (ver_res <= UI_BREAKPOINT_TINY_MAX)
+            nav_suffix = "_micro";
+        else if (hor_res <= 520)
             nav_suffix = "_tiny";
         else if (hor_res <= 900)
             nav_suffix = "_small";
@@ -815,12 +820,13 @@ void theme_manager_register_responsive_spacing(lv_display_t* display) {
         auto nav_it = nav_tokens.find("nav_width");
         if (nav_it != nav_tokens.end()) {
             lv_xml_register_const(scope, "nav_width", nav_it->second.c_str());
-            spdlog::trace("[Theme] nav_width: {}px (hor_res={}, suffix={})", nav_it->second,
-                          hor_res, nav_suffix);
+            spdlog::trace("[Theme] nav_width: {}px (hor_res={}, ver_res={}, suffix={})",
+                          nav_it->second, hor_res, ver_res, nav_suffix);
         }
     }
 
-    // Auto-discover all px tokens from all XML files (including optional _tiny and _xlarge)
+    // Auto-discover all px tokens from all XML files (including optional _micro, _tiny and _xlarge)
+    auto micro_tokens = theme_manager_parse_all_xml_for_suffix("ui_xml", "px", "_micro");
     auto tiny_tokens = theme_manager_parse_all_xml_for_suffix("ui_xml", "px", "_tiny");
     auto small_tokens = theme_manager_parse_all_xml_for_suffix("ui_xml", "px", "_small");
     auto medium_tokens = theme_manager_parse_all_xml_for_suffix("ui_xml", "px", "_medium");
@@ -836,7 +842,16 @@ void theme_manager_register_responsive_spacing(lv_display_t* display) {
         if (medium_it != medium_tokens.end() && large_it != large_tokens.end()) {
             // Select appropriate variant based on breakpoint
             const char* value = nullptr;
-            if (strcmp(size_suffix, "_tiny") == 0) {
+            if (strcmp(size_suffix, "_micro") == 0) {
+                auto micro_it = micro_tokens.find(base_name);
+                if (micro_it != micro_tokens.end()) {
+                    value = micro_it->second.c_str();
+                } else {
+                    auto tiny_it = tiny_tokens.find(base_name);
+                    value = (tiny_it != tiny_tokens.end()) ? tiny_it->second.c_str()
+                                                           : small_val.c_str();
+                }
+            } else if (strcmp(size_suffix, "_tiny") == 0) {
                 // Use _tiny if available, otherwise fall back to _small
                 auto tiny_it = tiny_tokens.find(base_name);
                 value =
@@ -898,9 +913,11 @@ void theme_manager_refresh_layout_constants(lv_display_t* display) {
     if (!scope)
         return;
 
-    // Update nav_width for new horizontal resolution
+    // Update nav_width for new resolution — use vertical to distinguish micro from tiny
     const char* nav_suffix;
-    if (hor_res <= 520)
+    if (ver_res <= UI_BREAKPOINT_TINY_MAX)
+        nav_suffix = "_micro";
+    else if (hor_res <= 520)
         nav_suffix = "_tiny";
     else if (hor_res <= 900)
         nav_suffix = "_small";
@@ -917,6 +934,7 @@ void theme_manager_refresh_layout_constants(lv_display_t* display) {
 
     // Update all responsive spacing tokens for new breakpoint
     const char* size_suffix = theme_manager_get_breakpoint_suffix(ver_res);
+    auto micro_tokens = theme_manager_parse_all_xml_for_suffix("ui_xml", "px", "_micro");
     auto small_tokens = theme_manager_parse_all_xml_for_suffix("ui_xml", "px", "_small");
     auto medium_tokens = theme_manager_parse_all_xml_for_suffix("ui_xml", "px", "_medium");
     auto large_tokens = theme_manager_parse_all_xml_for_suffix("ui_xml", "px", "_large");
@@ -930,7 +948,16 @@ void theme_manager_refresh_layout_constants(lv_display_t* display) {
             continue;
 
         const char* value = nullptr;
-        if (strcmp(size_suffix, "_tiny") == 0) {
+        if (strcmp(size_suffix, "_micro") == 0) {
+            auto micro_it = micro_tokens.find(base_name);
+            if (micro_it != micro_tokens.end()) {
+                value = micro_it->second.c_str();
+            } else {
+                auto tiny_it = tiny_tokens.find(base_name);
+                value =
+                    (tiny_it != tiny_tokens.end()) ? tiny_it->second.c_str() : small_val.c_str();
+            }
+        } else if (strcmp(size_suffix, "_tiny") == 0) {
             auto tiny_it = tiny_tokens.find(base_name);
             value = (tiny_it != tiny_tokens.end()) ? tiny_it->second.c_str() : small_val.c_str();
         } else if (strcmp(size_suffix, "_small") == 0) {
@@ -967,16 +994,18 @@ void theme_manager_refresh_layout_constants(lv_display_t* display) {
 
     // Update breakpoint subject
     int32_t bp_index;
-    if (ver_res <= UI_BREAKPOINT_TINY_MAX)
-        bp_index = 0;
+    if (ver_res <= UI_BREAKPOINT_MICRO_MAX)
+        bp_index = UI_BP_MICRO;
+    else if (ver_res <= UI_BREAKPOINT_TINY_MAX)
+        bp_index = UI_BP_TINY;
     else if (ver_res <= UI_BREAKPOINT_SMALL_MAX)
-        bp_index = 1;
+        bp_index = UI_BP_SMALL;
     else if (ver_res <= UI_BREAKPOINT_MEDIUM_MAX)
-        bp_index = 2;
+        bp_index = UI_BP_MEDIUM;
     else if (ver_res <= UI_BREAKPOINT_LARGE_MAX)
-        bp_index = 3;
+        bp_index = UI_BP_LARGE;
     else
-        bp_index = 4;
+        bp_index = UI_BP_XLARGE;
 
     lv_subject_t* bp_subject = lv_xml_get_subject(nullptr, "ui_breakpoint");
     if (bp_subject) {
@@ -1002,7 +1031,8 @@ void theme_manager_register_responsive_fonts(lv_display_t* display) {
 
     // Use screen height for breakpoint selection — vertical space is the constraint
     const char* size_suffix = theme_manager_get_breakpoint_suffix(ver_res);
-    const char* size_label = (ver_res <= UI_BREAKPOINT_TINY_MAX)     ? "TINY"
+    const char* size_label = (ver_res <= UI_BREAKPOINT_MICRO_MAX)    ? "MICRO"
+                             : (ver_res <= UI_BREAKPOINT_TINY_MAX)   ? "TINY"
                              : (ver_res <= UI_BREAKPOINT_SMALL_MAX)  ? "SMALL"
                              : (ver_res <= UI_BREAKPOINT_MEDIUM_MAX) ? "MEDIUM"
                              : (ver_res <= UI_BREAKPOINT_LARGE_MAX)  ? "LARGE"
@@ -1014,7 +1044,9 @@ void theme_manager_register_responsive_fonts(lv_display_t* display) {
         return;
     }
 
-    // Auto-discover all string tokens from all XML files (including optional _tiny and _xlarge)
+    // Auto-discover all string tokens from all XML files (including optional _micro, _tiny and
+    // _xlarge)
+    auto micro_tokens = theme_manager_parse_all_xml_for_suffix("ui_xml", "string", "_micro");
     auto tiny_tokens = theme_manager_parse_all_xml_for_suffix("ui_xml", "string", "_tiny");
     auto small_tokens = theme_manager_parse_all_xml_for_suffix("ui_xml", "string", "_small");
     auto medium_tokens = theme_manager_parse_all_xml_for_suffix("ui_xml", "string", "_medium");
@@ -1030,7 +1062,16 @@ void theme_manager_register_responsive_fonts(lv_display_t* display) {
         if (medium_it != medium_tokens.end() && large_it != large_tokens.end()) {
             // Select appropriate variant based on breakpoint
             const char* value = nullptr;
-            if (strcmp(size_suffix, "_tiny") == 0) {
+            if (strcmp(size_suffix, "_micro") == 0) {
+                auto micro_it = micro_tokens.find(base_name);
+                if (micro_it != micro_tokens.end()) {
+                    value = micro_it->second.c_str();
+                } else {
+                    auto tiny_it = tiny_tokens.find(base_name);
+                    value = (tiny_it != tiny_tokens.end()) ? tiny_it->second.c_str()
+                                                           : small_val.c_str();
+                }
+            } else if (strcmp(size_suffix, "_tiny") == 0) {
                 // Use _tiny if available, otherwise fall back to _small
                 auto tiny_it = tiny_tokens.find(base_name);
                 value =
@@ -1328,7 +1369,9 @@ void theme_manager_init(lv_display_t* display, bool use_dark_mode_param) {
     {
         int32_t ver_res_bp = lv_display_get_vertical_resolution(display);
         int32_t bp_index;
-        if (ver_res_bp <= UI_BREAKPOINT_TINY_MAX)
+        if (ver_res_bp <= UI_BREAKPOINT_MICRO_MAX)
+            bp_index = UI_BP_MICRO;
+        else if (ver_res_bp <= UI_BREAKPOINT_TINY_MAX)
             bp_index = UI_BP_TINY;
         else if (ver_res_bp <= UI_BREAKPOINT_SMALL_MAX)
             bp_index = UI_BP_SMALL;
@@ -1374,9 +1417,12 @@ void theme_manager_init(lv_display_t* display, bool use_dark_mode_param) {
     snprintf(font_variant_name, sizeof(font_variant_name), "font_body%s", size_suffix);
     const char* font_body_name = lv_xml_get_const(nullptr, font_variant_name);
 
-    // Fallback: _xlarge → _large, _tiny → _small (matching responsive token behavior)
+    // Fallback: _xlarge → _large, _micro → _tiny, _tiny → _small (matching responsive token
+    // behavior)
     if (!font_body_name && strcmp(size_suffix, "_xlarge") == 0) {
         font_body_name = lv_xml_get_const(nullptr, "font_body_large");
+    } else if (!font_body_name && strcmp(size_suffix, "_micro") == 0) {
+        font_body_name = lv_xml_get_const(nullptr, "font_body_tiny");
     } else if (!font_body_name && strcmp(size_suffix, "_tiny") == 0) {
         font_body_name = lv_xml_get_const(nullptr, "font_body_small");
     }
