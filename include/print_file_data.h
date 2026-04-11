@@ -43,14 +43,17 @@ struct PrintFileData {
     time_t modified_timestamp;          ///< Last modified timestamp
     int print_time_minutes;             ///< Print time in minutes
     float filament_grams;               ///< Filament weight in grams
-    std::string filament_type;          ///< Filament type (e.g., "PLA", "PETG", "ABS") — first tool only
-    std::string filament_name;          ///< Full filament name (e.g., "PolyMaker PolyLite ABS") — first tool only
-    std::vector<std::string> filament_types; ///< Per-tool filament types parsed from semicolon-separated metadata
-    std::vector<std::string> filament_names; ///< Per-tool filament names parsed from semicolon-separated metadata
-    uint32_t layer_count = 0;           ///< Total layer count from slicer
-    double object_height = 0.0;         ///< Object height in mm
-    double layer_height = 0.0;          ///< Layer height in mm (e.g., 0.24)
-    bool is_dir = false;                ///< True if this is a directory
+    std::string filament_type; ///< Filament type (e.g., "PLA", "PETG", "ABS") — first tool only
+    std::string
+        filament_name; ///< Full filament name (e.g., "PolyMaker PolyLite ABS") — first tool only
+    std::vector<std::string>
+        filament_types; ///< Per-tool filament types parsed from semicolon-separated metadata
+    std::vector<std::string>
+        filament_names;       ///< Per-tool filament names parsed from semicolon-separated metadata
+    uint32_t layer_count = 0; ///< Total layer count from slicer
+    double object_height = 0.0; ///< Object height in mm
+    double layer_height = 0.0;  ///< Layer height in mm (e.g., 0.24)
+    bool is_dir = false;        ///< True if this is a directory
     std::vector<std::string>
         filament_colors; ///< Hex colors per tool (e.g., ["#ED1C24", "#00C1AE"])
 
@@ -112,3 +115,42 @@ struct PrintFileData {
     static PrintFileData make_directory(const std::string& name, const std::string& icon_path,
                                         bool is_parent = false);
 };
+
+/**
+ * @brief Decide whether to carry forward cached metadata from a previous file listing
+ * into a fresh Moonraker listing during the print-select panel's merge step.
+ *
+ * Pure function — lives in this lightweight header so it can be unit-tested without
+ * pulling in the full PrintSelectPanel header (which transitively includes LVGL/XML).
+ *
+ * Rules:
+ * - Only candidates are entries whose previous fetch claimed success
+ *   (metadata_fetched == true). Everything else needs a fresh fetch anyway.
+ * - Drop the cache if the file was re-sliced (size changed).
+ * - Drop the cache on panel activation if the entry has no thumbnail_path. This
+ *   self-heals files whose upload-time metadata extraction failed transiently in
+ *   Moonraker (JSON-RPC -32601 "Metadata not available"): without this one-shot
+ *   retry, metadata_fetched stays true forever and the card shows the placeholder
+ *   permanently even after Moonraker recovers.
+ *
+ * @param old_entry Cached entry from previous file_list_
+ * @param new_file_size File size from the fresh Moonraker listing
+ * @param retry_missing_thumbnails True on panel activation: drop cached entries
+ *                                 whose thumbnail_path is empty so they get one
+ *                                 retry this visit
+ * @return true to carry forward cached metadata, false to let it re-fetch fresh
+ */
+inline bool should_carry_forward_print_file_metadata(const PrintFileData& old_entry,
+                                                     size_t new_file_size,
+                                                     bool retry_missing_thumbnails) {
+    if (!old_entry.metadata_fetched) {
+        return false;
+    }
+    if (new_file_size != old_entry.file_size_bytes) {
+        return false;
+    }
+    if (retry_missing_thumbnails && old_entry.thumbnail_path.empty()) {
+        return false;
+    }
+    return true;
+}

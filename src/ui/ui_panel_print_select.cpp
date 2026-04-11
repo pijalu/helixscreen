@@ -479,6 +479,8 @@ void PrintSelectPanel::setup(lv_obj_t* panel, lv_obj_t* parent_screen) {
             panel->file_list_ = std::move(c->files);
 
             // Merge old metadata into new file list
+            const bool retry_missing = panel->retry_missing_thumbnails_on_refresh_;
+            panel->retry_missing_thumbnails_on_refresh_ = false;
             for (auto& f : panel->file_list_) {
                 auto it = old_state.find(f.filename);
                 if (it != old_state.end()) {
@@ -486,15 +488,15 @@ void PrintSelectPanel::setup(lv_obj_t* panel, lv_obj_t* parent_screen) {
                     // Keep fresh listing data (size, modified time may have changed)
                     time_t new_modified = f.modified_timestamp;
                     size_t new_size = f.file_size_bytes;
-                    bool size_changed = (new_size != old.file_size_bytes);
 
-                    if (!size_changed) {
+                    if (should_carry_forward_print_file_metadata(old, new_size, retry_missing)) {
                         // File unchanged — carry forward all cached metadata
                         f = std::move(old);
                         f.modified_timestamp = new_modified;
                         f.file_size_bytes = new_size;
                     }
-                    // If size changed, file was re-sliced — let metadata re-fetch
+                    // Else: size changed OR retry-missing-thumbnail kicked in — let
+                    // metadata re-fetch populate this entry fresh.
                 }
             }
 
@@ -1635,6 +1637,11 @@ void PrintSelectPanel::on_activate() {
     if (!is_usb_active && api_) {
         // Printer (Moonraker) source — always refresh to pick up external uploads
         spdlog::info("[{}] Panel activated, refreshing file list", get_name());
+        // Give any files with missing thumbnails one retry this visit. Handles the
+        // case where Moonraker's metadata extraction failed transiently on upload
+        // (JSON-RPC -32601) and later recovered — without this, metadata_fetched
+        // stays true forever and the card shows the placeholder permanently.
+        retry_missing_thumbnails_on_refresh_ = true;
         refresh_files();
     } else if (is_usb_active) {
         // USB source

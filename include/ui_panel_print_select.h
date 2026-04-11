@@ -490,6 +490,11 @@ class PrintSelectPanel : public PanelBase {
     bool detail_view_open_ = false;                ///< True while detail view overlay is showing
     bool files_changed_while_detail_open_ = false; ///< True if filelist changed while detail open
     bool was_deactivated_ = false; ///< True if panel was fully deactivated (navigated away)
+    /// Set in on_activate() before refresh_files(). Tells the on_files_ready merge to
+    /// drop the carried-forward metadata_fetched flag for entries whose thumbnail_path
+    /// is empty, giving them one retry per panel visit. Self-heals files whose metadata
+    /// extraction failed transiently on Moonraker (e.g. JSON-RPC -32601 during upload).
+    bool retry_missing_thumbnails_on_refresh_ = false;
 
     // Debounce timer for view refresh (prevents rebuilding views for each metadata callback)
     lv_timer_t* refresh_timer_ = nullptr;
