@@ -93,11 +93,14 @@ git push origin v1.2.0
 
 | Platform | Artifact Name | Contents |
 |----------|---------------|----------|
-| Raspberry Pi (64-bit) | `helixscreen-pi-v{version}.tar.gz` | aarch64 binary, assets, configs |
-| Raspberry Pi (32-bit) | `helixscreen-pi32-v{version}.tar.gz` | armhf binary, assets, configs |
-| AD5M | `helixscreen-ad5m-v{version}.tar.gz` | armv7l binary (static), assets, configs |
-| K1/Simple AF | `helixscreen-k1-v{version}.tar.gz` | MIPS32 binary (static, musl), assets, configs |
-| K2/Simple AF | `helixscreen-k2-v{version}.tar.gz` | ARM binary (static, musl), assets, configs |
+| Raspberry Pi (64-bit) | `helixscreen-pi.zip` | aarch64 binary, assets, configs |
+| Raspberry Pi (32-bit) | `helixscreen-pi32.zip` | armhf binary, assets, configs |
+| AD5M | `helixscreen-ad5m.zip` | armv7l binary (static), assets, configs |
+| K1/Simple AF | `helixscreen-k1.zip` | MIPS32 binary (static, musl), assets, configs |
+| K2/Simple AF | `helixscreen-k2.zip` | ARM binary (static, musl), assets, configs |
+
+> **Bridge release note:** Starting with vX.Y.Z (the version you're currently preparing), the primary release asset is `helixscreen-{platform}.zip` (unversioned filename). The legacy `helixscreen-{platform}-v{version}.tar.gz` is still published during this bridge release for backwards compatibility with older installed versions; it will be removed in the following release.
+
 ---
 
 ## Creating a Release
@@ -165,7 +168,7 @@ The workflow auto-generates basic release notes if no annotation is provided.
 ### Step 4: Verify the Release
 
 1. Go to **Releases** on GitHub
-2. Check both platform tarballs are attached
+2. Check both platform archives are attached
 3. Verify checksums in release notes
 4. Test installation:
    ```bash
@@ -277,7 +280,7 @@ make PLATFORM_TARGET=ad5m clean release-ad5m
 1. Go to GitHub **Releases** → **Draft a new release**
 2. Choose the tag
 3. Write release notes
-4. Upload the `.tar.gz` files from `releases/`
+4. Upload the `.zip` files from `releases/` (plus the legacy `.tar.gz` files if the bridge release still ships them)
 5. Publish
 
 ---

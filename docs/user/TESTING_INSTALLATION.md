@@ -29,7 +29,7 @@ HelixScreen is an **add-on** to existing Klipper installations. We don't ship cu
 ### What the Installer Does
 
 1. Detects platform (Pi vs Pi32 vs AD5M vs K1) and firmware variant (ForgeX vs Klipper Mod)
-2. Downloads the correct release tarball from GitHub
+2. Downloads the correct release archive from GitHub
 3. Stops competing UIs (GuppyScreen, KlipperScreen, etc.)
 4. Extracts to the appropriate install directory
 5. Installs and enables the service (systemd or SysV init)
@@ -45,7 +45,7 @@ HelixScreen is an **add-on** to existing Klipper installations. We don't ship cu
 | AD5M | Klipper Mod | `/root/printer_software/helixscreen` | `/etc/init.d/S80helixscreen` | SysV |
 | K1 | Simple AF | `/usr/data/helixscreen` | `/etc/init.d/S99helixscreen` | SysV |
 
-> **Note:** Both 32-bit and 64-bit Pi use the same install paths and systemd service. The installer auto-detects architecture via `uname -m` and downloads the matching binary (`helixscreen-pi-*.tar.gz` for 64-bit, `helixscreen-pi32-*.tar.gz` for 32-bit).
+> **Note:** Both 32-bit and 64-bit Pi use the same install paths and systemd service. The installer auto-detects architecture via `uname -m` and downloads the matching binary (`helixscreen-pi.zip` for 64-bit, `helixscreen-pi32.zip` for 32-bit).
 
 ---
 
@@ -282,15 +282,15 @@ ps --no-headers -o comm 1
    ```bash
    # On your computer (replace vX.Y.Z with actual version):
    VERSION=vX.Y.Z
-   wget "https://github.com/prestonbrown/helixscreen/releases/download/${VERSION}/helixscreen-ad5m-${VERSION}.tar.gz"
+   wget "https://github.com/prestonbrown/helixscreen/releases/download/${VERSION}/helixscreen-ad5m.zip"
    wget https://raw.githubusercontent.com/prestonbrown/helixscreen/main/scripts/install.sh
    # Windows users: use WSL, WinSCP (SCP protocol), or PuTTY's pscp instead of scp -O
-   scp -O helixscreen-ad5m-${VERSION}.tar.gz install.sh root@<printer-ip>:/data/
+   scp -O helixscreen-ad5m.zip install.sh root@<printer-ip>:/data/
    ```
 
 4. **Run installer on printer:**
    ```bash
-   sh /data/install.sh --local /data/helixscreen-ad5m-*.tar.gz
+   sh /data/install.sh --local /data/helixscreen-ad5m.zip
    ```
 
 5. **Verify installation:**
@@ -343,15 +343,15 @@ ps --no-headers -o comm 1
    ```bash
    # On your computer (replace vX.Y.Z with actual version):
    VERSION=vX.Y.Z
-   wget "https://github.com/prestonbrown/helixscreen/releases/download/${VERSION}/helixscreen-ad5m-${VERSION}.tar.gz"
+   wget "https://github.com/prestonbrown/helixscreen/releases/download/${VERSION}/helixscreen-ad5m.zip"
    wget https://raw.githubusercontent.com/prestonbrown/helixscreen/main/scripts/install.sh
    # Windows users: use WSL, WinSCP (SCP protocol), or PuTTY's pscp instead of scp -O
-   scp -O helixscreen-ad5m-${VERSION}.tar.gz install.sh root@<printer-ip>:/data/
+   scp -O helixscreen-ad5m.zip install.sh root@<printer-ip>:/data/
    ```
 
 2. **Run with --update** (use bundled install.sh):
    ```bash
-   /opt/helixscreen/install.sh --local /data/helixscreen-ad5m-*.tar.gz --update
+   /opt/helixscreen/install.sh --local /data/helixscreen-ad5m.zip --update
    ```
 
 3. **Verify config preserved:**
@@ -405,15 +405,15 @@ ps --no-headers -o comm 1
    ```bash
    # On your computer (replace vX.Y.Z with actual version):
    VERSION=vX.Y.Z
-   wget "https://github.com/prestonbrown/helixscreen/releases/download/${VERSION}/helixscreen-ad5m-${VERSION}.tar.gz"
+   wget "https://github.com/prestonbrown/helixscreen/releases/download/${VERSION}/helixscreen-ad5m.zip"
    wget https://raw.githubusercontent.com/prestonbrown/helixscreen/main/scripts/install.sh
    # Windows users: use WSL, WinSCP (SCP protocol), or PuTTY's pscp instead of scp -O
-   scp -O helixscreen-ad5m-${VERSION}.tar.gz install.sh root@<printer-ip>:/mnt/data/
+   scp -O helixscreen-ad5m.zip install.sh root@<printer-ip>:/mnt/data/
    ```
 
 4. **Run installer on printer:**
    ```bash
-   sh /mnt/data/install.sh --local /mnt/data/helixscreen-ad5m-*.tar.gz
+   sh /mnt/data/install.sh --local /mnt/data/helixscreen-ad5m.zip
    ```
 
 5. **Verify installation:**

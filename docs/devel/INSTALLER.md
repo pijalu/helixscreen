@@ -78,16 +78,16 @@ curl -sSL https://raw.githubusercontent.com/prestonbrown/helixscreen/main/script
 | `--uninstall` | Remove HelixScreen |
 | `--clean` | Remove old installation completely, then fresh install |
 | `--version VER` | Install specific version (e.g., `--version v1.1.0`) |
-| `--local FILE` | Install from a local tarball (skip download) |
+| `--local FILE` | Install from a local archive (.zip or .tar.gz, skip download) |
 
-### 2. Local Tarball Install
+### 2. Local Archive Install
 
 For devices without HTTPS support (e.g., AD5M with BusyBox wget):
 
 ```bash
 # On your computer: download the release
 # On the device:
-sh /data/install.sh --local /data/helixscreen-ad5m-v1.2.0.tar.gz
+sh /data/install.sh --local /data/helixscreen-ad5m.zip
 ```
 
 The installer auto-detects when HTTPS is unavailable and prints manual download instructions.
@@ -142,7 +142,7 @@ The installer uses `trap 'error_handler $LINENO' ERR` to catch failures. On erro
 
 The `extract_release()` function in `release.sh` implements a safe upgrade path:
 
-1. Extract tarball to a temp directory
+1. Extract archive to a temp directory
 2. Validate the `helix-screen` binary exists and has correct ELF architecture
 3. Move existing `$INSTALL_DIR` to `$INSTALL_DIR.old`
 4. Move extracted content to `$INSTALL_DIR`
@@ -151,7 +151,7 @@ The `extract_release()` function in `release.sh` implements a safe upgrade path:
 
 ### `NoNewPrivileges` and Self-Update on Pi (systemd)
 
-When helix-screen performs a **self-update** (user presses "Check for Updates", the binary downloads a new tarball and spawns `install.sh`), the installer runs as a subprocess of the helix-screen systemd service.
+When helix-screen performs a **self-update** (user presses "Check for Updates", the binary downloads a new archive and spawns `install.sh`), the installer runs as a subprocess of the helix-screen systemd service.
 
 The Pi systemd unit includes:
 
@@ -290,7 +290,7 @@ During installation, `install_kiauh_extension()` in `lib/installer/kiauh.sh`:
 When modifying the extension:
 
 1. Edit files in `scripts/kiauh/helixscreen/`
-2. The extension files are included in release tarballs and auto-updated during `--update`
+2. The extension files are included in release archives and auto-updated during `--update`
 3. Run the KIAUH extension bats tests to verify structural correctness
 
 ### Important: metadata.json Structure
@@ -383,7 +383,7 @@ The uninstaller reads this file and reverses each action (systemd enable, chmod 
 Downloads go through `releases.helixscreen.org` (Cloudflare R2 bucket):
 
 1. Fetch `stable/manifest.json` for latest version and per-platform download URLs
-2. Download the platform-specific tarball from R2
+2. Download the platform-specific archive from R2
 
 ### GitHub Releases (Fallback)
 
@@ -436,10 +436,10 @@ bats --verbose-run tests/shell/test_platform_detection.bats
 | `test_user_detection.bats` | Klipper user detection (systemd, process, printer_data, well-known) |
 | `test_forgex_boot.bats` | ForgeX boot patches, screen.sh, logged wrapper |
 | `test_arch_validation.bats` | ELF header parsing, architecture mismatch detection |
-| `test_download_validation.bats` | Tarball validation, HTTPS capability |
+| `test_download_validation.bats` | Archive validation, HTTPS capability |
 | `test_r2_installer.bats` | R2 CDN manifest parsing, fallback to GitHub |
 | `test_extract_release.bats` | Extraction, atomic swap, rollback |
-| `test_release_packaging.bats` | Release tarball structure |
+| `test_release_packaging.bats` | Release archive structure |
 | `test_service_install.bats` | systemd/SysV service installation |
 | `test_service_template.bats` | Service template placeholder substitution |
 | `test_moonraker_config.bats` | update_manager section add/remove/migrate |
@@ -563,7 +563,7 @@ Create `tests/shell/test_myplatform.bats` covering:
 
 ### Step 7: Release Asset
 
-Add the platform to the CI/CD build matrix so release tarballs are generated. Update the `write_release_info()` case statement in `moonraker.sh` with the asset name.
+Add the platform to the CI/CD build matrix so release archives are generated. Update the `write_release_info()` case statement in `moonraker.sh` with the asset name.
 
 ---
 
@@ -573,25 +573,25 @@ Add the platform to the CI/CD build matrix so release tarballs are generated. Up
 
 **Cause**: BusyBox wget on AD5M/K1 doesn't support HTTPS.
 
-**Fix**: Download the tarball on another computer and use `--local`:
+**Fix**: Download the archive on another computer and use `--local`:
 ```bash
-scp -O helixscreen-ad5m-v1.2.0.tar.gz root@printer-ip:/data/
-ssh root@printer-ip "sh /data/install.sh --local /data/helixscreen-ad5m-v1.2.0.tar.gz"
+scp -O helixscreen-ad5m.zip root@printer-ip:/data/
+ssh root@printer-ip "sh /data/install.sh --local /data/helixscreen-ad5m.zip"
 ```
 
 ### "Architecture mismatch"
 
-**Cause**: Wrong release tarball for the platform (e.g., Pi binary on AD5M).
+**Cause**: Wrong release archive for the platform (e.g., Pi binary on AD5M).
 
 **Fix**: Ensure you download the correct platform variant. The installer validates ELF headers before proceeding.
 
 ### "Insufficient disk space"
 
-**Cause**: The target filesystem needs at least 50MB free, plus temp space for extraction (~3x tarball size).
+**Cause**: The target filesystem needs at least 50MB free, plus temp space for extraction (~3x archive size).
 
 **Fix**: Free space, or override the temp directory: `TMP_DIR=/path/with/space sh install.sh`
 
-### "Failed to extract tarball: no space left on device"
+### "Failed to extract archive: no space left on device"
 
 **Cause**: Temp directory ran out of space during extraction.
 

@@ -89,22 +89,22 @@ If your printer doesn't have internet access, download on your computer first, t
 **On your computer:**
 
 Go to the [latest release page](https://github.com/prestonbrown/helixscreen/releases/latest) and download:
-- `helixscreen-k1-vX.Y.Z.tar.gz` (the K1 release archive)
+- `helixscreen-k1.zip` (the K1 release archive)
 - `install.sh` (the installer script, under "Assets")
 
 Or use the command line (replace `vX.Y.Z` with the actual version):
 ```bash
 VERSION=vX.Y.Z  # Check latest at https://github.com/prestonbrown/helixscreen/releases/latest
-wget "https://github.com/prestonbrown/helixscreen/releases/download/${VERSION}/helixscreen-k1-${VERSION}.tar.gz"
+wget "https://github.com/prestonbrown/helixscreen/releases/download/${VERSION}/helixscreen-k1.zip"
 wget https://raw.githubusercontent.com/prestonbrown/helixscreen/main/scripts/install.sh
 ```
 
 **Copy to the printer and install:**
 
 ```bash
-scp helixscreen-k1-vX.Y.Z.tar.gz install.sh root@<PRINTER_IP>:/usr/data/
+scp helixscreen-k1.zip install.sh root@<PRINTER_IP>:/usr/data/
 ssh root@<PRINTER_IP>    # password: creality_2023
-sh /usr/data/install.sh --local /usr/data/helixscreen-k1-vX.Y.Z.tar.gz
+sh /usr/data/install.sh --local /usr/data/helixscreen-k1.zip
 ```
 
 The installer automatically:
@@ -153,11 +153,11 @@ If you have Fluidd or Mainsail installed, HelixScreen appears in the update mana
 ```bash
 # On your computer (replace vX.Y.Z with actual version):
 VERSION=vX.Y.Z
-wget "https://github.com/prestonbrown/helixscreen/releases/download/${VERSION}/helixscreen-k1-${VERSION}.tar.gz"
-scp helixscreen-k1-${VERSION}.tar.gz root@<PRINTER_IP>:/usr/data/
+wget "https://github.com/prestonbrown/helixscreen/releases/download/${VERSION}/helixscreen-k1.zip"
+scp helixscreen-k1.zip root@<PRINTER_IP>:/usr/data/
 
 # On the printer (use the bundled install.sh - no need to download it again):
-/usr/data/helixscreen/install.sh --local /usr/data/helixscreen-k1-*.tar.gz --update
+/usr/data/helixscreen/install.sh --local /usr/data/helixscreen-k1.zip --update
 ```
 
 ---

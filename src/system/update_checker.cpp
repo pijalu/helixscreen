@@ -122,23 +122,41 @@ bool parse_github_release(const json& j, UpdateChecker::ReleaseInfo& info, std::
         return false;
     }
 
-    // Find platform-specific binary asset
+    // Find platform-specific binary asset. The release flow uploads one
+    // unversioned zip per platform ("helixscreen-<plat>.zip") alongside the
+    // legacy versioned tar.gz ("helixscreen-<plat>-v1.2.3.tar.gz"). Prefer the
+    // zip — it's what Moonraker Update Manager uses, so we keep one code path.
+    // Fall back to the tar.gz for older releases that predate the zip asset.
     if (j.contains("assets") && j["assets"].is_array()) {
-        std::string platform_prefix = "helixscreen-" + UpdateChecker::get_platform_key() + "-";
-        spdlog::info("[UpdateChecker] Platform key: '{}', looking for prefix '{}'",
-                     UpdateChecker::get_platform_key(), platform_prefix);
+        const std::string platform_key = UpdateChecker::get_platform_key();
+        const std::string zip_name = "helixscreen-" + platform_key + ".zip";
+        const std::string platform_prefix = "helixscreen-" + platform_key + "-";
+        spdlog::info("[UpdateChecker] Platform key: '{}', prefer '{}' else prefix '{}...tar.gz'",
+                     platform_key, zip_name, platform_prefix);
+
+        std::string tar_url;
+        std::string tar_name;
         for (const auto& asset : j["assets"]) {
             std::string name = asset.value("name", "");
-            if (name.find(platform_prefix) == 0 && name.find(".tar.gz") != std::string::npos) {
+            if (name == zip_name) {
                 info.download_url = asset.value("browser_download_url", "");
                 spdlog::info("[UpdateChecker] Selected asset: {}", name);
                 break;
             }
+            if (tar_url.empty() && name.find(platform_prefix) == 0 &&
+                name.find(".tar.gz") != std::string::npos) {
+                tar_url = asset.value("browser_download_url", "");
+                tar_name = name;
+            }
         }
-        // No fallback to arbitrary .tar.gz — wrong-platform binaries can brick devices
+        if (info.download_url.empty() && !tar_url.empty()) {
+            info.download_url = tar_url;
+            spdlog::info("[UpdateChecker] Selected legacy asset: {}", tar_name);
+        }
+        // No fallback to arbitrary assets — wrong-platform binaries can brick devices
         if (info.download_url.empty()) {
             spdlog::warn("[UpdateChecker] No asset found for platform '{}' in release {}",
-                         UpdateChecker::get_platform_key(), info.version);
+                         platform_key, info.version);
         }
     }
 
@@ -494,6 +512,32 @@ int extract_tar_member(const std::string& tarball_path, const std::string& extra
     return ret;
 }
 
+/**
+ * @brief Extract a single member from a .zip archive.
+ *
+ * Uses the `unzip` binary (present on every BusyBox build we target).
+ * Args: -q for quiet, -o to overwrite without prompting (no TTY in
+ * systemd/in-app update contexts).
+ *
+ * @param zip_path    Path to the .zip file
+ * @param extract_dir Directory to extract into
+ * @param member      Archive member path (e.g., "helixscreen/install.sh")
+ * @return 0 on success, non-zero on failure
+ */
+int extract_zip_member(const std::string& zip_path, const std::string& extract_dir,
+                       const std::string& member) {
+    const std::string unzip_bin = resolve_tool("unzip");
+    return safe_exec({unzip_bin, "-q", "-o", zip_path, member, "-d", extract_dir});
+}
+
+/// True if path ends with ".zip" (case-sensitive — we only produce lowercase).
+bool path_is_zip(const std::string& path) {
+    if (path.size() < 4) {
+        return false;
+    }
+    return path.compare(path.size() - 4, 4, ".zip") == 0;
+}
+
 /// Log-and-flush macros for install diagnostics. Ensures every message reaches
 /// journalctl immediately — spdlog buffers by default and a systemd cgroup kill
 /// during self-update can lose all buffered output.
@@ -707,7 +751,14 @@ std::string UpdateChecker::get_download_error() const {
 // Minimum free space required to attempt download (50 MB)
 static constexpr size_t MIN_DOWNLOAD_SPACE_BYTES = 50ULL * 1024 * 1024;
 
+// The filename used to stage the downloaded archive in TMP_DIR. The name
+// matches whatever format the release URL points at: zips keep a .zip
+// extension so downstream extract_installer_from_tarball() can dispatch on
+// the path. get_download_path() always returns the legacy tar.gz name for
+// back-compat with external callers; do_download() rewrites the path when
+// the URL is a .zip (see below).
 static const char* const DOWNLOAD_FILENAME = "helixscreen-update.tar.gz";
+static const char* const DOWNLOAD_FILENAME_ZIP = "helixscreen-update.zip";
 
 // Check if a directory is writable and return available bytes (0 on failure)
 static size_t get_available_space(const std::string& dir) {
@@ -798,12 +849,9 @@ std::string UpdateChecker::get_download_path() const {
 }
 
 std::string UpdateChecker::get_platform_asset_name() const {
-    std::string version;
-    {
-        std::lock_guard<std::mutex> lock(mutex_);
-        version = cached_info_ ? cached_info_->tag_name : "";
-    }
-    return "helixscreen-" + get_platform_key() + "-" + version + ".tar.gz";
+    // Unversioned zip matches the release.yml upload layout and the name
+    // Moonraker Update Manager looks up via release_info.json's asset_name.
+    return "helixscreen-" + get_platform_key() + ".zip";
 }
 
 void UpdateChecker::report_download_status(DownloadStatus status, int progress,
@@ -901,6 +949,16 @@ void UpdateChecker::do_download() {
                                                            get_platform_key());
         return;
     }
+
+    // Rewrite the staged filename to match the URL's archive format. The
+    // extraction path (extract_installer_from_tarball) dispatches on extension,
+    // so a .zip URL must land in a .zip file — not the legacy .tar.gz name.
+    if (path_is_zip(url)) {
+        auto slash = download_path.find_last_of('/');
+        std::string dir = (slash == std::string::npos) ? "" : download_path.substr(0, slash + 1);
+        download_path = dir + DOWNLOAD_FILENAME_ZIP;
+    }
+
     spdlog::info("[UpdateChecker] Downloading {} to {}", url, download_path);
 
     // Progress callback -- dispatches to LVGL thread
@@ -1067,15 +1125,26 @@ bool UpdateChecker::validate_elf_architecture(const std::string& tarball_path) {
 
     const std::string rm_bin = resolve_tool("rm");
 
-    // Extract binary from tarball for inspection
-    auto ret = extract_tar_member(tarball_path, temp_dir, "helixscreen/bin/helix-screen");
+    // Extract binary from archive for inspection — member path differs by
+    // format (see extract_installer_from_tarball comment).
+    const bool is_zip = path_is_zip(tarball_path);
+    const std::string binary_member =
+        is_zip ? std::string("bin/helix-screen") : std::string("helixscreen/bin/helix-screen");
+
+    int ret;
+    if (is_zip) {
+        ret = extract_zip_member(tarball_path, temp_dir, binary_member);
+    } else {
+        ret = extract_tar_member(tarball_path, temp_dir, binary_member);
+    }
     if (ret != 0) {
         spdlog::warn("[UpdateChecker] Could not extract binary for validation, skipping");
         safe_exec({rm_bin, "-rf", temp_dir});
         return true;
     }
 
-    std::string binary_path = temp_dir + "/helixscreen/bin/helix-screen";
+    const std::string binary_path =
+        is_zip ? (temp_dir + "/bin/helix-screen") : (temp_dir + "/helixscreen/bin/helix-screen");
 
     // Read ELF header (first 20 bytes)
     FILE* f = fopen(binary_path.c_str(), "rb");
@@ -1599,11 +1668,23 @@ void UpdateChecker::handle_external_update_complete() {
 
 std::string UpdateChecker::extract_installer_from_tarball(const std::string& tarball_path,
                                                           const std::string& extract_dir) {
-    std::string tar_member = std::string("helixscreen/") + INSTALLER_FILENAME;
+    // Member paths differ by archive format. The tar.gz has a top-level
+    // helixscreen/ prefix ("helixscreen/install.sh") while the zip has a
+    // FLAT layout ("install.sh") — that's the Moonraker Update Manager
+    // contract, see mk/cross.mk release-* targets.
+    const bool is_zip = path_is_zip(tarball_path);
+    const std::string member =
+        is_zip ? std::string(INSTALLER_FILENAME) : std::string("helixscreen/") + INSTALLER_FILENAME;
 
-    auto ext_ret = extract_tar_member(tarball_path, extract_dir, tar_member);
+    int ext_ret;
+    if (is_zip) {
+        ext_ret = extract_zip_member(tarball_path, extract_dir, member);
+    } else {
+        ext_ret = extract_tar_member(tarball_path, extract_dir, member);
+    }
 
-    std::string installer = extract_dir + "/helixscreen/" + INSTALLER_FILENAME;
+    const std::string installer = is_zip ? (extract_dir + "/" + INSTALLER_FILENAME)
+                                         : (extract_dir + "/helixscreen/" + INSTALLER_FILENAME);
     if (ext_ret == 0 && access(installer.c_str(), R_OK) == 0) {
         chmod(installer.c_str(), 0755);
         return installer;
@@ -2172,8 +2253,17 @@ bool UpdateChecker::fetch_r2_manifest(const std::string& channel, ReleaseInfo& i
         }
 
         const auto& platform_asset = assets[platform];
-        info.download_url = json_string_or_empty(platform_asset, "url");
-        info.sha256 = json_string_or_empty(platform_asset, "sha256");
+        // Prefer the zip asset (matches Moonraker Update Manager and lets us
+        // drop the tar.gz in a future release). Fall back to the legacy tar.gz
+        // URL when the manifest doesn't carry a zip_url for this platform.
+        std::string zip_url = json_string_or_empty(platform_asset, "zip_url");
+        if (!zip_url.empty()) {
+            info.download_url = zip_url;
+            info.sha256 = json_string_or_empty(platform_asset, "zip_sha256");
+        } else {
+            info.download_url = json_string_or_empty(platform_asset, "url");
+            info.sha256 = json_string_or_empty(platform_asset, "sha256");
+        }
 
         spdlog::debug("[UpdateChecker] R2 manifest parsed: {} ({})", info.version, channel);
         return true;
@@ -2378,8 +2468,15 @@ bool UpdateChecker::fetch_dev_release(ReleaseInfo& info, std::string& error) {
             }
 
             const auto& platform_asset = assets[platform];
-            info.download_url = json_string_or_empty(platform_asset, "url");
-            info.sha256 = json_string_or_empty(platform_asset, "sha256");
+            // Prefer the zip asset for the same reasons as fetch_r2_manifest().
+            std::string zip_url = json_string_or_empty(platform_asset, "zip_url");
+            if (!zip_url.empty()) {
+                info.download_url = zip_url;
+                info.sha256 = json_string_or_empty(platform_asset, "zip_sha256");
+            } else {
+                info.download_url = json_string_or_empty(platform_asset, "url");
+                info.sha256 = json_string_or_empty(platform_asset, "sha256");
+            }
 
             return true;
 

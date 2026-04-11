@@ -174,9 +174,9 @@ wget -O - https://dl.helixscreen.org/install.sh | sh
 Or with a local package:
 
 ```bash
-scp helixscreen-k1-vX.Y.Z.tar.gz install.sh root@<ip>:/usr/data/
+scp helixscreen-k1.zip install.sh root@<ip>:/usr/data/
 ssh root@<ip>
-sh /usr/data/install.sh --local /usr/data/helixscreen-k1-vX.Y.Z.tar.gz
+sh /usr/data/install.sh --local /usr/data/helixscreen-k1.zip
 ```
 
 ### Developer Deploy Targets

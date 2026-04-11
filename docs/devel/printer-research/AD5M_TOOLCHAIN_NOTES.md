@@ -158,15 +158,15 @@ make remote-ad5m
 # Or build locally via Docker (slower)
 make ad5m-docker
 
-# Package release tarball (includes binaries + assets + ui_xml + config)
+# Package release archive (includes binaries + assets + ui_xml + config)
 make release-ad5m
-# Creates: releases/helixscreen-ad5m-v<version>.tar.gz
+# Creates: releases/helixscreen-ad5m.zip
 
 # Copy to AD5M
-scp releases/helixscreen-ad5m-*.tar.gz root@192.168.1.67:/tmp/
+scp releases/helixscreen-ad5m.zip root@192.168.1.67:/tmp/
 
-# Install on AD5M (BusyBox tar doesn't support -z)
-ssh root@192.168.1.67 "cd /opt && gunzip -c /tmp/helixscreen-ad5m-*.tar.gz | tar xf -"
+# Install on AD5M (BusyBox unzip)
+ssh root@192.168.1.67 "cd /opt && unzip -q /tmp/helixscreen-ad5m.zip"
 
 # Install SysV init script (AD5M uses BusyBox init, NOT systemd)
 ssh root@192.168.1.67 "cp /opt/helixscreen/config/helixscreen.init /etc/init.d/S90helixscreen && chmod +x /etc/init.d/S90helixscreen"

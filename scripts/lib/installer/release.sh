@@ -20,6 +20,20 @@ _HELIX_RELEASE_SOURCED=1
 # Cached manifest from R2 (set by get_latest_version, consumed by download_release)
 _R2_MANIFEST=""
 
+# Which archive format is in use for this install. Set by download_release() or
+# use_local_tarball() based on what was found/provided. Consumed by
+# extract_release() and validate_tarball() to dispatch to the right tooling.
+# Values: "zip" (preferred, unversioned filename) or "tar.gz" (legacy fallback).
+_ARCHIVE_FORMAT="tar.gz"
+
+# Resolve the staged archive path in TMP_DIR for the current _ARCHIVE_FORMAT.
+_archive_tmp_path() {
+    case "${_ARCHIVE_FORMAT:-tar.gz}" in
+        zip) echo "${TMP_DIR}/helixscreen.zip" ;;
+        *)   echo "${TMP_DIR}/helixscreen.tar.gz" ;;
+    esac
+}
+
 # Detect whether curl supports the flags we need (not BusyBox curl).
 # BusyBox curl lacks -S, -L, --connect-timeout, --max-time, --progress-bar, etc.
 # Cache the result so we only probe once.
@@ -148,27 +162,44 @@ parse_manifest_platform_url() {
         sed -n 's/.*"url"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -1
 }
 
-# Validate a tarball is a valid gzip archive and not truncated
-# Args: tarball_path, context (e.g., "Downloaded" or "Local")
-# Exits on failure
-validate_tarball() {
-    local tarball=$1
+# Validate an archive is readable and not truncated.
+# Dispatches on the archive's filename extension: *.zip uses `unzip -tqq`,
+# everything else uses `gunzip -t`. Exits on failure.
+# Args: archive_path, context (e.g., "Downloaded " or "Local ")
+validate_archive() {
+    local archive=$1
     local context=${2:-""}
 
-    # Verify it's a valid gzip file
-    if ! gunzip -t "$tarball" 2>/dev/null; then
-        log_error "${context}file is not a valid gzip archive."
-        [ -n "$context" ] && log_error "The ${context}may have been corrupted or incomplete."
-        exit 1
-    fi
+    case "$archive" in
+        *.zip)
+            if ! unzip -tqq "$archive" >/dev/null 2>&1; then
+                log_error "${context}file is not a valid zip archive."
+                [ -n "$context" ] && log_error "The ${context}may have been corrupted or incomplete."
+                exit 1
+            fi
+            ;;
+        *)
+            if ! gunzip -t "$archive" 2>/dev/null; then
+                log_error "${context}file is not a valid gzip archive."
+                [ -n "$context" ] && log_error "The ${context}may have been corrupted or incomplete."
+                exit 1
+            fi
+            ;;
+    esac
 
-    # Verify file isn't truncated (releases should be >1MB)
+    # Releases should be >1MB — catch truncated downloads that nonetheless
+    # parse as valid archives (e.g. an empty zip central directory).
     local size_kb
-    size_kb=$(du -k "$tarball" 2>/dev/null | cut -f1)
+    size_kb=$(du -k "$archive" 2>/dev/null | cut -f1)
     if [ "${size_kb:-0}" -lt 1024 ]; then
         log_error "${context}file too small (${size_kb}KB). File may be incomplete."
         exit 1
     fi
+}
+
+# Backwards-compatible wrapper — new code should call validate_archive.
+validate_tarball() {
+    validate_archive "$1" "${2:-}"
 }
 
 # Check if we can download from HTTPS URLs
@@ -220,21 +251,21 @@ show_manual_install_instructions() {
         printf '%b\n' "     ${CYAN}https://github.com/${GITHUB_REPO}/releases/tag/${version}${NC}"
     fi
     printf '\n'
-    printf '%b\n' "  2. Download: ${BOLD}helixscreen-${platform}-${version}.tar.gz${NC}"
+    printf '%b\n' "  2. Download: ${BOLD}helixscreen-${platform}.zip${NC}"
     printf '\n'
     printf '%b\n' "  3. Copy to this device (note: AD5M needs -O flag):"
     if [ "$platform" = "ad5m" ]; then
         # AD5M /tmp is a tiny tmpfs (~54MB), use /data/ instead
-        printf '%b\n' "     ${CYAN}scp -O helixscreen-${platform}.tar.gz root@<this-ip>:/data/${NC}"
+        printf '%b\n' "     ${CYAN}scp -O helixscreen-${platform}.zip root@<this-ip>:/data/${NC}"
         printf '%b\n' "     ${YELLOW}Windows: use WSL, WinSCP (SCP mode), or PuTTY pscp${NC}"
         printf '\n'
         printf '%b\n' "  4. Run the installer with the local file:"
-        printf '%b\n' "     ${CYAN}sh /data/install.sh --local /data/helixscreen-${platform}.tar.gz${NC}"
+        printf '%b\n' "     ${CYAN}sh /data/install.sh --local /data/helixscreen-${platform}.zip${NC}"
     else
-        printf '%b\n' "     ${CYAN}scp helixscreen-${platform}.tar.gz root@<this-ip>:/tmp/${NC}"
+        printf '%b\n' "     ${CYAN}scp helixscreen-${platform}.zip root@<this-ip>:/tmp/${NC}"
         printf '\n'
         printf '%b\n' "  4. Run the installer with the local file:"
-        printf '%b\n' "     ${CYAN}sh /tmp/install.sh --local /tmp/helixscreen-${platform}.tar.gz${NC}"
+        printf '%b\n' "     ${CYAN}sh /tmp/install.sh --local /tmp/helixscreen-${platform}.zip${NC}"
     fi
     printf '\n'
     exit 1
@@ -318,88 +349,140 @@ get_release_platform() {
     echo "$RELEASE_PLATFORM"
 }
 
-# Download release tarball (tries R2 CDN first, falls back to GitHub)
+# Try to download + validate a single candidate URL.
+# Args: url dest transport  ("https" | "http")
+# Returns 0 on success (archive staged at dest), 1 otherwise.
+# Validation is format-aware based on dest's filename extension.
+_try_download_candidate() {
+    local url=$1 dest=$2 transport=$3
+    case "$transport" in
+        https)
+            download_file "$url" "$dest" 300 51200 || return 1 ;;
+        http)
+            download_file_http "$url" "$dest" 300 || return 1 ;;
+        *)
+            return 1 ;;
+    esac
+
+    case "$dest" in
+        *.zip)
+            # unzip -tqq returns 0 if the central directory + every entry CRC is valid.
+            unzip -tqq "$dest" >/dev/null 2>&1 || return 1
+            ;;
+        *)
+            gunzip -t "$dest" 2>/dev/null || return 1
+            ;;
+    esac
+    return 0
+}
+
+# Download release archive. Prefers the unversioned .zip (consumed by both this
+# installer and Moonraker Update Manager) and falls back to the legacy versioned
+# .tar.gz if no .zip is available at any transport — kept for bridge releases
+# during the zip migration. Sets _ARCHIVE_FORMAT to record which format won.
+# Tries R2 CDN, then GitHub Releases, then the plain-HTTP mirror.
 download_release() {
     local version=$1
     local platform=$2
     platform=$(get_release_platform "$platform")
 
-    local filename="helixscreen-${platform}-${version}.tar.gz"
-    local dest="${TMP_DIR}/helixscreen.tar.gz"
-
     mkdir -p "$TMP_DIR"
     CLEANUP_TMP=true
 
-    # Try R2 CDN first
-    local r2_url=""
+    local zip_filename="helixscreen-${platform}.zip"
+    local zip_dest="${TMP_DIR}/helixscreen.zip"
+    local tar_filename="helixscreen-${platform}-${version}.tar.gz"
+    local tar_dest="${TMP_DIR}/helixscreen.tar.gz"
+
+    # Build candidate URL lists. Zip gets tried before tar at every transport.
+    local zip_r2="${R2_BASE_URL}/releases/${version}/${zip_filename}"
+    local tar_r2=""
     if [ -n "$_R2_MANIFEST" ]; then
-        # Extract URL from cached manifest
-        r2_url=$(echo "$_R2_MANIFEST" | parse_manifest_platform_url "$platform")
+        tar_r2=$(echo "$_R2_MANIFEST" | parse_manifest_platform_url "$platform")
     fi
-    # Fall back to constructed R2 URL if manifest didn't have it
-    if [ -z "$r2_url" ]; then
-        r2_url="${R2_BASE_URL}/releases/${version}/${filename}"
+    if [ -z "$tar_r2" ]; then
+        tar_r2="${R2_BASE_URL}/releases/${version}/${tar_filename}"
     fi
 
-    log_info "Downloading HelixScreen ${version} for ${platform}..."
-    log_info "URL: $r2_url"
+    local zip_gh="https://github.com/${GITHUB_REPO}/releases/download/${version}/${zip_filename}"
+    local tar_gh="https://github.com/${GITHUB_REPO}/releases/download/${version}/${tar_filename}"
 
-    if download_file "$r2_url" "$dest" 300 51200; then
-        # Quick validation — make sure it's actually a gzip file
-        if gunzip -t "$dest" 2>/dev/null; then
-            local size
-            size=$(ls -lh "$dest" | awk '{print $5}')
-            log_success "Downloaded ${filename} (${size}) from CDN"
-            return 0
-        fi
-        log_warn "CDN download incomplete or timed out, trying GitHub..."
-        rm -f "$dest"
-    else
-        log_warn "CDN download failed, trying GitHub..."
-        rm -f "$dest"
-    fi
-
-    # Fallback: GitHub Releases
-    local gh_url="https://github.com/${GITHUB_REPO}/releases/download/${version}/${filename}"
-    log_info "URL: $gh_url"
-
-    if download_file "$gh_url" "$dest"; then
-        validate_tarball "$dest" "Downloaded "
-        local size
-        size=$(ls -lh "$dest" | awk '{print $5}')
-        log_success "Downloaded ${filename} (${size}) from GitHub"
-        return 0
-    fi
-
-    # HTTP fallback for systems without SSL (K1, AD5M BusyBox wget)
-    local http_url="${HTTP_BASE_URL}/releases/${version}/${filename}"
-    # If we got the manifest via HTTP, try to use its URL (rewritten to HTTP)
+    local zip_http="${HTTP_BASE_URL}/releases/${version}/${zip_filename}"
+    local tar_http="${HTTP_BASE_URL}/releases/${version}/${tar_filename}"
     if [ -n "$_R2_MANIFEST" ]; then
         local http_manifest_url
         http_manifest_url=$(echo "$_R2_MANIFEST" | parse_manifest_platform_url "$platform")
         if [ -n "$http_manifest_url" ]; then
-            http_url=$(echo "$http_manifest_url" | sed "s|${R2_BASE_URL}|${HTTP_BASE_URL}|")
+            tar_http=$(echo "$http_manifest_url" | sed "s|${R2_BASE_URL}|${HTTP_BASE_URL}|")
         fi
     fi
 
+    log_info "Downloading HelixScreen ${version} for ${platform}..."
+
+    local size
+    # --- Attempt 1: R2 CDN, zip preferred ---
+    log_info "URL: $zip_r2"
+    if _try_download_candidate "$zip_r2" "$zip_dest" https; then
+        _ARCHIVE_FORMAT="zip"
+        size=$(ls -lh "$zip_dest" | awk '{print $5}')
+        log_success "Downloaded ${zip_filename} (${size}) from CDN"
+        return 0
+    fi
+    rm -f "$zip_dest"
+    log_info "URL: $tar_r2"
+    if _try_download_candidate "$tar_r2" "$tar_dest" https; then
+        _ARCHIVE_FORMAT="tar.gz"
+        size=$(ls -lh "$tar_dest" | awk '{print $5}')
+        log_success "Downloaded ${tar_filename} (${size}) from CDN"
+        return 0
+    fi
+    rm -f "$tar_dest"
+    log_warn "CDN download failed, trying GitHub..."
+
+    # --- Attempt 2: GitHub Releases ---
+    log_info "URL: $zip_gh"
+    if _try_download_candidate "$zip_gh" "$zip_dest" https; then
+        _ARCHIVE_FORMAT="zip"
+        size=$(ls -lh "$zip_dest" | awk '{print $5}')
+        log_success "Downloaded ${zip_filename} (${size}) from GitHub"
+        return 0
+    fi
+    rm -f "$zip_dest"
+    log_info "URL: $tar_gh"
+    if _try_download_candidate "$tar_gh" "$tar_dest" https; then
+        _ARCHIVE_FORMAT="tar.gz"
+        size=$(ls -lh "$tar_dest" | awk '{print $5}')
+        log_success "Downloaded ${tar_filename} (${size}) from GitHub"
+        return 0
+    fi
+    rm -f "$tar_dest"
+
+    # --- Attempt 3: plain-HTTP mirror (BusyBox wget fallback) ---
     log_info "Trying HTTP fallback..."
-    log_info "URL: $http_url"
-
-    if download_file_http "$http_url" "$dest" 300; then
-        if gunzip -t "$dest" 2>/dev/null; then
-            local size
-            size=$(ls -lh "$dest" | awk '{print $5}')
-            log_success "Downloaded ${filename} (${size}) via HTTP"
-            return 0
-        fi
-        log_warn "HTTP download incomplete or corrupt"
-        rm -f "$dest"
+    log_info "URL: $zip_http"
+    if _try_download_candidate "$zip_http" "$zip_dest" http; then
+        _ARCHIVE_FORMAT="zip"
+        size=$(ls -lh "$zip_dest" | awk '{print $5}')
+        log_success "Downloaded ${zip_filename} (${size}) via HTTP"
+        return 0
     fi
+    rm -f "$zip_dest"
+    log_info "URL: $tar_http"
+    if _try_download_candidate "$tar_http" "$tar_dest" http; then
+        _ARCHIVE_FORMAT="tar.gz"
+        size=$(ls -lh "$tar_dest" | awk '{print $5}')
+        log_success "Downloaded ${tar_filename} (${size}) via HTTP"
+        return 0
+    fi
+    rm -f "$tar_dest"
 
     log_error "Failed to download release."
-    log_error "Tried: $r2_url"
-    log_error "Tried: $gh_url"
-    log_error "Tried: $http_url"
+    log_error "Tried zip: $zip_r2"
+    log_error "Tried zip: $zip_gh"
+    log_error "Tried zip: $zip_http"
+    log_error "Tried tar: $tar_r2"
+    log_error "Tried tar: $tar_gh"
+    log_error "Tried tar: $tar_http"
     if [ -n "$_DOWNLOAD_HTTP_CODE" ] && [ "$_DOWNLOAD_HTTP_CODE" != "200" ]; then
         log_error "HTTP status: $_DOWNLOAD_HTTP_CODE"
     fi
@@ -410,26 +493,39 @@ download_release() {
     log_error "  - CDN, GitHub, and HTTP mirror may be unavailable"
     log_error ""
     log_error "To install manually, download on another machine and use:"
-    log_error "  ./install.sh --local /path/to/${filename}"
+    log_error "  ./install.sh --local /path/to/${zip_filename}"
     exit 1
 }
 
-# Use a local tarball instead of downloading
+# Use a local release archive instead of downloading.
+# Accepts either .zip (preferred) or .tar.gz (legacy). Format is detected from
+# the source filename extension and recorded in _ARCHIVE_FORMAT for
+# extract_release() to dispatch on.
 use_local_tarball() {
     local src=$1
 
-    log_info "Using local tarball: $src"
+    log_info "Using local archive: $src"
 
-    validate_tarball "$src" "Local "
+    case "$src" in
+        *.zip)    _ARCHIVE_FORMAT="zip" ;;
+        *.tar.gz|*.tgz) _ARCHIVE_FORMAT="tar.gz" ;;
+        *)
+            log_error "Unrecognized archive extension: $src"
+            log_error "Expected a .zip or .tar.gz file."
+            exit 1
+            ;;
+    esac
 
-    # Point TMP_DIR tarball location to the source file directly
-    # This avoids copying large files on space-constrained systems
+    validate_archive "$src" "Local "
+
+    # Stage the archive under its canonical TMP_DIR name so extract_release()
+    # and the in-app update flow can find it regardless of the source path.
+    # Prefer a symlink to avoid copying large files on constrained devices.
     mkdir -p "$TMP_DIR"
     CLEANUP_TMP=true
 
-    # Create symlink or use directly based on what the extraction expects
-    # The extract_release function looks for ${TMP_DIR}/helixscreen.tar.gz
-    local dest="${TMP_DIR}/helixscreen.tar.gz"
+    local dest
+    dest=$(_archive_tmp_path)
     if [ "$src" != "$dest" ]; then
         # Resolve to absolute path so a symlink created in $TMP_DIR doesn't
         # become dangling if the user passed a relative path.
@@ -446,7 +542,7 @@ use_local_tarball() {
         elif cp "$abs_src" "$dest" 2>/dev/null && [ -r "$dest" ]; then
             : # copy OK
         else
-            log_error "Failed to stage tarball at $dest"
+            log_error "Failed to stage archive at $dest"
             log_error "Source: $abs_src"
             log_error "Check that the source file exists and the temp directory is writable."
             exit 1
@@ -455,7 +551,7 @@ use_local_tarball() {
 
     local size
     size=$(ls -lh "$src" | awk '{print $5}')
-    log_success "Using local tarball (${size})"
+    log_success "Using local archive (${size}, ${_ARCHIVE_FORMAT})"
 }
 
 # Validate binary architecture matches the current system
@@ -560,19 +656,22 @@ validate_binary_architecture() {
     return 0
 }
 
-# Extract tarball with atomic swap and rollback protection
+# Extract archive with atomic swap and rollback protection.
+# Dispatches on _ARCHIVE_FORMAT for zip vs tar.gz. Expects the archive already
+# staged at _archive_tmp_path() by download_release() or use_local_tarball().
 extract_release() {
     local platform=$1
-    local tarball="${TMP_DIR}/helixscreen.tar.gz"
+    local archive
+    archive=$(_archive_tmp_path)
     local extract_dir="${TMP_DIR}/extract"
     local new_install="${extract_dir}/helixscreen"
 
-    # Pre-flight: check TMP_DIR has enough space for extraction
-    # Tarball expands ~3x, so require 3x tarball size + margin
-    local tarball_mb extract_required_mb tmp_available_mb
-    tarball_mb=$(du -m "$tarball" 2>/dev/null | awk '{print $1}')
-    [ -z "$tarball_mb" ] && tarball_mb=$(ls -l "$tarball" | awk '{print int($5/1048576)}')
-    extract_required_mb=$(( (tarball_mb * 3) + 20 ))
+    # Pre-flight: check TMP_DIR has enough space for extraction.
+    # Archive expands ~3x, so require 3x archive size + margin.
+    local archive_mb extract_required_mb tmp_available_mb
+    archive_mb=$(du -m "$archive" 2>/dev/null | awk '{print $1}')
+    [ -z "$archive_mb" ] && archive_mb=$(ls -l "$archive" | awk '{print int($5/1048576)}')
+    extract_required_mb=$(( (archive_mb * 3) + 20 ))
 
     local tmp_check_dir
     tmp_check_dir=$(dirname "$TMP_DIR")
@@ -588,30 +687,46 @@ extract_release() {
         exit 1
     fi
 
-    log_info "Extracting release..."
+    log_info "Extracting release (${_ARCHIVE_FORMAT})..."
 
     # Phase 1: Extract to temporary directory
     mkdir -p "$extract_dir"
     cd "$extract_dir" || exit 1
 
-    # BusyBox tar doesn't support -z; use gunzip pipe on embedded platforms
     local extract_ok=false
-    case "$platform" in
-        ad5m|ad5x|k1|k2)
-            gunzip -c "$tarball" | tar xf - && extract_ok=true ;;
+    case "${_ARCHIVE_FORMAT:-tar.gz}" in
+        zip)
+            # The zip has a FLAT layout (no top-level helixscreen/ dir). That's
+            # the contract with Moonraker Update Manager — it extracts straight
+            # into the printer_data helixscreen directory. To keep downstream
+            # code layout-agnostic, we re-create the helixscreen/ prefix here
+            # by extracting into a subdirectory.
+            # -o overwrites without prompting (no TTY in CI / systemd contexts),
+            # -q suppresses the per-file listing.
+            mkdir -p helixscreen && \
+                ( cd helixscreen && unzip -q -o "$archive" ) && \
+                extract_ok=true
+            ;;
         *)
-            tar -xzf "$tarball" && extract_ok=true ;;
+            # BusyBox tar doesn't support -z; use gunzip pipe on embedded platforms
+            case "$platform" in
+                ad5m|ad5x|k1|k2)
+                    gunzip -c "$archive" | tar xf - && extract_ok=true ;;
+                *)
+                    tar -xzf "$archive" && extract_ok=true ;;
+            esac
+            ;;
     esac
 
     if [ "$extract_ok" = false ]; then
         local post_mb
         post_mb=$(df "$tmp_check_dir" 2>/dev/null | tail -1 | awk '{print int($4/1024)}')
         if [ -n "$post_mb" ] && [ "$post_mb" -lt 5 ]; then
-            log_error "Failed to extract tarball: no space left on device."
+            log_error "Failed to extract archive: no space left on device."
             log_error "Filesystem $(df "$tmp_check_dir" | tail -1 | awk '{print $1}') is full."
             log_error "Try: TMP_DIR=/path/with/space sh install.sh ..."
         else
-            log_error "Failed to extract tarball."
+            log_error "Failed to extract archive."
             log_error "The archive may be corrupted. Try re-downloading."
         fi
         rm -rf "$extract_dir"
@@ -621,7 +736,7 @@ extract_release() {
     # Phase 2: Validate extracted content
     if [ ! -f "${new_install}/bin/helix-screen" ]; then
         log_error "Extraction failed - helix-screen binary not found."
-        log_error "Expected: helixscreen/bin/helix-screen in tarball"
+        log_error "Expected: helixscreen/bin/helix-screen in archive"
         rm -rf "$extract_dir"
         exit 1
     fi

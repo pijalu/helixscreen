@@ -159,22 +159,22 @@ If your printer doesn't have internet access, download on another computer first
 **Step 1: Download on your computer**
 
 Go to the [latest release page](https://github.com/prestonbrown/helixscreen/releases/latest) and download:
-- `helixscreen-k1-vX.Y.Z.tar.gz` (the K1 release archive)
+- `helixscreen-k1.zip` (the K1 release archive)
 - `install.sh` (the installer script, under "Assets")
 
 Or use the command line (replace `vX.Y.Z` with the actual version):
 ```bash
 VERSION=vX.Y.Z  # Check latest at https://github.com/prestonbrown/helixscreen/releases/latest
-wget "https://github.com/prestonbrown/helixscreen/releases/download/${VERSION}/helixscreen-k1-${VERSION}.tar.gz"
+wget "https://github.com/prestonbrown/helixscreen/releases/download/${VERSION}/helixscreen-k1.zip"
 wget https://raw.githubusercontent.com/prestonbrown/helixscreen/main/scripts/install.sh
 ```
 
 **Step 2: Copy to your printer and install**
 
 ```bash
-scp helixscreen-k1-vX.Y.Z.tar.gz install.sh root@<printer-ip>:/usr/data/
+scp helixscreen-k1.zip install.sh root@<printer-ip>:/usr/data/
 ssh root@<printer-ip>   # password: creality_2023
-sh /usr/data/install.sh --local /usr/data/helixscreen-k1-vX.Y.Z.tar.gz
+sh /usr/data/install.sh --local /usr/data/helixscreen-k1.zip
 ```
 
 Installs to `/usr/data/helixscreen/`, boot service at `/etc/init.d/S99helixscreen`.
@@ -359,13 +359,13 @@ The AD5M uses BusyBox which doesn't support HTTPS downloads directly. This is a 
 **Step 1: Download on your computer**
 
 Go to the [latest release page](https://github.com/prestonbrown/helixscreen/releases/latest) and download:
-- `helixscreen-ad5m-vX.Y.Z.tar.gz` (the AD5M release archive)
+- `helixscreen-ad5m.zip` (the AD5M release archive)
 - `install.sh` (the installer script, under "Assets")
 
 Or use the command line (replace `vX.Y.Z` with the actual version):
 ```bash
 VERSION=vX.Y.Z  # Check latest at https://github.com/prestonbrown/helixscreen/releases/latest
-wget "https://github.com/prestonbrown/helixscreen/releases/download/${VERSION}/helixscreen-ad5m-${VERSION}.tar.gz"
+wget "https://github.com/prestonbrown/helixscreen/releases/download/${VERSION}/helixscreen-ad5m.zip"
 wget https://raw.githubusercontent.com/prestonbrown/helixscreen/main/scripts/install.sh
 ```
 
@@ -374,7 +374,7 @@ wget https://raw.githubusercontent.com/prestonbrown/helixscreen/main/scripts/ins
 ```bash
 # AD5M requires -O flag for scp (BusyBox lacks sftp-server)
 # Note: Use /data/ not /tmp/ - AD5M's /tmp is a tiny tmpfs (~54MB)
-scp -O helixscreen-ad5m-vX.Y.Z.tar.gz install.sh root@<printer-ip>:/data/
+scp -O helixscreen-ad5m.zip install.sh root@<printer-ip>:/data/
 ```
 
 > **Windows users:** The `-O` flag is not supported by Windows 11's built-in OpenSSH.
@@ -382,7 +382,7 @@ scp -O helixscreen-ad5m-vX.Y.Z.tar.gz install.sh root@<printer-ip>:/data/
 > - **WSL** (recommended) — open a WSL terminal and run all commands as shown (Linux tools work natively)
 > - **[WinSCP](https://winscp.net/)** (free, GUI) — set the protocol to **SCP**, then drag and drop files to `/data/` on the printer
 > - **[PuTTY pscp](https://www.chiark.greenend.org.uk/~sgtatham/putty/latest.html)** (free, command-line):
->   `pscp helixscreen-ad5m-vX.Y.Z.tar.gz install.sh root@<printer-ip>:/data/`
+>   `pscp helixscreen-ad5m.zip install.sh root@<printer-ip>:/data/`
 
 **Step 3: SSH into the printer and run the installer**
 
@@ -391,7 +391,7 @@ scp -O helixscreen-ad5m-vX.Y.Z.tar.gz install.sh root@<printer-ip>:/data/
 ssh root@<printer-ip>
 
 # Now on the printer, run the installer
-sh /data/install.sh --local /data/helixscreen-ad5m-vX.Y.Z.tar.gz
+sh /data/install.sh --local /data/helixscreen-ad5m.zip
 ```
 
 The install script automatically detects your firmware (Forge-X or Klipper Mod) and installs to the correct location.
@@ -418,19 +418,19 @@ The install script automatically detects your firmware (Forge-X or Klipper Mod) 
 ```bash
 # Download on your computer (replace vX.Y.Z with actual version)
 VERSION=vX.Y.Z
-wget "https://github.com/prestonbrown/helixscreen/releases/download/${VERSION}/helixscreen-ad5m-${VERSION}.tar.gz"
+wget "https://github.com/prestonbrown/helixscreen/releases/download/${VERSION}/helixscreen-ad5m.zip"
 
 # Copy to printer (AD5M requires scp -O for legacy protocol)
 # Note: Use /data/ not /tmp/ - AD5M's /tmp is a tiny tmpfs (~54MB)
 # Windows users: use WinSCP (SCP protocol) or PuTTY's pscp instead — see note above
-scp -O helixscreen-ad5m-${VERSION}.tar.gz root@<printer-ip>:/data/
+scp -O helixscreen-ad5m.zip root@<printer-ip>:/data/
 
 # SSH into printer
 ssh root@<printer-ip>
 
 # Extract to /opt (Forge-X location)
 cd /opt
-gunzip -c /data/helixscreen-ad5m-*.tar.gz | tar xf -
+unzip -q /data/helixscreen-ad5m.zip
 
 # Stop GuppyScreen
 /opt/config/mod/.root/S80guppyscreen stop 2>/dev/null || true
@@ -444,7 +444,7 @@ chmod +x /etc/init.d/S90helixscreen
 /etc/init.d/S90helixscreen start
 
 # Clean up
-rm /data/helixscreen-ad5m-*.tar.gz
+rm /data/helixscreen-ad5m.zip
 ```
 
 </details>
@@ -457,18 +457,18 @@ rm /data/helixscreen-ad5m-*.tar.gz
 ```bash
 # Download on your computer (replace vX.Y.Z with actual version)
 VERSION=vX.Y.Z
-wget "https://github.com/prestonbrown/helixscreen/releases/download/${VERSION}/helixscreen-ad5m-${VERSION}.tar.gz"
+wget "https://github.com/prestonbrown/helixscreen/releases/download/${VERSION}/helixscreen-ad5m.zip"
 
 # Copy to printer's data partition (NOT /tmp - it's too small!)
 # Windows users: use WinSCP (SCP protocol) or PuTTY's pscp instead — see note above
-scp -O helixscreen-ad5m-${VERSION}.tar.gz root@<printer-ip>:/mnt/data/
+scp -O helixscreen-ad5m.zip root@<printer-ip>:/mnt/data/
 
 # SSH into printer
 ssh root@<printer-ip>
 
 # Extract to /root/printer_software (Klipper Mod location)
 cd /root/printer_software
-gunzip -c /mnt/data/helixscreen-ad5m-*.tar.gz | tar xf -
+unzip -q /mnt/data/helixscreen-ad5m.zip
 
 # Stop KlipperScreen
 /etc/init.d/S80klipperscreen stop 2>/dev/null || true
@@ -485,13 +485,13 @@ sed -i 's|DAEMON_DIR=.*|DAEMON_DIR="/root/printer_software/helixscreen"|' /etc/i
 /etc/init.d/S80helixscreen start
 
 # Clean up
-rm /mnt/data/helixscreen-ad5m-*.tar.gz
+rm /mnt/data/helixscreen-ad5m.zip
 ```
 
 </details>
 
 > **Note:** AD5M runs as root, so `sudo` is not needed.
-> **Note:** AD5M uses BusyBox utilities. Use `gunzip -c | tar xf -` instead of `tar -xzf`.
+> **Note:** AD5M uses BusyBox utilities. Use `unzip` to extract `.zip` archives.
 > **Note:** AD5M uses SysV init (BusyBox), not systemd.
 
 ### Step 4: Reboot
@@ -535,13 +535,13 @@ If you prefer to install manually or the one-liner doesn't work on your network:
 **Step 1: Download the release archive**
 
 ```bash
-wget https://releases.helixscreen.org/stable/helix-screen-snapmaker-u1.tar.gz
+wget https://releases.helixscreen.org/stable/helixscreen-snapmaker-u1.zip
 ```
 
 **Step 2: Extract to the install directory**
 
 ```bash
-mkdir -p /userdata/helixscreen && tar xzf helix-screen-snapmaker-u1.tar.gz -C /userdata/helixscreen
+mkdir -p /userdata/helixscreen && unzip -q helixscreen-snapmaker-u1.zip -d /userdata/helixscreen
 ```
 
 **Step 3: Configure autostart**
@@ -870,26 +870,26 @@ curl -sSL https://raw.githubusercontent.com/prestonbrown/helixscreen/main/script
 ```bash
 # On your computer (replace vX.Y.Z with actual version):
 VERSION=vX.Y.Z  # Check latest at https://github.com/prestonbrown/helixscreen/releases/latest
-wget "https://github.com/prestonbrown/helixscreen/releases/download/${VERSION}/helixscreen-k1-${VERSION}.tar.gz"
-scp helixscreen-k1-${VERSION}.tar.gz root@<printer-ip>:/usr/data/
+wget "https://github.com/prestonbrown/helixscreen/releases/download/${VERSION}/helixscreen-k1.zip"
+scp helixscreen-k1.zip root@<printer-ip>:/usr/data/
 
 # On the printer (use the bundled install.sh - no need to download it again):
-/usr/data/helixscreen/install.sh --local /usr/data/helixscreen-k1-*.tar.gz --update
+/usr/data/helixscreen/install.sh --local /usr/data/helixscreen-k1.zip --update
 ```
 
 **Flashforge Adventurer 5M** (no HTTPS support - two-step process):
 ```bash
 # On your computer (replace vX.Y.Z with actual version):
 VERSION=vX.Y.Z  # Check latest at https://github.com/prestonbrown/helixscreen/releases/latest
-wget "https://github.com/prestonbrown/helixscreen/releases/download/${VERSION}/helixscreen-ad5m-${VERSION}.tar.gz"
+wget "https://github.com/prestonbrown/helixscreen/releases/download/${VERSION}/helixscreen-ad5m.zip"
 # Windows users: use WSL, WinSCP (SCP protocol), or PuTTY's pscp instead of scp -O
-scp -O helixscreen-ad5m-${VERSION}.tar.gz root@<printer-ip>:/data/
+scp -O helixscreen-ad5m.zip root@<printer-ip>:/data/
 
 # On the printer (use the bundled install.sh - no need to download it again):
 # Forge-X:
-/opt/helixscreen/install.sh --local /data/helixscreen-ad5m-*.tar.gz --update
+/opt/helixscreen/install.sh --local /data/helixscreen-ad5m.zip --update
 # Klipper Mod:
-/root/printer_software/helixscreen/install.sh --local /data/helixscreen-ad5m-*.tar.gz --update
+/root/printer_software/helixscreen/install.sh --local /data/helixscreen-ad5m.zip --update
 ```
 
 This preserves your configuration and updates to the latest version.
@@ -901,7 +901,7 @@ This preserves your configuration and updates to the latest version.
 curl -sSL https://raw.githubusercontent.com/prestonbrown/helixscreen/main/scripts/install.sh | sh -s -- --update --version v1.2.0
 ```
 
-**Creality K1 / Flashforge Adventurer 5M:** Download the specific version tarball from [GitHub Releases](https://github.com/prestonbrown/helixscreen/releases), then use `--local` as shown above.
+**Creality K1 / Flashforge Adventurer 5M:** Download the specific version archive from [GitHub Releases](https://github.com/prestonbrown/helixscreen/releases), then use `--local` as shown above.
 
 ### Preserving Configuration
 

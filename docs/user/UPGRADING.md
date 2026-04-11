@@ -15,15 +15,15 @@ curl -sSL https://raw.githubusercontent.com/prestonbrown/helixscreen/main/script
 ```bash
 # On your computer (replace vX.Y.Z with actual version):
 VERSION=vX.Y.Z  # Check latest at https://github.com/prestonbrown/helixscreen/releases/latest
-wget "https://github.com/prestonbrown/helixscreen/releases/download/${VERSION}/helixscreen-ad5m-${VERSION}.tar.gz"
+wget "https://github.com/prestonbrown/helixscreen/releases/download/${VERSION}/helixscreen-ad5m.zip"
 # Windows users: use WSL, WinSCP (SCP protocol), or PuTTY's pscp instead of scp -O
-scp -O helixscreen-ad5m-${VERSION}.tar.gz root@<printer-ip>:/data/
+scp -O helixscreen-ad5m.zip root@<printer-ip>:/data/
 
 # On the printer (use the bundled install.sh):
 # Forge-X:
-/opt/helixscreen/install.sh --local /data/helixscreen-ad5m-*.tar.gz --update
+/opt/helixscreen/install.sh --local /data/helixscreen-ad5m.zip --update
 # Klipper Mod:
-/root/printer_software/helixscreen/install.sh --local /data/helixscreen-ad5m-*.tar.gz --update
+/root/printer_software/helixscreen/install.sh --local /data/helixscreen-ad5m.zip --update
 ```
 
 Your settings (`settings.json`), environment overrides (`helixscreen.env`), and custom files (custom printer images, etc.) are automatically preserved across updates.
@@ -109,7 +109,7 @@ Your Klipper configuration, Moonraker settings, print history, and G-code files 
 curl -sSL https://raw.githubusercontent.com/prestonbrown/helixscreen/main/scripts/install.sh | sh -s -- --update --version v1.2.0
 ```
 
-**Adventurer 5M:** Download the specific version tarball from [GitHub Releases](https://github.com/prestonbrown/helixscreen/releases), then use `--local` as shown above.
+**Adventurer 5M:** Download the specific version archive from [GitHub Releases](https://github.com/prestonbrown/helixscreen/releases), then use `--local` as shown above.
 
 ---
 

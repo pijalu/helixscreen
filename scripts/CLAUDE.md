@@ -18,9 +18,9 @@ Build, asset generation, deployment, and developer tooling for HelixScreen.
 ### Release & Packaging
 | Script | Purpose |
 |--------|---------|
-| `package.sh` | Creates release tarballs for all platforms |
+| `package.sh` | Creates release archives for all platforms |
 | `dev-release.sh` | Local dev release workflow (build + package + upload) |
-| `generate-manifest.sh` | Generates `manifest.json` from release tarballs. Used by CI and dev-release |
+| `generate-manifest.sh` | Generates `manifest.json` from release archives. Used by CI and dev-release |
 
 ### Asset Generation (`make regen-*`)
 | Script | Purpose |

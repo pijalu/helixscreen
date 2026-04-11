@@ -312,12 +312,17 @@ The release workflow (`.github/workflows/release.yml`) uploads build artifacts t
 ```
 s3://helixscreen-releases/
   stable/manifest.json        ← Stable releases (no prerelease suffix)
-  stable/helixscreen-*.tar.gz
+  stable/helixscreen-*.zip
+  stable/helixscreen-*.tar.gz  ← Legacy (bridge release only)
   beta/manifest.json           ← Beta/RC releases (v1.0.0-beta, v1.0.0-rc.1)
-  beta/helixscreen-*.tar.gz
+  beta/helixscreen-*.zip
+  beta/helixscreen-*.tar.gz    ← Legacy (bridge release only)
   dev/manifest.json            ← All releases (bleeding edge)
-  dev/helixscreen-*.tar.gz
+  dev/helixscreen-*.zip
+  dev/helixscreen-*.tar.gz     ← Legacy (bridge release only)
 ```
+
+> **Bridge release:** The `.tar.gz` glob ships alongside `.zip` during the current bridge release for backwards compatibility with older installed versions. It will be removed in the following release.
 
 ### Channel Upload Routing
 
@@ -359,7 +364,8 @@ scripts/generate-manifest.sh \
 
 # Upload via AWS CLI (configured for R2 endpoint)
 export AWS_ENDPOINT_URL="https://{account-id}.r2.cloudflarestorage.com"
-for f in release-files/*.tar.gz; do
+for f in release-files/*.zip release-files/*.tar.gz; do
+  [ -e "$f" ] || continue
   aws s3 cp "$f" "s3://helixscreen-releases/stable/$(basename $f)"
 done
 aws s3 cp release-files/manifest-stable.json \

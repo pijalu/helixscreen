@@ -15,7 +15,7 @@ UpdateChecker (singleton, async update checker)
   |
   +-> R2 CDN (primary source)
   |     Fetches manifest.json from releases.helixscreen.org/{channel}/
-  |     Platform-specific tarballs + SHA-256 checksums.
+  |     Platform-specific archives (.zip preferred, .tar.gz legacy) + SHA-256 checksums.
   |
   +-> GitHub API (fallback)
   |     /repos/prestonbrown/helixscreen/releases/latest (stable)
@@ -127,9 +127,11 @@ Fields:
 - `notes` — Release notes (may be sparse; enriched with CHANGELOG.md at runtime)
 - `published_at` — ISO 8601 timestamp
 - `assets` — Object keyed by platform (`pi`, `pi32`, `ad5m`, `k1`, `k2`)
-  - `url` — Direct download URL for the `.tar.gz` tarball
-  - `sha256` — SHA-256 hash of the tarball
-  - `zip_url` / `zip_sha256` — ZIP variant used by Moonraker `type: zip` updates
+  - `url` — Direct download URL for the legacy `.tar.gz` archive (may be omitted once the tar.gz is dropped)
+  - `sha256` — SHA-256 hash of the tar.gz archive
+  - `zip_url` — Direct download URL for the `.zip` archive (unversioned filename, shared with Moonraker `type: zip` updates)
+  - `zip_sha256` — SHA-256 hash of the zip archive
+  - The update checker prefers `zip_url` / `zip_sha256` when present and falls back to `url` / `sha256` otherwise.
 
 ### URL Structure
 
@@ -137,13 +139,15 @@ Fields:
 https://releases.helixscreen.org/
   stable/
     manifest.json
-    helixscreen-pi-v0.9.5.tar.gz
     helixscreen-pi.zip
-    helixscreen-ad5m-v0.9.5.tar.gz
+    helixscreen-pi-v0.9.5.tar.gz      # legacy bridge-release asset
+    helixscreen-ad5m.zip
+    helixscreen-ad5m-v0.9.5.tar.gz    # legacy bridge-release asset
     ...
   beta/
     manifest.json
-    helixscreen-pi-v1.0.0-beta.1.tar.gz
+    helixscreen-pi.zip
+    helixscreen-pi-v1.0.0-beta.1.tar.gz   # legacy bridge-release asset
     ...
   dev/
     manifest.json
@@ -176,7 +180,7 @@ If the R2 manifest fetch fails (network error, HTTP error, missing manifest), th
 - **Stable**: `GET /repos/prestonbrown/helixscreen/releases/latest` — parses single release object
 - **Beta**: `GET /repos/prestonbrown/helixscreen/releases` — scans array for first non-draft prerelease, falls back to latest stable
 
-GitHub responses are parsed for platform-specific assets by matching the prefix `helixscreen-{platform}-` in asset names. No fallback to arbitrary `.tar.gz` files -- wrong-platform binaries could brick embedded devices.
+GitHub responses are parsed for platform-specific assets. The update checker prefers an asset named `helixscreen-{platform}.zip` and falls back to the legacy versioned tar.gz (`helixscreen-{platform}-v{version}.tar.gz`) if no zip is present. Still no fallback to arbitrary assets — wrong-platform binaries could brick embedded devices.
 
 ### Changelog Enrichment
 
@@ -196,7 +200,7 @@ The platform key is determined at compile time via preprocessor defines:
 | `HELIX_PLATFORM_PI32` | `pi32` | Raspberry Pi (32-bit) |
 | (default) | `pi` | Raspberry Pi (64-bit) |
 
-Asset name format: `helixscreen-{platform}-{tag}.tar.gz` (e.g., `helixscreen-pi-v0.9.5.tar.gz`)
+Asset name format: `helixscreen-{platform}.zip` (preferred, e.g., `helixscreen-pi.zip`). The legacy `helixscreen-{platform}-{tag}.tar.gz` form is still published during the bridge release for backwards compatibility with older installed versions.
 
 ---
 
@@ -222,9 +226,9 @@ Idle (0) ──> Confirming (1) ──> Downloading (2) ──> Verifying (3) �
 2. **Directory selection**: Scans candidate directories (`$TMPDIR`, `/tmp`, `/data`, `$HOME`, etc.) and picks the one with the **most free space** (minimum 50 MB required).
 3. **HTTP download**: Uses `libhv requests::downloadFile()` with progress callback. UI updates throttled to every 2%.
 4. **Size validation**: Rejects files < 1 MB or > 50 MB.
-5. **Gzip verification**: Runs `gunzip -t` via `safe_exec()` (fork/exec, no shell).
-6. **Architecture validation**: Extracts the binary from the tarball and reads the ELF header to verify it matches the runtime architecture (ARM 32-bit vs AARCH64 64-bit). This prevents installing a Pi 64-bit build on a 32-bit Pi or vice versa.
-7. **Install**: Runs `install.sh --local {tarball} --update` via `safe_exec()`.
+5. **Archive verification**: Validates archive integrity (`unzip -t` for zip, `gunzip -t` for legacy tar.gz) via `safe_exec()` (fork/exec, no shell).
+6. **Architecture validation**: Extracts the binary from the archive and reads the ELF header to verify it matches the runtime architecture (ARM 32-bit vs AARCH64 64-bit). This prevents installing a Pi 64-bit build on a 32-bit Pi or vice versa.
+7. **Install**: Runs `install.sh --local {archive} --update` via `safe_exec()`.
 
 ### Install Script Discovery
 
@@ -429,7 +433,7 @@ export HELIX_TEST_USERNAME=pi                  # SSH username
 | Path | Command | When to use |
 |------|---------|-------------|
 | Via update checker | Trigger from Settings → About → Check for Updates | Tests the full self-update flow |
-| Direct local install | `ssh USER@PRINTER 'sh /tmp/install.sh --local /tmp/helixscreen-update.tar.gz'` | Tests install.sh in isolation, bypasses update checker |
+| Direct local install | `ssh USER@PRINTER 'sh /tmp/install.sh --local /tmp/helixscreen-update.zip'` | Tests install.sh in isolation, bypasses update checker |
 
 `--configure-remote` copies `install.sh` to `/tmp/` on the device automatically, enabling the direct path without an extra transfer step.
 
@@ -450,7 +454,7 @@ it does the new binary take over.
 
 **Practical workflow:**
 ```bash
-# Serve the build (--no-build reuses the last tarball for fast iteration)
+# Serve the build (--no-build reuses the last archive for fast iteration)
 ./scripts/serve-local-update.sh --no-build
 
 # On device: trigger update from Settings → About → Check for Updates
@@ -503,8 +507,8 @@ Run with:
 1. Tag a commit: `git tag v0.9.6` (stable) or `git tag v1.0.0-beta.1` (prerelease)
 2. Push the tag: `git push origin v0.9.6`
 3. CI builds all platforms (Pi, Pi32, AD5M, K1, K2) via Docker cross-compilation
-4. CI creates GitHub release with tarballs + ZIPs
-5. CI uploads to R2: tarballs, ZIPs, manifests, and symbol maps
+4. CI creates GitHub release with zips (and a legacy tar.gz per platform during the bridge release)
+5. CI uploads to R2: zips, legacy tarballs, manifests, and symbol maps
 6. Devices pick up the update on next auto-check (within 24 hours)
 
 ---
@@ -532,9 +536,9 @@ Run with:
 
 **Symptom**: "Error: Wrong architecture" during install
 
-- The binary in the tarball doesn't match the device's CPU architecture
+- The binary in the archive doesn't match the device's CPU architecture
 - This is an ELF header check: ARM 32-bit (`armv7l`) vs AARCH64 (`aarch64`)
-- Ensure the correct platform tarball was downloaded (e.g., `pi32` for 32-bit Pi OS)
+- Ensure the correct platform archive was downloaded (e.g., `pi32` for 32-bit Pi OS)
 
 ### Download Fails (No Space)
 

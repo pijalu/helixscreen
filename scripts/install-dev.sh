@@ -56,7 +56,7 @@ usage() {
     echo "  --clean        Clean install: remove old installation completely,"
     echo "                 including config and caches (asks for confirmation)"
     echo "  --version VER  Install specific version (default: latest)"
-    echo "  --local FILE   Install from local tarball (skip download)"
+    echo "  --local FILE   Install from local archive (.zip or .tar.gz, skip download)"
     echo "  --help         Show this help message"
     echo ""
     echo "Examples:"
@@ -64,7 +64,7 @@ usage() {
     echo "  $0 --update           # Update existing installation"
     echo "  $0 --clean            # Remove old install completely, then install"
     echo "  $0 --version v1.1.0   # Install specific version"
-    echo "  $0 --local /tmp/helixscreen-ad5m.tar.gz  # Install from local file"
+    echo "  $0 --local /tmp/helixscreen-ad5m.zip  # Install from local file"
 }
 
 # Main installation flow
@@ -166,14 +166,16 @@ main() {
     check_disk_space "$platform"
     detect_init_system
 
-    # Get version (skip if using local tarball)
+    # Get version (skip if using local archive)
     if [ -n "$local_tarball" ]; then
         # Validate local file exists
         if [ ! -f "$local_tarball" ]; then
-            log_error "Local tarball not found: $local_tarball"
+            log_error "Local archive not found: $local_tarball"
             exit 1
         fi
-        # Extract version from filename if possible (helixscreen-platform-v1.2.3.tar.gz)
+        # Extract version from filename if possible. Only the tar.gz layout
+        # carries a version in the name (helixscreen-<plat>-v1.2.3.tar.gz).
+        # The unversioned helixscreen-<plat>.zip gets "local" as a placeholder.
         version=$(echo "$local_tarball" | sed -n 's/.*helixscreen-[^-]*-\(v[0-9.]*\)\.tar\.gz/\1/p')
         if [ -z "$version" ]; then
             version="local"

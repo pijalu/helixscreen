@@ -1328,8 +1328,8 @@ scp -O localfile root@<printer-ip>:/path/
 # Use IP address, not hostname (mDNS may not resolve)
 ssh root@192.168.1.67
 
-# BusyBox tar doesn't support -z flag
-gunzip -c archive.tar.gz | tar xf -
+# Extract zip archives with unzip
+unzip archive.zip
 
 # Alternative: use rsync if available
 rsync -avz localfile root@<printer-ip>:/path/
@@ -1345,7 +1345,7 @@ Windows 11's built-in OpenSSH does not support the `-O` flag. Use one of these a
 
 3. **PuTTY pscp** (free command-line) — Download from [putty.org](https://www.chiark.greenend.org.uk/~sgtatham/putty/latest.html). Use `pscp` instead of `scp -O`:
    ```
-   pscp helixscreen-ad5m-vX.Y.Z.tar.gz root@<printer-ip>:/data/
+   pscp helixscreen-ad5m.zip root@<printer-ip>:/data/
    ```
 
 ### ForgeX not installed
