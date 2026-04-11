@@ -529,6 +529,10 @@ int MoonrakerClient::connect(const char* url, std::function<void()> on_connected
 
                 // Invoke callbacks outside lock to prevent deadlock
                 for (auto& cb : callbacks_to_invoke) {
+                    // Defense-in-depth: a moved-from or empty std::function in the
+                    // registration map would SIGSEGV on invocation (#765 class).
+                    if (!cb)
+                        continue;
                     try {
                         cb(j);
                     } catch (const std::exception& e) {
