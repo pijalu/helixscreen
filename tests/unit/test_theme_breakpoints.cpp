@@ -61,12 +61,22 @@ TEST_CASE("Breakpoint constants have correct values", "[theme][breakpoints]") {
 }
 
 TEST_CASE("Breakpoint index enum has correct values", "[theme][breakpoints]") {
-    REQUIRE(UI_BP_MICRO == 0);
-    REQUIRE(UI_BP_TINY == 1);
-    REQUIRE(UI_BP_SMALL == 2);
-    REQUIRE(UI_BP_MEDIUM == 3);
-    REQUIRE(UI_BP_LARGE == 4);
-    REQUIRE(UI_BP_XLARGE == 5);
+    REQUIRE(to_int(UiBreakpoint::Micro) == 0);
+    REQUIRE(to_int(UiBreakpoint::Tiny) == 1);
+    REQUIRE(to_int(UiBreakpoint::Small) == 2);
+    REQUIRE(to_int(UiBreakpoint::Medium) == 3);
+    REQUIRE(to_int(UiBreakpoint::Large) == 4);
+    REQUIRE(to_int(UiBreakpoint::XLarge) == 5);
+}
+
+// Backward compatibility: legacy UI_BP_* macros still work
+TEST_CASE("Legacy UI_BP_* macros match UiBreakpoint enum values", "[theme][breakpoints]") {
+    REQUIRE(UI_BP_MICRO == to_int(UiBreakpoint::Micro));
+    REQUIRE(UI_BP_TINY == to_int(UiBreakpoint::Tiny));
+    REQUIRE(UI_BP_SMALL == to_int(UiBreakpoint::Small));
+    REQUIRE(UI_BP_MEDIUM == to_int(UiBreakpoint::Medium));
+    REQUIRE(UI_BP_LARGE == to_int(UiBreakpoint::Large));
+    REQUIRE(UI_BP_XLARGE == to_int(UiBreakpoint::XLarge));
 }
 
 // ============================================================================

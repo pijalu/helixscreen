@@ -262,7 +262,7 @@ TEST_CASE("build_default_grid only sets positions for anchor widgets", "[grid]")
 
 TEST_CASE("GridLayout bottom-right packing fills cells correctly", "[grid]") {
     // Breakpoint 2 = MEDIUM = 6x4 grid
-    GridLayout grid(2);
+    GridLayout grid(UiBreakpoint::Medium);
     REQUIRE(grid.cols() == 6);
     REQUIRE(grid.rows() == 4);
 
@@ -345,7 +345,7 @@ TEST_CASE("auto-place entries get positions written back after placement", "[gri
     }
 
     // Replicate the two-pass placement from populate_widgets
-    int breakpoint = 3; // MEDIUM = 6x4
+    UiBreakpoint breakpoint = UiBreakpoint::Medium;
     GridLayout grid(breakpoint);
 
     struct PlacedSlot {
@@ -466,7 +466,7 @@ TEST_CASE("auto-place entries get positions written back after placement", "[gri
 // =============================================================================
 
 TEST_CASE("GridLayout: can_place rejects out-of-bounds column", "[grid]") {
-    GridLayout grid(2); // MEDIUM = 6x4
+    GridLayout grid(UiBreakpoint::Medium); // MEDIUM = 6x4
     REQUIRE(grid.cols() == 6);
     REQUIRE(grid.rows() == 4);
 
@@ -484,7 +484,7 @@ TEST_CASE("GridLayout: can_place rejects out-of-bounds column", "[grid]") {
 }
 
 TEST_CASE("GridLayout: can_place rejects out-of-bounds row", "[grid]") {
-    GridLayout grid(2); // MEDIUM = 6x4
+    GridLayout grid(UiBreakpoint::Medium); // MEDIUM = 6x4
 
     // 1x1 widget at row=4 (one past the last row) is rejected
     CHECK_FALSE(grid.can_place(0, 4, 1, 1));
@@ -500,7 +500,7 @@ TEST_CASE("GridLayout: can_place rejects out-of-bounds row", "[grid]") {
 }
 
 TEST_CASE("GridLayout: can_place rejects negative coordinates and zero spans", "[grid]") {
-    GridLayout grid(2); // MEDIUM = 6x4
+    GridLayout grid(UiBreakpoint::Medium); // MEDIUM = 6x4
 
     CHECK_FALSE(grid.can_place(-1, 0, 1, 1));
     CHECK_FALSE(grid.can_place(0, -1, 1, 1));
@@ -515,7 +515,7 @@ TEST_CASE("GridLayout: can_place rejects negative coordinates and zero spans", "
 TEST_CASE("print_status bottom-left pin on 6x4 grid", "[grid]") {
     // On a 6x4 grid (MEDIUM breakpoint=3), print_status with rowspan=2
     // should be pinned to row = 4 - 2 = 2
-    GridLayout grid(2);
+    GridLayout grid(UiBreakpoint::Medium);
     REQUIRE(grid.cols() == 6);
     REQUIRE(grid.rows() == 4);
 
@@ -531,7 +531,7 @@ TEST_CASE("print_status bottom-left pin on 6x4 grid", "[grid]") {
 TEST_CASE("print_status bottom-left pin on 8x5 grid", "[grid]") {
     // On an 8x5 grid (LARGE breakpoint=4), print_status with rowspan=2
     // should be pinned to row = 5 - 2 = 3
-    GridLayout grid(4);
+    GridLayout grid(UiBreakpoint::Large);
     REQUIRE(grid.cols() == 8);
     REQUIRE(grid.rows() == 5);
 
@@ -546,12 +546,14 @@ TEST_CASE("print_status bottom-left pin on 8x5 grid", "[grid]") {
 
 TEST_CASE("print_status pin formula consistent across all breakpoints", "[grid]") {
     // Verify the pin formula works for every breakpoint
-    for (int bp = 0; bp < GridLayout::NUM_BREAKPOINTS; ++bp) {
+    UiBreakpoint bps[] = {UiBreakpoint::Micro,  UiBreakpoint::Tiny,  UiBreakpoint::Small,
+                          UiBreakpoint::Medium, UiBreakpoint::Large, UiBreakpoint::XLarge};
+    for (auto bp : bps) {
         GridLayout grid(bp);
         int rowspan = 2;
         int pinned_row = grid.rows() - rowspan;
 
-        INFO("Breakpoint " << bp << ": " << grid.cols() << "x" << grid.rows()
+        INFO("Breakpoint " << to_int(bp) << ": " << grid.cols() << "x" << grid.rows()
                            << " grid, pinned_row=" << pinned_row);
         CHECK(pinned_row >= 0);
         CHECK(grid.can_place(0, pinned_row, 2, rowspan));
@@ -565,7 +567,7 @@ TEST_CASE("print_status pin formula consistent across all breakpoints", "[grid]"
 TEST_CASE("Overflow clamping pushes col to fit within grid", "[grid]") {
     // Simulate the clamping logic from populate_widgets:
     //   if (col + colspan > grid.cols()) col = max(0, grid.cols() - colspan);
-    GridLayout grid(2); // 6x4
+    GridLayout grid(UiBreakpoint::Medium); // 6x4
     REQUIRE(grid.cols() == 6);
 
     // Widget at col=5 with colspan=2 overflows (5+2=7 > 6)
@@ -582,7 +584,7 @@ TEST_CASE("Overflow clamping pushes col to fit within grid", "[grid]") {
 }
 
 TEST_CASE("Overflow clamping pushes row to fit within grid", "[grid]") {
-    GridLayout grid(2); // 6x4
+    GridLayout grid(UiBreakpoint::Medium); // 6x4
     REQUIRE(grid.rows() == 4);
 
     // Widget at row=3 with rowspan=2 overflows (3+2=5 > 4)
@@ -598,7 +600,7 @@ TEST_CASE("Overflow clamping pushes row to fit within grid", "[grid]") {
 }
 
 TEST_CASE("Overflow clamping handles widget larger than grid dimension", "[grid]") {
-    GridLayout grid(2); // 6x4
+    GridLayout grid(UiBreakpoint::Medium); // 6x4
 
     // Widget with colspan=8 on a 6-column grid: max(0, 6-8) = max(0,-2) = 0
     // The widget still won't fit (0+8 > 6), but col is clamped to 0
@@ -620,7 +622,7 @@ TEST_CASE("Overflow clamping handles widget larger than grid dimension", "[grid]
 TEST_CASE("Widgets disabled when grid is full and auto-place fails", "[grid]") {
     // Simulate the disable-on-overflow logic from populate_widgets.
     // Fill a 6x4 grid completely, then try to auto-place another widget.
-    GridLayout grid(2); // 6x4
+    GridLayout grid(UiBreakpoint::Medium); // 6x4
     REQUIRE(grid.cols() == 6);
     REQUIRE(grid.rows() == 4);
 
@@ -659,7 +661,7 @@ TEST_CASE("Widgets disabled when grid is full and auto-place fails", "[grid]") {
 
 TEST_CASE("Multiple overflow widgets all get disabled", "[grid]") {
     // Fill grid mostly, leave only 1 free cell, try to place 3 auto-place widgets
-    GridLayout grid(2); // 6x4
+    GridLayout grid(UiBreakpoint::Medium); // 6x4
 
     // Fill all cells except (5,3) -- the bottom-right corner
     for (int r = 0; r < grid.rows(); ++r) {
@@ -768,7 +770,7 @@ TEST_CASE("Drag to different position is detected when config matches screen",
 
 TEST_CASE("Drag collision detection: empty target cell allows placement", "[grid_edit][drag]") {
     // Build a 6x4 grid with some occupied cells, verify can_place on an empty cell
-    GridLayout grid(2); // MEDIUM = 6x4
+    GridLayout grid(UiBreakpoint::Medium); // MEDIUM = 6x4
     REQUIRE(grid.place({"printer_image", 0, 0, 2, 2}));
     REQUIRE(grid.place({"tips", 2, 0, 4, 1}));
     REQUIRE(grid.place({"widget_a", 2, 1, 1, 1}));
@@ -928,7 +930,7 @@ TEST_CASE("screen_to_grid_cell boundary: cell edges map correctly", "[grid_edit]
 }
 
 TEST_CASE("Drag: multi-cell widget bounds check at grid edges", "[grid_edit][drag]") {
-    GridLayout grid(2); // MEDIUM = 6x4
+    GridLayout grid(UiBreakpoint::Medium); // MEDIUM = 6x4
 
     // A 2x2 widget can be placed at (4,2) — fits exactly (4+2=6, 2+2=4)
     CHECK(grid.can_place(4, 2, 2, 2));
@@ -942,7 +944,7 @@ TEST_CASE("Drag: multi-cell widget bounds check at grid edges", "[grid_edit][dra
 
 TEST_CASE("Multi-cell widget disabled when no contiguous space available", "[grid]") {
     // Fill grid leaving only scattered 1x1 holes -- a 2x2 widget can't fit
-    GridLayout grid(2); // 6x4
+    GridLayout grid(UiBreakpoint::Medium); // 6x4
 
     // Fill rows 0-2 completely
     for (int r = 0; r < 3; ++r) {
@@ -979,7 +981,7 @@ TEST_CASE("Drag: hardware-gated invisible widgets should not block placement",
     // Simulates the bug where humidity/probe/width_sensor are enabled in config
     // with grid positions, but not actually placed on screen due to hardware gates.
     // These invisible widgets should NOT occupy cells in the collision grid.
-    GridLayout grid(2); // MEDIUM = 6x4
+    GridLayout grid(UiBreakpoint::Medium); // MEDIUM = 6x4
 
     // Visible widgets
     grid.place({"printer_image", 0, 0, 2, 2});
@@ -991,7 +993,7 @@ TEST_CASE("Drag: hardware-gated invisible widgets should not block placement",
     CHECK(grid.can_place(2, 2, 2, 2));
 
     // Now simulate the OLD buggy behavior: place invisible widget
-    GridLayout grid_with_invisible(2);
+    GridLayout grid_with_invisible(UiBreakpoint::Medium);
     grid_with_invisible.place({"printer_image", 0, 0, 2, 2});
     grid_with_invisible.place({"temperature", 4, 0, 1, 1});
     grid_with_invisible.place({"fan", 5, 0, 1, 1});
@@ -1576,7 +1578,7 @@ static std::tuple<int, int, int, int> try_place_with_shrink(GridLayout& grid, in
 }
 
 TEST_CASE("Shrink-to-fit: default size fits, no shrink needed", "[grid_edit][shrink_to_fit]") {
-    GridLayout grid(2); // 6x4
+    GridLayout grid(UiBreakpoint::Medium); // 6x4
     // Empty grid — 2x2 should fit at (0,0)
     auto [col, row, cs, rs] = try_place_with_shrink(grid, 2, 2, 1, 1);
     CHECK(col == 0);
@@ -1586,7 +1588,7 @@ TEST_CASE("Shrink-to-fit: default size fits, no shrink needed", "[grid_edit][shr
 }
 
 TEST_CASE("Shrink-to-fit: 2x2 doesn't fit, 2x1 does", "[grid_edit][shrink_to_fit]") {
-    GridLayout grid(2); // 6x4
+    GridLayout grid(UiBreakpoint::Medium); // 6x4
 
     // Fill 3 of 4 rows completely, leaving only row 3 free
     int n = 0;
@@ -1607,7 +1609,7 @@ TEST_CASE("Shrink-to-fit: 2x2 doesn't fit, 2x1 does", "[grid_edit][shrink_to_fit
 
 TEST_CASE("Shrink-to-fit: shrinks colspan when rowspan can't shrink",
           "[grid_edit][shrink_to_fit]") {
-    GridLayout grid(2); // 6x4
+    GridLayout grid(UiBreakpoint::Medium); // 6x4
 
     // Fill everything except a single 1x2 slot at column 5, rows 2-3
     int n = 0;
@@ -1628,7 +1630,7 @@ TEST_CASE("Shrink-to-fit: shrinks colspan when rowspan can't shrink",
 }
 
 TEST_CASE("Shrink-to-fit: no fit even at minimum size", "[grid_edit][shrink_to_fit]") {
-    GridLayout grid(2); // 6x4
+    GridLayout grid(UiBreakpoint::Medium); // 6x4
 
     // Fill entire grid
     int n = 0;
@@ -1646,7 +1648,7 @@ TEST_CASE("Shrink-to-fit: no fit even at minimum size", "[grid_edit][shrink_to_f
 
 TEST_CASE("Shrink-to-fit: non-scalable widget doesn't try smaller sizes",
           "[grid_edit][shrink_to_fit]") {
-    GridLayout grid(2); // 6x4
+    GridLayout grid(UiBreakpoint::Medium); // 6x4
 
     // Fill 3 rows, leaving only 1 row free
     int n = 0;
@@ -1665,7 +1667,7 @@ TEST_CASE("Shrink-to-fit: non-scalable widget doesn't try smaller sizes",
 
 TEST_CASE("Shrink-to-fit: tries rowspan reduction before colspan reduction",
           "[grid_edit][shrink_to_fit]") {
-    GridLayout grid(2); // 6x4
+    GridLayout grid(UiBreakpoint::Medium); // 6x4
 
     // Fill rows 0-2 fully, leave row 3 completely empty (6 cells free)
     // This means both 2x1 and 1x2 could fit, but the algorithm tries

@@ -28,20 +28,21 @@ static constexpr std::array<GridDimensions, GridLayout::NUM_BREAKPOINTS> GRID_DI
     {8, 5}, // XLARGE
 }};
 
-static int clamp_breakpoint(int bp) {
-    if (bp < 0)
+static int clamp_bp(UiBreakpoint bp) {
+    int32_t v = to_int(bp);
+    if (v < 0)
         return 0;
-    if (bp >= GridLayout::NUM_BREAKPOINTS)
+    if (v >= GridLayout::NUM_BREAKPOINTS)
         return GridLayout::NUM_BREAKPOINTS - 1;
-    return bp;
+    return v;
 }
 
 // ---------------------------------------------------------------------------
 // Static helpers
 // ---------------------------------------------------------------------------
 
-GridDimensions GridLayout::get_dimensions(int breakpoint) {
-    auto base = GRID_DIMS[static_cast<size_t>(clamp_breakpoint(breakpoint))];
+GridDimensions GridLayout::get_dimensions(UiBreakpoint bp) {
+    auto base = GRID_DIMS[static_cast<size_t>(clamp_bp(bp))];
 
     auto& lm = LayoutManager::instance();
     switch (lm.type()) {
@@ -66,16 +67,16 @@ GridDimensions GridLayout::get_dimensions(int breakpoint) {
     return base;
 }
 
-int GridLayout::get_cols(int breakpoint) {
-    return get_dimensions(breakpoint).cols;
+int GridLayout::get_cols(UiBreakpoint bp) {
+    return get_dimensions(bp).cols;
 }
 
-int GridLayout::get_rows(int breakpoint) {
-    return get_dimensions(breakpoint).rows;
+int GridLayout::get_rows(UiBreakpoint bp) {
+    return get_dimensions(bp).rows;
 }
 
-std::vector<int32_t> GridLayout::make_col_dsc(int breakpoint) {
-    int ncols = get_cols(breakpoint);
+std::vector<int32_t> GridLayout::make_col_dsc(UiBreakpoint bp) {
+    int ncols = get_cols(bp);
     std::vector<int32_t> dsc;
     dsc.reserve(static_cast<size_t>(ncols) + 1);
     for (int i = 0; i < ncols; ++i) {
@@ -85,8 +86,8 @@ std::vector<int32_t> GridLayout::make_col_dsc(int breakpoint) {
     return dsc;
 }
 
-std::vector<int32_t> GridLayout::make_row_dsc(int breakpoint) {
-    int nrows = get_rows(breakpoint);
+std::vector<int32_t> GridLayout::make_row_dsc(UiBreakpoint bp) {
+    int nrows = get_rows(bp);
     std::vector<int32_t> dsc;
     dsc.reserve(static_cast<size_t>(nrows) + 1);
     for (int i = 0; i < nrows; ++i) {
@@ -100,7 +101,7 @@ std::vector<int32_t> GridLayout::make_row_dsc(int breakpoint) {
 // Instance methods
 // ---------------------------------------------------------------------------
 
-GridLayout::GridLayout(int breakpoint) : breakpoint_(clamp_breakpoint(breakpoint)) {}
+GridLayout::GridLayout(UiBreakpoint bp) : breakpoint_(bp) {}
 
 GridDimensions GridLayout::dimensions() const {
     return get_dimensions(breakpoint_);
@@ -195,8 +196,8 @@ std::optional<std::pair<int, int>> GridLayout::find_available_bottom(int colspan
 }
 
 std::pair<std::vector<GridPlacement>, std::vector<GridPlacement>>
-GridLayout::filter_for_breakpoint(int breakpoint, const std::vector<GridPlacement>& placements) {
-    auto dims = get_dimensions(breakpoint);
+GridLayout::filter_for_breakpoint(UiBreakpoint bp, const std::vector<GridPlacement>& placements) {
+    auto dims = get_dimensions(bp);
     std::vector<GridPlacement> fits;
     std::vector<GridPlacement> does_not_fit;
 

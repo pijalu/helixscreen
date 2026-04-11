@@ -993,28 +993,28 @@ void theme_manager_refresh_layout_constants(lv_display_t* display) {
     lv_xml_update_const(scope, "overlay_panel_width_full", overlay_width_full_str);
 
     // Update breakpoint subject
-    int32_t bp_index;
+    UiBreakpoint bp;
     if (ver_res <= UI_BREAKPOINT_MICRO_MAX)
-        bp_index = UI_BP_MICRO;
+        bp = UiBreakpoint::Micro;
     else if (ver_res <= UI_BREAKPOINT_TINY_MAX)
-        bp_index = UI_BP_TINY;
+        bp = UiBreakpoint::Tiny;
     else if (ver_res <= UI_BREAKPOINT_SMALL_MAX)
-        bp_index = UI_BP_SMALL;
+        bp = UiBreakpoint::Small;
     else if (ver_res <= UI_BREAKPOINT_MEDIUM_MAX)
-        bp_index = UI_BP_MEDIUM;
+        bp = UiBreakpoint::Medium;
     else if (ver_res <= UI_BREAKPOINT_LARGE_MAX)
-        bp_index = UI_BP_LARGE;
+        bp = UiBreakpoint::Large;
     else
-        bp_index = UI_BP_XLARGE;
+        bp = UiBreakpoint::XLarge;
 
     lv_subject_t* bp_subject = lv_xml_get_subject(nullptr, "ui_breakpoint");
     if (bp_subject) {
-        lv_subject_set_int(bp_subject, bp_index);
+        lv_subject_set_int(bp_subject, to_int(bp));
     }
 
     spdlog::info("[Theme] Layout refreshed after rotation: {}x{} → nav={}px, "
                  "overlay={}px, overlay_full={}px (breakpoint={})",
-                 hor_res, ver_res, nav_width, overlay_width, overlay_width_full, bp_index);
+                 hor_res, ver_res, nav_width, overlay_width, overlay_width_full, to_int(bp));
 }
 
 /**
@@ -1368,28 +1368,28 @@ void theme_manager_init(lv_display_t* display, bool use_dark_mode_param) {
     // Initialize ui_breakpoint subject for reactive responsive visibility
     {
         int32_t ver_res_bp = lv_display_get_vertical_resolution(display);
-        int32_t bp_index;
+        UiBreakpoint bp;
         if (ver_res_bp <= UI_BREAKPOINT_MICRO_MAX)
-            bp_index = UI_BP_MICRO;
+            bp = UiBreakpoint::Micro;
         else if (ver_res_bp <= UI_BREAKPOINT_TINY_MAX)
-            bp_index = UI_BP_TINY;
+            bp = UiBreakpoint::Tiny;
         else if (ver_res_bp <= UI_BREAKPOINT_SMALL_MAX)
-            bp_index = UI_BP_SMALL;
+            bp = UiBreakpoint::Small;
         else if (ver_res_bp <= UI_BREAKPOINT_MEDIUM_MAX)
-            bp_index = UI_BP_MEDIUM;
+            bp = UiBreakpoint::Medium;
         else if (ver_res_bp <= UI_BREAKPOINT_LARGE_MAX)
-            bp_index = UI_BP_LARGE;
+            bp = UiBreakpoint::Large;
         else
-            bp_index = UI_BP_XLARGE;
+            bp = UiBreakpoint::XLarge;
 
         if (!breakpoint_subject_initialized) {
-            lv_subject_init_int(&ui_breakpoint_subject, bp_index);
+            lv_subject_init_int(&ui_breakpoint_subject, to_int(bp));
             breakpoint_subject_initialized = true;
         } else {
-            lv_subject_set_int(&ui_breakpoint_subject, bp_index);
+            lv_subject_set_int(&ui_breakpoint_subject, to_int(bp));
         }
         lv_xml_register_subject(nullptr, "ui_breakpoint", &ui_breakpoint_subject);
-        spdlog::debug("[Theme] Registered ui_breakpoint subject: {} (height={})", bp_index,
+        spdlog::debug("[Theme] Registered ui_breakpoint subject: {} (height={})", to_int(bp),
                       ver_res_bp);
     }
 

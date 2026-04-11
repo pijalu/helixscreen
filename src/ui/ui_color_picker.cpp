@@ -167,8 +167,9 @@ void ColorPicker::on_show() {
 
     // Detect MICRO/TINY breakpoint for compact layout
     lv_subject_t* bp_subject = theme_manager_get_breakpoint_subject();
-    int32_t bp = bp_subject ? lv_subject_get_int(bp_subject) : UI_BP_TINY;
-    is_tiny_mode_ = (bp == UI_BP_MICRO || bp == UI_BP_TINY);
+    UiBreakpoint bp =
+        bp_subject ? as_breakpoint(lv_subject_get_int(bp_subject)) : UiBreakpoint::Tiny;
+    is_tiny_mode_ = (bp == UiBreakpoint::Micro || bp == UiBreakpoint::Tiny);
 
     if (is_tiny_mode_ && dialog_) {
         // Full-screen on TINY
