@@ -52,10 +52,27 @@ ScannerPickerModal::ScannerPickerModal(SelectionCallback on_select)
     // Read current selection from SettingsManager
     current_device_id_ = helix::SettingsManager::instance().get_scanner_device_id();
 
-    // Register BT availability subject for XML bindings (before show() creates XML)
+    // Register subjects for XML bindings (before show() creates XML)
     auto& loader = helix::bluetooth::BluetoothLoader::instance();
     lv_subject_init_int(&bt_available_subject_, loader.is_available() ? 1 : 0);
     lv_xml_register_subject(nullptr, "scanner_bt_available", &bt_available_subject_);
+
+    // Seed keymap index from persisted setting. Order must match the dropdown
+    // options in scanner_picker_modal.xml: qwerty=0, qwertz=1, azerty=2.
+    const std::string km = helix::SettingsManager::instance().get_scanner_keymap();
+    int km_idx = 0;
+    if (km == "qwertz")
+        km_idx = 1;
+    else if (km == "azerty")
+        km_idx = 2;
+    lv_subject_init_int(&keymap_index_subject_, km_idx);
+    lv_xml_register_subject(nullptr, "scanner_keymap_index", &keymap_index_subject_);
+
+    lv_subject_init_int(&has_devices_subject_, 0);
+    lv_xml_register_subject(nullptr, "scanner_has_devices", &has_devices_subject_);
+
+    lv_subject_init_int(&bt_discovering_subject_, 0);
+    lv_xml_register_subject(nullptr, "scanner_bt_discovering", &bt_discovering_subject_);
 
     // Register XML callbacks BEFORE show() creates the XML component.
     // Modal::show() calls create_and_show() before on_show(), so callbacks
@@ -101,10 +118,7 @@ ScannerPickerModal::~ScannerPickerModal() {
     // Null widget pointers BEFORE stop_bt_discovery — they may already be freed
     // if on_hide() ran (exit animation destroyed the widget tree)
     device_list_ = nullptr;
-    empty_state_ = nullptr;
     bt_scan_btn_ = nullptr;
-    bt_spinner_ = nullptr;
-    keymap_dropdown_ = nullptr;
 
     stop_bt_discovery();
 
@@ -117,6 +131,9 @@ ScannerPickerModal::~ScannerPickerModal() {
     }
 
     lv_subject_deinit(&bt_available_subject_);
+    lv_subject_deinit(&has_devices_subject_);
+    lv_subject_deinit(&bt_discovering_subject_);
+    lv_subject_deinit(&keymap_index_subject_);
 }
 
 // ============================================================================
@@ -137,22 +154,7 @@ void ScannerPickerModal::on_show() {
 
     // Find widget pointers from XML
     device_list_ = find_widget("scanner_device_list");
-    empty_state_ = find_widget("scanner_empty_state");
     bt_scan_btn_ = find_widget("btn_bt_scan");
-    bt_spinner_ = find_widget("bt_scan_spinner");
-    keymap_dropdown_ = find_widget("scanner_keymap_dropdown");
-
-    // Seed the keymap dropdown from the persisted setting. Order must match
-    // the options in scanner_picker_modal.xml: qwerty=0, qwertz=1, azerty=2.
-    if (keymap_dropdown_) {
-        const std::string km = helix::SettingsManager::instance().get_scanner_keymap();
-        uint16_t idx = 0;
-        if (km == "qwertz")
-            idx = 1;
-        else if (km == "azerty")
-            idx = 2;
-        lv_dropdown_set_selected(keymap_dropdown_, idx);
-    }
 
     populate_device_list();
 
@@ -164,17 +166,14 @@ void ScannerPickerModal::on_hide() {
     s_active_instance_ = nullptr;
 
     // Stop BT discovery while widgets are still alive (before exit animation
-    // destroys the widget tree). This is the safe point to touch bt_spinner_.
+    // destroys the widget tree).
     stop_bt_discovery();
 
     // Null widget pointers — the widget tree will be destroyed after on_hide
     // returns (via exit animation + safe_delete_deferred). Prevents the
     // destructor from accessing dangling pointers.
     device_list_ = nullptr;
-    empty_state_ = nullptr;
     bt_scan_btn_ = nullptr;
-    bt_spinner_ = nullptr;
-    keymap_dropdown_ = nullptr;
 }
 
 void ScannerPickerModal::handle_keymap_changed(int dropdown_index) {
@@ -252,14 +251,8 @@ void ScannerPickerModal::populate_device_list() {
         add_device_row(device_list_, bt_dev.name, sublabel, "", true, bt_dev.mac);
     }
 
-    // Show/hide empty state (ignore auto-detect row: devices.empty() && bt_devices_.empty())
-    if (empty_state_) {
-        if (devices.empty() && bt_devices_.empty()) {
-            lv_obj_remove_flag(empty_state_, LV_OBJ_FLAG_HIDDEN);
-        } else {
-            lv_obj_add_flag(empty_state_, LV_OBJ_FLAG_HIDDEN);
-        }
-    }
+    // Drive empty-state visibility via subject (ignores auto-detect row).
+    lv_subject_set_int(&has_devices_subject_, (devices.empty() && bt_devices_.empty()) ? 0 : 1);
 }
 
 // ============================================================================
@@ -515,10 +508,7 @@ void ScannerPickerModal::start_bt_discovery() {
                                      [](const BtDeviceInfo& d) { return !d.paired; }),
                       bt_devices_.end());
 
-    // Show spinner
-    if (bt_spinner_) {
-        lv_obj_remove_flag(bt_spinner_, LV_OBJ_FLAG_HIDDEN);
-    }
+    lv_subject_set_int(&bt_discovering_subject_, 1);
 
     // Set up C callback safety context (shared_ptr so detached thread keeps it alive)
     bt_discovery_ctx_ = std::make_shared<BtDiscoveryContext>();
@@ -590,11 +580,7 @@ void ScannerPickerModal::start_bt_discovery() {
 
             auto* modal = disc_ctx->modal;
             modal->bt_discovering_ = false;
-
-            // Hide spinner
-            if (modal->bt_spinner_) {
-                lv_obj_add_flag(modal->bt_spinner_, LV_OBJ_FLAG_HIDDEN);
-            }
+            lv_subject_set_int(&modal->bt_discovering_subject_, 0);
 
             spdlog::info("[ScannerPickerModal] BT discovery finished, {} scanner devices found",
                          modal->bt_devices_.size());
@@ -622,10 +608,7 @@ void ScannerPickerModal::stop_bt_discovery() {
     }
 
     bt_discovering_ = false;
-
-    if (bt_spinner_) {
-        lv_obj_add_flag(bt_spinner_, LV_OBJ_FLAG_HIDDEN);
-    }
+    lv_subject_set_int(&bt_discovering_subject_, 0);
 
     spdlog::debug("[{}] Stopped Bluetooth discovery", get_name());
 }

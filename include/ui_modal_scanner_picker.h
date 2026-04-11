@@ -68,10 +68,7 @@ class ScannerPickerModal : public Modal {
     SelectionCallback on_select_;
     std::string current_device_id_;
     lv_obj_t* device_list_ = nullptr;
-    lv_obj_t* empty_state_ = nullptr;
     lv_obj_t* bt_scan_btn_ = nullptr;
-    lv_obj_t* bt_spinner_ = nullptr;
-    lv_obj_t* keymap_dropdown_ = nullptr;
 
     // Bluetooth state
     struct BtDeviceInfo {
@@ -89,6 +86,9 @@ class ScannerPickerModal : public Modal {
     };
 
     lv_subject_t bt_available_subject_{};
+    lv_subject_t has_devices_subject_{};    ///< 1 when any USB/BT device visible, 0 otherwise
+    lv_subject_t bt_discovering_subject_{}; ///< 1 while BT discovery thread running
+    lv_subject_t keymap_index_subject_{};   ///< 0=qwerty, 1=qwertz, 2=azerty
     helix_bt_context* bt_ctx_ = nullptr;
     std::shared_ptr<BtDiscoveryContext> bt_discovery_ctx_;
     std::vector<BtDeviceInfo> bt_devices_;
