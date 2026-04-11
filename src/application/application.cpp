@@ -470,6 +470,11 @@ int Application::run(int argc, char** argv) {
     // SettingsManager subjects are ready and the enabled state can be synced.
     TelemetryManager::instance().init();
 
+    // First heap snapshot, before panel construction and XML load. Later
+    // snapshots are diffed against this to narrow down which startup phase
+    // burns allocator arena on small-RAM devices.
+    TelemetryManager::instance().record_memory_snapshot("post_telemetry_init");
+
     // Initialize PrinterImageManager (custom image import/resolution)
     helix::PrinterImageManager::instance().init("config");
 
@@ -518,6 +523,11 @@ int Application::run(int argc, char** argv) {
         shutdown();
         return 1;
     }
+
+    // Heap snapshot after XML panel load completes. Delta against
+    // post_telemetry_init is the cost of init_panel_subjects + connect_moonraker
+    // + init_ui — the window where #758 class aborts have fired.
+    TelemetryManager::instance().record_memory_snapshot("post_init_ui");
 
     // Check for crash from previous session (after UI exists, before wizard)
     // Skip in test mode — don't show crash dialog during development

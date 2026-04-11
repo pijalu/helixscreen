@@ -53,6 +53,19 @@
 #include <CommonCrypto/CommonDigest.h>
 #endif
 
+// glibc ptmalloc introspection for heap-fragmentation telemetry (#758 class).
+// mallinfo2() (glibc 2.33+) returns size_t fields — preferred.
+// mallinfo() (older glibc) returns ints that wrap above 2 GB, which is fine on
+// the small-RAM devices we're actually chasing.
+#if defined(__GLIBC__)
+#include <malloc.h>
+#if defined(__GLIBC_PREREQ) && __GLIBC_PREREQ(2, 33)
+#define HELIX_HAS_MALLINFO2 1
+#else
+#define HELIX_HAS_MALLINFO 1
+#endif
+#endif
+
 using json = nlohmann::json;
 namespace fs = std::filesystem;
 using namespace helix;
@@ -1572,6 +1585,30 @@ nlohmann::json TelemetryManager::build_memory_snapshot_event(const std::string& 
     auto sys = helix::get_system_memory_info();
     event["system_total_mb"] = static_cast<int>(sys.total_mb());
     event["system_available_mb"] = static_cast<int>(sys.available_mb());
+
+    // glibc ptmalloc arena stats — fragmentation fingerprint for heap-abort
+    // crash classes (#758, #771). uordblks = allocated bytes; fordblks = bytes
+    // stranded in the free list. Flat uordblks + growing fordblks is classic
+    // fragmentation and is the signal we can't get from RSS alone.
+#if defined(HELIX_HAS_MALLINFO2)
+    {
+        struct mallinfo2 mi = mallinfo2();
+        event["malloc_arena_kb"] = static_cast<int>(mi.arena / 1024);
+        event["malloc_uordblks_kb"] = static_cast<int>(mi.uordblks / 1024);
+        event["malloc_fordblks_kb"] = static_cast<int>(mi.fordblks / 1024);
+        event["malloc_hblks"] = static_cast<int>(mi.hblks);
+        event["malloc_hblkhd_kb"] = static_cast<int>(mi.hblkhd / 1024);
+    }
+#elif defined(HELIX_HAS_MALLINFO)
+    {
+        struct mallinfo mi = mallinfo();
+        event["malloc_arena_kb"] = static_cast<int>(mi.arena / 1024);
+        event["malloc_uordblks_kb"] = static_cast<int>(mi.uordblks / 1024);
+        event["malloc_fordblks_kb"] = static_cast<int>(mi.fordblks / 1024);
+        event["malloc_hblks"] = static_cast<int>(mi.hblks);
+        event["malloc_hblkhd_kb"] = static_cast<int>(mi.hblkhd / 1024);
+    }
+#endif
 
     return event;
 }
