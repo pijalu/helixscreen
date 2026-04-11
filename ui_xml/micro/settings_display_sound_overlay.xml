@@ -18,19 +18,18 @@
       <setting_section_header title="APPEARANCE" title_tag="APPEARANCE" icon="light"/>
       <!-- Language Dropdown -->
       <setting_dropdown_row name="row_language"
-                            label="Language" label_tag="Language" icon="translate" description="Choose display language"
-                            description_tag="Choose display language" callback="on_language_changed"/>
+                            label="Language" label_tag="Language" icon="translate"
+                            hide_description="true" callback="on_language_changed"/>
       <!-- Timezone Dropdown (options populated dynamically in C++) -->
       <setting_dropdown_row name="row_timezone"
                             label="Timezone" label_tag="Timezone" icon="clock"
-                            description="Set local timezone for time display"
-                            description_tag="Set local timezone for time display"
+                            hide_description="true"
                             options="" callback="on_timezone_changed"/>
       <!-- Time Format Dropdown -->
       <setting_dropdown_row name="row_time_format"
                             label="Time Format" label_tag="Time Format" icon="clock"
-                            description="Choose 12-hour or 24-hour time display"
-                            description_tag="Choose 12-hour or 24-hour time display" options="12 Hour&#10;24 Hour"
+                            hide_description="true"
+                            options="12 Hour&#10;24 Hour"
                             options_tag="12 Hour&#10;24 Hour" callback="on_time_format_changed"/>
       <!-- Animations Toggle -->
       <setting_toggle_row name="row_animations"
@@ -47,8 +46,7 @@
       <!-- Bed Mesh Render Mode -->
       <setting_dropdown_row name="row_bed_mesh_mode"
                             label="Bed Mesh Render" label_tag="Bed Mesh Render" icon="grid_large"
-                            description="Choose rendering mode for bed mesh visualization"
-                            description_tag="Choose rendering mode for bed mesh visualization"
+                            hide_description="true"
                             options="Auto&#10;3D View&#10;2D Heatmap" options_tag="Auto&#10;3D View&#10;2D Heatmap" callback="on_bed_mesh_mode_changed"/>
       <!-- ================================================================== -->
       <!-- DISPLAY SECTION -->

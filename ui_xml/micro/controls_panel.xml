@@ -98,7 +98,7 @@
         </lv_obj>
         <!-- Motion panel navigation button -->
         <ui_button name="btn_motion"
-                   width="100%" height="#button_height_sm" icon="cursor_move" text="Motion" translation_tag="Motion">
+                   width="100%" height="#button_height_sm" icon="cursor_move" text="Motion" translation_tag="Motion" style_text_font="#font_small">
           <event_cb trigger="clicked" callback="on_controls_quick_actions"/>
         </ui_button>
       </ui_card>
@@ -127,7 +127,7 @@
             <lv_obj width="100%"
                     height="content" flex_flow="row" style_flex_cross_place="center" style_pad_all="0"
                     style_pad_gap="#space_sm" scrollable="false">
-              <icon src="thermometer" size="sm" variant="primary"/>
+              <icon src="thermometer" size="sm" variant="secondary"/>
               <text_small text="Temperatures"
                           translation_tag="Temperatures" style_translate_y="2" style_text_color="#text"/>
             </lv_obj>
@@ -154,12 +154,7 @@
                 <icon src="pencil" size="xs" variant="tertiary" clickable="false" event_bubble="true"/>
               </lv_obj>
             </lv_obj>
-            <text_small name="nozzle_status"
-                        width="100%" bind_text="controls_nozzle_status" style_text_color="#text"
-                        style_text_align="right">
-              <!-- Hidden on TINY screens (breakpoint 0) -->
-              <bind_flag_if_eq subject="ui_breakpoint" flag="hidden" ref_value="0"/>
-            </text_small>
+          
             <!-- Bed section (clickable) -->
             <lv_obj name="btn_bed_temp"
                     width="100%" flex_flow="row" style_flex_main_place="space_between" style_flex_cross_place="center"
@@ -183,10 +178,6 @@
                 <icon src="pencil" size="xs" variant="tertiary" clickable="false" event_bubble="true"/>
               </lv_obj>
             </lv_obj>
-            <text_small name="bed_status"
-                        width="100%" bind_text="controls_bed_status" style_text_color="#text" style_text_align="right">
-              <bind_flag_if_eq subject="ui_breakpoint" flag="hidden" ref_value="0"/>
-            </text_small>
             <!-- Chamber section (visible only if printer has chamber sensor) -->
             <lv_obj name="btn_chamber_temp"
                     width="100%" flex_flow="row" style_flex_main_place="space_between" style_flex_cross_place="center"
@@ -210,13 +201,6 @@
                 <icon src="pencil" size="xs" variant="tertiary" clickable="false" event_bubble="true"/>
               </lv_obj>
             </lv_obj>
-            <text_small name="chamber_status"
-                        width="100%" bind_text="controls_chamber_status" style_text_color="#text"
-                        style_text_align="right">
-              <!-- Hidden on TINY screens (breakpoint 0) and when printer has no chamber -->
-              <bind_flag_if_eq subject="ui_breakpoint" flag="hidden" ref_value="0"/>
-              <bind_flag_if_eq subject="printer_has_chamber" flag="hidden" ref_value="0"/>
-            </text_small>
             <!-- Secondary temperature sensors list (populated dynamically) -->
             <lv_obj name="secondary_temps_list"
                     width="100%" height="content" style_pad_all="0" scrollable="false" flex_flow="column"

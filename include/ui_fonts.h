@@ -17,6 +17,7 @@ LV_FONT_DECLARE(mdi_icons_14); // Metadata icons (small inline for tiny)
 
 // Noto Sans - Regular weight with extended Unicode (©®™€£¥°±•…)
 // Declared mutable (not const) so CjkFontManager can set fallback pointers at runtime
+extern lv_font_t noto_sans_8;
 extern lv_font_t noto_sans_10;
 extern lv_font_t noto_sans_11;
 extern lv_font_t noto_sans_12;
@@ -45,6 +46,7 @@ extern lv_font_t noto_sans_bold_24;
 extern lv_font_t noto_sans_bold_28;
 
 // Source Code Pro - Monospace (for console/terminal displays)
+LV_FONT_DECLARE(source_code_pro_8);
 LV_FONT_DECLARE(source_code_pro_10);
 LV_FONT_DECLARE(source_code_pro_12);
 LV_FONT_DECLARE(source_code_pro_14);

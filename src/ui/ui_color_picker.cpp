@@ -165,9 +165,11 @@ void ColorPicker::on_show() {
         spdlog::debug("[ColorPicker] HSV picker initialized with color #{:06X}", selected_color_);
     }
 
-    // Detect TINY breakpoint for compact layout
+    // Detect MICRO/TINY breakpoint for compact layout
     lv_subject_t* bp_subject = theme_manager_get_breakpoint_subject();
-    is_tiny_mode_ = bp_subject && lv_subject_get_int(bp_subject) == UI_BP_TINY;
+    UiBreakpoint bp =
+        bp_subject ? as_breakpoint(lv_subject_get_int(bp_subject)) : UiBreakpoint::Tiny;
+    is_tiny_mode_ = (bp == UiBreakpoint::Micro || bp == UiBreakpoint::Tiny);
 
     if (is_tiny_mode_ && dialog_) {
         // Full-screen on TINY
@@ -412,15 +414,20 @@ void ColorPicker::register_callbacks() {
 // ============================================================================
 
 void ColorPicker::switch_tab(bool show_custom) {
-    if (!is_tiny_mode_) return;
+    if (!is_tiny_mode_)
+        return;
 
     if (presets_content_) {
-        if (show_custom) lv_obj_add_flag(presets_content_, LV_OBJ_FLAG_HIDDEN);
-        else lv_obj_remove_flag(presets_content_, LV_OBJ_FLAG_HIDDEN);
+        if (show_custom)
+            lv_obj_add_flag(presets_content_, LV_OBJ_FLAG_HIDDEN);
+        else
+            lv_obj_remove_flag(presets_content_, LV_OBJ_FLAG_HIDDEN);
     }
     if (custom_content_) {
-        if (show_custom) lv_obj_remove_flag(custom_content_, LV_OBJ_FLAG_HIDDEN);
-        else lv_obj_add_flag(custom_content_, LV_OBJ_FLAG_HIDDEN);
+        if (show_custom)
+            lv_obj_remove_flag(custom_content_, LV_OBJ_FLAG_HIDDEN);
+        else
+            lv_obj_add_flag(custom_content_, LV_OBJ_FLAG_HIDDEN);
     }
 
     // Style active tab
@@ -490,12 +497,14 @@ void ColorPicker::on_hex_input_defocused_cb(lv_event_t* e) {
 
 void ColorPicker::on_tab_presets_cb(lv_event_t* e) {
     auto* self = get_instance_from_event(e);
-    if (self) self->switch_tab(false);
+    if (self)
+        self->switch_tab(false);
 }
 
 void ColorPicker::on_tab_custom_cb(lv_event_t* e) {
     auto* self = get_instance_from_event(e);
-    if (self) self->switch_tab(true);
+    if (self)
+        self->switch_tab(true);
 }
 
 } // namespace helix::ui

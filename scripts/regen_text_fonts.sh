@@ -159,7 +159,7 @@ if [ -n "$RUNTIME_CJKCHARS" ]; then
 fi
 
 # Font sizes
-SIZES_REGULAR="10 11 12 14 16 18 20 24 26 28"
+SIZES_REGULAR="8 10 11 12 14 16 18 20 24 26 28"
 SIZES_LIGHT="10 11 12 14 16 18"
 SIZES_BOLD="14 16 18 20 24 28"
 
@@ -181,7 +181,11 @@ for SIZE in $SIZES_REGULAR; do
         --no-compress \
         -o "$OUTPUT"
     # Strip const so CjkFontManager can set fallback pointers at runtime
-    sed -i 's/^const lv_font_t /lv_font_t /' "$OUTPUT"
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+        sed -i '' 's/^const lv_font_t /lv_font_t /' "$OUTPUT"
+    else
+        sed -i 's/^const lv_font_t /lv_font_t /' "$OUTPUT"
+    fi
 done
 
 # Generate Light weight
@@ -199,7 +203,11 @@ for SIZE in $SIZES_LIGHT; do
         --no-compress \
         -o "$OUTPUT"
     # Strip const so CjkFontManager can set fallback pointers at runtime
-    sed -i 's/^const lv_font_t /lv_font_t /' "$OUTPUT"
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+        sed -i '' 's/^const lv_font_t /lv_font_t /' "$OUTPUT"
+    else
+        sed -i 's/^const lv_font_t /lv_font_t /' "$OUTPUT"
+    fi
 done
 
 # Generate Bold weight
@@ -217,12 +225,16 @@ for SIZE in $SIZES_BOLD; do
         --no-compress \
         -o "$OUTPUT"
     # Strip const so CjkFontManager can set fallback pointers at runtime
-    sed -i 's/^const lv_font_t /lv_font_t /' "$OUTPUT"
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+        sed -i '' 's/^const lv_font_t /lv_font_t /' "$OUTPUT"
+    else
+        sed -i 's/^const lv_font_t /lv_font_t /' "$OUTPUT"
+    fi
 done
 
 # Generate Source Code Pro Monospace (for console/terminal)
 FONT_MONO=assets/fonts/SourceCodePro-Regular.ttf
-SIZES_MONO="10 12 14 16"
+SIZES_MONO="8 10 12 14 16"
 
 if [ -f "$FONT_MONO" ]; then
     echo ""

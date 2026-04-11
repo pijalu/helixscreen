@@ -26,7 +26,7 @@
                 height="content" flex_grow="1" flex_flow="column" style_pad_all="0" style_pad_gap="#space_xs"
                 scrollable="false">
           <text_small name="preview_label_preset" text="Theme Preset" translation_tag="Theme Preset"/>
-          <lv_dropdown name="theme_preset_dropdown" width="100%" height="#input_height">
+          <lv_dropdown name="theme_preset_dropdown" width="100%" height="content">
             <event_cb trigger="value_changed" callback="on_theme_preset_changed"/>
           </lv_dropdown>
         </lv_obj>
@@ -70,7 +70,7 @@
                     height="content" flex_grow="1" flex_flow="column" style_pad_all="0" style_pad_gap="#space_xs"
                     scrollable="false">
               <text_small name="preview_label_mode" text="Mode" translation_tag="Mode"/>
-              <lv_dropdown name="preview_dropdown" width="100%" height="#input_height" options="Standard&#10;Quiet&#10;Focused"/>
+              <lv_dropdown name="preview_dropdown" width="100%" height="content" options="Standard&#10;Quiet&#10;Focused"/>
             </lv_obj>
             <lv_obj height="content"
                     flex_flow="column" style_pad_all="#space_xs" style_pad_gap="#space_xs" scrollable="false">
@@ -80,7 +80,7 @@
           </lv_obj>
           <text_small name="preview_label_input" text="Input" translation_tag="Input"/>
           <text_input name="preview_text_input"
-                      width="100%" height="#input_height" placeholder_text="Type to preview input field..." placeholder_tag="Type to preview input field..." translation_tag="Type to preview input field..."/>
+                      width="100%" height="content" placeholder_text="Type to preview input field..." placeholder_tag="Type to preview input field..." translation_tag="Type to preview input field..."/>
           <text_small name="preview_label_intensity" text="Intensity" translation_tag="Intensity"/>
           <lv_obj width="100%"
                   height="content" flex_flow="row" style_pad_top="#space_sm" style_pad_bottom="#space_sm"

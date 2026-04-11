@@ -41,7 +41,7 @@
     </lv_obj>
     <!-- Right side: Dropdown -->
     <lv_dropdown name="dropdown"
-                 width="$dropdown_width" height="#input_height" options="$options" options_tag="$options_tag" style_radius="#border_radius" style_border_width="0">
+                 width="$dropdown_width" height="content" options="$options" options_tag="$options_tag" style_radius="#border_radius" style_border_width="0">
       <bind_state_if_eq subject="$disabled" state="disabled" ref_value="1"/>
       <event_cb trigger="value_changed" callback="$callback"/>
     </lv_dropdown>

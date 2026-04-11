@@ -21,7 +21,6 @@
     <!-- Static small radius for elements that always want 4px regardless of screen size -->
     <px name="border_radius_sm" value="4"/>
 
-    <!-- ===================================================================== -->
     <!-- Unified Responsive Spacing System (space_*)                         -->
     <!-- ===================================================================== -->
     <!-- Runtime selects appropriate variant via ui_theme_register_responsive_spacing()
@@ -77,6 +76,8 @@
     <!-- Runtime selects appropriate variant via ui_theme_register_responsive_fonts()
          Unified icon size for cards, nav bar, and other standard icons
          Values: xs(16), sm(24), md(32), lg(48), xl(64) -->
+    <!-- NOTE: icon_size_micro="md" (32px) — sm(24) is too small at 272px vertical (~9% of screen height, illegible) -->
+    <string name="icon_size_micro" value="md"/>
     <string name="icon_size_tiny" value="md"/>
     <string name="icon_size_small" value="md"/>
     <string name="icon_size_medium" value="lg"/>
@@ -168,17 +169,21 @@
     <px name="button_padding" value="12"/>
 
     <!-- Icon buttons, back buttons -->
+    <!-- _micro variants for 480x272 screen (15% shorter than TINY 480x320) -->
+    <px name="button_height_sm_micro" value="24"/>
     <px name="button_height_sm_tiny" value="28"/>
     <px name="button_height_sm_small" value="40"/>
     <px name="button_height_sm_medium" value="40"/>
     <px name="button_height_sm_large" value="40"/>
 
     <!-- button_height is responsive: _small/_medium/_large registered as button_height based on screen size -->
+    <px name="button_height_micro" value="26"/>
     <px name="button_height_tiny" value="32"/>
     <px name="button_height_small" value="48"/>
     <px name="button_height_medium" value="52"/>
     <px name="button_height_large" value="72"/>
 
+    <px name="button_height_lg_micro" value="34"/>
     <px name="button_height_lg_tiny" value="40"/>
     <px name="button_height_lg_small" value="64"/>
     <px name="button_height_lg_medium" value="70"/>
@@ -186,6 +191,7 @@
 
     <!-- Other component dimensions -->
     <!-- header_height is responsive: _small/_medium/_large registered as header_height based on screen height -->
+    <px name="header_height_micro" value="28"/>
     <px name="header_height_tiny" value="32"/>
     <px name="header_height_small" value="48"/>
     <px name="header_height_medium" value="56"/>
@@ -195,6 +201,7 @@
     <!-- Responsive Panel Heights (print status, file detail, history)         -->
     <!-- ===================================================================== -->
     <!-- temp_card_height: Temperature card height in print status panel -->
+    <px name="temp_card_height_micro" value="42"/>
     <px name="temp_card_height_tiny" value="48"/>
     <px name="temp_card_height_small" value="64"/>
     <px name="temp_card_height_medium" value="72"/>
@@ -216,36 +223,42 @@
          runtime by ui_theme_register_responsive_fonts() - do NOT define them
          here or responsive overrides will be silently ignored. -->
     <!-- font_heading variants (section headings, large text) -->
+    <string name="font_heading_micro" value="noto_sans_14"/>
     <string name="font_heading_tiny" value="noto_sans_16"/>
     <string name="font_heading_small" value="noto_sans_20"/>
     <string name="font_heading_medium" value="noto_sans_26"/>
     <string name="font_heading_large" value="noto_sans_28"/>
     <!-- NO BASE font_heading - registered at runtime -->
     <!-- font_xl variants (extra-large display text, e.g. clock digits) - uses Bold weight -->
+    <string name="font_xl_micro" value="noto_sans_bold_16"/>
     <string name="font_xl_tiny" value="noto_sans_bold_18"/>
     <string name="font_xl_small" value="noto_sans_bold_20"/>
     <string name="font_xl_medium" value="noto_sans_bold_28"/>
     <string name="font_xl_large" value="noto_sans_bold_28"/>
     <!-- NO BASE font_xl - registered at runtime -->
     <!-- font_body variants (standard body text) -->
+    <string name="font_body_micro" value="noto_sans_10"/>
     <string name="font_body_tiny" value="noto_sans_12"/>
     <string name="font_body_small" value="noto_sans_14"/>
     <string name="font_body_medium" value="noto_sans_18"/>
     <string name="font_body_large" value="noto_sans_20"/>
     <!-- NO BASE font_body - registered at runtime -->
     <!-- font_small variants (hints, helpers, chart labels) - uses Light weight -->
+    <string name="font_small_micro" value="noto_sans_light_10"/>
     <string name="font_small_tiny" value="noto_sans_light_11"/>
     <string name="font_small_small" value="noto_sans_light_12"/>
     <string name="font_small_medium" value="noto_sans_light_16"/>
     <string name="font_small_large" value="noto_sans_light_18"/>
     <!-- NO BASE font_small - registered at runtime -->
     <!-- font_xs variants (compact metadata, card overlays, badges) - uses Light weight -->
+    <string name="font_xs_micro" value="noto_sans_light_10"/>
     <string name="font_xs_tiny" value="noto_sans_light_10"/>
     <string name="font_xs_small" value="noto_sans_light_10"/>
     <string name="font_xs_medium" value="noto_sans_light_12"/>
     <string name="font_xs_large" value="noto_sans_light_14"/>
     <!-- NO BASE font_xs - registered at runtime -->
     <!-- font_mono variants (monospace for console/terminal displays) - Source Code Pro -->
+    <string name="font_mono_micro" value="source_code_pro_8"/>
     <string name="font_mono_tiny" value="source_code_pro_10"/>
     <string name="font_mono_small" value="source_code_pro_12"/>
     <string name="font_mono_medium" value="source_code_pro_14"/>
@@ -255,30 +268,35 @@
     <!-- Icon Typography - Responsive Material Design Icon Fonts               -->
     <!-- ===================================================================== -->
     <!-- icon_font_xs: Extra-small icons (compact badges, minimal UI elements) -->
+    <string name="icon_font_xs_micro" value="mdi_icons_16"/>
     <string name="icon_font_xs_tiny" value="mdi_icons_16"/>
     <string name="icon_font_xs_small" value="mdi_icons_16"/>
     <string name="icon_font_xs_medium" value="mdi_icons_16"/>
     <string name="icon_font_xs_large" value="mdi_icons_16"/>
     <!-- NO BASE icon_font_xs - registered at runtime -->
     <!-- icon_font_sm: Small inline icons (metadata, hints, small indicators) -->
+    <string name="icon_font_sm_micro" value="mdi_icons_16"/>
     <string name="icon_font_sm_tiny" value="mdi_icons_24"/>
     <string name="icon_font_sm_small" value="mdi_icons_24"/>
     <string name="icon_font_sm_medium" value="mdi_icons_24"/>
     <string name="icon_font_sm_large" value="mdi_icons_24"/>
     <!-- NO BASE icon_font_sm - registered at runtime -->
     <!-- icon_font_md: Standard UI icons (buttons, status, notifications) -->
+    <string name="icon_font_md_micro" value="mdi_icons_24"/>
     <string name="icon_font_md_tiny" value="mdi_icons_32"/>
     <string name="icon_font_md_small" value="mdi_icons_32"/>
     <string name="icon_font_md_medium" value="mdi_icons_32"/>
     <string name="icon_font_md_large" value="mdi_icons_32"/>
     <!-- NO BASE icon_font_md - registered at runtime -->
     <!-- icon_font_lg: Large icons (cards, status panels, emphasis) -->
+    <string name="icon_font_lg_micro" value="mdi_icons_24"/>
     <string name="icon_font_lg_tiny" value="mdi_icons_32"/>
     <string name="icon_font_lg_small" value="mdi_icons_48"/>
     <string name="icon_font_lg_medium" value="mdi_icons_48"/>
     <string name="icon_font_lg_large" value="mdi_icons_48"/>
     <!-- NO BASE icon_font_lg - registered at runtime -->
     <!-- icon_font_xl: Navigation/hero icons (nav bar, large displays) -->
+    <string name="icon_font_xl_micro" value="mdi_icons_32"/>
     <string name="icon_font_xl_tiny" value="mdi_icons_48"/>
     <string name="icon_font_xl_small" value="mdi_icons_64"/>
     <string name="icon_font_xl_medium" value="mdi_icons_64"/>

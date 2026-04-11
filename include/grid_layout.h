@@ -3,6 +3,8 @@
 
 #pragma once
 
+#include "ui_breakpoint.h"
+
 #include "lvgl/lvgl.h"
 
 #include <cstdint>
@@ -34,7 +36,7 @@ struct GridPlacement {
 class GridLayout {
   public:
     /// Number of defined breakpoints
-    static constexpr int NUM_BREAKPOINTS = 5;
+    static constexpr int NUM_BREAKPOINTS = 6;
 
     /// Target cell size in pixels for dynamic grid computation.
     /// ULTRAWIDE/PORTRAIT layouts divide screen resolution by this to determine
@@ -47,28 +49,28 @@ class GridLayout {
     static constexpr int MIN_DYNAMIC_ROWS = 3;
     static constexpr int MAX_DYNAMIC_ROWS = 12;
 
-    /// Get grid dimensions for a given breakpoint index (0-4)
-    static GridDimensions get_dimensions(int breakpoint);
+    /// Get grid dimensions for a given breakpoint
+    static GridDimensions get_dimensions(UiBreakpoint bp);
 
     /// Get the number of columns for a breakpoint
-    static int get_cols(int breakpoint);
+    static int get_cols(UiBreakpoint bp);
 
     /// Get the number of rows for a breakpoint
-    static int get_rows(int breakpoint);
+    static int get_rows(UiBreakpoint bp);
 
     /// Generate LVGL column descriptor array for a breakpoint.
     /// Returns vector of int32_t values terminated by LV_GRID_TEMPLATE_LAST.
-    static std::vector<int32_t> make_col_dsc(int breakpoint);
+    static std::vector<int32_t> make_col_dsc(UiBreakpoint bp);
 
     /// Generate LVGL row descriptor array for a breakpoint.
     /// Returns vector of int32_t values terminated by LV_GRID_TEMPLATE_LAST.
-    static std::vector<int32_t> make_row_dsc(int breakpoint);
+    static std::vector<int32_t> make_row_dsc(UiBreakpoint bp);
 
     /// Construct a GridLayout for a specific breakpoint
-    explicit GridLayout(int breakpoint);
+    explicit GridLayout(UiBreakpoint bp);
 
     /// Get the breakpoint this layout was constructed for
-    int breakpoint() const {
+    UiBreakpoint breakpoint() const {
         return breakpoint_;
     }
 
@@ -103,7 +105,7 @@ class GridLayout {
     /// Check which placements from a list fit within this layout's grid.
     /// Returns two vectors: (fits, does_not_fit)
     static std::pair<std::vector<GridPlacement>, std::vector<GridPlacement>>
-    filter_for_breakpoint(int breakpoint, const std::vector<GridPlacement>& placements);
+    filter_for_breakpoint(UiBreakpoint bp, const std::vector<GridPlacement>& placements);
 
     /// Clear all placements
     void clear();
@@ -112,7 +114,7 @@ class GridLayout {
     bool is_occupied(int col, int row) const;
 
   private:
-    int breakpoint_;
+    UiBreakpoint breakpoint_;
     std::vector<GridPlacement> placements_;
 };
 

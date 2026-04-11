@@ -75,7 +75,12 @@ static void register_color_picker_responsive_constants() {
     const char* preview_size_small;
     const char* text_height;
     const char* theme_swatch_size;
-    if (greater_res <= UI_BREAKPOINT_SMALL_MAX) {
+    if (greater_res <= UI_BREAKPOINT_MICRO_MAX) {
+        preview_size = "32";
+        preview_size_small = "16";
+        text_height = "44";
+        theme_swatch_size = "20";
+    } else if (greater_res <= UI_BREAKPOINT_SMALL_MAX) {
         preview_size = "40";
         preview_size_small = "20";
         text_height = "52";
@@ -113,7 +118,9 @@ static void register_color_picker_component_constants() {
     int32_t ver_res = lv_display_get_vertical_resolution(display);
 
     // Swatch size: smaller on compact screens
-    const char* swatch_size = ver_res <= UI_BREAKPOINT_SMALL_MAX ? "28" : "32";
+    const char* swatch_size = ver_res <= UI_BREAKPOINT_MICRO_MAX   ? "24"
+                              : ver_res <= UI_BREAKPOINT_SMALL_MAX ? "28"
+                                                                   : "32";
 
     // HSV picker: size proportionally to screen height
     // On TINY (full-screen modal), chrome is ~142px (header+tabs+padding+dividers+buttons)
@@ -122,7 +129,7 @@ static void register_color_picker_component_constants() {
     static char hue_buf[8];
     int32_t computed_sv;
     if (ver_res <= UI_BREAKPOINT_TINY_MAX) {
-        // Full-screen: fill available vertical space
+        // Full-screen (MICRO/TINY): fill available vertical space
         // Chrome: header(48) + divider(1) + tabs(36) + content pad(16) + spacer divider(1) +
         // buttons(40)
         constexpr int32_t chrome = 142;

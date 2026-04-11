@@ -568,7 +568,8 @@ void GridEditMode::sync_config_from_screen() {
     int ch = content_area.y2 - content_area.y1;
 
     lv_subject_t* bp_subj = theme_manager_get_breakpoint_subject();
-    int breakpoint = bp_subj ? lv_subject_get_int(bp_subj) : 2;
+    UiBreakpoint breakpoint =
+        bp_subj ? as_breakpoint(lv_subject_get_int(bp_subj)) : UiBreakpoint::Medium;
     int ncols = GridLayout::get_cols(breakpoint);
     int nrows = GridLayout::get_rows(breakpoint);
 
@@ -944,7 +945,8 @@ void GridEditMode::handle_long_press(lv_event_t* e) {
         int ch = content_area.y2 - content_area.y1;
 
         lv_subject_t* bp_subj = theme_manager_get_breakpoint_subject();
-        int breakpoint = bp_subj ? lv_subject_get_int(bp_subj) : 2;
+        UiBreakpoint breakpoint =
+            bp_subj ? as_breakpoint(lv_subject_get_int(bp_subj)) : UiBreakpoint::Medium;
         int ncols = GridLayout::get_cols(breakpoint);
         int nrows = GridLayout::get_rows(breakpoint);
 
@@ -1109,7 +1111,8 @@ void GridEditMode::handle_drag_start(lv_event_t* /*e*/) {
             int cw = content_area.x2 - content_area.x1;
             int ch = content_area.y2 - content_area.y1;
             lv_subject_t* bp = theme_manager_get_breakpoint_subject();
-            int bp_val = bp ? lv_subject_get_int(bp) : 2;
+            UiBreakpoint bp_val =
+                bp ? as_breakpoint(lv_subject_get_int(bp)) : UiBreakpoint::Medium; /* MEDIUM */
             float cell_w = static_cast<float>(cw) / GridLayout::get_cols(bp_val);
             float cell_h = static_cast<float>(ch) / GridLayout::get_rows(bp_val);
             update_resize_preview_px(static_cast<int>(drag_orig_col_ * cell_w),
@@ -1198,7 +1201,8 @@ void GridEditMode::handle_drag_move(lv_event_t* /*e*/) {
     int ch = content_area.y2 - content_area.y1;
 
     lv_subject_t* bp_subj = theme_manager_get_breakpoint_subject();
-    int breakpoint = bp_subj ? lv_subject_get_int(bp_subj) : 2;
+    UiBreakpoint breakpoint =
+        bp_subj ? as_breakpoint(lv_subject_get_int(bp_subj)) : UiBreakpoint::Medium;
     int ncols = GridLayout::get_cols(breakpoint);
     int nrows = GridLayout::get_rows(breakpoint);
 
@@ -1304,7 +1308,8 @@ void GridEditMode::handle_drag_end(lv_event_t* /*e*/) {
     int target_row = snap_preview_row_;
 
     lv_subject_t* bp_subj = theme_manager_get_breakpoint_subject();
-    int breakpoint = bp_subj ? lv_subject_get_int(bp_subj) : 2;
+    UiBreakpoint breakpoint =
+        bp_subj ? as_breakpoint(lv_subject_get_int(bp_subj)) : UiBreakpoint::Medium;
 
     bool did_move = false;
 
@@ -1503,7 +1508,8 @@ void GridEditMode::handle_resize_move(lv_event_t* /*e*/) {
     int ch = content_area.y2 - content_area.y1;
 
     lv_subject_t* bp_subj = theme_manager_get_breakpoint_subject();
-    int breakpoint = bp_subj ? lv_subject_get_int(bp_subj) : 2;
+    UiBreakpoint breakpoint =
+        bp_subj ? as_breakpoint(lv_subject_get_int(bp_subj)) : UiBreakpoint::Medium;
     int ncols = GridLayout::get_cols(breakpoint);
     int nrows = GridLayout::get_rows(breakpoint);
 
@@ -1646,7 +1652,8 @@ void GridEditMode::handle_resize_end(lv_event_t* /*e*/) {
     int ch = content_area.y2 - content_area.y1;
 
     lv_subject_t* bp_subj = theme_manager_get_breakpoint_subject();
-    int breakpoint = bp_subj ? lv_subject_get_int(bp_subj) : 2;
+    UiBreakpoint breakpoint =
+        bp_subj ? as_breakpoint(lv_subject_get_int(bp_subj)) : UiBreakpoint::Medium;
     int ncols = GridLayout::get_cols(breakpoint);
     int nrows = GridLayout::get_rows(breakpoint);
 
@@ -1796,7 +1803,8 @@ void GridEditMode::commit_resize_with_snap(const ResizeResult& result) {
     int cw = content_area.x2 - content_area.x1;
     int ch = content_area.y2 - content_area.y1;
     lv_subject_t* bp_subj = theme_manager_get_breakpoint_subject();
-    int breakpoint = bp_subj ? lv_subject_get_int(bp_subj) : 2;
+    UiBreakpoint breakpoint =
+        bp_subj ? as_breakpoint(lv_subject_get_int(bp_subj)) : UiBreakpoint::Medium;
     int ncols = GridLayout::get_cols(breakpoint);
     int nrows = GridLayout::get_rows(breakpoint);
     float cell_w = static_cast<float>(cw) / ncols;
@@ -1983,7 +1991,8 @@ void GridEditMode::create_drag_ghost(int col, int row, int colspan, int rowspan)
     int ch = content_area.y2 - content_area.y1;
 
     lv_subject_t* bp_subj = theme_manager_get_breakpoint_subject();
-    int breakpoint = bp_subj ? lv_subject_get_int(bp_subj) : 2;
+    UiBreakpoint breakpoint =
+        bp_subj ? as_breakpoint(lv_subject_get_int(bp_subj)) : UiBreakpoint::Medium;
     int ncols = GridLayout::get_cols(breakpoint);
     int nrows = GridLayout::get_rows(breakpoint);
 
@@ -2032,7 +2041,8 @@ void GridEditMode::update_snap_preview(int col, int row, int colspan, int rowspa
     int ch = content_area.y2 - content_area.y1;
 
     lv_subject_t* bp_subj = theme_manager_get_breakpoint_subject();
-    int breakpoint = bp_subj ? lv_subject_get_int(bp_subj) : 2;
+    UiBreakpoint breakpoint =
+        bp_subj ? as_breakpoint(lv_subject_get_int(bp_subj)) : UiBreakpoint::Medium;
     int ncols = GridLayout::get_cols(breakpoint);
     int nrows = GridLayout::get_rows(breakpoint);
 
@@ -2113,7 +2123,8 @@ void GridEditMode::create_dots_overlay() {
 
     // Get current breakpoint for grid dimensions
     lv_subject_t* bp_subj = theme_manager_get_breakpoint_subject();
-    int breakpoint = bp_subj ? lv_subject_get_int(bp_subj) : 2; // Default MEDIUM
+    UiBreakpoint breakpoint = bp_subj ? as_breakpoint(lv_subject_get_int(bp_subj))
+                                      : UiBreakpoint::Medium; // Default MEDIUM
     int ncols = GridLayout::get_cols(breakpoint);
     int nrows = GridLayout::get_rows(breakpoint);
 
@@ -2303,7 +2314,8 @@ void GridEditMode::place_widget_from_catalog(const std::string& widget_id) {
 
     // Determine current breakpoint and build a temporary grid
     lv_subject_t* bp_subj = theme_manager_get_breakpoint_subject();
-    int breakpoint = bp_subj ? lv_subject_get_int(bp_subj) : 2;
+    UiBreakpoint breakpoint =
+        bp_subj ? as_breakpoint(lv_subject_get_int(bp_subj)) : UiBreakpoint::Medium;
 
     GridLayout temp_grid(breakpoint);
     const auto& entries = config_->page_entries(static_cast<size_t>(page_index_));
