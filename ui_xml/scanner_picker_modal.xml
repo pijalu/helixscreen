@@ -18,6 +18,23 @@
         <event_cb trigger="clicked" callback="on_modal_cancel_clicked"/>
       </ui_button>
     </lv_obj>
+    <!-- Scanner keymap layout row: lets the user match the scanner's
+         programmed hardware layout (US QWERTY / German QWERTZ / French
+         AZERTY). This is a physical property of the scanner and cannot be
+         inferred from the app language. -->
+    <lv_obj width="100%" height="content"
+            style_pad_left="#space_lg" style_pad_right="#space_lg"
+            style_pad_top="#space_xs" style_pad_bottom="#space_xs"
+            flex_flow="row" style_flex_cross_place="center" style_pad_gap="#space_sm"
+            scrollable="false">
+      <text_body text="Keyboard Layout" translation_tag="Keyboard Layout" flex_grow="1"/>
+      <lv_dropdown name="scanner_keymap_dropdown"
+                   width="40%" height="content"
+                   options="US QWERTY&#10;German QWERTZ&#10;French AZERTY"
+                   style_radius="#border_radius" style_border_width="0">
+        <event_cb trigger="value_changed" callback="on_scanner_keymap_changed"/>
+      </lv_dropdown>
+    </lv_obj>
     <!-- Scrollable device list -->
     <lv_obj name="scanner_device_list"
             width="100%" flex_grow="1" flex_flow="column" style_pad_gap="0"

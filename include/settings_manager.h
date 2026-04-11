@@ -281,6 +281,22 @@ class SettingsManager {
     /** @brief Set configured BT scanner MAC address (empty = clear) */
     void set_scanner_bt_address(const std::string& address);
 
+    /** @brief Get configured scanner keymap layout
+     *
+     *  Scanners produce evdev keycodes according to their internal (hardware)
+     *  keyboard layout — this is a physical property of the scanner and cannot
+     *  be inferred from the app language. Returns one of:
+     *  "qwerty" (default, US), "qwertz" (German), "azerty" (French).
+     */
+    std::string get_scanner_keymap() const;
+
+    /** @brief Set configured scanner keymap layout
+     *
+     *  Accepts "qwerty", "qwertz", or "azerty". Unknown values are rejected
+     *  and the stored setting is left unchanged.
+     */
+    void set_scanner_keymap(const std::string& keymap);
+
   private:
     SettingsManager();
     ~SettingsManager() = default;
@@ -305,9 +321,10 @@ class SettingsManager {
     std::string chamber_sensor_assignment_{"auto"};
 
     // Scanner device selection (plain strings, no LVGL subjects needed)
-    std::string scanner_device_id_;   // "vendor:product" or empty
-    std::string scanner_device_name_; // display name for UI
-    std::string scanner_bt_address_;  // BT scanner MAC address or empty
+    std::string scanner_device_id_;        // "vendor:product" or empty
+    std::string scanner_device_name_;      // display name for UI
+    std::string scanner_bt_address_;       // BT scanner MAC address or empty
+    std::string scanner_keymap_{"qwerty"}; // "qwerty" | "qwertz" | "azerty"
 
     // State
     bool subjects_initialized_ = false;

@@ -11,6 +11,7 @@
 #include "bt_scanner_discovery_utils.h"
 #include "settings_manager.h"
 #include "theme_manager.h"
+#include "usb_scanner_monitor.h"
 
 #include <spdlog/fmt/fmt.h>
 #include <spdlog/spdlog.h>
@@ -78,6 +79,16 @@ ScannerPickerModal::ScannerPickerModal(SelectionCallback on_select)
         }
         LVGL_SAFE_EVENT_CB_END();
     });
+
+    lv_xml_register_event_cb(nullptr, "on_scanner_keymap_changed", [](lv_event_t* e) {
+        LVGL_SAFE_EVENT_CB_BEGIN("[ScannerPickerModal] on_scanner_keymap_changed");
+        if (s_active_instance_) {
+            auto* dd = static_cast<lv_obj_t*>(lv_event_get_current_target(e));
+            s_active_instance_->handle_keymap_changed(
+                static_cast<int>(lv_dropdown_get_selected(dd)));
+        }
+        LVGL_SAFE_EVENT_CB_END();
+    });
 }
 
 // ============================================================================
@@ -93,6 +104,7 @@ ScannerPickerModal::~ScannerPickerModal() {
     empty_state_ = nullptr;
     bt_scan_btn_ = nullptr;
     bt_spinner_ = nullptr;
+    keymap_dropdown_ = nullptr;
 
     stop_bt_discovery();
 
@@ -128,6 +140,19 @@ void ScannerPickerModal::on_show() {
     empty_state_ = find_widget("scanner_empty_state");
     bt_scan_btn_ = find_widget("btn_bt_scan");
     bt_spinner_ = find_widget("bt_scan_spinner");
+    keymap_dropdown_ = find_widget("scanner_keymap_dropdown");
+
+    // Seed the keymap dropdown from the persisted setting. Order must match
+    // the options in scanner_picker_modal.xml: qwerty=0, qwertz=1, azerty=2.
+    if (keymap_dropdown_) {
+        const std::string km = helix::SettingsManager::instance().get_scanner_keymap();
+        uint16_t idx = 0;
+        if (km == "qwertz")
+            idx = 1;
+        else if (km == "azerty")
+            idx = 2;
+        lv_dropdown_set_selected(keymap_dropdown_, idx);
+    }
 
     populate_device_list();
 
@@ -149,6 +174,19 @@ void ScannerPickerModal::on_hide() {
     empty_state_ = nullptr;
     bt_scan_btn_ = nullptr;
     bt_spinner_ = nullptr;
+    keymap_dropdown_ = nullptr;
+}
+
+void ScannerPickerModal::handle_keymap_changed(int dropdown_index) {
+    const char* values[] = {"qwerty", "qwertz", "azerty"};
+    if (dropdown_index < 0 || dropdown_index >= 3) {
+        spdlog::warn("[{}] keymap dropdown index out of range: {}", get_name(), dropdown_index);
+        return;
+    }
+    const std::string km = values[dropdown_index];
+    spdlog::info("[{}] Scanner keymap changed to: {}", get_name(), km);
+    helix::SettingsManager::instance().set_scanner_keymap(km);
+    helix::UsbScannerMonitor::set_active_layout(helix::UsbScannerMonitor::parse_keymap(km));
 }
 
 // ============================================================================

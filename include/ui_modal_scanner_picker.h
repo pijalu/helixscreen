@@ -58,6 +58,9 @@ class ScannerPickerModal : public Modal {
     // Bluetooth unpair (Forget button on paired BT rows)
     void handle_bt_forget(const std::string& mac);
 
+    // Scanner keymap dropdown change (index: 0=qwerty, 1=qwertz, 2=azerty)
+    void handle_keymap_changed(int dropdown_index);
+
     // Pairing modal callbacks
     static void on_pair_confirm(lv_event_t* e);
     static void on_pair_cancel(lv_event_t* e);
@@ -68,6 +71,7 @@ class ScannerPickerModal : public Modal {
     lv_obj_t* empty_state_ = nullptr;
     lv_obj_t* bt_scan_btn_ = nullptr;
     lv_obj_t* bt_spinner_ = nullptr;
+    lv_obj_t* keymap_dropdown_ = nullptr;
 
     // Bluetooth state
     struct BtDeviceInfo {

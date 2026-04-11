@@ -165,6 +165,15 @@ void SettingsManager::init_subjects() {
         spdlog::info("[SettingsManager] Loaded scanner BT address: {}", scanner_bt_address_);
     }
 
+    // Scanner keymap layout — default "qwerty" (US). Valid: qwerty|qwertz|azerty.
+    scanner_keymap_ = config->get<std::string>(config->df() + "scanner/keymap", "qwerty");
+    if (scanner_keymap_ != "qwerty" && scanner_keymap_ != "qwertz" && scanner_keymap_ != "azerty") {
+        spdlog::warn("[SettingsManager] Invalid scanner keymap '{}' — defaulting to qwerty",
+                     scanner_keymap_);
+        scanner_keymap_ = "qwerty";
+    }
+    spdlog::info("[SettingsManager] Loaded scanner keymap: {}", scanner_keymap_);
+
     subjects_initialized_ = true;
 
     // Self-register cleanup — ensures deinit runs before lv_deinit()
@@ -558,5 +567,21 @@ void SettingsManager::set_scanner_bt_address(const std::string& address) {
     scanner_bt_address_ = address;
     Config* config = Config::get_instance();
     config->set<std::string>(config->df() + "scanner/bt_address", address);
+    config->save();
+}
+
+std::string SettingsManager::get_scanner_keymap() const {
+    return scanner_keymap_;
+}
+
+void SettingsManager::set_scanner_keymap(const std::string& keymap) {
+    if (keymap != "qwerty" && keymap != "qwertz" && keymap != "azerty") {
+        spdlog::warn("[SettingsManager] set_scanner_keymap: rejecting invalid value '{}'", keymap);
+        return;
+    }
+    spdlog::info("[SettingsManager] set_scanner_keymap({})", keymap);
+    scanner_keymap_ = keymap;
+    Config* config = Config::get_instance();
+    config->set<std::string>(config->df() + "scanner/keymap", keymap);
     config->save();
 }

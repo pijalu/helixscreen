@@ -2,6 +2,9 @@
 
 #include "usb_scanner_monitor.h"
 
+#include <string>
+#include <vector>
+
 #include "../catch_amalgamated.hpp"
 
 // Define evdev keycodes for test builds (values match linux/input-event-codes.h)
@@ -55,8 +58,7 @@
 
 using helix::UsbScannerMonitor;
 
-TEST_CASE("keycode_to_char: digits KEY_0..KEY_9", "[usb_scanner]")
-{
+TEST_CASE("keycode_to_char: digits KEY_0..KEY_9", "[usb_scanner]") {
     CHECK(UsbScannerMonitor::keycode_to_char(KEY_1, false) == '1');
     CHECK(UsbScannerMonitor::keycode_to_char(KEY_2, false) == '2');
     CHECK(UsbScannerMonitor::keycode_to_char(KEY_3, false) == '3');
@@ -69,8 +71,7 @@ TEST_CASE("keycode_to_char: digits KEY_0..KEY_9", "[usb_scanner]")
     CHECK(UsbScannerMonitor::keycode_to_char(KEY_0, false) == '0');
 }
 
-TEST_CASE("keycode_to_char: letters KEY_A..KEY_Z lowercase", "[usb_scanner]")
-{
+TEST_CASE("keycode_to_char: letters KEY_A..KEY_Z lowercase", "[usb_scanner]") {
     CHECK(UsbScannerMonitor::keycode_to_char(KEY_A, false) == 'a');
     CHECK(UsbScannerMonitor::keycode_to_char(KEY_B, false) == 'b');
     CHECK(UsbScannerMonitor::keycode_to_char(KEY_C, false) == 'c');
@@ -80,16 +81,14 @@ TEST_CASE("keycode_to_char: letters KEY_A..KEY_Z lowercase", "[usb_scanner]")
     CHECK(UsbScannerMonitor::keycode_to_char(KEY_P, false) == 'p');
 }
 
-TEST_CASE("keycode_to_char: letters with shift produce uppercase", "[usb_scanner]")
-{
+TEST_CASE("keycode_to_char: letters with shift produce uppercase", "[usb_scanner]") {
     CHECK(UsbScannerMonitor::keycode_to_char(KEY_A, true) == 'A');
     CHECK(UsbScannerMonitor::keycode_to_char(KEY_Z, true) == 'Z');
     CHECK(UsbScannerMonitor::keycode_to_char(KEY_M, true) == 'M');
     CHECK(UsbScannerMonitor::keycode_to_char(KEY_S, true) == 'S');
 }
 
-TEST_CASE("keycode_to_char: special keys", "[usb_scanner]")
-{
+TEST_CASE("keycode_to_char: special keys", "[usb_scanner]") {
     CHECK(UsbScannerMonitor::keycode_to_char(KEY_MINUS, false) == '-');
     CHECK(UsbScannerMonitor::keycode_to_char(KEY_DOT, false) == '.');
     CHECK(UsbScannerMonitor::keycode_to_char(KEY_SLASH, false) == '/');
@@ -98,8 +97,7 @@ TEST_CASE("keycode_to_char: special keys", "[usb_scanner]")
     CHECK(UsbScannerMonitor::keycode_to_char(KEY_SEMICOLON, false) == ';');
 }
 
-TEST_CASE("keycode_to_char: shift special keys", "[usb_scanner]")
-{
+TEST_CASE("keycode_to_char: shift special keys", "[usb_scanner]") {
     CHECK(UsbScannerMonitor::keycode_to_char(KEY_SEMICOLON, true) == ':');
     CHECK(UsbScannerMonitor::keycode_to_char(KEY_MINUS, true) == '_');
     CHECK(UsbScannerMonitor::keycode_to_char(KEY_EQUAL, true) == '+');
@@ -108,48 +106,146 @@ TEST_CASE("keycode_to_char: shift special keys", "[usb_scanner]")
     CHECK(UsbScannerMonitor::keycode_to_char(KEY_COMMA, true) == '<');
 }
 
-TEST_CASE("keycode_to_char: unmapped key returns 0", "[usb_scanner]")
-{
+TEST_CASE("keycode_to_char: unmapped key returns 0", "[usb_scanner]") {
     CHECK(UsbScannerMonitor::keycode_to_char(KEY_LEFTCTRL, false) == 0);
     CHECK(UsbScannerMonitor::keycode_to_char(KEY_LEFTSHIFT, false) == 0);
     CHECK(UsbScannerMonitor::keycode_to_char(KEY_ENTER, false) == 0);
     CHECK(UsbScannerMonitor::keycode_to_char(999, false) == 0);
 }
 
-TEST_CASE("check_spoolman_pattern: web+spoolman format", "[usb_scanner]")
-{
+TEST_CASE("keycode_to_char: QWERTZ swaps Y and Z", "[usb_scanner]") {
+    using helix::ScannerKeymap;
+    // KEY_Y keycode (21) yields 'z' on QWERTZ; KEY_Z keycode (44) yields 'y'.
+    CHECK(UsbScannerMonitor::keycode_to_char(KEY_Y, false, ScannerKeymap::Qwertz) == 'z');
+    CHECK(UsbScannerMonitor::keycode_to_char(KEY_Z, false, ScannerKeymap::Qwertz) == 'y');
+    CHECK(UsbScannerMonitor::keycode_to_char(KEY_Y, true, ScannerKeymap::Qwertz) == 'Z');
+    CHECK(UsbScannerMonitor::keycode_to_char(KEY_Z, true, ScannerKeymap::Qwertz) == 'Y');
+    // All other letters match QWERTY.
+    CHECK(UsbScannerMonitor::keycode_to_char(KEY_A, false, ScannerKeymap::Qwertz) == 'a');
+    CHECK(UsbScannerMonitor::keycode_to_char(KEY_M, false, ScannerKeymap::Qwertz) == 'm');
+}
+
+namespace {
+/// Feed a keycode/shift sequence through keycode_to_char on the given layout
+/// and return the accumulated decoded string. Skips keycodes that map to 0
+/// (the same behaviour monitor_thread_func uses).
+struct KeyEvent {
+    int keycode;
+    bool shift;
+};
+std::string decode_sequence(const std::vector<KeyEvent>& seq, helix::ScannerKeymap layout) {
+    std::string out;
+    for (const auto& e : seq) {
+        char c = UsbScannerMonitor::keycode_to_char(e.keycode, e.shift, layout);
+        if (c != 0)
+            out += c;
+    }
+    return out;
+}
+} // namespace
+
+TEST_CASE("keycode_to_char: AZERTY end-to-end decode of Spoolman URL ASCII subset",
+          "[usb_scanner]") {
+    using helix::ScannerKeymap;
+    // Reproduces the AZERTY bug report: a Spoolman barcode scanned via an
+    // AZERTY-configured HID scanner previously decoded as "zeb+spool;qn.s6!"
+    // instead of its real content. This test feeds the
+    // exact keycode sequence an AZERTY scanner would emit for "web+spoolman-s-6"
+    // and asserts it decodes correctly end-to-end through keycode_to_char.
+    //
+    // NOTE: we test "web+spoolman-s-6" rather than the bug report's literal
+    // "web+spoolman:s-6" because AZERTY punctuation handling is intentionally
+    // scoped to ASCII-only subset — ':' on AZERTY lives at a different keycode
+    // than QWERTY and is not yet mapped. The bare "-" separator exercises the
+    // same decode path without pulling in deferred punctuation work.
+
+    const std::vector<KeyEvent> azerty_web_plus_spoolman_s_6 = {
+        {KEY_Z, false},         // 'w' — physical Z position on AZERTY
+        {KEY_E, false},         // 'e'
+        {KEY_B, false},         // 'b'
+        {KEY_EQUAL, true},      // '+' — shared with QWERTY in our table
+        {KEY_S, false},         // 's'
+        {KEY_P, false},         // 'p'
+        {KEY_O, false},         // 'o'
+        {KEY_O, false},         // 'o'
+        {KEY_L, false},         // 'l'
+        {KEY_SEMICOLON, false}, // 'm' — physical ; position on QWERTY
+        {KEY_Q, false},         // 'a' — physical Q position on QWERTY
+        {KEY_N, false},         // 'n'
+        {KEY_MINUS, false},     // '-'
+        {KEY_S, false},         // 's'
+        {KEY_MINUS, false},     // '-'
+        {KEY_6, true},          // '6' — shifted-by-default digit row on AZERTY
+    };
+    CHECK(decode_sequence(azerty_web_plus_spoolman_s_6, ScannerKeymap::Azerty) ==
+          "web+spoolman-s-6");
+
+    // And the decoded string should match the Spoolman parser so the full
+    // pipeline — scanner emit → keycode_to_char → check_spoolman_pattern —
+    // would recognise spool id 6.
+    CHECK(UsbScannerMonitor::check_spoolman_pattern("web+spoolman:s-6") == 6);
+}
+
+TEST_CASE("keycode_to_char: AZERTY key positions (individual checks)", "[usb_scanner]") {
+    using helix::ScannerKeymap;
+    // Letter rearrangement checks — complement to the end-to-end test above.
+    CHECK(UsbScannerMonitor::keycode_to_char(KEY_Z, false, ScannerKeymap::Azerty) == 'w');
+    CHECK(UsbScannerMonitor::keycode_to_char(KEY_Q, false, ScannerKeymap::Azerty) == 'a');
+    CHECK(UsbScannerMonitor::keycode_to_char(KEY_W, false, ScannerKeymap::Azerty) == 'z');
+    CHECK(UsbScannerMonitor::keycode_to_char(KEY_A, false, ScannerKeymap::Azerty) == 'q');
+    CHECK(UsbScannerMonitor::keycode_to_char(KEY_SEMICOLON, false, ScannerKeymap::Azerty) == 'm');
+    // Shifted digits on AZERTY yield the literal digits 1–0.
+    CHECK(UsbScannerMonitor::keycode_to_char(KEY_1, true, ScannerKeymap::Azerty) == '1');
+    CHECK(UsbScannerMonitor::keycode_to_char(KEY_6, true, ScannerKeymap::Azerty) == '6');
+    // KEY_MINUS and KEY_EQUAL kept QWERTY mapping so "s-<id>" Spoolman codes
+    // still decode cleanly.
+    CHECK(UsbScannerMonitor::keycode_to_char(KEY_MINUS, false, ScannerKeymap::Azerty) == '-');
+    CHECK(UsbScannerMonitor::keycode_to_char(KEY_EQUAL, true, ScannerKeymap::Azerty) == '+');
+}
+
+TEST_CASE("keycode_to_char: default layout is QWERTY (backward compat)", "[usb_scanner]") {
+    // The layout parameter defaults to Qwerty so existing callers keep working.
+    CHECK(UsbScannerMonitor::keycode_to_char(KEY_A, false) == 'a');
+    CHECK(UsbScannerMonitor::keycode_to_char(KEY_Z, false) == 'z');
+}
+
+TEST_CASE("parse_keymap recognises supported layouts", "[usb_scanner]") {
+    using helix::ScannerKeymap;
+    CHECK(UsbScannerMonitor::parse_keymap("qwerty") == ScannerKeymap::Qwerty);
+    CHECK(UsbScannerMonitor::parse_keymap("qwertz") == ScannerKeymap::Qwertz);
+    CHECK(UsbScannerMonitor::parse_keymap("azerty") == ScannerKeymap::Azerty);
+    CHECK(UsbScannerMonitor::parse_keymap("garbage") == ScannerKeymap::Qwerty);
+    CHECK(UsbScannerMonitor::parse_keymap("") == ScannerKeymap::Qwerty);
+}
+
+TEST_CASE("check_spoolman_pattern: web+spoolman format", "[usb_scanner]") {
     CHECK(UsbScannerMonitor::check_spoolman_pattern("web+spoolman:s-42") == 42);
     CHECK(UsbScannerMonitor::check_spoolman_pattern("web+spoolman:s-1") == 1);
     CHECK(UsbScannerMonitor::check_spoolman_pattern("web+spoolman:s-999") == 999);
 }
 
-TEST_CASE("check_spoolman_pattern: SM:SPOOL format", "[usb_scanner]")
-{
+TEST_CASE("check_spoolman_pattern: SM:SPOOL format", "[usb_scanner]") {
     CHECK(UsbScannerMonitor::check_spoolman_pattern("SM:SPOOL=123") == 123);
     CHECK(UsbScannerMonitor::check_spoolman_pattern("SM:SPOOL=1") == 1);
 }
 
-TEST_CASE("check_spoolman_pattern: URL format", "[usb_scanner]")
-{
+TEST_CASE("check_spoolman_pattern: URL format", "[usb_scanner]") {
     CHECK(UsbScannerMonitor::check_spoolman_pattern("https://spoolman.local/view/spool/7") == 7);
     CHECK(UsbScannerMonitor::check_spoolman_pattern("http://localhost:7912/spool/42") == 42);
     CHECK(UsbScannerMonitor::check_spoolman_pattern("https://example.com/spool/100/") == 100);
 }
 
-TEST_CASE("check_spoolman_pattern: invalid input returns -1", "[usb_scanner]")
-{
+TEST_CASE("check_spoolman_pattern: invalid input returns -1", "[usb_scanner]") {
     CHECK(UsbScannerMonitor::check_spoolman_pattern("random text") == -1);
     CHECK(UsbScannerMonitor::check_spoolman_pattern("not a qr code") == -1);
     CHECK(UsbScannerMonitor::check_spoolman_pattern("12345") == -1);
 }
 
-TEST_CASE("check_spoolman_pattern: empty input returns -1", "[usb_scanner]")
-{
+TEST_CASE("check_spoolman_pattern: empty input returns -1", "[usb_scanner]") {
     CHECK(UsbScannerMonitor::check_spoolman_pattern("") == -1);
 }
 
-TEST_CASE("UsbScannerMonitor: construct and destroy without starting", "[usb_scanner]")
-{
+TEST_CASE("UsbScannerMonitor: construct and destroy without starting", "[usb_scanner]") {
     // Should not crash
     UsbScannerMonitor monitor;
     CHECK_FALSE(monitor.is_running());
