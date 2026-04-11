@@ -207,18 +207,6 @@ class ThemeManager {
 // Responsive breakpoints — authoritative definition lives in ui_breakpoint.h
 #include "ui_breakpoint.h"
 
-/// Legacy alias — use UiBreakpoint directly.
-/// Values are identical (enum class, same underlying integers).
-using UiBreakpointIndex [[deprecated("Use UiBreakpoint instead")]] = UiBreakpoint;
-
-// Backward-compatible convenience macros (deprecated — use enum class directly)
-#define UI_BP_MICRO static_cast<int32_t>(UiBreakpoint::Micro)
-#define UI_BP_TINY static_cast<int32_t>(UiBreakpoint::Tiny)
-#define UI_BP_SMALL static_cast<int32_t>(UiBreakpoint::Small)
-#define UI_BP_MEDIUM static_cast<int32_t>(UiBreakpoint::Medium)
-#define UI_BP_LARGE static_cast<int32_t>(UiBreakpoint::Large)
-#define UI_BP_XLARGE static_cast<int32_t>(UiBreakpoint::XLarge)
-
 // Screen size presets for CLI (-s flag) — named to match responsive breakpoints
 #define UI_SCREEN_MICRO_W 480
 #define UI_SCREEN_MICRO_H 272

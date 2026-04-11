@@ -69,16 +69,6 @@ TEST_CASE("Breakpoint index enum has correct values", "[theme][breakpoints]") {
     REQUIRE(to_int(UiBreakpoint::XLarge) == 5);
 }
 
-// Backward compatibility: legacy UI_BP_* macros still work
-TEST_CASE("Legacy UI_BP_* macros match UiBreakpoint enum values", "[theme][breakpoints]") {
-    REQUIRE(UI_BP_MICRO == to_int(UiBreakpoint::Micro));
-    REQUIRE(UI_BP_TINY == to_int(UiBreakpoint::Tiny));
-    REQUIRE(UI_BP_SMALL == to_int(UiBreakpoint::Small));
-    REQUIRE(UI_BP_MEDIUM == to_int(UiBreakpoint::Medium));
-    REQUIRE(UI_BP_LARGE == to_int(UiBreakpoint::Large));
-    REQUIRE(UI_BP_XLARGE == to_int(UiBreakpoint::XLarge));
-}
-
 // ============================================================================
 // Responsive token fallback behavior (XML-based, uses test fixtures)
 // ============================================================================

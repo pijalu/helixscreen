@@ -12,11 +12,13 @@
 
 #pragma once
 
+#include <algorithm>
 #include <cstdint>
 
 /// Breakpoint tiers — used everywhere instead of magic integers.
 /// Selected based on screen height (vertical resolution).
-/// Values match the legacy UiBreakpointIndex enum for LVGL subject compatibility.
+/// Underlying integer values are stored in the ui_breakpoint LVGL subject
+/// and referenced from XML via bind_flag_if_eq ref_value — do not renumber.
 enum class UiBreakpoint : int32_t {
     Micro = 0,  // height ≤ 272  — 480x272
     Tiny = 1,   // height ≤ 390  — 480x320

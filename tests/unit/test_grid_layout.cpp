@@ -19,7 +19,6 @@ using namespace helix;
 // =============================================================================
 
 TEST_CASE("GridLayout dimensions: MICRO (bp 0) = 6x4", "[grid_layout][dimensions]") {
-    // MICRO = UI_BP_MICRO = 0 in the new 6-tier enum
     auto dims = GridLayout::get_dimensions(UiBreakpoint::Micro);
     CHECK(dims.cols == 6);
     CHECK(dims.rows == 4);
