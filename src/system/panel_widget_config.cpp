@@ -426,10 +426,11 @@ std::vector<PanelWidgetEntry> PanelWidgetConfig::build_default_grid() {
 
     // Determine current breakpoint for per-breakpoint anchor sizing
     lv_subject_t* bp_subj = theme_manager_get_breakpoint_subject();
-    int breakpoint = bp_subj ? lv_subject_get_int(bp_subj) : 3; // Default MEDIUM
+    UiBreakpoint breakpoint = bp_subj ? as_breakpoint(lv_subject_get_int(bp_subj))
+                                      : UiBreakpoint::Medium; // Default MEDIUM
 
     static const char* bp_names[] = {"micro", "tiny", "small", "medium", "large", "xlarge"};
-    const char* bp_name = (breakpoint >= 0 && breakpoint <= 5) ? bp_names[breakpoint] : "medium";
+    const char* bp_name = bp_names[to_int(breakpoint)];
 
     // Load anchor placements from config/default_layout.json (runtime-editable).
     // Falls back to registry defaults if file is missing or malformed.
@@ -449,8 +450,28 @@ std::vector<PanelWidgetEntry> PanelWidgetConfig::build_default_grid() {
                     continue;
 
                 auto placements = anchor.value("placements", nlohmann::json::object());
-                if (placements.contains(bp_name)) {
-                    auto& p = placements[bp_name];
+
+                // Fallback chain: micro→tiny→small, xlarge→large (matches theme_manager)
+                static const char* fallback_order[][3] = {
+                    {"micro", "tiny", "small"},   // bp=0
+                    {"tiny", "small", nullptr},   // bp=1
+                    {"small", nullptr},           // bp=2
+                    {"medium", nullptr},          // bp=3
+                    {"large", nullptr},           // bp=4
+                    {"xlarge", "large", nullptr}, // bp=5
+                };
+                const char* chosen_name = nullptr;
+                int bp_idx = to_int(breakpoint);
+                if (bp_idx >= 0 && bp_idx <= 5) {
+                    for (int i = 0; i < 3 && fallback_order[bp_idx][i]; ++i) {
+                        if (placements.contains(fallback_order[bp_idx][i])) {
+                            chosen_name = fallback_order[bp_idx][i];
+                            break;
+                        }
+                    }
+                }
+                if (chosen_name) {
+                    auto& p = placements[chosen_name];
                     anchors.push_back({id, p.value("col", 0), p.value("row", 0),
                                        p.value("colspan", 1), p.value("rowspan", 1)});
                 }
@@ -502,7 +523,7 @@ std::vector<PanelWidgetEntry> PanelWidgetConfig::build_default_grid() {
         auto it = std::find_if(result.begin(), result.end(),
                                [](const PanelWidgetEntry& e) { return e.id == "bed_temperature"; });
         if (it != result.end()) {
-            bool is_large = (breakpoint >= 4);
+            bool is_large = (to_int(breakpoint) >= to_int(UiBreakpoint::Large));
             bool ams_present = false;
             lv_subject_t* ams_subj = lv_xml_get_subject(nullptr, "ams_slot_count");
             if (ams_subj && lv_subject_get_int(ams_subj) > 0)

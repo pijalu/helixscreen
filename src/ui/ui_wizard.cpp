@@ -335,6 +335,7 @@ void ui_wizard_container_register_responsive_constants() {
         button_width = "90";
         size_label = "MICRO";
     } else if (greater_res <= UI_BREAKPOINT_SMALL_MAX) { // 273-460
+        // TINY/SMALL share presets — button widths are too similar to warrant separate tiers
         button_width = "110";
         size_label = "TINY/SMALL";
     } else if (greater_res <= UI_BREAKPOINT_MEDIUM_MAX) { // 481-800: 800x480

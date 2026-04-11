@@ -55,6 +55,7 @@ static void ui_switch_init_size_presets() {
         SIZE_LARGE = {48, 24, 2, 6, 6};
         spdlog::trace("[Switch] Initialized MICRO screen presets (ver_res={}px)", ver_res);
     } else if (ver_res <= UI_BREAKPOINT_SMALL_MAX) { // 273-460: 480x320, 480x400, 1920x440
+        // TINY/SMALL share presets — switch elements are too small to benefit from separate tiers
         SIZE_TINY = {32, 16, 1, 4, 4};
         SIZE_SMALL = {40, 20, 1, 5, 5};
         SIZE_MEDIUM = {48, 24, 2, 6, 6};

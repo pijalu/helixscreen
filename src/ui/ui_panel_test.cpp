@@ -79,6 +79,7 @@ void TestPanel::populate_labels() {
         switch_height = 14;
         row_height = 22;
     } else if (greater_res <= UI_BREAKPOINT_SMALL_MAX) { // 273-460
+        // TINY/SMALL share presets — switch elements are too small to benefit from separate tiers
         size_category = "TINY/SMALL";
         switch_width = 36;
         switch_height = 18;

@@ -21,7 +21,6 @@
     <!-- Static small radius for elements that always want 4px regardless of screen size -->
     <px name="border_radius_sm" value="4"/>
 
-    <!-- ===================================================================== -->
     <!-- Unified Responsive Spacing System (space_*)                         -->
     <!-- ===================================================================== -->
     <!-- Runtime selects appropriate variant via ui_theme_register_responsive_spacing()
@@ -77,6 +76,7 @@
     <!-- Runtime selects appropriate variant via ui_theme_register_responsive_fonts()
          Unified icon size for cards, nav bar, and other standard icons
          Values: xs(16), sm(24), md(32), lg(48), xl(64) -->
+    <!-- NOTE: icon_size_micro="md" (32px) — sm(24) is too small at 272px vertical (~9% of screen height, illegible) -->
     <string name="icon_size_micro" value="md"/>
     <string name="icon_size_tiny" value="md"/>
     <string name="icon_size_small" value="md"/>

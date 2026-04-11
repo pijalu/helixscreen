@@ -46,11 +46,11 @@ class TempCwdGuard {
         int rc = chdir(tmp_dir_.c_str());
         (void)rc;
 
-        // Reset breakpoint subject to 0 (tiny) — prior tests may have
+        // Reset breakpoint subject to Micro — prior tests may have
         // initialized it to a different breakpoint index via theme_manager_init
         lv_subject_t* bp = theme_manager_get_breakpoint_subject();
         if (bp && bp->type == LV_SUBJECT_TYPE_INT) {
-            lv_subject_set_int(bp, 0);
+            lv_subject_set_int(bp, to_int(UiBreakpoint::Micro));
         }
     }
 
@@ -616,7 +616,7 @@ lv_subject_t AmsSubjectGuard::subject_{};
 
 class BreakpointGuard {
   public:
-    explicit BreakpointGuard(int bp) {
+    explicit BreakpointGuard(UiBreakpoint bp) {
         subj_ = theme_manager_get_breakpoint_subject();
         if (subj_) {
             if (subj_->type != LV_SUBJECT_TYPE_INT) {
@@ -624,7 +624,7 @@ class BreakpointGuard {
                 lv_subject_init_int(subj_, 0);
             }
             original_ = lv_subject_get_int(subj_);
-            lv_subject_set_int(subj_, bp);
+            lv_subject_set_int(subj_, to_int(bp));
         }
     }
 
@@ -657,7 +657,7 @@ TEST_CASE("default_layout: bed_temperature is always last in result", "[default_
 TEST_CASE("default_layout: bed_temperature enabled at small breakpoint without AMS",
           "[default_layout]") {
     TempCwdGuard guard;
-    BreakpointGuard bp(1); // small
+    BreakpointGuard bp(UiBreakpoint::Small); // small
     guard.write_layout(R"({ "anchors": [] })");
 
     // No AMS subject registered → ams_slot_count lookup returns NULL → no AMS
@@ -671,8 +671,8 @@ TEST_CASE("default_layout: bed_temperature enabled at small breakpoint without A
 TEST_CASE("default_layout: bed_temperature disabled at small breakpoint with AMS",
           "[default_layout]") {
     TempCwdGuard guard;
-    BreakpointGuard bp(1);  // small
-    AmsSubjectGuard ams(4); // 4 slots → AMS present
+    BreakpointGuard bp(UiBreakpoint::Small); // small
+    AmsSubjectGuard ams(4);                  // 4 slots → AMS present
     guard.write_layout(R"({ "anchors": [] })");
 
     auto entries = PanelWidgetConfig::build_default_grid();
@@ -685,7 +685,7 @@ TEST_CASE("default_layout: bed_temperature disabled at small breakpoint with AMS
 TEST_CASE("default_layout: bed_temperature disabled at medium breakpoint with AMS",
           "[default_layout]") {
     TempCwdGuard guard;
-    BreakpointGuard bp(2); // medium
+    BreakpointGuard bp(UiBreakpoint::Medium); // medium
     AmsSubjectGuard ams(4);
     guard.write_layout(R"({ "anchors": [] })");
 
@@ -699,7 +699,7 @@ TEST_CASE("default_layout: bed_temperature disabled at medium breakpoint with AM
 TEST_CASE("default_layout: bed_temperature enabled at large breakpoint even with AMS",
           "[default_layout]") {
     TempCwdGuard guard;
-    BreakpointGuard bp(3); // large
+    BreakpointGuard bp(UiBreakpoint::Large); // large
     AmsSubjectGuard ams(4);
     guard.write_layout(R"({ "anchors": [] })");
 
@@ -713,7 +713,7 @@ TEST_CASE("default_layout: bed_temperature enabled at large breakpoint even with
 TEST_CASE("default_layout: bed_temperature enabled at xlarge breakpoint even with AMS",
           "[default_layout]") {
     TempCwdGuard guard;
-    BreakpointGuard bp(4); // xlarge
+    BreakpointGuard bp(UiBreakpoint::XLarge); // xlarge
     AmsSubjectGuard ams(4);
     guard.write_layout(R"({ "anchors": [] })");
 
@@ -727,7 +727,7 @@ TEST_CASE("default_layout: bed_temperature enabled at xlarge breakpoint even wit
 TEST_CASE("default_layout: bed_temperature enabled at medium breakpoint without AMS",
           "[default_layout]") {
     TempCwdGuard guard;
-    BreakpointGuard bp(2); // medium
+    BreakpointGuard bp(UiBreakpoint::Medium); // medium
     guard.write_layout(R"({ "anchors": [] })");
 
     auto entries = PanelWidgetConfig::build_default_grid();

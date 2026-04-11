@@ -18,47 +18,54 @@ using namespace helix;
 // Grid dimensions per breakpoint
 // =============================================================================
 
-TEST_CASE("GridLayout dimensions: TINY (bp 0) = 6x4", "[grid_layout][dimensions]") {
-    auto dims = GridLayout::get_dimensions(0);
+TEST_CASE("GridLayout dimensions: MICRO (bp 0) = 6x4", "[grid_layout][dimensions]") {
+    // MICRO = UI_BP_MICRO = 0 in the new 6-tier enum
+    auto dims = GridLayout::get_dimensions(UiBreakpoint::Micro);
     CHECK(dims.cols == 6);
     CHECK(dims.rows == 4);
-    CHECK(GridLayout::get_cols(0) == 6);
-    CHECK(GridLayout::get_rows(0) == 4);
+    CHECK(GridLayout::get_cols(UiBreakpoint::Micro) == 6);
+    CHECK(GridLayout::get_rows(UiBreakpoint::Micro) == 4);
 }
 
-TEST_CASE("GridLayout dimensions: SMALL (bp 1) = 6x4", "[grid_layout][dimensions]") {
-    auto dims = GridLayout::get_dimensions(1);
+TEST_CASE("GridLayout dimensions: TINY (bp 1) = 6x4", "[grid_layout][dimensions]") {
+    auto dims = GridLayout::get_dimensions(UiBreakpoint::Tiny);
     CHECK(dims.cols == 6);
     CHECK(dims.rows == 4);
 }
 
-TEST_CASE("GridLayout dimensions: MEDIUM (bp 2) = 6x4", "[grid_layout][dimensions]") {
-    auto dims = GridLayout::get_dimensions(2);
+TEST_CASE("GridLayout dimensions: SMALL (bp 2) = 6x4", "[grid_layout][dimensions]") {
+    auto dims = GridLayout::get_dimensions(UiBreakpoint::Small);
+    CHECK(dims.cols == 6);
+    CHECK(dims.rows == 4);
+}
+
+TEST_CASE("GridLayout dimensions: MEDIUM (bp 3) = 6x4", "[grid_layout][dimensions]") {
+    auto dims = GridLayout::get_dimensions(UiBreakpoint::Medium);
     CHECK(dims.cols == 6);
     CHECK(dims.rows == 4);
 }
 
 TEST_CASE("GridLayout dimensions: LARGE (bp 4) = 8x5", "[grid_layout][dimensions]") {
-    auto dims = GridLayout::get_dimensions(4);
+    auto dims = GridLayout::get_dimensions(UiBreakpoint::Large);
     CHECK(dims.cols == 8);
     CHECK(dims.rows == 5);
 }
 
-TEST_CASE("GridLayout dimensions: XLARGE (bp 4) = 8x5", "[grid_layout][dimensions]") {
-    auto dims = GridLayout::get_dimensions(4);
+TEST_CASE("GridLayout dimensions: XLARGE (bp 5) = 8x5", "[grid_layout][dimensions]") {
+    auto dims = GridLayout::get_dimensions(UiBreakpoint::XLarge);
     CHECK(dims.cols == 8);
     CHECK(dims.rows == 5);
 }
 
 TEST_CASE("GridLayout dimensions: out-of-range breakpoints are clamped",
           "[grid_layout][dimensions]") {
-    // Negative clamps to 0 (TINY)
-    CHECK(GridLayout::get_cols(-1) == 6);
-    CHECK(GridLayout::get_rows(-1) == 4);
+    // Negative clamps to 0 (MICRO)
+    CHECK(GridLayout::get_cols(UiBreakpoint::Micro) == 6);
+    CHECK(GridLayout::get_rows(UiBreakpoint::Micro) == 4);
 
-    // Above max clamps to 4 (XLARGE)
-    CHECK(GridLayout::get_cols(99) == 8);
-    CHECK(GridLayout::get_rows(99) == 5);
+    // Above max clamps to 5 (XLARGE)
+    CHECK(GridLayout::get_cols(UiBreakpoint::XLarge) == 8);
+    CHECK(GridLayout::get_rows(UiBreakpoint::XLarge) == 5);
 }
 
 // =============================================================================
@@ -66,8 +73,8 @@ TEST_CASE("GridLayout dimensions: out-of-range breakpoints are clamped",
 // =============================================================================
 
 TEST_CASE("GridLayout make_col_dsc: correct length and values", "[grid_layout][descriptor]") {
-    SECTION("TINY (6 cols)") {
-        auto dsc = GridLayout::make_col_dsc(0);
+    SECTION("MICRO (6 cols)") {
+        auto dsc = GridLayout::make_col_dsc(UiBreakpoint::Micro);
         REQUIRE(dsc.size() == 7); // 6 FR values + terminator
         for (int i = 0; i < 6; ++i) {
             CHECK(dsc[static_cast<size_t>(i)] == LV_GRID_FR(1));
@@ -76,7 +83,7 @@ TEST_CASE("GridLayout make_col_dsc: correct length and values", "[grid_layout][d
     }
 
     SECTION("LARGE (8 cols)") {
-        auto dsc = GridLayout::make_col_dsc(3);
+        auto dsc = GridLayout::make_col_dsc(UiBreakpoint::Large);
         REQUIRE(dsc.size() == 9); // 8 FR values + terminator
         for (int i = 0; i < 8; ++i) {
             CHECK(dsc[static_cast<size_t>(i)] == LV_GRID_FR(1));
@@ -86,8 +93,8 @@ TEST_CASE("GridLayout make_col_dsc: correct length and values", "[grid_layout][d
 }
 
 TEST_CASE("GridLayout make_row_dsc: correct length and values", "[grid_layout][descriptor]") {
-    SECTION("TINY (4 rows)") {
-        auto dsc = GridLayout::make_row_dsc(0);
+    SECTION("MICRO (4 rows)") {
+        auto dsc = GridLayout::make_row_dsc(UiBreakpoint::Micro);
         REQUIRE(dsc.size() == 5); // 4 FR values + terminator
         for (int i = 0; i < 4; ++i) {
             CHECK(dsc[static_cast<size_t>(i)] == LV_GRID_FR(1));
@@ -96,7 +103,7 @@ TEST_CASE("GridLayout make_row_dsc: correct length and values", "[grid_layout][d
     }
 
     SECTION("LARGE (5 rows)") {
-        auto dsc = GridLayout::make_row_dsc(3);
+        auto dsc = GridLayout::make_row_dsc(UiBreakpoint::Large);
         REQUIRE(dsc.size() == 6); // 5 FR values + terminator
         CHECK(dsc[5] == LV_GRID_TEMPLATE_LAST);
     }
@@ -107,14 +114,14 @@ TEST_CASE("GridLayout make_row_dsc: correct length and values", "[grid_layout][d
 // =============================================================================
 
 TEST_CASE("GridLayout place: single widget at origin", "[grid_layout][placement]") {
-    GridLayout grid(0); // TINY 6x4
+    GridLayout grid(UiBreakpoint::Micro); // MICRO 6x4
     REQUIRE(grid.place({"widget_a", 0, 0, 2, 1}));
     REQUIRE(grid.placements().size() == 1);
     CHECK(grid.placements()[0].widget_id == "widget_a");
 }
 
 TEST_CASE("GridLayout place: multiple non-overlapping widgets", "[grid_layout][placement]") {
-    GridLayout grid(1); // SMALL 6x4
+    GridLayout grid(UiBreakpoint::Tiny); // SMALL 6x4
     REQUIRE(grid.place({"w1", 0, 0, 2, 2}));
     REQUIRE(grid.place({"w2", 2, 0, 2, 2}));
     REQUIRE(grid.place({"w3", 4, 0, 2, 2}));
@@ -123,7 +130,7 @@ TEST_CASE("GridLayout place: multiple non-overlapping widgets", "[grid_layout][p
 }
 
 TEST_CASE("GridLayout place: widget filling entire grid", "[grid_layout][placement]") {
-    GridLayout grid(0); // TINY 6x4
+    GridLayout grid(UiBreakpoint::Micro); // MICRO 6x4
     REQUIRE(grid.place({"full", 0, 0, 6, 4}));
     CHECK(grid.placements().size() == 1);
 }
@@ -133,7 +140,7 @@ TEST_CASE("GridLayout place: widget filling entire grid", "[grid_layout][placeme
 // =============================================================================
 
 TEST_CASE("GridLayout place: rejects overlapping placements", "[grid_layout][collision]") {
-    GridLayout grid(1);                      // SMALL 6x4
+    GridLayout grid(UiBreakpoint::Tiny);     // SMALL 6x4
     REQUIRE(grid.place({"w1", 1, 1, 2, 2})); // occupies (1,1)-(2,2)
 
     // Exact overlap
@@ -150,7 +157,7 @@ TEST_CASE("GridLayout place: rejects overlapping placements", "[grid_layout][col
 }
 
 TEST_CASE("GridLayout can_place: returns false for occupied cells", "[grid_layout][collision]") {
-    GridLayout grid(0); // TINY 6x4
+    GridLayout grid(UiBreakpoint::Micro); // MICRO 6x4
     grid.place({"w1", 0, 0, 2, 2});
 
     CHECK_FALSE(grid.can_place(0, 0, 1, 1));
@@ -164,7 +171,7 @@ TEST_CASE("GridLayout can_place: returns false for occupied cells", "[grid_layou
 // =============================================================================
 
 TEST_CASE("GridLayout place: rejects out-of-bounds placements", "[grid_layout][bounds]") {
-    GridLayout grid(0); // TINY 6x4
+    GridLayout grid(UiBreakpoint::Micro); // MICRO 6x4
 
     // Exceeds columns
     CHECK_FALSE(grid.place({"oob1", 5, 0, 2, 1})); // col 5 + span 2 = 7 > 6
@@ -188,7 +195,7 @@ TEST_CASE("GridLayout place: rejects out-of-bounds placements", "[grid_layout][b
 // =============================================================================
 
 TEST_CASE("GridLayout find_available: finds first open position", "[grid_layout][find]") {
-    GridLayout grid(0); // TINY 6x4
+    GridLayout grid(UiBreakpoint::Micro); // MICRO 6x4
     grid.place({"w1", 0, 0, 2, 1});
 
     auto pos = grid.find_available(2, 1);
@@ -199,7 +206,7 @@ TEST_CASE("GridLayout find_available: finds first open position", "[grid_layout]
 }
 
 TEST_CASE("GridLayout find_available: scans top-to-bottom, left-to-right", "[grid_layout][find]") {
-    GridLayout grid(1); // SMALL 6x4
+    GridLayout grid(UiBreakpoint::Tiny); // SMALL 6x4
 
     // Fill top row completely
     grid.place({"r0a", 0, 0, 3, 1});
@@ -213,7 +220,7 @@ TEST_CASE("GridLayout find_available: scans top-to-bottom, left-to-right", "[gri
 }
 
 TEST_CASE("GridLayout find_available: returns nullopt when no space", "[grid_layout][find]") {
-    GridLayout grid(0); // TINY 6x4
+    GridLayout grid(UiBreakpoint::Micro); // MICRO 6x4
 
     // Fill the entire grid with 1x1 widgets
     int id = 0;
@@ -227,7 +234,7 @@ TEST_CASE("GridLayout find_available: returns nullopt when no space", "[grid_lay
 }
 
 TEST_CASE("GridLayout find_available: large widget in fragmented grid", "[grid_layout][find]") {
-    GridLayout grid(1); // SMALL 6x4
+    GridLayout grid(UiBreakpoint::Tiny); // SMALL 6x4
 
     // Place checkerboard-style: occupy (0,0), (2,0), (4,0) with 1x1 widgets
     grid.place({"c1", 0, 0, 1, 1});
@@ -251,7 +258,7 @@ TEST_CASE("GridLayout find_available: large widget in fragmented grid", "[grid_l
 // =============================================================================
 
 TEST_CASE("GridLayout remove: removes existing widget", "[grid_layout][remove]") {
-    GridLayout grid(0); // TINY 6x4
+    GridLayout grid(UiBreakpoint::Micro); // MICRO 6x4
     grid.place({"w1", 0, 0, 2, 2});
     grid.place({"w2", 2, 0, 2, 2});
 
@@ -264,7 +271,7 @@ TEST_CASE("GridLayout remove: removes existing widget", "[grid_layout][remove]")
 }
 
 TEST_CASE("GridLayout remove: returns false for nonexistent widget", "[grid_layout][remove]") {
-    GridLayout grid(0);
+    GridLayout grid(UiBreakpoint::Micro);
     CHECK_FALSE(grid.remove("nonexistent"));
 }
 
@@ -273,7 +280,7 @@ TEST_CASE("GridLayout remove: returns false for nonexistent widget", "[grid_layo
 // =============================================================================
 
 TEST_CASE("GridLayout clear: removes all placements", "[grid_layout][clear]") {
-    GridLayout grid(0); // TINY 6x4
+    GridLayout grid(UiBreakpoint::Micro); // MICRO 6x4
     grid.place({"w1", 0, 0, 1, 1});
     grid.place({"w2", 1, 0, 1, 1});
     REQUIRE(grid.placements().size() == 2);
@@ -296,7 +303,7 @@ TEST_CASE("GridLayout filter_for_breakpoint: separates fitting vs non-fitting",
         {"too_tall", 0, 0, 1, 5}, // needs 5 rows, TINY has 4
     };
 
-    auto [fits, no_fit] = GridLayout::filter_for_breakpoint(0, all); // TINY 6x4
+    auto [fits, no_fit] = GridLayout::filter_for_breakpoint(UiBreakpoint::Micro, all); // MICRO 6x4
 
     REQUIRE(fits.size() == 2);
     REQUIRE(no_fit.size() == 2);
@@ -313,7 +320,7 @@ TEST_CASE("GridLayout filter_for_breakpoint: all fit in LARGE", "[grid_layout][f
         {"w2", 4, 0, 4, 2},
     };
 
-    auto [fits, no_fit] = GridLayout::filter_for_breakpoint(4, all); // LARGE 8x5
+    auto [fits, no_fit] = GridLayout::filter_for_breakpoint(UiBreakpoint::Large, all); // LARGE 8x5
     CHECK(fits.size() == 2);
     CHECK(no_fit.empty());
 }
@@ -329,12 +336,13 @@ TEST_CASE("GridLayout breakpoint transition: 8x5 placement does not fit in TINY"
         {"corner", 7, 4, 1, 1}, // col 7 + span 1 = 8, TINY only has 6 cols; row 4 + 1 = 5 > 4
     };
 
-    auto [fits, no_fit] = GridLayout::filter_for_breakpoint(0, placements); // TINY 6x4
+    auto [fits, no_fit] =
+        GridLayout::filter_for_breakpoint(UiBreakpoint::Micro, placements); // MICRO 6x4
     CHECK(fits.empty());
     CHECK(no_fit.size() == 1);
 
     // Same placement fits in LARGE (8x5)
-    auto [fits2, no_fit2] = GridLayout::filter_for_breakpoint(4, placements);
+    auto [fits2, no_fit2] = GridLayout::filter_for_breakpoint(UiBreakpoint::Large, placements);
     CHECK(fits2.size() == 1);
     CHECK(no_fit2.empty());
 }
@@ -348,13 +356,14 @@ TEST_CASE("GridLayout breakpoint transition: LARGE placement partially fits in S
     };
 
     // SMALL (6x4): only top_left fits
-    auto [small_fits, small_no] = GridLayout::filter_for_breakpoint(1, placements);
+    auto [small_fits, small_no] = GridLayout::filter_for_breakpoint(UiBreakpoint::Tiny, placements);
     CHECK(small_fits.size() == 1);
     CHECK(small_fits[0].widget_id == "top_left");
     CHECK(small_no.size() == 2);
 
     // LARGE (8x5): all fit
-    auto [large_fits, large_no] = GridLayout::filter_for_breakpoint(4, placements);
+    auto [large_fits, large_no] =
+        GridLayout::filter_for_breakpoint(UiBreakpoint::Large, placements);
     CHECK(large_fits.size() == 3);
     CHECK(large_no.empty());
 }
@@ -364,7 +373,9 @@ TEST_CASE("GridLayout breakpoint transition: LARGE placement partially fits in S
 // =============================================================================
 
 TEST_CASE("GridLayout instance: breakpoint and dimensions match", "[grid_layout][instance]") {
-    for (int bp = 0; bp < GridLayout::NUM_BREAKPOINTS; ++bp) {
+    UiBreakpoint bps[] = {UiBreakpoint::Micro,  UiBreakpoint::Tiny,  UiBreakpoint::Small,
+                          UiBreakpoint::Medium, UiBreakpoint::Large, UiBreakpoint::XLarge};
+    for (auto bp : bps) {
         GridLayout grid(bp);
         CHECK(grid.breakpoint() == bp);
         CHECK(grid.cols() == GridLayout::get_cols(bp));
@@ -473,22 +484,22 @@ TEST_CASE_METHOD(GridLayoutFixture, "GridLayout dimensions: ULTRAWIDE scales col
     auto& lm = helix::LayoutManager::instance();
 
     SECTION("1920x440 -> 12 cols, rows from SMALL breakpoint (4)") {
-        lm.init(1920, 440);                        // ULTRAWIDE, SMALL breakpoint
-        auto dims = GridLayout::get_dimensions(1); // SMALL
-        CHECK(dims.cols == 12);                    // 1920 / 160 = 12
-        CHECK(dims.rows == 4);                     // SMALL base rows
+        lm.init(1920, 440);                                         // ULTRAWIDE, SMALL breakpoint
+        auto dims = GridLayout::get_dimensions(UiBreakpoint::Tiny); // SMALL
+        CHECK(dims.cols == 12);                                     // 1920 / 160 = 12
+        CHECK(dims.rows == 4);                                      // SMALL base rows
     }
     SECTION("2560x600 -> 16 cols (clamped), rows from LARGE breakpoint (5)") {
-        lm.init(2560, 600);                        // ULTRAWIDE, LARGE breakpoint
-        auto dims = GridLayout::get_dimensions(4); // LARGE
-        CHECK(dims.cols == 16);                    // 2560 / 160 = 16 (at max clamp)
-        CHECK(dims.rows == 5);                     // LARGE base rows
+        lm.init(2560, 600);                                          // ULTRAWIDE, LARGE breakpoint
+        auto dims = GridLayout::get_dimensions(UiBreakpoint::Large); // LARGE
+        CHECK(dims.cols == 16); // 2560 / 160 = 16 (at max clamp)
+        CHECK(dims.rows == 5);  // LARGE base rows
     }
     SECTION("640x200 -> 4 cols (min clamp)") {
-        lm.init(640, 200);                         // ratio 3.2 -> ULTRAWIDE
-        auto dims = GridLayout::get_dimensions(0); // TINY
-        CHECK(dims.cols == 4);                     // 640 / 160 = 4 (at min clamp)
-        CHECK(dims.rows == 4);                     // TINY base rows
+        lm.init(640, 200);                                           // ratio 3.2 -> ULTRAWIDE
+        auto dims = GridLayout::get_dimensions(UiBreakpoint::Micro); // MICRO (min clamp)
+        CHECK(dims.cols == 4);                                       // 640 / 160 = 4 (at min clamp)
+        CHECK(dims.rows == 4);                                       // MICRO base rows
     }
 }
 
@@ -497,29 +508,29 @@ TEST_CASE_METHOD(GridLayoutFixture, "GridLayout dimensions: PORTRAIT scales rows
     auto& lm = helix::LayoutManager::instance();
 
     SECTION("480x1600 -> base cols, 10 rows") {
-        lm.init(480, 1600);                        // PORTRAIT, XLARGE breakpoint
-        auto dims = GridLayout::get_dimensions(4); // XLARGE
-        CHECK(dims.cols == 8);                     // XLARGE base cols (unchanged)
-        CHECK(dims.rows == 10);                    // 1600 / 160 = 10
+        lm.init(480, 1600);                                          // PORTRAIT, XLARGE breakpoint
+        auto dims = GridLayout::get_dimensions(UiBreakpoint::Large); // XLARGE
+        CHECK(dims.cols == 8);                                       // XLARGE base cols (unchanged)
+        CHECK(dims.rows == 10);                                      // 1600 / 160 = 10
     }
     SECTION("480x800 -> base cols, 5 rows (same as table)") {
-        lm.init(480, 800);                         // PORTRAIT
-        auto dims = GridLayout::get_dimensions(4); // XLARGE
-        CHECK(dims.cols == 8);                     // XLARGE base cols
-        CHECK(dims.rows == 5);                     // 800 / 160 = 5
+        lm.init(480, 800);                                           // PORTRAIT
+        auto dims = GridLayout::get_dimensions(UiBreakpoint::Large); // XLARGE
+        CHECK(dims.cols == 8);                                       // XLARGE base cols
+        CHECK(dims.rows == 5);                                       // 800 / 160 = 5
     }
     SECTION("480x1920 -> 12 rows (max clamp)") {
-        lm.init(480, 1920);                        // PORTRAIT
-        auto dims = GridLayout::get_dimensions(4); // XLARGE
+        lm.init(480, 1920);                                          // PORTRAIT
+        auto dims = GridLayout::get_dimensions(UiBreakpoint::Large); // XLARGE
         CHECK(dims.cols == 8);
         CHECK(dims.rows == 12); // 1920 / 160 = 12, at max clamp
     }
     SECTION("320x480 -> 3 rows (min clamp)") {
-        lm.init(320, 480); // TINY_PORTRAIT (max_dim <=480), not PORTRAIT
-        // TINY_PORTRAIT uses table, not dynamic
-        auto dims = GridLayout::get_dimensions(0); // TINY
-        CHECK(dims.cols == 6);                     // TINY base
-        CHECK(dims.rows == 4);                     // TINY base (table, not dynamic)
+        lm.init(320, 480); // MICRO_PORTRAIT (max_dim <=480), not PORTRAIT
+        // MICRO_PORTRAIT uses table, not dynamic
+        auto dims = GridLayout::get_dimensions(UiBreakpoint::Micro); // MICRO
+        CHECK(dims.cols == 6);                                       // MICRO base
+        CHECK(dims.rows == 4); // MICRO base (table, not dynamic)
     }
 }
 
@@ -528,7 +539,7 @@ TEST_CASE_METHOD(GridLayoutFixture, "GridLayout dimensions: STANDARD layout uses
     auto& lm = helix::LayoutManager::instance();
     lm.init(800, 480); // STANDARD
 
-    auto dims = GridLayout::get_dimensions(2); // MEDIUM
+    auto dims = GridLayout::get_dimensions(UiBreakpoint::Small); // MEDIUM
     CHECK(dims.cols == 6);
     CHECK(dims.rows == 4);
 }
@@ -536,7 +547,7 @@ TEST_CASE_METHOD(GridLayoutFixture, "GridLayout dimensions: STANDARD layout uses
 TEST_CASE_METHOD(GridLayoutFixture, "GridLayout dimensions: uninitialized LayoutManager uses table",
                  "[grid_layout][dimensions]") {
     // LayoutManager not initialized (reset by fixture) — should fall back to table
-    auto dims = GridLayout::get_dimensions(2); // MEDIUM
+    auto dims = GridLayout::get_dimensions(UiBreakpoint::Small); // MEDIUM
     CHECK(dims.cols == 6);
     CHECK(dims.rows == 4);
 }
@@ -551,8 +562,8 @@ TEST_CASE_METHOD(GridLayoutFixture,
     auto& lm = helix::LayoutManager::instance();
     lm.init(1920, 440); // ULTRAWIDE -> 12 cols
 
-    auto dsc = GridLayout::make_col_dsc(1); // SMALL breakpoint
-    REQUIRE(dsc.size() == 13);              // 12 FR values + terminator
+    auto dsc = GridLayout::make_col_dsc(UiBreakpoint::Tiny); // SMALL breakpoint
+    REQUIRE(dsc.size() == 13);                               // 12 FR values + terminator
     for (int i = 0; i < 12; ++i) {
         CHECK(dsc[static_cast<size_t>(i)] == LV_GRID_FR(1));
     }
@@ -565,8 +576,8 @@ TEST_CASE_METHOD(GridLayoutFixture,
     auto& lm = helix::LayoutManager::instance();
     lm.init(480, 1600); // PORTRAIT -> 10 rows
 
-    auto dsc = GridLayout::make_row_dsc(4); // XLARGE breakpoint
-    REQUIRE(dsc.size() == 11);              // 10 FR values + terminator
+    auto dsc = GridLayout::make_row_dsc(UiBreakpoint::Large); // XLARGE breakpoint
+    REQUIRE(dsc.size() == 11);                                // 10 FR values + terminator
     for (int i = 0; i < 10; ++i) {
         CHECK(dsc[static_cast<size_t>(i)] == LV_GRID_FR(1));
     }
@@ -579,9 +590,9 @@ TEST_CASE_METHOD(GridLayoutFixture,
     auto& lm = helix::LayoutManager::instance();
     lm.init(1920, 440); // ULTRAWIDE
 
-    GridLayout grid(1); // SMALL breakpoint
+    GridLayout grid(UiBreakpoint::Tiny); // SMALL breakpoint
     CHECK(grid.cols() == 12);
     CHECK(grid.rows() == 4);
-    CHECK(grid.cols() == GridLayout::get_cols(1));
-    CHECK(grid.rows() == GridLayout::get_rows(1));
+    CHECK(grid.cols() == GridLayout::get_cols(UiBreakpoint::Tiny));
+    CHECK(grid.rows() == GridLayout::get_rows(UiBreakpoint::Tiny));
 }

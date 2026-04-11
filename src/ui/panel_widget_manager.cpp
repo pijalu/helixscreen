@@ -226,7 +226,8 @@ PanelWidgetManager::populate_widgets(const std::string& panel_id, lv_obj_t* cont
 
     // Get current breakpoint for column count
     lv_subject_t* bp_subj = theme_manager_get_breakpoint_subject();
-    int breakpoint = bp_subj ? lv_subject_get_int(bp_subj) : 2; // Default to MEDIUM
+    UiBreakpoint breakpoint = bp_subj ? as_breakpoint(lv_subject_get_int(bp_subj))
+                                      : UiBreakpoint::Medium; // Default to MEDIUM
 
     // Build grid placement tracker to compute positions
     GridLayout grid(breakpoint);
@@ -467,7 +468,7 @@ PanelWidgetManager::populate_widgets(const std::string& panel_id, lv_obj_t* cont
     int cols = GridLayout::get_cols(breakpoint);
 
     spdlog::debug("[PanelWidgetManager] Grid layout: {}cols x {}rows (bp={}, cached={}) for '{}'",
-                  cols, grid_rows, breakpoint, cached_rows, panel_id);
+                  cols, grid_rows, to_int(breakpoint), cached_rows, panel_id);
     int container_w = lv_obj_get_content_width(container);
     int container_h = lv_obj_get_content_height(container);
     int cell_w = (cols > 0) ? container_w / cols : 0;

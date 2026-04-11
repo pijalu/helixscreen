@@ -204,29 +204,20 @@ class ThemeManager {
 // Nav width is defined in navigation_bar.xml as nav_width_tiny/small/medium/large
 // and registered at runtime using horizontal breakpoint (see theme_manager.cpp)
 
-// Responsive breakpoints (based on screen height — vertical space is the constraint)
-// Target hardware: 480x272, 480x320, 480x400, 480x480, 1920x440, 800x480, 1024x600, 1280x720
-// 6-tier system: MICRO (≤272) → TINY (273-390) → SMALL (391-460) → MEDIUM (461-550) → LARGE
-// (551-700) → XLARGE (>700) _micro is optional with fallback to _tiny — only define _micro where
-// values differ _tiny is optional with fallback to _small — only define _tiny where values differ
-// _xlarge is optional with fallback to _large — only define _xlarge where values differ
-// Breakpoint index values (used in C++ and XML bind_flag_if_eq ref_value)
-enum UiBreakpointIndex : int32_t {
-    UI_BP_MICRO = 0,
-    UI_BP_TINY = 1,
-    UI_BP_SMALL = 2,
-    UI_BP_MEDIUM = 3,
-    UI_BP_LARGE = 4,
-    UI_BP_XLARGE = 5,
-};
+// Responsive breakpoints — authoritative definition lives in ui_breakpoint.h
+#include "ui_breakpoint.h"
 
-#define UI_BREAKPOINT_MICRO_MAX 272  // height ≤272 → MICRO (480x272)
-#define UI_BREAKPOINT_TINY_MAX 390   // height 273-390 → TINY (480x320)
-#define UI_BREAKPOINT_SMALL_MAX 460  // height 391-460 → SMALL (480x400, 1920x440)
-#define UI_BREAKPOINT_MEDIUM_MAX 550 // height 461-550 → MEDIUM (800x480)
-#define UI_BREAKPOINT_LARGE_MAX                                                                    \
-    700 // height 551-700 → LARGE (1024x600)
-        // height >700 → XLARGE (1280x720+)
+/// Legacy alias — use UiBreakpoint directly.
+/// Values are identical (enum class, same underlying integers).
+using UiBreakpointIndex [[deprecated("Use UiBreakpoint instead")]] = UiBreakpoint;
+
+// Backward-compatible convenience macros (deprecated — use enum class directly)
+#define UI_BP_MICRO static_cast<int32_t>(UiBreakpoint::Micro)
+#define UI_BP_TINY static_cast<int32_t>(UiBreakpoint::Tiny)
+#define UI_BP_SMALL static_cast<int32_t>(UiBreakpoint::Small)
+#define UI_BP_MEDIUM static_cast<int32_t>(UiBreakpoint::Medium)
+#define UI_BP_LARGE static_cast<int32_t>(UiBreakpoint::Large)
+#define UI_BP_XLARGE static_cast<int32_t>(UiBreakpoint::XLarge)
 
 // Screen size presets for CLI (-s flag) — named to match responsive breakpoints
 #define UI_SCREEN_MICRO_W 480

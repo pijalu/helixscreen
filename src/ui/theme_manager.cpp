@@ -804,7 +804,7 @@ void theme_manager_register_responsive_spacing(lv_display_t* display) {
     // horizontal resolution. Register first so auto-discovery silently skips duplicates.
     {
         const char* nav_suffix;
-        if (ver_res <= UI_BREAKPOINT_TINY_MAX)
+        if (ver_res <= UI_BREAKPOINT_MICRO_MAX)
             nav_suffix = "_micro";
         else if (hor_res <= 520)
             nav_suffix = "_tiny";
@@ -915,7 +915,7 @@ void theme_manager_refresh_layout_constants(lv_display_t* display) {
 
     // Update nav_width for new resolution — use vertical to distinguish micro from tiny
     const char* nav_suffix;
-    if (ver_res <= UI_BREAKPOINT_TINY_MAX)
+    if (ver_res <= UI_BREAKPOINT_MICRO_MAX)
         nav_suffix = "_micro";
     else if (hor_res <= 520)
         nav_suffix = "_tiny";
