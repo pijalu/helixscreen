@@ -360,8 +360,7 @@ void AbortManager::send_cancel_print() {
                     if (self->abort_state_ != State::SENT_CANCEL) {
                         return;
                     }
-                    bool esc =
-                        SafetySettingsManager::instance().get_cancel_escalation_enabled();
+                    bool esc = SafetySettingsManager::instance().get_cancel_escalation_enabled();
                     if (esc) {
                         self->on_cancel_timeout();
                     } else {
@@ -741,6 +740,12 @@ void AbortManager::cancel_all_timers() {
 void AbortManager::create_modal() {
     if (backdrop_) {
         spdlog::warn("[AbortManager] Modal already exists - skipping creation");
+        return;
+    }
+
+    lv_display_t* disp = lv_display_get_default();
+    if (!disp || !lv_display_get_driver_data(disp)) {
+        spdlog::debug("[AbortManager] No display driver data — skipping modal creation");
         return;
     }
 
