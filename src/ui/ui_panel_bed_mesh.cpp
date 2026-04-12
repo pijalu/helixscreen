@@ -955,6 +955,7 @@ void BedMeshPanel::start_calibration_probing() {
                 return;
 
             int expected = 0;
+            int samples = 1;
             try {
                 const auto& settings = response["result"]["status"]["configfile"]["settings"];
                 if (settings.contains("bed_mesh") && settings["bed_mesh"].contains("probe_count")) {
@@ -966,12 +967,24 @@ void BedMeshPanel::start_calibration_probing() {
                         expected = n * n; // square grid
                     }
                 }
+                // Probe samples: each mesh point may be probed multiple times.
+                // Check [probe] and [bltouch] sections (bltouch inherits from probe).
+                for (const char* section : {"probe", "bltouch"}) {
+                    if (settings.contains(section) && settings[section].contains("samples")) {
+                        int s = settings[section]["samples"].template get<int>();
+                        if (s > 1) {
+                            samples = s;
+                            break;
+                        }
+                    }
+                }
             } catch (...) {
                 // Non-fatal — proceed with 0 (indeterminate)
             }
 
-            spdlog::info("[BedMeshPanel] Expected probe count from config: {}", expected);
-            launch_calibration(api, token, expected);
+            spdlog::info("[BedMeshPanel] Expected probe count from config: {} (samples={})",
+                         expected, samples);
+            launch_calibration(api, token, expected, samples);
         },
         [this, api, token](const MoonrakerError& /*err*/) {
             if (token.expired())
@@ -983,7 +996,7 @@ void BedMeshPanel::start_calibration_probing() {
 }
 
 void BedMeshPanel::launch_calibration(MoonrakerAPI* api, helix::LifetimeToken token,
-                                      int expected_probes) {
+                                      int expected_probes, int probe_samples) {
     // Start calibration with progress tracking
     api->advanced().start_bed_mesh_calibrate(
         // Progress callback (from WebSocket thread)
@@ -1007,7 +1020,7 @@ void BedMeshPanel::launch_calibration(MoonrakerAPI* api, helix::LifetimeToken to
             token.defer("BedMeshPanel::calibrate_error",
                         [this, msg]() { on_calibration_error(msg); });
         },
-        expected_probes);
+        expected_probes, probe_samples);
 }
 
 // ============================================================================

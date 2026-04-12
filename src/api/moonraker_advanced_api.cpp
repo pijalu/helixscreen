@@ -1483,10 +1483,11 @@ class BedMeshProgressCollector : public std::enable_shared_from_this<BedMeshProg
 
     BedMeshProgressCollector(MoonrakerClient& client, ProgressCallback on_progress,
                              MoonrakerAdvancedAPI::SuccessCallback on_complete,
-                             MoonrakerAdvancedAPI::ErrorCallback on_error, int expected_probes = 0)
+                             MoonrakerAdvancedAPI::ErrorCallback on_error, int expected_probes = 0,
+                             int probe_samples = 1)
         : client_(client), on_progress_(std::move(on_progress)),
           on_complete_(std::move(on_complete)), on_error_(std::move(on_error)),
-          expected_probes_(expected_probes) {}
+          expected_probes_(expected_probes), probe_samples_(std::max(probe_samples, 1)) {}
 
     ~BedMeshProgressCollector() {
         unregister();
@@ -1579,12 +1580,16 @@ class BedMeshProgressCollector : public std::enable_shared_from_this<BedMeshProg
         // Fallback: count "probe at X,Y is z=Z" lines (standard Klipper probe
         // output).  Some firmware variants don't emit the "Probing point X/Y"
         // progress line but do emit per-probe result lines.
+        // When probe samples > 1, each mesh point generates multiple "probe at"
+        // lines.  Divide to report mesh-point progress, not raw sample count.
         if (helix::is_probe_result_line(line)) {
             probe_at_count_++;
-            spdlog::debug("[BedMeshProgressCollector] Probe result line #{} (expected: {})",
-                          probe_at_count_, expected_probes_);
+            int mesh_point = (probe_at_count_ + probe_samples_ - 1) / probe_samples_;
+            spdlog::debug("[BedMeshProgressCollector] Probe result line #{} → point {}/{} "
+                          "(samples={})",
+                          probe_at_count_, mesh_point, expected_probes_, probe_samples_);
             if (on_progress_) {
-                on_progress_(probe_at_count_, expected_probes_);
+                on_progress_(mesh_point, expected_probes_);
             }
         }
     }
@@ -1632,18 +1637,21 @@ class BedMeshProgressCollector : public std::enable_shared_from_this<BedMeshProg
     int total_probes_ = 0;
     int probe_at_count_ = 0;  // fallback counter for "probe at X,Y is z=Z" lines
     int expected_probes_ = 0; // hint from configfile (0 = unknown)
+    int probe_samples_ = 1;   // samples per mesh point (from [probe]/[bltouch] config)
 };
 
 void MoonrakerAdvancedAPI::start_bed_mesh_calibrate(BedMeshProgressCallback on_progress,
                                                     SuccessCallback on_complete,
-                                                    ErrorCallback on_error, int expected_probes) {
+                                                    ErrorCallback on_error, int expected_probes,
+                                                    int probe_samples) {
     spdlog::info("[MoonrakerAPI] Starting bed mesh calibration with progress tracking "
-                 "(expected_probes={})",
-                 expected_probes);
+                 "(expected_probes={}, probe_samples={})",
+                 expected_probes, probe_samples);
 
     // Create collector to track progress
-    auto collector = std::make_shared<BedMeshProgressCollector>(
-        client_, std::move(on_progress), std::move(on_complete), on_error, expected_probes);
+    auto collector = std::make_shared<BedMeshProgressCollector>(client_, std::move(on_progress),
+                                                                std::move(on_complete), on_error,
+                                                                expected_probes, probe_samples);
 
     collector->start();
 

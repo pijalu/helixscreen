@@ -279,7 +279,8 @@ class MoonrakerAdvancedAPIMock : public MoonrakerAdvancedAPI {
      * @brief Mock bed mesh calibration with progress simulation
      */
     void start_bed_mesh_calibrate(BedMeshProgressCallback on_progress, SuccessCallback on_complete,
-                                  ErrorCallback on_error, int expected_probes = 0) override;
+                                  ErrorCallback on_error, int expected_probes = 0,
+                                  int probe_samples = 1) override;
 
     /**
      * @brief Simulate SCREWS_TILT_CALCULATE with iterative bed leveling

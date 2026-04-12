@@ -202,10 +202,13 @@ class MoonrakerAdvancedAPI {
      * @param expected_probes Hint for total probe count (from configfile).
      *        Used as denominator when firmware doesn't emit "Probing point X/Y"
      *        progress lines.  0 = unknown (shows indeterminate spinner).
+     * @param probe_samples Number of probe samples per mesh point (from [probe]
+     *        or [bltouch] config).  Used to divide the fallback "probe at" line
+     *        count back to mesh points.  Default 1.
      */
     virtual void start_bed_mesh_calibrate(BedMeshProgressCallback on_progress,
                                           SuccessCallback on_complete, ErrorCallback on_error,
-                                          int expected_probes = 0);
+                                          int expected_probes = 0, int probe_samples = 1);
 
     /**
      * @brief Calculate screw adjustments for manual bed leveling
@@ -469,14 +472,14 @@ class MoonrakerAdvancedAPI {
      * Executes TEST_RESONANCES with OUTPUT=raw_data to produce a CSV file
      * of accelerometer data for belt tension analysis.
      *
-     * @param axis_param Axis parameter: "1,1" for CoreXY Path A, "1,-1" for Path B, "X"/"Y" for Cartesian
+     * @param axis_param Axis parameter: "1,1" for CoreXY Path A, "1,-1" for Path B, "X"/"Y" for
+     * Cartesian
      * @param output_name Name for the CSV output file
      * @param on_progress Called with progress percentage (0-100)
      * @param on_complete Called with output name on success
      * @param on_error Called on failure
      */
-    virtual void test_belt_resonance(const std::string& axis_param,
-                                     const std::string& output_name,
+    virtual void test_belt_resonance(const std::string& axis_param, const std::string& output_name,
                                      helix::AdvancedProgressCallback on_progress,
                                      BeltResonanceCallback on_complete, ErrorCallback on_error);
 

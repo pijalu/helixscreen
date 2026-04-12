@@ -6,12 +6,11 @@
 #include "ui_observer_guard.h"
 #include "ui_subscription_guard.h"
 
+#include "async_lifetime_guard.h"
 #include "moonraker_types.h" // For BedMeshProfile
 #include "operation_timeout_guard.h"
 #include "overlay_base.h"
 #include "subject_managed_panel.h"
-
-#include "async_lifetime_guard.h"
 
 #include <array>
 #include <memory>
@@ -102,8 +101,8 @@ class BedMeshPanel : public OverlayBase {
     void start_calibration_probing();
 
   private:
-    void launch_calibration(MoonrakerAPI* api, helix::LifetimeToken token,
-                            int expected_probes);
+    void launch_calibration(MoonrakerAPI* api, helix::LifetimeToken token, int expected_probes,
+                            int probe_samples = 1);
     // ========== Subject Manager (RAII cleanup) ==========
     SubjectManager subjects_;
 
@@ -145,11 +144,11 @@ class BedMeshPanel : public OverlayBase {
     char rename_old_name_buf_[64];
 
     // ========== Calibration Progress Subjects ==========
-    lv_subject_t bed_mesh_calibrate_state_;   ///< CalibrationState enum value
-    lv_subject_t bed_mesh_probe_progress_;    ///< 0-100 percentage
-    lv_subject_t bed_mesh_probe_text_;        ///< "Probing point 5 of 25"
+    lv_subject_t bed_mesh_calibrate_state_;     ///< CalibrationState enum value
+    lv_subject_t bed_mesh_probe_progress_;      ///< 0-100 percentage
+    lv_subject_t bed_mesh_probe_text_;          ///< "Probing point 5 of 25"
     lv_subject_t bed_mesh_probe_indeterminate_; ///< 1 = spinner (total unknown), 0 = progress bar
-    lv_subject_t bed_mesh_error_message_;     ///< Error message if failed
+    lv_subject_t bed_mesh_error_message_;       ///< Error message if failed
 
     char probe_text_buf_[64];     ///< Buffer for probe_text_ subject
     char error_message_buf_[256]; ///< Buffer for error_message_ subject
@@ -179,7 +178,6 @@ class BedMeshPanel : public OverlayBase {
     static constexpr uint32_t SLOW_OPERATION_TIMEOUT_MS =
         120000; // load, save_config (Klipper restart)
     static constexpr uint32_t CALIBRATION_TIMEOUT_MS = 300000; // 5 min for BED_MESH_CALIBRATE
-
 
     // RAII subscription guard - auto-unsubscribes from Moonraker on destruction
     SubscriptionGuard subscription_;

@@ -9,8 +9,11 @@
  * and error handling for bed mesh calibration progress tracking.
  */
 
+#include "bed_mesh_probe_parser.h"
+
 #include <regex>
 #include <string>
+#include <vector>
 
 #include "../catch_amalgamated.hpp"
 
@@ -311,4 +314,84 @@ TEST_CASE("BedMeshCollector handles edge case probe counts", "[bed_mesh_collecto
         REQUIRE(current == 17);
         REQUIRE(total == 37);
     }
+}
+
+// ============================================================================
+// Probe Samples Per Point (fallback "probe at" path)
+// ============================================================================
+
+/**
+ * @brief Simulate the fallback path with probe_samples > 1
+ *
+ * When firmware doesn't emit "Probing point X/Y" but does emit
+ * "probe at X,Y is z=Z" for each sample, the collector divides by
+ * probe_samples to report mesh-point progress instead of raw sample count.
+ *
+ * Math: mesh_point = ceil(probe_at_count / probe_samples)
+ */
+static std::vector<std::pair<int, int>> simulate_fallback_probing(int grid_points,
+                                                                  int probe_samples) {
+    std::vector<std::pair<int, int>> progress_calls;
+    int probe_at_count = 0;
+    int expected_probes = grid_points;
+    int samples = std::max(probe_samples, 1);
+
+    // Each mesh point produces `samples` "probe at" lines
+    for (int point = 0; point < grid_points; ++point) {
+        for (int s = 0; s < samples; ++s) {
+            // Simulate a "probe at X,Y is z=Z" line
+            ++probe_at_count;
+            int mesh_point = (probe_at_count + samples - 1) / samples;
+            progress_calls.push_back({mesh_point, expected_probes});
+        }
+    }
+    return progress_calls;
+}
+
+TEST_CASE("Fallback probe count with samples=1 reports raw count",
+          "[bed_mesh_collector][samples]") {
+    auto calls = simulate_fallback_probing(25, 1);
+    REQUIRE(calls.size() == 25);
+    REQUIRE(calls.front() == std::make_pair(1, 25));
+    REQUIRE(calls.back() == std::make_pair(25, 25));
+}
+
+TEST_CASE("Fallback probe count with samples=3 reports mesh points",
+          "[bed_mesh_collector][samples]") {
+    // 5x5 grid, 3 samples per point = 75 "probe at" lines
+    auto calls = simulate_fallback_probing(25, 3);
+    REQUIRE(calls.size() == 75);
+
+    // First 3 samples all map to mesh point 1
+    REQUIRE(calls[0] == std::make_pair(1, 25));
+    REQUIRE(calls[1] == std::make_pair(1, 25));
+    REQUIRE(calls[2] == std::make_pair(1, 25));
+
+    // Samples 4-6 map to mesh point 2
+    REQUIRE(calls[3] == std::make_pair(2, 25));
+    REQUIRE(calls[5] == std::make_pair(2, 25));
+
+    // Last sample maps to mesh point 25, not 75
+    REQUIRE(calls.back() == std::make_pair(25, 25));
+}
+
+TEST_CASE("Fallback probe count with samples=5 reports mesh points",
+          "[bed_mesh_collector][samples]") {
+    // 3x3 grid, 5 samples per point = 45 "probe at" lines
+    auto calls = simulate_fallback_probing(9, 5);
+    REQUIRE(calls.size() == 45);
+    REQUIRE(calls.back() == std::make_pair(9, 9));
+
+    // After 10 samples (2 mesh points * 5 samples), should report point 2
+    REQUIRE(calls[9] == std::make_pair(2, 9));
+    // After 11 samples, should report point 3 (ceiling division)
+    REQUIRE(calls[10] == std::make_pair(3, 9));
+}
+
+TEST_CASE("is_probe_result_line detects standard Klipper probe output",
+          "[bed_mesh_collector][samples]") {
+    REQUIRE(helix::is_probe_result_line("probe at 150.000,150.000 is z=1.234"));
+    REQUIRE(helix::is_probe_result_line("probe at 0.000,0.000 is z=-0.050"));
+    REQUIRE_FALSE(helix::is_probe_result_line("Probing point 5/25"));
+    REQUIRE_FALSE(helix::is_probe_result_line("ok"));
 }
