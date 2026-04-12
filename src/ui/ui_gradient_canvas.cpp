@@ -3,7 +3,6 @@
 
 #include "ui_gradient_canvas.h"
 
-#include "memory_utils.h"
 #include "ui_error_reporting.h"
 #include "ui_update_queue.h"
 #include "ui_utils.h"
@@ -14,10 +13,12 @@
 #include "helix-xml/src/xml/lv_xml_widget.h"
 #include "helix-xml/src/xml/parsers/lv_xml_obj_parser.h"
 #include "lvgl/lvgl.h"
+#include "memory_utils.h"
 
 #include <spdlog/spdlog.h>
 
 #include <algorithm>
+#include <cmath>
 #include <cstring>
 #include <memory>
 
@@ -36,8 +37,7 @@ constexpr uint8_t LIGHT_END_GRAY = 188;   // Bottom-left - darker
 // Pre-rendered gradient buffer size
 // 256x256 on normal devices, 128x128 on constrained (saves 192KB ARGB8888)
 static int32_t gradient_buffer_size() {
-    static const int32_t size =
-        helix::get_system_memory_info().is_constrained_device() ? 128 : 256;
+    static const int32_t size = helix::get_system_memory_info().is_constrained_device() ? 128 : 256;
     return size;
 }
 
@@ -142,8 +142,8 @@ static void render_gradient_to_buf(lv_draw_buf_t* buf, uint8_t start_r, uint8_t 
 static void render_gradient_buffer(GradientData* data) {
     if (!data || !data->draw_buf)
         return;
-    render_gradient_to_buf(data->draw_buf, data->start_r, data->start_g, data->start_b,
-                           data->end_r, data->end_g, data->end_b, data->dither);
+    render_gradient_to_buf(data->draw_buf, data->start_r, data->start_g, data->start_b, data->end_r,
+                           data->end_g, data->end_b, data->dither);
 }
 
 /**
@@ -189,8 +189,8 @@ static void* ui_gradient_canvas_xml_create(lv_xml_parser_state_t* state, const c
 
     // Create draw buffer for gradient
     // Must stay ARGB8888 — render_gradient_buffer() writes lv_color32_t pixels directly
-    data_ptr->draw_buf =
-        lv_draw_buf_create(gradient_buffer_size(), gradient_buffer_size(), LV_COLOR_FORMAT_ARGB8888, 0);
+    data_ptr->draw_buf = lv_draw_buf_create(gradient_buffer_size(), gradient_buffer_size(),
+                                            LV_COLOR_FORMAT_ARGB8888, 0);
 
     if (!data_ptr->draw_buf) {
         LOG_ERROR_INTERNAL("[GradientCanvas] Failed to create draw buffer");
@@ -306,7 +306,54 @@ void ui_gradient_canvas_set_dither(lv_obj_t* obj, bool enable) {
     }
 }
 
-lv_draw_buf_t* ui_gradient_canvas_create_buf(int32_t width, int32_t height, bool dark_mode) {
+/**
+ * @brief Apply rounded corner alpha mask to an ARGB8888 draw buffer
+ *
+ * Sets alpha to 0 for pixels outside the rounded rectangle, with 1px
+ * anti-aliased fringe for smooth edges. Workaround for LVGL's style_clip_corner
+ * not reliably clipping children on SDL/GLES backends.
+ */
+static void apply_corner_radius_mask(lv_draw_buf_t* buf, int32_t radius) {
+    if (!buf || !buf->data || radius <= 0)
+        return;
+
+    uint8_t* buf_data = buf->data;
+    uint32_t stride = buf->header.stride;
+    int32_t w = buf->header.w;
+    int32_t h = buf->header.h;
+
+    radius = std::min(radius, std::min(w, h) / 2);
+
+    for (int32_t cy = 0; cy < radius; cy++) {
+        auto* top_row =
+            reinterpret_cast<lv_color32_t*>(buf_data + static_cast<uint32_t>(cy) * stride);
+        auto* bot_row =
+            reinterpret_cast<lv_color32_t*>(buf_data + static_cast<uint32_t>(h - 1 - cy) * stride);
+
+        for (int32_t cx = 0; cx < radius; cx++) {
+            float dx = static_cast<float>(radius - cx) - 0.5f;
+            float dy = static_cast<float>(radius - cy) - 0.5f;
+            float dist = sqrtf(dx * dx + dy * dy);
+            float r = static_cast<float>(radius);
+
+            if (dist > r) {
+                top_row[cx].alpha = 0;
+                top_row[w - 1 - cx].alpha = 0;
+                bot_row[cx].alpha = 0;
+                bot_row[w - 1 - cx].alpha = 0;
+            } else if (dist > r - 1.0f) {
+                uint8_t aa = static_cast<uint8_t>((r - dist) * 255.0f);
+                top_row[cx].alpha = std::min(top_row[cx].alpha, aa);
+                top_row[w - 1 - cx].alpha = std::min(top_row[w - 1 - cx].alpha, aa);
+                bot_row[cx].alpha = std::min(bot_row[cx].alpha, aa);
+                bot_row[w - 1 - cx].alpha = std::min(bot_row[w - 1 - cx].alpha, aa);
+            }
+        }
+    }
+}
+
+lv_draw_buf_t* ui_gradient_canvas_create_buf(int32_t width, int32_t height, bool dark_mode,
+                                             int32_t radius) {
     if (width <= 0 || height <= 0)
         return nullptr;
 
@@ -322,7 +369,11 @@ lv_draw_buf_t* ui_gradient_canvas_create_buf(int32_t width, int32_t height, bool
     render_gradient_to_buf(buf, start_gray, start_gray, start_gray, end_gray, end_gray, end_gray,
                            true);
 
-    spdlog::debug("[GradientCanvas] Created shared {}x{} gradient buffer ({})",
-                  width, height, dark_mode ? "dark" : "light");
+    if (radius > 0) {
+        apply_corner_radius_mask(buf, radius);
+    }
+
+    spdlog::debug("[GradientCanvas] Created shared {}x{} gradient buffer ({}, radius={})", width,
+                  height, dark_mode ? "dark" : "light", radius);
     return buf;
 }

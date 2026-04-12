@@ -199,7 +199,8 @@ void PrintSelectCardView::ensure_gradient_cache(int32_t card_width, int32_t card
         lv_draw_buf_destroy(cached_gradient_);
     }
 
-    cached_gradient_ = ui_gradient_canvas_create_buf(card_width, card_height, dark);
+    int32_t radius = theme_manager_get_spacing("border_radius");
+    cached_gradient_ = ui_gradient_canvas_create_buf(card_width, card_height, dark, radius);
     cached_gradient_w_ = card_width;
     cached_gradient_h_ = card_height;
     cached_gradient_dark_ = dark;
@@ -459,6 +460,7 @@ void PrintSelectCardView::configure_card(lv_obj_t* card, size_t pool_index, size
     // Update card sizing (ensure_gradient_cache updates all cards if dims changed)
     lv_obj_set_width(card, dims.card_width);
     lv_obj_set_height(card, dims.card_height);
+
     ensure_gradient_cache(dims.card_width, dims.card_height);
 
     // Store file index for click handler

@@ -61,9 +61,11 @@ void ui_gradient_canvas_set_dither(lv_obj_t* canvas, bool enable);
  * @param width Buffer width in pixels
  * @param height Buffer height in pixels
  * @param dark_mode true for dark theme colors, false for light
+ * @param radius Corner radius in pixels (0 = no rounding)
  * @return Owned lv_draw_buf_t*, or nullptr on allocation failure
  */
-lv_draw_buf_t* ui_gradient_canvas_create_buf(int32_t width, int32_t height, bool dark_mode);
+lv_draw_buf_t* ui_gradient_canvas_create_buf(int32_t width, int32_t height, bool dark_mode,
+                                             int32_t radius);
 
 #ifdef __cplusplus
 }

@@ -184,7 +184,7 @@ void TimelapseVideosOverlay::ensure_gradient_cache(int32_t card_width, int32_t c
     if (cached_gradient_) {
         lv_draw_buf_destroy(cached_gradient_);
     }
-    cached_gradient_ = ui_gradient_canvas_create_buf(card_width, card_height, dark);
+    cached_gradient_ = ui_gradient_canvas_create_buf(card_width, card_height, dark, 0);
     cached_gradient_w_ = card_width;
     cached_gradient_h_ = card_height;
     cached_gradient_dark_ = dark;
