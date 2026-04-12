@@ -8,6 +8,8 @@ import android.util.Log;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.Window;
+import android.view.WindowInsets;
+import android.view.WindowInsetsController;
 import android.view.WindowManager;
 
 import java.io.OutputStream;
@@ -24,25 +26,17 @@ import org.libsdl.app.SDLActivity;
  * Extends SDLActivity to provide the SDL2 + native code bridge.
  *
  * System UI behavior:
- *   - Default state: status bar AND navigation bar hidden, using legacy
- *     non-sticky IMMERSIVE flags so the hidden state persists across taps
- *     (plain HIDE_NAVIGATION without IMMERSIVE is only transient).
+ *   - Default state: status bar AND navigation bar hidden in immersive mode.
+ *   - API 30+: Uses WindowInsetsController with transient gesture bars.
+ *     System edge-swipe reveals translucent bars that auto-fade. Our explicit
+ *     show/hide via the custom swipe gesture uses the 3-second auto-hide timer.
+ *   - API 28-29: Uses legacy setSystemUiVisibility with non-sticky IMMERSIVE
+ *     flags so the hidden state persists across taps.
  *   - Reveal gesture: a swipe that starts within EDGE_ZONE_DP of the bottom
- *     edge and travels upward more than SWIPE_THRESHOLD_DP shows the nav bar
- *     as a translucent "ghost" overlay. A swipe is a drag — LVGL treats it as
- *     a scroll gesture and cancels any pending click, so bottom-row app
- *     buttons stay tappable without accidental reveals.
- *   - Inactivity auto-hide: while the nav bar is visible, each touch resets a
- *     NAV_HIDE_TIMEOUT_MS timer. When that timer fires, the nav bar hides.
+ *     edge and travels upward more than SWIPE_THRESHOLD_DP shows the nav bar.
+ *     LVGL treats the drag as a scroll gesture and cancels any pending click,
+ *     so bottom-row app buttons stay tappable without accidental reveals.
  *   - Touch events are never consumed here; SDL / LVGL sees them all.
- *   - Android may also reveal the nav bar itself via its own edge-swipe
- *     detection (non-sticky IMMERSIVE). onSystemUiVisibilityChange keeps our
- *     internal state in sync when that happens and starts the hide timer.
- *
- * TODO: targetSdk 30+ will require migrating from setSystemUiVisibility /
- * OnSystemUiVisibilityChangeListener to WindowInsetsController. Both APIs
- * work alongside SDL2's current Android target, but the legacy ones are
- * deprecated.
  */
 public class HelixActivity extends SDLActivity {
 
@@ -89,34 +83,70 @@ public class HelixActivity extends SDLActivity {
         return new String[]{};
     }
 
-    private int commonLayoutFlags() {
-        return View.SYSTEM_UI_FLAG_LAYOUT_STABLE
-             | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
-             | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
-             | View.SYSTEM_UI_FLAG_FULLSCREEN;
-    }
+    // =========================================================================
+    // System UI management
+    // =========================================================================
 
     private void applySystemUi() {
-        if (Build.VERSION.SDK_INT < 19) {
-            return;
-        }
         Window window = getWindow();
-        int flags = commonLayoutFlags();
+        if (Build.VERSION.SDK_INT >= 30) {
+            applySystemUiModern(window);
+        } else {
+            applySystemUiLegacy(window);
+        }
+    }
+
+    /**
+     * API 30+: WindowInsetsController replaces the deprecated
+     * setSystemUiVisibility flags with explicit show/hide calls and a
+     * behavior enum that controls how gestures interact with hidden bars.
+     */
+    private void applySystemUiModern(Window window) {
+        if (Build.VERSION.SDK_INT < 30) return;
+
+        WindowInsetsController controller = window.getInsetsController();
+        if (controller == null) return;
+
+        // Edge-to-edge: app draws behind system bars (replaces LAYOUT_* flags)
+        window.setDecorFitsSystemWindows(false);
+
+        // System edge-swipe reveals translucent bars that auto-fade.
+        // Our explicit show() for the custom swipe gesture keeps them visible
+        // until the 3-second auto-hide timer fires.
+        controller.setSystemBarsBehavior(
+                WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_GESTURE);
+
+        if (mNavBarVisible) {
+            controller.show(WindowInsets.Type.navigationBars());
+        } else {
+            controller.hide(WindowInsets.Type.systemBars());
+        }
+
+        // Transparent bars so they overlay content without a colored strip
+        window.setNavigationBarColor(Color.TRANSPARENT);
+        window.setStatusBarColor(Color.TRANSPARENT);
+    }
+
+    /**
+     * API 28-29: legacy setSystemUiVisibility path.
+     * Uses non-sticky IMMERSIVE so HIDE_NAVIGATION persists across taps.
+     */
+    @SuppressWarnings("deprecation")
+    private void applySystemUiLegacy(Window window) {
+        int flags = View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+                  | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
+                  | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
+                  | View.SYSTEM_UI_FLAG_FULLSCREEN;
+
         if (!mNavBarVisible) {
-            // IMMERSIVE (non-sticky) is required for HIDE_NAVIGATION to persist
-            // across user taps. Without it, Android shows the nav bar again on
-            // any interaction. Non-sticky is preferred over IMMERSIVE_STICKY so
-            // the system does not auto-rehide bars we have deliberately shown.
             flags |= View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
                    | View.SYSTEM_UI_FLAG_IMMERSIVE;
         }
         window.getDecorView().setSystemUiVisibility(flags);
 
-        if (Build.VERSION.SDK_INT >= 21) {
-            window.addFlags(WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS);
-            window.setNavigationBarColor(Color.TRANSPARENT);
-            window.setStatusBarColor(Color.TRANSPARENT);
-        }
+        window.addFlags(WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS);
+        window.setNavigationBarColor(Color.TRANSPARENT);
+        window.setStatusBarColor(Color.TRANSPARENT);
     }
 
     private void scheduleAutoHide() {
@@ -136,6 +166,10 @@ public class HelixActivity extends SDLActivity {
             mHideHandler.removeCallbacks(mHideRunnable);
         }
     }
+
+    // =========================================================================
+    // Touch handling — custom bottom-edge swipe to reveal nav bar
+    // =========================================================================
 
     @Override
     public boolean dispatchTouchEvent(MotionEvent ev) {
@@ -172,6 +206,10 @@ public class HelixActivity extends SDLActivity {
         return super.dispatchTouchEvent(ev);
     }
 
+    // =========================================================================
+    // Lifecycle — reapply system UI after focus/resume
+    // =========================================================================
+
     @Override
     public void onWindowFocusChanged(boolean hasFocus) {
         super.onWindowFocusChanged(hasFocus);
@@ -184,7 +222,7 @@ public class HelixActivity extends SDLActivity {
     protected void onResume() {
         super.onResume();
         // SDL's COMMAND_CHANGE_WINDOW_STYLE handler applies immersive-sticky
-        // flags asynchronously on the main thread during startup. Post our
+        // flags asynchronously on the main thread during startup.  Post our
         // reapply to run after those messages drain so we win the race.
         View decor = getWindow().getDecorView();
         decor.removeCallbacks(mApplySystemUiRunnable);
@@ -199,14 +237,17 @@ public class HelixActivity extends SDLActivity {
     }
 
     /**
-     * Keep mNavBarVisible in sync when Android itself toggles the nav bar —
-     * for example, its own edge-swipe gesture in non-sticky IMMERSIVE mode.
-     * We never call setSystemUiVisibility() from here, so there is no feedback
-     * loop with applySystemUi() (which always sets flags that match the state
-     * we are transitioning to).
+     * Legacy visibility change listener for API 28-29.
+     * On API 30+ the WindowInsetsController manages bar state directly, so
+     * this callback fires but we rely on our own mNavBarVisible tracking.
      */
+    @SuppressWarnings("deprecation")
     @Override
     public void onSystemUiVisibilityChange(int visibility) {
+        if (Build.VERSION.SDK_INT >= 30) {
+            // WindowInsetsController handles everything; ignore legacy callback
+            return;
+        }
         boolean navVisibleNow = (visibility & View.SYSTEM_UI_FLAG_HIDE_NAVIGATION) == 0;
         if (navVisibleNow == mNavBarVisible) {
             return;
