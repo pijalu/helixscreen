@@ -558,6 +558,15 @@ void PrintStartCollector::on_gcode_response(const json& msg) {
         return; // Signal handled
     }
 
+    // Check for RESPOND-based print start completion (authoritative signal)
+    // Many users end PRINT_START macros with RESPOND MSG="Print started!" or similar.
+    // This fires before Moonraker's state transition and is a definitive end-of-preprint signal.
+    if (is_respond_completion(line)) {
+        spdlog::info("[PrintStartCollector] RESPOND completion detected: {}", line);
+        update_phase(PrintStartPhase::COMPLETE, lv_tr("Starting Print..."));
+        return;
+    }
+
     // Check profile signal formats (priority 2, after HELIX:PHASE)
     if (profile_) {
         PrintStartProfile::MatchResult match;
