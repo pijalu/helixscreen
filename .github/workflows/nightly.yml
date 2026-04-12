@@ -365,9 +365,10 @@ jobs:
     - name: Build and run with TSAN
       timeout-minutes: 230
       run: |
-        # Exclude [eventloop] tests — they have their own dedicated CI job and
-        # are extremely slow under TSAN's 10-50x overhead (WebSocket + threads)
-        make test-tsan TSAN_FILTER="~[.] ~[eventloop]"
+        # Exclude [eventloop] and [slow] tests — eventloop tests have their own
+        # dedicated CI job, and [slow] tests (MoonrakerClientMock fixture) are
+        # too expensive under TSAN's 10-50x overhead, causing 230-min timeout.
+        make test-tsan TSAN_FILTER="~[.] ~[eventloop] ~[slow]"
         echo "TSAN tests complete"
 
     - name: Upload TSAN report

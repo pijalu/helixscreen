@@ -72,15 +72,20 @@ class MoonrakerRobustnessFixture {
 
     ~MoonrakerRobustnessFixture() {
         client_->disconnect();
+
+        // Stop the event loop BEFORE destroying the client.  disconnect()
+        // calls close() which may schedule an onclose callback on the event
+        // loop thread.  Destroying the client while the thread is still
+        // running races on the std::function callback members → SIGSEGV.
+        //
+        // Note: [eventloop] tests are excluded from macOS CI (kqueue hangs
+        // in join() after WebSocket I/O), so stop+join is safe here.
+        loop_thread_->stop();
+        loop_thread_->join();
+
         client_.reset();
         server_->stop();
         server_.reset();
-
-        // On macOS CI, the kqueue-based event loop hangs in join() after
-        // WebSocket I/O. Leak the EventLoopThread permanently to avoid hang.
-        // NOLINTBEGIN(clang-analyzer-cplusplus.NewDeleteLeaks)
-        (void)new std::shared_ptr<hv::EventLoopThread>(std::move(loop_thread_));
-        // NOLINTEND(clang-analyzer-cplusplus.NewDeleteLeaks)
     }
 
     std::string server_url() const {
@@ -627,18 +632,18 @@ TEST_CASE("MoonrakerClient callbacks not invoked after disconnect",
         // Disconnect (clears callbacks per line 88-90)
         client->disconnect();
 
-        // Destroy client
-        client.reset();
-
-        // Wait to see if any callbacks fire (shouldn't)
-        std::this_thread::sleep_for(milliseconds(500));
-
-        // Callbacks should NOT be invoked after disconnect
-        // (disconnected callback may have been called during disconnect, that's ok)
-        CHECK_FALSE(connected);
-
+        // Stop the event loop BEFORE destroying the client.  disconnect()
+        // calls close() which schedules an onclose callback on the event loop
+        // thread.  If we destroy the client first, the event loop thread races
+        // with the destructor on the std::function members → SIGSEGV.
         loop->stop();
         loop->join();
+
+        // Now safe to destroy — event loop thread is joined
+        client.reset();
+
+        // Callbacks should NOT have been invoked after disconnect
+        CHECK_FALSE(connected);
     }
 }
 

@@ -748,7 +748,8 @@ TEST_CASE("UpdateChecker report_download_status transitions to Restarting", "[up
     auto& checker = UpdateChecker::instance();
     checker.init();
 
-    checker.report_download_status(UpdateChecker::DownloadStatus::Restarting, 100, "v1.0.0 installed!");
+    checker.report_download_status(UpdateChecker::DownloadStatus::Restarting, 100,
+                                   "v1.0.0 installed!");
     REQUIRE(checker.get_download_status() == UpdateChecker::DownloadStatus::Restarting);
     REQUIRE(checker.get_download_progress() == 100);
 
@@ -799,7 +800,7 @@ TEST_CASE("UpdateChecker get_platform_asset_name format", "[update_checker]") {
 
     auto name = checker.get_platform_asset_name();
     REQUIRE(name.find("helixscreen-") != std::string::npos);
-    REQUIRE(name.find(".tar.gz") != std::string::npos);
+    REQUIRE(name.find(".zip") != std::string::npos);
 
     checker.shutdown();
 }
@@ -845,8 +846,8 @@ TEST_CASE("UpdateChecker platform key defaults to pi in native build",
 
     auto name = checker.get_platform_asset_name();
     // In native builds (no HELIX_PLATFORM_* define), defaults to "pi"
-    // Asset name format: helixscreen-{platform}-v{version}.tar.gz
-    REQUIRE(name.find("helixscreen-pi-") == 0);
+    // Asset name format: helixscreen-{platform}.zip
+    REQUIRE(name == "helixscreen-pi.zip");
 
     checker.shutdown();
 }
