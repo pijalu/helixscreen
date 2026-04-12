@@ -148,6 +148,42 @@ TEST_CASE("PrintStart: RESPOND completion detection", "[core][print][respond]") 
     }
 }
 
+TEST_CASE("PrintStart: RESPOND and PRINT_START patterns are independent",
+          "[core][print][respond]") {
+    SECTION("RESPOND messages with 'Print started' should not match PRINT_START marker pattern") {
+        // "Print started!" is a RESPOND message, not a macro invocation
+        // The print_start_pattern only matches exact macro names: PRINT_START, START_PRINT,
+        // _PRINT_START
+        REQUIRE(matches(print_start_pattern, "Print started!") == false);
+        REQUIRE(matches(print_start_pattern, "PRINT STARTED") == false);
+        REQUIRE(matches(print_start_pattern, "print starting") == false);
+        // But RESPOND pattern should match these:
+        REQUIRE(matches(respond_completion_pattern, "Print started!") == true);
+        REQUIRE(matches(respond_completion_pattern, "PRINT STARTED") == true);
+        REQUIRE(matches(respond_completion_pattern, "print starting") == true);
+    }
+
+    SECTION("PRINT_START macro lines should not trigger RESPOND completion") {
+        // "PRINT_START BED=60 EXTRUDER=200" should NOT match respond pattern
+        // because "PRINT_START" has underscore breaking word boundary for "start"
+        REQUIRE(matches(respond_completion_pattern, "PRINT_START BED=60 EXTRUDER=200") == false);
+        REQUIRE(matches(respond_completion_pattern, "START_PRINT BED=60") == false);
+        REQUIRE(matches(respond_completion_pattern, "_PRINT_START") == false);
+    }
+}
+
+TEST_CASE("PrintStart: timeout fallback still available", "[core][print][timeout]") {
+    // Verifies RESPOND pattern doesn't match common noise lines that could
+    // interfere with timeout-based completion as a last resort.
+
+    SECTION("RESPOND pattern does not match empty or noise lines") {
+        REQUIRE(matches(respond_completion_pattern, "") == false);
+        REQUIRE(matches(respond_completion_pattern, "ok") == false);
+        REQUIRE(matches(respond_completion_pattern, "T:200.0 /200.0 B:60.0 /60.0") == false);
+        REQUIRE(matches(respond_completion_pattern, "echo: M190 S60") == false);
+    }
+}
+
 // ============================================================================
 // Homing Phase Tests
 // ============================================================================
