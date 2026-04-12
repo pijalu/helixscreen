@@ -164,7 +164,7 @@
 
     <!-- Preview/thumbnail vertical offset to account for metadata overlays -->
     <!-- Shifts content up to prevent overlap with bottom metadata areas -->
-    <percentage name="preview_offset_y" value="-20%"/>
+    <percentage name="preview_offset_y" value="-12%"/>
 
     <px name="button_padding" value="12"/>
 

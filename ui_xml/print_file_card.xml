@@ -27,7 +27,8 @@
   </consts>
   <view name="card_root"
         extends="ui_card" height="#card_height" style_flex_basis="#card_base_width" flex_grow="1"
-        style_min_width="#card_min_width" style_max_width="#card_max_width" style_pad_all="0" style_clip_corner="true"
+        style_min_width="#card_min_width" style_max_width="#card_max_width"
+        style_pad_all="0" style_border_width="0" style_radius="#border_radius"
         clickable="true">
     <!-- Pre-rendered gradient background (LVGL native .bin for instant blitting)
          Source updated at runtime by C++ based on theme mode (dark/light) and card size -->
@@ -48,14 +49,13 @@
     <!-- Parent directory icon - shown for ".." entries (folder_type=2) -->
     <icon name="parent_dir_icon" src="folder_arrow_up" size="xl" variant="warning"
           align="center" style_translate_y="-10" hidden="true"/>
-    <!-- Metadata clip - content-sized, hides top rounded corners of inner overlay -->
-    <lv_obj name="metadata_clip"
-            width="100%" height="content" style_radius="0" style_pad_all="0"
-            align="bottom_mid" scrollable="false">
-      <lv_obj name="metadata_overlay"
-              width="100%" height="content" style_bg_opa="#metadata_overlay_opacity" style_radius="#border_radius"
-              style_pad_left="#space_xs" style_pad_right="#space_xs" style_pad_top="#space_lg"
-              style_pad_bottom="#space_xs" style_translate_y="-12" flex_flow="column" scrollable="false">
+    <!-- Metadata overlay - flat rectangle, flush to card bottom -->
+    <lv_obj name="metadata_overlay"
+            width="100%" height="content" align="bottom_mid"
+            style_bg_color="#card_bg" style_bg_opa="#metadata_overlay_opacity" style_radius="0"
+            style_pad_left="#space_xs" style_pad_right="#space_xs" style_pad_top="#space_lg"
+            style_pad_bottom="#space_xs" style_border_width="0"
+            flex_flow="column" scrollable="false">
       <!-- Filename label (single line, truncated with ...) -->
       <text_xs name="filename_label"
                width="100%" height="content" text="$filename" long_mode="dots" style_text_color="#text"/>
@@ -79,7 +79,6 @@
           <text_xs name="filament_label" text="$filament_weight" flex_grow="1" style_translate_y="2"/>
         </lv_obj>
       </lv_obj>
-    </lv_obj>
     </lv_obj>
   </view>
 </component>
