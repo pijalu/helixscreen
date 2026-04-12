@@ -358,7 +358,7 @@ class MoonrakerClient : public hv::WebSocketClient {
      * @brief Get discovered hardware data
      * @return Reference to PrinterDiscovery containing all discovered hardware
      */
-    [[nodiscard]] const helix::PrinterDiscovery& hardware() const {
+    [[nodiscard]] helix::PrinterDiscovery hardware() const {
         return discovery_.hardware();
     }
 

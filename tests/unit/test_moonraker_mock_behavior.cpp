@@ -755,11 +755,12 @@ TEST_CASE("MoonrakerClientMock G-code temperature parsing", "[connection][slow][
 TEST_CASE("MoonrakerClientMock hardware discovery", "[connection][slow][hardware_discovery]") {
     SECTION("VORON_24 has correct hardware") {
         MoonrakerClientMock mock(MoonrakerClientMock::PrinterType::VORON_24);
+        auto hw = mock.hardware();
 
-        const auto& heaters = mock.hardware().heaters();
-        const auto& sensors = mock.hardware().sensors();
-        const auto& fans = mock.hardware().fans();
-        const auto& leds = mock.hardware().leds();
+        const auto& heaters = hw.heaters();
+        const auto& sensors = hw.sensors();
+        const auto& fans = hw.fans();
+        const auto& leds = hw.leds();
 
         // Voron 2.4 should have bed and extruder heaters
         REQUIRE(std::find(heaters.begin(), heaters.end(), "heater_bed") != heaters.end());
@@ -780,8 +781,9 @@ TEST_CASE("MoonrakerClientMock hardware discovery", "[connection][slow][hardware
 
     SECTION("VORON_TRIDENT has correct hardware") {
         MoonrakerClientMock mock(MoonrakerClientMock::PrinterType::VORON_TRIDENT);
+        auto hw = mock.hardware();
 
-        const auto& heaters = mock.hardware().heaters();
+        const auto& heaters = hw.heaters();
 
         REQUIRE(std::find(heaters.begin(), heaters.end(), "heater_bed") != heaters.end());
         REQUIRE(std::find(heaters.begin(), heaters.end(), "extruder") != heaters.end());
@@ -789,9 +791,10 @@ TEST_CASE("MoonrakerClientMock hardware discovery", "[connection][slow][hardware
 
     SECTION("CREALITY_K1 has correct hardware") {
         MoonrakerClientMock mock(MoonrakerClientMock::PrinterType::CREALITY_K1);
+        auto hw = mock.hardware();
 
-        const auto& heaters = mock.hardware().heaters();
-        const auto& fans = mock.hardware().fans();
+        const auto& heaters = hw.heaters();
+        const auto& fans = hw.fans();
 
         REQUIRE(std::find(heaters.begin(), heaters.end(), "heater_bed") != heaters.end());
         REQUIRE(std::find(heaters.begin(), heaters.end(), "extruder") != heaters.end());
@@ -800,9 +803,10 @@ TEST_CASE("MoonrakerClientMock hardware discovery", "[connection][slow][hardware
 
     SECTION("FLASHFORGE_AD5M has correct hardware") {
         MoonrakerClientMock mock(MoonrakerClientMock::PrinterType::FLASHFORGE_AD5M);
+        auto hw = mock.hardware();
 
-        const auto& heaters = mock.hardware().heaters();
-        const auto& leds = mock.hardware().leds();
+        const auto& heaters = hw.heaters();
+        const auto& leds = hw.leds();
 
         REQUIRE(std::find(heaters.begin(), heaters.end(), "heater_bed") != heaters.end());
         REQUIRE(std::find(heaters.begin(), heaters.end(), "extruder") != heaters.end());
@@ -812,8 +816,9 @@ TEST_CASE("MoonrakerClientMock hardware discovery", "[connection][slow][hardware
 
     SECTION("GENERIC_COREXY has minimal hardware") {
         MoonrakerClientMock mock(MoonrakerClientMock::PrinterType::GENERIC_COREXY);
+        auto hw = mock.hardware();
 
-        const auto& heaters = mock.hardware().heaters();
+        const auto& heaters = hw.heaters();
 
         REQUIRE(std::find(heaters.begin(), heaters.end(), "heater_bed") != heaters.end());
         REQUIRE(std::find(heaters.begin(), heaters.end(), "extruder") != heaters.end());
@@ -821,9 +826,10 @@ TEST_CASE("MoonrakerClientMock hardware discovery", "[connection][slow][hardware
 
     SECTION("GENERIC_BEDSLINGER has minimal hardware") {
         MoonrakerClientMock mock(MoonrakerClientMock::PrinterType::GENERIC_BEDSLINGER);
+        auto hw = mock.hardware();
 
-        const auto& heaters = mock.hardware().heaters();
-        const auto& leds = mock.hardware().leds();
+        const auto& heaters = hw.heaters();
+        const auto& leds = hw.leds();
 
         REQUIRE(std::find(heaters.begin(), heaters.end(), "heater_bed") != heaters.end());
         REQUIRE(std::find(heaters.begin(), heaters.end(), "extruder") != heaters.end());
@@ -833,8 +839,9 @@ TEST_CASE("MoonrakerClientMock hardware discovery", "[connection][slow][hardware
 
     SECTION("MULTI_EXTRUDER has multiple extruders") {
         MoonrakerClientMock mock(MoonrakerClientMock::PrinterType::MULTI_EXTRUDER);
+        auto hw = mock.hardware();
 
-        const auto& heaters = mock.hardware().heaters();
+        const auto& heaters = hw.heaters();
 
         REQUIRE(std::find(heaters.begin(), heaters.end(), "heater_bed") != heaters.end());
         REQUIRE(std::find(heaters.begin(), heaters.end(), "extruder") != heaters.end());

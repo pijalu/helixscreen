@@ -26,6 +26,7 @@
 #include <map>
 #include <random>
 #include <sstream>
+#include <unordered_set>
 
 using namespace helix;
 
@@ -480,7 +481,7 @@ void MoonrakerClientMock::populate_capabilities() {
     }
 
     // Parse objects into hardware discovery (unified hardware access)
-    discovery_.hardware().parse_objects(mock_objects);
+    discovery_.modify_hardware([&](PrinterDiscovery& hw) { hw.parse_objects(mock_objects); });
 
     // Mock accelerometer configuration for input shaper wizard testing
     // Real Klipper doesn't expose accelerometers in objects list (no get_status()),
@@ -509,11 +510,14 @@ void MoonrakerClientMock::populate_capabilities() {
     // Add gcode_macro entries for param detection (shared with configfile.config response)
     mock_config.merge_patch(mock_internal::get_mock_gcode_macro_config());
 
-    discovery_.hardware().parse_config_keys(mock_config);
+    std::unordered_set<std::string> macros_snapshot;
+    discovery_.modify_hardware([&](PrinterDiscovery& hw) {
+        hw.parse_config_keys(mock_config);
+        macros_snapshot = hw.macros();
+    });
 
     // Populate macro param cache from mock config (same as real discovery sequence)
-    helix::MacroParamCache::instance().populate_from_configfile(mock_config,
-                                                                discovery_.hardware().macros());
+    helix::MacroParamCache::instance().populate_from_configfile(mock_config, macros_snapshot);
 
     spdlog::debug("[MoonrakerClientMock] Mock config: adxl345, resonance_tester, kinematics={}",
                   mock_kinematics);
@@ -524,14 +528,16 @@ void MoonrakerClientMock::populate_capabilities() {
         std::string name = obj.get<std::string>();
         all_objects.push_back(name);
     }
-    discovery_.hardware().set_printer_objects(all_objects);
+    discovery_.modify_hardware([&](PrinterDiscovery& hw) { hw.set_printer_objects(all_objects); });
     update_cached_chamber_key();
 
     // Set mock MCU version data (after parse_objects which clears everything)
-    discovery_.hardware().set_mcu("stm32f446xx");
-    discovery_.hardware().set_mcu_list({"stm32f446xx", "stm32g0b1xx"});
-    discovery_.hardware().set_mcu_versions(
-        {{"mcu", "v0.12.0-155-g4cfa273e"}, {"mcu EBBCan", "v0.12.0-155-g4cfa273e"}});
+    discovery_.modify_hardware([](PrinterDiscovery& hw) {
+        hw.set_mcu("stm32f446xx");
+        hw.set_mcu_list({"stm32f446xx", "stm32g0b1xx"});
+        hw.set_mcu_versions(
+            {{"mcu", "v0.12.0-155-g4cfa273e"}, {"mcu EBBCan", "v0.12.0-155-g4cfa273e"}});
+    });
 
     // Also populate filament_sensors vector for subscription (same as real parse_objects)
     discovery_.filament_sensors().clear();
@@ -587,7 +593,7 @@ void MoonrakerClientMock::rebuild_hardware_from_lists() {
         objects.push_back(obj);
     }
 
-    discovery_.hardware().parse_objects(objects);
+    discovery_.modify_hardware([&](PrinterDiscovery& hw) { hw.parse_objects(objects); });
     update_cached_chamber_key();
 }
 
@@ -621,7 +627,8 @@ void MoonrakerClientMock::discover_printer(
     send_jsonrpc("server.info", json::object(), [this, on_complete](json response) {
         if (response.contains("result")) {
             auto moonraker_version = response["result"].value("moonraker_version", "unknown");
-            discovery_.hardware().set_moonraker_version(moonraker_version);
+            discovery_.modify_hardware(
+                [&](PrinterDiscovery& hw) { hw.set_moonraker_version(moonraker_version); });
             spdlog::debug("[MoonrakerClientMock] Moonraker version: {}", moonraker_version);
         }
 
@@ -636,8 +643,10 @@ void MoonrakerClientMock::discover_printer(
             if (response.contains("result")) {
                 auto hostname = response["result"].value("hostname", "unknown");
                 auto software_version = response["result"].value("software_version", "unknown");
-                discovery_.hardware().set_hostname(hostname);
-                discovery_.hardware().set_software_version(software_version);
+                discovery_.modify_hardware([&](PrinterDiscovery& hw) {
+                    hw.set_hostname(hostname);
+                    hw.set_software_version(software_version);
+                });
                 spdlog::debug("[MoonrakerClientMock] Printer hostname: {}", hostname);
                 spdlog::debug("[MoonrakerClientMock] Klipper software version: {}",
                               software_version);
@@ -654,7 +663,8 @@ void MoonrakerClientMock::discover_printer(
                         std::string os_name =
                             sys_response["result"]["system_info"]["distribution"]["name"]
                                 .get<std::string>();
-                        discovery_.hardware().set_os_version(os_name);
+                        discovery_.modify_hardware(
+                            [&](PrinterDiscovery& hw) { hw.set_os_version(os_name); });
                         spdlog::debug("[MoonrakerClientMock] OS version: {}", os_name);
                     }
                 },

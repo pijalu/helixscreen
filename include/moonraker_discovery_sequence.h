@@ -79,14 +79,16 @@ class MoonrakerDiscoverySequence {
     /** @brief Clear all cached discovery data (vectors + hardware) */
     void clear_cache();
 
-    /** @brief Get discovered hardware data (const) */
-    [[nodiscard]] const PrinterDiscovery& hardware() const {
+    /** @brief Get a thread-safe snapshot of discovered hardware data */
+    [[nodiscard]] PrinterDiscovery hardware() const {
+        std::lock_guard<std::mutex> lock(hardware_mutex_);
         return hardware_;
     }
 
-    /** @brief Get discovered hardware data (mutable, for kinematics update) */
-    PrinterDiscovery& hardware() {
-        return hardware_;
+    /** @brief Mutate hardware_ under lock (for kinematics update from BG thread, etc.) */
+    template <typename Fn> void modify_hardware(Fn&& fn) {
+        std::lock_guard<std::mutex> lock(hardware_mutex_);
+        fn(hardware_);
     }
 
     /** @brief Set callback for early hardware discovery phase (after parse_objects) */
@@ -117,8 +119,14 @@ class MoonrakerDiscoverySequence {
 
     /** @brief Invoke the on_hardware_discovered callback with current hardware */
     void invoke_hardware_discovered() {
-        if (on_hardware_discovered_)
-            on_hardware_discovered_(hardware_);
+        if (on_hardware_discovered_) {
+            PrinterDiscovery snapshot;
+            {
+                std::lock_guard<std::mutex> lock(hardware_mutex_);
+                snapshot = hardware_;
+            }
+            on_hardware_discovered_(snapshot);
+        }
     }
 
     /** @brief Invoke the on_discovery_complete callback with current hardware (mock use) */
@@ -242,6 +250,7 @@ class MoonrakerDiscoverySequence {
     std::vector<std::string> filament_sensors_;
 
     PrinterDiscovery hardware_;
+    mutable std::mutex hardware_mutex_; // Protects hardware_ from concurrent read/write (#777)
     std::atomic<bool> identified_{false};
 
     // Callbacks

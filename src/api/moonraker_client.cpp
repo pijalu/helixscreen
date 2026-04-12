@@ -830,7 +830,8 @@ void MoonrakerClient::dispatch_status_update(const json& status) {
         const json& toolhead = status["toolhead"];
         if (toolhead.contains("kinematics") && toolhead["kinematics"].is_string()) {
             auto kinematics = toolhead["kinematics"].get<std::string>();
-            discovery_.hardware().set_kinematics(kinematics);
+            discovery_.modify_hardware(
+                [&](PrinterDiscovery& hw) { hw.set_kinematics(kinematics); });
             spdlog::debug("[Moonraker Client] Kinematics type: {}", kinematics);
         }
     }

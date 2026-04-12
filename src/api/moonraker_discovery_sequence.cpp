@@ -21,6 +21,7 @@
 
 #include <algorithm>
 #include <thread>
+#include <unordered_set>
 
 namespace helix {
 
@@ -34,7 +35,10 @@ void MoonrakerDiscoverySequence::clear_cache() {
     steppers_.clear();
     afc_objects_.clear();
     filament_sensors_.clear();
-    hardware_ = PrinterDiscovery{};
+    {
+        std::lock_guard<std::mutex> lock(hardware_mutex_);
+        hardware_ = PrinterDiscovery{};
+    }
     MacroParamCache::instance().clear();
 }
 
@@ -270,10 +274,14 @@ void MoonrakerDiscoverySequence::continue_discovery_objects(uint64_t seq) {
 
             // Early hardware discovery callback - allows AMS/MMU backends to initialize
             // BEFORE the subscription response arrives, so they can receive initial state
-            // naturally. Copy hardware_ to prevent data races if callback defers work (#562).
+            // naturally. Copy hardware_ under lock to prevent data races (#562, #777).
             if (on_hardware_discovered_) {
                 spdlog::debug("[Moonraker Client] Invoking early hardware discovery callback");
-                auto hw_snapshot = hardware_;
+                PrinterDiscovery hw_snapshot;
+                {
+                    std::lock_guard<std::mutex> lock(hardware_mutex_);
+                    hw_snapshot = hardware_;
+                }
                 on_hardware_discovered_(hw_snapshot);
             }
 
@@ -285,7 +293,10 @@ void MoonrakerDiscoverySequence::continue_discovery_objects(uint64_t seq) {
                     const json& result = info_response["result"];
                     std::string klippy_version = result.value("klippy_version", "unknown");
                     auto moonraker_version = result.value("moonraker_version", "unknown");
-                    hardware_.set_moonraker_version(moonraker_version);
+                    {
+                        std::lock_guard<std::mutex> lock(hardware_mutex_);
+                        hardware_.set_moonraker_version(moonraker_version);
+                    }
 
                     spdlog::debug("[Moonraker Client] Moonraker version: {}", moonraker_version);
                     spdlog::debug("[Moonraker Client] Klippy version: {}", klippy_version);
@@ -471,14 +482,18 @@ void MoonrakerDiscoverySequence::continue_discovery_objects(uint64_t seq) {
                         const json& result = printer_response["result"];
                         auto hostname = result.value("hostname", "unknown");
                         auto software_version = result.value("software_version", "unknown");
-                        hardware_.set_hostname(hostname);
-                        hardware_.set_software_version(software_version);
+                        {
+                            std::lock_guard<std::mutex> lock(hardware_mutex_);
+                            hardware_.set_hostname(hostname);
+                            hardware_.set_software_version(software_version);
+                        }
                         std::string state = result.value("state", "");
                         std::string state_message = result.value("state_message", "");
 
                         // Detect Kalico (Klipper fork with MPC support)
                         auto app = result.value("app", "");
                         if (app == "Kalico") {
+                            std::lock_guard<std::mutex> lock(hardware_mutex_);
                             hardware_.set_is_kalico(true);
                             spdlog::info("[Moonraker Client] Kalico firmware detected");
                         }
@@ -525,9 +540,14 @@ void MoonrakerDiscoverySequence::continue_discovery_objects(uint64_t seq) {
                                     "config")) {
                                 const auto& cfg =
                                     config_response["result"]["status"]["configfile"]["config"];
-                                hardware_.parse_config_keys(cfg);
+                                std::unordered_set<std::string> macros_snapshot;
+                                {
+                                    std::lock_guard<std::mutex> lock(hardware_mutex_);
+                                    hardware_.parse_config_keys(cfg);
+                                    macros_snapshot = hardware_.macros();
+                                }
                                 MacroParamCache::instance().populate_from_configfile(
-                                    cfg, hardware_.macros());
+                                    cfg, macros_snapshot);
 
                                 // Seed probe sensor z_offset from configfile (some probe
                                 // modules like flashforge_loadcell return null in status).
@@ -600,7 +620,10 @@ void MoonrakerDiscoverySequence::continue_discovery_objects(uint64_t seq) {
                                 std::string os_name =
                                     sys_response["result"]["system_info"]["distribution"]["name"]
                                         .get<std::string>();
-                                hardware_.set_os_version(os_name);
+                                {
+                                    std::lock_guard<std::mutex> lock(hardware_mutex_);
+                                    hardware_.set_os_version(os_name);
+                                }
                                 spdlog::debug("[Moonraker Client] OS version: {}", os_name);
                             }
 
@@ -615,7 +638,10 @@ void MoonrakerDiscoverySequence::continue_discovery_objects(uint64_t seq) {
                                 std::string cpu_arch =
                                     sys_response["result"]["system_info"]["cpu_info"]["processor"]
                                         .get<std::string>();
-                                hardware_.set_cpu_arch(cpu_arch);
+                                {
+                                    std::lock_guard<std::mutex> lock(hardware_mutex_);
+                                    hardware_.set_cpu_arch(cpu_arch);
+                                }
                                 spdlog::debug("[Moonraker Client] CPU architecture: {}", cpu_arch);
                             }
                         },
@@ -628,8 +654,13 @@ void MoonrakerDiscoverySequence::continue_discovery_objects(uint64_t seq) {
 
                     // Step 5: Query MCU information for printer detection
                     // Find all MCU objects (e.g., "mcu", "mcu EBBCan", "mcu rpi")
+                    std::vector<std::string> printer_objects_snapshot;
+                    {
+                        std::lock_guard<std::mutex> lock(hardware_mutex_);
+                        printer_objects_snapshot = hardware_.printer_objects();
+                    }
                     std::vector<std::string> mcu_objects;
-                    for (const auto& obj : hardware_.printer_objects()) {
+                    for (const auto& obj : printer_objects_snapshot) {
                         // Match "mcu" or "mcu <name>" pattern
                         if (obj == "mcu" || obj.rfind("mcu ", 0) == 0) {
                             mcu_objects.push_back(obj);
@@ -731,9 +762,12 @@ void MoonrakerDiscoverySequence::continue_discovery_objects(uint64_t seq) {
                                     }
 
                                     // Update hardware discovery with MCU info
-                                    hardware_.set_mcu(primary_mcu);
-                                    hardware_.set_mcu_list(mcu_list);
-                                    hardware_.set_mcu_versions(*mcu_version_results);
+                                    {
+                                        std::lock_guard<std::mutex> lock(hardware_mutex_);
+                                        hardware_.set_mcu(primary_mcu);
+                                        hardware_.set_mcu_list(mcu_list);
+                                        hardware_.set_mcu_versions(*mcu_version_results);
+                                    }
 
                                     if (!primary_mcu.empty()) {
                                         spdlog::info("[Moonraker Client] Primary MCU: {}",
@@ -787,6 +821,13 @@ void MoonrakerDiscoverySequence::continue_discovery_objects(uint64_t seq) {
 }
 
 void MoonrakerDiscoverySequence::complete_discovery_subscription(uint64_t seq) {
+    // Snapshot hardware_ once under lock for all reads in this method (#777)
+    PrinterDiscovery hw;
+    {
+        std::lock_guard<std::mutex> lock(hardware_mutex_);
+        hw = hardware_;
+    }
+
     // Step 5: Subscribe to all discovered objects + core objects
     json subscription_objects;
 
@@ -819,7 +860,7 @@ void MoonrakerDiscoverySequence::complete_discovery_subscription(uint64_t seq) {
     }
 
     // Subscribe to fan_feedback if available (Creality tachometer module)
-    if (hardware_.has_fan_feedback()) {
+    if (hw.has_fan_feedback()) {
         subscription_objects["fan_feedback"] = nullptr;
         spdlog::debug("[MoonrakerDiscoverySequence] Subscribing to fan_feedback for RPM data");
     }
@@ -830,7 +871,7 @@ void MoonrakerDiscoverySequence::complete_discovery_subscription(uint64_t seq) {
     }
 
     // All discovered LED effects (for tracking active/enabled state)
-    for (const auto& effect : hardware_.led_effects()) {
+    for (const auto& effect : hw.led_effects()) {
         subscription_objects[effect] = nullptr;
     }
 
@@ -852,7 +893,7 @@ void MoonrakerDiscoverySequence::complete_discovery_subscription(uint64_t seq) {
     // Happy Hare MMU object (gate status, colors, materials, filament info)
     // Subscribe to specific fields only — nullptr means ALL fields, which causes
     // excessive notifications and Klipper-side serialization cost (#388)
-    if (hardware_.has_mmu()) {
+    if (hw.has_mmu()) {
         subscription_objects["mmu"] = json::array({"gate",
                                                    "tool",
                                                    "filament",
@@ -902,27 +943,27 @@ void MoonrakerDiscoverySequence::complete_discovery_subscription(uint64_t seq) {
     }
 
     // AD5X IFS requires save_variables for filament state (colors, types, tool mapping)
-    if (hardware_.mmu_type() == AmsType::AD5X_IFS) {
+    if (hw.mmu_type() == AmsType::AD5X_IFS) {
         subscription_objects["save_variables"] = nullptr;
         spdlog::info("[Moonraker Client] Subscribing to save_variables (AD5X IFS)");
     }
 
     // ACE (Anycubic ACE Pro — ValgACE/BunnyACE/DuckACE Klipper drivers)
     // The ace object provides slot colors, materials, status, dryer state via get_status()
-    if (hardware_.mmu_type() == AmsType::ACE) {
+    if (hw.mmu_type() == AmsType::ACE) {
         subscription_objects["ace"] = nullptr;
         spdlog::info("[Moonraker Client] Subscribing to ace object (Anycubic ACE)");
     }
 
     // CFS (Creality Filament System) — K2 series with RS-485 CFS units
-    if (hardware_.mmu_type() == AmsType::CFS) {
+    if (hw.mmu_type() == AmsType::CFS) {
         subscription_objects["box"] = nullptr;
         subscription_objects["motor_control"] = nullptr;
         spdlog::info("[Moonraker Client] Subscribing to box + motor_control (CFS)");
     }
 
     // Snapmaker U1 SnapSwap — RFID filament, feed modules, task config, extruder states
-    if (hardware_.mmu_type() == AmsType::SNAPMAKER) {
+    if (hw.mmu_type() == AmsType::SNAPMAKER) {
         subscription_objects["filament_detect"] = nullptr;
         subscription_objects["filament_feed left"] = nullptr;
         subscription_objects["filament_feed right"] = nullptr;
@@ -942,26 +983,26 @@ void MoonrakerDiscoverySequence::complete_discovery_subscription(uint64_t seq) {
 
     // All discovered width sensors (hall_filament_width_sensor, tsl1401cl_filament_width_sensor)
     // These provide filament diameter measurement for flow compensation
-    if (hardware_.has_width_sensors()) {
-        for (const auto& sensor : hardware_.width_sensor_objects()) {
+    if (hw.has_width_sensors()) {
+        for (const auto& sensor : hw.width_sensor_objects()) {
             subscription_objects[sensor] = nullptr;
         }
         spdlog::info("[Moonraker Client] Subscribing to {} width sensors",
-                     hardware_.width_sensor_objects().size());
+                     hw.width_sensor_objects().size());
     }
 
     // All discovered tool objects (for toolchanger support)
-    if (hardware_.has_tool_changer()) {
+    if (hw.has_tool_changer()) {
         subscription_objects["toolchanger"] = nullptr;
-        for (const auto& tool_name : hardware_.tool_names()) {
+        for (const auto& tool_name : hw.tool_names()) {
             subscription_objects["tool " + tool_name] = nullptr;
         }
         spdlog::info("[Moonraker Client] Subscribing to toolchanger + {} tool objects",
-                     hardware_.tool_names().size());
+                     hw.tool_names().size());
     }
 
     // Firmware retraction settings (if printer has firmware_retraction module)
-    if (hardware_.has_firmware_retraction()) {
+    if (hw.has_firmware_retraction()) {
         subscription_objects["firmware_retraction"] = nullptr;
     }
 
@@ -1017,14 +1058,17 @@ void MoonrakerDiscoverySequence::complete_discovery_subscription(uint64_t seq) {
             // Previously dispatch_status_update was called here separately, but that
             // used a different queue than the init_fans callback, causing a race where
             // initial fan/sensor data was processed before subjects existed.
-            // Copy hardware_ before invoking callback to prevent data races if
-            // the callback defers work while this thread continues mutating (#562).
+            // Copy hardware_ under lock before invoking callback (#562, #777).
             json initial_status;
             if (sub_response.contains("result") && sub_response["result"].contains("status")) {
                 initial_status = sub_response["result"]["status"];
             }
             if (on_discovery_complete_) {
-                auto hw_snapshot = hardware_;
+                PrinterDiscovery hw_snapshot;
+                {
+                    std::lock_guard<std::mutex> lock(hardware_mutex_);
+                    hw_snapshot = hardware_;
+                }
                 on_discovery_complete_(hw_snapshot, initial_status);
             }
             if (on_complete_discovery_) {
@@ -1036,13 +1080,22 @@ void MoonrakerDiscoverySequence::complete_discovery_subscription(uint64_t seq) {
 }
 
 void MoonrakerDiscoverySequence::invoke_discovery_complete() {
-    if (on_discovery_complete_)
-        on_discovery_complete_(hardware_, json::object());
+    if (on_discovery_complete_) {
+        PrinterDiscovery snapshot;
+        {
+            std::lock_guard<std::mutex> lock(hardware_mutex_);
+            snapshot = hardware_;
+        }
+        on_discovery_complete_(snapshot, json::object());
+    }
 }
 
 void MoonrakerDiscoverySequence::parse_objects(const json& objects) {
     // Populate unified hardware discovery (Phase 2)
-    hardware_.parse_objects(objects);
+    {
+        std::lock_guard<std::mutex> lock(hardware_mutex_);
+        hardware_.parse_objects(objects);
+    }
 
     heaters_.clear();
     sensors_.clear();
@@ -1170,7 +1223,10 @@ void MoonrakerDiscoverySequence::parse_objects(const json& objects) {
     }
 
     // Store printer objects in hardware discovery (handles all capability parsing)
-    hardware_.set_printer_objects(all_objects);
+    {
+        std::lock_guard<std::mutex> lock(hardware_mutex_);
+        hardware_.set_printer_objects(all_objects);
+    }
 }
 
 void MoonrakerDiscoverySequence::parse_bed_mesh(const json& bed_mesh) {
