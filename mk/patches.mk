@@ -410,6 +410,13 @@ $(PATCHES_STAMP): $(PATCH_FILES) $(LVGL_HEAD) $(LIBHV_HEAD)
 	else \
 		echo "$(GREEN)✓ LVGL texture cache NULL guard patch already applied$(RESET)"; \
 	fi
+	$(Q)if git -C $(LVGL_DIR) apply --check ../../patches/lvgl_draw_sdl_stride_fix.patch 2>/dev/null; then \
+		echo "$(YELLOW)→ Applying LVGL draw_sdl aligned stride fix...$(RESET)"; \
+		git -C $(LVGL_DIR) apply ../../patches/lvgl_draw_sdl_stride_fix.patch && \
+		echo "$(GREEN)✓ draw_sdl stride fix applied$(RESET)"; \
+	else \
+		echo "$(GREEN)✓ LVGL draw_sdl stride fix already applied$(RESET)"; \
+	fi
 	$(Q)if git -C $(LVGL_DIR) apply --check ../../patches/lvgl_display_sync_cb.patch 2>/dev/null; then \
 		echo "$(YELLOW)→ Applying LVGL display sync callback patch (upstream 4170bcb)...$(RESET)"; \
 		git -C $(LVGL_DIR) apply ../../patches/lvgl_display_sync_cb.patch && \

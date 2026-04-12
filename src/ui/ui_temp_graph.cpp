@@ -214,7 +214,7 @@ static void draw_gradient_cb(lv_event_t* e) {
     int32_t cy2 = obj_coords.y2 - pad_bottom;
     int32_t cw = cx2 - cx1;
     int32_t ch = cy2 - cy1;
-    if (cw <= 0 || ch <= 0)
+    if (cw <= 1 || ch <= 0)
         return;
 
     uint32_t point_count = lv_chart_get_point_count(graph->chart);
@@ -229,6 +229,11 @@ static void draw_gradient_cb(lv_event_t* e) {
 
     int32_t pc = static_cast<int32_t>(point_count);
 
+    // Walk columns (not segments) so each pixel column is drawn exactly once.
+    // When pc > cw (1200 points over ~332 pixels), the old segment walk drew
+    // overlapping fills at shared boundaries, compounding semi-transparent
+    // opacity into visible dark bands.
+
     for (int s = 0; s < UI_TEMP_GRAPH_MAX_SERIES; s++) {
         ui_temp_series_meta_t* meta = &graph->series_meta[s];
         if (!meta->chart_series || !meta->visible)
@@ -240,33 +245,39 @@ static void draw_gradient_cb(lv_event_t* e) {
         if (!y_data)
             continue;
 
-        // The chart uses a circular buffer — start_point is where the next value
-        // will be written, so it's also the index of the oldest visible point.
         uint32_t sp = lv_chart_get_x_start_point(graph->chart, meta->chart_series);
 
-        // Find peak (highest on screen = lowest Y pixel) to define the global
-        // gradient range. This ensures opacity at any Y is uniform across segments.
-        int32_t peak_y = cy2;
-        for (int32_t i = 0; i < pc; i++) {
-            if (y_data[i] == LV_CHART_POINT_NONE)
-                continue;
-            int32_t py = cy1 + ch - lv_map(y_data[i], y_min, y_max, 0, ch);
-            if (py < peak_y)
-                peak_y = py;
-        }
-        if (peak_y < cy1)
-            peak_y = cy1;
-        if (peak_y >= cy2)
-            continue;
+        lv_draw_fill_dsc_t fd;
+        lv_draw_fill_dsc_init(&fd);
+        fd.color = meta->color;
+        fd.opa = LV_OPA_COVER;
+        fd.grad.dir = LV_GRAD_DIR_VER;
+        fd.grad.stops_count = 2;
+        fd.grad.stops[0].color = meta->color;
+        fd.grad.stops[0].opa = meta->gradient_top_opa;
+        fd.grad.stops[0].frac = 0;
+        fd.grad.stops[1].color = meta->color;
+        fd.grad.stops[1].opa = meta->gradient_bottom_opa;
+        fd.grad.stops[1].frac = 255;
 
-        int32_t grad_span = cy2 - peak_y;
+        lv_area_t col_area;
+        col_area.x2 = 0; // set per-column
+        col_area.y2 = cy2;
 
-        // Per-segment gradient strips clipped to the line shape, but with
-        // frac stops computed relative to the global peak→floor range so the
-        // gradient is uniform across the entire series.
-        for (int32_t i = 0; i < pc - 1; i++) {
-            int32_t v0 = y_data[(sp + i) % pc];
-            int32_t v1 = y_data[(sp + i + 1) % pc];
+        for (int32_t x = 0; x < cw; x++) {
+            // Map this pixel column back to a fractional point index.
+            // frac_256 is in 8.8 fixed point to avoid float.
+            int32_t frac_256 = x * (pc - 1) * 256 / (cw - 1);
+            int32_t idx = frac_256 / 256;
+            int32_t t = frac_256 & 255; // fractional part [0..255]
+
+            if (idx >= pc - 1) {
+                idx = pc - 2;
+                t = 255;
+            }
+
+            int32_t v0 = y_data[(sp + idx) % pc];
+            int32_t v1 = y_data[(sp + idx + 1) % pc];
 
             if (v0 == LV_CHART_POINT_NONE && v1 == LV_CHART_POINT_NONE)
                 continue;
@@ -275,49 +286,20 @@ static void draw_gradient_cb(lv_event_t* e) {
             if (v1 == LV_CHART_POINT_NONE)
                 v1 = v0;
 
-            int32_t px0 = cx1 + lv_map(i, 0, pc - 1, 0, cw);
-            int32_t px1 = cx1 + lv_map(i + 1, 0, pc - 1, 0, cw);
-            if (px0 >= px1)
+            int32_t py0 = cy2 - lv_map(v0, y_min, y_max, 0, ch);
+            int32_t py1 = cy2 - lv_map(v1, y_min, y_max, 0, ch);
+            int32_t series_y = py0 + (py1 - py0) * t / 256;
+
+            if (series_y < cy1)
+                series_y = cy1;
+            if (series_y >= cy2)
                 continue;
 
-            int32_t py0 = cy1 + ch - lv_map(v0, y_min, y_max, 0, ch);
-            int32_t py1 = cy1 + ch - lv_map(v1, y_min, y_max, 0, ch);
+            col_area.x1 = cx1 + x;
+            col_area.x2 = cx1 + x;
+            col_area.y1 = series_y;
 
-            int32_t top_y = LV_MIN(py0, py1);
-            if (top_y < cy1)
-                top_y = cy1;
-            if (top_y >= cy2)
-                continue;
-
-            // Map top_y into the global gradient range [peak_y..cy2] → frac [0..255]
-            uint8_t top_frac = static_cast<uint8_t>((top_y - peak_y) * 255 / grad_span);
-
-            // Interpolate the opacity at top_y within the global gradient
-            lv_opa_t top_opa = static_cast<lv_opa_t>(
-                meta->gradient_top_opa +
-                (static_cast<int32_t>(meta->gradient_bottom_opa) - meta->gradient_top_opa) *
-                    top_frac / 255);
-
-            lv_draw_fill_dsc_t fill_dsc;
-            lv_draw_fill_dsc_init(&fill_dsc);
-            fill_dsc.color = meta->color;
-            fill_dsc.opa = LV_OPA_COVER;
-            fill_dsc.grad.dir = LV_GRAD_DIR_VER;
-            fill_dsc.grad.stops_count = 2;
-            fill_dsc.grad.stops[0].color = meta->color;
-            fill_dsc.grad.stops[0].opa = top_opa; // opacity at this line height
-            fill_dsc.grad.stops[0].frac = 0;
-            fill_dsc.grad.stops[1].color = meta->color;
-            fill_dsc.grad.stops[1].opa = meta->gradient_bottom_opa;
-            fill_dsc.grad.stops[1].frac = 255;
-
-            lv_area_t rect_area;
-            rect_area.x1 = px0;
-            rect_area.x2 = px1;
-            rect_area.y1 = top_y;
-            rect_area.y2 = cy2;
-
-            lv_draw_fill(layer, &fill_dsc, &rect_area);
+            lv_draw_fill(layer, &fd, &col_area);
         }
     }
 }

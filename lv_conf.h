@@ -252,10 +252,14 @@
 /* Use Renesas Dave2D on RA  platforms. */
 #define LV_USE_DRAW_DAVE2D 0
 
-/* Draw using cached SDL textures - GPU-accelerated on desktop (Metal/OpenGL).
- * Currently disabled: causes rendering corruption (strobing/blank panels).
- * TODO: Investigate SDL draw backend compatibility with LVGL 9.4 */
-#define LV_USE_DRAW_SDL 0
+/* Draw using cached SDL textures - GPU-accelerated on desktop (Metal/OpenGL)
+ * and on Android (GLES2). Offloads LVGL draw ops to the GPU, leaving the CPU
+ * free for UI logic. Requires patched lv_draw_sdl.c (see patches/). */
+#ifdef HELIX_DISPLAY_SDL
+    #define LV_USE_DRAW_SDL 1
+#else
+    #define LV_USE_DRAW_SDL 0
+#endif
 
 /* Draw using OpenGL ES textures (GLAD-based desktop OpenGL ES draw engine).
  * NOT for DRM+EGL — the DRM EGL driver uses its own rendering path.

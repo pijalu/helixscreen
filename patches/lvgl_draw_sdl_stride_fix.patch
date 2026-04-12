@@ -1,0 +1,151 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Preston Brown <pbrown@brown-house.net>
+Date: Sat, 11 Apr 2026 12:00:00 -0400
+Subject: [PATCH] fix(draw/sdl): correctness bugs that forced LV_USE_DRAW_SDL=0
+
+Four independent bugs in lv_draw_sdl.c combined to make the SDL
+GPU-accelerated draw backend unusable on desktop and Android builds,
+producing severe visual corruption. Fixing all four lets LV_USE_DRAW_SDL
+be safely enabled again for GPU-accelerated drawing.
+
+1. draw_to_texture() passed `texture_w * 4` as the pitch to
+   SDL_UpdateTexture(), but LVGL rounds row stride up to
+   LV_DRAW_BUF_STRIDE_ALIGN (16 bytes by default). When texture_w is
+   not a multiple of 4 pixels, SDL reads rows with a smaller pitch
+   than LVGL wrote them, shearing each row left by (aligned - tight)
+   bytes — producing a diagonal streak pattern in images and small
+   labels. Pass render_draw_buf.header.stride instead.
+
+2. draw_to_texture() called lv_memzero with width*height*4 bytes,
+   leaving (aligned_stride - tight_stride) bytes per row uncleared in
+   the aligned buffer. Because render_draw_buf is reused across draw
+   tasks, pixels from prior renders bled into transparent areas of
+   later cached textures, producing ghost dots under text labels,
+   stale tail rows on small widgets, and banding in gradient fills.
+   Zero the full stride*height instead.
+
+3. draw_from_cached_texture() normalized p1/p2 for LINE tasks but not
+   the points[] polyline array. p1/p2 are unused when points is
+   non-NULL (used by chart series lines), so chart polylines were
+   rendered into an (0,0)-origin clip area with absolute screen
+   coordinates — falling entirely outside the clip and producing
+   nothing. Walk the whole points[] array, honoring
+   LV_DRAW_LINE_POINT_NONE sentinels.
+
+4. The evaluate() guard `if(lv_refr_get_disp_refreshing() == NULL)`
+   was supposed to let canvas tasks fall through to the SW draw unit
+   so they render into the user-provided CPU draw_buf. But
+   lv_display_refr_timer never resets disp_refr to NULL at the end of
+   a refresh — it stays pointing at the main display forever after
+   the first refresh. So canvas tasks got claimed by the SDL unit,
+   which allocated a new SDL_Texture into layer->user_data and
+   rendered into it, while the canvas's actual CPU buffer stayed
+   zeroed. Result: canvases rendered nothing visible.
+
+   Added a second check based on target-layer topology:
+   canvas layers have a user-provided draw_buf and are not linked
+   into disp->layer_head. Transient compositing layers (masks, drop
+   shadows) have draw_buf == NULL at evaluate time (allocated later
+   by lv_draw_layer_alloc_buf). The display's own head layer has
+   target == disp->layer_head. The combination
+   (target != disp->layer_head && target->draw_buf != NULL)
+   uniquely identifies canvas layers without affecting the two
+   paths SDL should claim.
+
+---
+ src/draw/sdl/lv_draw_sdl.c | 61 +++++++++++++++++++++++++++++++++++-----------
+ 1 file changed, 47 insertions(+), 14 deletions(-)
+
+diff --git a/src/draw/sdl/lv_draw_sdl.c b/src/draw/sdl/lv_draw_sdl.c
+index e3fe6b02c..fbd2c2ce4 100644
+--- a/src/draw/sdl/lv_draw_sdl.c
++++ b/src/draw/sdl/lv_draw_sdl.c
+@@ -181,8 +181,22 @@ static int32_t evaluate(lv_draw_unit_t * draw_unit, lv_draw_task_t * task)
+     }
+
+     /*If not refreshing the display probably it's a canvas rendering
+-     *which his not support in SDL as it's not a texture.*/
+-    if(lv_refr_get_disp_refreshing() == NULL) return 0;
++     *which is not supported in SDL as it renders into a user-provided
++     *CPU buffer, not an SDL texture.*/
++    lv_display_t * disp = lv_refr_get_disp_refreshing();
++    if(disp == NULL) return 0;
++
++    /*Also decline canvas-style targets that slipped past the NULL check.
++     *lv_display_refr_timer never resets disp_refr between refreshes, so
++     *canvas code running after the first refresh sees a stale non-NULL
++     *disp_refr and the check above wouldn't fire. Canvas layers have a
++     *user-provided draw_buf and are not linked into disp->layer_head;
++     *transient compositing layers created during refresh start with
++     *draw_buf == NULL. The display's own head layer is NULL-distinct.*/
++    if(task->target_layer != disp->layer_head &&
++       task->target_layer->draw_buf != NULL) {
++        return 0;
++    }
+
+     if(((lv_draw_dsc_base_t *)task->draw_dsc)->user_data == NULL) {
+         task->preference_score = 0;
+@@ -219,7 +233,12 @@ static bool draw_to_texture(lv_draw_sdl_unit_t * u, cache_data_t * cache_data)
+     dest_layer.buf_area = task->_real_area;
+     dest_layer._clip_area = task->_real_area;
+     dest_layer.phy_clip_area = task->_real_area;
+-    lv_memzero(u->render_draw_buf.data, lv_area_get_size(&task->_real_area) * 4);
++    /* Zero the full aligned buffer — using width*height*4 leaves
++     * (aligned_stride - tight_stride) bytes per row uncleared, and since
++     * render_draw_buf is reused across draw tasks, pixels from prior
++     * renders bleed into transparent areas of later textures (ghost dots
++     * under labels, stale tail rows on small widgets). */
++    lv_memzero(u->render_draw_buf.data, u->render_draw_buf.header.stride * texture_h);
+
+     lv_display_t * disp = lv_refr_get_disp_refreshing();
+
+@@ -323,7 +342,12 @@ static bool draw_to_texture(lv_draw_sdl_unit_t * u, cache_data_t * cache_data)
+     SDL_Texture * texture = SDL_CreateTexture(lv_sdl_window_get_renderer(disp), SDL_PIXELFORMAT_ARGB8888,
+                                               SDL_TEXTUREACCESS_STATIC, texture_w, texture_h);
+     SDL_SetTextureBlendMode(texture, SDL_BLENDMODE_BLEND);
+-    SDL_UpdateTexture(texture, NULL, u->render_draw_buf.data, texture_w * 4);
++    /* LVGL rounds its row stride up to LV_DRAW_BUF_STRIDE_ALIGN (16 bytes by
++     * default). Passing `texture_w * 4` here reads pixels at a tighter pitch
++     * than LVGL wrote them, shearing each row left by (aligned - tight) bytes
++     * — producing a diagonal streak pattern in images and small labels. Use
++     * the real stride from the draw buffer header. */
++    SDL_UpdateTexture(texture, NULL, u->render_draw_buf.data, u->render_draw_buf.header.stride);
+
+     lv_draw_dsc_base_t * base_dsc = task->draw_dsc;
+
+@@ -412,10 +436,29 @@ static void draw_from_cached_texture(lv_draw_sdl_unit_t * u)
+     }
+     else if(t->type == LV_DRAW_TASK_TYPE_LINE) {
+         lv_draw_line_dsc_t * line_dsc = (lv_draw_line_dsc_t *)data_to_find.draw_dsc;
+-        line_dsc->p1.x -= t->area.x1;
+-        line_dsc->p1.y -= t->area.y1;
+-        line_dsc->p2.x -= t->area.x1;
+-        line_dsc->p2.y -= t->area.y1;
++        if(line_dsc->points != NULL) {
++            /* Polyline: normalize the entire points array. p1/p2 are unused
++             * when points is non-NULL, so walking only p1/p2 leaves absolute
++             * screen coords in points[] — when draw_to_texture then renders
++             * into a layer whose buf_area is at (0,0) origin, the polyline
++             * falls entirely outside the clip area and nothing gets drawn.
++             * This is how chart series render their data lines. */
++            int32_t i;
++            for(i = 0; i < line_dsc->point_cnt; i++) {
++                if(line_dsc->points[i].x == LV_DRAW_LINE_POINT_NONE ||
++                   line_dsc->points[i].y == LV_DRAW_LINE_POINT_NONE) {
++                    continue;
++                }
++                line_dsc->points[i].x -= t->area.x1;
++                line_dsc->points[i].y -= t->area.y1;
++            }
++        }
++        else {
++            line_dsc->p1.x -= t->area.x1;
++            line_dsc->p1.y -= t->area.y1;
++            line_dsc->p2.x -= t->area.x1;
++            line_dsc->p2.y -= t->area.y1;
++        }
+     }
+     else if(t->type == LV_DRAW_TASK_TYPE_ARC) {
+         lv_draw_arc_dsc_t * arc_dsc = (lv_draw_arc_dsc_t *)data_to_find.draw_dsc;
+--
+2.39.0
