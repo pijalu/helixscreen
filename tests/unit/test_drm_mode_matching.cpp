@@ -81,3 +81,81 @@ TEST_CASE("find_preferred_mode_index: empty list returns kNoMatch", "[drm_mode_m
     std::vector<DrmModeInfo> modes;
     REQUIRE(find_preferred_mode_index(modes) == DrmModeMatch::kNoMatch);
 }
+
+// --- High-DPI auto-downscale tests ---
+
+TEST_CASE("find_best_downscale_mode: returns kNoMatch when preferred is within threshold",
+          "[drm_mode_matching]") {
+    std::vector<DrmModeInfo> modes = {
+        {1920, 1080, 60, true},
+        {1280, 720, 60, false},
+    };
+    REQUIRE(find_best_downscale_mode(modes, 1920) == DrmModeMatch::kNoMatch);
+}
+
+TEST_CASE("find_best_downscale_mode: returns kNoMatch when both axes equal threshold",
+          "[drm_mode_matching]") {
+    std::vector<DrmModeInfo> modes = {
+        {1920, 1920, 60, true},
+    };
+    REQUIRE(find_best_downscale_mode(modes, 1920) == DrmModeMatch::kNoMatch);
+}
+
+TEST_CASE("find_best_downscale_mode: selects highest sub-threshold mode", "[drm_mode_matching]") {
+    std::vector<DrmModeInfo> modes = {
+        {2560, 1440, 60, true},  // preferred, over threshold
+        {1920, 1080, 60, false}, // best candidate
+        {1280, 720, 60, false},
+        {640, 480, 60, false},
+    };
+    REQUIRE(find_best_downscale_mode(modes, 1920) == 1);
+}
+
+TEST_CASE("find_best_downscale_mode: portrait panel over threshold", "[drm_mode_matching]") {
+    std::vector<DrmModeInfo> modes = {
+        {1440, 2560, 60, true}, // preferred, vdisplay over threshold
+        {720, 1280, 60, false}, // best candidate
+        {480, 800, 60, false},
+    };
+    REQUIRE(find_best_downscale_mode(modes, 1920) == 1);
+}
+
+TEST_CASE("find_best_downscale_mode: breaks ties by refresh rate", "[drm_mode_matching]") {
+    std::vector<DrmModeInfo> modes = {
+        {2560, 1440, 60, true},  // over threshold
+        {1920, 1080, 30, false}, // same pixels, lower refresh
+        {1920, 1080, 60, false}, // same pixels, higher refresh — winner
+    };
+    REQUIRE(find_best_downscale_mode(modes, 1920) == 2);
+}
+
+TEST_CASE("find_best_downscale_mode: no sub-threshold mode available returns kNoMatch",
+          "[drm_mode_matching]") {
+    std::vector<DrmModeInfo> modes = {
+        {2560, 1440, 60, true},
+        {3840, 2160, 30, false},
+    };
+    REQUIRE(find_best_downscale_mode(modes, 1920) == DrmModeMatch::kNoMatch);
+}
+
+TEST_CASE("find_best_downscale_mode: empty list returns kNoMatch", "[drm_mode_matching]") {
+    std::vector<DrmModeInfo> modes;
+    REQUIRE(find_best_downscale_mode(modes, 1920) == DrmModeMatch::kNoMatch);
+}
+
+TEST_CASE("find_best_downscale_mode: single mode over threshold with no alternatives",
+          "[drm_mode_matching]") {
+    std::vector<DrmModeInfo> modes = {
+        {2560, 1440, 60, true},
+    };
+    REQUIRE(find_best_downscale_mode(modes, 1920) == DrmModeMatch::kNoMatch);
+}
+
+TEST_CASE("find_best_downscale_mode: preferred not first in list", "[drm_mode_matching]") {
+    std::vector<DrmModeInfo> modes = {
+        {1280, 720, 60, false},
+        {1440, 2560, 60, true},  // preferred, over threshold
+        {1920, 1080, 60, false}, // best candidate
+    };
+    REQUIRE(find_best_downscale_mode(modes, 1920) == 2);
+}

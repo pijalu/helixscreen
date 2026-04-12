@@ -56,4 +56,20 @@ int find_matching_mode(const std::vector<DrmModeInfo>& modes, uint32_t requested
  */
 int find_preferred_mode_index(const std::vector<DrmModeInfo>& modes);
 
+/**
+ * @brief Find the best lower-resolution mode when the preferred mode exceeds
+ *        a pixel threshold on either axis.
+ *
+ * Used to auto-downscale phone-class panels (e.g. 1440x2560 QHD AMOLED)
+ * that report absurdly high native resolutions via EDID. Selects the
+ * highest-resolution mode where both axes are <= @p max_axis. Ties
+ * (same pixel count) are broken by refresh rate (higher wins).
+ *
+ * @param max_axis  Maximum allowed pixels on either axis (e.g. 1920).
+ * @return Index of the best downscale candidate, or DrmModeMatch::kNoMatch
+ *         if no downscaling is needed (preferred mode is within threshold)
+ *         or no suitable lower mode exists.
+ */
+int find_best_downscale_mode(const std::vector<DrmModeInfo>& modes, uint32_t max_axis);
+
 } // namespace helix
