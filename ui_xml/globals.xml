@@ -228,6 +228,7 @@
     <string name="font_heading_small" value="noto_sans_20"/>
     <string name="font_heading_medium" value="noto_sans_26"/>
     <string name="font_heading_large" value="noto_sans_28"/>
+    <string name="font_heading_xlarge" value="noto_sans_28"/>
     <!-- NO BASE font_heading - registered at runtime -->
     <!-- font_xl variants (extra-large display text, e.g. clock digits) - uses Bold weight -->
     <string name="font_xl_micro" value="noto_sans_bold_16"/>
@@ -235,6 +236,7 @@
     <string name="font_xl_small" value="noto_sans_bold_20"/>
     <string name="font_xl_medium" value="noto_sans_bold_28"/>
     <string name="font_xl_large" value="noto_sans_bold_28"/>
+    <string name="font_xl_xlarge" value="noto_sans_bold_28"/>
     <!-- NO BASE font_xl - registered at runtime -->
     <!-- font_body variants (standard body text) -->
     <string name="font_body_micro" value="noto_sans_10"/>
@@ -242,6 +244,7 @@
     <string name="font_body_small" value="noto_sans_14"/>
     <string name="font_body_medium" value="noto_sans_18"/>
     <string name="font_body_large" value="noto_sans_20"/>
+    <string name="font_body_xlarge" value="noto_sans_24"/>
     <!-- NO BASE font_body - registered at runtime -->
     <!-- font_small variants (hints, helpers, chart labels) - uses Light weight -->
     <string name="font_small_micro" value="noto_sans_light_10"/>
@@ -249,6 +252,7 @@
     <string name="font_small_small" value="noto_sans_light_12"/>
     <string name="font_small_medium" value="noto_sans_light_16"/>
     <string name="font_small_large" value="noto_sans_light_18"/>
+    <string name="font_small_xlarge" value="noto_sans_light_18"/>
     <!-- NO BASE font_small - registered at runtime -->
     <!-- font_xs variants (compact metadata, card overlays, badges) - uses Light weight -->
     <string name="font_xs_micro" value="noto_sans_light_10"/>
@@ -256,6 +260,7 @@
     <string name="font_xs_small" value="noto_sans_light_10"/>
     <string name="font_xs_medium" value="noto_sans_light_12"/>
     <string name="font_xs_large" value="noto_sans_light_14"/>
+    <string name="font_xs_xlarge" value="noto_sans_light_16"/>
     <!-- NO BASE font_xs - registered at runtime -->
     <!-- font_mono variants (monospace for console/terminal displays) - Source Code Pro -->
     <string name="font_mono_micro" value="source_code_pro_8"/>
@@ -263,6 +268,7 @@
     <string name="font_mono_small" value="source_code_pro_12"/>
     <string name="font_mono_medium" value="source_code_pro_14"/>
     <string name="font_mono_large" value="source_code_pro_16"/>
+    <string name="font_mono_xlarge" value="source_code_pro_16"/>
     <!-- NO BASE font_mono - registered at runtime -->
     <!-- ===================================================================== -->
     <!-- Icon Typography - Responsive Material Design Icon Fonts               -->
@@ -273,6 +279,7 @@
     <string name="icon_font_xs_small" value="mdi_icons_16"/>
     <string name="icon_font_xs_medium" value="mdi_icons_16"/>
     <string name="icon_font_xs_large" value="mdi_icons_16"/>
+    <string name="icon_font_xs_xlarge" value="mdi_icons_16"/>
     <!-- NO BASE icon_font_xs - registered at runtime -->
     <!-- icon_font_sm: Small inline icons (metadata, hints, small indicators) -->
     <string name="icon_font_sm_micro" value="mdi_icons_16"/>
@@ -280,6 +287,7 @@
     <string name="icon_font_sm_small" value="mdi_icons_24"/>
     <string name="icon_font_sm_medium" value="mdi_icons_24"/>
     <string name="icon_font_sm_large" value="mdi_icons_24"/>
+    <string name="icon_font_sm_xlarge" value="mdi_icons_24"/>
     <!-- NO BASE icon_font_sm - registered at runtime -->
     <!-- icon_font_md: Standard UI icons (buttons, status, notifications) -->
     <string name="icon_font_md_micro" value="mdi_icons_24"/>
@@ -287,6 +295,7 @@
     <string name="icon_font_md_small" value="mdi_icons_32"/>
     <string name="icon_font_md_medium" value="mdi_icons_32"/>
     <string name="icon_font_md_large" value="mdi_icons_32"/>
+    <string name="icon_font_md_xlarge" value="mdi_icons_32"/>
     <!-- NO BASE icon_font_md - registered at runtime -->
     <!-- icon_font_lg: Large icons (cards, status panels, emphasis) -->
     <string name="icon_font_lg_micro" value="mdi_icons_24"/>
@@ -294,6 +303,7 @@
     <string name="icon_font_lg_small" value="mdi_icons_48"/>
     <string name="icon_font_lg_medium" value="mdi_icons_48"/>
     <string name="icon_font_lg_large" value="mdi_icons_48"/>
+    <string name="icon_font_lg_xlarge" value="mdi_icons_48"/>
     <!-- NO BASE icon_font_lg - registered at runtime -->
     <!-- icon_font_xl: Navigation/hero icons (nav bar, large displays) -->
     <string name="icon_font_xl_micro" value="mdi_icons_32"/>
@@ -301,6 +311,7 @@
     <string name="icon_font_xl_small" value="mdi_icons_64"/>
     <string name="icon_font_xl_medium" value="mdi_icons_64"/>
     <string name="icon_font_xl_large" value="mdi_icons_64"/>
+    <string name="icon_font_xl_xlarge" value="mdi_icons_64"/>
     <!-- NO BASE icon_font_xl - registered at runtime -->
 
     <!-- Step progress colors (wizard steps) -->
