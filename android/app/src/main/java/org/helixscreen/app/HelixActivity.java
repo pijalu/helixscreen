@@ -4,10 +4,17 @@ import android.graphics.Color;
 import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
+import android.util.Log;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.Window;
 import android.view.WindowManager;
+
+import java.io.OutputStream;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.nio.charset.StandardCharsets;
+import java.util.Scanner;
 
 import org.helixscreen.app.BuildConfig;
 import org.libsdl.app.SDLActivity;
@@ -209,6 +216,60 @@ public class HelixActivity extends SDLActivity {
             scheduleAutoHide();
         } else {
             mHideHandler.removeCallbacks(mHideRunnable);
+        }
+    }
+
+    // =========================================================================
+    // JNI HTTPS bridge — called from native crash reporter
+    // =========================================================================
+
+    /**
+     * Perform an HTTPS POST using Android's built-in TLS stack.
+     * Called from native code via JNI when libhv lacks SSL support.
+     *
+     * @param url         Full HTTPS URL
+     * @param body        JSON request body
+     * @param userAgent   User-Agent header value
+     * @param apiKey      X-API-Key header value
+     * @param timeoutSec  Connection + read timeout in seconds
+     * @return            "STATUS_CODE\nRESPONSE_BODY" on success,
+     *                    "0\nERROR_MESSAGE" on failure
+     */
+    public static String httpsPost(String url, String body, String userAgent,
+                                   String apiKey, int timeoutSec) {
+        HttpURLConnection conn = null;
+        try {
+            conn = (HttpURLConnection) new URL(url).openConnection();
+            conn.setRequestMethod("POST");
+            conn.setDoOutput(true);
+            conn.setConnectTimeout(timeoutSec * 1000);
+            conn.setReadTimeout(timeoutSec * 1000);
+            conn.setRequestProperty("Content-Type", "application/json");
+            conn.setRequestProperty("User-Agent", userAgent);
+            conn.setRequestProperty("X-API-Key", apiKey);
+
+            byte[] payload = body.getBytes(StandardCharsets.UTF_8);
+            conn.setFixedLengthStreamingMode(payload.length);
+
+            try (OutputStream os = conn.getOutputStream()) {
+                os.write(payload);
+            }
+
+            int status = conn.getResponseCode();
+            String responseBody = "";
+            try (Scanner s = new Scanner(
+                    status >= 200 && status < 400
+                        ? conn.getInputStream() : conn.getErrorStream(),
+                    "UTF-8")) {
+                s.useDelimiter("\\A");
+                if (s.hasNext()) responseBody = s.next();
+            }
+            return status + "\n" + responseBody;
+        } catch (Exception e) {
+            Log.w("HelixHTTPS", "POST failed: " + e.getMessage());
+            return "0\n" + e.getMessage();
+        } finally {
+            if (conn != null) conn.disconnect();
         }
     }
 }

@@ -19,6 +19,11 @@
 #include <fstream>
 #include <sstream>
 
+#ifdef __ANDROID__
+#include <SDL.h>
+#include <jni.h>
+#endif
+
 using json = nlohmann::json;
 namespace fs = std::filesystem;
 
@@ -150,9 +155,8 @@ CrashReporter::CrashReport CrashReporter::collect_report() {
 
     // Extra registers (reg_r0, reg_r1, ..., reg_fp, reg_ip, etc.)
     static const std::vector<std::string> extra_reg_names = {
-        "reg_r0",  "reg_r1",  "reg_r2",  "reg_r3", "reg_r4", "reg_r5",
-        "reg_r6",  "reg_r7",  "reg_r8",  "reg_r9", "reg_r10",
-        "reg_fp",  "reg_ip",  "reg_ra",
+        "reg_r0", "reg_r1", "reg_r2", "reg_r3",  "reg_r4", "reg_r5", "reg_r6",
+        "reg_r7", "reg_r8", "reg_r9", "reg_r10", "reg_fp", "reg_ip", "reg_ra",
     };
     for (const auto& reg : extra_reg_names) {
         if (crash_data.contains(reg)) {
@@ -414,8 +418,8 @@ std::string CrashReporter::report_to_text(const CrashReport& report) {
     }
 
     if (!report.stack_dump.empty()) {
-        ss << "--- Stack Dump (" << report.stack_dump.size() << " words from "
-           << report.stack_base << ") ---\n";
+        ss << "--- Stack Dump (" << report.stack_dump.size() << " words from " << report.stack_base
+           << ") ---\n";
         for (size_t i = 0; i < report.stack_dump.size(); ++i) {
             ss << "  [SP+0x" << std::hex << (i * 4) << "] " << report.stack_dump[i] << "\n";
         }
@@ -582,24 +586,123 @@ bool CrashReporter::is_duplicate(const CrashReport& report) const {
 // Auto-Send
 // =============================================================================
 
+#ifdef __ANDROID__
+/// HTTPS POST via Android's Java HttpURLConnection (JNI bridge).
+/// libhv is built without SSL on Android, so we use the platform TLS stack.
+/// Returns {status_code, response_body}; status 0 means network/JNI failure.
+static std::pair<int, std::string> android_https_post(const std::string& url,
+                                                      const std::string& body,
+                                                      const std::string& user_agent,
+                                                      const std::string& api_key, int timeout_sec) {
+    // SDL_AndroidGetJNIEnv() returns a per-thread JNI env (handles AttachCurrentThread)
+    JNIEnv* env = static_cast<JNIEnv*>(SDL_AndroidGetJNIEnv());
+    if (!env) {
+        spdlog::error("[CrashReporter] Failed to get JNI env");
+        return {0, "JNI env unavailable"};
+    }
+
+    jclass cls = env->FindClass("org/helixscreen/app/HelixActivity");
+    if (!cls) {
+        spdlog::error("[CrashReporter] Failed to find HelixActivity class");
+        env->ExceptionClear();
+        return {0, "HelixActivity class not found"};
+    }
+
+    jmethodID method = env->GetStaticMethodID(
+        cls, "httpsPost",
+        "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;I)"
+        "Ljava/lang/String;");
+    if (!method) {
+        spdlog::error("[CrashReporter] Failed to find httpsPost method");
+        env->DeleteLocalRef(cls);
+        env->ExceptionClear();
+        return {0, "httpsPost method not found"};
+    }
+
+    jstring j_url = env->NewStringUTF(url.c_str());
+    jstring j_body = env->NewStringUTF(body.c_str());
+    jstring j_ua = env->NewStringUTF(user_agent.c_str());
+    jstring j_key = env->NewStringUTF(api_key.c_str());
+
+    if (!j_url || !j_body || !j_ua || !j_key) {
+        if (j_url)
+            env->DeleteLocalRef(j_url);
+        if (j_body)
+            env->DeleteLocalRef(j_body);
+        if (j_ua)
+            env->DeleteLocalRef(j_ua);
+        if (j_key)
+            env->DeleteLocalRef(j_key);
+        env->DeleteLocalRef(cls);
+        env->ExceptionClear();
+        return {0, "JNI string allocation failed"};
+    }
+
+    auto j_result = static_cast<jstring>(env->CallStaticObjectMethod(
+        cls, method, j_url, j_body, j_ua, j_key, static_cast<jint>(timeout_sec)));
+
+    env->DeleteLocalRef(j_url);
+    env->DeleteLocalRef(j_body);
+    env->DeleteLocalRef(j_ua);
+    env->DeleteLocalRef(j_key);
+    env->DeleteLocalRef(cls);
+
+    if (!j_result || env->ExceptionCheck()) {
+        env->ExceptionClear();
+        return {0, "JNI call failed"};
+    }
+
+    const char* result_cstr = env->GetStringUTFChars(j_result, nullptr);
+    std::string result(result_cstr);
+    env->ReleaseStringUTFChars(j_result, result_cstr);
+    env->DeleteLocalRef(j_result);
+
+    // Parse "STATUS_CODE\nRESPONSE_BODY"
+    auto newline = result.find('\n');
+    if (newline == std::string::npos) {
+        return {0, result};
+    }
+    int status = 0;
+    try {
+        status = std::stoi(result.substr(0, newline));
+    } catch (...) {
+    }
+    return {status, result.substr(newline + 1)};
+}
+#endif // __ANDROID__
+
 bool CrashReporter::try_auto_send(const CrashReport& report) {
     // Best-effort POST to crash worker — failure falls through to QR/file
     try {
         json payload = report_to_json(report);
+        std::string body = payload.dump();
+        std::string user_agent = std::string("HelixScreen/") + HELIX_VERSION;
 
+        int status = 0;
+        std::string resp_body;
+
+#ifdef __ANDROID__
+        // Android: use JNI bridge to Java's HttpURLConnection (libhv has no SSL)
+        auto [s, b] = android_https_post(CRASH_WORKER_URL, body, user_agent, INGEST_API_KEY, 15);
+        status = s;
+        resp_body = std::move(b);
+#else
+        // Desktop/embedded: use libhv directly
         auto req = std::make_shared<HttpRequest>();
         req->method = HTTP_POST;
         req->url = CRASH_WORKER_URL;
-        req->timeout = 15; // seconds — don't block UI too long
+        req->timeout = 15;
         req->content_type = APPLICATION_JSON;
-        req->headers["User-Agent"] = std::string("HelixScreen/") + HELIX_VERSION;
+        req->headers["User-Agent"] = user_agent;
         req->headers["X-API-Key"] = INGEST_API_KEY;
-        req->body = payload.dump();
+        req->body = std::move(body);
 
         auto resp = requests::request(req);
-        int status = resp ? static_cast<int>(resp->status_code) : 0;
+        status = resp ? static_cast<int>(resp->status_code) : 0;
+        resp_body = resp ? resp->body : "";
+#endif
 
-        if (resp && status >= 200 && status < 300) {
+        if (status >= 200 && status < 300) {
             spdlog::info("[CrashReporter] Crash report sent to worker (HTTP {})", status);
 
             // Record in crash history for debug bundle cross-referencing
@@ -616,7 +719,7 @@ bool CrashReporter::try_auto_send(const CrashReport& report) {
 
             // Parse optional GitHub metadata from crash worker response
             try {
-                json resp_json = json::parse(resp->body);
+                json resp_json = json::parse(resp_body);
                 hist_entry.github_issue = resp_json.value("issue_number", 0);
                 hist_entry.github_url = resp_json.value("issue_url", "");
             } catch (const std::exception&) {
@@ -631,7 +734,7 @@ bool CrashReporter::try_auto_send(const CrashReport& report) {
         }
 
         spdlog::warn("[CrashReporter] Worker returned HTTP {} (body: {})", status,
-                     resp ? resp->body.substr(0, 200) : "no response");
+                     resp_body.substr(0, 200));
         return false;
     } catch (const std::exception& e) {
         spdlog::warn("[CrashReporter] Auto-send failed: {}", e.what());
