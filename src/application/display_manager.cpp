@@ -215,23 +215,7 @@ bool DisplayManager::init(const Config& config) {
             if (m_display) {
                 spdlog::info("[DisplayManager] Fbdev fallback succeeded at {}x{}", m_width,
                              m_height);
-                static constexpr int kHighDpiThreshold = 1920;
-                if (m_width > kHighDpiThreshold || m_height > kHighDpiThreshold) {
-                    spdlog::warn(
-                        "[DisplayManager] Fbdev resolution {}x{} exceeds {}px on one axis. "
-                        "Cannot auto-downscale in fbdev mode. Configure a lower resolution "
-                        "via kernel parameters (e.g., framebuffer_width/framebuffer_height "
-                        "in /boot/firmware/config.txt on Raspberry Pi) and reboot.",
-                        m_width, m_height, kHighDpiThreshold);
-                    char toast_msg[256];
-                    snprintf(toast_msg, sizeof(toast_msg),
-                             "Display resolution is very high (%dx%d). Text may appear small. "
-                             "Reduce framebuffer resolution in /boot/firmware/config.txt for "
-                             "best results.",
-                             m_width, m_height);
-                    helix::PendingStartupWarnings::instance().enqueue(
-                        helix::PendingStartupWarnings::Severity::WARNING, toast_msg);
-                }
+                warn_fbdev_high_dpi();
             }
         }
     }
@@ -1109,26 +1093,28 @@ bool DisplayManager::try_drm_to_fbdev_fallback(lv_display_rotation_t rot, bool s
         return false;
     }
     spdlog::info("[DisplayManager] Fbdev fallback succeeded at {}x{}", m_width, m_height);
-    // Warn if fbdev landed on a high-DPI resolution. Unlike DRM, fbdev
-    // cannot switch modes at runtime — the user needs to configure a lower
-    // framebuffer resolution via kernel parameters.
-    static constexpr int kHighDpiThreshold = 1920;
-    if (m_width > kHighDpiThreshold || m_height > kHighDpiThreshold) {
-        spdlog::warn("[DisplayManager] Fbdev resolution {}x{} exceeds {}px on one axis. "
-                     "Cannot auto-downscale in fbdev mode. Configure a lower resolution "
-                     "via kernel parameters (e.g., framebuffer_width/framebuffer_height "
-                     "in /boot/firmware/config.txt on Raspberry Pi) and reboot.",
-                     m_width, m_height, kHighDpiThreshold);
-        char toast_msg[256];
-        snprintf(toast_msg, sizeof(toast_msg),
-                 "Display resolution is very high (%dx%d). Text may appear small. "
-                 "Reduce framebuffer resolution in /boot/firmware/config.txt for "
-                 "best results.",
-                 m_width, m_height);
-        helix::PendingStartupWarnings::instance().enqueue(
-            helix::PendingStartupWarnings::Severity::WARNING, toast_msg);
-    }
+    warn_fbdev_high_dpi();
     return true;
+}
+
+void DisplayManager::warn_fbdev_high_dpi() {
+    static constexpr int kHighDpiThreshold = 1920;
+    if (m_width <= kHighDpiThreshold && m_height <= kHighDpiThreshold) {
+        return;
+    }
+    spdlog::warn("[DisplayManager] Fbdev resolution {}x{} exceeds {}px on one axis. "
+                 "Cannot auto-downscale in fbdev mode. Configure a lower resolution "
+                 "via kernel parameters (e.g., framebuffer_width/framebuffer_height "
+                 "in /boot/firmware/config.txt on Raspberry Pi) and reboot.",
+                 m_width, m_height, kHighDpiThreshold);
+    char toast_msg[256];
+    snprintf(toast_msg, sizeof(toast_msg),
+             "Display resolution is very high (%dx%d). Text may appear small. "
+             "Reduce framebuffer resolution in /boot/firmware/config.txt for "
+             "best results.",
+             m_width, m_height);
+    helix::PendingStartupWarnings::instance().enqueue(
+        helix::PendingStartupWarnings::Severity::WARNING, toast_msg);
 }
 
 // ============================================================================

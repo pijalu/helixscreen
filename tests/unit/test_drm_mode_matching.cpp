@@ -159,3 +159,30 @@ TEST_CASE("find_best_downscale_mode: preferred not first in list", "[drm_mode_ma
     };
     REQUIRE(find_best_downscale_mode(modes, 1920) == 2);
 }
+
+TEST_CASE("find_best_downscale_mode: no preferred flag, mode[0] below threshold",
+          "[drm_mode_matching]") {
+    std::vector<DrmModeInfo> modes = {
+        {1280, 720, 60, false},  // mode[0], fallback "preferred", below threshold
+        {2560, 1440, 60, false}, // high-res but not preferred
+    };
+    // mode[0] is the fallback preferred; within threshold, so no downscale
+    REQUIRE(find_best_downscale_mode(modes, 1920) == DrmModeMatch::kNoMatch);
+}
+
+TEST_CASE("find_best_downscale_mode: no preferred flag, mode[0] above threshold",
+          "[drm_mode_matching]") {
+    std::vector<DrmModeInfo> modes = {
+        {2560, 1440, 60, false}, // mode[0], fallback "preferred", above threshold
+        {1920, 1080, 60, false}, // candidate
+    };
+    REQUIRE(find_best_downscale_mode(modes, 1920) == 1);
+}
+
+TEST_CASE("find_best_downscale_mode: one axis at threshold, other above", "[drm_mode_matching]") {
+    std::vector<DrmModeInfo> modes = {
+        {1920, 2560, 60, true}, // hdisplay at threshold, vdisplay over
+        {1280, 720, 60, false}, // candidate
+    };
+    REQUIRE(find_best_downscale_mode(modes, 1920) == 1);
+}

@@ -504,4 +504,13 @@ class DisplayManager {
      * @return true if display is usable (no fallback needed, or fallback succeeded)
      */
     bool try_drm_to_fbdev_fallback(lv_display_rotation_t rot, bool splash_active);
+
+    /**
+     * @brief Warn if fbdev resolution exceeds the high-DPI threshold
+     *
+     * Logs a warning and enqueues a toast because fbdev cannot switch
+     * modes at runtime — the user must lower the framebuffer resolution
+     * via kernel parameters and reboot.
+     */
+    void warn_fbdev_high_dpi();
 };
