@@ -199,6 +199,11 @@ public class HelixActivity extends SDLActivity {
                 if (mSwipeArmed && (mSwipeStartY - ev.getY()) >= swipeThresholdPx) {
                     setNavBarVisible(true);
                     mSwipeArmed = false;
+                    // Cancel the touch so LVGL drops any pending click on
+                    // bottom-row buttons that overlap the swipe edge zone.
+                    ev.setAction(MotionEvent.ACTION_CANCEL);
+                    super.dispatchTouchEvent(ev);
+                    return true;
                 }
                 break;
             case MotionEvent.ACTION_UP:
