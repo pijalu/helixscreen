@@ -41,10 +41,10 @@ import org.libsdl.app.SDLActivity;
 public class HelixActivity extends SDLActivity {
 
     /** A swipe must start within this many dp of the bottom edge to arm. */
-    private static final int EDGE_ZONE_DP = 12;
+    private static final int EDGE_ZONE_DP = 32;
 
     /** Vertical travel required to trigger the reveal, in dp. */
-    private static final int SWIPE_THRESHOLD_DP = 24;
+    private static final int SWIPE_THRESHOLD_DP = 16;
 
     /** Nav bar hides this many ms after the last touch while it is visible. */
     private static final long NAV_HIDE_TIMEOUT_MS = 3000;
@@ -110,11 +110,11 @@ public class HelixActivity extends SDLActivity {
         // Edge-to-edge: app draws behind system bars (replaces LAYOUT_* flags)
         window.setDecorFitsSystemWindows(false);
 
-        // System edge-swipe reveals translucent bars that auto-fade.
-        // Our explicit show() for the custom swipe gesture keeps them visible
-        // until the 3-second auto-hide timer fires.
+        // Bars stay visible until explicitly hidden (matches legacy non-sticky
+        // IMMERSIVE). Required for 3-button nav where users need time to tap
+        // back/home/recents. Our 3-second auto-hide timer re-hides them.
         controller.setSystemBarsBehavior(
-                WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE);
+                WindowInsetsController.BEHAVIOR_DEFAULT);
 
         if (mNavBarVisible) {
             controller.show(WindowInsets.Type.navigationBars());
