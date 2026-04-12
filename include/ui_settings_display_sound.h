@@ -82,6 +82,7 @@ class DisplaySoundSettingsOverlay : public OverlayBase {
     void handle_timezone_changed(int index);
     void handle_time_format_changed(int index);
     void handle_animations_changed(bool enabled);
+    void handle_system_keyboard_changed(bool enabled);
 
     // Display handlers
     void handle_dark_mode_changed(bool enabled);
@@ -186,6 +187,7 @@ class DisplaySoundSettingsOverlay : public OverlayBase {
     static void on_timezone_changed(lv_event_t* e);
     static void on_time_format_changed(lv_event_t* e);
     static void on_animations_changed(lv_event_t* e);
+    static void on_system_keyboard_changed(lv_event_t* e);
 
     // Display
     static void on_dark_mode_changed(lv_event_t* e);

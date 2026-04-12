@@ -8,6 +8,7 @@
 #include "config.h"
 #include "display_manager.h"
 #include "platform_capabilities.h"
+#include "platform_info.h"
 #include "spdlog/spdlog.h"
 #include "static_subject_registry.h"
 #include "theme_loader.h"
@@ -197,6 +198,15 @@ void DisplaySettingsManager::init_subjects() {
     bool animations = config->get<bool>("/display/animations_enabled", anim_default);
     UI_MANAGED_SUBJECT_INT(animations_enabled_subject_, animations ? 1 : 0,
                            "settings_animations_enabled", subjects_);
+
+    // System keyboard preference (default: off — use built-in LVGL keyboard)
+    bool sys_kb = config->get<bool>("/display/use_system_keyboard", false);
+    UI_MANAGED_SUBJECT_INT(use_system_keyboard_subject_, sys_kb ? 1 : 0,
+                           "settings_use_system_keyboard", subjects_);
+
+    // Platform flag for XML conditional visibility (ephemeral, not persisted)
+    int is_android = helix::is_android_platform() ? 1 : 0;
+    UI_MANAGED_SUBJECT_INT(is_android_subject_, is_android, "settings_is_android", subjects_);
 
     // Bed mesh render mode (default: 0 = Auto)
     int bed_mesh_mode = config->get<int>("/display/bed_mesh_render_mode", 0);
@@ -538,6 +548,20 @@ void DisplaySettingsManager::set_animations_enabled(bool enabled) {
 
     Config* config = Config::get_instance();
     config->set<bool>("/display/animations_enabled", enabled);
+    config->save();
+}
+
+bool DisplaySettingsManager::get_use_system_keyboard() const {
+    return lv_subject_get_int(const_cast<lv_subject_t*>(&use_system_keyboard_subject_)) != 0;
+}
+
+void DisplaySettingsManager::set_use_system_keyboard(bool enabled) {
+    spdlog::info("[DisplaySettingsManager] set_use_system_keyboard({})", enabled);
+
+    lv_subject_set_int(&use_system_keyboard_subject_, enabled ? 1 : 0);
+
+    Config* config = Config::get_instance();
+    config->set<bool>("/display/use_system_keyboard", enabled);
     config->save();
 }
 

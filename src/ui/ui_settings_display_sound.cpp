@@ -100,6 +100,7 @@ void DisplaySoundSettingsOverlay::register_callbacks() {
         {"on_timezone_changed", on_timezone_changed},
         {"on_time_format_changed", on_time_format_changed},
         {"on_animations_changed", on_animations_changed},
+        {"on_system_keyboard_changed", on_system_keyboard_changed},
 
         // Display
         {"on_dark_mode_changed", on_dark_mode_changed},
@@ -538,6 +539,11 @@ void DisplaySoundSettingsOverlay::handle_animations_changed(bool enabled) {
     DisplaySettingsManager::instance().set_animations_enabled(enabled);
 }
 
+void DisplaySoundSettingsOverlay::handle_system_keyboard_changed(bool enabled) {
+    spdlog::info("[{}] System keyboard toggled: {}", get_name(), enabled ? "ON" : "OFF");
+    DisplaySettingsManager::instance().set_use_system_keyboard(enabled);
+}
+
 // ============================================================================
 // DISPLAY EVENT HANDLERS
 // ============================================================================
@@ -961,6 +967,14 @@ void DisplaySoundSettingsOverlay::on_animations_changed(lv_event_t* e) {
     auto* toggle = static_cast<lv_obj_t*>(lv_event_get_current_target(e));
     bool enabled = lv_obj_has_state(toggle, LV_STATE_CHECKED);
     get_display_sound_settings_overlay().handle_animations_changed(enabled);
+    LVGL_SAFE_EVENT_CB_END();
+}
+
+void DisplaySoundSettingsOverlay::on_system_keyboard_changed(lv_event_t* e) {
+    LVGL_SAFE_EVENT_CB_BEGIN("[DisplaySoundSettingsOverlay] on_system_keyboard_changed");
+    auto* toggle = static_cast<lv_obj_t*>(lv_event_get_current_target(e));
+    bool enabled = lv_obj_has_state(toggle, LV_STATE_CHECKED);
+    get_display_sound_settings_overlay().handle_system_keyboard_changed(enabled);
     LVGL_SAFE_EVENT_CB_END();
 }
 

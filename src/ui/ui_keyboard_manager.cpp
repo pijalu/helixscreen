@@ -17,6 +17,10 @@
 
 #include <cstring>
 
+#ifdef __ANDROID__
+#include <SDL.h>
+#endif
+
 using namespace helix;
 
 // Macro for keyboard button control flags
@@ -852,6 +856,20 @@ void KeyboardManager::show(lv_obj_t* textarea) {
         return;
     }
 
+#ifdef __ANDROID__
+    if (DisplaySettingsManager::instance().get_use_system_keyboard()) {
+        spdlog::info("[KeyboardManager] Using system keyboard for textarea: {}", (void*)textarea);
+        context_textarea_ = textarea;
+        // Link the textarea so SDL_TEXTINPUT events routed through LVGL's
+        // SDL keyboard indev are delivered to the correct widget.
+        if (textarea) {
+            lv_keyboard_set_textarea(keyboard_, textarea);
+        }
+        SDL_StartTextInput();
+        return;
+    }
+#endif
+
     lv_obj_t* screen = lv_screen_active();
     if (screen == nullptr) {
         spdlog::debug("[KeyboardManager] Skipping show - no active screen");
@@ -966,6 +984,12 @@ void KeyboardManager::hide() {
 
     spdlog::debug("[KeyboardManager] Hiding keyboard");
 
+#ifdef __ANDROID__
+    if (DisplaySettingsManager::instance().get_use_system_keyboard()) {
+        SDL_StopTextInput();
+    }
+#endif
+
     // Cancel any in-progress show animation
     lv_anim_delete(keyboard_, nullptr);
 
@@ -1052,12 +1076,12 @@ void KeyboardManager::reset() {
 
     // Delete keyboard widget (child of m_screen, survives app_layout teardown)
     if (keyboard_) {
-        lv_anim_delete(keyboard_, nullptr);  // Cancel pending slide animations
+        lv_anim_delete(keyboard_, nullptr); // Cancel pending slide animations
         lv_obj_del(keyboard_);
     }
     keyboard_ = nullptr;
 
-    context_textarea_ = nullptr;  // Child of app_layout — deleted by lv_obj_del(m_app_layout)
+    context_textarea_ = nullptr; // Child of app_layout — deleted by lv_obj_del(m_app_layout)
 
     // Delete overlay (also child of m_screen)
     if (overlay_) {

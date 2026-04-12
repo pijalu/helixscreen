@@ -36,6 +36,15 @@
                           label="Animations" label_tag="Animations" icon="animation"
                           description="Enable UI motion effects" description_tag="Enable UI motion effects"
                           callback="on_animations_changed"/>
+      <!-- System Keyboard (Android only — hidden on other platforms) -->
+      <setting_toggle_row name="row_system_keyboard"
+                          label="System Keyboard" label_tag="System Keyboard" icon="pencil"
+                          description="Use Android native keyboard for text input"
+                          description_tag="Use Android native keyboard for text input"
+                          subject="settings_use_system_keyboard"
+                          callback="on_system_keyboard_changed">
+        <bind_flag_if_eq subject="settings_is_android" flag="hidden" ref_value="0"/>
+      </setting_toggle_row>
       <!-- Widget Labels -->
       <setting_toggle_row name="row_widget_labels"
                           label="Widget Labels" label_tag="Widget Labels" icon="view_grid"

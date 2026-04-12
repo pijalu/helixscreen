@@ -123,6 +123,12 @@ class DisplaySettingsManager {
     /** @brief Set animations enabled state (updates subject + persists) */
     void set_animations_enabled(bool enabled);
 
+    /** @brief Use Android system keyboard instead of built-in LVGL keyboard */
+    bool get_use_system_keyboard() const;
+
+    /** @brief Set system keyboard preference (updates subject + persists) */
+    void set_use_system_keyboard(bool enabled);
+
     /** @brief Get bed mesh render mode (0=Auto, 1=3D, 2=2D) */
     int get_bed_mesh_render_mode() const;
 
@@ -273,6 +279,16 @@ class DisplaySettingsManager {
         return &animations_enabled_subject_;
     }
 
+    /** @brief System keyboard subject (integer: 0=built-in, 1=system) */
+    lv_subject_t* subject_use_system_keyboard() {
+        return &use_system_keyboard_subject_;
+    }
+
+    /** @brief Android platform flag (integer: 0=not Android, 1=Android) */
+    lv_subject_t* subject_is_android() {
+        return &is_android_subject_;
+    }
+
     /** @brief Bed mesh render mode subject (integer: 0=auto, 1=3D, 2=2D) */
     lv_subject_t* subject_bed_mesh_render_mode() {
         return &bed_mesh_render_mode_subject_;
@@ -316,6 +332,8 @@ class DisplaySettingsManager {
     lv_subject_t has_dimming_subject_;
     lv_subject_t sleep_while_printing_subject_;
     lv_subject_t animations_enabled_subject_;
+    lv_subject_t use_system_keyboard_subject_;
+    lv_subject_t is_android_subject_;
     lv_subject_t bed_mesh_render_mode_subject_;
     lv_subject_t gcode_render_mode_subject_;
     lv_subject_t time_format_subject_;
