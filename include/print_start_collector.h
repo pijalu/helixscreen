@@ -200,6 +200,11 @@ class PrintStartCollector : public std::enable_shared_from_this<PrintStartCollec
      */
     bool is_completion_marker(const std::string& line) const;
 
+    /** @brief Check if a G-code response is a RESPOND-based print start completion */
+    [[nodiscard]] bool is_respond_completion(const std::string& line) const {
+        return std::regex_search(line, respond_completion_pattern_);
+    }
+
     // Dependencies
     helix::MoonrakerClient& client_;
     helix::PrinterState& state_;
@@ -226,6 +231,7 @@ class PrintStartCollector : public std::enable_shared_from_this<PrintStartCollec
     // Universal patterns (not profile-specific)
     static const std::regex print_start_pattern_;
     static const std::regex completion_pattern_;
+    static const std::regex respond_completion_pattern_;
 
     // Fallback detection constants
     static constexpr auto FALLBACK_TIMEOUT =

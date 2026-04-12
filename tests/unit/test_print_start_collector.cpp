@@ -29,6 +29,13 @@ static const std::regex completion_pattern(
     R"(SET_PRINT_STATS_INFO\s+CURRENT_LAYER=|LAYER:?\s*1\b|;LAYER:1|First layer)",
     std::regex::icase);
 
+// RESPOND-based print start completion (authoritative signal)
+// Matches G-code responses containing "print" + "start"/"started"/"starting" adjacent in either
+// order
+static const std::regex respond_completion_pattern(
+    R"(\bprint\b\W+\b(start|started|starting)\b|\b(start|started|starting)\b\W+\bprint\b)",
+    std::regex::icase);
+
 // Phase detection patterns
 // Include both G-code commands AND Voron status_* LED macros (they indicate phase start)
 static const std::regex homing_pattern(R"(G28|Homing|Home All Axes|homing|status_homing)",
@@ -107,6 +114,38 @@ TEST_CASE("PrintStart: completion marker detection", "[core][print][completion]"
     REQUIRE(matches(completion_pattern, "LAYER:10") == false);
     REQUIRE(matches(completion_pattern, "LAYER:100") == false);
     REQUIRE(matches(completion_pattern, "SET_PRINT_STATS_INFO") == false); // No CURRENT_LAYER
+}
+
+// ============================================================================
+// RESPOND Completion Pattern Tests
+// ============================================================================
+
+TEST_CASE("PrintStart: RESPOND completion detection", "[core][print][respond]") {
+    SECTION("Should match common print start messages") {
+        REQUIRE(matches(respond_completion_pattern, "// Print started!") == true);
+        REQUIRE(matches(respond_completion_pattern, "Print Started") == true);
+        REQUIRE(matches(respond_completion_pattern, "PRINT STARTING") == true);
+        REQUIRE(matches(respond_completion_pattern, "Print Start Complete") == true);
+        REQUIRE(matches(respond_completion_pattern, "print started") == true);
+        REQUIRE(matches(respond_completion_pattern, "Starting print") == true);
+        REQUIRE(matches(respond_completion_pattern, "starting print now") == true);
+        REQUIRE(matches(respond_completion_pattern, "Started print successfully") == true);
+    }
+
+    SECTION("Should NOT match unrelated messages") {
+        // "Printing" is not "print" (word boundary)
+        REQUIRE(matches(respond_completion_pattern, "Printing layer 5") == false);
+        // "restart" is not "start" (word boundary)
+        REQUIRE(matches(respond_completion_pattern, "restart print") == false);
+        // "print_start" — underscore breaks word boundary for "start"
+        REQUIRE(matches(respond_completion_pattern, "print_start phase") == false);
+        // No "print" keyword
+        REQUIRE(matches(respond_completion_pattern, "Starting temperature check") == false);
+        // No "start" variant keyword
+        REQUIRE(matches(respond_completion_pattern, "print complete") == false);
+        // Unrelated with both words far apart in different context
+        REQUIRE(matches(respond_completion_pattern, "start heating the print bed") == false);
+    }
 }
 
 // ============================================================================

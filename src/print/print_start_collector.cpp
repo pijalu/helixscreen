@@ -40,6 +40,12 @@ const std::regex PrintStartCollector::completion_pattern_(
     R"(SET_PRINT_STATS_INFO\s+CURRENT_LAYER=|LAYER:?\s*1\b|;LAYER:1|First layer|HELIX:READY)",
     std::regex::icase);
 
+// Pattern to detect RESPOND-based print start completion (authoritative signal)
+// Matches messages containing "print" + "start"/"started"/"starting" adjacent in either word order
+const std::regex PrintStartCollector::respond_completion_pattern_(
+    R"(\bprint\b\W+\b(start|started|starting)\b|\b(start|started|starting)\b\W+\bprint\b)",
+    std::regex::icase);
+
 // ============================================================================
 // CONSTRUCTOR / DESTRUCTOR
 // ============================================================================
