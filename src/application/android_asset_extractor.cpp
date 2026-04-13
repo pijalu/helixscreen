@@ -231,9 +231,9 @@ void android_extract_assets_if_needed() {
     spdlog::info("[AndroidAssets] Extracted {} files from ui_xml/", n);
 
     // assets/ tree (images has subdirs: ams, flags, printers)
-    n = extract_known_tree(
-        mgr, "assets", target_dir + "/assets",
-        {"fonts", "images", "images/ams", "images/flags", "images/printers", "test_gcodes"});
+    n = extract_known_tree(mgr, "assets", target_dir + "/assets",
+                           {"fonts", "images", "images/ams", "images/flags", "images/printers",
+                            "sounds", "test_gcodes"});
     if (n > 0)
         total += n;
     spdlog::info("[AndroidAssets] Extracted {} files from assets/", n);
