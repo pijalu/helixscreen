@@ -793,8 +793,10 @@ const char* theme_manager_get_breakpoint_suffix(int32_t resolution) {
         return "_medium";
     } else if (resolution <= UI_BREAKPOINT_LARGE_MAX) {
         return "_large";
-    } else {
+    } else if (resolution <= UI_BREAKPOINT_XLARGE_MAX) {
         return "_xlarge";
+    } else {
+        return "_xxlarge";
     }
 }
 
@@ -816,12 +818,13 @@ void theme_manager_register_responsive_spacing(lv_display_t* display) {
 
     // Use screen height for breakpoint selection — vertical space is the constraint
     const char* size_suffix = theme_manager_get_breakpoint_suffix(ver_res);
-    const char* size_label = (ver_res <= UI_BREAKPOINT_MICRO_MAX)    ? "MICRO"
+    const char* size_label = (ver_res <= UI_BREAKPOINT_MICRO_MAX)     ? "MICRO"
                              : (ver_res <= UI_BREAKPOINT_TINY_MAX)   ? "TINY"
                              : (ver_res <= UI_BREAKPOINT_SMALL_MAX)  ? "SMALL"
                              : (ver_res <= UI_BREAKPOINT_MEDIUM_MAX) ? "MEDIUM"
                              : (ver_res <= UI_BREAKPOINT_LARGE_MAX)  ? "LARGE"
-                                                                     : "XLARGE";
+                             : (ver_res <= UI_BREAKPOINT_XLARGE_MAX) ? "XLARGE"
+                                                                     : "XXLARGE";
 
     lv_xml_component_scope_t* scope = lv_xml_component_get_scope("globals");
     if (!scope) {
@@ -858,13 +861,14 @@ void theme_manager_register_responsive_spacing(lv_display_t* display) {
         }
     }
 
-    // Auto-discover all px tokens from all XML files (including optional _micro, _tiny and _xlarge)
+    // Auto-discover all px tokens from all XML files (including optional _micro, _tiny, _xlarge, and _xxlarge)
     auto micro_tokens = theme_manager_parse_all_xml_for_suffix("ui_xml", "px", "_micro");
     auto tiny_tokens = theme_manager_parse_all_xml_for_suffix("ui_xml", "px", "_tiny");
     auto small_tokens = theme_manager_parse_all_xml_for_suffix("ui_xml", "px", "_small");
     auto medium_tokens = theme_manager_parse_all_xml_for_suffix("ui_xml", "px", "_medium");
     auto large_tokens = theme_manager_parse_all_xml_for_suffix("ui_xml", "px", "_large");
     auto xlarge_tokens = theme_manager_parse_all_xml_for_suffix("ui_xml", "px", "_xlarge");
+    auto xxlarge_tokens = theme_manager_parse_all_xml_for_suffix("ui_xml", "px", "_xxlarge");
 
     int registered = 0;
     for (const auto& [base_name, small_val] : small_tokens) {
@@ -895,11 +899,20 @@ void theme_manager_register_responsive_spacing(lv_display_t* display) {
                 value = medium_it->second.c_str();
             } else if (strcmp(size_suffix, "_large") == 0) {
                 value = large_it->second.c_str();
-            } else {
-                // _xlarge: use xlarge if available, otherwise fall back to _large
+            } else if (strcmp(size_suffix, "_xlarge") == 0) {
                 auto xlarge_it = xlarge_tokens.find(base_name);
                 value = (xlarge_it != xlarge_tokens.end()) ? xlarge_it->second.c_str()
                                                            : large_it->second.c_str();
+            } else {
+                // _xxlarge: use xxlarge if available, fall back to _xlarge, then _large
+                auto xxlarge_it = xxlarge_tokens.find(base_name);
+                if (xxlarge_it != xxlarge_tokens.end()) {
+                    value = xxlarge_it->second.c_str();
+                } else {
+                    auto xlarge_it = xlarge_tokens.find(base_name);
+                    value = (xlarge_it != xlarge_tokens.end()) ? xlarge_it->second.c_str()
+                                                               : large_it->second.c_str();
+                }
             }
             spdlog::trace("[Theme] Registering spacing {}: selected={}", base_name, value);
             lv_xml_register_const(scope, base_name.c_str(), value);
@@ -1064,12 +1077,13 @@ void theme_manager_register_responsive_fonts(lv_display_t* display) {
 
     // Use screen height for breakpoint selection — vertical space is the constraint
     const char* size_suffix = theme_manager_get_breakpoint_suffix(ver_res);
-    const char* size_label = (ver_res <= UI_BREAKPOINT_MICRO_MAX)    ? "MICRO"
+    const char* size_label = (ver_res <= UI_BREAKPOINT_MICRO_MAX)     ? "MICRO"
                              : (ver_res <= UI_BREAKPOINT_TINY_MAX)   ? "TINY"
                              : (ver_res <= UI_BREAKPOINT_SMALL_MAX)  ? "SMALL"
                              : (ver_res <= UI_BREAKPOINT_MEDIUM_MAX) ? "MEDIUM"
                              : (ver_res <= UI_BREAKPOINT_LARGE_MAX)  ? "LARGE"
-                                                                     : "XLARGE";
+                             : (ver_res <= UI_BREAKPOINT_XLARGE_MAX) ? "XLARGE"
+                                                                     : "XXLARGE";
 
     lv_xml_component_scope_t* scope = lv_xml_component_get_scope("globals");
     if (!scope) {
@@ -1077,14 +1091,15 @@ void theme_manager_register_responsive_fonts(lv_display_t* display) {
         return;
     }
 
-    // Auto-discover all string tokens from all XML files (including optional _micro, _tiny and
-    // _xlarge)
+    // Auto-discover all string tokens from all XML files (including optional _micro, _tiny, _xlarge,
+    // and _xxlarge)
     auto micro_tokens = theme_manager_parse_all_xml_for_suffix("ui_xml", "string", "_micro");
     auto tiny_tokens = theme_manager_parse_all_xml_for_suffix("ui_xml", "string", "_tiny");
     auto small_tokens = theme_manager_parse_all_xml_for_suffix("ui_xml", "string", "_small");
     auto medium_tokens = theme_manager_parse_all_xml_for_suffix("ui_xml", "string", "_medium");
     auto large_tokens = theme_manager_parse_all_xml_for_suffix("ui_xml", "string", "_large");
     auto xlarge_tokens = theme_manager_parse_all_xml_for_suffix("ui_xml", "string", "_xlarge");
+    auto xxlarge_tokens = theme_manager_parse_all_xml_for_suffix("ui_xml", "string", "_xxlarge");
 
     int registered = 0;
     for (const auto& [base_name, small_val] : small_tokens) {
@@ -1115,11 +1130,20 @@ void theme_manager_register_responsive_fonts(lv_display_t* display) {
                 value = medium_it->second.c_str();
             } else if (strcmp(size_suffix, "_large") == 0) {
                 value = large_it->second.c_str();
-            } else {
-                // _xlarge: use xlarge if available, otherwise fall back to _large
+            } else if (strcmp(size_suffix, "_xlarge") == 0) {
                 auto xlarge_it = xlarge_tokens.find(base_name);
                 value = (xlarge_it != xlarge_tokens.end()) ? xlarge_it->second.c_str()
                                                            : large_it->second.c_str();
+            } else {
+                // _xxlarge: use xxlarge if available, fall back to _xlarge, then _large
+                auto xxlarge_it = xxlarge_tokens.find(base_name);
+                if (xxlarge_it != xxlarge_tokens.end()) {
+                    value = xxlarge_it->second.c_str();
+                } else {
+                    auto xlarge_it = xlarge_tokens.find(base_name);
+                    value = (xlarge_it != xlarge_tokens.end()) ? xlarge_it->second.c_str()
+                                                               : large_it->second.c_str();
+                }
             }
             spdlog::trace("[Theme] Registering font {}: selected={}", base_name, value);
             lv_xml_register_const(scope, base_name.c_str(), value);
