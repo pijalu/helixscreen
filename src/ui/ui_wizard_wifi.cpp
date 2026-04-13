@@ -947,8 +947,11 @@ void WizardWifiStep::cleanup() {
         wifi_manager_->stop_scan();
     }
 
-    spdlog::debug("[{}] Clearing network list", get_name());
-    clear_network_list();
+    // Skip clear_network_list() here — the wizard framework calls
+    // lv_obj_clean(content) immediately after cleanup(), which synchronously
+    // deletes all children and fires DELETE event callbacks for data cleanup.
+    // Using safe_delete_deferred() during cleanup queues async deletes that
+    // race with the synchronous parent deletion, corrupting the heap (#793).
 
     wifi_manager_.reset();
     ethernet_manager_.reset();
