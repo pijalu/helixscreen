@@ -252,10 +252,14 @@
 /* Use Renesas Dave2D on RA  platforms. */
 #define LV_USE_DRAW_DAVE2D 0
 
-/* Draw using cached SDL textures - GPU-accelerated on desktop (Metal/OpenGL)
- * and on Android (GLES2). Offloads LVGL draw ops to the GPU, leaving the CPU
- * free for UI logic. Requires patched lv_draw_sdl.c (see patches/). */
-#ifdef HELIX_DISPLAY_SDL
+/* Draw using cached SDL textures - GPU-accelerated on desktop (Metal/OpenGL).
+ * Offloads LVGL draw ops to the GPU, leaving the CPU free for UI logic.
+ * Requires patched lv_draw_sdl.c (see patches/).
+ * Disabled on Android: the SDL texture backend doesn't clear render targets
+ * between frames, causing stale GPU memory to bleed through as visual
+ * corruption (scrolling text garble, ghost images). The SW renderer with
+ * DIRECT mode and proper buffer management works correctly. */
+#if defined(HELIX_DISPLAY_SDL) && !defined(__ANDROID__)
     #define LV_USE_DRAW_SDL 1
 #else
     #define LV_USE_DRAW_SDL 0

@@ -127,15 +127,15 @@ $(PATCHES_STAMP): $(PATCH_FILES) $(LVGL_HEAD) $(LIBHV_HEAD)
 		echo "$(GREEN)✓ LVGL SDL window patch already applied$(RESET)"; \
 	fi
 	$(Q)if git -C $(LVGL_DIR) diff --quiet src/drivers/sdl/lv_sdl_sw.c 2>/dev/null; then \
-		echo "$(YELLOW)→ Applying LVGL SDL SW android debug + blendmode fix patch...$(RESET)"; \
-		if git -C $(LVGL_DIR) apply --check ../../patches/lvgl_sdl_sw_android_debug.patch 2>/dev/null; then \
-			git -C $(LVGL_DIR) apply ../../patches/lvgl_sdl_sw_android_debug.patch && \
-			echo "$(GREEN)✓ SDL SW android debug + blendmode fix patch applied$(RESET)"; \
+		echo "$(YELLOW)→ Applying LVGL SDL SW android render fix patch...$(RESET)"; \
+		if git -C $(LVGL_DIR) apply --check ../../patches/lvgl_sdl_sw_android_render.patch 2>/dev/null; then \
+			git -C $(LVGL_DIR) apply ../../patches/lvgl_sdl_sw_android_render.patch && \
+			echo "$(GREEN)✓ SDL SW android render fix patch applied$(RESET)"; \
 		else \
 			echo "$(YELLOW)⚠ Cannot apply patch (already applied or conflicts)$(RESET)"; \
 		fi \
 	else \
-		echo "$(GREEN)✓ LVGL SDL SW android debug + blendmode fix patch already applied$(RESET)"; \
+		echo "$(GREEN)✓ LVGL SDL SW android render fix patch already applied$(RESET)"; \
 	fi
 	$(Q)if git -C $(LVGL_DIR) diff --quiet src/themes/default/lv_theme_default.c 2>/dev/null; then \
 		echo "$(YELLOW)→ Applying LVGL theme breakpoints patch...$(RESET)"; \

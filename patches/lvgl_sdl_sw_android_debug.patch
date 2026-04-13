@@ -1,5 +1,5 @@
 diff --git a/src/drivers/sdl/lv_sdl_sw.c b/src/drivers/sdl/lv_sdl_sw.c
-index 7427739da..81426e967 100644
+index 7427739da..df884b4da 100644
 --- a/src/drivers/sdl/lv_sdl_sw.c
 +++ b/src/drivers/sdl/lv_sdl_sw.c
 @@ -22,6 +22,13 @@
@@ -16,83 +16,17 @@ index 7427739da..81426e967 100644
  #include "../../display/lv_display_private.h"
  #include "../../misc/lv_types.h"
  #include "../../draw/sw/lv_draw_sw_utils.h"
-@@ -58,7 +65,15 @@ static lv_result_t window_update(lv_display_t * disp);
- 
- static inline int sdl_render_mode(void)
- {
-+#ifdef __ANDROID__
-+    /* FULL mode redraws the entire screen when anything is dirty, avoiding stale
-+     * framebuffer artifacts from DIRECT mode's partial dirty-region tracking.
-+     * Performance impact is minimal: LVGL still skips rendering when nothing
-+     * changes, and a full-screen redraw is cheap on mobile GPUs. */
-+    return LV_DISPLAY_RENDER_MODE_FULL;
-+#else
-     return LV_SDL_RENDER_MODE;
-+#endif
- }
- 
- static lv_result_t init_display(lv_display_t * display);
-@@ -117,21 +132,21 @@ static lv_result_t init_display(lv_display_t * display)
- 
-     lv_display_set_flush_cb(display, flush_cb);
- 
--    if(LV_SDL_RENDER_MODE == LV_DISPLAY_RENDER_MODE_PARTIAL) {
-+    if(sdl_render_mode() == LV_DISPLAY_RENDER_MODE_PARTIAL) {
-         uint32_t palette_size = LV_COLOR_INDEXED_PALETTE_SIZE(lv_display_get_color_format(display)) * 4;
-         uint32_t buffer_size_bytes = 32 * 1024 + palette_size;
-         ddata->buf1 = sdl_draw_buf_realloc_aligned(NULL, buffer_size_bytes);
-         if(LV_SDL_BUF_COUNT == 2) {
-             ddata->buf2 = sdl_draw_buf_realloc_aligned(NULL, buffer_size_bytes);
-         }
--        lv_display_set_buffers(display, ddata->buf1, ddata->buf2, buffer_size_bytes, LV_SDL_RENDER_MODE);
-+        lv_display_set_buffers(display, ddata->buf1, ddata->buf2, buffer_size_bytes, sdl_render_mode());
-     }
-     else {
-         /*LV_DISPLAY_RENDER_MODE_DIRECT or FULL */
-         uint32_t stride = lv_draw_buf_width_to_stride(display->hor_res,
-                                                       lv_display_get_color_format(display));
-         lv_display_set_buffers(display, ddata->fb1, ddata->fb2, stride * display->ver_res,
--                               LV_SDL_RENDER_MODE);
-+                               sdl_render_mode());
-     }
-     return LV_RESULT_OK;
- }
-@@ -159,7 +174,7 @@ static lv_result_t resize_display(lv_display_t * display)
-             ddata->fb2 = sdl_draw_buf_realloc_aligned(ddata->fb2, stride * display->ver_res);
-             lv_memset(ddata->fb2, 0x00, stride * display->ver_res);
-         }
--        lv_display_set_buffers(display, ddata->fb1, ddata->fb2, stride * display->ver_res, LV_SDL_RENDER_MODE);
-+        lv_display_set_buffers(display, ddata->fb1, ddata->fb2, stride * display->ver_res, sdl_render_mode());
-     }
-     if(ddata->texture) SDL_DestroyTexture(ddata->texture);
- 
-@@ -176,7 +191,15 @@ static lv_result_t resize_display(lv_display_t * display)
+@@ -176,6 +183,9 @@ static lv_result_t resize_display(lv_display_t * display)
  
      ddata->texture = SDL_CreateTexture(ddata->renderer, px_format,
                                         SDL_TEXTUREACCESS_STATIC, display->hor_res, display->ver_res);
--    SDL_SetTextureBlendMode(ddata->texture, SDL_BLENDMODE_BLEND);
 +    ALOGD("resize_display: texture=%dx%d fb1=%p fb2=%p stride=%u",
 +          (int)display->hor_res, (int)display->ver_res,
 +          (void*)ddata->fb1, (void*)ddata->fb2, (unsigned)stride);
-+    /* BLENDMODE_NONE — the framebuffer texture covers the full viewport and doesn't
-+     * need alpha blending. On Android GLES, SDL may promote RGB888 to GL_RGBA
-+     * internally, turning the XRGB padding byte into alpha. With BLENDMODE_BLEND,
-+     * pixels where LVGL left the padding byte as 0 become transparent, showing
-+     * stale renderer content through. */
-+    SDL_SetTextureBlendMode(ddata->texture, SDL_BLENDMODE_NONE);
+     SDL_SetTextureBlendMode(ddata->texture, SDL_BLENDMODE_BLEND);
      return LV_RESULT_OK;
  }
- 
-@@ -255,7 +278,7 @@ static void flush_cb(lv_display_t * display, const lv_area_t * area, uint8_t * p
-     lv_sdl_sw_display_data_t * ddata = lv_sdl_backend_get_display_data(display);
-     uint32_t * argb_px_map = NULL;
- 
--    if(LV_SDL_RENDER_MODE == LV_DISPLAY_RENDER_MODE_PARTIAL) {
-+    if(sdl_render_mode() == LV_DISPLAY_RENDER_MODE_PARTIAL) {
-         if(cf == LV_COLOR_FORMAT_RGB565_SWAPPED) {
-             uint32_t width = lv_area_get_width(area);
-             uint32_t height = lv_area_get_height(area);
-@@ -329,6 +352,13 @@ static lv_result_t window_update(lv_display_t * display)
+@@ -329,6 +339,13 @@ static lv_result_t window_update(lv_display_t * display)
          cf = LV_COLOR_FORMAT_ARGB8888;
      }
      uint32_t stride = lv_draw_buf_width_to_stride(display->hor_res, cf);
