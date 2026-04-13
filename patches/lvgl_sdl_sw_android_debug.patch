@@ -1,38 +1,8 @@
 diff --git a/src/drivers/sdl/lv_sdl_sw.c b/src/drivers/sdl/lv_sdl_sw.c
-index 7427739da..81426e967 100644
+index 7427739da..b58ec5415 100644
 --- a/src/drivers/sdl/lv_sdl_sw.c
 +++ b/src/drivers/sdl/lv_sdl_sw.c
-@@ -22,6 +22,13 @@
-     #include <malloc.h>
- #endif /* _WIN32 */
- 
-+#ifdef __ANDROID__
-+    #include <android/log.h>
-+    #define ALOGD(...) __android_log_print(ANDROID_LOG_DEBUG, "HelixSDL_SW", __VA_ARGS__)
-+#else
-+    #define ALOGD(...) (void)0
-+#endif
-+
- #include "../../display/lv_display_private.h"
- #include "../../misc/lv_types.h"
- #include "../../draw/sw/lv_draw_sw_utils.h"
-@@ -58,7 +65,15 @@ static lv_result_t window_update(lv_display_t * disp);
- 
- static inline int sdl_render_mode(void)
- {
-+#ifdef __ANDROID__
-+    /* FULL mode redraws the entire screen when anything is dirty, avoiding stale
-+     * framebuffer artifacts from DIRECT mode's partial dirty-region tracking.
-+     * Performance impact is minimal: LVGL still skips rendering when nothing
-+     * changes, and a full-screen redraw is cheap on mobile GPUs. */
-+    return LV_DISPLAY_RENDER_MODE_FULL;
-+#else
-     return LV_SDL_RENDER_MODE;
-+#endif
- }
- 
- static lv_result_t init_display(lv_display_t * display);
-@@ -117,21 +132,21 @@ static lv_result_t init_display(lv_display_t * display)
+@@ -117,21 +117,21 @@ static lv_result_t init_display(lv_display_t * display)
  
      lv_display_set_flush_cb(display, flush_cb);
  
@@ -57,7 +27,7 @@ index 7427739da..81426e967 100644
      }
      return LV_RESULT_OK;
  }
-@@ -159,7 +174,7 @@ static lv_result_t resize_display(lv_display_t * display)
+@@ -159,7 +159,7 @@ static lv_result_t resize_display(lv_display_t * display)
              ddata->fb2 = sdl_draw_buf_realloc_aligned(ddata->fb2, stride * display->ver_res);
              lv_memset(ddata->fb2, 0x00, stride * display->ver_res);
          }
@@ -66,24 +36,20 @@ index 7427739da..81426e967 100644
      }
      if(ddata->texture) SDL_DestroyTexture(ddata->texture);
  
-@@ -176,7 +191,15 @@ static lv_result_t resize_display(lv_display_t * display)
+@@ -176,7 +176,11 @@ static lv_result_t resize_display(lv_display_t * display)
  
      ddata->texture = SDL_CreateTexture(ddata->renderer, px_format,
                                         SDL_TEXTUREACCESS_STATIC, display->hor_res, display->ver_res);
 -    SDL_SetTextureBlendMode(ddata->texture, SDL_BLENDMODE_BLEND);
-+    ALOGD("resize_display: texture=%dx%d fb1=%p fb2=%p stride=%u",
-+          (int)display->hor_res, (int)display->ver_res,
-+          (void*)ddata->fb1, (void*)ddata->fb2, (unsigned)stride);
-+    /* BLENDMODE_NONE — the framebuffer texture covers the full viewport and doesn't
-+     * need alpha blending. On Android GLES, SDL may promote RGB888 to GL_RGBA
-+     * internally, turning the XRGB padding byte into alpha. With BLENDMODE_BLEND,
-+     * pixels where LVGL left the padding byte as 0 become transparent, showing
-+     * stale renderer content through. */
++    /* BLENDMODE_NONE — the framebuffer texture covers the full viewport. On Android
++     * GLES, SDL may promote RGB888 to GL_RGBA, turning the XRGB padding byte into
++     * alpha. With BLEND, pixels where LVGL left the padding byte as 0 become
++     * transparent, showing stale renderer content. */
 +    SDL_SetTextureBlendMode(ddata->texture, SDL_BLENDMODE_NONE);
      return LV_RESULT_OK;
  }
  
-@@ -255,7 +278,7 @@ static void flush_cb(lv_display_t * display, const lv_area_t * area, uint8_t * p
+@@ -255,7 +259,7 @@ static void flush_cb(lv_display_t * display, const lv_area_t * area, uint8_t * p
      lv_sdl_sw_display_data_t * ddata = lv_sdl_backend_get_display_data(display);
      uint32_t * argb_px_map = NULL;
  
@@ -92,17 +58,3 @@ index 7427739da..81426e967 100644
          if(cf == LV_COLOR_FORMAT_RGB565_SWAPPED) {
              uint32_t width = lv_area_get_width(area);
              uint32_t height = lv_area_get_height(area);
-@@ -329,6 +352,13 @@ static lv_result_t window_update(lv_display_t * display)
-         cf = LV_COLOR_FORMAT_ARGB8888;
-     }
-     uint32_t stride = lv_draw_buf_width_to_stride(display->hor_res, cf);
-+    {
-+        int tex_w = 0, tex_h = 0;
-+        SDL_QueryTexture(ddata->texture, NULL, NULL, &tex_w, &tex_h);
-+        ALOGD("window_update: disp=%dx%d tex=%dx%d stride=%u fb_act=%p",
-+              (int)display->hor_res, (int)display->ver_res,
-+              tex_w, tex_h, (unsigned)stride, (void*)ddata->fb_act);
-+    }
-     SDL_UpdateTexture(ddata->texture, NULL, ddata->fb_act, stride);
- 
-     SDL_RenderClear(ddata->renderer);
