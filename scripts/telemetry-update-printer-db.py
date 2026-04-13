@@ -108,6 +108,44 @@ def find_matching_heuristic(
     return None
 
 
+def get_model_stats(model_dist: dict, model: str) -> tuple[int, int]:
+    """Return (profile_count, unique_device_count) for a model."""
+    val = model_dist.get(model, 0)
+    if isinstance(val, dict):
+        return val.get("profiles", 0), val.get("unique_devices", 0)
+    return val, val  # old format: same number for both
+
+
+def deduplicate_candidates(candidates: list[dict]) -> list[dict]:
+    """Remove object_exists candidates that duplicate a typed match.
+
+    e.g., macro_match "FOO" + object_exists "gcode_macro FOO" -> keep only macro_match.
+    """
+    # Build set of patterns covered by typed matches
+    typed_patterns: set[str] = set()
+    for c in candidates:
+        ctype = c.get("type", "")
+        pat = c.get("pattern", "")
+        if ctype == "macro_match":
+            typed_patterns.add(f"gcode_macro {pat}")
+            typed_patterns.add(f"gcode_macro {pat.lower()}")
+        elif ctype == "fan_match":
+            typed_patterns.add(pat)
+        elif ctype == "sensor_match":
+            typed_patterns.add(pat)
+            typed_patterns.add(f"temperature_sensor {pat}")
+            typed_patterns.add(f"filament_switch_sensor {pat}")
+        elif ctype == "led_match":
+            typed_patterns.add(pat)
+
+    result = []
+    for c in candidates:
+        if c.get("type") == "object_exists" and c.get("pattern", "") in typed_patterns:
+            continue  # redundant
+        result.append(c)
+    return result
+
+
 def find_substring_heuristic(
     existing: list[dict], candidate: dict
 ) -> Optional[dict]:
@@ -169,6 +207,7 @@ def run_augment_existing(
     analysis: dict,
     db: dict,
     min_confidence: int,
+    max_candidates: int = 10,
 ) -> list[str]:
     """
     Walk through candidate heuristics for detected models.
@@ -183,13 +222,14 @@ def run_augment_existing(
         return modified_models
 
     for model, candidates in sorted(
-        candidates_by_model.items(), key=lambda x: -model_dist.get(x[0], 0)
+        candidates_by_model.items(),
+        key=lambda x: -get_model_stats(model_dist, x[0])[1],
     ):
         entry = find_entry_by_name(db, model)
         if entry is None:
             continue
 
-        sample_count = model_dist.get(model, 0)
+        profiles, devices = get_model_stats(model_dist, model)
         existing_heuristics = entry.get("heuristics", [])
 
         # Filter candidates by min_confidence and novelty
@@ -217,9 +257,17 @@ def run_augment_existing(
         if not new_candidates and not confidence_updates:
             continue
 
+        # Deduplicate and cap candidates
+        new_candidates = deduplicate_candidates(new_candidates)
+        new_candidates.sort(key=lambda h: h.get("confidence", 0), reverse=True)
+        new_candidates = new_candidates[:max_candidates]
+
+        if not new_candidates and not confidence_updates:
+            continue
+
         # Display header
         print(f"\n{'━' * 60}")
-        print(f"  {model} ({sample_count} samples)")
+        print(f"  {model} ({devices} devices, {profiles} profiles)")
         print(f"{'━' * 60}")
         print(f"  Existing heuristics: {len(existing_heuristics)}")
 
@@ -237,15 +285,12 @@ def run_augment_existing(
                 if model not in modified_models:
                     modified_models.append(model)
 
-        # Handle substring warnings
+        # Auto-skip substring matches (just inform, don't prompt)
         for existing_h, cand_h in substring_warnings:
             print(
-                f"\n  [~] {format_heuristic_short(cand_h)}"
-                f"\n      Similar to existing: {format_heuristic_short(existing_h)}"
+                f"  [skipped] \"{cand_h.get('pattern', '?')}\" — "
+                f"already covered by \"{existing_h.get('pattern', '?')}\""
             )
-            resp = prompt("      (a)dd anyway, (s)kip > ")
-            if resp.lower() == "a":
-                new_candidates.append(cand_h)
 
         if not new_candidates:
             continue
@@ -255,30 +300,40 @@ def run_augment_existing(
         selected = [True] * len(new_candidates)
 
         for i, c in enumerate(new_candidates):
-            print(f"  [{i + 1}] {format_heuristic_short(c)}")
-            print(f"      {c.get('reason', '')}")
+            mark = "x" if selected[i] else " "
+            print(f"  [{mark}] {i + 1}. {format_heuristic_short(c)}")
+            print(f"       {c.get('reason', '')}")
             print()
 
         # Prompt for action
         while True:
             resp = prompt(
-                f"  Actions: (a)dd all, (1-{len(new_candidates)}) toggle, "
-                f"(c)onfidence N V, (v)iew entry, (s)kip\n> "
+                f"  (d)one — add selected, (a)ll — select all, "
+                f"(1-{len(new_candidates)}) toggle, (c) N V, (v)iew, (s)kip\n> "
             )
             resp_lower = resp.lower().strip()
 
             if resp_lower == "s":
                 break
-            elif resp_lower == "a":
+            elif resp_lower == "d":
+                count = sum(selected)
+                if count == 0:
+                    print("  Nothing selected. Use (a)ll or toggle numbers first.")
+                    continue
                 for i, c in enumerate(new_candidates):
                     if selected[i]:
                         existing_heuristics.append(c)
                 if model not in modified_models:
                     modified_models.append(model)
-                print(
-                    f"  Added {sum(selected)} heuristic(s) to {model}."
-                )
+                print(f"  Added {count} heuristic(s) to {model}.")
                 break
+            elif resp_lower == "a":
+                selected = [True] * len(new_candidates)
+                # Re-display with checkmarks
+                for i, c in enumerate(new_candidates):
+                    mark = "x" if selected[i] else " "
+                    print(f"  [{mark}] {i + 1}. {format_heuristic_short(c)}")
+                print("  All selected. Press (d)one to add.")
             elif resp_lower == "v":
                 print(json.dumps(entry, indent=2))
             elif resp_lower.startswith("c"):
@@ -305,12 +360,12 @@ def run_augment_existing(
                     idx = int(resp_lower) - 1
                     if 0 <= idx < len(new_candidates):
                         selected[idx] = not selected[idx]
-                        state = "ON" if selected[idx] else "OFF"
-                        print(f"  [{idx + 1}] toggled {state}")
+                        mark = "x" if selected[idx] else " "
+                        print(f"  [{mark}] {idx + 1}. {format_heuristic_short(new_candidates[idx])}")
                     else:
                         print(f"  Invalid number. Use 1-{len(new_candidates)}.")
                 except ValueError:
-                    print("  Unknown action. Try a, s, v, c, or a number.")
+                    print("  Unknown action. Try d, a, s, v, c, or a number.")
 
     return modified_models
 
@@ -660,8 +715,14 @@ def main():
     parser.add_argument(
         "--min-confidence",
         type=int,
-        default=50,
-        help="Only suggest heuristics with confidence >= N (default: 50)",
+        default=75,
+        help="Only suggest heuristics with confidence >= N (default: 75)",
+    )
+    parser.add_argument(
+        "--max-candidates",
+        type=int,
+        default=10,
+        help="Max candidate heuristics per model (default: 10)",
     )
     args = parser.parse_args()
 
@@ -687,7 +748,9 @@ def main():
     # Mode 1: Augment existing entries
     modified_models: list[str] = []
     if not args.skip_existing:
-        modified_models = run_augment_existing(analysis, db, args.min_confidence)
+        modified_models = run_augment_existing(
+            analysis, db, args.min_confidence, args.max_candidates
+        )
 
     # Mode 2: Create new printer entries
     new_entries: list[dict] = []
