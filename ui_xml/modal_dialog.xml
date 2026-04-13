@@ -11,8 +11,8 @@
   </api>
   <!-- Dialog card (backdrop created programmatically) -->
   <view name="modal_dialog"
-        extends="ui_dialog" width="70%" height="content" style_max_height="85%" align="center" flex_flow="column"
-        style_flex_main_place="start" style_pad_gap="0" scrollable="false">
+        extends="ui_dialog" width="70%" height="content" style_min_height="200" style_max_height="85%" align="center"
+        flex_flow="column" style_flex_main_place="start" style_pad_gap="0" scrollable="false">
     <!-- Header row with icon + title -->
     <lv_obj width="100%"
             height="content" style_pad_left="#space_lg" style_pad_right="#space_lg" style_pad_top="#space_lg"
