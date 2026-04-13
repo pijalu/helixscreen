@@ -194,21 +194,25 @@ void PrintSelectCardView::ensure_gradient_cache(int32_t card_width, int32_t card
         return;
     }
 
-    // Free old buffer
-    if (cached_gradient_) {
-        lv_draw_buf_destroy(cached_gradient_);
-    }
-
+    // Create new buffer BEFORE destroying old — lv_image_set_src triggers
+    // lv_obj_update_layout which walks sibling cards. If the old buffer were
+    // freed first, siblings still referencing it would hit use-after-free
+    // during the layout walk (#788, #790).
     int32_t radius = theme_manager_get_spacing("border_radius");
+    lv_draw_buf_t* old_gradient = cached_gradient_;
     cached_gradient_ = ui_gradient_canvas_create_buf(card_width, card_height, dark, radius);
     cached_gradient_w_ = card_width;
     cached_gradient_h_ = card_height;
     cached_gradient_dark_ = dark;
 
-    // Update ALL pool cards to reference the new buffer immediately,
-    // preventing dangling pointers from the destroyed old buffer
+    // Update ALL pool cards to reference the new buffer immediately
     for (auto* card : card_pool_) {
         apply_gradient_to_card(card);
+    }
+
+    // Now safe to destroy old buffer — no card references it
+    if (old_gradient) {
+        lv_draw_buf_destroy(old_gradient);
     }
 }
 
