@@ -155,7 +155,7 @@ namespace helix {
  * @return Filesystem path to the cache .bin file
  */
 [[nodiscard]] std::string get_cached_printer_image_path(const std::string& source_image_path,
-                                                         int width, int height);
+                                                        int width, int height);
 
 /**
  * @brief Generate a cached printer image at exact dimensions
@@ -182,6 +182,19 @@ bool generate_cached_printer_image(const std::string& source_image_path, int wid
  * @param max_keep Keep this many files after pruning (default: 5)
  */
 void prune_printer_image_cache(int max_files = 10, int max_keep = 5);
+
+/**
+ * @brief Invalidate cached printer images whose filename starts with a given prefix
+ *
+ * Removes all dimension-specific cache files in the printer image cache directory
+ * that match the source image basename. For example, if source_image_path is
+ * "A:config/custom_images/my-printer-300.bin", this removes files like
+ * "my-printer-300-480x320.bin" from the cache directory.
+ *
+ * @param source_image_path The LVGL source path (with or without A: prefix)
+ * @return Number of cache files removed
+ */
+int invalidate_printer_image_cache(const std::string& source_image_path);
 
 /**
  * @brief Get path to pre-rendered placeholder thumbnail

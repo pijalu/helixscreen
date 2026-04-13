@@ -449,8 +449,15 @@ PrinterImageManager::import_image(const std::string& source_path) {
         return result;
     }
 
-    // Create 300px variant
+    // Invalidate dimension-specific disk caches for the old image (re-import case).
+    // Only filesystem ops here — LVGL cache drops happen on the main/UI thread
+    // (in PrinterImageWidget and PrinterManagerOverlay) when the image subject fires.
     std::string path_300 = custom_dir_ + stem + "-300.bin";
+    std::string path_150 = custom_dir_ + stem + "-150.bin";
+    invalidate_printer_image_cache("A:" + path_300);
+    invalidate_printer_image_cache("A:" + path_150);
+
+    // Create 300px variant
     if (!convert_to_bin(pixels, w, h, path_300, 300)) {
         stbi_image_free(pixels);
         result.error = "Failed to create 300px variant";
@@ -458,7 +465,6 @@ PrinterImageManager::import_image(const std::string& source_path) {
     }
 
     // Create 150px variant
-    std::string path_150 = custom_dir_ + stem + "-150.bin";
     if (!convert_to_bin(pixels, w, h, path_150, 150)) {
         stbi_image_free(pixels);
         // Clean up the 300px variant

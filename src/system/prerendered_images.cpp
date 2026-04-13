@@ -5,7 +5,6 @@
 
 #include "app_globals.h"
 #include "lvgl_image_writer.h"
-
 #include "stb_image.h"
 #include "stb_image_resize.h"
 
@@ -201,11 +200,11 @@ static std::string extract_source_basename(const std::string& source_image_path)
 }
 
 std::string get_cached_printer_image_path(const std::string& source_image_path, int width,
-                                           int height) {
+                                          int height) {
     std::string cache_dir = get_printer_image_cache_dir();
     std::string basename = extract_source_basename(source_image_path);
-    return cache_dir + "/" + basename + "-" + std::to_string(width) + "x" +
-           std::to_string(height) + ".bin";
+    return cache_dir + "/" + basename + "-" + std::to_string(width) + "x" + std::to_string(height) +
+           ".bin";
 }
 
 bool generate_cached_printer_image(const std::string& source_image_path, int width, int height,
@@ -253,7 +252,8 @@ bool generate_cached_printer_image(const std::string& source_image_path, int wid
             // File is smaller than expected — likely compressed (RLE/LZ4).
             // Fall back to original PNG if available.
             std::string png_fallback = fs_path;
-            // Convert prerendered path to PNG: printers/prerendered/name-300.bin → printers/name.png
+            // Convert prerendered path to PNG: printers/prerendered/name-300.bin →
+            // printers/name.png
             auto prerendered_pos = png_fallback.find("/prerendered/");
             if (prerendered_pos != std::string::npos) {
                 std::string dir = png_fallback.substr(0, prerendered_pos + 1);
@@ -284,8 +284,7 @@ bool generate_cached_printer_image(const std::string& source_image_path, int wid
             // Uncompressed — read pixel data using stride
             rgba_pixels.resize(static_cast<size_t>(src_w) * src_h * 4);
             for (int row = 0; row < src_h; ++row) {
-                file.read(reinterpret_cast<char*>(rgba_pixels.data() + row * src_w * 4),
-                          src_w * 4);
+                file.read(reinterpret_cast<char*>(rgba_pixels.data() + row * src_w * 4), src_w * 4);
                 // Skip stride padding if any
                 if (stride > static_cast<size_t>(src_w * 4)) {
                     file.seekg(stride - src_w * 4, std::ios::cur);
@@ -350,9 +349,9 @@ bool generate_cached_printer_image(const std::string& source_image_path, int wid
     std::filesystem::create_directories(out_dir, ec);
 
     // Write LVGL binary (atomic via write_lvgl_bin)
-    bool result = write_lvgl_bin(output_path, width, height,
-                                 static_cast<uint8_t>(LV_COLOR_FORMAT_ARGB8888), resized.data(),
-                                 resized.size());
+    bool result =
+        write_lvgl_bin(output_path, width, height, static_cast<uint8_t>(LV_COLOR_FORMAT_ARGB8888),
+                       resized.data(), resized.size());
 
     if (result) {
         spdlog::info("[PrinterCache] Generated {}x{} cache: {}", width, height, output_path);
@@ -398,6 +397,40 @@ void prune_printer_image_cache(int max_files, int max_keep) {
     }
 
     spdlog::info("[PrinterCache] Pruned {} old cache entries", to_remove);
+}
+
+int invalidate_printer_image_cache(const std::string& source_image_path) {
+    std::string basename = extract_source_basename(source_image_path);
+    if (basename.empty()) {
+        return 0;
+    }
+
+    std::string cache_dir = get_printer_image_cache_dir();
+    std::string prefix = basename + "-";
+    int removed = 0;
+
+    try {
+        for (const auto& entry : std::filesystem::directory_iterator(cache_dir)) {
+            if (!std::filesystem::is_regular_file(entry.path()))
+                continue;
+            std::string filename = entry.path().filename().string();
+            if (filename.rfind(prefix, 0) == 0) {
+                std::error_code ec;
+                std::filesystem::remove(entry.path(), ec);
+                if (!ec) {
+                    ++removed;
+                    spdlog::debug("[PrinterCache] Invalidated cache: {}", filename);
+                }
+            }
+        }
+    } catch (const std::filesystem::filesystem_error&) {
+        // Cache dir doesn't exist — nothing to invalidate
+    }
+
+    if (removed > 0) {
+        spdlog::info("[PrinterCache] Invalidated {} cache entries for '{}'", removed, basename);
+    }
+    return removed;
 }
 
 } // namespace helix

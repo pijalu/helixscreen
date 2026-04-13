@@ -23,6 +23,7 @@
 #include "app_globals.h"
 #include "config.h"
 #include "helix_version.h"
+#include "prerendered_images.h"
 #include "printer_detector.h"
 #include "printer_image_manager.h"
 #include "printer_images.h"
@@ -32,6 +33,7 @@
 #include "ui/ui_lazy_panel_helper.h"
 #include "wizard_config_paths.h"
 
+#include <lvgl/src/misc/cache/lv_cache.h>
 #include <spdlog/spdlog.h>
 
 #include <cstring>
@@ -471,10 +473,18 @@ void PrinterManagerOverlay::refresh_printer_info() {
         int screen_width = disp ? lv_display_get_horizontal_resolution(disp) : 800;
 
         auto& pim = helix::PrinterImageManager::instance();
-        current_image_path_ = pim.get_active_image_path(screen_width);
-        if (current_image_path_.empty()) {
-            current_image_path_ = PrinterImages::get_best_printer_image(model);
+        std::string new_path = pim.get_active_image_path(screen_width);
+        if (new_path.empty()) {
+            new_path = PrinterImages::get_best_printer_image(model);
         }
+
+        // Invalidate caches so the new image displays immediately
+        if (!current_image_path_.empty()) {
+            lv_image_cache_drop(current_image_path_.c_str());
+            helix::invalidate_printer_image_cache(current_image_path_);
+        }
+
+        current_image_path_ = new_path;
         lv_image_set_src(printer_image_obj_, current_image_path_.c_str());
         spdlog::debug("[{}] Printer image: '{}'", get_name(), current_image_path_);
     }

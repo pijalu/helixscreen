@@ -19,6 +19,7 @@
 #include "subject_debug_registry.h"
 #include "wizard_config_paths.h"
 
+#include <lvgl/src/misc/cache/lv_cache.h>
 #include <spdlog/spdlog.h>
 
 #include <cstring>
@@ -196,6 +197,13 @@ void PrinterImageWidget::refresh_printer_image() {
         source_path = PrinterImages::get_best_printer_image(printer_type);
     }
 
+    // Invalidate caches so the new image displays immediately.
+    // Unconditional: covers both different-image and re-import-same-filename cases.
+    if (!current_source_path_.empty()) {
+        lv_image_cache_drop(current_source_path_.c_str());
+        helix::invalidate_printer_image_cache(current_source_path_);
+    }
+
     current_source_path_ = source_path;
 
     // Set source with CONTAIN alignment — displays immediately (with runtime scaling)
@@ -245,8 +253,7 @@ void PrinterImageWidget::check_or_generate_cache() {
     }
 
     // Check if a cached .bin exists at exact widget dimensions
-    std::string cache_path =
-        helix::get_cached_printer_image_path(current_source_path_, w, h);
+    std::string cache_path = helix::get_cached_printer_image_path(current_source_path_, w, h);
 
     if (std::filesystem::exists(cache_path)) {
         // Cache hit — load directly, no scaling needed
