@@ -157,6 +157,42 @@ TEST_CASE("downscale_2x: 2x2 to 1x1 averages all four pixels", "[backdrop_blur][
     REQUIRE(dst[3] == 255); // A
 }
 
+TEST_CASE("downscale_2x: handles padded source stride", "[backdrop_blur][downscale]") {
+    // 2x2 source with stride 16 (padded from tight stride of 8)
+    // Tight stride = 2 * 4 = 8, padded stride = 16 (8 bytes of padding per row)
+    constexpr int sw = 2, sh = 2;
+    constexpr int padded_stride = 16;
+    uint8_t src[padded_stride * sh] = {};
+
+    // Row 0: pixel(0,0)=(10,20,30,255), pixel(1,0)=(50,60,70,255), then 8 bytes padding
+    src[0] = 10;
+    src[1] = 20;
+    src[2] = 30;
+    src[3] = 255;
+    src[4] = 50;
+    src[5] = 60;
+    src[6] = 70;
+    src[7] = 255;
+    // Row 1 at offset 16: pixel(0,1)=(90,100,110,255), pixel(1,1)=(130,140,150,255)
+    src[16] = 90;
+    src[17] = 100;
+    src[18] = 110;
+    src[19] = 255;
+    src[20] = 130;
+    src[21] = 140;
+    src[22] = 150;
+    src[23] = 255;
+
+    uint8_t dst[4] = {};
+    downscale_2x_argb8888(src, dst, sw, sh, padded_stride);
+
+    // Average: (10+50+90+130)/4=70, (20+60+100+140)/4=80, (30+70+110+150)/4=90
+    REQUIRE(dst[0] == 70);
+    REQUIRE(dst[1] == 80);
+    REQUIRE(dst[2] == 90);
+    REQUIRE(dst[3] == 255);
+}
+
 // ============================================================================
 // Circuit Breaker Tests
 // ============================================================================

@@ -629,8 +629,19 @@ lv_obj_t* create_blurred_backdrop(lv_obj_t* parent, lv_opa_t dim_opacity) {
                                       static_cast<int>(snapshot->header.stride));
         blur_data = blur_buf.data();
     } else {
-        // No downscale; work on snapshot data directly
-        blur_data = snap_data;
+        // No downscale; copy into tight-stride buffer since box_blur uses width*4
+        uint32_t snap_stride = snapshot->header.stride;
+        uint32_t tight_stride = static_cast<uint32_t>(snap_w) * 4;
+        blur_buf.resize(static_cast<size_t>(tight_stride) * snap_h);
+        if (snap_stride == tight_stride) {
+            std::memcpy(blur_buf.data(), snap_data, blur_buf.size());
+        } else {
+            for (int y = 0; y < snap_h; y++) {
+                std::memcpy(blur_buf.data() + y * tight_stride, snap_data + y * snap_stride,
+                            tight_stride);
+            }
+        }
+        blur_data = blur_buf.data();
     }
 
     // Step 3: Blur
