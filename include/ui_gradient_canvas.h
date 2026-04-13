@@ -42,6 +42,17 @@ void ui_gradient_canvas_register(void);
 void ui_gradient_canvas_redraw(lv_obj_t* canvas);
 
 /**
+ * @brief Redraw all gradient canvas widgets for a theme change
+ *
+ * Walks the widget tree from root, finds all ui_gradient_canvas widgets
+ * (identified by user_data containing GradientData), and re-renders them
+ * with current theme colors.
+ *
+ * @param root Root object to walk (typically lv_screen_active())
+ */
+void ui_gradient_canvas_theme_update(lv_obj_t* root);
+
+/**
  * @brief Enable or disable dithering for a gradient canvas
  *
  * @param canvas Pointer to the canvas object

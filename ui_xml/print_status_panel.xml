@@ -45,10 +45,9 @@
         <!-- All children overlap as direct children of the card (matching print_file_detail pattern) -->
 
         <!-- Pre-rendered gradient background (shown in thumbnail[0] and 2D[2] modes, hidden in 3D[1]) -->
-        <lv_image name="gradient_background"
-                  width="100%" height="100%" src="A:assets/images/gradient-panel-medium-dark.bin">
+        <ui_gradient_canvas name="gradient_background" width="100%" height="100%">
           <bind_flag_if_eq subject="gcode_viewer_mode" flag="hidden" ref_value="1"/>
-        </lv_image>
+        </ui_gradient_canvas>
 
         <!-- G-code Viewer (shown in 3D[1] and 2D[2] modes, hidden in thumbnail[0]) -->
         <!-- Default hidden="true" prevents race during binding initialization -->

@@ -32,9 +32,9 @@
                  width="100%" flex_grow="1" style_radius="#border_radius" style_pad_all="0" style_clip_corner="true">
         <!-- Pre-rendered gradient background (source updated by C++ on theme switch) -->
         <!-- Hidden in 3D mode (value=1) so 3D viewer has clean black background -->
-        <lv_image name="gradient_bg" width="100%" height="100%" src="A:assets/images/gradient-panel-medium-dark.bin">
+        <ui_gradient_canvas name="gradient_bg" width="100%" height="100%">
           <bind_flag_if_eq subject="detail_gcode_viewer_mode" flag="hidden" ref_value="1"/>
-        </lv_image>
+        </ui_gradient_canvas>
         <!-- 3D G-code viewer (hidden in thumbnail mode=0; no 2D fallback on this panel) -->
         <gcode_viewer name="detail_gcode_viewer" width="100%" height="100%">
           <bind_flag_if_eq subject="detail_gcode_viewer_mode" flag="hidden" ref_value="0"/>

@@ -5,6 +5,7 @@
 
 #include "ui_error_reporting.h"
 #include "ui_fonts.h"
+#include "ui_gradient_canvas.h"
 
 #include "config.h"
 #include "helix-xml/src/libs/expat/expat.h"
@@ -1614,6 +1615,7 @@ static void theme_swap_gradient_images(lv_obj_t* root, bool dark_mode) {
 
 void theme_manager_swap_gradients(lv_obj_t* root) {
     theme_swap_gradient_images(root, use_dark_mode);
+    ui_gradient_canvas_theme_update(root);
 }
 
 void theme_manager_apply_theme(const helix::ThemeData& theme, bool dark_mode) {
@@ -1685,6 +1687,7 @@ void theme_manager_apply_theme(const helix::ThemeData& theme, bool dark_mode) {
 
     // Swap gradient background images between dark/light variants
     theme_swap_gradient_images(lv_screen_active(), effective_dark);
+    ui_gradient_canvas_theme_update(lv_screen_active());
 
     // Invalidate and notify
     lv_obj_invalidate(lv_screen_active());

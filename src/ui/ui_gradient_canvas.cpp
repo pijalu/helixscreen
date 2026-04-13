@@ -14,6 +14,7 @@
 #include "helix-xml/src/xml/parsers/lv_xml_obj_parser.h"
 #include "lvgl/lvgl.h"
 #include "memory_utils.h"
+#include "theme_manager.h"
 
 #include <spdlog/spdlog.h>
 
@@ -44,13 +45,29 @@ static int32_t gradient_buffer_size() {
 // 4x4 Bayer dither matrix (normalized to 0-15)
 constexpr uint8_t BAYER_4X4[4][4] = {{0, 8, 2, 10}, {12, 4, 14, 6}, {3, 11, 1, 9}, {15, 7, 13, 5}};
 
+// Maximum gradient buffer dimension (pixels per axis).
+// Caps memory on large displays — a 512x512 ARGB8888 buffer is 1 MB.
+// COVER scaling from 512 to any panel size is visually lossless for a smooth gradient.
+static constexpr int32_t MAX_GRADIENT_DIM = 512;
+
 // User data for gradient configuration
 struct GradientData {
+    static constexpr uint32_t MAGIC = 0x47524144; // "GRAD"
+    uint32_t magic = MAGIC;
     uint8_t start_r, start_g, start_b;
     uint8_t end_r, end_g, end_b;
     bool dither;
+    bool theme_colors;       // true = auto-select colors from current theme (dark/light)
     lv_draw_buf_t* draw_buf; // Pre-rendered gradient buffer
 };
+
+/// Safe cast: returns GradientData* only if magic matches, else nullptr
+static GradientData* get_gradient_data(lv_obj_t* obj) {
+    auto* data = static_cast<GradientData*>(lv_obj_get_user_data(obj));
+    if (data && data->magic == GradientData::MAGIC)
+        return data;
+    return nullptr;
+}
 
 /**
  * @brief Extract RGB from LVGL color string
@@ -146,12 +163,71 @@ static void render_gradient_buffer(GradientData* data) {
                            data->end_g, data->end_b, data->dither);
 }
 
+/// Apply current theme colors to GradientData (dark/light auto-select)
+static void apply_theme_colors(GradientData* data) {
+    if (!data || !data->theme_colors)
+        return;
+    bool dark = theme_manager_is_dark_mode();
+    uint8_t start_gray = dark ? DEFAULT_START_GRAY : LIGHT_START_GRAY;
+    uint8_t end_gray = dark ? DEFAULT_END_GRAY : LIGHT_END_GRAY;
+    data->start_r = data->start_g = data->start_b = start_gray;
+    data->end_r = data->end_g = data->end_b = end_gray;
+}
+
+/**
+ * @brief Recreate the gradient buffer at the widget's current dimensions
+ *
+ * Called on LV_EVENT_SIZE_CHANGED. Caps buffer at MAX_GRADIENT_DIM per axis
+ * and uses COVER scaling for the remainder (visually lossless on gradients).
+ */
+static void gradient_resize_to_widget(lv_obj_t* obj) {
+    GradientData* data = get_gradient_data(obj);
+    if (!data)
+        return;
+
+    int32_t w = lv_obj_get_width(obj);
+    int32_t h = lv_obj_get_height(obj);
+    if (w <= 0 || h <= 0)
+        return;
+
+    // Cap buffer dimensions to save memory; COVER handles the rest
+    int32_t buf_w = std::min(w, MAX_GRADIENT_DIM);
+    int32_t buf_h = std::min(h, MAX_GRADIENT_DIM);
+
+    // Skip if buffer already matches
+    if (data->draw_buf && data->draw_buf->header.w == buf_w && data->draw_buf->header.h == buf_h)
+        return;
+
+    // Destroy old buffer
+    if (data->draw_buf) {
+        lv_draw_buf_destroy(data->draw_buf);
+        data->draw_buf = nullptr;
+    }
+
+    data->draw_buf = lv_draw_buf_create(buf_w, buf_h, LV_COLOR_FORMAT_ARGB8888, 0);
+    if (!data->draw_buf) {
+        spdlog::error("[GradientCanvas] Failed to resize buffer to {}x{}", buf_w, buf_h);
+        return;
+    }
+
+    apply_theme_colors(data);
+    render_gradient_buffer(data);
+    lv_image_set_src(obj, data->draw_buf);
+
+    spdlog::trace("[GradientCanvas] Resized buffer to {}x{} (widget {}x{})", buf_w, buf_h, w, h);
+}
+
+static void gradient_size_changed_cb(lv_event_t* e) {
+    lv_obj_t* obj = lv_event_get_target_obj(e);
+    gradient_resize_to_widget(obj);
+}
+
 /**
  * @brief Cleanup handler - free gradient data and buffer on delete
  */
 static void gradient_delete_cb(lv_event_t* e) {
     lv_obj_t* obj = lv_event_get_target_obj(e);
-    std::unique_ptr<GradientData> data(static_cast<GradientData*>(lv_obj_get_user_data(obj)));
+    std::unique_ptr<GradientData> data(get_gradient_data(obj));
     lv_obj_set_user_data(obj, nullptr);
     if (data) {
         if (data->draw_buf) {
@@ -163,7 +239,14 @@ static void gradient_delete_cb(lv_event_t* e) {
 }
 
 /**
- * @brief XML create handler - creates image widget with pre-rendered gradient
+ * @brief XML create handler - creates image widget with self-sizing gradient
+ *
+ * The widget starts with a small placeholder buffer. On LV_EVENT_SIZE_CHANGED
+ * it recreates the buffer at the widget's actual dimensions (capped at
+ * MAX_GRADIENT_DIM) and uses COVER scaling for the remainder.
+ *
+ * By default, colors are derived from the current theme (dark/light).
+ * Explicit start_color/end_color attributes override this.
  */
 static void* ui_gradient_canvas_xml_create(lv_xml_parser_state_t* state, const char** attrs) {
     LV_UNUSED(attrs);
@@ -176,21 +259,17 @@ static void* ui_gradient_canvas_xml_create(lv_xml_parser_state_t* state, const c
         return nullptr;
     }
 
-    // Initialize gradient data with defaults
+    // Initialize gradient data — theme_colors=true means auto dark/light
     auto data_ptr = std::make_unique<GradientData>();
-    data_ptr->start_r = DEFAULT_START_GRAY;
-    data_ptr->start_g = DEFAULT_START_GRAY;
-    data_ptr->start_b = DEFAULT_START_GRAY;
-    data_ptr->end_r = DEFAULT_END_GRAY;
-    data_ptr->end_g = DEFAULT_END_GRAY;
-    data_ptr->end_b = DEFAULT_END_GRAY;
     data_ptr->dither = true;
+    data_ptr->theme_colors = true;
     data_ptr->draw_buf = nullptr;
+    apply_theme_colors(data_ptr.get());
 
-    // Create draw buffer for gradient
-    // Must stay ARGB8888 — render_gradient_buffer() writes lv_color32_t pixels directly
-    data_ptr->draw_buf = lv_draw_buf_create(gradient_buffer_size(), gradient_buffer_size(),
-                                            LV_COLOR_FORMAT_ARGB8888, 0);
+    // Create initial small buffer — gradient_resize_to_widget() will
+    // recreate at actual dimensions once layout resolves
+    int32_t init_size = gradient_buffer_size();
+    data_ptr->draw_buf = lv_draw_buf_create(init_size, init_size, LV_COLOR_FORMAT_ARGB8888, 0);
 
     if (!data_ptr->draw_buf) {
         LOG_ERROR_INTERNAL("[GradientCanvas] Failed to create draw buffer");
@@ -198,15 +277,12 @@ static void* ui_gradient_canvas_xml_create(lv_xml_parser_state_t* state, const c
         return nullptr;
     }
 
-    // Render initial gradient (must be done before release)
     render_gradient_buffer(data_ptr.get());
-
-    // Set image source to our buffer
     lv_image_set_src(img, data_ptr->draw_buf);
 
     lv_obj_set_user_data(img, data_ptr.release());
 
-    // Configure image to fill widget area (scales to cover, clips overflow)
+    // COVER scales the buffer to fill the widget (clips overflow)
     lv_image_set_inner_align(img, LV_IMAGE_ALIGN_COVER);
 
     // Remove default styling
@@ -214,11 +290,12 @@ static void* ui_gradient_canvas_xml_create(lv_xml_parser_state_t* state, const c
     lv_obj_set_style_pad_all(img, 0, 0);
     lv_obj_remove_flag(img, LV_OBJ_FLAG_SCROLLABLE);
 
+    // Self-size: recreate buffer when widget dimensions resolve
+    lv_obj_add_event_cb(img, gradient_size_changed_cb, LV_EVENT_SIZE_CHANGED, nullptr);
     // Cleanup handler
     lv_obj_add_event_cb(img, gradient_delete_cb, LV_EVENT_DELETE, nullptr);
 
-    spdlog::trace("[GradientCanvas] Created gradient ({}x{} buffer)", gradient_buffer_size(),
-                  gradient_buffer_size());
+    spdlog::trace("[GradientCanvas] Created gradient (initial {}x{} buffer)", init_size, init_size);
     return static_cast<void*>(img);
 }
 
@@ -234,7 +311,7 @@ static void ui_gradient_canvas_xml_apply(lv_xml_parser_state_t* state, const cha
         return;
     }
 
-    GradientData* data = static_cast<GradientData*>(lv_obj_get_user_data(obj));
+    GradientData* data = get_gradient_data(obj);
     bool colors_changed = false;
 
     // Parse custom attributes
@@ -242,11 +319,13 @@ static void ui_gradient_canvas_xml_apply(lv_xml_parser_state_t* state, const cha
         if (strcmp(attrs[i], "start_color") == 0) {
             if (data) {
                 parse_color_to_rgb(attrs[i + 1], data->start_r, data->start_g, data->start_b);
+                data->theme_colors = false; // explicit color overrides theme
                 colors_changed = true;
             }
         } else if (strcmp(attrs[i], "end_color") == 0) {
             if (data) {
                 parse_color_to_rgb(attrs[i + 1], data->end_r, data->end_g, data->end_b);
+                data->theme_colors = false;
                 colors_changed = true;
             }
         } else if (strcmp(attrs[i], "dither") == 0) {
@@ -284,25 +363,45 @@ void ui_gradient_canvas_register(void) {
 void ui_gradient_canvas_redraw(lv_obj_t* obj) {
     if (!obj)
         return;
-    GradientData* data = static_cast<GradientData*>(lv_obj_get_user_data(obj));
+    GradientData* data = get_gradient_data(obj);
     if (data) {
+        apply_theme_colors(data);
         render_gradient_buffer(data);
-        // Defer invalidation to avoid calling during render phase
-        helix::ui::async_call(
-            obj, [](void* data) { lv_obj_invalidate(static_cast<lv_obj_t*>(data)); }, obj);
+        lv_obj_invalidate(obj);
     }
+}
+
+/// Tree walker: find gradient canvas widgets and re-render with current theme
+static lv_obj_tree_walk_res_t gradient_canvas_theme_cb(lv_obj_t* obj, void* user_data) {
+    LV_UNUSED(user_data);
+    if (!lv_obj_check_type(obj, &lv_image_class))
+        return LV_OBJ_TREE_WALK_NEXT;
+
+    GradientData* data = get_gradient_data(obj);
+    if (!data || !data->theme_colors || !data->draw_buf)
+        return LV_OBJ_TREE_WALK_NEXT;
+
+    apply_theme_colors(data);
+    render_gradient_buffer(data);
+    lv_obj_invalidate(obj);
+
+    return LV_OBJ_TREE_WALK_NEXT;
+}
+
+void ui_gradient_canvas_theme_update(lv_obj_t* root) {
+    if (!root)
+        return;
+    lv_obj_tree_walk(root, gradient_canvas_theme_cb, nullptr);
 }
 
 void ui_gradient_canvas_set_dither(lv_obj_t* obj, bool enable) {
     if (!obj)
         return;
-    GradientData* data = static_cast<GradientData*>(lv_obj_get_user_data(obj));
+    GradientData* data = get_gradient_data(obj);
     if (data && data->dither != enable) {
         data->dither = enable;
         render_gradient_buffer(data);
-        // Defer invalidation to avoid calling during render phase
-        helix::ui::async_call(
-            obj, [](void* data) { lv_obj_invalidate(static_cast<lv_obj_t*>(data)); }, obj);
+        lv_obj_invalidate(obj);
     }
 }
 
