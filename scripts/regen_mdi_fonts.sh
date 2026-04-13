@@ -319,7 +319,7 @@ MDI_ICONS+=",0xF0632"    # apple-keyboard-caps (caps lock indicator)
 MDI_ICONS+=",0xF0636"    # apple-keyboard-shift (shift key outline)
 
 # Sizes to generate - matching text font sizes for consistent UI
-SIZES="14 16 24 32 48 64"
+SIZES="14 16 20 24 28 32 40 48 56 64 80 96 128"
 
 echo "Generating Material Design Icons fonts for LVGL..."
 echo "  Font: $FONT"
