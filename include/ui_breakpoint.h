@@ -20,12 +20,13 @@
 /// Underlying integer values are stored in the ui_breakpoint LVGL subject
 /// and referenced from XML via bind_flag_if_eq ref_value — do not renumber.
 enum class UiBreakpoint : int32_t {
-    Micro = 0,  // height ≤ 272  — 480x272
-    Tiny = 1,   // height ≤ 390  — 480x320
-    Small = 2,  // height ≤ 460  — 480x400, 1920x440
-    Medium = 3, // height ≤ 550  — 800x480
-    Large = 4,  // height ≤ 700  — 1024x600
-    XLarge = 5, // height > 700  — 1280x720+
+    Micro = 0,   // height ≤ 272  — 480x272
+    Tiny = 1,    // height ≤ 390  — 480x320
+    Small = 2,   // height ≤ 460  — 480x400, 1920x440
+    Medium = 3,  // height ≤ 550  — 800x480
+    Large = 4,   // height ≤ 700  — 1024x600
+    XLarge = 5,  // height ≤ 1000 — 1280x720, 1024x768
+    XXLarge = 6, // height > 1000 — 1440p, 4K
 };
 
 /// Screen height thresholds (max height inclusive for each breakpoint)
@@ -35,18 +36,19 @@ enum class UiBreakpoint : int32_t {
 #define UI_BREAKPOINT_MEDIUM_MAX 550 // height 461-550 → MEDIUM (800x480)
 #define UI_BREAKPOINT_LARGE_MAX                                                                    \
     700 // height 551-700 → LARGE (1024x600)
-        // height >700 → XLARGE (1280x720+)
+#define UI_BREAKPOINT_XLARGE_MAX 1000 // height 701-1000 → XLARGE
+                                      // height >1000 → XXLARGE (1440p, 4K)
 
 /// Convert a UiBreakpoint enum to its underlying integer index (for array access).
 constexpr inline int32_t to_int(UiBreakpoint bp) {
     return static_cast<int32_t>(bp);
 }
 
-/// Convert a raw integer to a UiBreakpoint (clamped to valid range [Micro, XLarge]).
+/// Convert a raw integer to a UiBreakpoint (clamped to valid range [Micro, XXLarge]).
 /// Safe for use with lv_subject_get_int() results from the ui_breakpoint subject.
 inline UiBreakpoint as_breakpoint(int32_t raw) {
     constexpr int32_t min = to_int(UiBreakpoint::Micro);
-    constexpr int32_t max = to_int(UiBreakpoint::XLarge);
+    constexpr int32_t max = to_int(UiBreakpoint::XXLarge);
 
     raw = std::clamp(raw, min, max);
     return static_cast<UiBreakpoint>(raw);
