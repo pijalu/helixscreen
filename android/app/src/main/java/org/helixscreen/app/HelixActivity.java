@@ -77,10 +77,15 @@ public class HelixActivity extends SDLActivity {
 
     @Override
     protected String[] getArguments() {
+        java.util.List<String> args = new java.util.ArrayList<>();
         if (BuildConfig.DEBUG) {
-            return new String[]{"-vv"};
+            args.add("-vv");
         }
-        return new String[]{};
+        // Launch with: adb shell am start -n org.helixscreen.app/.HelixActivity --ez test true
+        if (getIntent() != null && getIntent().getBooleanExtra("test", false)) {
+            args.add("--test");
+        }
+        return args.toArray(new String[0]);
     }
 
     // =========================================================================
