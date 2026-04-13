@@ -18,15 +18,20 @@
     <px name="border_radius_small" value="4"/>
     <px name="border_radius_medium" value="9"/>
     <px name="border_radius_large" value="12"/>
+    <px name="border_radius_xlarge" value="14"/>
+    <px name="border_radius_xxlarge" value="16"/>
     <!-- Static small radius for elements that always want 4px regardless of screen size -->
     <px name="border_radius_sm" value="4"/>
 
     <!-- Unified Responsive Spacing System (space_*)                         -->
     <!-- ===================================================================== -->
     <!-- Runtime selects appropriate variant via ui_theme_register_responsive_spacing()
-         based on screen height: TINY (≤390), SMALL (391-460), MEDIUM (461-550), LARGE (551-700), XLARGE (>700)
-         Target hardware: 480x320 (TINY), 480x400/1920x440 (SMALL), 800x480 (MEDIUM), 1024x600 (LARGE), 1280x720+ (XLARGE)
-         _tiny and _xlarge variants are optional — they fall back to _small and _large respectively.
+         based on screen height: MICRO (≤272), TINY (273-390), SMALL (391-460),
+         MEDIUM (461-550), LARGE (551-700), XLARGE (701-1000), XXLARGE (>1000)
+         Target hardware: 480x272 (MICRO), 480x320 (TINY), 480x400 (SMALL),
+         800x480 (MEDIUM), 1024x600 (LARGE), 1280x720 (XLARGE), 1440p+ (XXLARGE)
+         _tiny, _xlarge and _xxlarge variants are optional — they fall back to
+         _small, _large, and _xlarge respectively.
 
          CRITICAL: Base constants (space_xxs, space_xs, etc.) are registered at
          runtime by ui_theme.cpp - do NOT define them here or responsive overrides
@@ -36,39 +41,55 @@
     <px name="space_xxs_small" value="2"/>
     <px name="space_xxs_medium" value="3"/>
     <px name="space_xxs_large" value="4"/>
+    <px name="space_xxs_xlarge" value="5"/>
+    <px name="space_xxs_xxlarge" value="6"/>
     <!-- space_xs: Extra small (button icon+text, dense info) -->
     <px name="space_xs_tiny" value="2"/>
     <px name="space_xs_small" value="4"/>
     <px name="space_xs_medium" value="5"/>
     <px name="space_xs_large" value="6"/>
+    <px name="space_xs_xlarge" value="8"/>
+    <px name="space_xs_xxlarge" value="10"/>
     <!-- space_sm: Small (tight layouts, minor separations) -->
     <px name="space_sm_tiny" value="4"/>
     <px name="space_sm_small" value="6"/>
     <px name="space_sm_medium" value="7"/>
     <px name="space_sm_large" value="8"/>
+    <px name="space_sm_xlarge" value="10"/>
+    <px name="space_sm_xxlarge" value="12"/>
     <!-- space_md: Medium (standard flex gaps, compact padding) -->
     <px name="space_md_tiny" value="6"/>
     <px name="space_md_small" value="8"/>
     <px name="space_md_medium" value="10"/>
     <px name="space_md_large" value="12"/>
+    <px name="space_md_xlarge" value="16"/>
+    <px name="space_md_xxlarge" value="20"/>
     <!-- space_lg: Large (container padding, major sections) -->
     <px name="space_lg_tiny" value="8"/>
     <px name="space_lg_small" value="12"/>
     <px name="space_lg_medium" value="16"/>
     <px name="space_lg_large" value="20"/>
+    <px name="space_lg_xlarge" value="24"/>
+    <px name="space_lg_xxlarge" value="32"/>
     <!-- space_xl: Extra large (emphasis cards, major separations) -->
     <px name="space_xl_tiny" value="8"/>
     <px name="space_xl_small" value="16"/>
     <px name="space_xl_medium" value="20"/>
     <px name="space_xl_large" value="24"/>
+    <px name="space_xl_xlarge" value="32"/>
+    <px name="space_xl_xxlarge" value="40"/>
     <!-- space_2xl: Double extra large (toast/overlay offsets, large separations) -->
     <px name="space_2xl_small" value="24"/>
     <px name="space_2xl_medium" value="32"/>
     <px name="space_2xl_large" value="40"/>
+    <px name="space_2xl_xlarge" value="48"/>
+    <px name="space_2xl_xxlarge" value="64"/>
     <!-- space_2xl_neg: Negative variant for positioning (e.g., toast right offset) -->
     <px name="space_2xl_neg_small" value="-24"/>
     <px name="space_2xl_neg_medium" value="-32"/>
     <px name="space_2xl_neg_large" value="-40"/>
+    <px name="space_2xl_neg_xlarge" value="-48"/>
+    <px name="space_2xl_neg_xxlarge" value="-64"/>
 
     <!-- ===================================================================== -->
     <!-- Responsive Icon Sizes (icon_size)                                    -->
@@ -82,6 +103,8 @@
     <string name="icon_size_small" value="md"/>
     <string name="icon_size_medium" value="lg"/>
     <string name="icon_size_large" value="xl"/>
+    <string name="icon_size_xlarge" value="xl"/>
+    <string name="icon_size_xxlarge" value="xl"/>
 
     <!-- ===================================================================== -->
     <!-- Responsive Badge Sizes (badge_size)                                   -->
@@ -91,6 +114,8 @@
     <px name="badge_size_small" value="16"/>
     <px name="badge_size_medium" value="18"/>
     <px name="badge_size_large" value="20"/>
+    <px name="badge_size_xlarge" value="24"/>
+    <px name="badge_size_xxlarge" value="28"/>
 
     <!-- ===================================================================== -->
     <!-- Responsive Spinner Sizes (spinner_*)                                  -->
@@ -101,26 +126,38 @@
     <px name="spinner_lg_small" value="48"/>
     <px name="spinner_lg_medium" value="56"/>
     <px name="spinner_lg_large" value="64"/>
+    <px name="spinner_lg_xlarge" value="80"/>
+    <px name="spinner_lg_xxlarge" value="96"/>
     <!-- spinner_md: Standard loading indicators -->
     <px name="spinner_md_small" value="24"/>
     <px name="spinner_md_medium" value="28"/>
     <px name="spinner_md_large" value="32"/>
+    <px name="spinner_md_xlarge" value="40"/>
+    <px name="spinner_md_xxlarge" value="48"/>
     <!-- spinner_sm: Inline status indicators (WiFi test rows) -->
     <px name="spinner_sm_small" value="16"/>
     <px name="spinner_sm_medium" value="18"/>
     <px name="spinner_sm_large" value="20"/>
+    <px name="spinner_sm_xlarge" value="24"/>
+    <px name="spinner_sm_xxlarge" value="28"/>
     <!-- spinner_xs: Compact UI elements -->
     <px name="spinner_xs_small" value="12"/>
     <px name="spinner_xs_medium" value="14"/>
     <px name="spinner_xs_large" value="16"/>
+    <px name="spinner_xs_xlarge" value="18"/>
+    <px name="spinner_xs_xxlarge" value="20"/>
 
     <!-- Spinner arc widths - proportional to size -->
     <px name="spinner_arc_lg_small" value="3"/>
     <px name="spinner_arc_lg_medium" value="4"/>
     <px name="spinner_arc_lg_large" value="4"/>
+    <px name="spinner_arc_lg_xlarge" value="5"/>
+    <px name="spinner_arc_lg_xxlarge" value="6"/>
     <px name="spinner_arc_md_small" value="2"/>
     <px name="spinner_arc_md_medium" value="3"/>
     <px name="spinner_arc_md_large" value="3"/>
+    <px name="spinner_arc_md_xlarge" value="4"/>
+    <px name="spinner_arc_md_xxlarge" value="4"/>
     <px name="spinner_arc_sm" value="2"/>
     <px name="spinner_arc_xs" value="2"/>
 
@@ -135,18 +172,26 @@
     <px name="ams_logo_size_small" value="20"/>
     <px name="ams_logo_size_medium" value="24"/>
     <px name="ams_logo_size_large" value="28"/>
+    <px name="ams_logo_size_xlarge" value="32"/>
+    <px name="ams_logo_size_xxlarge" value="40"/>
     <!-- ams_bars_height: Mini status bars container height -->
     <px name="ams_bars_height_small" value="36"/>
     <px name="ams_bars_height_medium" value="48"/>
     <px name="ams_bars_height_large" value="56"/>
+    <px name="ams_bars_height_xlarge" value="68"/>
+    <px name="ams_bars_height_xxlarge" value="80"/>
     <!-- ams_card_min_width: Minimum unit card width -->
     <px name="ams_card_min_width_small" value="80"/>
     <px name="ams_card_min_width_medium" value="100"/>
     <px name="ams_card_min_width_large" value="120"/>
+    <px name="ams_card_min_width_xlarge" value="140"/>
+    <px name="ams_card_min_width_xxlarge" value="180"/>
     <!-- ams_card_max_width: Maximum unit card width -->
     <px name="ams_card_max_width_small" value="160"/>
     <px name="ams_card_max_width_medium" value="200"/>
     <px name="ams_card_max_width_large" value="240"/>
+    <px name="ams_card_max_width_xlarge" value="280"/>
+    <px name="ams_card_max_width_xxlarge" value="360"/>
 
     <!-- ===================================================================== -->
     <!-- Responsive Keypad Sizes (keypad_*)                                    -->
@@ -175,6 +220,8 @@
     <px name="button_height_sm_small" value="40"/>
     <px name="button_height_sm_medium" value="40"/>
     <px name="button_height_sm_large" value="40"/>
+    <px name="button_height_sm_xlarge" value="48"/>
+    <px name="button_height_sm_xxlarge" value="56"/>
 
     <!-- button_height is responsive: _small/_medium/_large registered as button_height based on screen size -->
     <px name="button_height_micro" value="26"/>
@@ -182,12 +229,16 @@
     <px name="button_height_small" value="48"/>
     <px name="button_height_medium" value="52"/>
     <px name="button_height_large" value="72"/>
+    <px name="button_height_xlarge" value="80"/>
+    <px name="button_height_xxlarge" value="96"/>
 
     <px name="button_height_lg_micro" value="34"/>
     <px name="button_height_lg_tiny" value="40"/>
     <px name="button_height_lg_small" value="64"/>
     <px name="button_height_lg_medium" value="70"/>
     <px name="button_height_lg_large" value="96"/>
+    <px name="button_height_lg_xlarge" value="112"/>
+    <px name="button_height_lg_xxlarge" value="128"/>
 
     <!-- Other component dimensions -->
     <!-- header_height is responsive: _small/_medium/_large registered as header_height based on screen height -->
@@ -196,6 +247,8 @@
     <px name="header_height_small" value="48"/>
     <px name="header_height_medium" value="56"/>
     <px name="header_height_large" value="60"/>
+    <px name="header_height_xlarge" value="68"/>
+    <px name="header_height_xxlarge" value="80"/>
 
     <!-- ===================================================================== -->
     <!-- Responsive Panel Heights (print status, file detail, history)         -->
@@ -206,6 +259,8 @@
     <px name="temp_card_height_small" value="64"/>
     <px name="temp_card_height_medium" value="72"/>
     <px name="temp_card_height_large" value="80"/>
+    <px name="temp_card_height_xlarge" value="96"/>
+    <px name="temp_card_height_xxlarge" value="112"/>
 
 
     <!-- Row height for button containers -->
@@ -228,7 +283,8 @@
     <string name="font_heading_small" value="noto_sans_20"/>
     <string name="font_heading_medium" value="noto_sans_26"/>
     <string name="font_heading_large" value="noto_sans_28"/>
-    <string name="font_heading_xlarge" value="noto_sans_28"/>
+    <string name="font_heading_xlarge" value="noto_sans_32"/>
+    <string name="font_heading_xxlarge" value="noto_sans_40"/>
     <!-- NO BASE font_heading - registered at runtime -->
     <!-- font_xl variants (extra-large display text, e.g. clock digits) - uses Bold weight -->
     <string name="font_xl_micro" value="noto_sans_bold_16"/>
@@ -236,7 +292,8 @@
     <string name="font_xl_small" value="noto_sans_bold_20"/>
     <string name="font_xl_medium" value="noto_sans_bold_28"/>
     <string name="font_xl_large" value="noto_sans_bold_28"/>
-    <string name="font_xl_xlarge" value="noto_sans_bold_28"/>
+    <string name="font_xl_xlarge" value="noto_sans_bold_32"/>
+    <string name="font_xl_xxlarge" value="noto_sans_bold_40"/>
     <!-- NO BASE font_xl - registered at runtime -->
     <!-- font_body variants (standard body text) -->
     <string name="font_body_micro" value="noto_sans_10"/>
@@ -245,6 +302,7 @@
     <string name="font_body_medium" value="noto_sans_18"/>
     <string name="font_body_large" value="noto_sans_20"/>
     <string name="font_body_xlarge" value="noto_sans_24"/>
+    <string name="font_body_xxlarge" value="noto_sans_32"/>
     <!-- NO BASE font_body - registered at runtime -->
     <!-- font_small variants (hints, helpers, chart labels) - uses Light weight -->
     <string name="font_small_micro" value="noto_sans_light_10"/>
@@ -252,7 +310,8 @@
     <string name="font_small_small" value="noto_sans_light_12"/>
     <string name="font_small_medium" value="noto_sans_light_16"/>
     <string name="font_small_large" value="noto_sans_light_18"/>
-    <string name="font_small_xlarge" value="noto_sans_light_18"/>
+    <string name="font_small_xlarge" value="noto_sans_light_20"/>
+    <string name="font_small_xxlarge" value="noto_sans_light_26"/>
     <!-- NO BASE font_small - registered at runtime -->
     <!-- font_xs variants (compact metadata, card overlays, badges) - uses Light weight -->
     <string name="font_xs_micro" value="noto_sans_light_10"/>
@@ -261,6 +320,7 @@
     <string name="font_xs_medium" value="noto_sans_light_12"/>
     <string name="font_xs_large" value="noto_sans_light_14"/>
     <string name="font_xs_xlarge" value="noto_sans_light_16"/>
+    <string name="font_xs_xxlarge" value="noto_sans_light_20"/>
     <!-- NO BASE font_xs - registered at runtime -->
     <!-- font_mono variants (monospace for console/terminal displays) - Source Code Pro -->
     <string name="font_mono_micro" value="source_code_pro_8"/>
@@ -268,7 +328,8 @@
     <string name="font_mono_small" value="source_code_pro_12"/>
     <string name="font_mono_medium" value="source_code_pro_14"/>
     <string name="font_mono_large" value="source_code_pro_16"/>
-    <string name="font_mono_xlarge" value="source_code_pro_16"/>
+    <string name="font_mono_xlarge" value="source_code_pro_18"/>
+    <string name="font_mono_xxlarge" value="source_code_pro_24"/>
     <!-- NO BASE font_mono - registered at runtime -->
     <!-- ===================================================================== -->
     <!-- Icon Typography - Responsive Material Design Icon Fonts               -->
@@ -279,7 +340,8 @@
     <string name="icon_font_xs_small" value="mdi_icons_16"/>
     <string name="icon_font_xs_medium" value="mdi_icons_16"/>
     <string name="icon_font_xs_large" value="mdi_icons_16"/>
-    <string name="icon_font_xs_xlarge" value="mdi_icons_16"/>
+    <string name="icon_font_xs_xlarge" value="mdi_icons_24"/>
+    <string name="icon_font_xs_xxlarge" value="mdi_icons_32"/>
     <!-- NO BASE icon_font_xs - registered at runtime -->
     <!-- icon_font_sm: Small inline icons (metadata, hints, small indicators) -->
     <string name="icon_font_sm_micro" value="mdi_icons_16"/>
@@ -287,7 +349,8 @@
     <string name="icon_font_sm_small" value="mdi_icons_24"/>
     <string name="icon_font_sm_medium" value="mdi_icons_24"/>
     <string name="icon_font_sm_large" value="mdi_icons_24"/>
-    <string name="icon_font_sm_xlarge" value="mdi_icons_24"/>
+    <string name="icon_font_sm_xlarge" value="mdi_icons_32"/>
+    <string name="icon_font_sm_xxlarge" value="mdi_icons_48"/>
     <!-- NO BASE icon_font_sm - registered at runtime -->
     <!-- icon_font_md: Standard UI icons (buttons, status, notifications) -->
     <string name="icon_font_md_micro" value="mdi_icons_24"/>
@@ -295,7 +358,8 @@
     <string name="icon_font_md_small" value="mdi_icons_32"/>
     <string name="icon_font_md_medium" value="mdi_icons_32"/>
     <string name="icon_font_md_large" value="mdi_icons_32"/>
-    <string name="icon_font_md_xlarge" value="mdi_icons_32"/>
+    <string name="icon_font_md_xlarge" value="mdi_icons_48"/>
+    <string name="icon_font_md_xxlarge" value="mdi_icons_64"/>
     <!-- NO BASE icon_font_md - registered at runtime -->
     <!-- icon_font_lg: Large icons (cards, status panels, emphasis) -->
     <string name="icon_font_lg_micro" value="mdi_icons_24"/>
@@ -303,7 +367,8 @@
     <string name="icon_font_lg_small" value="mdi_icons_48"/>
     <string name="icon_font_lg_medium" value="mdi_icons_48"/>
     <string name="icon_font_lg_large" value="mdi_icons_48"/>
-    <string name="icon_font_lg_xlarge" value="mdi_icons_48"/>
+    <string name="icon_font_lg_xlarge" value="mdi_icons_64"/>
+    <string name="icon_font_lg_xxlarge" value="mdi_icons_96"/>
     <!-- NO BASE icon_font_lg - registered at runtime -->
     <!-- icon_font_xl: Navigation/hero icons (nav bar, large displays) -->
     <string name="icon_font_xl_micro" value="mdi_icons_32"/>
@@ -311,7 +376,8 @@
     <string name="icon_font_xl_small" value="mdi_icons_64"/>
     <string name="icon_font_xl_medium" value="mdi_icons_64"/>
     <string name="icon_font_xl_large" value="mdi_icons_64"/>
-    <string name="icon_font_xl_xlarge" value="mdi_icons_64"/>
+    <string name="icon_font_xl_xlarge" value="mdi_icons_80"/>
+    <string name="icon_font_xl_xxlarge" value="mdi_icons_128"/>
     <!-- NO BASE icon_font_xl - registered at runtime -->
 
     <!-- Step progress colors (wizard steps) -->
