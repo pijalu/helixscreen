@@ -1,0 +1,59 @@
+// Copyright (C) 2025-2026 356C LLC
+// SPDX-License-Identifier: GPL-3.0-or-later
+
+#pragma once
+
+#include "lvgl/lvgl.h"
+
+#include <atomic>
+#include <cstdint>
+
+namespace helix {
+
+/**
+ * @brief Per-channel gamma + warmth color correction for the framebuffer.
+ *
+ * Applied in the display flush path to compensate for panel-specific
+ * gamma curves and color temperature. Used primarily for cheap LCDs
+ * (CC1, AD5M) where dark colors look tinted (e.g. purple) due to
+ * uneven channel response.
+ *
+ * Two knobs:
+ *   - gamma: 0.5 .. 2.0 (default 1.0)  — uniform gamma curve
+ *   - warmth: -50 .. +50 (default 0)   — shifts R/B balance.
+ *     positive = warmer (more R, less B); negative = cooler.
+ *
+ * Builds three 256-entry LUTs (one per channel) when settings change.
+ * The flush hook applies them in-place to the rendered buffer right
+ * before scanout. Identity transform (gamma=1, warmth=0) skips the
+ * walk entirely so the cost is zero on platforms that don't need it.
+ */
+class ColorTransform {
+  public:
+    /** @brief Reset to identity (no transform). */
+    void reset();
+
+    /** @brief Update LUTs from gamma and warmth. */
+    void set(float gamma, int warmth);
+
+    /** @brief True if the transform is identity (no-op). */
+    bool is_identity() const {
+        return identity_;
+    }
+
+    /** @brief Apply LUT in-place to a rendered buffer. Format-aware. */
+    void apply(uint8_t* buf, int width, int height, int stride_bytes,
+               lv_color_format_t cf) const;
+
+    /** @brief Apply LUT in-place to ONLY a sub-rectangle of a buffer. */
+    void apply_area(uint8_t* buf, int buf_stride_bytes, int x, int y, int w, int h,
+                    lv_color_format_t cf) const;
+
+  private:
+    uint8_t r_lut_[256] = {};
+    uint8_t g_lut_[256] = {};
+    uint8_t b_lut_[256] = {};
+    bool identity_ = true;
+};
+
+} // namespace helix

@@ -4,6 +4,7 @@
 #pragma once
 
 #include "backlight_backend.h"
+#include "color_transform.h"
 #include "display_backend.h"
 #include "touch_calibration.h"
 
@@ -268,6 +269,19 @@ class DisplayManager {
         return m_use_hardware_blank;
     }
 
+    /**
+     * @brief Update gamma + warmth for the framebuffer color transform.
+     *
+     * Rebuilds per-channel LUTs and applies them in the flush hook.
+     * Identity transform (gamma=1, warmth=0) skips the transform entirely.
+     */
+    void set_color_transform(float gamma, int warmth);
+
+    /** @brief Access the color transform (read-only — used by flush hook). */
+    const helix::ColorTransform& color_transform() const {
+        return m_color_transform;
+    }
+
     // ========================================================================
     // Touch Calibration
     // ========================================================================
@@ -408,6 +422,11 @@ class DisplayManager {
 
     // Backlight control
     std::unique_ptr<BacklightBackend> m_backlight;
+
+    // Per-channel framebuffer color correction (gamma + warmth)
+    helix::ColorTransform m_color_transform;
+    lv_display_flush_cb_t m_original_flush_cb_for_color = nullptr;
+    void install_color_transform_hook();
 
     // Display sleep state
     bool m_display_sleeping = false;

@@ -89,6 +89,17 @@ void DisplaySoundSettingsOverlay::init_subjects() {
                            sizeof(volume_value_buf_), volume_value_buf_);
     lv_xml_register_subject(nullptr, "volume_value", &volume_value_subject_);
 
+    // Gamma + warmth value subjects (label bindings)
+    snprintf(gamma_value_buf_, sizeof(gamma_value_buf_), "1.00");
+    lv_subject_init_string(&gamma_value_subject_, gamma_value_buf_, nullptr,
+                           sizeof(gamma_value_buf_), gamma_value_buf_);
+    lv_xml_register_subject(nullptr, "gamma_value", &gamma_value_subject_);
+
+    snprintf(warmth_value_buf_, sizeof(warmth_value_buf_), "0");
+    lv_subject_init_string(&warmth_value_subject_, warmth_value_buf_, nullptr,
+                           sizeof(warmth_value_buf_), warmth_value_buf_);
+    lv_xml_register_subject(nullptr, "warmth_value", &warmth_value_subject_);
+
     subjects_initialized_ = true;
     spdlog::debug("[{}] Subjects initialized", get_name());
 }
@@ -105,6 +116,8 @@ void DisplaySoundSettingsOverlay::register_callbacks() {
         // Display
         {"on_dark_mode_changed", on_dark_mode_changed},
         {"on_brightness_changed", on_brightness_changed},
+        {"on_gamma_changed", on_gamma_changed},
+        {"on_warmth_changed", on_warmth_changed},
         {"on_widget_labels_changed", on_widget_labels_changed},
         {"on_bed_mesh_mode_changed", on_bed_mesh_mode_changed},
         {"on_dim_changed", on_dim_changed},
@@ -326,6 +339,22 @@ void DisplaySoundSettingsOverlay::init_brightness_controls() {
         lv_subject_copy_string(&brightness_value_subject_, brightness_value_buf_);
 
         spdlog::debug("[{}] Brightness initialized to {}%", get_name(), brightness);
+    }
+
+    // Gamma slider
+    if (lv_obj_t* s = lv_obj_find_by_name(overlay_root_, "gamma_slider")) {
+        int gx100 = DisplaySettingsManager::instance().get_gamma_x100();
+        lv_slider_set_value(s, gx100, LV_ANIM_OFF);
+        snprintf(gamma_value_buf_, sizeof(gamma_value_buf_), "%.2f", gx100 / 100.0);
+        lv_subject_copy_string(&gamma_value_subject_, gamma_value_buf_);
+    }
+
+    // Warmth slider
+    if (lv_obj_t* s = lv_obj_find_by_name(overlay_root_, "warmth_slider")) {
+        int w = DisplaySettingsManager::instance().get_warmth();
+        lv_slider_set_value(s, w, LV_ANIM_OFF);
+        snprintf(warmth_value_buf_, sizeof(warmth_value_buf_), "%+d", w);
+        lv_subject_copy_string(&warmth_value_subject_, warmth_value_buf_);
     }
 }
 
@@ -559,6 +588,18 @@ void DisplaySoundSettingsOverlay::handle_brightness_changed(int value) {
 
     helix::format::format_percent(value, brightness_value_buf_, sizeof(brightness_value_buf_));
     lv_subject_copy_string(&brightness_value_subject_, brightness_value_buf_);
+}
+
+void DisplaySoundSettingsOverlay::handle_gamma_changed(int value_x100) {
+    DisplaySettingsManager::instance().set_gamma_x100(value_x100);
+    snprintf(gamma_value_buf_, sizeof(gamma_value_buf_), "%.2f", value_x100 / 100.0);
+    lv_subject_copy_string(&gamma_value_subject_, gamma_value_buf_);
+}
+
+void DisplaySoundSettingsOverlay::handle_warmth_changed(int value) {
+    DisplaySettingsManager::instance().set_warmth(value);
+    snprintf(warmth_value_buf_, sizeof(warmth_value_buf_), "%+d", value);
+    lv_subject_copy_string(&warmth_value_subject_, warmth_value_buf_);
 }
 
 void DisplaySoundSettingsOverlay::handle_widget_labels_changed(bool enabled) {
@@ -995,6 +1036,20 @@ void DisplaySoundSettingsOverlay::on_brightness_changed(lv_event_t* e) {
     auto* slider = static_cast<lv_obj_t*>(lv_event_get_current_target(e));
     int value = lv_slider_get_value(slider);
     get_display_sound_settings_overlay().handle_brightness_changed(value);
+    LVGL_SAFE_EVENT_CB_END();
+}
+
+void DisplaySoundSettingsOverlay::on_gamma_changed(lv_event_t* e) {
+    LVGL_SAFE_EVENT_CB_BEGIN("[DisplaySoundSettingsOverlay] on_gamma_changed");
+    auto* slider = static_cast<lv_obj_t*>(lv_event_get_current_target(e));
+    get_display_sound_settings_overlay().handle_gamma_changed(lv_slider_get_value(slider));
+    LVGL_SAFE_EVENT_CB_END();
+}
+
+void DisplaySoundSettingsOverlay::on_warmth_changed(lv_event_t* e) {
+    LVGL_SAFE_EVENT_CB_BEGIN("[DisplaySoundSettingsOverlay] on_warmth_changed");
+    auto* slider = static_cast<lv_obj_t*>(lv_event_get_current_target(e));
+    get_display_sound_settings_overlay().handle_warmth_changed(lv_slider_get_value(slider));
     LVGL_SAFE_EVENT_CB_END();
 }
 

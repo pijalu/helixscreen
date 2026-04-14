@@ -160,6 +160,17 @@ void DisplaySettingsManager::init_subjects() {
     UI_MANAGED_SUBJECT_INT(brightness_subject_, brightness, "settings_brightness", subjects_);
     spdlog::debug("[DisplaySettingsManager] Brightness initialized to {}%", brightness);
 
+    // Color transform: gamma (50..200 = 0.5..2.0) and warmth (-50..+50)
+    int gamma_x100 = static_cast<int>(
+        std::lround(config->get<double>("/display/gamma", 1.0) * 100.0));
+    gamma_x100 = std::clamp(gamma_x100, 50, 200);
+    int warmth = std::clamp(config->get<int>("/display/warmth", 0), -50, 50);
+    UI_MANAGED_SUBJECT_INT(gamma_x100_subject_, gamma_x100, "settings_gamma_x100", subjects_);
+    UI_MANAGED_SUBJECT_INT(warmth_subject_, warmth, "settings_warmth", subjects_);
+    if (auto* dm = DisplayManager::instance()) {
+        dm->set_color_transform(gamma_x100 / 100.0f, warmth);
+    }
+
     // Has backlight control subject (for UI visibility) - check DisplayManager
     bool has_backlight = false;
     if (auto* dm = DisplayManager::instance()) {
@@ -502,6 +513,36 @@ void DisplaySettingsManager::set_brightness(int percent) {
 
     Config* config = Config::get_instance();
     config->set<int>("/brightness", clamped);
+    config->save();
+}
+
+int DisplaySettingsManager::get_gamma_x100() const {
+    return lv_subject_get_int(const_cast<lv_subject_t*>(&gamma_x100_subject_));
+}
+
+void DisplaySettingsManager::set_gamma_x100(int value) {
+    int clamped = std::clamp(value, 50, 200);
+    lv_subject_set_int(&gamma_x100_subject_, clamped);
+    if (auto* dm = DisplayManager::instance()) {
+        dm->set_color_transform(clamped / 100.0f, get_warmth());
+    }
+    Config* config = Config::get_instance();
+    config->set<double>("/display/gamma", clamped / 100.0);
+    config->save();
+}
+
+int DisplaySettingsManager::get_warmth() const {
+    return lv_subject_get_int(const_cast<lv_subject_t*>(&warmth_subject_));
+}
+
+void DisplaySettingsManager::set_warmth(int value) {
+    int clamped = std::clamp(value, -50, 50);
+    lv_subject_set_int(&warmth_subject_, clamped);
+    if (auto* dm = DisplayManager::instance()) {
+        dm->set_color_transform(get_gamma_x100() / 100.0f, clamped);
+    }
+    Config* config = Config::get_instance();
+    config->set<int>("/display/warmth", clamped);
     config->save();
 }
 

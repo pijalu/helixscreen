@@ -13,6 +13,9 @@
 
 #include "display_manager.h"
 
+// Private LVGL header for direct flush_cb capture (matches application.cpp pattern)
+#include "display/lv_display_private.h"
+
 #ifdef HELIX_DISPLAY_FBDEV
 #include "display_backend_fbdev.h"
 #endif
@@ -487,6 +490,21 @@ bool DisplayManager::init(const Config& config) {
     spdlog::trace("[DisplayManager] Initialized: {}x{}", m_width, m_height);
     m_initialized = true;
     s_instance = this;
+
+    // Install framebuffer color transform hook AFTER the backend's flush_cb
+    // is set, so the splash-suspend path captures our wrapper (#803).
+    install_color_transform_hook();
+    {
+        helix::Config* cfg = helix::Config::get_instance();
+        float gamma = static_cast<float>(cfg->get<double>("/display/gamma", 1.0));
+        int warmth = cfg->get<int>("/display/warmth", 0);
+        m_color_transform.set(gamma, warmth);
+        if (!m_color_transform.is_identity()) {
+            spdlog::info("[DisplayManager] Color transform active: gamma={:.2f}, warmth={}",
+                         gamma, warmth);
+        }
+    }
+
     return true;
 }
 
@@ -1498,4 +1516,50 @@ void DisplayManager::register_resize_callback(ResizeCallback callback) {
     m_resize_callbacks.push_back(callback);
     spdlog::trace("[DisplayManager] Registered resize callback ({} total)",
                   m_resize_callbacks.size());
+}
+
+
+// ============================================================================
+// Color Transform (gamma + warmth)
+// ============================================================================
+
+void DisplayManager::install_color_transform_hook() {
+    if (!m_display) {
+        return;
+    }
+    if (m_original_flush_cb_for_color) {
+        return; // Already installed
+    }
+    m_original_flush_cb_for_color = m_display->flush_cb;
+    if (!m_original_flush_cb_for_color) {
+        return;
+    }
+    lv_display_set_flush_cb(m_display,
+        [](lv_display_t* d, const lv_area_t* area, uint8_t* px_map) {
+            DisplayManager* self = DisplayManager::instance();
+            if (self && !self->m_color_transform.is_identity() && area && px_map) {
+                const lv_color_format_t cf = lv_display_get_color_format(d);
+                const int w = lv_area_get_width(area);
+                const int h = lv_area_get_height(area);
+                const int stride = lv_draw_buf_width_to_stride(w, cf);
+                self->m_color_transform.apply(px_map, w, h, stride, cf);
+            }
+            // Forward to the original backend flush
+            if (self && self->m_original_flush_cb_for_color) {
+                self->m_original_flush_cb_for_color(d, area, px_map);
+            } else {
+                lv_display_flush_ready(d);
+            }
+        });
+    spdlog::debug("[DisplayManager] Color transform flush hook installed");
+}
+
+void DisplayManager::set_color_transform(float gamma, int warmth) {
+    m_color_transform.set(gamma, warmth);
+    if (m_display) {
+        // Force a full repaint so the new LUT is visible immediately.
+        lv_obj_invalidate(lv_display_get_screen_active(m_display));
+    }
+    spdlog::info("[DisplayManager] Color transform: gamma={:.2f}, warmth={} (identity={})",
+                 gamma, warmth, m_color_transform.is_identity());
 }

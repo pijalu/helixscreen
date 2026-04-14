@@ -88,6 +88,8 @@ class DisplaySoundSettingsOverlay : public OverlayBase {
     void handle_dark_mode_changed(bool enabled);
     void handle_theme_settings_clicked();
     void handle_brightness_changed(int value);
+    void handle_gamma_changed(int value_x100);
+    void handle_warmth_changed(int value);
     void handle_widget_labels_changed(bool enabled);
     void handle_bed_mesh_mode_changed(int mode);
     void handle_dim_changed(int index);
@@ -167,6 +169,12 @@ class DisplaySoundSettingsOverlay : public OverlayBase {
     lv_subject_t brightness_value_subject_;
     char brightness_value_buf_[8]; // e.g., "100%"
 
+    /// Subjects for gamma + warmth label bindings
+    lv_subject_t gamma_value_subject_;
+    char gamma_value_buf_[8]; // e.g., "1.00"
+    lv_subject_t warmth_value_subject_;
+    char warmth_value_buf_[8]; // e.g., "+15"
+
     /// Subject for theme Apply button disabled state (1=disabled, 0=enabled)
     lv_subject_t theme_apply_disabled_subject_;
 
@@ -192,6 +200,8 @@ class DisplaySoundSettingsOverlay : public OverlayBase {
     // Display
     static void on_dark_mode_changed(lv_event_t* e);
     static void on_brightness_changed(lv_event_t* e);
+    static void on_gamma_changed(lv_event_t* e);
+    static void on_warmth_changed(lv_event_t* e);
     static void on_widget_labels_changed(lv_event_t* e);
     static void on_bed_mesh_mode_changed(lv_event_t* e);
     static void on_dim_changed(lv_event_t* e);

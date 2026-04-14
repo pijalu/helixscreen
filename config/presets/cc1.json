@@ -4,7 +4,9 @@
   "display": {
     "backlight_enable_ioctl": false,
     "hardware_blank": 0,
-    "sleep_backlight_off": false
+    "sleep_backlight_off": false,
+    "gamma": 1.0,
+    "warmth": -15
   },
   "input": {
     "calibration": {

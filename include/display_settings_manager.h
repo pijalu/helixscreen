@@ -107,6 +107,18 @@ class DisplaySettingsManager {
     /** @brief Check if backlight supports continuous dimming (not binary on/off) */
     bool has_dimming_control() const;
 
+    /** @brief Gamma value as int (50..200 = 0.5..2.0). Default 100 = 1.0 */
+    int get_gamma_x100() const;
+
+    /** @brief Set gamma (50..200 = 0.5..2.0), updates LUT + persists */
+    void set_gamma_x100(int value);
+
+    /** @brief Color warmth (-50 to +50, 0 = neutral, +warm/-cool) */
+    int get_warmth() const;
+
+    /** @brief Set color warmth (-50..+50), updates LUT + persists */
+    void set_warmth(int value);
+
     /** @brief Get sleep while printing state */
     bool get_sleep_while_printing() const;
 
@@ -259,6 +271,16 @@ class DisplaySettingsManager {
         return &brightness_subject_;
     }
 
+    /** @brief Gamma subject (integer: 50..200, gamma * 100) */
+    lv_subject_t* subject_gamma_x100() {
+        return &gamma_x100_subject_;
+    }
+
+    /** @brief Warmth subject (integer: -50..+50) */
+    lv_subject_t* subject_warmth() {
+        return &warmth_subject_;
+    }
+
     /** @brief Has backlight control subject (integer: 0=no, 1=yes) */
     lv_subject_t* subject_has_backlight() {
         return &has_backlight_subject_;
@@ -328,6 +350,8 @@ class DisplaySettingsManager {
     lv_subject_t display_dim_subject_;
     lv_subject_t display_sleep_subject_;
     lv_subject_t brightness_subject_;
+    lv_subject_t gamma_x100_subject_;
+    lv_subject_t warmth_subject_;
     lv_subject_t has_backlight_subject_;
     lv_subject_t has_dimming_subject_;
     lv_subject_t sleep_while_printing_subject_;
