@@ -892,11 +892,22 @@ quality:
 	@echo "$(CYAN)$(BOLD)Running quality checks...$(RESET)"
 	$(Q)./scripts/quality-checks.sh
 
-# Generated contributors header (from git log)
+# Generated contributors header — sourced from CONTRIBUTORS.txt (committed)
+# so cross-compile Docker builds and shallow CI checkouts produce correct output.
 CONTRIBUTORS_H := $(BUILD_DIR)/generated/contributors.h
 
-$(CONTRIBUTORS_H):
+$(CONTRIBUTORS_H): CONTRIBUTORS.txt scripts/gen-contributors.sh
 	$(Q)BUILD_DIR=$(BUILD_DIR) ./scripts/gen-contributors.sh
+
+# Refresh CONTRIBUTORS.txt from git history (respects .mailmap).
+# Run before release to pick up new contributors, then commit the result.
+.PHONY: update-contributors
+update-contributors:
+	@git -c safe.directory='*' log --format='%aN' | sort -u \
+		| grep -ivE 'bot\b|\[bot\]|dependabot|github-actions|claude' \
+		| awk 'length >= 2' > CONTRIBUTORS.txt
+	@echo "$(GREEN)✓ CONTRIBUTORS.txt updated ($$(wc -l < CONTRIBUTORS.txt) contributors)$(RESET)"
+	@echo "  Review the diff and commit: git diff CONTRIBUTORS.txt"
 
 # Include modular makefiles
 include mk/deps.mk

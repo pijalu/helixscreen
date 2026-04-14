@@ -1,6 +1,12 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: GPL-3.0-or-later
-# Generate build/generated/contributors.h from git history
+# Generate build/generated/contributors.h from CONTRIBUTORS.txt (preferred)
+# or from git history as a fallback.
+#
+# CONTRIBUTORS.txt is the source of truth — committed to the repo so cross-
+# compile Docker builds and shallow CI checkouts produce correct output.
+# Regenerate it with `make update-contributors` (reads full git history with
+# .mailmap applied).
 
 set -euo pipefail
 
@@ -12,22 +18,17 @@ trap 'rm -f "$TMPFILE"' EXIT
 
 mkdir -p "$OUTDIR"
 
-# Get unique contributor names, excluding bots and invalid entries
-# In Docker cross-compile environments, git may not be available — use
-# the existing generated file from build/generated/ as a fallback.
-if command -v git >/dev/null 2>&1 && git -c safe.directory='*' rev-parse --git-dir >/dev/null 2>&1; then
+contributors=""
+
+# Prefer the committed CONTRIBUTORS.txt — works in any build environment,
+# no git required, no shallow-clone pitfalls.
+if [ -f "CONTRIBUTORS.txt" ]; then
+    contributors=$(grep -v '^[[:space:]]*\(#\|$\)' CONTRIBUTORS.txt | awk 'length >= 2' || true)
+elif command -v git >/dev/null 2>&1 && git -c safe.directory='*' rev-parse --git-dir >/dev/null 2>&1; then
+    # Fallback: derive from git history (respects .mailmap via %aN).
     contributors=$(git -c safe.directory='*' log --format='%aN' | sort -u \
         | grep -ivE 'bot\b|\[bot\]|dependabot|github-actions|claude' \
         | awk 'length >= 2' || true)
-elif [ -f "build/generated/contributors.h" ] && [ "$OUTDIR" != "build/generated" ]; then
-    # No git — copy from host-generated file if available
-    mkdir -p "$OUTDIR"
-    cp "build/generated/contributors.h" "$OUTFILE"
-    echo "Copied $OUTFILE from build/generated/"
-    exit 0
-else
-    # No git and no fallback — generate empty list
-    contributors=""
 fi
 
 # Generate the header into a temp file
@@ -39,7 +40,6 @@ fi
     echo "inline constexpr const char* kContributors[] = {"
     while IFS= read -r name; do
         [ -z "$name" ] && continue
-        # Escape any double quotes in names
         escaped=$(printf '%s' "$name" | sed 's/"/\\"/g')
         echo "    \"$escaped\","
     done <<< "$contributors"
