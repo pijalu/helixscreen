@@ -745,10 +745,15 @@ void PanelWidgetManager::setup_gate_observers(const std::string& panel_id,
     auto& observers = gate_observers_[panel_id];
     // Gate observers only fire from hardware discovery (WebSocket data from
     // Moonraker), never from user interaction — config changes and grid edit
-    // mode bypass the coalesced timer entirely via force=true. A 2s window
-    // batches all startup discovery into a single rebuild instead of 2-3
-    // separate ones (gate subjects arrive sequentially over ~1-3s).
-    auto& timer = rebuild_timers_.emplace(panel_id, ui::CoalescedTimer(2000)).first->second;
+    // mode bypass the coalesced timer entirely via force=true.
+    //
+    // The window must be short enough that a late-arriving subject (e.g.
+    // printer_has_led flips ~3-5s into discovery on a busy Voron) doesn't
+    // miss the first fire and force the user to stare at a gated widget
+    // for 5+ seconds. Each rebuild is ~free when the visible-ID list is
+    // unchanged (HomePanel::populate_page short-circuits on equal lists),
+    // so firing several times during startup is fine.
+    auto& timer = rebuild_timers_.emplace(panel_id, ui::CoalescedTimer(300)).first->second;
 
     // Collect unique gate subject names from the widget registry
     std::vector<const char*> gate_names;
