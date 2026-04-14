@@ -31,6 +31,8 @@ void AssetManager::register_fonts() {
     }
     const bool is_medium_plus = (ver_res > UI_BREAKPOINT_SMALL_MAX);
     const bool is_large_plus = (ver_res > UI_BREAKPOINT_MEDIUM_MAX);
+    const bool is_xlarge_plus = (ver_res > UI_BREAKPOINT_LARGE_MAX);
+    const bool is_xxlarge_plus = (ver_res > UI_BREAKPOINT_XLARGE_MAX);
     const bool is_micro = (ver_res <= UI_BREAKPOINT_MICRO_MAX);
 
     int skipped = 0;
@@ -141,6 +143,39 @@ void AssetManager::register_fonts() {
     lv_xml_register_font(nullptr, "source_code_pro_12", &source_code_pro_12);
     lv_xml_register_font(nullptr, "source_code_pro_14", &source_code_pro_14);
     lv_xml_register_font(nullptr, "source_code_pro_16", &source_code_pro_16);
+
+    // XLarge tier fonts (HiDPI screens > LARGE_MAX height)
+#if HELIX_MAX_FONT_TIER >= 5
+    if (is_xlarge_plus) {
+        lv_xml_register_font(nullptr, "noto_sans_32", &noto_sans_32);
+        lv_xml_register_font(nullptr, "noto_sans_bold_32", &noto_sans_bold_32);
+        lv_xml_register_font(nullptr, "noto_sans_light_20", &noto_sans_light_20);
+        lv_xml_register_font(nullptr, "source_code_pro_18", &source_code_pro_18);
+        lv_xml_register_font(nullptr, "mdi_icons_80", &mdi_icons_80);
+    } else {
+        skipped += 5;
+    }
+    // mdi_icons_20/28/40/56 - always register if linked (referenced from FONTS_CORE)
+    lv_xml_register_font(nullptr, "mdi_icons_20", &mdi_icons_20);
+    lv_xml_register_font(nullptr, "mdi_icons_28", &mdi_icons_28);
+    lv_xml_register_font(nullptr, "mdi_icons_40", &mdi_icons_40);
+    lv_xml_register_font(nullptr, "mdi_icons_56", &mdi_icons_56);
+#endif
+
+    // XXLarge tier fonts (HiDPI screens > XLARGE_MAX height, e.g. 2560x1440)
+#if HELIX_MAX_FONT_TIER >= 6
+    if (is_xxlarge_plus) {
+        lv_xml_register_font(nullptr, "noto_sans_40", &noto_sans_40);
+        lv_xml_register_font(nullptr, "noto_sans_bold_40", &noto_sans_bold_40);
+        lv_xml_register_font(nullptr, "noto_sans_light_26", &noto_sans_light_26);
+        lv_xml_register_font(nullptr, "source_code_pro_20", &source_code_pro_20);
+        lv_xml_register_font(nullptr, "source_code_pro_24", &source_code_pro_24);
+        lv_xml_register_font(nullptr, "mdi_icons_96", &mdi_icons_96);
+        lv_xml_register_font(nullptr, "mdi_icons_128", &mdi_icons_128);
+    } else {
+        skipped += 7;
+    }
+#endif
 
     s_fonts_registered = true;
     if (skipped > 0) {

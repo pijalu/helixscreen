@@ -1191,12 +1191,18 @@ void theme_manager_register_responsive_fonts(lv_display_t* display) {
                 }
             }
 
+            // Only apply font existence check to actual font constants.
+            // Other string constants (e.g. icon_size_xlarge = "xl") are not
+            // font names and must be registered as-is.
+            bool is_font_constant = (base_name.rfind("font_", 0) == 0) ||
+                                    (base_name.rfind("icon_font_", 0) == 0);
+
             // Verify the selected font is actually linked. If not, fall back to
             // _large (guaranteed present by the triplet check above) and emit
             // tier-aware diagnostics: warn when the miss falls within this
             // platform's compiled tier range (build bug), stay silent when it's
             // above the max tier (expected pruning).
-            if (lv_xml_get_font_silent(scope, value) == nullptr) {
+            if (is_font_constant && lv_xml_get_font_silent(scope, value) == nullptr) {
                 int tier = tier_num_for_suffix(selected_suffix);
                 if (tier >= 0 && tier <= HELIX_MAX_FONT_TIER) {
                     spdlog::warn("[Theme] Font '{}' expected for tier '{}' but not linked "
@@ -1510,8 +1516,10 @@ void theme_manager_init(lv_display_t* display, bool use_dark_mode_param) {
             bp = UiBreakpoint::Medium;
         else if (ver_res_bp <= UI_BREAKPOINT_LARGE_MAX)
             bp = UiBreakpoint::Large;
-        else
+        else if (ver_res_bp <= UI_BREAKPOINT_XLARGE_MAX)
             bp = UiBreakpoint::XLarge;
+        else
+            bp = UiBreakpoint::XXLarge;
 
         if (!breakpoint_subject_initialized) {
             lv_subject_init_int(&ui_breakpoint_subject, to_int(bp));
