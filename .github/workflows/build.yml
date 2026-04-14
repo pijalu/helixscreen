@@ -89,7 +89,7 @@ jobs:
       run: make venv-setup
 
     - name: Build HelixScreen
-      timeout-minutes: 50
+      timeout-minutes: 75
       env:
         CC: ccache clang
         CXX: ccache clang++
