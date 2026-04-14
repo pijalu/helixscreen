@@ -155,11 +155,6 @@ void AssetManager::register_fonts() {
     } else {
         skipped += 5;
     }
-    // mdi_icons_20/28/40/56 - always register if linked (referenced from FONTS_CORE)
-    lv_xml_register_font(nullptr, "mdi_icons_20", &mdi_icons_20);
-    lv_xml_register_font(nullptr, "mdi_icons_28", &mdi_icons_28);
-    lv_xml_register_font(nullptr, "mdi_icons_40", &mdi_icons_40);
-    lv_xml_register_font(nullptr, "mdi_icons_56", &mdi_icons_56);
 #endif
 
     // XXLarge tier fonts (HiDPI screens > XLARGE_MAX height, e.g. 2560x1440)

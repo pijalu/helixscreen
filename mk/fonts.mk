@@ -69,9 +69,7 @@ FONTS_XXLARGE := assets/fonts/noto_sans_32.c assets/fonts/noto_sans_40.c \
 # These are always included in every platform build.
 FONTS_CORE := assets/fonts/noto_sans_8.c assets/fonts/noto_sans_11.c \
               assets/fonts/noto_sans_bold_14.c assets/fonts/noto_sans_bold_24.c \
-              assets/fonts/mdi_icons_14.c assets/fonts/mdi_icons_20.c \
-              assets/fonts/mdi_icons_28.c assets/fonts/mdi_icons_40.c \
-              assets/fonts/mdi_icons_56.c
+              assets/fonts/mdi_icons_14.c
 
 FONTS_ALL := $(sort $(FONTS_CORE) $(FONTS_MICRO) $(FONTS_TINY) $(FONTS_SMALL) $(FONTS_MEDIUM) \
              $(FONTS_LARGE) $(FONTS_XLARGE) $(FONTS_XXLARGE))
