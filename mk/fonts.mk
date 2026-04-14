@@ -65,11 +65,39 @@ FONTS_XXLARGE := assets/fonts/noto_sans_32.c assets/fonts/noto_sans_40.c \
                  assets/fonts/mdi_icons_128.c
 
 # Core fonts — referenced unconditionally by C++ code (asset_manager, theme_manager,
-# cjk_font_manager, ui_button, helix_watchdog) regardless of breakpoint tier.
-# These are always included in every platform build.
-FONTS_CORE := assets/fonts/noto_sans_8.c assets/fonts/noto_sans_11.c \
-              assets/fonts/noto_sans_bold_14.c assets/fonts/noto_sans_bold_24.c \
-              assets/fonts/mdi_icons_14.c
+# cjk_font_manager, ui_button, helix_watchdog, many panels/widgets) regardless of
+# breakpoint tier. These are always included in every platform build.
+#
+# This list MUST cover every lv_font_t whose address is taken in C/C++ without a
+# HELIX_MAX_FONT_TIER guard. Key sources of unconditional references:
+#   - asset_manager.cpp register_fonts(): noto_sans_{10,11,12,14,16,18,20,24},
+#     noto_sans_light_{10,11,12}, noto_sans_bold_{14,16,18,20,24,28},
+#     source_code_pro_{10,12,14,16}, mdi_icons_{14,16,24,32,48,64}
+#   - cjk_font_manager.cpp REGULAR/BOLD/LIGHT_FONTS tables: adds noto_sans_{26,28},
+#     noto_sans_light_{14,16,18} (xlarge/xxlarge entries are #if-guarded)
+#   - helix_watchdog.cpp: noto_sans_14, noto_sans_bold_{16,24}, mdi_icons_64
+#   - ui_button.cpp / theme_manager.cpp is_icon_font(): mdi_icons_{14,16,24,32,48,64}
+#   - LVGL default font (lv_conf) resolves to noto_sans_14 on this build
+# The micro-only 8px fonts are included too — they are tiny and simpler to keep
+# in core than to gate the is_micro branch on a separate HELIX_HAS_MICRO define.
+FONTS_CORE := assets/fonts/noto_sans_8.c \
+              assets/fonts/noto_sans_10.c assets/fonts/noto_sans_11.c \
+              assets/fonts/noto_sans_12.c assets/fonts/noto_sans_14.c \
+              assets/fonts/noto_sans_16.c assets/fonts/noto_sans_18.c \
+              assets/fonts/noto_sans_20.c assets/fonts/noto_sans_24.c \
+              assets/fonts/noto_sans_26.c assets/fonts/noto_sans_28.c \
+              assets/fonts/noto_sans_bold_14.c assets/fonts/noto_sans_bold_16.c \
+              assets/fonts/noto_sans_bold_18.c assets/fonts/noto_sans_bold_20.c \
+              assets/fonts/noto_sans_bold_24.c assets/fonts/noto_sans_bold_28.c \
+              assets/fonts/noto_sans_light_10.c assets/fonts/noto_sans_light_11.c \
+              assets/fonts/noto_sans_light_12.c assets/fonts/noto_sans_light_14.c \
+              assets/fonts/noto_sans_light_16.c assets/fonts/noto_sans_light_18.c \
+              assets/fonts/source_code_pro_8.c assets/fonts/source_code_pro_10.c \
+              assets/fonts/source_code_pro_12.c assets/fonts/source_code_pro_14.c \
+              assets/fonts/source_code_pro_16.c \
+              assets/fonts/mdi_icons_14.c assets/fonts/mdi_icons_16.c \
+              assets/fonts/mdi_icons_24.c assets/fonts/mdi_icons_32.c \
+              assets/fonts/mdi_icons_48.c assets/fonts/mdi_icons_64.c
 
 FONTS_ALL := $(sort $(FONTS_CORE) $(FONTS_MICRO) $(FONTS_TINY) $(FONTS_SMALL) $(FONTS_MEDIUM) \
              $(FONTS_LARGE) $(FONTS_XLARGE) $(FONTS_XXLARGE))

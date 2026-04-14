@@ -6,6 +6,10 @@
 
 #include "spdlog/spdlog.h"
 
+#ifndef HELIX_MAX_FONT_TIER
+#define HELIX_MAX_FONT_TIER 6  // default: all tiers (micro=0 .. xxlarge=6)
+#endif
+
 namespace helix::system {
 
 struct FontMapping {
@@ -13,6 +17,10 @@ struct FontMapping {
     const char* bin_filename;
 };
 
+// NOTE: xlarge (≥5) and xxlarge (≥6) font entries are guarded with
+// HELIX_MAX_FONT_TIER checks because those font symbols are pruned from the
+// link on constrained platforms (e.g. AD5M ships only medium+large tiers).
+// Taking their address unconditionally would produce undefined references.
 // clang-format off
 static const FontMapping REGULAR_FONTS[] = {
     {&noto_sans_10, "noto_sans_cjk_10.bin"},
@@ -25,8 +33,12 @@ static const FontMapping REGULAR_FONTS[] = {
     {&noto_sans_24, "noto_sans_cjk_24.bin"},
     {&noto_sans_26, "noto_sans_cjk_26.bin"},
     {&noto_sans_28, "noto_sans_cjk_28.bin"},
+#if HELIX_MAX_FONT_TIER >= 5
     {&noto_sans_32, "noto_sans_cjk_32.bin"},
+#endif
+#if HELIX_MAX_FONT_TIER >= 6
     {&noto_sans_40, "noto_sans_cjk_40.bin"},
+#endif
 };
 
 static const FontMapping BOLD_FONTS[] = {
@@ -36,8 +48,12 @@ static const FontMapping BOLD_FONTS[] = {
     {&noto_sans_bold_20, "noto_sans_cjk_bold_20.bin"},
     {&noto_sans_bold_24, "noto_sans_cjk_bold_24.bin"},
     {&noto_sans_bold_28, "noto_sans_cjk_bold_28.bin"},
+#if HELIX_MAX_FONT_TIER >= 5
     {&noto_sans_bold_32, "noto_sans_cjk_bold_32.bin"},
+#endif
+#if HELIX_MAX_FONT_TIER >= 6
     {&noto_sans_bold_40, "noto_sans_cjk_bold_40.bin"},
+#endif
 };
 
 static const FontMapping LIGHT_FONTS[] = {
@@ -47,8 +63,12 @@ static const FontMapping LIGHT_FONTS[] = {
     {&noto_sans_light_14, "noto_sans_cjk_light_14.bin"},
     {&noto_sans_light_16, "noto_sans_cjk_light_16.bin"},
     {&noto_sans_light_18, "noto_sans_cjk_light_18.bin"},
+#if HELIX_MAX_FONT_TIER >= 5
     {&noto_sans_light_20, "noto_sans_cjk_light_20.bin"},
+#endif
+#if HELIX_MAX_FONT_TIER >= 6
     {&noto_sans_light_26, "noto_sans_cjk_light_26.bin"},
+#endif
 };
 // clang-format on
 
