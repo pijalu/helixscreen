@@ -3,6 +3,7 @@
 
 #include "lvgl_log_handler.h"
 
+#include "helix_lvgl_anomaly.h"
 #include "runtime_config.h"
 #include "subject_debug_registry.h"
 #include "system/telemetry_manager.h"
@@ -259,14 +260,37 @@ void lvgl_log_callback(lv_log_level_t level, const char* buf) {
             spdlog::debug("[LVGL] {}", msg);
         } else {
             spdlog::warn("[LVGL] {}", msg);
-            // Detect NULL guard hits from our safety patches (blend, draw, label, observer)
-            // These indicate a near-crash that was prevented — worth tracking
+            // Detect NULL guard hits from our safety patches. These indicate a
+            // near-crash that was prevented — report via helix_lvgl_anomaly so
+            // the event includes a backtrace (frame PCs). Distinct codes let us
+            // tell failure modes apart in telemetry queries.
+            const char* code = nullptr;
             if (msg.find("NULL dest_buf") != std::string::npos ||
-                msg.find("NULL font") != std::string::npos ||
-                msg.find("goto_xy returned NULL") != std::string::npos ||
                 msg.find("draw_buf is NULL") != std::string::npos ||
-                msg.find("subject is NULL") != std::string::npos) {
-                TelemetryManager::instance().record_error("display", "null_guard_hit", msg);
+                msg.find("NULL draw descriptor") != std::string::npos) {
+                code = "null_dest_buf";
+            } else if (msg.find("NULL font") != std::string::npos) {
+                code = "null_font";
+            } else if (msg.find("goto_xy returned NULL") != std::string::npos ||
+                       msg.find("Skipping glyph draw") != std::string::npos) {
+                code = "glyph_draw_skip";
+            } else if (msg.find("subject is NULL") != std::string::npos) {
+                code = "null_subject";
+            } else if (msg.find("Subject type is not") != std::string::npos) {
+                // XML binding wired wrong subject type — real bug in panel XML.
+                code = "subject_type_mismatch";
+            } else if (msg.find("coordinates out of range") != std::string::npos) {
+                code = "coord_out_of_range";
+            } else if (msg.find("duplicate schedule") != std::string::npos) {
+                // Redundant with helix_lvgl_anomaly from lv_obj_delete_async,
+                // but kept so the log + telemetry paths stay in sync if either
+                // is ever missed.
+                code = "obj_delete_async_dup";
+            } else if (msg.find("skipping invalid obj") != std::string::npos) {
+                code = "obj_delete_async_cb_invalid";
+            }
+            if (code) {
+                helix_lvgl_anomaly(code, msg.c_str());
             }
         }
         break;
