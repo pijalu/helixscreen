@@ -2116,10 +2116,10 @@ void PrintStatusPanel::update_objects_text() {
 }
 
 void PrintStatusPanel::update_button_states() {
-    // Buttons should only be enabled during Printing or Paused states
-    // When Complete, Cancelled, Error, or Idle - disable print control buttons
-    bool buttons_enabled =
-        (lifecycle_.state() == PrintState::Printing || lifecycle_.state() == PrintState::Paused);
+    // Enabled whenever a job is in progress (Preparing/Printing/Paused) so
+    // Pause/Cancel remain usable during start-up macros (homing, heating, purge).
+    auto state = lifecycle_.state();
+    bool buttons_enabled = PrintLifecycleState::is_active(state);
 
     // Helper lambda for enable/disable with visual feedback
     auto set_button_enabled = [](lv_obj_t* btn, bool enabled) {
@@ -2138,16 +2138,16 @@ void PrintStatusPanel::update_button_states() {
     set_button_enabled(btn_timelapse_, buttons_enabled);
     set_button_enabled(btn_tune_, buttons_enabled);
 
-    // Pause/Resume button: check slot availability based on current state
-    // In Printing state: need Pause slot; in Paused state: need Resume slot
+    // Pause/Resume button: need Resume slot while Paused, Pause slot otherwise
+    // (covers Printing and Preparing — pause is valid during start-up macros).
     bool pause_button_enabled = buttons_enabled;
     if (buttons_enabled) {
-        if (lifecycle_.state() == PrintState::Printing) {
-            const auto& pause_info = StandardMacros::instance().get(StandardMacroSlot::Pause);
-            pause_button_enabled = !pause_info.is_empty();
-        } else if (lifecycle_.state() == PrintState::Paused) {
+        if (state == PrintState::Paused) {
             const auto& resume_info = StandardMacros::instance().get(StandardMacroSlot::Resume);
             pause_button_enabled = !resume_info.is_empty();
+        } else {
+            const auto& pause_info = StandardMacros::instance().get(StandardMacroSlot::Pause);
+            pause_button_enabled = !pause_info.is_empty();
         }
     }
     set_button_enabled(btn_pause_, pause_button_enabled);
@@ -2186,7 +2186,7 @@ void PrintStatusPanel::update_button_states() {
     spdlog::debug(
         "[{}] Button states updated: base={}, pause={}, cancel={} (state={})", get_name(),
         buttons_enabled ? "enabled" : "disabled", pause_button_enabled ? "enabled" : "disabled",
-        cancel_button_enabled ? "enabled" : "disabled", static_cast<int>(lifecycle_.state()));
+        cancel_button_enabled ? "enabled" : "disabled", static_cast<int>(state));
 }
 
 void PrintStatusPanel::animate_badge_pop_in(lv_obj_t* badge, const char* label) {

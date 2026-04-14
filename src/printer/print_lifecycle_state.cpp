@@ -6,13 +6,6 @@
 
 #include <spdlog/spdlog.h>
 
-/// Active states where print data updates (progress, layer, time) are accepted.
-/// All other states (Idle, Complete, Cancelled, Error) reject data updates to
-/// prevent Moonraker's zeroed values from corrupting the display.
-static bool is_active_state(PrintState s) {
-    return s == PrintState::Printing || s == PrintState::Paused || s == PrintState::Preparing;
-}
-
 static const char* print_state_name(PrintState s) {
     switch (s) {
     case PrintState::Idle:
@@ -137,7 +130,7 @@ StateChangeResult PrintLifecycleState::on_job_state_changed(helix::PrintJobState
 }
 
 bool PrintLifecycleState::on_progress_changed(int progress) {
-    if (!is_active_state(current_state_)) {
+    if (!is_active()) {
         return false;
     }
     current_progress_ = std::clamp(progress, 0, 100);
@@ -145,7 +138,7 @@ bool PrintLifecycleState::on_progress_changed(int progress) {
 }
 
 bool PrintLifecycleState::on_layer_changed(int layer, int total, bool /* has_real_data */) {
-    if (!is_active_state(current_state_)) {
+    if (!is_active()) {
         return false;
     }
     current_layer_ = layer;
@@ -154,7 +147,7 @@ bool PrintLifecycleState::on_layer_changed(int layer, int total, bool /* has_rea
 }
 
 bool PrintLifecycleState::on_duration_changed(int seconds, helix::PrintOutcome outcome) {
-    if (!is_active_state(current_state_)) {
+    if (!is_active()) {
         return false;
     }
     if (outcome != helix::PrintOutcome::NONE) {
@@ -168,7 +161,7 @@ bool PrintLifecycleState::on_duration_changed(int seconds, helix::PrintOutcome o
 }
 
 bool PrintLifecycleState::on_time_left_changed(int seconds, helix::PrintOutcome outcome) {
-    if (!is_active_state(current_state_)) {
+    if (!is_active()) {
         return false;
     }
     if (outcome != helix::PrintOutcome::NONE) {
