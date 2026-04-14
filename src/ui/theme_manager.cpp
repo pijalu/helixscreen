@@ -17,6 +17,23 @@
 
 #include <spdlog/spdlog.h>
 
+#ifndef HELIX_MAX_FONT_TIER
+#define HELIX_MAX_FONT_TIER 6  // default: all tiers (micro=0 .. xxlarge=6)
+#endif
+
+// Maps a value-suffix (e.g. "_large") to its tier number. Same ordering as the
+// UiBreakpoint tiers and fonts.mk FONT_TIERS. Returns -1 on unknown suffix.
+static int tier_num_for_suffix(const char* suffix) {
+    if (strcmp(suffix, "_micro") == 0) return 0;
+    if (strcmp(suffix, "_tiny") == 0) return 1;
+    if (strcmp(suffix, "_small") == 0) return 2;
+    if (strcmp(suffix, "_medium") == 0) return 3;
+    if (strcmp(suffix, "_large") == 0) return 4;
+    if (strcmp(suffix, "_xlarge") == 0) return 5;
+    if (strcmp(suffix, "_xxlarge") == 0) return 6;
+    return -1;
+}
+
 #include <algorithm>
 #include <cctype>
 #include <cstdlib>
@@ -1108,44 +1125,101 @@ void theme_manager_register_responsive_fonts(lv_display_t* display) {
         auto large_it = large_tokens.find(base_name);
 
         if (medium_it != medium_tokens.end() && large_it != large_tokens.end()) {
-            // Select appropriate variant based on breakpoint
+            // Select appropriate variant based on breakpoint. Also track which
+            // suffix actually supplied the value so we can tier-classify a
+            // missing-font miss below.
             const char* value = nullptr;
+            const char* selected_suffix = nullptr;
             if (strcmp(size_suffix, "_micro") == 0) {
                 auto micro_it = micro_tokens.find(base_name);
                 if (micro_it != micro_tokens.end()) {
                     value = micro_it->second.c_str();
+                    selected_suffix = "_micro";
                 } else {
                     auto tiny_it = tiny_tokens.find(base_name);
-                    value = (tiny_it != tiny_tokens.end()) ? tiny_it->second.c_str()
-                                                           : small_val.c_str();
+                    if (tiny_it != tiny_tokens.end()) {
+                        value = tiny_it->second.c_str();
+                        selected_suffix = "_tiny";
+                    } else {
+                        value = small_val.c_str();
+                        selected_suffix = "_small";
+                    }
                 }
             } else if (strcmp(size_suffix, "_tiny") == 0) {
                 // Use _tiny if available, otherwise fall back to _small
                 auto tiny_it = tiny_tokens.find(base_name);
-                value =
-                    (tiny_it != tiny_tokens.end()) ? tiny_it->second.c_str() : small_val.c_str();
+                if (tiny_it != tiny_tokens.end()) {
+                    value = tiny_it->second.c_str();
+                    selected_suffix = "_tiny";
+                } else {
+                    value = small_val.c_str();
+                    selected_suffix = "_small";
+                }
             } else if (strcmp(size_suffix, "_small") == 0) {
                 value = small_val.c_str();
+                selected_suffix = "_small";
             } else if (strcmp(size_suffix, "_medium") == 0) {
                 value = medium_it->second.c_str();
+                selected_suffix = "_medium";
             } else if (strcmp(size_suffix, "_large") == 0) {
                 value = large_it->second.c_str();
+                selected_suffix = "_large";
             } else if (strcmp(size_suffix, "_xlarge") == 0) {
                 auto xlarge_it = xlarge_tokens.find(base_name);
-                value = (xlarge_it != xlarge_tokens.end()) ? xlarge_it->second.c_str()
-                                                           : large_it->second.c_str();
+                if (xlarge_it != xlarge_tokens.end()) {
+                    value = xlarge_it->second.c_str();
+                    selected_suffix = "_xlarge";
+                } else {
+                    value = large_it->second.c_str();
+                    selected_suffix = "_large";
+                }
             } else {
                 // _xxlarge: use xxlarge if available, fall back to _xlarge, then _large
                 auto xxlarge_it = xxlarge_tokens.find(base_name);
                 if (xxlarge_it != xxlarge_tokens.end()) {
                     value = xxlarge_it->second.c_str();
+                    selected_suffix = "_xxlarge";
                 } else {
                     auto xlarge_it = xlarge_tokens.find(base_name);
-                    value = (xlarge_it != xlarge_tokens.end()) ? xlarge_it->second.c_str()
-                                                               : large_it->second.c_str();
+                    if (xlarge_it != xlarge_tokens.end()) {
+                        value = xlarge_it->second.c_str();
+                        selected_suffix = "_xlarge";
+                    } else {
+                        value = large_it->second.c_str();
+                        selected_suffix = "_large";
+                    }
                 }
             }
-            spdlog::trace("[Theme] Registering font {}: selected={}", base_name, value);
+
+            // Verify the selected font is actually linked. If not, fall back to
+            // _large (guaranteed present by the triplet check above) and emit
+            // tier-aware diagnostics: warn when the miss falls within this
+            // platform's compiled tier range (build bug), stay silent when it's
+            // above the max tier (expected pruning).
+            if (lv_xml_get_font_silent(scope, value) == nullptr) {
+                int tier = tier_num_for_suffix(selected_suffix);
+                if (tier >= 0 && tier <= HELIX_MAX_FONT_TIER) {
+                    spdlog::warn("[Theme] Font '{}' expected for tier '{}' but not linked "
+                                 "(build bug?) — falling back to _large",
+                                 value, selected_suffix);
+                } else {
+                    spdlog::trace("[Theme] Font '{}' pruned for tier '{}' (max tier {}) — "
+                                  "falling back to _large",
+                                  value, selected_suffix, HELIX_MAX_FONT_TIER);
+                }
+                const char* fallback = large_it->second.c_str();
+                if (lv_xml_get_font_silent(scope, fallback) == nullptr) {
+                    spdlog::error("[Theme] Fallback font '{}' for '{}' also not linked — "
+                                  "skipping registration",
+                                  fallback, base_name);
+                    continue;
+                }
+                value = fallback;
+                selected_suffix = "_large";
+            }
+
+            spdlog::trace("[Theme] Registering font {}: selected={} ({})", base_name, value,
+                          selected_suffix);
             lv_xml_register_const(scope, base_name.c_str(), value);
             registered++;
         }

@@ -625,6 +625,37 @@ ifdef TARGET_CFLAGS
     SUBMODULE_CXXFLAGS += $(TARGET_CFLAGS)
 endif
 
+# =============================================================================
+# HELIX_MAX_FONT_TIER - compile-time maximum font tier linked for this platform
+# =============================================================================
+# Derived from FONT_TIERS (set per-platform above). Used by theme_manager to
+# distinguish expected-missing fonts (pruned by tier) from unexpected-missing
+# fonts (build bug). Tier numbers: micro=0, tiny=1, small=2, medium=3, large=4,
+# xlarge=5, xxlarge=6.
+ifeq ($(FONT_TIERS),all)
+    HELIX_MAX_FONT_TIER := 6
+else ifneq ($(filter xxlarge,$(FONT_TIERS)),)
+    HELIX_MAX_FONT_TIER := 6
+else ifneq ($(filter xlarge,$(FONT_TIERS)),)
+    HELIX_MAX_FONT_TIER := 5
+else ifneq ($(filter large,$(FONT_TIERS)),)
+    HELIX_MAX_FONT_TIER := 4
+else ifneq ($(filter medium,$(FONT_TIERS)),)
+    HELIX_MAX_FONT_TIER := 3
+else ifneq ($(filter small,$(FONT_TIERS)),)
+    HELIX_MAX_FONT_TIER := 2
+else ifneq ($(filter tiny,$(FONT_TIERS)),)
+    HELIX_MAX_FONT_TIER := 1
+else ifneq ($(filter micro,$(FONT_TIERS)),)
+    HELIX_MAX_FONT_TIER := 0
+else
+    HELIX_MAX_FONT_TIER := 6
+endif
+CFLAGS += -DHELIX_MAX_FONT_TIER=$(HELIX_MAX_FONT_TIER)
+CXXFLAGS += -DHELIX_MAX_FONT_TIER=$(HELIX_MAX_FONT_TIER)
+SUBMODULE_CFLAGS += -DHELIX_MAX_FONT_TIER=$(HELIX_MAX_FONT_TIER)
+SUBMODULE_CXXFLAGS += -DHELIX_MAX_FONT_TIER=$(HELIX_MAX_FONT_TIER)
+
 # For size-optimized targets, override -O2 with -Os
 # (GCC uses last optimization flag, but this makes it explicit)
 ifeq ($(PLATFORM_TARGET),ad5m)

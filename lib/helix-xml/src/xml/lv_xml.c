@@ -495,6 +495,28 @@ static const lv_font_t * lv_xml_search_font_ll(lv_ll_t * font_ll, const char * s
     return NULL;
 }
 
+const lv_font_t * lv_xml_get_font_silent(lv_xml_component_scope_t * scope, const char * name)
+{
+    bool corruption_detected = false;
+    const lv_font_t * result;
+
+    if(scope) {
+        result = lv_xml_search_font_ll(&scope->font_ll, scope->name, name, &corruption_detected);
+        if(result) return result;
+    }
+
+    /*If not found in the component check the global space*/
+    if((scope == NULL || scope->name == NULL) || !lv_streq(scope->name, "globals")) {
+        scope = lv_xml_component_get_scope("globals");
+        if(scope) {
+            result = lv_xml_search_font_ll(&scope->font_ll, "globals", name, &corruption_detected);
+            if(result) return result;
+        }
+    }
+
+    return NULL;
+}
+
 const lv_font_t * lv_xml_get_font(lv_xml_component_scope_t * scope, const char * name)
 {
     bool corruption_detected = false;

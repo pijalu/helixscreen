@@ -88,6 +88,13 @@ lv_result_t lv_xml_register_font(lv_xml_component_scope_t * scope, const char * 
 
 const lv_font_t * lv_xml_get_font(lv_xml_component_scope_t * scope, const char * name);
 
+/**
+ * Silent variant of lv_xml_get_font: returns NULL if the font isn't registered
+ * instead of warning and returning the default font. Use when the caller needs
+ * to distinguish "present" from "absent" (e.g. for tier-aware fallback logic).
+ */
+const lv_font_t * lv_xml_get_font_silent(lv_xml_component_scope_t * scope, const char * name);
+
 lv_result_t lv_xml_register_image(lv_xml_component_scope_t * scope, const char * name, const void * src);
 
 const void * lv_xml_get_image(lv_xml_component_scope_t * scope, const char * name);
