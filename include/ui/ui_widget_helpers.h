@@ -109,3 +109,24 @@
  * @endcode
  */
 #define FIND_WIDGET_OPTIONAL(var, parent, name) (var) = lv_obj_find_by_name((parent), (name))
+
+/**
+ * @brief Toggle a widget's enabled state with visual feedback
+ *
+ * Adds/removes LV_STATE_DISABLED and sets main-part opacity to LV_OPA_COVER
+ * when enabled or LV_OPA_50 when disabled — the conventional "button greyed
+ * out" appearance used across the UI.
+ *
+ * Safe to call with a null widget (no-op).
+ */
+inline void ui_set_button_enabled(lv_obj_t* btn, bool enabled) {
+    if (!btn)
+        return;
+    if (enabled) {
+        lv_obj_remove_state(btn, LV_STATE_DISABLED);
+        lv_obj_set_style_opa(btn, LV_OPA_COVER, LV_PART_MAIN);
+    } else {
+        lv_obj_add_state(btn, LV_STATE_DISABLED);
+        lv_obj_set_style_opa(btn, LV_OPA_50, LV_PART_MAIN);
+    }
+}

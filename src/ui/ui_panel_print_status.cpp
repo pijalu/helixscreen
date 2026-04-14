@@ -20,6 +20,7 @@
 #include "ui_temperature_utils.h"
 #include "ui_toast_manager.h"
 #include "ui_update_queue.h"
+#include "ui/ui_widget_helpers.h"
 
 #include "abort_manager.h"
 #include "ams_state.h"
@@ -357,6 +358,11 @@ void PrintStatusPanel::init_subjects() {
 
     // Viewer mode subject (0=thumbnail, 1=3D gcode viewer, 2=2D gcode viewer)
     UI_MANAGED_SUBJECT_INT(gcode_viewer_mode_subject_, 0, "gcode_viewer_mode", subjects_);
+
+    // Button enable states driven declaratively from XML (see update_button_states).
+    UI_MANAGED_SUBJECT_INT(print_controls_enabled_subject_, 0, "print_controls_enabled", subjects_);
+    UI_MANAGED_SUBJECT_INT(btn_pause_enabled_subject_, 0, "btn_pause_enabled", subjects_);
+    UI_MANAGED_SUBJECT_INT(btn_cancel_enabled_subject_, 0, "btn_cancel_enabled", subjects_);
 
     // Exclude objects availability (0=hidden, 1=visible - shown when >= 2 objects defined)
     // Note: subject already initialized in constructor (needed before observer fires)
@@ -1310,10 +1316,7 @@ void PrintStatusPanel::handle_reprint_button() {
     }
 
     // Disable button immediately to prevent double-press
-    if (btn_cancel_) {
-        lv_obj_add_state(btn_cancel_, LV_STATE_DISABLED);
-        lv_obj_set_style_opa(btn_cancel_, LV_OPA_50, LV_PART_MAIN);
-    }
+    ui_set_button_enabled(btn_cancel_, false);
 
     std::string filename = current_print_filename_;
 
@@ -1330,10 +1333,7 @@ void PrintStatusPanel::handle_reprint_button() {
             // Re-enable button on failure (with lifetime guard)
             if (token.expired())
                 return;
-            if (btn_cancel_) {
-                lv_obj_remove_state(btn_cancel_, LV_STATE_DISABLED);
-                lv_obj_set_style_opa(btn_cancel_, LV_OPA_COVER, LV_PART_MAIN);
-            }
+            ui_set_button_enabled(btn_cancel_, true);
         });
 }
 
@@ -2116,49 +2116,22 @@ void PrintStatusPanel::update_objects_text() {
 }
 
 void PrintStatusPanel::update_button_states() {
-    // Enabled whenever a job is in progress (Preparing/Printing/Paused) so
-    // Pause/Cancel remain usable during start-up macros (homing, heating, purge).
+    // Drive button enable via subjects; XML `bind_state_if_eq ... state="disabled"
+    // ref_value="0"` toggles LV_STATE_DISABLED, and ui_button dims on disabled.
     auto state = lifecycle_.state();
-    bool buttons_enabled = PrintLifecycleState::is_active(state);
+    bool controls_enabled = PrintLifecycleState::is_active(state);
 
-    // Helper lambda for enable/disable with visual feedback
-    auto set_button_enabled = [](lv_obj_t* btn, bool enabled) {
-        if (!btn)
-            return;
-        if (enabled) {
-            lv_obj_remove_state(btn, LV_STATE_DISABLED);
-            lv_obj_set_style_opa(btn, LV_OPA_COVER, LV_PART_MAIN);
-        } else {
-            lv_obj_add_state(btn, LV_STATE_DISABLED);
-            lv_obj_set_style_opa(btn, LV_OPA_50, LV_PART_MAIN);
-        }
-    };
+    auto& macros = StandardMacros::instance();
+    bool pause_enabled = controls_enabled &&
+                         !macros.get(state == PrintState::Paused ? StandardMacroSlot::Resume
+                                                                 : StandardMacroSlot::Pause)
+                              .is_empty();
+    bool cancel_enabled =
+        controls_enabled && !macros.get(StandardMacroSlot::Cancel).is_empty();
 
-    // Timelapse and tune buttons don't depend on StandardMacros
-    set_button_enabled(btn_timelapse_, buttons_enabled);
-    set_button_enabled(btn_tune_, buttons_enabled);
-
-    // Pause/Resume button: need Resume slot while Paused, Pause slot otherwise
-    // (covers Printing and Preparing — pause is valid during start-up macros).
-    bool pause_button_enabled = buttons_enabled;
-    if (buttons_enabled) {
-        if (state == PrintState::Paused) {
-            const auto& resume_info = StandardMacros::instance().get(StandardMacroSlot::Resume);
-            pause_button_enabled = !resume_info.is_empty();
-        } else {
-            const auto& pause_info = StandardMacros::instance().get(StandardMacroSlot::Pause);
-            pause_button_enabled = !pause_info.is_empty();
-        }
-    }
-    set_button_enabled(btn_pause_, pause_button_enabled);
-
-    // Cancel button: check if Cancel slot is available
-    bool cancel_button_enabled = buttons_enabled;
-    if (buttons_enabled) {
-        const auto& cancel_info = StandardMacros::instance().get(StandardMacroSlot::Cancel);
-        cancel_button_enabled = !cancel_info.is_empty();
-    }
-    set_button_enabled(btn_cancel_, cancel_button_enabled);
+    lv_subject_set_int(&print_controls_enabled_subject_, controls_enabled ? 1 : 0);
+    lv_subject_set_int(&btn_pause_enabled_subject_, pause_enabled ? 1 : 0);
+    lv_subject_set_int(&btn_cancel_enabled_subject_, cancel_enabled ? 1 : 0);
 
     // Sync Cancel/Reprint visibility from current print_outcome.
     // XML bind_flag_if_eq/bind_flag_if_not_eq bindings normally handle this,
@@ -2183,10 +2156,10 @@ void PrintStatusPanel::update_button_states() {
         }
     }
 
-    spdlog::debug(
-        "[{}] Button states updated: base={}, pause={}, cancel={} (state={})", get_name(),
-        buttons_enabled ? "enabled" : "disabled", pause_button_enabled ? "enabled" : "disabled",
-        cancel_button_enabled ? "enabled" : "disabled", static_cast<int>(state));
+    spdlog::debug("[{}] Button states updated: controls={}, pause={}, cancel={} (state={})",
+                  get_name(), controls_enabled ? "enabled" : "disabled",
+                  pause_enabled ? "enabled" : "disabled",
+                  cancel_enabled ? "enabled" : "disabled", static_cast<int>(state));
 }
 
 void PrintStatusPanel::animate_badge_pop_in(lv_obj_t* badge, const char* label) {

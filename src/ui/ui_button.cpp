@@ -107,6 +107,7 @@ void update_button_text_contrast(lv_obj_t* btn) {
     }
 
     bool is_disabled = lv_obj_has_state(btn, LV_STATE_DISABLED);
+    lv_obj_set_style_opa(btn, is_disabled ? LV_OPA_50 : LV_OPA_COVER, LV_PART_MAIN);
     lv_opa_t bg_opa = lv_obj_get_style_bg_opa(btn, LV_PART_MAIN);
     bool is_ghost = bg_opa < LV_OPA_50;
 

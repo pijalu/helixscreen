@@ -308,6 +308,12 @@ class PrintStatusPanel : public OverlayBase {
     lv_subject_t exclude_objects_available_subject_; ///< Int: 1 if multi-object print
     lv_subject_t objects_text_subject_;              ///< String: "X of Y obj" display text
 
+    // Button enable subjects — XML bind_state_if_eq drives LV_STATE_DISABLED
+    // declaratively based on lifecycle state and macro-slot availability.
+    lv_subject_t print_controls_enabled_subject_; ///< 1 when lifecycle.is_active()
+    lv_subject_t btn_pause_enabled_subject_;      ///< 1 when pause/resume slot available
+    lv_subject_t btn_cancel_enabled_subject_;     ///< 1 when cancel slot available
+
     // Subject storage buffers
     char progress_text_buf_[32] = "0%";
     char layer_text_buf_[80] = "Layer 0 / 0";
