@@ -58,10 +58,11 @@ void AssetManager::register_fonts() {
         skipped += 2;
     }
 
-    // Montserrat text fonts - used by semantic text components:
-    // - text_heading uses font_heading (14/20/26/28 for tiny/small/medium/large)
-    // - text_body uses font_body (11/14/18/20 for tiny/small/medium/large)
-    // - text_small uses font_small (11/12/16/18 for tiny/small/medium/large)
+    // Montserrat text fonts - used by semantic text components. Sizes per breakpoint
+    // (micro/tiny/small/medium/large/xlarge/xxlarge):
+    // - text_heading uses font_heading  (14 / 14 / 20 / 26 / 28 / 32 / 40)
+    // - text_body    uses font_body     (10 / 11 / 14 / 18 / 20 / 24 / 32)
+    // - text_small   uses font_small    (10 / 11 / 12 / 16 / 18 / 20 / 26)
     // NOTE: Registering as "montserrat_*" for XML compatibility but using noto_sans_* fonts
     lv_xml_register_font(nullptr, "montserrat_10", &noto_sans_10);
     lv_xml_register_font(nullptr, "montserrat_12", &noto_sans_12);
