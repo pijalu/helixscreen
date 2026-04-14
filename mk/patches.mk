@@ -442,6 +442,13 @@ $(PATCHES_STAMP): $(PATCH_FILES) $(LVGL_HEAD) $(LIBHV_HEAD)
 	else \
 		echo "$(GREEN)✓ LVGL obj delete NULL guards patch already applied$(RESET)"; \
 	fi
+	$(Q)if git -C $(LVGL_DIR) apply --check ../../patches/lvgl_obj_delete_async_dedup.patch 2>/dev/null; then \
+		echo "$(YELLOW)→ Applying LVGL obj delete async dedup patch (dedup + UAF guard + diagnostics)...$(RESET)"; \
+		git -C $(LVGL_DIR) apply ../../patches/lvgl_obj_delete_async_dedup.patch && \
+		echo "$(GREEN)✓ obj delete async dedup patch applied$(RESET)"; \
+	else \
+		echo "$(GREEN)✓ LVGL obj delete async dedup patch already applied$(RESET)"; \
+	fi
 	$(Q)if git -C $(LVGL_DIR) diff --quiet src/widgets/label/lv_label.c 2>/dev/null; then \
 		echo "$(YELLOW)→ Applying LVGL label text transform patch...$(RESET)"; \
 		if git -C $(LVGL_DIR) apply --check ../../patches/lvgl_label_text_transform.patch 2>/dev/null; then \
