@@ -288,6 +288,15 @@ void lvgl_log_callback(lv_log_level_t level, const char* buf) {
                 code = "obj_delete_async_dup";
             } else if (msg.find("skipping invalid obj") != std::string::npos) {
                 code = "obj_delete_async_cb_invalid";
+            } else if (msg.find("observer->subject is NULL") != std::string::npos) {
+                // XML component scope tore down subject before the observing
+                // widget's delete event fired — real ordering bug.
+                code = "observer_subject_freed";
+            } else if (msg.find("arc_value_changed_event_cb: subject is NULL") !=
+                       std::string::npos) {
+                // Arc event still wired to a subject that was freed (stale
+                // user_data binding).
+                code = "arc_event_null_subject";
             }
             if (code) {
                 helix_lvgl_anomaly(code, msg.c_str());

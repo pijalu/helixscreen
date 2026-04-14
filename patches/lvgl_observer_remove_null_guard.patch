@@ -1,7 +1,7 @@
 diff --git a/src/core/lv_observer.c b/src/core/lv_observer.c
 --- a/src/core/lv_observer.c
 +++ b/src/core/lv_observer.c
-@@ -509,6 +509,17 @@ void lv_observer_remove(lv_observer_t * observer)
+@@ -509,6 +509,19 @@ void lv_observer_remove(lv_observer_t * observer)
          lv_obj_remove_event_cb_with_user_data(observer->target, NULL, observer->subject);
      }
 
@@ -9,6 +9,8 @@ diff --git a/src/core/lv_observer.c b/src/core/lv_observer.c
 +     *before the observing widget's delete event fires). Skip the unlink and
 +     *just free the observer to avoid a NULL dereference.*/
 +    if(!observer->subject) {
++        LV_LOG_WARN("lv_observer_remove: observer->subject is NULL (observer=%p target=%p)",
++                    (void *)observer, (void *)observer->target);
 +        if(observer->auto_free_user_data) {
 +            lv_free(observer->user_data);
 +        }
