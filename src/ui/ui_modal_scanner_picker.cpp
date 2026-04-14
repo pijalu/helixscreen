@@ -193,10 +193,17 @@ void ScannerPickerModal::handle_keymap_changed(int dropdown_index) {
 // ============================================================================
 
 void ScannerPickerModal::populate_device_list() {
-    if (!device_list_) {
-        spdlog::warn("[{}] device_list_ widget not found", get_name());
+    // Re-find each call: cached device_list_ can be stale when a deferred
+    // tok.defer() callback (from BT discovery / forget) fires after the
+    // dialog widgets have been torn down but before the modal destructor
+    // runs (prestonbrown/helixscreen#796 sibling signature). find_widget()
+    // is safe — Modal nulls dialog_ in hide(), so it returns nullptr instead
+    // of walking a freed widget tree.
+    lv_obj_t* list = find_widget("scanner_device_list");
+    if (!list) {
         return;
     }
+    device_list_ = list;
 
     // Clean existing rows
     lv_obj_clean(device_list_);
