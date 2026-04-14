@@ -209,10 +209,13 @@ TEST_CASE("Plugin status characterization: tri-state semantics",
     }
 
     SECTION("phase_tracking_enabled: unknown (-1) vs disabled (0) are distinct") {
-        lv_subject_t* subject = get_subject_by_name("phase_tracking_enabled");
-        // Need XML registration for this lookup
+        // Must deinit first because the outer scope already called
+        // init_subjects(false), setting subjects_initialized_=true.
+        // Without deinit, init_subjects(true) is a no-op and XML subjects
+        // are never registered, causing get_subject_by_name to return nullptr.
+        state.deinit_subjects();
         state.init_subjects(true);
-        subject = get_subject_by_name("phase_tracking_enabled");
+        lv_subject_t* subject = get_subject_by_name("phase_tracking_enabled");
 
         // Get fresh subject after init
         REQUIRE(subject != nullptr);

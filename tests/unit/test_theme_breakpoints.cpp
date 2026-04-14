@@ -46,10 +46,16 @@ TEST_CASE("Breakpoint suffix returns _large for heights 551-700", "[theme][break
     REQUIRE(std::string(theme_manager_get_breakpoint_suffix(700)) == "_large");
 }
 
-TEST_CASE("Breakpoint suffix returns _xlarge for heights >700", "[theme][breakpoints]") {
+TEST_CASE("Breakpoint suffix returns _xlarge for heights 701-1000", "[theme][breakpoints]") {
     REQUIRE(std::string(theme_manager_get_breakpoint_suffix(701)) == "_xlarge");
     REQUIRE(std::string(theme_manager_get_breakpoint_suffix(720)) == "_xlarge");
-    REQUIRE(std::string(theme_manager_get_breakpoint_suffix(1080)) == "_xlarge");
+    REQUIRE(std::string(theme_manager_get_breakpoint_suffix(1000)) == "_xlarge");
+}
+
+TEST_CASE("Breakpoint suffix returns _xxlarge for heights >1000", "[theme][breakpoints]") {
+    REQUIRE(std::string(theme_manager_get_breakpoint_suffix(1001)) == "_xxlarge");
+    REQUIRE(std::string(theme_manager_get_breakpoint_suffix(1080)) == "_xxlarge");
+    REQUIRE(std::string(theme_manager_get_breakpoint_suffix(2160)) == "_xxlarge");
 }
 
 TEST_CASE("Breakpoint constants have correct values", "[theme][breakpoints]") {
@@ -58,6 +64,7 @@ TEST_CASE("Breakpoint constants have correct values", "[theme][breakpoints]") {
     REQUIRE(UI_BREAKPOINT_SMALL_MAX == 460);
     REQUIRE(UI_BREAKPOINT_MEDIUM_MAX == 550);
     REQUIRE(UI_BREAKPOINT_LARGE_MAX == 700);
+    REQUIRE(UI_BREAKPOINT_XLARGE_MAX == 1000);
 }
 
 TEST_CASE("Breakpoint index enum has correct values", "[theme][breakpoints]") {
@@ -67,6 +74,7 @@ TEST_CASE("Breakpoint index enum has correct values", "[theme][breakpoints]") {
     REQUIRE(to_int(UiBreakpoint::Medium) == 3);
     REQUIRE(to_int(UiBreakpoint::Large) == 4);
     REQUIRE(to_int(UiBreakpoint::XLarge) == 5);
+    REQUIRE(to_int(UiBreakpoint::XXLarge) == 6);
 }
 
 // ============================================================================

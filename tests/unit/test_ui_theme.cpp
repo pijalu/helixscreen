@@ -284,11 +284,18 @@ TEST_CASE("UI Theme: Breakpoint suffix detection", "[ui_theme][responsive]") {
         REQUIRE(strcmp(theme_manager_get_breakpoint_suffix(700), "_large") == 0);
     }
 
-    SECTION("XLarge breakpoint (height >700px)") {
-        // Heights above 700 should select _xlarge variants
+    SECTION("XLarge breakpoint (height 701-1000px)") {
+        // Heights between 701 and 1000 should select _xlarge variants
         REQUIRE(strcmp(theme_manager_get_breakpoint_suffix(701), "_xlarge") == 0);
         REQUIRE(strcmp(theme_manager_get_breakpoint_suffix(720), "_xlarge") == 0);
-        REQUIRE(strcmp(theme_manager_get_breakpoint_suffix(1080), "_xlarge") == 0);
+        REQUIRE(strcmp(theme_manager_get_breakpoint_suffix(1000), "_xlarge") == 0);
+    }
+
+    SECTION("XXLarge breakpoint (height >1000px)") {
+        // Heights above 1000 should select _xxlarge variants
+        REQUIRE(strcmp(theme_manager_get_breakpoint_suffix(1001), "_xxlarge") == 0);
+        REQUIRE(strcmp(theme_manager_get_breakpoint_suffix(1080), "_xxlarge") == 0);
+        REQUIRE(strcmp(theme_manager_get_breakpoint_suffix(2160), "_xxlarge") == 0);
     }
 }
 

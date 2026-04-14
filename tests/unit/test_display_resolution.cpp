@@ -275,9 +275,9 @@ TEST_CASE("Breakpoint mapping: arbitrary resolutions", "[display_resolution][bre
         REQUIRE(strcmp(theme_manager_get_breakpoint_suffix(400), "_small") == 0);
     }
 
-    SECTION("1920x1080 → XLARGE (height=1080)") {
-        // height=1080 >700 → XLARGE
-        REQUIRE(strcmp(theme_manager_get_breakpoint_suffix(1080), "_xlarge") == 0);
+    SECTION("1920x1080 → XXLARGE (height=1080)") {
+        // height=1080 >1000 → XXLARGE
+        REQUIRE(strcmp(theme_manager_get_breakpoint_suffix(1080), "_xxlarge") == 0);
     }
 
     SECTION("640x480 → MEDIUM (height=480)") {
@@ -315,11 +315,11 @@ TEST_CASE("Breakpoint mapping: edge cases", "[display_resolution][breakpoint]") 
     }
 
     SECTION("Very large resolution") {
-        REQUIRE(strcmp(theme_manager_get_breakpoint_suffix(4000), "_xlarge") == 0);
+        REQUIRE(strcmp(theme_manager_get_breakpoint_suffix(4000), "_xxlarge") == 0);
     }
 
     SECTION("8K resolution") {
-        REQUIRE(strcmp(theme_manager_get_breakpoint_suffix(7680), "_xlarge") == 0);
+        REQUIRE(strcmp(theme_manager_get_breakpoint_suffix(7680), "_xxlarge") == 0);
     }
 }
 

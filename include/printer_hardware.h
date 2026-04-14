@@ -238,10 +238,10 @@ class PrinterHardware {
     static bool is_ams_sensor(const std::string& sensor_name);
 
   private:
-    const std::vector<std::string>& heaters_;
-    const std::vector<std::string>& sensors_;
-    const std::vector<std::string>& fans_;
-    const std::vector<std::string>& leds_;
+    std::vector<std::string> heaters_;
+    std::vector<std::string> sensors_;
+    std::vector<std::string> fans_;
+    std::vector<std::string> leds_;
 
     /**
      * @brief Helper: find exact match in a vector
