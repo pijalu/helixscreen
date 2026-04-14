@@ -21,6 +21,8 @@
 #define HELIX_MAX_FONT_TIER 6  // default: all tiers (micro=0 .. xxlarge=6)
 #endif
 
+#include <cstring>
+
 // Maps a value-suffix (e.g. "_large") to its tier number. Same ordering as the
 // UiBreakpoint tiers and fonts.mk FONT_TIERS. Returns -1 on unknown suffix.
 static int tier_num_for_suffix(const char* suffix) {
@@ -32,6 +34,20 @@ static int tier_num_for_suffix(const char* suffix) {
     if (strcmp(suffix, "_xlarge") == 0) return 5;
     if (strcmp(suffix, "_xxlarge") == 0) return 6;
     return -1;
+}
+
+// Breakpoint ladder — keep in sync with theme_manager_get_breakpoint_suffix()
+// and FONT_TIERS ordering. Shared between init (theme_manager_init) and
+// rotation refresh (theme_manager_refresh_layout_constants) so both paths
+// select the same breakpoint for a given vertical resolution.
+static UiBreakpoint compute_breakpoint_from_height(int32_t ver_res) {
+    if (ver_res <= UI_BREAKPOINT_MICRO_MAX) return UiBreakpoint::Micro;
+    if (ver_res <= UI_BREAKPOINT_TINY_MAX) return UiBreakpoint::Tiny;
+    if (ver_res <= UI_BREAKPOINT_SMALL_MAX) return UiBreakpoint::Small;
+    if (ver_res <= UI_BREAKPOINT_MEDIUM_MAX) return UiBreakpoint::Medium;
+    if (ver_res <= UI_BREAKPOINT_LARGE_MAX) return UiBreakpoint::Large;
+    if (ver_res <= UI_BREAKPOINT_XLARGE_MAX) return UiBreakpoint::XLarge;
+    return UiBreakpoint::XXLarge;
 }
 
 #include <algorithm>
@@ -751,8 +767,9 @@ static void theme_manager_register_color_pairs(lv_xml_component_scope_t* scope, 
  * These static constants are registered first so dynamic variants can override them.
  */
 static void theme_manager_register_static_constants(lv_xml_component_scope_t* scope) {
-    const std::vector<std::string> skip_suffixes = {"_light", "_dark",   "_micro", "_tiny",
-                                                    "_small", "_medium", "_large", "_xlarge"};
+    const std::vector<std::string> skip_suffixes = {"_light",  "_dark",    "_micro",
+                                                    "_tiny",   "_small",   "_medium",
+                                                    "_large",  "_xlarge",  "_xxlarge"};
 
     auto has_dynamic_suffix = [&](const std::string& name) {
         for (const auto& suffix : skip_suffixes) {
@@ -796,8 +813,17 @@ static void theme_manager_register_static_constants(lv_xml_component_scope_t* sc
 /**
  * Get the breakpoint suffix for a given resolution
  *
+ * Breakpoints (ver_res in px) — ranges come from UI_BREAKPOINT_*_MAX constants:
+ *   "_micro"    (≤ MICRO_MAX,   e.g. 272)
+ *   "_tiny"     (≤ TINY_MAX,    e.g. 320)
+ *   "_small"    (≤ SMALL_MAX,   e.g. 460)
+ *   "_medium"   (≤ MEDIUM_MAX,  e.g. 540)
+ *   "_large"    (≤ LARGE_MAX,   e.g. 800)
+ *   "_xlarge"   (≤ XLARGE_MAX, e.g. 1280)
+ *   "_xxlarge"  (> XLARGE_MAX — 1440p / 4K)
+ *
  * @param resolution Screen height (vertical resolution)
- * @return Suffix string: "_small" (≤460), "_medium" (461-700), or "_large" (>700)
+ * @return One of the seven suffix strings above (valid for lv_xml_get_const lookups).
  */
 const char* theme_manager_get_breakpoint_suffix(int32_t resolution) {
     if (resolution <= UI_BREAKPOINT_MICRO_MAX) {
@@ -1003,6 +1029,7 @@ void theme_manager_refresh_layout_constants(lv_display_t* display) {
     auto large_tokens = theme_manager_parse_all_xml_for_suffix("ui_xml", "px", "_large");
     auto tiny_tokens = theme_manager_parse_all_xml_for_suffix("ui_xml", "px", "_tiny");
     auto xlarge_tokens = theme_manager_parse_all_xml_for_suffix("ui_xml", "px", "_xlarge");
+    auto xxlarge_tokens = theme_manager_parse_all_xml_for_suffix("ui_xml", "px", "_xxlarge");
 
     for (const auto& [base_name, small_val] : small_tokens) {
         auto medium_it = medium_tokens.find(base_name);
@@ -1029,10 +1056,20 @@ void theme_manager_refresh_layout_constants(lv_display_t* display) {
             value = medium_it->second.c_str();
         } else if (strcmp(size_suffix, "_large") == 0) {
             value = large_it->second.c_str();
-        } else {
+        } else if (strcmp(size_suffix, "_xlarge") == 0) {
             auto xlarge_it = xlarge_tokens.find(base_name);
             value = (xlarge_it != xlarge_tokens.end()) ? xlarge_it->second.c_str()
                                                        : large_it->second.c_str();
+        } else {
+            // _xxlarge: use xxlarge if available, fall back to _xlarge, then _large
+            auto xxlarge_it = xxlarge_tokens.find(base_name);
+            if (xxlarge_it != xxlarge_tokens.end()) {
+                value = xxlarge_it->second.c_str();
+            } else {
+                auto xlarge_it = xlarge_tokens.find(base_name);
+                value = (xlarge_it != xlarge_tokens.end()) ? xlarge_it->second.c_str()
+                                                           : large_it->second.c_str();
+            }
         }
         lv_xml_update_const(scope, base_name.c_str(), value);
     }
@@ -1055,20 +1092,9 @@ void theme_manager_refresh_layout_constants(lv_display_t* display) {
     lv_xml_update_const(scope, "overlay_panel_width", overlay_width_str);
     lv_xml_update_const(scope, "overlay_panel_width_full", overlay_width_full_str);
 
-    // Update breakpoint subject
-    UiBreakpoint bp;
-    if (ver_res <= UI_BREAKPOINT_MICRO_MAX)
-        bp = UiBreakpoint::Micro;
-    else if (ver_res <= UI_BREAKPOINT_TINY_MAX)
-        bp = UiBreakpoint::Tiny;
-    else if (ver_res <= UI_BREAKPOINT_SMALL_MAX)
-        bp = UiBreakpoint::Small;
-    else if (ver_res <= UI_BREAKPOINT_MEDIUM_MAX)
-        bp = UiBreakpoint::Medium;
-    else if (ver_res <= UI_BREAKPOINT_LARGE_MAX)
-        bp = UiBreakpoint::Large;
-    else
-        bp = UiBreakpoint::XLarge;
+    // Update breakpoint subject — use shared helper so rotation never
+    // downgrades XXLarge to XLarge (previous bug: missing XLARGE_MAX check).
+    UiBreakpoint bp = compute_breakpoint_from_height(ver_res);
 
     lv_subject_t* bp_subject = lv_xml_get_subject(nullptr, "ui_breakpoint");
     if (bp_subject) {
@@ -1505,21 +1531,7 @@ void theme_manager_init(lv_display_t* display, bool use_dark_mode_param) {
     // Initialize ui_breakpoint subject for reactive responsive visibility
     {
         int32_t ver_res_bp = lv_display_get_vertical_resolution(display);
-        UiBreakpoint bp;
-        if (ver_res_bp <= UI_BREAKPOINT_MICRO_MAX)
-            bp = UiBreakpoint::Micro;
-        else if (ver_res_bp <= UI_BREAKPOINT_TINY_MAX)
-            bp = UiBreakpoint::Tiny;
-        else if (ver_res_bp <= UI_BREAKPOINT_SMALL_MAX)
-            bp = UiBreakpoint::Small;
-        else if (ver_res_bp <= UI_BREAKPOINT_MEDIUM_MAX)
-            bp = UiBreakpoint::Medium;
-        else if (ver_res_bp <= UI_BREAKPOINT_LARGE_MAX)
-            bp = UiBreakpoint::Large;
-        else if (ver_res_bp <= UI_BREAKPOINT_XLARGE_MAX)
-            bp = UiBreakpoint::XLarge;
-        else
-            bp = UiBreakpoint::XXLarge;
+        UiBreakpoint bp = compute_breakpoint_from_height(ver_res_bp);
 
         if (!breakpoint_subject_initialized) {
             lv_subject_init_int(&ui_breakpoint_subject, to_int(bp));
@@ -1556,12 +1568,21 @@ void theme_manager_init(lv_display_t* display, bool use_dark_mode_param) {
     snprintf(font_variant_name, sizeof(font_variant_name), "font_body%s", size_suffix);
     const char* font_body_name = lv_xml_get_const(nullptr, font_variant_name);
 
-    // Fallback: _xlarge → _large, _micro → _tiny, _tiny → _small (matching responsive token
-    // behavior)
-    if (!font_body_name && strcmp(size_suffix, "_xlarge") == 0) {
+    // Fallback chain (matches responsive spacing/font token resolution):
+    //   _xxlarge → _xlarge → _large
+    //   _xlarge  → _large
+    //   _micro   → _tiny  → _small
+    //   _tiny    → _small
+    if (!font_body_name && strcmp(size_suffix, "_xxlarge") == 0) {
+        font_body_name = lv_xml_get_const(nullptr, "font_body_xlarge");
+        if (!font_body_name)
+            font_body_name = lv_xml_get_const(nullptr, "font_body_large");
+    } else if (!font_body_name && strcmp(size_suffix, "_xlarge") == 0) {
         font_body_name = lv_xml_get_const(nullptr, "font_body_large");
     } else if (!font_body_name && strcmp(size_suffix, "_micro") == 0) {
         font_body_name = lv_xml_get_const(nullptr, "font_body_tiny");
+        if (!font_body_name)
+            font_body_name = lv_xml_get_const(nullptr, "font_body_small");
     } else if (!font_body_name && strcmp(size_suffix, "_tiny") == 0) {
         font_body_name = lv_xml_get_const(nullptr, "font_body_small");
     }
