@@ -291,18 +291,6 @@ class PrinterCapabilitiesState {
         return const_cast<lv_subject_t*>(&sensor_count_);
     }
 
-    /**
-     * @brief Monotonically-increasing counter bumped once per "settled" batch
-     *        of capability changes (set_hardware finishing, spoolman query
-     *        resolving, etc). Consumers that need to react to "any capability
-     *        changed" subscribe here instead of 20+ individual gate subjects,
-     *        which guarantees one observer fire per discovery batch rather
-     *        than one per gate — no time-based coalescing required.
-     */
-    lv_subject_t* get_capabilities_version_subject() const {
-        return const_cast<lv_subject_t*>(&capabilities_version_);
-    }
-
     // ========================================================================
     // Convenience methods
     // ========================================================================
@@ -321,12 +309,6 @@ class PrinterCapabilitiesState {
 
     /// Update combined printer_has_chamber_ from sensor and heater flags
     void update_has_chamber();
-
-    /// Bump capabilities_version_ so "something changed" observers fire exactly
-    /// once per settled batch. Must be called at the tail of any setter that
-    /// mutates capability subjects, AFTER all individual lv_subject_set_int
-    /// calls have landed.
-    void bump_capabilities_version();
 
     SubjectManager subjects_;
     bool subjects_initialized_ = false;
@@ -361,7 +343,6 @@ class PrinterCapabilitiesState {
     lv_subject_t printer_has_extra_fans_{};          // extra controllable fans beyond part cooling
     lv_subject_t power_device_count_{};              // number of power devices (0 = none)
     lv_subject_t sensor_count_{};                    // number of Moonraker sensors (0 = none)
-    lv_subject_t capabilities_version_{};            // bump-counter, see bump_capabilities_version
 };
 
 } // namespace helix

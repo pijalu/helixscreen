@@ -741,36 +741,50 @@ void PanelWidgetManager::setup_gate_observers(const std::string& panel_id,
     gate_observers_.erase(panel_id);
     auto& observers = gate_observers_[panel_id];
 
-    // Two signals drive panel rebuilds:
+    // Walk the registry and observe every distinct hardware_gate_subject —
+    // these are the same names compute_visible_widget_ids consults, so this
+    // automatically tracks any new gated widget added in the future. Plus
+    // klippy_state, which drives firmware_restart conditional injection.
     //
-    //   capabilities_version  Monotonically bumped once per settled batch of
-    //                         hardware-capability changes (see
-    //                         PrinterCapabilitiesState::bump_capabilities_version).
-    //                         Replaces the old "observe every printer_has_*
-    //                         subject + coalesce with a timer" strategy — that
-    //                         was a timing guess, this is deterministic: N gate
-    //                         subjects changing in one batch → one bump → one
-    //                         rebuild, with all gates already in their settled
-    //                         state when the rebuild runs.
-    //
-    //   klippy_state          Required for firmware_restart widget conditional
-    //                         injection on shutdown/error states. Changes
-    //                         individually, never in batches with capabilities.
-    //
-    // Direct rebuild on each observer fire — HomePanel::populate_page
-    // short-circuits if the visible-ID list is unchanged, so a spurious fire
-    // is near-free.
-    const char* subject_names[] = {"capabilities_version", "klippy_state"};
-    for (const char* name : subject_names) {
+    // Each observer fires rebuild_cb directly, no time-based coalescing:
+    //   * observe_int_sync defers via UpdateQueue, so multiple subjects
+    //     changing in the same tick produce multiple sequential rebuild_cb
+    //     calls in the next drain — but populate_page short-circuits when
+    //     compute_visible_widget_ids matches the cached ID list, so the
+    //     duplicates are near-free (one map walk + N lv_subject_get_int).
+    //   * The 2-second coalesce timer this replaced was a timing guess that
+    //     fired before late-arriving capability subjects landed (e.g.
+    //     printer_has_led on a busy Voron arrives 3-5s into discovery), then
+    //     skipped because the cached list still showed "~gated". Direct
+    //     dispatch eliminates the guesswork: the rebuild that runs after
+    //     the *last* relevant subject change is the one that wins.
+    std::vector<const char*> gate_names;
+    for (const auto& def : get_all_widget_defs()) {
+        if (!def.hardware_gate_subject)
+            continue;
+        bool dup = false;
+        for (const auto* n : gate_names) {
+            if (std::strcmp(n, def.hardware_gate_subject) == 0) {
+                dup = true;
+                break;
+            }
+        }
+        if (!dup)
+            gate_names.push_back(def.hardware_gate_subject);
+    }
+    gate_names.push_back("klippy_state");
+
+    for (const char* name : gate_names) {
         lv_subject_t* subject = lv_xml_get_subject(nullptr, name);
         if (!subject) {
-            spdlog::trace("[PanelWidgetManager] Subject '{}' not registered yet", name);
+            spdlog::trace("[PanelWidgetManager] Gate subject '{}' not registered yet", name);
             continue;
         }
         observers.push_back(observe_int_sync<PanelWidgetManager>(
             subject, this,
             [rebuild_cb](PanelWidgetManager* /*self*/, int /*value*/) { rebuild_cb(); }));
-        spdlog::trace("[PanelWidgetManager] Observing '{}' for panel '{}'", name, panel_id);
+        spdlog::trace("[PanelWidgetManager] Observing gate subject '{}' for panel '{}'", name,
+                      panel_id);
     }
 
     spdlog::debug("[PanelWidgetManager] Set up {} gate observers for panel '{}'", observers.size(),

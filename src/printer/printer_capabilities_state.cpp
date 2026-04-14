@@ -52,10 +52,6 @@ void PrinterCapabilitiesState::init_subjects(bool register_xml) {
     INIT_SUBJECT_INT(power_device_count, 0, subjects_, register_xml);
     INIT_SUBJECT_INT(sensor_count, 0, subjects_, register_xml);
 
-    // Generation counter observed by PanelWidgetManager. Bumped once per
-    // settled batch of capability changes — see bump_capabilities_version().
-    INIT_SUBJECT_INT(capabilities_version, 0, subjects_, register_xml);
-
     subjects_initialized_ = true;
     spdlog::trace("[PrinterCapabilitiesState] Subjects initialized successfully");
 }
@@ -119,21 +115,12 @@ void PrinterCapabilitiesState::set_hardware(const PrinterDiscovery& hardware,
                   hardware.has_firmware_retraction(), hardware.has_chamber_sensor());
     spdlog::debug("[PrinterCapabilitiesState] Hardware set (with overrides): {}",
                   overrides.summary());
-
-    // Tail of a settled batch — wake gate observers exactly once.
-    bump_capabilities_version();
-}
-
-void PrinterCapabilitiesState::bump_capabilities_version() {
-    lv_subject_set_int(&capabilities_version_,
-                       lv_subject_get_int(&capabilities_version_) + 1);
 }
 
 void PrinterCapabilitiesState::set_sound_backend_available(bool available) {
     if (available && lv_subject_get_int(&printer_has_speaker_) == 0) {
         lv_subject_set_int(&printer_has_speaker_, 1);
         spdlog::debug("[PrinterCapabilitiesState] Sound backend available, speaker enabled");
-        bump_capabilities_version();
     }
 }
 
@@ -142,7 +129,6 @@ void PrinterCapabilitiesState::set_spoolman_available(bool available) {
     helix::ui::queue_update([this, available]() {
         lv_subject_set_int(&printer_has_spoolman_, available ? 1 : 0);
         spdlog::debug("[PrinterCapabilitiesState] Spoolman availability set: {}", available);
-        bump_capabilities_version();
     });
 }
 
@@ -159,7 +145,6 @@ void PrinterCapabilitiesState::set_webcam_available(bool available, const std::s
         spdlog::debug("[PrinterCapabilitiesState] Webcam: available={}, stream_url={}, flip_h={}, "
                       "flip_v={}",
                       available, stream_url, flip_h, flip_v);
-        bump_capabilities_version();
     });
 }
 
@@ -168,14 +153,12 @@ void PrinterCapabilitiesState::set_timelapse_available(bool available) {
     helix::ui::queue_update([this, available]() {
         lv_subject_set_int(&printer_has_timelapse_, available ? 1 : 0);
         spdlog::debug("[PrinterCapabilitiesState] Timelapse availability set: {}", available);
-        bump_capabilities_version();
     });
 }
 
 void PrinterCapabilitiesState::set_purge_line(bool has_purge_line) {
     lv_subject_set_int(&printer_has_purge_line_, has_purge_line ? 1 : 0);
     spdlog::debug("[PrinterCapabilitiesState] Purge line capability set: {}", has_purge_line);
-    bump_capabilities_version();
 }
 
 void PrinterCapabilitiesState::set_bed_moves(bool bed_moves) {
@@ -190,13 +173,11 @@ void PrinterCapabilitiesState::set_bed_moves(bool bed_moves) {
 void PrinterCapabilitiesState::set_has_chamber_sensor(bool available) {
     lv_subject_set_int(&printer_has_chamber_sensor_, available ? 1 : 0);
     update_has_chamber();
-    bump_capabilities_version();
 }
 
 void PrinterCapabilitiesState::set_has_chamber_heater(bool available) {
     lv_subject_set_int(&printer_has_chamber_heater_, available ? 1 : 0);
     update_has_chamber();
-    bump_capabilities_version();
 }
 
 void PrinterCapabilitiesState::update_has_chamber() {
@@ -210,7 +191,6 @@ void PrinterCapabilitiesState::set_power_device_count(int count) {
     helix::ui::queue_update([this, count]() {
         lv_subject_set_int(&power_device_count_, count);
         spdlog::debug("[PrinterCapabilitiesState] Power device count set: {}", count);
-        bump_capabilities_version();
     });
 }
 
@@ -219,7 +199,6 @@ void PrinterCapabilitiesState::set_sensor_count(int count) {
     helix::ui::queue_update([this, count]() {
         lv_subject_set_int(&sensor_count_, count);
         spdlog::debug("[PrinterCapabilitiesState] Sensor count set: {}", count);
-        bump_capabilities_version();
     });
 }
 
