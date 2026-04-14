@@ -781,13 +781,32 @@ Detection is gated by `!has_mmu_` — if Happy Hare or AFC is already detected, 
 
 ### State Sources
 
-IFS has no dedicated Klipper object. State comes from three sources:
+Stock zMod owns two Klipper objects — `zmod_ifs` and `zmod_color` — that hold the authoritative per-channel state, but their rich APIs are `printer.lookup_object()`-only (no `get_status()`), so Moonraker cannot see them. What Moonraker actually exposes depends on whether the lessWaste / bambufy plugins are installed.
 
-| Source | Data | Subscription |
-|--------|------|-------------|
-| `save_variables` | Colors, materials, tool mapping, current tool, bypass mode | `printer.objects.subscribe` |
-| `filament_switch_sensor _ifs_port_sensor_{1-4}` | Per-port filament presence (boolean) | Standard sensor subscription |
-| `filament_switch_sensor head_switch_sensor` | Filament at toolhead (boolean) | Standard sensor subscription |
+**Shared (stock zMod and plugins both provide):**
+
+| Source | Data | Notes |
+|--------|------|-------|
+| `filament_switch_sensor head_switch_sensor` | Toolhead filament presence | Authoritative NOZZLE/TOOLHEAD indicator |
+| `filament_motion_sensor ifs_motion_sensor` | Filament moving **post-hub**, inside the IFS | Single boolean on stock zMod. Maps to `OUTPUT` segment — **not** the toolhead. Replaced by per-port sensors when plugins are installed. |
+| `Adventurer5M.json` (Moonraker file API) | Per-channel color + material type | Polled + re-read on sensor edges / gcode responses. No push notifications. |
+
+**Plugin-only (lessWaste / bambufy) — the Moonraker-visible export of `zmod_ifs` / `zmod_color`:**
+
+| Source | Data | Plugin delta over stock zMod |
+|--------|------|------------------------------|
+| `filament_switch_sensor _ifs_port_sensor_{1-4}` | Per-port HUB presence (4 booleans) | Wraps `zmod_ifs.ifs_data.get_port(port)` — invisible to Moonraker otherwise |
+| `save_variables.<prefix>_colors` / `_types` | Atomic per-port color + material | Subscribable; stock requires json polling |
+| `save_variables.<prefix>_tools` | 16-element tool→port map | Not exposed on stock zMod |
+| `save_variables.<prefix>_current_tool` | Active tool index (-1 or 0-15) | Stock: `zmod_color.get_current_channel()` (lookup-only) |
+| `save_variables.<prefix>_external` | Bypass / external mode flag | Stock: `zmod_color.get_printer_data_detail().indepMatlInfo` (lookup-only) |
+| `_IFS_VARS` gcode macro | Atomic writes of the above | Stock lacks this — can't persist UI-side changes |
+
+Prefix is `less_waste` (lessWaste / zmod) or `bambufy` (bambufy); the schema is identical. Auto-detected from whichever keys are present.
+
+> **Upstream wishlist:** add `get_status()` to `zmod_ifs` and `zmod_color` in stock zMod. That would close the plugin gap entirely and let HelixScreen drop the `Adventurer5M.json` polling path. Until then, users without a plugin see a degraded UI (no per-port HUB presence, no live tool map, no bypass flag, no atomic color updates).
+
+> **Sensor-location correction:** the `ifs_motion_sensor` sits **inside the IFS immediately after the hub**, not at the toolhead. The current backend routes it through `parse_head_sensor()` as a simplification; a proper fix would map it to `PathSegment::OUTPUT` and require the toolhead switch for `filament_loaded` / load-complete detection.
 
 **save_variables keys** (all prefixed `less_waste_`):
 

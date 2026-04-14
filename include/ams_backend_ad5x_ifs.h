@@ -17,18 +17,56 @@ class Ad5xIfsTestAccess;
 /// AMS backend for FlashForge Adventurer 5X IFS (Intelligent Filament Switching).
 ///
 /// IFS is a 4-lane filament switching system controlled by a separate STM32 MCU,
-/// driven through ZMOD's zmod_ifs.py Klipper module. Two firmware variants exist:
+/// driven through ZMOD's zmod_ifs.py Klipper module.
 ///
-/// lessWaste plugin (has per-port sensors):
-/// - save_variables: colors, materials, tool mapping, current tool, external mode
-/// - filament_switch_sensor _ifs_port_sensor_{1-4}: per-port filament presence
-/// - filament_switch_sensor head_switch_sensor: filament at toolhead
+/// === Stock zMod vs plugin variants (IMPORTANT for Moonraker visibility) ===
 ///
-/// Native ZMOD IFS (no per-port sensors, no _IFS_VARS macro):
-/// - Color/type stored in Adventurer5M.json, read/written via Moonraker HTTP file API
-/// - Re-reads triggered by port sensor changes and gcode response snooping
-/// - filament_motion_sensor ifs_motion_sensor: toolhead filament presence
-/// - filament_switch_sensor head_switch_sensor: filament at toolhead
+/// Stock zMod owns two Klipper objects, `zmod_ifs` and `zmod_color`, that hold
+/// the authoritative per-channel state:
+///   - zmod_ifs.ifs_data.get_port(port)         -> per-channel HUB presence switch
+///   - zmod_ifs.get_ifs_sensor(port)            -> per-channel motion/stall sensor
+///                                                 (located INSIDE the IFS, just
+///                                                 after the hub — NOT at the toolhead)
+///   - zmod_ifs.get_extruder_sensor()           -> toolhead filament switch
+///   - zmod_ifs.get_prutok_type_from_config(p)  -> per-channel material string
+///   - zmod_color.get_current_channel()         -> active channel (1-based)
+///   - zmod_color.get_printer_data_detail()     -> hasMatlStation, indepMatlInfo, ...
+///
+/// These are `printer.lookup_object()`-only Python APIs. They are NOT exposed via
+/// `get_status()`, so Moonraker (and therefore HelixScreen) cannot subscribe to
+/// them directly. Stock zMod only gives Moonraker:
+///   - filament_motion_sensor ifs_motion_sensor   (single boolean, post-hub)
+///   - filament_switch_sensor head_switch_sensor  (toolhead)
+///   - Adventurer5M.json                          (polled via Moonraker file API)
+///
+/// The lessWaste / bambufy plugins close this gap. They are effectively a
+/// Moonraker exporter for zmod_ifs/zmod_color, publishing:
+///   - filament_switch_sensor _ifs_port_sensor_{1-4}  per-port HUB presence
+///     (wraps zmod_ifs.ifs_data.get_port)
+///   - save_variables with <prefix>_colors, _types, _tools, _current_tool,
+///     _external   (prefix = "less_waste" or "bambufy"; schema identical)
+///   - _IFS_VARS gcode macro for atomic writes of the above
+///
+/// Plugin delta over stock zMod (via Moonraker):
+///   (1) per-channel HUB presence as 4 separate booleans
+///   (2) live tool->port mapping (16 slots)
+///   (3) active tool index with push notifications
+///   (4) bypass/external flag
+///   (5) atomic, subscribable color+material updates
+/// Everything else — including the toolhead switch — is shared with stock zMod.
+///
+/// === Sensor -> PathSegment mapping ===
+///
+///   head_switch_sensor        -> TOOLHEAD / NOZZLE (at toolhead)
+///   _ifs_port_sensor_{1..4}   -> HUB               (per-channel, plugin only)
+///   ifs_motion_sensor         -> OUTPUT            (post-hub, NOT toolhead;
+///                                                   single boolean on stock zMod)
+///
+/// NOTE: `parse_head_sensor()` currently conflates `ifs_motion_sensor` with the
+/// toolhead switch. That is a known simplification — motion at the hub does not
+/// mean filament has reached the nozzle. Fixing this requires splitting a
+/// hub_output presence from head_filament and updating
+/// `system_info_.filament_loaded` + `detect_load_unload_completion()` accordingly.
 ///
 /// Ports are 1-based (1-4), slots are 0-based (0-3).
 /// slot_to_port = slot + 1, port_to_slot = port - 1.
