@@ -4,6 +4,109 @@
 # HelixScreen UI Prototype - Font & Icon Generation Module
 # Handles font generation and Material Design icons
 
+# =============================================================================
+# Per-tier font file lists
+# =============================================================================
+# Each tier lists the text fonts and icon fonts its globals.xml constants reference.
+# FONT_SRCS is assembled from the union of declared FONT_TIERS.
+
+FONTS_MICRO := assets/fonts/noto_sans_10.c assets/fonts/noto_sans_14.c \
+               assets/fonts/noto_sans_bold_16.c \
+               assets/fonts/noto_sans_light_10.c \
+               assets/fonts/source_code_pro_8.c \
+               assets/fonts/mdi_icons_16.c assets/fonts/mdi_icons_24.c \
+               assets/fonts/mdi_icons_32.c
+
+FONTS_TINY := assets/fonts/noto_sans_12.c assets/fonts/noto_sans_16.c \
+              assets/fonts/noto_sans_bold_18.c \
+              assets/fonts/noto_sans_light_11.c \
+              assets/fonts/source_code_pro_10.c \
+              assets/fonts/mdi_icons_24.c assets/fonts/mdi_icons_32.c \
+              assets/fonts/mdi_icons_48.c
+
+FONTS_SMALL := assets/fonts/noto_sans_14.c assets/fonts/noto_sans_20.c \
+               assets/fonts/noto_sans_bold_20.c \
+               assets/fonts/noto_sans_light_12.c \
+               assets/fonts/source_code_pro_12.c \
+               assets/fonts/mdi_icons_16.c assets/fonts/mdi_icons_24.c \
+               assets/fonts/mdi_icons_32.c assets/fonts/mdi_icons_48.c \
+               assets/fonts/mdi_icons_64.c
+
+FONTS_MEDIUM := assets/fonts/noto_sans_18.c assets/fonts/noto_sans_26.c \
+                assets/fonts/noto_sans_bold_28.c \
+                assets/fonts/noto_sans_light_16.c \
+                assets/fonts/source_code_pro_14.c \
+                assets/fonts/mdi_icons_16.c assets/fonts/mdi_icons_24.c \
+                assets/fonts/mdi_icons_32.c assets/fonts/mdi_icons_48.c \
+                assets/fonts/mdi_icons_64.c
+
+FONTS_LARGE := assets/fonts/noto_sans_20.c assets/fonts/noto_sans_28.c \
+               assets/fonts/noto_sans_bold_28.c \
+               assets/fonts/noto_sans_light_14.c assets/fonts/noto_sans_light_18.c \
+               assets/fonts/source_code_pro_16.c \
+               assets/fonts/mdi_icons_16.c assets/fonts/mdi_icons_24.c \
+               assets/fonts/mdi_icons_32.c assets/fonts/mdi_icons_48.c \
+               assets/fonts/mdi_icons_64.c
+
+FONTS_XLARGE := assets/fonts/noto_sans_24.c assets/fonts/noto_sans_32.c \
+                assets/fonts/noto_sans_bold_32.c \
+                assets/fonts/noto_sans_light_16.c assets/fonts/noto_sans_light_20.c \
+                assets/fonts/source_code_pro_18.c \
+                assets/fonts/mdi_icons_24.c assets/fonts/mdi_icons_32.c \
+                assets/fonts/mdi_icons_48.c assets/fonts/mdi_icons_64.c \
+                assets/fonts/mdi_icons_80.c
+
+FONTS_XXLARGE := assets/fonts/noto_sans_32.c assets/fonts/noto_sans_40.c \
+                 assets/fonts/noto_sans_bold_40.c \
+                 assets/fonts/noto_sans_light_20.c assets/fonts/noto_sans_light_26.c \
+                 assets/fonts/source_code_pro_20.c assets/fonts/source_code_pro_24.c \
+                 assets/fonts/mdi_icons_32.c assets/fonts/mdi_icons_48.c \
+                 assets/fonts/mdi_icons_64.c assets/fonts/mdi_icons_96.c \
+                 assets/fonts/mdi_icons_128.c
+
+# Core fonts — referenced unconditionally by C++ code (asset_manager, theme_manager,
+# cjk_font_manager, ui_button, helix_watchdog) regardless of breakpoint tier.
+# These are always included in every platform build.
+FONTS_CORE := assets/fonts/noto_sans_8.c assets/fonts/noto_sans_11.c \
+              assets/fonts/noto_sans_bold_14.c assets/fonts/noto_sans_bold_24.c \
+              assets/fonts/mdi_icons_14.c assets/fonts/mdi_icons_20.c \
+              assets/fonts/mdi_icons_28.c assets/fonts/mdi_icons_40.c \
+              assets/fonts/mdi_icons_56.c
+
+FONTS_ALL := $(sort $(FONTS_CORE) $(FONTS_MICRO) $(FONTS_TINY) $(FONTS_SMALL) $(FONTS_MEDIUM) \
+             $(FONTS_LARGE) $(FONTS_XLARGE) $(FONTS_XXLARGE))
+
+# Assemble TIER_FONT_SRCS from declared tiers (sort deduplicates)
+# FONTS_CORE is always included — every platform needs these.
+FONT_TIERS ?= all
+ifeq ($(FONT_TIERS),all)
+    TIER_FONT_SRCS := $(FONTS_ALL)
+else
+    TIER_FONT_SRCS := $(FONTS_CORE)
+    ifneq ($(filter micro,$(FONT_TIERS)),)
+        TIER_FONT_SRCS += $(FONTS_MICRO)
+    endif
+    ifneq ($(filter tiny,$(FONT_TIERS)),)
+        TIER_FONT_SRCS += $(FONTS_TINY)
+    endif
+    ifneq ($(filter small,$(FONT_TIERS)),)
+        TIER_FONT_SRCS += $(FONTS_SMALL)
+    endif
+    ifneq ($(filter medium,$(FONT_TIERS)),)
+        TIER_FONT_SRCS += $(FONTS_MEDIUM)
+    endif
+    ifneq ($(filter large,$(FONT_TIERS)),)
+        TIER_FONT_SRCS += $(FONTS_LARGE)
+    endif
+    ifneq ($(filter xlarge,$(FONT_TIERS)),)
+        TIER_FONT_SRCS += $(FONTS_XLARGE)
+    endif
+    ifneq ($(filter xxlarge,$(FONT_TIERS)),)
+        TIER_FONT_SRCS += $(FONTS_XXLARGE)
+    endif
+    TIER_FONT_SRCS := $(sort $(TIER_FONT_SRCS))
+endif
+
 # Generate MDI icon fonts using the authoritative regen script
 # Triggered when regen_mdi_fonts.sh changes (single source of truth for icon codepoints)
 .fonts.stamp: scripts/regen_mdi_fonts.sh

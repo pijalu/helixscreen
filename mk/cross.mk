@@ -81,6 +81,7 @@ ifeq ($(PLATFORM_TARGET),pi)
     BUILD_SUBDIR := pi
     # Strip binary for size - embedded targets don't need debug symbols
     STRIP_BINARY := yes
+    FONT_TIERS := all
 
 else ifeq ($(PLATFORM_TARGET),pi-fbdev)
     # -------------------------------------------------------------------------
@@ -104,6 +105,7 @@ else ifeq ($(PLATFORM_TARGET),pi-fbdev)
     HELIX_HAS_SYSTEMD := yes
     BUILD_SUBDIR := pi-fbdev
     STRIP_BINARY := yes
+    FONT_TIERS := all
 
 else ifeq ($(PLATFORM_TARGET),pi-both)
     # -------------------------------------------------------------------------
@@ -125,6 +127,7 @@ else ifeq ($(PLATFORM_TARGET),pi-both)
     HELIX_HAS_SYSTEMD := yes
     BUILD_SUBDIR := pi
     STRIP_BINARY := yes
+    FONT_TIERS := all
     PI_DUAL_LINK := yes
 
 else ifeq ($(PLATFORM_TARGET),pi32)
@@ -152,6 +155,7 @@ else ifeq ($(PLATFORM_TARGET),pi32)
     HELIX_HAS_SYSTEMD := yes
     BUILD_SUBDIR := pi32
     STRIP_BINARY := yes
+    FONT_TIERS := all
 
 else ifeq ($(PLATFORM_TARGET),pi32-fbdev)
     # -------------------------------------------------------------------------
@@ -175,6 +179,7 @@ else ifeq ($(PLATFORM_TARGET),pi32-fbdev)
     HELIX_HAS_SYSTEMD := yes
     BUILD_SUBDIR := pi32-fbdev
     STRIP_BINARY := yes
+    FONT_TIERS := all
 
 else ifeq ($(PLATFORM_TARGET),pi32-both)
     # -------------------------------------------------------------------------
@@ -198,6 +203,7 @@ else ifeq ($(PLATFORM_TARGET),pi32-both)
     HELIX_HAS_SYSTEMD := yes
     BUILD_SUBDIR := pi32
     STRIP_BINARY := yes
+    FONT_TIERS := all
     PI_DUAL_LINK := yes
 
 else ifeq ($(PLATFORM_TARGET),ad5m)
@@ -241,6 +247,7 @@ else ifeq ($(PLATFORM_TARGET),ad5m)
     BUILD_SUBDIR := ad5m
     # Strip binary for size on memory-constrained device
     STRIP_BINARY := yes
+    FONT_TIERS := medium large
 
 else ifeq ($(PLATFORM_TARGET),ad5x)
     # -------------------------------------------------------------------------
@@ -275,6 +282,7 @@ else ifeq ($(PLATFORM_TARGET),ad5x)
     BUILD_SUBDIR := ad5x
     # Strip binary for size on memory-constrained device
     STRIP_BINARY := yes
+    FONT_TIERS := medium large
 
 else ifeq ($(PLATFORM_TARGET),cc1)
     # -------------------------------------------------------------------------
@@ -316,6 +324,7 @@ else ifeq ($(PLATFORM_TARGET),cc1)
     BUILD_SUBDIR := cc1
     # Strip binary for size on memory-constrained device
     STRIP_BINARY := yes
+    FONT_TIERS := micro tiny
 
 else ifneq ($(filter mips k1,$(PLATFORM_TARGET)),)
     # -------------------------------------------------------------------------
@@ -371,6 +380,7 @@ else ifneq ($(filter mips k1,$(PLATFORM_TARGET)),)
     BUILD_SUBDIR := mips
     # Strip binary for size on memory-constrained device
     STRIP_BINARY := yes
+    FONT_TIERS := small medium
 
 else ifeq ($(PLATFORM_TARGET),k1-dynamic)
     # -------------------------------------------------------------------------
@@ -407,6 +417,7 @@ else ifeq ($(PLATFORM_TARGET),k1-dynamic)
     ENABLE_EVDEV := yes
     BUILD_SUBDIR := k1-dynamic
     STRIP_BINARY := yes
+    FONT_TIERS := small medium
 
 else ifeq ($(PLATFORM_TARGET),k2)
     # -------------------------------------------------------------------------
@@ -439,6 +450,7 @@ else ifeq ($(PLATFORM_TARGET),k2)
     ENABLE_EVDEV := yes
     BUILD_SUBDIR := k2
     STRIP_BINARY := yes
+    FONT_TIERS := large xlarge
 
 else ifeq ($(PLATFORM_TARGET),snapmaker-u1)
     # -------------------------------------------------------------------------
@@ -466,6 +478,7 @@ else ifeq ($(PLATFORM_TARGET),snapmaker-u1)
     ENABLE_EVDEV := yes
     BUILD_SUBDIR := snapmaker-u1
     STRIP_BINARY := yes
+    FONT_TIERS := tiny small
 
 else ifeq ($(PLATFORM_TARGET),x86)
     # -------------------------------------------------------------------------
@@ -490,6 +503,7 @@ else ifeq ($(PLATFORM_TARGET),x86)
     HELIX_HAS_SYSTEMD := yes
     BUILD_SUBDIR := x86
     STRIP_BINARY := yes
+    FONT_TIERS := all
 
 else ifeq ($(PLATFORM_TARGET),x86-fbdev)
     # -------------------------------------------------------------------------
@@ -512,6 +526,7 @@ else ifeq ($(PLATFORM_TARGET),x86-fbdev)
     HELIX_HAS_SYSTEMD := yes
     BUILD_SUBDIR := x86-fbdev
     STRIP_BINARY := yes
+    FONT_TIERS := all
 
 else ifeq ($(PLATFORM_TARGET),x86-both)
     # -------------------------------------------------------------------------
@@ -533,6 +548,7 @@ else ifeq ($(PLATFORM_TARGET),x86-both)
     HELIX_HAS_SYSTEMD := yes
     BUILD_SUBDIR := x86
     STRIP_BINARY := yes
+    FONT_TIERS := all
     PI_DUAL_LINK := yes
 
 else ifeq ($(PLATFORM_TARGET),native)
