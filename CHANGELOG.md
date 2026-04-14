@@ -7,6 +7,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.99.31] - 2026-04-14
+
+Adds a new XXLARGE responsive breakpoint tier and HiDPI font scaling for displays above 1000px tall (1440p/4K), with per-platform font pruning to keep binary size in check on constrained devices. Also includes a telemetry-driven printer database updater, bed mesh nozzle preheat, and a handful of crash and correctness fixes.
+
+### Added
+- XXLARGE responsive breakpoint tier for HiDPI displays (1440p/4K) with font, icon, spacing, and component scaling (#773)
+- XLARGE/XXLARGE text and icon font assets with CJK fallback mappings
+- Per-platform font tier pruning — each platform ships only the font sizes it needs
+- Smart tier-aware fallback warnings when fonts are missing for the active breakpoint
+- Interactive telemetry-driven printer database updater script with top-10 cap, dedup, auto-skip, and unique-device counting
+- Bed mesh preheats the nozzle and bed via TEMPERATURE_WAIT before probing for more consistent results
+
+### Fixed
+- PrinterHardware dangling-reference crash after PrinterDiscovery snapshot change — guess_bed_heater / guess_hotend_heater / fan wizard now hold owned copies
+- Theme rotation refresh preserving XXLarge breakpoint via shared helper
+- Event depth counter detects event_head corruption on AD5X (#795)
+- Network list deferred deletion during wizard cleanup causing heap corruption (#793)
+- Wizard set_status() during cleanup causing blur walk crash (#792)
+- Printer image caches now invalidated when the user changes printer image
+- AD5X/ForgeX fan names, detection heuristics, and config paths corrected
+- Empty hardware snapshots and false alerts after std::move of api->hardware()
+- Release pipeline dispatches archive verification by format; MIPS ELF validation added
+- K1/AD5X zip assets omitted from release manifest to unblock 0.99.29→0.99.30 updates
+- FONTS_CORE extended and CJK xlarge/xxlarge guarded for platforms with pruned font sets
+
+### Changed
+- Unused mdi_icons sizes (20/28/40/56) removed, FONTS_CORE tightened
+- AD5X IFS documentation clarifies stock zMod vs lessWaste/bambufy Moonraker visibility
+
 ## [0.99.30] - 2026-04-12
 
 ### Added
@@ -2887,6 +2916,7 @@ Initial tagged release. Foundation for all subsequent development.
 - Automated GitHub Actions release pipeline
 - One-liner installation script with platform auto-detection
 
+[0.99.31]: https://github.com/prestonbrown/helixscreen/compare/v0.99.30...v0.99.31
 [0.99.30]: https://github.com/prestonbrown/helixscreen/compare/v0.99.29...v0.99.30
 [0.99.29]: https://github.com/prestonbrown/helixscreen/compare/v0.99.28...v0.99.29
 [0.99.28]: https://github.com/prestonbrown/helixscreen/compare/v0.99.27...v0.99.28
