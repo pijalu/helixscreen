@@ -723,11 +723,12 @@ jobs:
           --endpoint-url "$R2_ENDPOINT" \
           --content-type "text/x-shellscript"
 
-        # Temporarily omit zip assets for K1/AD5X — versions 0.99.29-0.99.30
-        # have a bug where gunzip -t is used to verify all archives, which fails
-        # on .zip files. Removing the zip forces the in-app updater to fall back
-        # to tar.gz. Safe to re-add once those versions are out of the field.
-        rm -f release-files/helixscreen-k1.zip release-files/helixscreen-ad5x.zip
+        # generate-manifest.sh defaults to NOT advertising zip URLs so pre-v0.99.31
+        # in-app updaters (which gunzip -t every download regardless of format) don't
+        # try to verify a .zip and report 'Corrupt download'. The .zip files remain
+        # uploaded to R2 for Moonraker Update Manager (which fetches by direct path,
+        # not via our manifest). Re-enable with --include-zip once telemetry shows
+        # adoption past v0.99.30 is complete.
 
         # Generate and upload per-channel manifests (pointing to shared artifacts)
         for CHANNEL in $UPLOAD_CHANNELS; do
