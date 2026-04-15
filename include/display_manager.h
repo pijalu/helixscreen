@@ -275,7 +275,7 @@ class DisplayManager {
      * Rebuilds per-channel LUTs and applies them in the flush hook.
      * Identity transform (gamma=1, warmth=0) skips the transform entirely.
      */
-    void set_color_transform(float gamma, int warmth);
+    void set_color_transform(float gamma, int warmth, int tint);
 
     /** @brief Access the color transform (read-only — used by flush hook). */
     const helix::ColorTransform& color_transform() const {

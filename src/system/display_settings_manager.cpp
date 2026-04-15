@@ -165,10 +165,12 @@ void DisplaySettingsManager::init_subjects() {
         std::lround(config->get<double>("/display/gamma", 1.0) * 100.0));
     gamma_x100 = std::clamp(gamma_x100, 50, 200);
     int warmth = std::clamp(config->get<int>("/display/warmth", 0), -50, 50);
+    int tint = std::clamp(config->get<int>("/display/tint", 0), -50, 50);
     UI_MANAGED_SUBJECT_INT(gamma_x100_subject_, gamma_x100, "settings_gamma_x100", subjects_);
     UI_MANAGED_SUBJECT_INT(warmth_subject_, warmth, "settings_warmth", subjects_);
+    UI_MANAGED_SUBJECT_INT(tint_subject_, tint, "settings_tint", subjects_);
     if (auto* dm = DisplayManager::instance()) {
-        dm->set_color_transform(gamma_x100 / 100.0f, warmth);
+        dm->set_color_transform(gamma_x100 / 100.0f, warmth, tint);
     }
 
     // Has backlight control subject (for UI visibility) - check DisplayManager
@@ -524,7 +526,7 @@ void DisplaySettingsManager::set_gamma_x100(int value) {
     int clamped = std::clamp(value, 50, 200);
     lv_subject_set_int(&gamma_x100_subject_, clamped);
     if (auto* dm = DisplayManager::instance()) {
-        dm->set_color_transform(clamped / 100.0f, get_warmth());
+        dm->set_color_transform(clamped / 100.0f, get_warmth(), get_tint());
     }
     Config* config = Config::get_instance();
     config->set<double>("/display/gamma", clamped / 100.0);
@@ -539,10 +541,25 @@ void DisplaySettingsManager::set_warmth(int value) {
     int clamped = std::clamp(value, -50, 50);
     lv_subject_set_int(&warmth_subject_, clamped);
     if (auto* dm = DisplayManager::instance()) {
-        dm->set_color_transform(get_gamma_x100() / 100.0f, clamped);
+        dm->set_color_transform(get_gamma_x100() / 100.0f, clamped, get_tint());
     }
     Config* config = Config::get_instance();
     config->set<int>("/display/warmth", clamped);
+    config->save();
+}
+
+int DisplaySettingsManager::get_tint() const {
+    return lv_subject_get_int(const_cast<lv_subject_t*>(&tint_subject_));
+}
+
+void DisplaySettingsManager::set_tint(int value) {
+    int clamped = std::clamp(value, -50, 50);
+    lv_subject_set_int(&tint_subject_, clamped);
+    if (auto* dm = DisplayManager::instance()) {
+        dm->set_color_transform(get_gamma_x100() / 100.0f, get_warmth(), clamped);
+    }
+    Config* config = Config::get_instance();
+    config->set<int>("/display/tint", clamped);
     config->save();
 }
 

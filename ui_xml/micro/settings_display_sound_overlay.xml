@@ -104,6 +104,82 @@
           <icon src="light" size="xs" variant="primary"/>
         </lv_obj>
       </lv_obj>
+      <!-- Color: gamma + warmth correction -->
+      <lv_obj name="gamma_section"
+              width="100%" height="content" scrollable="false" style_pad_left="#space_lg" style_pad_right="#space_lg"
+              style_pad_top="#space_md" style_pad_bottom="#space_md" flex_flow="column" style_pad_gap="#space_xs">
+        <lv_obj width="100%"
+                height="content" flex_flow="row" style_flex_main_place="space_between" style_flex_cross_place="center"
+                style_pad_all="0" scrollable="false">
+          <lv_obj height="content"
+                  flex_flow="row" style_flex_cross_place="center" style_pad_gap="#space_sm" style_pad_all="0"
+                  scrollable="false">
+            <icon src="tune" size="sm" variant="secondary"/>
+            <text_body text="Brightness Curve" translation_tag="Brightness Curve"/>
+          </lv_obj>
+          <text_body name="gamma_value_label" bind_text="gamma_value"/>
+        </lv_obj>
+        <text_small text="Adjust mid-tone curve for the panel" translation_tag="Adjust mid-tone curve for the panel"/>
+        <lv_obj width="100%"
+                height="content" flex_flow="row" style_flex_cross_place="center" style_pad_left="0" style_pad_right="0"
+                style_pad_top="#space_md" style_pad_bottom="#space_md" style_pad_gap="#space_sm" scrollable="false">
+          <icon src="light_off" size="xs" variant="secondary"/>
+          <lv_slider name="gamma_slider" flex_grow="1" min_value="50" max_value="200" value="100">
+            <event_cb trigger="value_changed" callback="on_gamma_changed"/>
+          </lv_slider>
+          <icon src="light" size="xs" variant="primary"/>
+        </lv_obj>
+      </lv_obj>
+      <lv_obj name="warmth_section"
+              width="100%" height="content" scrollable="false" style_pad_left="#space_lg" style_pad_right="#space_lg"
+              style_pad_top="#space_md" style_pad_bottom="#space_md" flex_flow="column" style_pad_gap="#space_xs">
+        <lv_obj width="100%"
+                height="content" flex_flow="row" style_flex_main_place="space_between" style_flex_cross_place="center"
+                style_pad_all="0" scrollable="false">
+          <lv_obj height="content"
+                  flex_flow="row" style_flex_cross_place="center" style_pad_gap="#space_sm" style_pad_all="0"
+                  scrollable="false">
+            <icon src="palette" size="sm" variant="secondary"/>
+            <text_body text="Color Warmth" translation_tag="Color Warmth"/>
+          </lv_obj>
+          <text_body name="warmth_value_label" bind_text="warmth_value"/>
+        </lv_obj>
+        <text_small text="Shift color toward warm or cool" translation_tag="Shift color toward warm or cool"/>
+        <lv_obj width="100%"
+                height="content" flex_flow="row" style_flex_cross_place="center" style_pad_left="0" style_pad_right="0"
+                style_pad_top="#space_md" style_pad_bottom="#space_md" style_pad_gap="#space_sm" scrollable="false">
+          <icon src="snowflake" size="xs" variant="secondary"/>
+          <lv_slider name="warmth_slider" flex_grow="1" min_value="-50" max_value="50" value="0">
+            <event_cb trigger="value_changed" callback="on_warmth_changed"/>
+          </lv_slider>
+          <icon src="fire" size="xs" variant="primary"/>
+        </lv_obj>
+      </lv_obj>
+      <lv_obj name="tint_section"
+              width="100%" height="content" scrollable="false" style_pad_left="#space_lg" style_pad_right="#space_lg"
+              style_pad_top="#space_md" style_pad_bottom="#space_md" flex_flow="column" style_pad_gap="#space_xs">
+        <lv_obj width="100%"
+                height="content" flex_flow="row" style_flex_main_place="space_between" style_flex_cross_place="center"
+                style_pad_all="0" scrollable="false">
+          <lv_obj height="content"
+                  flex_flow="row" style_flex_cross_place="center" style_pad_gap="#space_sm" style_pad_all="0"
+                  scrollable="false">
+            <icon src="palette" size="sm" variant="secondary"/>
+            <text_body text="Color Tint" translation_tag="Color Tint"/>
+          </lv_obj>
+          <text_body name="tint_value_label" bind_text="tint_value"/>
+        </lv_obj>
+        <text_small text="Shift color toward green or magenta" translation_tag="Shift color toward green or magenta"/>
+        <lv_obj width="100%"
+                height="content" flex_flow="row" style_flex_cross_place="center" style_pad_left="0" style_pad_right="0"
+                style_pad_top="#space_md" style_pad_bottom="#space_md" style_pad_gap="#space_sm" scrollable="false">
+          <icon src="palette" size="xs" variant="secondary"/>
+          <lv_slider name="tint_slider" flex_grow="1" min_value="-50" max_value="50" value="0">
+            <event_cb trigger="value_changed" callback="on_tint_changed"/>
+          </lv_slider>
+          <icon src="leaf" size="xs" variant="primary"/>
+        </lv_obj>
+      </lv_obj>
       <!-- Screen Dim -->
       <setting_dropdown_row name="row_display_dim"
                             label="Screen Dim" label_tag="Screen Dim" icon="lightbulb_on_50"

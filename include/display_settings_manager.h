@@ -119,6 +119,12 @@ class DisplaySettingsManager {
     /** @brief Set color warmth (-50..+50), updates LUT + persists */
     void set_warmth(int value);
 
+    /** @brief Color tint G axis (-50..+50, +green/-magenta) */
+    int get_tint() const;
+
+    /** @brief Set color tint (-50..+50), updates LUT + persists */
+    void set_tint(int value);
+
     /** @brief Get sleep while printing state */
     bool get_sleep_while_printing() const;
 
@@ -281,6 +287,11 @@ class DisplaySettingsManager {
         return &warmth_subject_;
     }
 
+    /** @brief Tint subject (integer: -50..+50, G axis) */
+    lv_subject_t* subject_tint() {
+        return &tint_subject_;
+    }
+
     /** @brief Has backlight control subject (integer: 0=no, 1=yes) */
     lv_subject_t* subject_has_backlight() {
         return &has_backlight_subject_;
@@ -352,6 +363,7 @@ class DisplaySettingsManager {
     lv_subject_t brightness_subject_;
     lv_subject_t gamma_x100_subject_;
     lv_subject_t warmth_subject_;
+    lv_subject_t tint_subject_;
     lv_subject_t has_backlight_subject_;
     lv_subject_t has_dimming_subject_;
     lv_subject_t sleep_while_printing_subject_;

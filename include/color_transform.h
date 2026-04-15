@@ -33,8 +33,13 @@ class ColorTransform {
     /** @brief Reset to identity (no transform). */
     void reset();
 
-    /** @brief Update LUTs from gamma and warmth. */
-    void set(float gamma, int warmth);
+    /** @brief Update LUTs from gamma, warmth, and tint.
+     *
+     *  warmth: R↔B balance (positive = warmer/more red, negative = cooler/more blue)
+     *  tint:   G axis     (positive = more green, negative = more magenta)
+     *  Together these form a standard 2-axis white-balance correction.
+     */
+    void set(float gamma, int warmth, int tint);
 
     /** @brief True if the transform is identity (no-op). */
     bool is_identity() const {

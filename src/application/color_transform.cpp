@@ -21,27 +21,30 @@ void ColorTransform::reset() {
     identity_ = true;
 }
 
-void ColorTransform::set(float gamma, int warmth) {
+void ColorTransform::set(float gamma, int warmth, int tint) {
     gamma = std::clamp(gamma, 0.5f, 2.0f);
     warmth = std::clamp(warmth, -50, 50);
+    tint = std::clamp(tint, -50, 50);
 
-    if (std::fabs(gamma - 1.0f) < 0.01f && warmth == 0) {
+    if (std::fabs(gamma - 1.0f) < 0.01f && warmth == 0 && tint == 0) {
         reset();
         return;
     }
 
-    // warmth ±50 maps to ±25% R/B shift relative to G channel.
-    const float r_scale = 1.0f + warmth * 0.005f;
-    const float b_scale = 1.0f - warmth * 0.005f;
+    // warmth ±50 = ±25% R/B opposing shift (white-balance temperature)
+    // tint   ±50 = ±25% G shift opposite R/B (white-balance tint, fixes
+    //              magenta/green casts that warmth can't touch)
+    const float r_scale = 1.0f + warmth * 0.005f - tint * 0.0025f;
+    const float g_scale = 1.0f + tint * 0.005f;
+    const float b_scale = 1.0f - warmth * 0.005f - tint * 0.0025f;
     const float inv_gamma = 1.0f / gamma;
 
     for (int i = 0; i < 256; ++i) {
         const float n = static_cast<float>(i) / 255.0f;
-        const float curved = std::pow(n, inv_gamma);
-        const float g = curved * 255.0f;
-        r_lut_[i] = clamp_u8(static_cast<int>(std::lround(g * r_scale)));
-        g_lut_[i] = clamp_u8(static_cast<int>(std::lround(g)));
-        b_lut_[i] = clamp_u8(static_cast<int>(std::lround(g * b_scale)));
+        const float curved = std::pow(n, inv_gamma) * 255.0f;
+        r_lut_[i] = clamp_u8(static_cast<int>(std::lround(curved * r_scale)));
+        g_lut_[i] = clamp_u8(static_cast<int>(std::lround(curved * g_scale)));
+        b_lut_[i] = clamp_u8(static_cast<int>(std::lround(curved * b_scale)));
     }
     identity_ = false;
 }

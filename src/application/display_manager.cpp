@@ -498,10 +498,11 @@ bool DisplayManager::init(const Config& config) {
         helix::Config* cfg = helix::Config::get_instance();
         float gamma = static_cast<float>(cfg->get<double>("/display/gamma", 1.0));
         int warmth = cfg->get<int>("/display/warmth", 0);
-        m_color_transform.set(gamma, warmth);
+        int tint = cfg->get<int>("/display/tint", 0);
+        m_color_transform.set(gamma, warmth, tint);
         if (!m_color_transform.is_identity()) {
-            spdlog::info("[DisplayManager] Color transform active: gamma={:.2f}, warmth={}",
-                         gamma, warmth);
+            spdlog::info("[DisplayManager] Color transform active: gamma={:.2f}, warmth={}, tint={}",
+                         gamma, warmth, tint);
         }
     }
 
@@ -1554,12 +1555,12 @@ void DisplayManager::install_color_transform_hook() {
     spdlog::debug("[DisplayManager] Color transform flush hook installed");
 }
 
-void DisplayManager::set_color_transform(float gamma, int warmth) {
-    m_color_transform.set(gamma, warmth);
+void DisplayManager::set_color_transform(float gamma, int warmth, int tint) {
+    m_color_transform.set(gamma, warmth, tint);
     if (m_display) {
         // Force a full repaint so the new LUT is visible immediately.
         lv_obj_invalidate(lv_display_get_screen_active(m_display));
     }
-    spdlog::info("[DisplayManager] Color transform: gamma={:.2f}, warmth={} (identity={})",
-                 gamma, warmth, m_color_transform.is_identity());
+    spdlog::info("[DisplayManager] Color transform: gamma={:.2f}, warmth={}, tint={} (identity={})",
+                 gamma, warmth, tint, m_color_transform.is_identity());
 }
