@@ -7,6 +7,7 @@
 
 #include "app_globals.h"
 #include "config.h"
+#include "data_root_resolver.h"
 #include "print_start_analyzer.h"
 #include "printer_discovery.h"
 #include "printer_state.h"
@@ -65,15 +66,16 @@ struct PrinterDatabase {
 
         // Phase 1: Load bundled database
         try {
-            std::ifstream file("config/printer_database.json");
+            const std::string db_path = helix::find_readable("printer_database.json");
+            std::ifstream file(db_path);
             if (!file.is_open()) {
                 NOTIFY_ERROR("Could not load printer database");
-                LOG_ERROR_INTERNAL("[PrinterDetector] Failed to open config/printer_database.json");
+                LOG_ERROR_INTERNAL("[PrinterDetector] Failed to open {}", db_path);
                 return false;
             }
 
             data = json::parse(file);
-            loaded_files.push_back("config/printer_database.json");
+            loaded_files.push_back(db_path);
             spdlog::debug("[PrinterDetector] Loaded bundled printer database version {}",
                           data.value("version", "unknown"));
         } catch (const std::exception& e) {
@@ -129,7 +131,7 @@ struct PrinterDatabase {
 
   private:
     void merge_user_extensions() {
-        const std::string extensions_dir = "config/printer_database.d";
+        const std::string extensions_dir = helix::writable_path("printer_database.d");
 
         // Check if extensions directory exists
         if (!fs::exists(extensions_dir) || !fs::is_directory(extensions_dir)) {

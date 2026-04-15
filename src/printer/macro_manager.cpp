@@ -3,6 +3,8 @@
 
 #include "macro_manager.h"
 
+#include "data_root_resolver.h"
+
 #include <spdlog/spdlog.h>
 
 #include <algorithm>
@@ -22,14 +24,14 @@ namespace {
  * @brief Load macro content from config file
  * @return File content, or empty string if not found
  *
- * Tries multiple paths in order:
- * 1. config/helix_macros.cfg (relative to app)
- * 2. /opt/helixscreen/config/helix_macros.cfg (installed location)
+ * Resolves via find_readable: writable config dir (user override), then
+ * shipped seed under HELIX_DATA_DIR/assets/config/. Falls back to
+ * /opt/helixscreen/config/ for legacy AD5M Klipper-mod installs.
  */
 std::string load_macro_file() {
     const std::vector<std::string> paths = {
-        "config/helix_macros.cfg",                  // Development/relative
-        "/opt/helixscreen/config/helix_macros.cfg", // Linux installed
+        helix::find_readable("helix_macros.cfg"),
+        "/opt/helixscreen/config/helix_macros.cfg", // Legacy AD5M install
     };
 
     for (const auto& path : paths) {

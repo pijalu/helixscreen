@@ -5,6 +5,7 @@
 #include "ui_update_queue.h"
 
 #include "app_globals.h"
+#include "data_root_resolver.h"
 #include "helix_version.h"
 #include "hv/requests.h"
 #include "moonraker_api.h"
@@ -416,8 +417,8 @@ json DebugBundleCollector::sanitize_json(const json& input, int depth) {
 json DebugBundleCollector::collect_sanitized_settings() {
     // Try common config locations for settings.json
     std::vector<std::string> settings_paths = {
-        "config/settings.json",
-        "config/helixconfig.json",
+        helix::writable_path("settings.json"),
+        helix::writable_path("helixconfig.json"),
     };
 
     const char* home = std::getenv("HOME");

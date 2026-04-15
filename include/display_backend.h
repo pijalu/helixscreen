@@ -19,6 +19,7 @@
 #include <regex>
 #include <string>
 
+#include "data_root_resolver.h"
 #include "touch_calibration.h"
 
 /**
@@ -133,10 +134,12 @@ inline int detect_panel_orientation_from_cmdline() {
  * @return Rotation in degrees (0, 90, 180, 270)
  */
 inline int read_config_rotation(int default_value = 0) {
-    const char* paths[] = {"config/settings.json", "config/helixconfig.json",
-                           "helixconfig.json", "/opt/helixscreen/helixconfig.json"};
+    const std::string main_settings = helix::writable_path("settings.json");
+    const std::string main_legacy = helix::writable_path("helixconfig.json");
+    const std::string paths[] = {main_settings, main_legacy, "helixconfig.json",
+                                 "/opt/helixscreen/helixconfig.json"};
 
-    for (const char* path : paths) {
+    for (const auto& path : paths) {
         std::ifstream file(path);
         if (!file.is_open()) {
             continue;

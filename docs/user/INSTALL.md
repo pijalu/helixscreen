@@ -15,7 +15,7 @@ This guide walks you through installing HelixScreen on your 3D printer's touchsc
 - [Creality K1 Installation](#creality-k1-series)
 - [Creality K2 Series](#creality-k2-series-untested)
 - [FlashForge Adventurer 5X (Testing)](#flashforge-adventurer-5x-testing)
-- [Elegoo Centauri Carbon 1 (Testing)](#elegoo-centauri-carbon-1-testing)
+- [Elegoo Centauri Carbon 1](#elegoo-centauri-carbon)
 - [Creality Sonic Pad](#creality-sonic-pad)
 - [Snapmaker U1](#snapmaker-u1)
 - [First Boot & Setup Wizard](#first-boot--setup-wizard)
@@ -224,9 +224,9 @@ wget -O - http://dl.helixscreen.org/install.sh | sh
 
 **If you're testing on this printer**, please report your results via [GitHub Issues](https://github.com/prestonbrown/helixscreen/issues) or [Discord](https://discord.gg/RZCT2StKhr).
 
-### Elegoo Centauri Carbon (Testing)
+### Elegoo Centauri Carbon
 
-> **Active testing is underway on this platform.** Prebuilt binaries ship in releases and the installer has auto-detection support. Requires the community [OpenCentauri COSMOS firmware](https://docs.opencentauri.cc/klipper-conversion/cosmos/) — stock Elegoo firmware is not supported (no SSH, no Klipper, no Moonraker).
+> **Tested and working.** Prebuilt binaries ship in releases and the installer has auto-detection support. Requires the community [OpenCentauri COSMOS firmware](https://docs.opencentauri.cc/klipper-conversion/cosmos/) — stock Elegoo firmware is not supported (no SSH, no Klipper, no Moonraker).
 
 - **Hardware:**
   - Elegoo Centauri Carbon (4.3" 480×272 touchscreen, Allwinner R528, armv7l)

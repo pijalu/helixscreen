@@ -3,6 +3,8 @@
 
 #include "theme_loader.h"
 
+#include "data_root_resolver.h"
+
 #include <spdlog/spdlog.h>
 
 #include <algorithm>
@@ -347,11 +349,11 @@ bool save_theme_to_file(const ThemeData& theme, const std::string& filepath) {
 }
 
 std::string get_themes_directory() {
-    return get_user_config_dir() + "/themes";
+    return writable_path("themes");
 }
 
 std::string get_default_themes_directory() {
-    return "config/themes/defaults";
+    return get_data_dir() + "/assets/config/themes/defaults";
 }
 
 bool has_default_theme(const std::string& filename) {

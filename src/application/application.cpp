@@ -203,8 +203,9 @@ namespace {
 // Android lifecycle: background/foreground state set from SDL event handler
 std::atomic<bool> s_app_backgrounded{false};
 
-// Crash loop detection marker file path
-constexpr const char* CRASH_MARKER_PATH = "config/.crash_restart_count";
+// Crash loop detection marker file. Routed through the writable config
+// dir so it survives RO-rootfs platforms (Yocto squashfs etc.).
+inline std::string crash_marker_path() { return helix::writable_path(".crash_restart_count"); }
 
 /**
  * @brief Recursively invalidate all widgets in the tree
@@ -246,13 +247,13 @@ extern "C" void helix_notify_app_foregrounded() {
     spdlog::info("[Application] App returning to foreground");
 }
 
-static constexpr const char* INSTANCE_LOCK_PATH = "config/.helix-screen.lock";
+static std::string instance_lock_path() { return helix::writable_path(".helix-screen.lock"); }
 
 bool Application::acquire_instance_lock() {
-    m_lock_fd = open(INSTANCE_LOCK_PATH, O_CREAT | O_RDWR, 0644);
+    const std::string lock_path = instance_lock_path();
+    m_lock_fd = open(lock_path.c_str(), O_CREAT | O_RDWR, 0644);
     if (m_lock_fd < 0) {
-        spdlog::error("[Application] Cannot open lock file {}: {}", INSTANCE_LOCK_PATH,
-                      strerror(errno));
+        spdlog::error("[Application] Cannot open lock file {}: {}", lock_path, strerror(errno));
         return false;
     }
     if (flock(m_lock_fd, LOCK_EX | LOCK_NB) < 0) {
@@ -319,7 +320,7 @@ int Application::run(int argc, char** argv) {
     // Uses the config directory for the crash file so TelemetryManager can find it on next startup
     // Skip in test mode — don't record or report crashes during development
     if (!get_runtime_config()->is_test_mode()) {
-        crash_handler::install("config/crash.txt");
+        crash_handler::install(helix::writable_path("crash.txt"));
     }
 
     // Install graceful shutdown signal handlers (Ctrl+C, kill)
@@ -344,7 +345,7 @@ int Application::run(int argc, char** argv) {
         // Read existing timestamps and filter to recent window
         std::vector<long long> recent_timestamps;
         {
-            std::ifstream in(CRASH_MARKER_PATH);
+            std::ifstream in(crash_marker_path());
             long long ts;
             while (in >> ts) {
                 if (now_epoch - ts < CRASH_WINDOW_SEC) {
@@ -357,11 +358,11 @@ int Application::run(int argc, char** argv) {
             spdlog::error("[Application] Crash loop detected: {} restarts within {}s — "
                           "halting to prevent infinite restart loop",
                           recent_timestamps.size(), CRASH_WINDOW_SEC);
-            std::filesystem::remove(CRASH_MARKER_PATH);
+            std::filesystem::remove(crash_marker_path());
             return 1;
         } else {
             // Write filtered timestamps plus current restart
-            std::ofstream out(CRASH_MARKER_PATH, std::ios::trunc);
+            std::ofstream out(crash_marker_path(), std::ios::trunc);
             for (auto ts : recent_timestamps) {
                 out << ts << "\n";
             }
@@ -481,7 +482,7 @@ int Application::run(int argc, char** argv) {
     TelemetryManager::instance().record_memory_snapshot("post_telemetry_init");
 
     // Initialize PrinterImageManager (custom image import/resolution)
-    helix::PrinterImageManager::instance().init("config");
+    helix::PrinterImageManager::instance().init(helix::get_user_config_dir());
 
     // Phase 9c: Initialize panel subjects with API injection
     // Panels receive API at construction - no deferred set_api() needed
@@ -958,7 +959,7 @@ bool Application::init_display() {
 
     // Initialize tips manager
     TipsManager* tips_mgr = TipsManager::get_instance();
-    if (!tips_mgr->init("config/printing_tips.json")) {
+    if (!tips_mgr->init(helix::find_readable("printing_tips.json"))) {
         spdlog::warn("[Application] Failed to initialize tips manager");
     }
 
@@ -3489,7 +3490,7 @@ void Application::shutdown() {
     crash_handler::uninstall();
 
     // Clean shutdown means no crash loop -- remove the marker file
-    std::filesystem::remove(CRASH_MARKER_PATH);
+    std::filesystem::remove(crash_marker_path());
 
     // Stop hot reloader thread before anything else
     if (m_hot_reloader) {

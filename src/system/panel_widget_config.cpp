@@ -4,6 +4,7 @@
 #include "panel_widget_config.h"
 
 #include "config.h"
+#include "data_root_resolver.h"
 #include "grid_layout.h"
 #include "helix-xml/src/xml/lv_xml.h"
 #include "panel_widget_registry.h"
@@ -446,7 +447,7 @@ std::vector<PanelWidgetEntry> PanelWidgetConfig::build_default_grid() {
     };
     std::vector<AnchorPlacement> anchors;
 
-    std::ifstream layout_file("config/default_layout.json");
+    std::ifstream layout_file(helix::find_readable("default_layout.json"));
     if (layout_file.is_open()) {
         try {
             nlohmann::json layout = nlohmann::json::parse(layout_file);

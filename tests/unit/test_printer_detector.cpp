@@ -2,7 +2,13 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include "config.h"
+#include "data_root_resolver.h"
 #include "printer_detector.h"
+
+#include <cstdlib>
+#include <filesystem>
+#include <fstream>
+#include <unistd.h>
 
 #include "../catch_amalgamated.hpp"
 
@@ -3207,4 +3213,118 @@ TEST_CASE_METHOD(PrinterDetectorFixture, "PrinterDetector: Generic printer has e
     REQUIRE(result.type_name == "Voron 2.4");
     // Voron has no preset in the database
     REQUIRE(result.preset.empty());
+}
+
+// ============================================================================
+// Seed-config resolution: HELIX_DATA_DIR fallback
+// ============================================================================
+
+namespace {
+
+/// RAII guard that restores an env var on destruction.
+struct EnvGuard {
+    std::string name;
+    std::string original;
+    bool was_set;
+
+    explicit EnvGuard(const char* n) : name(n) {
+        const char* v = std::getenv(n);
+        was_set = (v != nullptr);
+        if (was_set)
+            original = v;
+        unsetenv(n);
+    }
+    ~EnvGuard() {
+        if (was_set)
+            setenv(name.c_str(), original.c_str(), 1);
+        else
+            unsetenv(name.c_str());
+    }
+};
+
+/// Restores cwd on destruction so failed/early-exiting tests don't pollute.
+struct CwdGuard {
+    std::string original;
+    CwdGuard() {
+        char buf[4096];
+        original = getcwd(buf, sizeof(buf)) != nullptr ? buf : "";
+    }
+    ~CwdGuard() {
+        if (!original.empty()) {
+            int r = chdir(original.c_str());
+            (void)r;
+        }
+    }
+};
+
+} // namespace
+
+TEST_CASE("PrinterDetector: loads printer_database.json from HELIX_DATA_DIR/assets/config/",
+          "[printer][seed_resolution]") {
+    namespace fs = std::filesystem;
+    auto temp_root = fs::temp_directory_path() /
+                     ("test_printer_detector_seed_" + std::to_string(getpid()));
+
+    // Use a nested scope so guards (cwd + env) restore BEFORE the final
+    // reload that puts the singleton back to its real-database state.
+    {
+        EnvGuard data_g("HELIX_DATA_DIR");
+        EnvGuard config_g("HELIX_CONFIG_DIR");
+        CwdGuard cwd_g;
+
+        fs::remove_all(temp_root);
+        fs::create_directories(temp_root / "assets" / "config");
+        fs::create_directories(temp_root / "config_dir");
+
+        std::ofstream(temp_root / "assets" / "config" / "printer_database.json")
+            << R"({
+                "version": "test-seed-1.0",
+                "printers": [
+                    {
+                        "id": "test_printer",
+                        "name": "Seed Test Printer",
+                        "manufacturer": "TestCorp",
+                        "kinematics": "cartesian",
+                        "heuristics": [
+                            {
+                                "type": "hostname_match",
+                                "field": "hostname",
+                                "pattern": "test-seed-host",
+                                "confidence": 100,
+                                "reason": "Test seed host match"
+                            }
+                        ]
+                    }
+                ]
+            })";
+
+        setenv("HELIX_DATA_DIR", temp_root.c_str(), 1);
+        setenv("HELIX_CONFIG_DIR", (temp_root / "config_dir").c_str(), 1);
+
+        // chdir away from project root so a stray "config/printer_database.json"
+        // can't shadow the seed lookup.
+        REQUIRE(chdir(temp_root.c_str()) == 0);
+
+        PrinterDetector::reload();
+        auto status = PrinterDetector::get_load_status();
+
+        REQUIRE(status.loaded);
+        REQUIRE(status.total_printers == 1);
+        REQUIRE(!status.loaded_files.empty());
+        REQUIRE(status.loaded_files[0].find(temp_root.string()) == 0);
+
+        PrinterHardwareData hw;
+        hw.heaters = {"extruder", "heater_bed"};
+        hw.hostname = "test-seed-host";
+        auto result = PrinterDetector::detect(hw);
+        REQUIRE(result.detected());
+        REQUIRE(result.type_name == "Seed Test Printer");
+    }
+
+    // Guards restored: env unset, cwd back at project root. Reload puts
+    // PrinterDetector back to the real bundled database for any test that
+    // runs after this one in the same binary.
+    PrinterDetector::reload();
+
+    fs::remove_all(temp_root);
 }

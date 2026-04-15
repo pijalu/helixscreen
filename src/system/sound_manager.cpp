@@ -5,6 +5,7 @@
 
 #include "audio_settings_manager.h"
 #include "config.h"
+#include "data_root_resolver.h"
 #include "m300_sound_backend.h"
 #include "moonraker_client.h"
 #include "pwm_sound_backend.h"
@@ -212,24 +213,30 @@ std::string SoundManager::get_current_theme() const {
 std::vector<std::string> SoundManager::get_available_themes() const {
     std::vector<std::string> themes;
 
-    DIR* dir = opendir("config/sounds");
-    if (!dir) {
-        spdlog::debug("[SoundManager] Could not open config/sounds/");
-        return themes;
-    }
-
-    struct dirent* entry;
-    while ((entry = readdir(dir)) != nullptr) {
-        std::string filename = entry->d_name;
-        // Match *.json files
-        if (filename.size() > 5 && filename.substr(filename.size() - 5) == ".json") {
-            // Strip .json extension to get theme name
-            themes.push_back(filename.substr(0, filename.size() - 5));
+    // Sound themes are RO seeds shipped with the package; user themes
+    // (if any) are merged from the writable config dir.
+    auto enumerate = [&themes](const std::string& sounds_dir) {
+        DIR* dir = opendir(sounds_dir.c_str());
+        if (!dir) {
+            spdlog::debug("[SoundManager] Could not open {}", sounds_dir);
+            return;
         }
-    }
-    closedir(dir);
+        struct dirent* entry;
+        while ((entry = readdir(dir)) != nullptr) {
+            std::string filename = entry->d_name;
+            if (filename.size() > 5 && filename.substr(filename.size() - 5) == ".json") {
+                themes.push_back(filename.substr(0, filename.size() - 5));
+            }
+        }
+        closedir(dir);
+    };
 
+    enumerate(helix::get_data_dir() + "/assets/config/sounds");
+    enumerate(helix::writable_path("sounds"));
+
+    // Dedupe before sorting (user themes can shadow shipped ones by name).
     std::sort(themes.begin(), themes.end());
+    themes.erase(std::unique(themes.begin(), themes.end()), themes.end());
     return themes;
 }
 
@@ -289,7 +296,7 @@ std::shared_ptr<SoundBackend> SoundManager::create_backend() {
 }
 
 void SoundManager::load_theme(const std::string& name) {
-    std::string path = "config/sounds/" + name + ".json";
+    std::string path = helix::find_readable("sounds/" + name + ".json");
     auto theme = SoundThemeParser::load_from_file(path);
 
     if (theme) {
@@ -301,7 +308,7 @@ void SoundManager::load_theme(const std::string& name) {
         // If no theme is loaded at all, try default as fallback
         if (current_theme_.sounds.empty() && name != "default") {
             spdlog::info("[SoundManager] Attempting fallback to 'default' theme");
-            auto fallback = SoundThemeParser::load_from_file("config/sounds/default.json");
+            auto fallback = SoundThemeParser::load_from_file(helix::find_readable("sounds/default.json"));
             if (fallback) {
                 current_theme_ = std::move(*fallback);
                 theme_name_ = "default";

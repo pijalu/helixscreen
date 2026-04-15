@@ -68,6 +68,7 @@ SPLASH_EXTRA_OBJS := \
     $(BUILD_DIR)/splash/config.o \
     $(BUILD_DIR)/splash/config_backup.o \
     $(BUILD_DIR)/splash/backlight_backend.o \
+    $(BUILD_DIR)/splash/data_root_resolver.o \
     $(BUILD_DIR)/splash/ui_notification_stub.o \
     $(BUILD_DIR)/splash/drm_mode_matching.o \
     $(BUILD_DIR)/splash/fbdev_size_helper.o \
@@ -81,6 +82,11 @@ $(BUILD_DIR)/splash/config.o: src/system/config.cpp $(LIBHV_LIB) $(LIBHV_JSON_HE
 
 # Compile config_backup for splash (config.cpp references it)
 $(BUILD_DIR)/splash/config_backup.o: src/system/config_backup.cpp $(LIBHV_LIB) $(LIBHV_JSON_HEADER) | $(BUILD_DIR)/splash
+	@echo "[CXX] $< (splash)"
+	$(Q)$(CXX) $(SPLASH_CXXFLAGS) $(DEPFLAGS) -c $< -o $@
+
+# Compile data_root_resolver for splash (zero deps)
+$(BUILD_DIR)/splash/data_root_resolver.o: src/application/data_root_resolver.cpp | $(BUILD_DIR)/splash
 	@echo "[CXX] $< (splash)"
 	$(Q)$(CXX) $(SPLASH_CXXFLAGS) $(DEPFLAGS) -c $< -o $@
 

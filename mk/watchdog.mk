@@ -77,6 +77,7 @@ $(BUILD_DIR)/watchdog/%.o: src/%.cpp $(LIBHV_LIB) $(LIBHV_JSON_HEADER) | $(BUILD
 WATCHDOG_EXTRA_OBJS := $(BUILD_DIR)/watchdog/config.o \
                        $(BUILD_DIR)/watchdog/config_backup.o \
                        $(BUILD_DIR)/watchdog/backlight_backend.o \
+                       $(BUILD_DIR)/watchdog/data_root_resolver.o \
                        $(BUILD_DIR)/watchdog/logging_init.o \
                        $(BUILD_DIR)/watchdog/ui_notification_stub.o \
                        $(BUILD_DIR)/watchdog/drm_mode_matching.o \
@@ -96,6 +97,12 @@ $(BUILD_DIR)/watchdog/config_backup.o: src/system/config_backup.cpp $(LIBHV_LIB)
 
 # Compile backlight backend for watchdog (with HELIX_WATCHDOG to skip runtime_config dependency)
 $(BUILD_DIR)/watchdog/backlight_backend.o: src/api/backlight_backend.cpp $(LIBHV_LIB) $(LIBHV_JSON_HEADER) | $(BUILD_DIR)/watchdog
+	@echo "[CXX] $< (watchdog)"
+	$(Q)$(CXX) $(WATCHDOG_CXXFLAGS) $(DEPFLAGS) -c $< -o $@
+
+# Compile data_root_resolver for watchdog (zero deps; provides writable_path,
+# get_user_config_dir, etc. for HELIX_CONFIG_DIR-aware path resolution)
+$(BUILD_DIR)/watchdog/data_root_resolver.o: src/application/data_root_resolver.cpp | $(BUILD_DIR)/watchdog
 	@echo "[CXX] $< (watchdog)"
 	$(Q)$(CXX) $(WATCHDOG_CXXFLAGS) $(DEPFLAGS) -c $< -o $@
 

@@ -127,7 +127,7 @@ See [docs/devel/GALLERY.md](docs/devel/GALLERY.md) for the full gallery.
 | Flashforge AD5X | MIPS32 | Tested |
 | QIDI Q2, Max 4 | aarch64 | Supported¹ |
 | Sovol SV06 / SV08 | Pi build | Tested |
-| Elegoo Centauri Carbon | Dedicated build | Active testing² |
+| Elegoo Centauri Carbon | Dedicated build | Tested² |
 | x86 Mini PC (Debian) | x86_64 | Tested |
 | macOS / Linux desktop | x86_64 / ARM64 | Development / CI |
 
