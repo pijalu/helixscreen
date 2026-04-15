@@ -41,6 +41,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <ctime>
+#include <deque>
 #include <filesystem>
 #include <fstream>
 #include <lvgl.h>
@@ -60,6 +61,23 @@ static constexpr int DEFAULT_WIDTH = 800;
 static constexpr int DEFAULT_HEIGHT = 480;
 static constexpr int FRAME_DELAY_US = 16000; // ~60 FPS
 static constexpr int DEFAULT_AUTO_RESTART_SEC = 30;
+
+// Restart-loop detection: if the child exits non-zero (deliberate failure exit,
+// not a crash signal) too often within a short window, the watchdog gives up
+// and exits with RESTART_LOOP_EXIT_CODE so the system service manager (systemd,
+// inittab, init script) sees the failure rather than the watchdog quietly
+// busy-restarting forever at the 3-second backoff cadence. Typical trigger:
+// "another instance is already running", config-validation failure, missing
+// shared library — conditions that won't resolve via blind retry.
+//
+// Crash-handler exits (128..159) and signal terminations are EXCLUDED from the
+// counter: those have their own crash-recovery dialog + crash-report pipeline
+// and represent transient faults the user is already being notified about.
+// Counting them here would suppress the recovery dialog after a few crashes,
+// which is worse UX than letting the dialog keep appearing.
+static constexpr int RESTART_LOOP_MAX_FAILURES = 5;
+static constexpr int RESTART_LOOP_WINDOW_SEC = 60;
+static constexpr int RESTART_LOOP_EXIT_CODE = 42;
 
 // UI Colors (dark theme, matches main app)
 static constexpr uint32_t BG_COLOR_DARK = 0x121212;
@@ -837,6 +855,10 @@ static int run_watchdog(const WatchdogArgs& args) {
 
     bool first_launch = true;
 
+    // Rolling window of recent non-zero deliberate-exit timestamps. See the
+    // RESTART_LOOP_* constants at the top of this file for rationale.
+    std::deque<std::chrono::steady_clock::time_point> recent_failures;
+
     while (!g_quit) {
         // Start or adopt splash screen before launching helix-screen.
         // On first launch, prefer an externally-started splash (args.splash_pid)
@@ -912,8 +934,34 @@ static int run_watchdog(const WatchdogArgs& args) {
             // failure code — "another instance running", config validation,
             // CLI arg error, etc. Log and restart with backoff to avoid
             // busy-looping when the condition persists.
-            spdlog::warn("[Watchdog] Child exited with code {} (not a crash), restarting in 3s",
-                         crash.exit_code);
+            //
+            // Also track these in a rolling window: if they keep happening,
+            // the underlying problem won't fix itself by retrying, so bail
+            // out and let the service manager (or a human) see the failure
+            // rather than spamming logs at 3s cadence forever.
+            auto now = std::chrono::steady_clock::now();
+            const auto window = std::chrono::seconds(RESTART_LOOP_WINDOW_SEC);
+            while (!recent_failures.empty() && (now - recent_failures.front()) > window) {
+                recent_failures.pop_front();
+            }
+            recent_failures.push_back(now);
+
+            if (static_cast<int>(recent_failures.size()) > RESTART_LOOP_MAX_FAILURES) {
+                spdlog::critical(
+                    "[Watchdog] Restart loop detected: child exited non-zero {} times "
+                    "in the last {}s (last exit code: {}). Giving up to avoid busy-loop; "
+                    "exiting watchdog with code {}. Investigate the underlying failure "
+                    "(another instance running, bad config, missing library, etc.).",
+                    recent_failures.size(), RESTART_LOOP_WINDOW_SEC, crash.exit_code,
+                    RESTART_LOOP_EXIT_CODE);
+                cleanup_splash(g_splash_pid);
+                return RESTART_LOOP_EXIT_CODE;
+            }
+
+            spdlog::warn("[Watchdog] Child exited with code {} (not a crash), restarting in 3s "
+                         "(failure {}/{} in {}s window)",
+                         crash.exit_code, recent_failures.size(), RESTART_LOOP_MAX_FAILURES,
+                         RESTART_LOOP_WINDOW_SEC);
             sleep(3);
             continue;
         }
