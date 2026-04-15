@@ -164,47 +164,54 @@ void TimelapseSettingsOverlay::fetch_settings() {
 
     spdlog::debug("[{}] Fetching timelapse settings from API", get_name());
 
+    auto tok = lifetime_.token();
     api_->timelapse().get_timelapse_settings(
-        [this](const TimelapseSettings& settings) {
-            spdlog::info("[{}] Got timelapse settings: enabled={} mode={} fps={} autorender={}",
-                         get_name(), settings.enabled, settings.mode, settings.output_framerate,
-                         settings.autorender);
+        [this, tok](const TimelapseSettings& settings) {
+            if (tok.expired()) return;
+            tok.defer([this, settings]() {
+                spdlog::info(
+                    "[{}] Got timelapse settings: enabled={} mode={} fps={} autorender={}",
+                    get_name(), settings.enabled, settings.mode, settings.output_framerate,
+                    settings.autorender);
 
-            current_settings_ = settings;
-            settings_loaded_ = true;
+                current_settings_ = settings;
+                settings_loaded_ = true;
 
-            // Update UI on main thread
-            if (enable_switch_) {
-                if (settings.enabled) {
-                    lv_obj_add_state(enable_switch_, LV_STATE_CHECKED);
-                } else {
-                    lv_obj_remove_state(enable_switch_, LV_STATE_CHECKED);
+                if (enable_switch_) {
+                    if (settings.enabled) {
+                        lv_obj_add_state(enable_switch_, LV_STATE_CHECKED);
+                    } else {
+                        lv_obj_remove_state(enable_switch_, LV_STATE_CHECKED);
+                    }
                 }
-            }
 
-            if (mode_dropdown_) {
-                int mode_index = (settings.mode == "hyperlapse") ? 1 : 0;
-                lv_dropdown_set_selected(mode_dropdown_, mode_index);
-                update_mode_info(mode_index);
-            }
-
-            if (framerate_dropdown_) {
-                int fps_index = framerate_to_index(settings.output_framerate);
-                lv_dropdown_set_selected(framerate_dropdown_, fps_index);
-            }
-
-            if (autorender_switch_) {
-                if (settings.autorender) {
-                    lv_obj_add_state(autorender_switch_, LV_STATE_CHECKED);
-                } else {
-                    lv_obj_remove_state(autorender_switch_, LV_STATE_CHECKED);
+                if (mode_dropdown_) {
+                    int mode_index = (settings.mode == "hyperlapse") ? 1 : 0;
+                    lv_dropdown_set_selected(mode_dropdown_, mode_index);
+                    update_mode_info(mode_index);
                 }
-            }
+
+                if (framerate_dropdown_) {
+                    int fps_index = framerate_to_index(settings.output_framerate);
+                    lv_dropdown_set_selected(framerate_dropdown_, fps_index);
+                }
+
+                if (autorender_switch_) {
+                    if (settings.autorender) {
+                        lv_obj_add_state(autorender_switch_, LV_STATE_CHECKED);
+                    } else {
+                        lv_obj_remove_state(autorender_switch_, LV_STATE_CHECKED);
+                    }
+                }
+            });
         },
-        [this](const MoonrakerError& error) {
-            spdlog::error("[{}] Failed to fetch timelapse settings: {}", get_name(), error.message);
-            // Use defaults on error
-            settings_loaded_ = false;
+        [this, tok](const MoonrakerError& error) {
+            if (tok.expired()) return;
+            tok.defer([this, error]() {
+                spdlog::error("[{}] Failed to fetch timelapse settings: {}", get_name(),
+                              error.message);
+                settings_loaded_ = false;
+            });
         });
 }
 

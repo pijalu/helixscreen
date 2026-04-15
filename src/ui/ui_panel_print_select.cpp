@@ -1377,7 +1377,7 @@ void PrintSelectPanel::process_metadata_result(size_t i, const std::string& file
                         // Success callback - extract thumbnails from gcode content
                         [self, file_idx, filename_copy, gcode_path,
                          ctx](const std::string& content) {
-                            // Extract thumbnails from gcode content
+                            if (!ctx.is_valid()) return;
                             auto thumbnails =
                                 helix::gcode::extract_thumbnails_from_content(content);
 
@@ -1408,7 +1408,9 @@ void PrintSelectPanel::process_metadata_result(size_t i, const std::string& file
                             // (avoids runtime 300x300→160x160 scaling on every frame)
                             get_thumbnail_cache().fetch_for_card_view(
                                 self->api_, cache_key, ctx,
-                                [self, file_idx, filename_copy](const std::string& optimized) {
+                                [self, file_idx, filename_copy,
+                                 ctx](const std::string& optimized) {
+                                    if (!ctx.is_valid()) return;
                                     struct ExtractedThumbUpdate {
                                         PrintSelectPanel* panel;
                                         size_t index;
@@ -1432,14 +1434,16 @@ void PrintSelectPanel::process_metadata_result(size_t i, const std::string& file
                                             }
                                         });
                                 },
-                                [self, filename_copy](const std::string& error) {
+                                [self, filename_copy, ctx](const std::string& error) {
+                                    if (!ctx.is_valid()) return;
                                     spdlog::warn(
                                         "[{}] Failed to prescale extracted thumbnail for {}: {}",
                                         self->get_name(), filename_copy, error);
                                 });
                         },
                         // Error callback - silent fail (file might be too small or inaccessible)
-                        [self, gcode_path](const MoonrakerError& error) {
+                        [self, gcode_path, ctx](const MoonrakerError& error) {
+                            if (!ctx.is_valid()) return;
                             spdlog::debug("[{}] Failed to download gcode header for {}: {}",
                                           self->get_name(), gcode_path, error.message);
                         });
