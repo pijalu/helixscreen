@@ -525,17 +525,35 @@ AmsError AmsBackendAd5xIfs::unload_filament(int slot_index) {
         action_start_time_ = std::chrono::steady_clock::now();
     }
 
-    std::string unload_cmd;
-    if (slot_index >= 0 && slot_index < NUM_PORTS) {
-        int port = slot_index + 1;
-        spdlog::info("{} Unloading filament from port {}", backend_log_tag(), port);
-        unload_cmd = "REMOVE_PRUTOK_IFS PRUTOK=" + std::to_string(port);
+    int current_slot;
+    bool head_filament;
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        current_slot = system_info_.current_slot;
+        head_filament = head_filament_;
+    }
+
+    std::string unload_cmd = select_unload_command(slot_index, current_slot, head_filament);
+    if (unload_cmd == "IFS_REMOVE_PRUTOK") {
+        spdlog::info("{} Unloading current filament (slot {})", backend_log_tag(), slot_index);
     } else {
-        spdlog::info("{} Unloading current filament", backend_log_tag());
-        unload_cmd = "IFS_REMOVE_PRUTOK";
+        spdlog::info("{} Unloading filament from port {}", backend_log_tag(), slot_index + 1);
     }
 
     return ensure_homed_then(std::move(unload_cmd));
+}
+
+std::string AmsBackendAd5xIfs::select_unload_command(int slot_index, int current_slot,
+                                                    bool head_filament) {
+    const bool unload_active = (slot_index < 0) ||
+                               (slot_index == current_slot && head_filament);
+    if (unload_active) {
+        return "IFS_REMOVE_PRUTOK";
+    }
+    if (slot_index >= 0 && slot_index < NUM_PORTS) {
+        return "REMOVE_PRUTOK_IFS PRUTOK=" + std::to_string(slot_index + 1);
+    }
+    return "IFS_REMOVE_PRUTOK";
 }
 
 AmsError AmsBackendAd5xIfs::select_slot(int slot_index) {

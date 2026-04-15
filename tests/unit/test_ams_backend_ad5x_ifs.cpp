@@ -1440,3 +1440,48 @@ TEST_CASE("AD5X IFS set_slot_info updates port_presence", "[ams][ad5x_ifs]") {
         REQUIRE_FALSE(Ad5xIfsTestAccess::port_presence(backend, 0));
     }
 }
+
+// ==========================================================================
+// select_unload_command — bundle KKZ4XKD2 (prestonbrown/helixscreen)
+// ==========================================================================
+
+TEST_CASE("AD5X IFS select_unload_command", "[ams][ad5x_ifs]") {
+    using Cmd = std::string;
+
+    SECTION("slot_index < 0 → IFS_REMOVE_PRUTOK (current)") {
+        REQUIRE(AmsBackendAd5xIfs::select_unload_command(-1, 2, true) == "IFS_REMOVE_PRUTOK");
+        REQUIRE(AmsBackendAd5xIfs::select_unload_command(-1, -1, false) == "IFS_REMOVE_PRUTOK");
+    }
+
+    SECTION("active slot with head filament → IFS_REMOVE_PRUTOK (avoids per-port macro)") {
+        // Bundle KKZ4XKD2: slot_index=2 (port 3) is active and head sensor true.
+        // Per-port REMOVE_PRUTOK_IFS PRUTOK=3 errors when IFS state disagrees
+        // with our color-latched port_presence — switch to the "current" macro.
+        REQUIRE(AmsBackendAd5xIfs::select_unload_command(2, 2, true) == "IFS_REMOVE_PRUTOK");
+        REQUIRE(AmsBackendAd5xIfs::select_unload_command(0, 0, true) == "IFS_REMOVE_PRUTOK");
+    }
+
+    SECTION("active slot but head empty → per-port unload (lane retract)") {
+        // Filament present in lane but not at head → can't use IFS_REMOVE_PRUTOK,
+        // need explicit per-port command.
+        REQUIRE(AmsBackendAd5xIfs::select_unload_command(2, 2, false) ==
+                Cmd("REMOVE_PRUTOK_IFS PRUTOK=3"));
+    }
+
+    SECTION("non-active slot → per-port unload") {
+        // Unloading a different slot than the active one — must specify port.
+        REQUIRE(AmsBackendAd5xIfs::select_unload_command(0, 2, true) ==
+                Cmd("REMOVE_PRUTOK_IFS PRUTOK=1"));
+        REQUIRE(AmsBackendAd5xIfs::select_unload_command(3, 0, true) ==
+                Cmd("REMOVE_PRUTOK_IFS PRUTOK=4"));
+    }
+
+    SECTION("no active slot (current_slot=-1) → per-port unload") {
+        REQUIRE(AmsBackendAd5xIfs::select_unload_command(2, -1, false) ==
+                Cmd("REMOVE_PRUTOK_IFS PRUTOK=3"));
+    }
+
+    SECTION("out-of-range slot_index → IFS_REMOVE_PRUTOK fallback") {
+        REQUIRE(AmsBackendAd5xIfs::select_unload_command(99, 0, true) == "IFS_REMOVE_PRUTOK");
+    }
+}
