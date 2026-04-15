@@ -112,25 +112,29 @@ void BusThread::loop() {
             }
         }
 
-        // 2. Process pending bus traffic.
-        int r = sd_bus_process(bus_, nullptr);
-        if (r < 0) {
-            fprintf(stderr, "[bt] BusThread sd_bus_process error: %s\n", strerror(-r));
-            running_.store(false);
-            stopping_.store(true);
-            break;
+        // 2. Process pending bus traffic. (Skipped in test mode.)
+        if (!skip_bus_calls_for_test_) {
+            int r = sd_bus_process(bus_, nullptr);
+            if (r < 0) {
+                fprintf(stderr, "[bt] BusThread sd_bus_process error: %s\n", strerror(-r));
+                running_.store(false);
+                stopping_.store(true);
+                break;
+            }
+            if (r > 0)
+                continue; // more bus work available; skip the wait
         }
-        if (r > 0)
-            continue; // more bus work available; skip the wait
 
         // 3. Wait for bus activity OR a wakeup-pipe byte, up to 500ms.
         struct pollfd pfds[2];
         int nfds = 0;
-        int bus_fd = sd_bus_get_fd(bus_);
-        if (bus_fd >= 0) {
-            pfds[nfds].fd = bus_fd;
-            pfds[nfds].events = sd_bus_get_events(bus_);
-            nfds++;
+        if (!skip_bus_calls_for_test_) {
+            int bus_fd = sd_bus_get_fd(bus_);
+            if (bus_fd >= 0) {
+                pfds[nfds].fd = bus_fd;
+                pfds[nfds].events = sd_bus_get_events(bus_);
+                nfds++;
+            }
         }
         if (wakeup_fds_[0] >= 0) {
             pfds[nfds].fd = wakeup_fds_[0];
@@ -138,17 +142,19 @@ void BusThread::loop() {
             nfds++;
         }
 
-        uint64_t timeout_us = 0;
-        sd_bus_get_timeout(bus_, &timeout_us);
         int timeout_ms = 500;
-        if (timeout_us != UINT64_MAX) {
-            // sd-bus timeout is absolute µs since epoch; clamp to 500ms max.
-            struct timespec ts;
-            clock_gettime(CLOCK_MONOTONIC, &ts);
-            uint64_t now_us = ts.tv_sec * 1000000ULL + ts.tv_nsec / 1000;
-            int64_t delta_ms = (int64_t(timeout_us) - int64_t(now_us)) / 1000;
-            if (delta_ms < 0) delta_ms = 0;
-            if (delta_ms < timeout_ms) timeout_ms = int(delta_ms);
+        if (!skip_bus_calls_for_test_) {
+            uint64_t timeout_us = 0;
+            sd_bus_get_timeout(bus_, &timeout_us);
+            if (timeout_us != UINT64_MAX) {
+                // sd-bus timeout is absolute µs since epoch; clamp to 500ms max.
+                struct timespec ts;
+                clock_gettime(CLOCK_MONOTONIC, &ts);
+                uint64_t now_us = ts.tv_sec * 1000000ULL + ts.tv_nsec / 1000;
+                int64_t delta_ms = (int64_t(timeout_us) - int64_t(now_us)) / 1000;
+                if (delta_ms < 0) delta_ms = 0;
+                if (delta_ms < timeout_ms) timeout_ms = int(delta_ms);
+            }
         }
 
         poll(pfds, nfds, timeout_ms);

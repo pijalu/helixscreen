@@ -63,6 +63,13 @@ public:
     /// True if called from the bus thread itself.
     bool on_thread() const noexcept;
 
+    /// Test hook: when true, the worker loop skips all sd_bus_* calls and only
+    /// polls the wakeup pipe. Lets unit tests exercise the work-queue/lifecycle
+    /// paths with an unstarted sd_bus* (sd_bus_new without sd_bus_start), which
+    /// would otherwise return -ENOTCONN from sd_bus_process and cause the
+    /// worker to exit via the error path. Must be set before start().
+    void set_skip_bus_calls_for_test(bool v) noexcept { skip_bus_calls_for_test_ = v; }
+
 private:
     void loop();
 
@@ -78,6 +85,9 @@ private:
     /// sd_bus_wait() only returns on bus activity or timeout; to get work
     /// processed promptly we need an external wakeup.
     int wakeup_fds_[2] = {-1, -1};
+
+    /// Test-only flag; see set_skip_bus_calls_for_test().
+    bool skip_bus_calls_for_test_ = false;
 };
 
 } // namespace helix::bluetooth
