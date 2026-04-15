@@ -17,10 +17,12 @@
 #include "bt_discovery_utils.h"
 #include "bt_scanner_discovery_utils.h"
 
+#include <chrono>
 #include <cstdio>
 #include <cstring>
 #include <ctime>
 #include <string>
+#include <thread>
 #include <vector>
 
 using helix::bluetooth::is_label_printer_uuid;
@@ -331,87 +333,72 @@ done:
 
 extern "C" int helix_bt_discover(helix_bt_context* ctx, int timeout_ms, helix_bt_discover_cb cb,
                                  void* user_data) {
-    if (!ctx)
+    if (!ctx || !ctx->bus_thread)
         return -EINVAL;
-    if (!ctx->bus) {
-        std::lock_guard<std::mutex> lock(ctx->mutex);
-        ctx->last_error = "bus not initialized";
-        return -ENODEV;
-    }
 
-    // Find adapter
-    std::string adapter = find_adapter_path(ctx->bus);
-    if (adapter.empty()) {
-        std::lock_guard<std::mutex> lock(ctx->mutex);
-        ctx->last_error = "no BlueZ adapter found";
-        return -ENODEV;
-    }
-
-    fprintf(stderr, "[bt] using adapter: %s\n", adapter.c_str());
-
-    // Heap-allocate discover context (freed on all exit paths)
     auto* dctx = new (std::nothrow) discover_ctx{ctx, cb, user_data};
-    if (!dctx) {
-        std::lock_guard<std::mutex> lock(ctx->mutex);
-        ctx->last_error = "failed to allocate discovery context";
+    if (!dctx)
         return -ENOMEM;
-    }
 
     ctx->discovering.store(true);
 
-    // Enumerate already-known devices first
-    enumerate_known_devices(ctx->bus, dctx);
+    int setup_result = 0;
+    std::string adapter;
 
-    // Add InterfacesAdded signal match
-    int r = sd_bus_match_signal(ctx->bus, &ctx->discovery_slot, "org.bluez", "/",
-                                "org.freedesktop.DBus.ObjectManager", "InterfacesAdded",
-                                on_interfaces_added, dctx);
-    if (r < 0) {
-        fprintf(stderr, "[bt] failed to add signal match: %s\n", strerror(-r));
-        std::lock_guard<std::mutex> lock(ctx->mutex);
-        ctx->last_error = "failed to add InterfacesAdded match";
+    try {
+        ctx->bus_thread->run_sync([&](sd_bus* bus) {
+            adapter = find_adapter_path(bus);
+            if (adapter.empty()) {
+                std::lock_guard<std::mutex> lock(ctx->mutex);
+                ctx->last_error = "no BlueZ adapter found";
+                setup_result = -ENODEV;
+                return;
+            }
+            fprintf(stderr, "[bt] using adapter: %s\n", adapter.c_str());
+
+            enumerate_known_devices(bus, dctx);
+
+            int r = sd_bus_match_signal(bus, &ctx->discovery_slot, "org.bluez", "/",
+                                        "org.freedesktop.DBus.ObjectManager", "InterfacesAdded",
+                                        on_interfaces_added, dctx);
+            if (r < 0) {
+                std::lock_guard<std::mutex> lock(ctx->mutex);
+                ctx->last_error = "failed to add InterfacesAdded match";
+                setup_result = r;
+                return;
+            }
+
+            sd_bus_error error = SD_BUS_ERROR_NULL;
+            r = sd_bus_call_method(bus, "org.bluez", adapter.c_str(), "org.bluez.Adapter1",
+                                   "StartDiscovery", &error, nullptr, "");
+            if (r < 0 && !sd_bus_error_has_name(&error, "org.bluez.Error.InProgress")) {
+                std::lock_guard<std::mutex> lock(ctx->mutex);
+                ctx->last_error = error.message ? error.message : "StartDiscovery failed";
+                sd_bus_error_free(&error);
+                sd_bus_slot_unref(ctx->discovery_slot);
+                ctx->discovery_slot = nullptr;
+                setup_result = r;
+                return;
+            }
+            sd_bus_error_free(&error);
+        });
+    } catch (const std::exception& e) {
+        fprintf(stderr, "[bt] discover setup failed: %s\n", e.what());
+        setup_result = -EIO;
+    }
+
+    if (setup_result < 0) {
         ctx->discovering.store(false);
         delete dctx;
-        return r;
+        return setup_result;
     }
-
-    // Start discovery
-    sd_bus_error error = SD_BUS_ERROR_NULL;
-    r = sd_bus_call_method(ctx->bus, "org.bluez", adapter.c_str(), "org.bluez.Adapter1",
-                           "StartDiscovery", &error, nullptr, "");
-    if (r < 0) {
-        // InProgress is acceptable — discovery may already be running
-        if (!sd_bus_error_has_name(&error, "org.bluez.Error.InProgress")) {
-            fprintf(stderr, "[bt] StartDiscovery failed: %s\n",
-                    error.message ? error.message : strerror(-r));
-            std::lock_guard<std::mutex> lock(ctx->mutex);
-            ctx->last_error = error.message ? error.message : "StartDiscovery failed";
-            sd_bus_error_free(&error);
-            sd_bus_slot_unref(ctx->discovery_slot);
-            ctx->discovery_slot = nullptr;
-            ctx->discovering.store(false);
-            delete dctx;
-            return r;
-        }
-    }
-    sd_bus_error_free(&error);
 
     fprintf(stderr, "[bt] discovery started (timeout=%dms)\n", timeout_ms);
 
-    // Poll loop: sd_bus_process + sd_bus_wait
+    // Wait on the UI-side caller thread while the bus thread processes events.
     struct timespec start;
     clock_gettime(CLOCK_MONOTONIC, &start);
-
     while (ctx->discovering.load()) {
-        r = sd_bus_process(ctx->bus, nullptr);
-        if (r < 0) {
-            fprintf(stderr, "[bt] sd_bus_process error: %s\n", strerror(-r));
-            break;
-        }
-        if (r > 0)
-            continue; // More to process
-
-        // Check timeout
         struct timespec now;
         clock_gettime(CLOCK_MONOTONIC, &now);
         long elapsed_ms =
@@ -420,24 +407,25 @@ extern "C" int helix_bt_discover(helix_bt_context* ctx, int timeout_ms, helix_bt
             fprintf(stderr, "[bt] discovery timeout reached (%ldms)\n", elapsed_ms);
             break;
         }
-
-        // Wait for more events (up to 100ms to remain responsive to stop requests)
-        long remaining = timeout_ms - elapsed_ms;
-        uint64_t wait_us = (remaining > 100 ? 100 : remaining) * 1000ULL;
-        sd_bus_wait(ctx->bus, wait_us);
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
     }
 
-    // Stop discovery
-    sd_bus_error error2 = SD_BUS_ERROR_NULL;
-    sd_bus_call_method(ctx->bus, "org.bluez", adapter.c_str(), "org.bluez.Adapter1",
-                       "StopDiscovery", &error2, nullptr, "");
-    sd_bus_error_free(&error2);
-
-    // Cleanup
-    if (ctx->discovery_slot) {
-        sd_bus_slot_unref(ctx->discovery_slot);
-        ctx->discovery_slot = nullptr;
+    // Teardown on the bus thread.
+    try {
+        ctx->bus_thread->run_sync([&](sd_bus* bus) {
+            sd_bus_error error2 = SD_BUS_ERROR_NULL;
+            sd_bus_call_method(bus, "org.bluez", adapter.c_str(), "org.bluez.Adapter1",
+                               "StopDiscovery", &error2, nullptr, "");
+            sd_bus_error_free(&error2);
+            if (ctx->discovery_slot) {
+                sd_bus_slot_unref(ctx->discovery_slot);
+                ctx->discovery_slot = nullptr;
+            }
+        });
+    } catch (const std::exception& e) {
+        fprintf(stderr, "[bt] discover teardown failed: %s\n", e.what());
     }
+
     ctx->discovering.store(false);
     delete dctx;
 
