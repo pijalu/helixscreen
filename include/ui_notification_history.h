@@ -94,22 +94,6 @@ class NotificationHistory {
     size_t count() const;
 
     /**
-     * @brief Save history to disk (optional)
-     *
-     * @param path File path to save to
-     * @return true on success, false on failure
-     */
-    bool save_to_disk(const char* path) const;
-
-    /**
-     * @brief Load history from disk (optional)
-     *
-     * @param path File path to load from
-     * @return true on success, false on failure
-     */
-    bool load_from_disk(const char* path);
-
-    /**
      * @brief Seed test notifications for --test mode debugging
      *
      * Adds a variety of test notifications with different severities
