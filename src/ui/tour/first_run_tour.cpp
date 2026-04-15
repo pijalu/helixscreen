@@ -4,9 +4,11 @@
 #include "first_run_tour.h"
 
 #include "config.h"
+#include "observer_factory.h"
 #include "static_panel_registry.h"
 #include "tour_overlay.h"
 #include "tour_steps.h"
+#include "ui_nav_manager.h"
 
 #include <lvgl.h>
 #include <spdlog/spdlog.h>
@@ -67,6 +69,8 @@ void FirstRunTour::maybe_start() {
     if (running_) return;
     if (!should_auto_start()) return;
     // Defer one tick so the caller (e.g., HomePanel::on_activate) completes first.
+    // Raw lv_async_call with `this` is safe here because FirstRunTour is a
+    // function-local static (immortal lifetime) — see instance().
     lv_async_call(
         [](void* self) { static_cast<FirstRunTour*>(self)->start_impl(); }, this);
 }
@@ -86,6 +90,19 @@ void FirstRunTour::start_impl() {
         overlay_ = std::make_unique<TourOverlay>(
             steps_, [this] { this->advance(); }, [this] { this->skip(); });
         render_current_step();
+
+        // Cancel the tour if the user navigates away from Home via the navbar.
+        // The overlay dim doesn't cover the navbar, so without this the tour
+        // would be orphaned on top of a different panel with a stale target.
+        auto* nav_subject = NavigationManager::instance().get_active_panel_subject();
+        nav_observer_ = helix::ui::observe_int_sync(
+            nav_subject, this, [](FirstRunTour* self, int panel_id) {
+                if (!self->running_) return;
+                if (panel_id != static_cast<int>(helix::PanelId::Home)) {
+                    spdlog::debug("[FirstRunTour] Cancelled: user navigated away from Home");
+                    self->skip();
+                }
+            });
     }
 
     spdlog::debug("[FirstRunTour] Started ({} steps)", steps_.size());
@@ -106,6 +123,7 @@ void FirstRunTour::skip() {
     spdlog::debug("[FirstRunTour] Skipped at step {}/{}", current_index_ + 1, steps_.size());
     mark_completed();
     running_ = false;
+    nav_observer_.reset();
     overlay_.reset();
 }
 
@@ -113,6 +131,7 @@ void FirstRunTour::finish() {
     spdlog::debug("[FirstRunTour] Finished");
     mark_completed();
     running_ = false;
+    nav_observer_.reset();
     overlay_.reset();
 }
 
@@ -120,6 +139,7 @@ void FirstRunTour::reset_for_test() {
     running_ = false;
     current_index_ = 0;
     steps_.clear();
+    nav_observer_.reset();
     overlay_.reset();
 }
 

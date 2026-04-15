@@ -4,6 +4,7 @@
 #pragma once
 
 #include "tour_steps.h"
+#include "ui_observer_guard.h"
 
 #include <cstddef>
 #include <memory>
@@ -56,6 +57,11 @@ class FirstRunTour {
     std::size_t current_index_ = 0;
     std::vector<TourStep> steps_;
     std::unique_ptr<TourOverlay> overlay_;
+    // Cancels the tour if the user navigates away from Home (e.g. navbar tap).
+    // The overlay lives on lv_layer_top() and doesn't block navbar input, so a
+    // tour would otherwise be orphaned on top of a different panel with a stale
+    // target rect.
+    ObserverGuard nav_observer_;
 };
 
 } // namespace helix::tour

@@ -155,7 +155,9 @@ void HelpSettingsOverlay::on_replay_tour_clicked(lv_event_t* /*e*/) {
     NavigationManager::instance().go_back();
     NavigationManager::instance().set_active(helix::PanelId::Home);
     // Defer start so panel activation + layout settle before the overlay
-    // resolves target coordinates.
+    // resolves target coordinates. Raw lv_async_call is safe here: the lambda
+    // captures no `this` (user_data=nullptr) and only touches the immortal
+    // FirstRunTour function-local static singleton.
     lv_async_call([](void*) { helix::tour::FirstRunTour::instance().start(); }, nullptr);
     LVGL_SAFE_EVENT_CB_END();
 }
