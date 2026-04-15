@@ -15,7 +15,7 @@ UpdateChecker (singleton, async update checker)
   |
   +-> R2 CDN (primary source)
   |     Fetches manifest.json from releases.helixscreen.org/{channel}/
-  |     Platform-specific archives (.zip preferred, .tar.gz legacy) + SHA-256 checksums.
+  |     Platform-specific archives (.tar.gz, .zip suppressed until pre-v0.99.31 ages out) + SHA-256 checksums.
   |
   +-> GitHub API (fallback)
   |     /repos/prestonbrown/helixscreen/releases/latest (stable)

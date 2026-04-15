@@ -124,34 +124,35 @@ bool parse_github_release(const json& j, UpdateChecker::ReleaseInfo& info, std::
 
     // Find platform-specific binary asset. The release flow uploads one
     // unversioned zip per platform ("helixscreen-<plat>.zip") alongside the
-    // legacy versioned tar.gz ("helixscreen-<plat>-v1.2.3.tar.gz"). Prefer the
-    // zip — it's what Moonraker Update Manager uses, so we keep one code path.
-    // Fall back to the tar.gz for older releases that predate the zip asset.
+    // versioned tar.gz ("helixscreen-<plat>-v1.2.3.tar.gz"). We prefer the
+    // tar.gz: pre-v0.99.31 in-app updaters call gunzip on whatever URL the
+    // asset list hands them, so picking the .zip on this fallback path
+    // yields "Corrupt download" for clients still on v0.99.30 or earlier
+    // (mirrors the R2 manifest --include-zip gate). Once telemetry shows
+    // v0.99.30 adoption is gone, this preference can flip back to zip.
     if (j.contains("assets") && j["assets"].is_array()) {
         const std::string platform_key = UpdateChecker::get_platform_key();
         const std::string zip_name = "helixscreen-" + platform_key + ".zip";
         const std::string platform_prefix = "helixscreen-" + platform_key + "-";
-        spdlog::info("[UpdateChecker] Platform key: '{}', prefer '{}' else prefix '{}...tar.gz'",
-                     platform_key, zip_name, platform_prefix);
+        spdlog::info("[UpdateChecker] Platform key: '{}', prefer prefix '{}...tar.gz' else '{}'",
+                     platform_key, platform_prefix, zip_name);
 
-        std::string tar_url;
-        std::string tar_name;
+        std::string zip_url;
         for (const auto& asset : j["assets"]) {
             std::string name = asset.value("name", "");
-            if (name == zip_name) {
+            if (name.find(platform_prefix) == 0 &&
+                name.find(".tar.gz") != std::string::npos) {
                 info.download_url = asset.value("browser_download_url", "");
                 spdlog::info("[UpdateChecker] Selected asset: {}", name);
                 break;
             }
-            if (tar_url.empty() && name.find(platform_prefix) == 0 &&
-                name.find(".tar.gz") != std::string::npos) {
-                tar_url = asset.value("browser_download_url", "");
-                tar_name = name;
+            if (zip_url.empty() && name == zip_name) {
+                zip_url = asset.value("browser_download_url", "");
             }
         }
-        if (info.download_url.empty() && !tar_url.empty()) {
-            info.download_url = tar_url;
-            spdlog::info("[UpdateChecker] Selected legacy asset: {}", tar_name);
+        if (info.download_url.empty() && !zip_url.empty()) {
+            info.download_url = zip_url;
+            spdlog::info("[UpdateChecker] Selected zip asset (no tar.gz present): {}", zip_name);
         }
         // No fallback to arbitrary assets — wrong-platform binaries can brick devices
         if (info.download_url.empty()) {

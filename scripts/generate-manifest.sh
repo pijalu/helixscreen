@@ -91,13 +91,26 @@ else
     exit 1
 fi
 
-# Scan for platform tarballs
-PLATFORMS=(pi pi32 ad5m cc1 k1)
+# Auto-discover platforms from tarballs in DIR. Filename convention is
+# `helixscreen-{platform}-{version}.tar.gz` where {version} starts with 'v'
+# or a digit (e.g., v0.99.31, 0.99.31). Auto-discovery keeps this script in
+# sync with whatever .github/workflows/release.yml uploads — adding a new
+# platform to the release matrix doesn't require editing this file.
 FOUND_ANY=false
 ASSETS_JSON="{}"
+PLATFORMS=()
+for f in "$DIR"/helixscreen-*-*.tar.gz; do
+    [[ -f "$f" ]] || continue
+    base=$(basename "$f")
+    # Strip leading 'helixscreen-' and trailing '-{version}.tar.gz' to recover
+    # the platform key. Version segment must start with 'v' or a digit so that
+    # platforms whose names contain hyphens (e.g. snapmaker-u1) survive.
+    if [[ "$base" =~ ^helixscreen-(.+)-v?[0-9][^-]*\.tar\.gz$ ]]; then
+        PLATFORMS+=("${BASH_REMATCH[1]}")
+    fi
+done
 
 for plat in "${PLATFORMS[@]}"; do
-    # Find tarball matching helixscreen-{platform}-*.tar.gz
     tarball=""
     for f in "$DIR"/helixscreen-"${plat}"-*.tar.gz; do
         if [[ -f "$f" ]]; then
