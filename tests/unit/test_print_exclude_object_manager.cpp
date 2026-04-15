@@ -69,6 +69,11 @@ class ExcludeManagerFixture {
         api = std::make_unique<MoonrakerAPI>(mock_client, state);
         manager = std::make_unique<PrintExcludeObjectManager>(api.get(), state, nullptr);
         manager->init();
+        // observe_int_sync defers an initial-value callback through UpdateQueue
+        // (per L048 / observer_factory.h). Drain it now so the print-state
+        // watchdog's STANDBY=0 fire-on-subscribe doesn't clear test-injected
+        // awaiting_confirmation_ entries on the first real drain.
+        UpdateQueue::instance().drain();
     }
 
     ~ExcludeManagerFixture() {
@@ -153,6 +158,45 @@ TEST_CASE_METHOD(ExcludeManagerFixture,
     REQUIRE(manager->get_excluded_objects().count("Part_A") == 1);
     REQUIRE(manager->is_awaiting_confirmation_for_testing("Part_B"));
     REQUIRE(manager->get_excluded_objects().count("Part_B") == 0);
+}
+
+TEST_CASE_METHOD(ExcludeManagerFixture,
+                 "status subscription removes entries Klipper dropped (RESET_EXCLUDE)",
+                 "[exclude_object][manager][regression]") {
+    // Klipper confirms two exclusions, promoting them into the local confirmed set.
+    state.set_excluded_objects({"Part_A", "Part_B"});
+    UpdateQueue::instance().drain();
+    REQUIRE(manager->get_excluded_objects().count("Part_A") == 1);
+    REQUIRE(manager->get_excluded_objects().count("Part_B") == 1);
+
+    SECTION("RESET_EXCLUDE (empty set) clears the local cache") {
+        // RESET_EXCLUDE macro / print-end reset drops everything from Klipper's set.
+        // Our local cache must follow, otherwise the gcode viewer keeps ghosting objects
+        // that Klipper will happily print again on the next run.
+        state.set_excluded_objects({});
+        UpdateQueue::instance().drain();
+
+        REQUIRE(manager->get_excluded_objects().empty());
+    }
+
+    SECTION("partial drop removes just the dropped entry") {
+        state.set_excluded_objects({"Part_A"});
+        UpdateQueue::instance().drain();
+
+        REQUIRE(manager->get_excluded_objects().count("Part_A") == 1);
+        REQUIRE(manager->get_excluded_objects().count("Part_B") == 0);
+    }
+
+    SECTION("awaiting-confirmation entries are untouched by the sync-to-set") {
+        // An object with a dispatched-but-unconfirmed RPC must not be prematurely
+        // synthesized into excluded_objects_ just because Klipper's set is empty.
+        manager->add_awaiting_confirmation_for_testing("InFlight");
+        state.set_excluded_objects({});
+        UpdateQueue::instance().drain();
+
+        REQUIRE(manager->get_excluded_objects().empty());
+        REQUIRE(manager->is_awaiting_confirmation_for_testing("InFlight"));
+    }
 }
 
 // ============================================================================

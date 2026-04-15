@@ -352,11 +352,25 @@ void PrintExcludeObjectManager::on_excluded_objects_changed() {
     // Sync excluded objects from PrinterState (Klipper/Moonraker)
     const auto& klipper_excluded = printer_state_.get_excluded_objects();
 
-    // Merge Klipper's excluded set with our local set. Klipper's `exclude_object.excluded_objects`
+    // Mirror Klipper's excluded set into our local set. Klipper's `exclude_object.excluded_objects`
     // is the authoritative source of truth — objects appear here regardless of whether the
     // exclusion came from us, another client, or a webcam-style frontend. Clearing from
     // awaiting_confirmation_ on arrival lets our RPC path know the optimistic visual is now
     // backed by Klipper's own confirmation.
+    //
+    // Full sync (not merge): entries Klipper dropped (e.g. via RESET_EXCLUDE) must disappear
+    // from our local set too, otherwise the local cache diverges from ground truth and the
+    // gcode viewer keeps rendering objects as excluded after Klipper has cleared them.
+    for (auto it = excluded_objects_.begin(); it != excluded_objects_.end();) {
+        if (klipper_excluded.count(*it) == 0) {
+            spdlog::info("[PrintExcludeObjectManager] Dropped excluded object no longer in "
+                         "Klipper's set: '{}'",
+                         *it);
+            it = excluded_objects_.erase(it);
+        } else {
+            ++it;
+        }
+    }
     for (const auto& obj : klipper_excluded) {
         if (excluded_objects_.count(obj) == 0) {
             excluded_objects_.insert(obj);
