@@ -112,7 +112,8 @@ void register_callback_tag_ptr(volatile const char* const* tag_ptr);
  *
  * Signal-safe: two volatile writes, no locks, no allocations.
  */
-void set_current_event(const void* target, unsigned int code) noexcept;
+void set_current_event(const void* target, const void* original_target,
+                       unsigned int code) noexcept;
 
 /**
  * @brief Refresh the cached heap snapshot
@@ -149,15 +150,18 @@ namespace breadcrumb {
  *                 "frame", "evt". Truncated if longer.
  * @param subject  Object/panel/component name (<= 59 chars). Truncated.
  *
- * Both pointers may be nullptr (treated as empty). Safe to call from any
- * context including signal handlers — lock-free, no heap, no syscalls.
+ * Both pointers may be nullptr (treated as empty). Lock-free, no heap, no
+ * syscalls — but do NOT call from signal handlers: a signal interrupting
+ * its own producer could race the handler's own ring reader. Call only
+ * from normal thread contexts (UI thread or background threads).
  */
 void note(const char* category, const char* subject) noexcept;
 
 /**
  * @brief Record an activity breadcrumb with a numeric detail
  *
- * Appends " <detail>" to the subject. Signal-safe.
+ * Appends " <detail>" to the subject. Same signal-handler caveat as the
+ * two-arg overload — do not call from signal handlers.
  */
 void note(const char* category, const char* subject, long detail) noexcept;
 
@@ -167,4 +171,6 @@ void note(const char* category, const char* subject, long detail) noexcept;
 
 // C-ABI bridge for LVGL (C source) to record the current event target. Calls
 // crash_handler::set_current_event() — same semantics, usable from C.
-extern "C" void helix_crash_note_event(const void* target, unsigned int code);
+extern "C" void helix_crash_note_event(const void* target,
+                                       const void* original_target,
+                                       unsigned int code);

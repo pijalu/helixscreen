@@ -139,6 +139,8 @@ CrashReporter::CrashReport CrashReporter::collect_report() {
     // Current LVGL event (from event_send_core hook)
     if (crash_data.contains("event_target"))
         report.event_target = crash_data["event_target"];
+    if (crash_data.contains("event_original_target"))
+        report.event_original_target = crash_data["event_original_target"];
     if (crash_data.contains("event_code"))
         report.event_code = crash_data["event_code"];
 
@@ -343,6 +345,8 @@ nlohmann::json CrashReporter::report_to_json(const CrashReport& report) {
     // Current LVGL event at crash time
     if (!report.event_target.empty()) {
         j["event_target"] = report.event_target;
+        if (!report.event_original_target.empty())
+            j["event_original_target"] = report.event_original_target;
         j["event_code"] = report.event_code;
     }
 
@@ -456,8 +460,10 @@ std::string CrashReporter::report_to_text(const CrashReport& report) {
     }
 
     if (!report.event_target.empty()) {
-        ss << "LVGL Event: target=" << report.event_target
-           << " code=" << report.event_code << "\n";
+        ss << "LVGL Event: target=" << report.event_target;
+        if (!report.event_original_target.empty())
+            ss << " original=" << report.event_original_target;
+        ss << " code=" << report.event_code << "\n";
     }
 
     if (report.heap.present) {
@@ -565,8 +571,10 @@ std::string CrashReporter::generate_github_url(const CrashReport& report) {
         body << "- **Active Callback:** " << report.queue_callback << "\n";
     }
     if (!report.event_target.empty()) {
-        body << "- **LVGL Event:** target=`" << report.event_target
-             << "` code=" << report.event_code << "\n";
+        body << "- **LVGL Event:** target=`" << report.event_target << "`";
+        if (!report.event_original_target.empty())
+            body << " original=`" << report.event_original_target << "`";
+        body << " code=" << report.event_code << "\n";
     }
     if (report.heap.present) {
         body << "- **Heap:** RSS " << report.heap.rss_kb << "kB";

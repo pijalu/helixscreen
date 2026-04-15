@@ -114,12 +114,16 @@ struct HeapSnapshot {
 static HeapSnapshot s_heap_snapshot = {};
 
 /// Innermost LVGL event under dispatch, updated from a hook inside
-/// lv_obj_event.c::event_send_core. Both fields are raw volatile for
-/// signal-handler read without synchronization. Writes are racy across
-/// threads but LVGL is single-threaded, so only the signal handler can
-/// observe a partial update — and it tolerates garbage on either field.
-static volatile uintptr_t    s_current_event_target = 0;
-static volatile unsigned int s_current_event_code   = 0;
+/// lv_obj_event.c::event_send_core. Fields are raw volatile for
+/// signal-handler read without synchronization. LVGL is single-threaded so
+/// writes are race-free on the producer side, but a signal could observe a
+/// mismatched target/original_target/code triple (e.g. target from write N,
+/// code from write N-1). In practice events come in bursts of the same code
+/// so this is rarely meaningful, and we'd rather avoid synchronization
+/// overhead on every LVGL dispatch than eliminate a rare noise case.
+static volatile uintptr_t    s_current_event_target          = 0;
+static volatile uintptr_t    s_current_event_original_target = 0;
+static volatile unsigned int s_current_event_code            = 0;
 
 // =============================================================================
 // Breadcrumb ring buffer (activity context for crash diagnosis)
@@ -322,6 +326,16 @@ static const char* get_fault_code_name(int sig, int code) {
         }
     }
     return "UNKNOWN";
+}
+
+/// Async-signal-safe: write a "key:<decimal>\n" line using the caller-provided
+/// scratch buffer. Consolidates the common `safe_write` + `int_to_str` dance
+/// used by the heap snapshot and event sections.
+static void write_kv_long(int fd, const char* key, long value,
+                          char* num_buf, size_t num_buf_size) {
+    safe_write(fd, key);
+    safe_write(fd, int_to_str(num_buf, num_buf_size, value));
+    safe_write(fd, "\n");
 }
 
 /// The signal handler itself -- async-signal-safe ONLY
@@ -557,69 +571,42 @@ static void crash_signal_handler(int sig, siginfo_t* info, void* ucontext) {
         }
     }
 
-    // Cached heap snapshot (refreshed from main loop; reads here are signal-safe)
-    if (s_heap_snapshot.ts_ms != 0) {
-        safe_write(fd, "heap_snapshot_age_ms:");
-        safe_write(fd, int_to_str(num_buf, sizeof(num_buf),
-                                  static_cast<long>(s_heap_snapshot.ts_ms)));
-        safe_write(fd, "\n");
-        safe_write(fd, "heap_rss_kb:");
-        safe_write(fd, int_to_str(num_buf, sizeof(num_buf),
-                                  static_cast<long>(s_heap_snapshot.rss_kb)));
-        safe_write(fd, "\n");
-        safe_write(fd, "heap_vsz_kb:");
-        safe_write(fd, int_to_str(num_buf, sizeof(num_buf),
-                                  static_cast<long>(s_heap_snapshot.vsz_kb)));
-        safe_write(fd, "\n");
-        if (s_heap_snapshot.arena_kb != 0) {
-            safe_write(fd, "heap_arena_kb:");
-            safe_write(fd, int_to_str(num_buf, sizeof(num_buf),
-                                      static_cast<long>(s_heap_snapshot.arena_kb)));
-            safe_write(fd, "\n");
-            safe_write(fd, "heap_used_kb:");
-            safe_write(fd, int_to_str(num_buf, sizeof(num_buf),
-                                      static_cast<long>(s_heap_snapshot.uordblks_kb)));
-            safe_write(fd, "\n");
-            safe_write(fd, "heap_free_kb:");
-            safe_write(fd, int_to_str(num_buf, sizeof(num_buf),
-                                      static_cast<long>(s_heap_snapshot.fordblks_kb)));
-            safe_write(fd, "\n");
-            safe_write(fd, "heap_mmap_kb:");
-            safe_write(fd, int_to_str(num_buf, sizeof(num_buf),
-                                      static_cast<long>(s_heap_snapshot.hblkhd_kb)));
-            safe_write(fd, "\n");
+    // Cached heap snapshot (refreshed from main loop; reads here are signal-safe).
+    // Acquire pairs with the release-store of ts_ms in refresh_heap_snapshot().
+    if (__atomic_load_n(&s_heap_snapshot.ts_ms, __ATOMIC_ACQUIRE) != 0) {
+        const HeapSnapshot& h = s_heap_snapshot;
+        write_kv_long(fd, "heap_snapshot_age_ms:", static_cast<long>(h.ts_ms),  num_buf, sizeof(num_buf));
+        write_kv_long(fd, "heap_rss_kb:",          static_cast<long>(h.rss_kb), num_buf, sizeof(num_buf));
+        write_kv_long(fd, "heap_vsz_kb:",          static_cast<long>(h.vsz_kb), num_buf, sizeof(num_buf));
+        if (h.arena_kb != 0) {
+            write_kv_long(fd, "heap_arena_kb:", static_cast<long>(h.arena_kb),    num_buf, sizeof(num_buf));
+            write_kv_long(fd, "heap_used_kb:",  static_cast<long>(h.uordblks_kb), num_buf, sizeof(num_buf));
+            write_kv_long(fd, "heap_free_kb:",  static_cast<long>(h.fordblks_kb), num_buf, sizeof(num_buf));
+            write_kv_long(fd, "heap_mmap_kb:",  static_cast<long>(h.hblkhd_kb),   num_buf, sizeof(num_buf));
         }
-        if (s_heap_snapshot.lv_total_kb != 0) {
-            safe_write(fd, "lv_heap_total_kb:");
-            safe_write(fd, int_to_str(num_buf, sizeof(num_buf),
-                                      static_cast<long>(s_heap_snapshot.lv_total_kb)));
-            safe_write(fd, "\n");
-            safe_write(fd, "lv_heap_used_pct:");
-            safe_write(fd, int_to_str(num_buf, sizeof(num_buf),
-                                      static_cast<long>(s_heap_snapshot.lv_used_pct)));
-            safe_write(fd, "\n");
-            safe_write(fd, "lv_heap_frag_pct:");
-            safe_write(fd, int_to_str(num_buf, sizeof(num_buf),
-                                      static_cast<long>(s_heap_snapshot.lv_frag_pct)));
-            safe_write(fd, "\n");
-            safe_write(fd, "lv_heap_free_biggest_kb:");
-            safe_write(fd, int_to_str(num_buf, sizeof(num_buf),
-                                      static_cast<long>(s_heap_snapshot.lv_free_biggest_kb)));
-            safe_write(fd, "\n");
+        if (h.lv_total_kb != 0) {
+            write_kv_long(fd, "lv_heap_total_kb:",        static_cast<long>(h.lv_total_kb),        num_buf, sizeof(num_buf));
+            write_kv_long(fd, "lv_heap_used_pct:",        static_cast<long>(h.lv_used_pct),        num_buf, sizeof(num_buf));
+            write_kv_long(fd, "lv_heap_frag_pct:",        static_cast<long>(h.lv_frag_pct),        num_buf, sizeof(num_buf));
+            write_kv_long(fd, "lv_heap_free_biggest_kb:", static_cast<long>(h.lv_free_biggest_kb), num_buf, sizeof(num_buf));
         }
     }
 
     // Current LVGL event under dispatch (updated by event_send_core hook)
     {
-        uintptr_t tgt = s_current_event_target;
+        uintptr_t tgt  = s_current_event_target;
+        uintptr_t orig = s_current_event_original_target;
         if (tgt != 0) {
             safe_write(fd, "event_target:");
             safe_write(fd, ptr_to_hex(hex_buf, sizeof(hex_buf), tgt));
             safe_write(fd, "\n");
-            safe_write(fd, "event_code:");
-            safe_write(fd, int_to_str(num_buf, sizeof(num_buf),
-                                      static_cast<long>(s_current_event_code)));
-            safe_write(fd, "\n");
+            if (orig != 0 && orig != tgt) {
+                safe_write(fd, "event_original_target:");
+                safe_write(fd, ptr_to_hex(hex_buf, sizeof(hex_buf), orig));
+                safe_write(fd, "\n");
+            }
+            write_kv_long(fd, "event_code:", static_cast<long>(s_current_event_code),
+                          num_buf, sizeof(num_buf));
         }
     }
 
@@ -838,14 +825,17 @@ void crash_handler::register_callback_tag_ptr(volatile const char* const* tag_pt
     s_callback_tag_ptr = tag_ptr;
 }
 
-void crash_handler::set_current_event(const void* target, unsigned int code) noexcept {
-    s_current_event_target = reinterpret_cast<uintptr_t>(target);
-    s_current_event_code   = code;
+void crash_handler::set_current_event(const void* target, const void* original_target,
+                                       unsigned int code) noexcept {
+    s_current_event_target          = reinterpret_cast<uintptr_t>(target);
+    s_current_event_original_target = reinterpret_cast<uintptr_t>(original_target);
+    s_current_event_code            = code;
 }
 
 // C-ABI bridge for LVGL — see include/system/crash_handler.h
-extern "C" void helix_crash_note_event(const void* target, unsigned int code) {
-    crash_handler::set_current_event(target, code);
+extern "C" void helix_crash_note_event(const void* target, const void* original_target,
+                                       unsigned int code) {
+    crash_handler::set_current_event(target, original_target, code);
 }
 
 void crash_handler::refresh_heap_snapshot() noexcept {
@@ -900,13 +890,18 @@ void crash_handler::refresh_heap_snapshot() noexcept {
     clock_gettime(CLOCK_MONOTONIC, &ts);
     uint64_t ms = static_cast<uint64_t>(ts.tv_sec) * 1000 +
                   static_cast<uint64_t>(ts.tv_nsec) / 1000000;
-    snap.ts_ms = static_cast<uint32_t>(ms);
-    if (snap.ts_ms == 0) snap.ts_ms = 1;
+    uint32_t publish_ts = static_cast<uint32_t>(ms);
+    if (publish_ts == 0) publish_ts = 1;
 
-    // Publish: memcpy of a POD struct is what we have. Readers (signal handler)
-    // may see a torn snapshot across fields, but all fields are independent
-    // counters — torn reads produce slightly stale values at worst.
+    // Publish in two phases. The signal handler gates on ts_ms != 0, and
+    // ts_ms is the leading field of HeapSnapshot — a naive `s_heap_snapshot =
+    // snap` would copy the new ts_ms first, letting a signal interleaved
+    // mid-copy read a new timestamp alongside stale trailing fields. Store
+    // the body with ts_ms=0 first, then release-store the real ts_ms so
+    // readers either see "no snapshot" or a fully-populated one.
+    snap.ts_ms = 0;
     s_heap_snapshot = snap;
+    __atomic_store_n(&s_heap_snapshot.ts_ms, publish_ts, __ATOMIC_RELEASE);
 }
 
 // -----------------------------------------------------------------------------
@@ -1157,6 +1152,8 @@ nlohmann::json crash_handler::read_crash_file(const std::string& crash_file_path
                 result["queue_callback"] = value;
             } else if (key == "event_target") {
                 result["event_target"] = value;
+            } else if (key == "event_original_target") {
+                result["event_original_target"] = value;
             } else if (key == "event_code") {
                 try {
                     result["event_code"] = std::stoi(value);
@@ -1268,6 +1265,7 @@ void crash_handler::write_mock_crash_file(const std::string& crash_file_path) {
     ofs << "crumb:8300 modal confirm_print\n";
     ofs << "crumb:9100 nav status\n";
     ofs << "event_target:0x7fc0d2a8\n";
+    ofs << "event_original_target:0x7fc0d300\n";
     ofs << "event_code:29\n"; /* LV_EVENT_REFR_EXT_DRAW_SIZE */
     ofs << "heap_snapshot_age_ms:8217\n";
     ofs << "heap_rss_kb:38400\n";

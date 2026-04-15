@@ -79,7 +79,10 @@ class CrashReporter {
 
         // LVGL event under dispatch at crash time (set by event_send_core hook).
         // event_target is a raw pointer hex string; event_code is an lv_event_code_t.
+        // event_original_target differs from event_target only for bubbled events
+        // (the originator's pointer); populated only when it differs from target.
         std::string event_target;
+        std::string event_original_target;
         int event_code = 0;
 
         // Cached heap snapshot (refreshed every ~10s from main loop)
