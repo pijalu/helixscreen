@@ -594,6 +594,10 @@ int MoonrakerClient::connect(const char* url, std::function<void()> on_connected
                     // Emit event for UI layer to show success toast
                     emit_event(MoonrakerEventType::KLIPPY_READY, "Klipper ready", false);
 
+                    // Unconditional retrigger (unlike notify_klippy_shutdown which
+                    // checks !discovery_.is_completed()): a transition INTO ready
+                    // may follow a FIRMWARE_RESTART after config edits where the
+                    // hardware shape changed, so we always rediscover.
                     invoke_connected_callback(on_connected, "Klippy ready");
                 }
             }

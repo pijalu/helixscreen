@@ -345,14 +345,12 @@ void MoonrakerManager::register_callbacks() {
             (now - m_startup_time) < AppConstants::Startup::NOTIFICATION_GRACE_PERIOD;
 
         if (evt.is_error) {
-            // Discovery failures are always transient — Klipper may still be
-            // starting (slow embedded devices), restarting after a config edit,
-            // or recovering from a Moonraker event-loop stall. The discovery
-            // sequence retries via notify_klippy_ready/shutdown and on
-            // WebSocket reconnect, and the UI already surfaces connection
-            // state through the status icon. Surface as a log line only.
-            if (evt.type == MoonrakerEventType::DISCOVERY_FAILED) {
-                spdlog::info("[MoonrakerManager] Suppressing discovery failure: {}", evt.message);
+            // Deferred discovery = Klippy not yet in a gate-acceptable state.
+            // Always transient: notify_klippy_ready/shutdown will retry. The
+            // UI surfaces connection state through PrinterStatusIcon, so the
+            // toast is redundant noise. Log only.
+            if (evt.type == MoonrakerEventType::DISCOVERY_DEFERRED) {
+                spdlog::info("[MoonrakerManager] Suppressing deferred discovery: {}", evt.message);
                 return;
             }
 

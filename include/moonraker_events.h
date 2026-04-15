@@ -22,7 +22,8 @@ enum class MoonrakerEventType {
     KLIPPY_DISCONNECTED, ///< Klipper firmware disconnected from Moonraker
     KLIPPY_SHUTDOWN,     ///< Klipper firmware entered shutdown state (M112, thermal, error)
     KLIPPY_READY,        ///< Klipper firmware ready
-    DISCOVERY_FAILED,    ///< Printer discovery failed
+    DISCOVERY_FAILED,    ///< Printer discovery failed (non-retryable — RPC/server error)
+    DISCOVERY_DEFERRED,  ///< Discovery deferred waiting on Klippy (auto-retries on state change)
     REQUEST_TIMEOUT      ///< JSON-RPC request timed out
 };
 

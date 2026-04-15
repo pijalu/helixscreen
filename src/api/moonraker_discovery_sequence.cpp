@@ -199,7 +199,8 @@ void MoonrakerDiscoverySequence::continue_discovery(uint64_t seq) {
                 discover_power_devices();
                 discover_sensors();
 
-                client_.emit_event(MoonrakerEventType::DISCOVERY_FAILED, reason, true);
+                // Deferred (retryable) — notify_klippy_ready/shutdown will retry.
+                client_.emit_event(MoonrakerEventType::DISCOVERY_DEFERRED, reason, true);
                 if (on_error_discovery_) {
                     auto cb = std::move(on_error_discovery_);
                     on_complete_discovery_ = nullptr;
