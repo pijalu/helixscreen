@@ -14,13 +14,15 @@
 namespace helix::tour {
 
 namespace {
-constexpr int kHighlightOutlinePad = 6;
 constexpr int kHighlightOutlineWidth = 3;
-constexpr int kTooltipMargin = 12; // gap between target and tooltip
 constexpr int kTooltipMaxWidth = 480;
 
 // Per-screen dim fill with ~55% opacity.
 constexpr uint8_t kDimOpa = 140;
+
+// Spacing tokens resolved at call time from the theme (responsive per breakpoint).
+inline int highlight_outline_pad() { return theme_manager_get_spacing("space_xs"); }
+inline int tooltip_margin() { return theme_manager_get_spacing("space_sm"); }
 }  // namespace
 
 TourOverlay::TourOverlay(std::vector<TourStep> steps, AdvanceCb on_next, SkipCb on_skip)
@@ -71,7 +73,7 @@ void TourOverlay::build_tree() {
     lv_obj_set_style_border_width(highlight_, 0, 0);
     lv_obj_set_style_outline_width(highlight_, kHighlightOutlineWidth, 0);
     lv_obj_set_style_outline_color(highlight_, theme_manager_get_color("primary"), 0);
-    lv_obj_set_style_outline_pad(highlight_, kHighlightOutlinePad, 0);
+    lv_obj_set_style_outline_pad(highlight_, highlight_outline_pad(), 0);
     lv_obj_set_style_shadow_width(highlight_, 24, 0);
     lv_obj_set_style_shadow_opa(highlight_, 180, 0);
     lv_obj_set_style_shadow_color(highlight_, theme_manager_get_color("primary"), 0);
@@ -132,7 +134,7 @@ void TourOverlay::resolve_target(const TourStep& step, lv_area_t& out_rect, bool
 }
 
 void TourOverlay::place_highlight(const lv_area_t& target_rect) {
-    const int pad = kHighlightOutlinePad;
+    const int pad = highlight_outline_pad();
     lv_obj_set_pos(highlight_, target_rect.x1 - pad, target_rect.y1 - pad);
     lv_obj_set_size(highlight_, (target_rect.x2 - target_rect.x1) + 2 * pad,
                     (target_rect.y2 - target_rect.y1) + 2 * pad);
@@ -167,18 +169,18 @@ void TourOverlay::place_tooltip(const lv_area_t& target_rect, bool has_target,
     int x = 0, y = 0;
     auto set_below = [&] {
         x = clamp(tx1, 8, screen_w - tw - 8);
-        y = ty2 + kTooltipMargin;
+        y = ty2 + tooltip_margin();
     };
     auto set_above = [&] {
         x = clamp(tx1, 8, screen_w - tw - 8);
-        y = ty1 - kTooltipMargin - th;
+        y = ty1 - tooltip_margin() - th;
     };
     auto set_right = [&] {
-        x = tx2 + kTooltipMargin;
+        x = tx2 + tooltip_margin();
         y = clamp(ty1, 8, screen_h - th - 8);
     };
     auto set_left = [&] {
-        x = tx1 - kTooltipMargin - tw;
+        x = tx1 - tooltip_margin() - tw;
         y = clamp(ty1, 8, screen_h - th - 8);
     };
 

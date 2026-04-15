@@ -14,21 +14,30 @@
 
 ## File Structure
 
-**Added:**
-- `src/ui/tour/tour_steps.h` — `TourStep` struct, `TooltipAnchor` enum, `build_tour_steps()` declaration
+**Added (headers in `include/` per project convention, sources in `src/ui/tour/`):**
+- `include/tour_steps.h` — `TourStep` struct, `TooltipAnchor` enum, `build_tour_steps()` declaration
+- `include/tour_overlay.h` — overlay widget declaration
+- `include/first_run_tour.h` — singleton state machine declaration
 - `src/ui/tour/tour_steps.cpp` — step table + AMS gate logic
-- `src/ui/tour/tour_overlay.h` / `.cpp` — overlay widget (dim, highlight, tooltip, positioning)
-- `src/ui/tour/first_run_tour.h` / `.cpp` — singleton state machine, trigger gate, settings I/O
-- `ui_xml/tour_overlay.xml` — tooltip card layout
-- `tests/test_first_run_tour.cpp` — Catch2 unit tests
+- `src/ui/tour/tour_overlay.cpp` — overlay widget (dim, highlight, tooltip, positioning)
+- `src/ui/tour/first_run_tour.cpp` — singleton state machine, trigger gate, settings I/O
+- `ui_xml/tour_tooltip_card.xml` — tooltip card layout (filename matches `<view name>` so LVGL registers it correctly)
+- `tests/unit/test_first_run_tour.cpp` — Catch2 unit tests
 
 **Modified:**
-- `include/config.h` — no code change needed (uses existing `get<T>()` / `set()` / `save()`)
 - `src/ui/ui_panel_home.cpp` — call `FirstRunTour::instance().maybe_start()` in `on_activate()`
-- `src/ui/ui_settings_help.cpp` + `ui_xml/settings_help_overlay.xml` — add "Replay welcome tour" row
-- `main.cpp` — `lv_xml_component_register_from_file("ui_xml/tour_overlay.xml")` [L014]
-- `assets/i18n/en.yml` + regenerated `src/generated/lv_i18n_translations.{c,h}` + `ui_xml/translations/translations.xml` [L064]
-- `Makefile` / `CMakeLists.txt` — add new source files to build
+- `src/ui/ui_settings_help.{h,cpp}` + `ui_xml/settings_help_overlay.xml` — add "Replay welcome tour" row
+- `src/xml_registration.cpp` — `register_xml("tour_tooltip_card.xml")` alongside other overlays [L014]
+- `translations/en.yml` + regenerated `src/generated/lv_i18n_translations.c` + `ui_xml/translations/translations.xml` [L064]
+- No Makefile changes needed — `src/*/*/*.cpp` glob picks up the new subdir automatically.
+
+**Plan deviations from original draft:**
+- Headers moved to `include/` (project convention — 579 headers there, no `src/ui/<subdir>` is on `-I` path).
+- XML component filename must match `<view name>` — LVGL registers components by filename stem. File was renamed from `tour_overlay.xml` → `tour_tooltip_card.xml` after a registration-mismatch crash.
+- Tests placed in `tests/unit/` to match the existing Makefile glob (`tests/unit/*.cpp`).
+- Config schema dropped the redundant `/tour/version` write in `mark_completed()` — `kTourVersion` is compile-time; only `/tour/completed` + `/tour/last_seen_version` persist.
+- Step 4 target changed from `nav_btn_print_select` (not defined in `navigation_bar.xml`) to `print_status` (the print-status widget tile on home — a more informative landmark anyway).
+- Tooltip width made responsive in C++ (55% of screen, clamped 220–480) instead of the fixed `max_width` the XML originally used.
 
 ---
 

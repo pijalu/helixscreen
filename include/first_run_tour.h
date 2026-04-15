@@ -41,6 +41,11 @@ class FirstRunTour {
 
     bool is_running() const { return running_; }
 
+    /// Reset all in-memory state to fresh — for unit tests that need to
+    /// exercise state transitions without cross-test contamination.
+    /// Does NOT touch persisted Config flags.
+    void reset_for_test();
+
   private:
     FirstRunTour() = default;
     void start_impl();
