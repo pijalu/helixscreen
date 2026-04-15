@@ -2048,7 +2048,10 @@ void AmsState::set_external_spool_info(const SlotInfo& info) {
 void AmsState::clear_external_spool_info() {
     std::lock_guard<std::recursive_mutex> lock(mutex_);
     helix::SettingsManager::instance().clear_external_spool_info();
-    if (lv_subject_get_int(&external_spool_color_) != 0) {
-        lv_subject_set_int(&external_spool_color_, 0);
+    // Force notification even when color was already 0 (e.g. previous spool was
+    // black, RGB=0x000000) — observers read full spool info, not just the color.
+    if (lv_subject_get_int(&external_spool_color_) == 0) {
+        lv_subject_set_int(&external_spool_color_, 1);
     }
+    lv_subject_set_int(&external_spool_color_, 0);
 }
