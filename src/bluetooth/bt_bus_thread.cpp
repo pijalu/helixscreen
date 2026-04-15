@@ -70,6 +70,24 @@ std::future<void> BusThread::submit(BusWork work) {
     std::promise<void> p;
     auto fut = p.get_future();
 
+    // Self-submit guard: if we're already on the bus thread, run inline. This
+    // preserves run_sync()'s recursive-safe semantics and prevents any caller
+    // that does submit(...).get() / .wait() from a bus-thread callback (e.g. an
+    // sd_bus match handler or timeout) from deadlocking on its own future. The
+    // queue path would enqueue, return up to sd_bus_process, and only execute
+    // on the *next* loop iteration — by which time .get() is already blocked.
+    // sd_bus_* calls are legal from inside dispatch, so inline execution is
+    // safe.
+    if (on_thread()) {
+        try {
+            work(bus_);
+            p.set_value();
+        } catch (...) {
+            p.set_exception(std::current_exception());
+        }
+        return fut;
+    }
+
     if (stopping_.load() || !running_.load()) {
         p.set_exception(std::make_exception_ptr(std::runtime_error("BusThread not running")));
         return fut;

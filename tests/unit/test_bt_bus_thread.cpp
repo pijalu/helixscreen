@@ -272,6 +272,39 @@ TEST_CASE("BusThread post-loop drain breaks promises before destructor", "[bt][b
     bt.reset();  // destructor runs last, finds nothing to clean up
 }
 
+TEST_CASE("BusThread submit().get() inside a work item runs inline (no deadlock)", "[bt][bus_thread][slow]") {
+    // Regression: sd_bus dispatch callbacks (match handlers, timeouts) run on
+    // the bus thread. If any such callback does bt.submit(...).get() — or its
+    // moral equivalent .wait() — the work would be enqueued behind the
+    // currently-executing item, and .get() would block forever waiting on a
+    // promise that the same thread is supposed to fulfill. submit() must
+    // detect on_thread() and run inline instead of queueing.
+    BusThread t(nullptr);
+    t.start();
+
+    std::atomic<int> outer_ran{0};
+    std::atomic<int> inner_ran{0};
+
+    auto outer_fut = t.submit([&](sd_bus*) {
+        std::thread::id outer_tid = std::this_thread::get_id();
+        outer_ran.store(1);
+        // Recursive submit + blocking get — must not deadlock.
+        auto inner = t.submit([&](sd_bus*) {
+            REQUIRE(std::this_thread::get_id() == outer_tid);
+            inner_ran.store(1);
+        });
+        // Bound the wait so a regression fails fast instead of hanging the test run.
+        REQUIRE(inner.wait_for(std::chrono::seconds(2)) == std::future_status::ready);
+        REQUIRE_NOTHROW(inner.get());
+    });
+    REQUIRE(outer_fut.wait_for(std::chrono::seconds(2)) == std::future_status::ready);
+    REQUIRE_NOTHROW(outer_fut.get());
+    REQUIRE(outer_ran.load() == 1);
+    REQUIRE(inner_ran.load() == 1);
+
+    t.stop();
+}
+
 TEST_CASE("BusThread run_sync inside a work item runs inline (no deadlock)", "[bt][slow]") {
     BusThread t(nullptr);
     t.start();
