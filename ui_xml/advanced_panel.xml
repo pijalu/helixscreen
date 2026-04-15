@@ -79,7 +79,8 @@
         <event_cb trigger="clicked" callback="on_timelapse_setup_clicked"/>
       </setting_action_row>
       <!-- HelixPrint Plugin (NOT installed - show Install row) -->
-      <!-- Shows ONLY when value == 0 (not installed), hidden otherwise (-1 or 1) -->
+      <!-- TEMPORARILY DISABLED: plugin install hidden from settings for now -->
+      <!--
       <beta_feature name="container_helix_plugin_install">
         <bind_flag_if_not_eq subject="helix_plugin_installed" flag="hidden" ref_value="0"/>
         <setting_action_row name="row_helix_plugin_install"
@@ -89,14 +90,16 @@
           <event_cb trigger="clicked" callback="on_helix_plugin_install_clicked"/>
         </setting_action_row>
       </beta_feature>
+      -->
+
       <!-- HelixPrint Plugin (INSTALLED - show Uninstall row) -->
       <!-- Shows ONLY when value == 1 (installed), hidden otherwise (-1 or 0) -->
       <beta_feature name="container_helix_plugin_uninstall">
-        <bind_flag_if_not_eq subject="helix_plugin_installed" flag="hidden" ref_value="1"/>
         <setting_action_row name="row_helix_plugin_uninstall"
                             label="Uninstall HelixPrint Plugin" label_tag="Uninstall HelixPrint Plugin"
                             icon="puzzle_outline" description="Remove plugin from printer"
                             description_tag="Remove plugin from printer">
+          <bind_flag_if_not_eq subject="helix_plugin_installed" flag="hidden" ref_value="1"/>
           <event_cb trigger="clicked" callback="on_helix_plugin_uninstall_clicked"/>
         </setting_action_row>
       </beta_feature>
@@ -125,12 +128,13 @@
       <!-- Phase Tracking Toggle (beta, visible when plugin installed) -->
       <!-- Shows ONLY when value == 1 (installed), hidden otherwise (-1 or 0) -->
       <beta_feature name="container_phase_tracking">
-        <bind_flag_if_not_eq subject="helix_plugin_installed" flag="hidden" ref_value="1"/>
         <setting_toggle_row name="row_phase_tracking"
                             label="Phase Tracking" label_tag="Phase Tracking" icon="progress_clock"
                             description="Show detailed print preparation status"
                             description_tag="Show detailed print preparation status" subject="phase_tracking_enabled"
-                            callback="on_phase_tracking_changed"/>
+                            callback="on_phase_tracking_changed">
+          <bind_flag_if_not_eq subject="helix_plugin_installed" flag="hidden" ref_value="1"/>
+        </setting_toggle_row>
       </beta_feature>
       <!-- ================================================================== -->
       <!-- CALIBRATION SECTION -->
