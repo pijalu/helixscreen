@@ -23,9 +23,17 @@
 #include <fcntl.h>
 #include <unistd.h>
 
-#if !defined(HELIX_PLATFORM_ANDROID)
+// execinfo.h: glibc Linux and macOS. Missing on Android NDK (bionic) and
+// musl libc (Creality K1/K2).
+#if defined(__APPLE__) || (defined(__linux__) && defined(__GLIBC__) && !defined(__ANDROID__))
 #include <execinfo.h>
+#define HELIX_HAS_BACKTRACE 1
+#endif
+
+// link.h / dl_iterate_phdr: glibc Linux only. macOS SDK doesn't ship link.h.
+#if defined(__linux__) && defined(__GLIBC__) && !defined(__ANDROID__)
 #include <link.h>
+#define HELIX_HAS_DL_ITERATE_PHDR 1
 #endif
 
 // SDL2 redefines main → SDL_main via this header.
@@ -42,7 +50,7 @@ static void log_fatal(const char* msg) {
     fflush(stderr);
 }
 
-#if !defined(HELIX_PLATFORM_ANDROID)
+#ifdef HELIX_HAS_DL_ITERATE_PHDR
 static int find_load_base_cb(struct dl_phdr_info* info, size_t /*size*/, void* data) {
     if (info->dlpi_name == nullptr || info->dlpi_name[0] == '\0') {
         *static_cast<uintptr_t*>(data) = static_cast<uintptr_t>(info->dlpi_addr);
@@ -73,11 +81,13 @@ static void write_exception_crash_file(const char* what) {
         dprintf(fd, "exception:%s\n", what);
     }
 
-#if !defined(HELIX_PLATFORM_ANDROID)
+#ifdef HELIX_HAS_DL_ITERATE_PHDR
     uintptr_t load_base = 0;
     dl_iterate_phdr(find_load_base_cb, &load_base);
     dprintf(fd, "load_base:0x%lx\n", static_cast<unsigned long>(load_base));
+#endif
 
+#ifdef HELIX_HAS_BACKTRACE
     void* frames[64];
     int n = backtrace(frames, 64);
     for (int i = 0; i < n; ++i) {

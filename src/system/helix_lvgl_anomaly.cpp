@@ -2,8 +2,14 @@
 #include "helix_lvgl_anomaly.h"
 
 #include <cstdio>
-#include <execinfo.h>
 #include <string>
+
+// Stack trace support (glibc Linux / macOS only).
+// Android NDK and musl libc (Creality K1) don't ship execinfo.h.
+#if defined(__APPLE__) || (defined(__linux__) && defined(__GLIBC__) && !defined(__ANDROID__))
+#include <execinfo.h>
+#define HELIX_ANOMALY_HAS_BACKTRACE 1
+#endif
 
 #include "system/telemetry_manager.h"
 
@@ -13,6 +19,7 @@ namespace {
 // hex PCs against the binary's symbol cache the same way it resolves crash frames.
 // Skip 2 frames: this helper + helix_lvgl_anomaly itself.
 std::string capture_backtrace_hex() {
+#ifdef HELIX_ANOMALY_HAS_BACKTRACE
     constexpr int kMaxFrames = 24;
     constexpr int kSkipFrames = 2;
     void* frames[kMaxFrames];
@@ -26,6 +33,9 @@ std::string capture_backtrace_hex() {
         out += buf;
     }
     return out;
+#else
+    return std::string{};
+#endif
 }
 } // namespace
 
