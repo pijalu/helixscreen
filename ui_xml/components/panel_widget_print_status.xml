@@ -2,6 +2,12 @@
 <!-- Copyright (C) 2025-2026 356C LLC -->
 <!-- SPDX-License-Identifier: GPL-3.0-or-later -->
 <component>
+  <styles>
+    <!-- Applied to library_body per colspan; use two bind_styles because inline
+         style_pad_gap would otherwise win over a single bind_style (CLAUDE.md rule #6). -->
+    <style name="library_body_gap_default" pad_gap="#space_xs"/>
+    <style name="library_body_gap_wide" pad_gap="#space_md"/>
+  </styles>
   <view extends="ui_card" width="100%" height="100%">
     <bind_state_if_not_eq subject="printer_connection_state" state="disabled" ref_value="2"/>
     <event_cb trigger="clicked" callback="print_card_clicked_cb"/>
@@ -19,10 +25,13 @@
                     clickable="false" event_bubble="true"/>
         <divider_horizontal/>
       </lv_obj>
-      <!-- Body: thumbnail left, action list right -->
+      <!-- Body: thumbnail left, action list right.
+           pad_gap intentionally omitted inline — driven by bind_style per colspan. -->
       <lv_obj name="library_body" width="100%" flex_grow="1" style_pad_all="#space_xs"
-              style_pad_left="0" flex_flow="row" style_pad_gap="#space_xs" scrollable="false"
+              style_pad_left="0" flex_flow="row" scrollable="false"
               clickable="false" event_bubble="true">
+        <bind_style name="library_body_gap_wide" subject="print_status_colspan" ref_value="3"/>
+        <bind_style name="library_body_gap_default" subject="print_status_colspan" ref_value="2"/>
         <!-- Thumbnail (last print or benchy) -->
         <lv_image name="print_card_thumb" width="40%" height="100%"
                   src="A:assets/images/benchy_thumbnail_white.png" inner_align="contain"
@@ -31,7 +40,7 @@
         <lv_obj name="library_actions" flex_grow="1" height="100%"
                 flex_flow="column" style_pad_all="0" style_pad_top="#space_xxs" style_pad_bottom="#space_xxs"
                 style_pad_gap="#space_sm"
-                style_flex_main_place="center" scrollable="false"
+                style_flex_main_place="space_evenly" scrollable="false"
                 clickable="false" event_bubble="true">
           <ui_button name="library_row_files" width="100%" height="#button_height_sm"
                      variant="outline" layout="row">

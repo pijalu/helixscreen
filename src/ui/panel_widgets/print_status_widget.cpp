@@ -62,7 +62,14 @@ PrintStatusWidget::PrintStatusWidget() : printer_state_(get_printer_state()) {
         lv_subject_init_int(&column_mode_subject_, 0);
         lv_xml_register_subject(nullptr, "print_status_column_mode", &column_mode_subject_);
         column_mode_subject_initialized_ = true;
+        lv_subject_init_int(&colspan_subject_, 2);
+        lv_xml_register_subject(nullptr, "print_status_colspan", &colspan_subject_);
+        colspan_subject_initialized_ = true;
         StaticSubjectRegistry::instance().register_deinit("PrintStatusWidgetSubjects", []() {
+            if (colspan_subject_initialized_ && lv_is_initialized()) {
+                lv_subject_deinit(&colspan_subject_);
+                colspan_subject_initialized_ = false;
+            }
             if (column_mode_subject_initialized_ && lv_is_initialized()) {
                 lv_subject_deinit(&column_mode_subject_);
                 column_mode_subject_initialized_ = false;
@@ -257,6 +264,8 @@ void PrintStatusWidget::detach() {
 
 void PrintStatusWidget::on_size_changed(int colspan, int rowspan, int /*width_px*/,
                                         int /*height_px*/) {
+    lv_subject_set_int(&colspan_subject_, colspan);
+
     // Compact mode: 1-column — not enough horizontal space for thumbnail + action rows
     bool compact = (colspan <= 1);
     if (compact != is_compact_) {
@@ -759,7 +768,11 @@ void PrintStatusWidget::apply_visibility_config() {
     lv_obj_t* library_row_recent = lv_obj_find_by_name(widget_obj_, "library_row_recent");
 
     if (library_header) {
-        if (show_title_)
+        // Hide at micro breakpoint regardless of show_title_ — no vertical space for it.
+        lv_subject_t* bp_subj = theme_manager_get_breakpoint_subject();
+        bool at_micro =
+            bp_subj && as_breakpoint(lv_subject_get_int(bp_subj)) == UiBreakpoint::Micro;
+        if (show_title_ && !at_micro)
             lv_obj_remove_flag(library_header, LV_OBJ_FLAG_HIDDEN);
         else
             lv_obj_add_flag(library_header, LV_OBJ_FLAG_HIDDEN);

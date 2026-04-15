@@ -81,6 +81,10 @@ class PrintStatusWidget : public PanelWidget {
     static inline lv_subject_t column_mode_subject_;
     static inline bool column_mode_subject_initialized_ = false;
 
+    // Current colspan (widget grid width), exposed for breakpoint-style XML bindings
+    static inline lv_subject_t colspan_subject_;
+    static inline bool colspan_subject_initialized_ = false;
+
     // Compact mode and state tracking
     bool is_compact_ = false;
     bool is_column_ = false;
