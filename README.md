@@ -127,11 +127,13 @@ See [docs/devel/GALLERY.md](docs/devel/GALLERY.md) for the full gallery.
 | Flashforge AD5X | MIPS32 | Tested |
 | QIDI Q2, Max 4 | aarch64 | Supported¹ |
 | Sovol SV06 / SV08 | Pi build | Tested |
-| Elegoo Centauri Carbon | Dedicated build | Active testing |
+| Elegoo Centauri Carbon | Dedicated build | Active testing² |
 | x86 Mini PC (Debian) | x86_64 | Tested |
 | macOS / Linux desktop | x86_64 / ARM64 | Development / CI |
 
 ¹ QIDI models with Linux framebuffer displays (Q2, Max 4) only. Requires [FreeDi](https://github.com/Phil1988/FreeDi) firmware. Older models (X-Max 3, X-Plus 3, Plus 4, Q1 Pro, X-Smart 3) use TJC/Nextion serial displays and are **not compatible** without a screen replacement.
+
+² Elegoo Centauri Carbon requires the community [OpenCentauri COSMOS](https://docs.opencentauri.cc/klipper-conversion/cosmos/) firmware (stock Elegoo firmware has no SSH, Klipper, or Moonraker). Ships with factory white-balance calibration for the 4.3" panel.
 
 ## Installation
 

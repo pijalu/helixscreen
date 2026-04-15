@@ -279,6 +279,8 @@ config-manager ui screen_ui grumpyscreen   # or atomscreen, guppyscreen, helixsc
 - Moonraker on COSMOS listens on port `80` directly (no nginx); HelixScreen's `cc1` preset is configured for this
 - Install directory: `/user-resource/helixscreen/` (`/` is read-only squashfs on COSMOS)
 - Init script: `/etc/init.d/helixscreen` (LSB-style, PIDFILE=`/var/run/gui.pid` for gui-switcher compatibility)
+- The `cc1` preset ships with **factory white-balance calibration** (per-channel panel gain) so colors look neutral out of the box on the Centauri Carbon's 4.3" panel — no manual tuning needed
+- COSMOS's `config-manager` has a fixed allowlist for the `screen_ui` slot. The installer handles this automatically via an init-script wrapper so HelixScreen can be selected without patching COSMOS itself; the uninstaller fully reverses it
 
 **If you're testing on this printer**, please report your results via [GitHub Issues](https://github.com/prestonbrown/helixscreen/issues) or [Discord](https://discord.gg/RZCT2StKhr).
 

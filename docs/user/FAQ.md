@@ -35,7 +35,7 @@ HelixScreen works with any Klipper-based printer running Moonraker. Tested and s
 | Creality Sonic Pad | **Supported** | 32-bit ARM, dedicated build |
 | FlashForge AD5X | **Tested** | IFS filament system integrated |
 | SOVOL SV06 / SV08 | **Tested** | Community reports welcome |
-| Elegoo Centauri Carbon 1 | **Testing** | Dedicated build target |
+| Elegoo Centauri Carbon 1 | **Testing** | Requires [OpenCentauri COSMOS](https://docs.opencentauri.cc/klipper-conversion/cosmos/) firmware; ships with factory white-balance calibration |
 | Other Klipper printers | **Should work** | Any printer with Moonraker API access |
 
 > **Note:** "Tested" means the HelixScreen team has verified the platform. "Untested" means binaries exist but haven't been verified on real hardware. See the [Installation Guide](INSTALL.md) for platform-specific instructions.
