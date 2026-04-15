@@ -96,6 +96,8 @@ void BusThread::loop() {
     while (running_.load()) {
         // 1. Drain queued work items.
         for (;;) {
+            if (stopping_.load())
+                break;  // Leave remaining items for stop()'s post-join drain to break their promises.
             std::pair<BusWork, std::promise<void>> item;
             {
                 std::lock_guard<std::mutex> lk(mu_);
@@ -112,8 +114,8 @@ void BusThread::loop() {
             }
         }
 
-        // 2. Process pending bus traffic. (Skipped in test mode.)
-        if (!skip_bus_calls_for_test_) {
+        // 2. Process pending bus traffic (skipped if no bus — null bus is legal for tests/idle).
+        if (bus_) {
             int r = sd_bus_process(bus_, nullptr);
             if (r < 0) {
                 fprintf(stderr, "[bt] BusThread sd_bus_process error: %s\n", strerror(-r));
@@ -128,7 +130,7 @@ void BusThread::loop() {
         // 3. Wait for bus activity OR a wakeup-pipe byte, up to 500ms.
         struct pollfd pfds[2];
         int nfds = 0;
-        if (!skip_bus_calls_for_test_) {
+        if (bus_) {
             int bus_fd = sd_bus_get_fd(bus_);
             if (bus_fd >= 0) {
                 pfds[nfds].fd = bus_fd;
@@ -143,7 +145,7 @@ void BusThread::loop() {
         }
 
         int timeout_ms = 500;
-        if (!skip_bus_calls_for_test_) {
+        if (bus_) {
             uint64_t timeout_us = 0;
             sd_bus_get_timeout(bus_, &timeout_us);
             if (timeout_us != UINT64_MAX) {

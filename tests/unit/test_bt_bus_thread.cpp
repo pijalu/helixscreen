@@ -4,14 +4,12 @@
 // sd_bus* connection. Tests exercise lifecycle, serialization, and shutdown
 // semantics without requiring a real BlueZ/D-Bus stack.
 //
-// Bus acquisition: uses sd_bus_new() to obtain an unstarted bus and sets the
-// BusThread's skip_bus_calls_for_test flag so the worker loop bypasses the
-// sd_bus_process / sd_bus_get_fd / sd_bus_get_timeout calls. (Empirical finding
-// from Option A attempt: sd_bus_process on an unstarted bus returns -ENOTCONN,
-// which trips BusThread's error path and kills the worker before the tests
-// can exercise it.) The tests exercise only the work-queue, lifecycle, and
-// serialization logic — which is what the plan calls for. Full D-Bus behaviour
-// is covered by integration tests against real BlueZ on target hardware.
+// Bus acquisition: tests construct BusThread with nullptr. A null bus is a
+// legal configuration meaning "no bus, idle worker" — the loop runs and
+// processes queued work items but skips all sd_bus_* calls. This lets the
+// tests exercise the work-queue, lifecycle, and serialization logic — which
+// is what the plan calls for. Full D-Bus behaviour is covered by integration
+// tests against real BlueZ on target hardware.
 //
 // Source inclusion: we compile bt_bus_thread.cpp directly into this translation
 // unit (same pattern as test_ui_switch.cpp) because src/bluetooth/*.cpp is
@@ -35,24 +33,8 @@
 using helix::bluetooth::BusThread;
 using namespace std::chrono_literals;
 
-namespace {
-
-struct BusHandle {
-    sd_bus* bus = nullptr;
-    BusHandle() { sd_bus_new(&bus); }
-    ~BusHandle() {
-        if (bus) sd_bus_unref(bus);
-    }
-};
-
-} // namespace
-
 TEST_CASE("BusThread starts and stops cleanly", "[bt][slow]") {
-    BusHandle h;
-    REQUIRE(h.bus != nullptr);
-
-    BusThread bt(h.bus);
-    bt.set_skip_bus_calls_for_test(true);
+    BusThread bt(nullptr);
     bt.start();
     std::this_thread::sleep_for(50ms);
     bt.stop();
@@ -62,11 +44,7 @@ TEST_CASE("BusThread starts and stops cleanly", "[bt][slow]") {
 }
 
 TEST_CASE("BusThread submit runs the work item on the thread", "[bt][slow]") {
-    BusHandle h;
-    REQUIRE(h.bus != nullptr);
-
-    BusThread bt(h.bus);
-    bt.set_skip_bus_calls_for_test(true);
+    BusThread bt(nullptr);
     bt.start();
 
     std::thread::id caller_id = std::this_thread::get_id();
@@ -81,11 +59,7 @@ TEST_CASE("BusThread submit runs the work item on the thread", "[bt][slow]") {
 }
 
 TEST_CASE("BusThread run_sync blocks until work completes", "[bt][slow]") {
-    BusHandle h;
-    REQUIRE(h.bus != nullptr);
-
-    BusThread bt(h.bus);
-    bt.set_skip_bus_calls_for_test(true);
+    BusThread bt(nullptr);
     bt.start();
 
     std::atomic<int> counter{0};
@@ -100,11 +74,7 @@ TEST_CASE("BusThread run_sync blocks until work completes", "[bt][slow]") {
 }
 
 TEST_CASE("BusThread serializes interleaved work", "[bt][slow]") {
-    BusHandle h;
-    REQUIRE(h.bus != nullptr);
-
-    BusThread bt(h.bus);
-    bt.set_skip_bus_calls_for_test(true);
+    BusThread bt(nullptr);
     bt.start();
 
     std::atomic<int> in_flight{0};
@@ -161,61 +131,46 @@ TEST_CASE("BusThread serializes interleaved work", "[bt][slow]") {
 }
 
 TEST_CASE("BusThread stop breaks pending futures", "[bt][slow]") {
-    BusHandle h;
-    REQUIRE(h.bus != nullptr);
+    BusThread t(nullptr);
+    t.start();
 
-    BusThread bt(h.bus);
-    bt.set_skip_bus_calls_for_test(true);
-    bt.start();
+    auto slow = t.submit([](sd_bus*) { std::this_thread::sleep_for(100ms); });
+    auto pending = t.submit([](sd_bus*) {});
+    // stop() runs while the worker is still inside the slow item; pending stays queued
+    // and gets its promise broken in stop()'s post-join drain.
+    std::this_thread::sleep_for(10ms);  // ensure worker has picked up slow
+    t.stop();
 
-    // Kick off a slow item so the worker is busy when stop() arrives.
-    auto slow = bt.submit([](sd_bus*) { std::this_thread::sleep_for(100ms); });
+    REQUIRE_NOTHROW(slow.get());
+    REQUIRE_THROWS(pending.get());
+}
 
-    // Submitter thread: keeps pushing items while we call stop(). Any submit()
-    // that sees stopping_==true or running_==false after stop() returns gets a
-    // broken promise immediately (exception-bearing future). The race is
-    // deterministic: the submitter outlives stop() and keeps pushing afterwards.
-    std::atomic<bool> submitter_done{false};
-    std::vector<std::future<void>> futures;
-    std::mutex futures_mu;
+TEST_CASE("BusThread start is idempotent", "[bt][slow]") {
+    BusThread t(nullptr);
+    t.start();
+    t.start();  // must be a no-op, no second thread spawned
+    t.start();
+    t.stop();
+    SUCCEED();  // didn't crash or deadlock
+}
 
-    std::thread submitter([&] {
-        // Keep pushing items until asked to stop. This guarantees that some
-        // submit() calls happen AFTER stop()'s running_.exchange(false), so
-        // they take the "BusThread not running" rejection path and return a
-        // broken future.
-        while (!submitter_done.load()) {
-            auto f = bt.submit([](sd_bus*) {});
-            {
-                std::lock_guard<std::mutex> lk(futures_mu);
-                futures.push_back(std::move(f));
-            }
-            std::this_thread::sleep_for(100us);
-        }
+TEST_CASE("BusThread run_sync inside a work item runs inline (no deadlock)", "[bt][slow]") {
+    BusThread t(nullptr);
+    t.start();
+
+    std::atomic<int> outer_tid_seen{0};
+    std::atomic<int> inner_tid_seen{0};
+    t.run_sync([&](sd_bus*) {
+        // We are on the bus thread.
+        std::thread::id outer = std::this_thread::get_id();
+        outer_tid_seen.store(1);
+        t.run_sync([&](sd_bus*) {
+            // Should run inline on the same thread (no queue, no deadlock).
+            REQUIRE(std::this_thread::get_id() == outer);
+            inner_tid_seen.store(1);
+        });
     });
-
-    // Give the submitter a moment to fill the queue, then tear down.
-    std::this_thread::sleep_for(10ms);
-    bt.stop();
-    submitter_done.store(true);
-    submitter.join();
-
-    // After stop() returns: at least one submit()-returned future must have
-    // been broken — either during stop()'s post-join drain (items pushed
-    // before running_.exchange(false)) or during the submitter's subsequent
-    // push attempts (rejected by the stopping_/!running_ guard).
-    (void)slow;
-
-    int broken = 0;
-    {
-        std::lock_guard<std::mutex> lk(futures_mu);
-        for (auto& f : futures) {
-            try {
-                f.get();
-            } catch (const std::exception&) {
-                ++broken;
-            }
-        }
-    }
-    REQUIRE(broken > 0);
+    REQUIRE(outer_tid_seen.load() == 1);
+    REQUIRE(inner_tid_seen.load() == 1);
+    t.stop();
 }
