@@ -129,12 +129,17 @@ void WifiBackendNetworkManager::start_async() {
 
     init_thread_ = std::thread([this]() {
         WiFiError result = start();
-        init_in_progress_ = false;
+        // Fire the event BEFORE clearing init_in_progress_. A handler that
+        // synchronously calls start_async() again (e.g. a re-entry via the
+        // fallback path) must see init still "in progress" so the new call
+        // is serialized against this still-running worker, instead of
+        // short-circuiting and racing a joinable init_thread_.
         if (result.success()) {
             fire_event("READY");
         } else {
             fire_event("INIT_FAILED", result.technical_msg);
         }
+        init_in_progress_ = false;
     });
 }
 

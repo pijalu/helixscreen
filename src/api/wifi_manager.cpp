@@ -91,14 +91,25 @@ void WiFiManager::handle_init_failed(bool silent, const std::string& msg) {
         spdlog::warn("[WiFiManager] NetworkManager backend INIT_FAILED ({}); "
                      "falling back to wpa_supplicant",
                      msg);
-        // Tear down failed NM backend (stop() joins any init thread), then
-        // construct wpa_supplicant and kick it off.
-        backend_->stop();
-        backend_.reset();
-        backend_ = std::make_unique<WifiBackendWpaSupplicant>();
-        backend_->set_silent(silent);
-        register_backend_callbacks(silent);
-        backend_->start_async();
+        // CRITICAL: INIT_FAILED fires from inside the NM backend's init worker
+        // thread. Calling backend_->stop() here would invoke
+        // init_thread_.join() on the currently-executing thread, producing
+        // std::system_error(resource_deadlock_would_occur). Defer the swap to
+        // the main/UI thread via UpdateQueue so the init thread can unwind
+        // before stop() joins it. WiFiManager is a process singleton owned by
+        // g_shared_wifi_manager, so capturing `this` is safe.
+        helix::ui::queue_update("WiFiManager::fallback_to_wpa_supplicant",
+                                [this, silent]() {
+            if (!backend_) {
+                return;
+            }
+            backend_->stop();
+            backend_.reset();
+            backend_ = std::make_unique<WifiBackendWpaSupplicant>();
+            backend_->set_silent(silent);
+            register_backend_callbacks(silent);
+            backend_->start_async();
+        });
         return;
     }
 #endif
