@@ -1337,9 +1337,12 @@ bool Config::apply_preset_file(const std::string& preset_name) {
         data["display"].merge_patch(preset_json["display"]);
     }
 
+#if !defined(HELIX_SPLASH_ONLY) && !defined(HELIX_WATCHDOG)
     // Populate per-printer `type` from the database entry whose `preset` field matches.
     // Without this, the home panel's image widget has no printer_type to look up and
-    // falls back to the generic CoreXY image.
+    // falls back to the generic CoreXY image. Only the main app applies presets at
+    // runtime — splash/watchdog just read existing config — so PrinterDetector (which
+    // pulls in the full printer database) is excluded from those binaries.
     std::string type_key = df() + helix::wizard::PRINTER_TYPE;
     if (get<std::string>(type_key, "").empty()) {
         std::string type_name = PrinterDetector::get_name_for_preset(preset_name);
@@ -1352,6 +1355,7 @@ bool Config::apply_preset_file(const std::string& preset_name) {
                          preset_name);
         }
     }
+#endif
 
     spdlog::info("[Config] Applied preset '{}' to active printer", preset_name);
     save();
