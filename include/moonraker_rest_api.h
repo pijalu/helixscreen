@@ -15,12 +15,8 @@
 #include "moonraker_error.h"
 #include "moonraker_types.h"
 
-#include <atomic>
 #include <functional>
-#include <list>
-#include <mutex>
 #include <string>
-#include <thread>
 
 #include "hv/json.hpp"
 
@@ -150,20 +146,4 @@ class MoonrakerRestAPI {
   protected:
     helix::MoonrakerClient& client_;
     const std::string& http_base_url_;
-
-  private:
-    // Track pending HTTP request threads for clean shutdown
-    mutable std::mutex http_threads_mutex_;
-    std::list<std::pair<std::thread, std::shared_ptr<std::atomic<bool>>>> http_threads_;
-    std::atomic<bool> shutting_down_{false};
-
-    /**
-     * @brief Launch an HTTP request thread with automatic lifecycle management
-     *
-     * Spawns a thread for async HTTP operations and tracks it for cleanup.
-     * Thread is automatically removed from tracking when it completes.
-     *
-     * @param func The function to execute in the thread
-     */
-    void launch_http_thread(std::function<void()> func);
 };

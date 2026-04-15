@@ -19,6 +19,7 @@
 
 #include "app_constants.h"
 #include "asset_manager.h"
+#include "http_executor.h"
 #include "cjk_font_manager.h"
 #include "config.h"
 #include "display/lv_display_private.h"
@@ -444,7 +445,11 @@ int Application::run(int argc, char** argv) {
     }
 
     // Phase 9b: Initialize Moonraker (creates client + API)
-    // Now works because PrinterState exists from phase 9a
+    // Now works because PrinterState exists from phase 9a.
+    // Start HTTP executors first — the Moonraker APIs submit to them on
+    // every request. Two lanes (fast for REST, slow for file transfers)
+    // prevent a large upload from head-of-line blocking status polls.
+    helix::http::HttpExecutor::start_all();
     if (!init_moonraker()) {
         shutdown();
         return 1;
@@ -3631,6 +3636,11 @@ void Application::shutdown() {
     // Safe here: LVGL subjects are deinitialized but lv_deinit() hasn't run yet,
     // so lv_observer_remove() can still operate on the observer linked lists.
     m_moonraker.reset();
+
+    // MoonrakerManager is gone, so no code path can submit new HTTP work.
+    // Stop the executors — drains the currently-executing item and breaks
+    // promises on anything still queued.
+    helix::http::HttpExecutor::stop_all();
 
     // Shutdown display (calls lv_deinit). All observer callbacks were already
     // removed above, so widget deletion is clean — no observer linked list access.

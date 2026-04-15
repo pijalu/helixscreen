@@ -61,60 +61,13 @@ MoonrakerAPI::MoonrakerAPI(MoonrakerClient& client, PrinterState& state) : clien
 }
 
 MoonrakerAPI::~MoonrakerAPI() {
-    // Signal shutdown to prevent new threads from launching
-    shutting_down_.store(true);
-
-    // Join tracked HTTP threads (power device operations)
-    {
-        std::list<std::pair<std::thread, std::shared_ptr<std::atomic<bool>>>> threads_to_join;
-        {
-            std::lock_guard<std::mutex> lock(http_threads_mutex_);
-            threads_to_join = std::move(http_threads_);
-        }
-        for (auto& [t, _] : threads_to_join) {
-            if (t.joinable()) {
-                t.join();
-            }
-        }
-    }
-
     // Deinit LVGL subject before destruction to prevent dangling observer crashes
     // (same pattern as StaticSubjectRegistry — observers must be disconnected before lv_deinit)
     lv_subject_deinit(&build_volume_version_);
 
-    // Sub-API HTTP thread cleanup is handled by ~MoonrakerFileTransferAPI, ~MoonrakerRestAPI,
-    // and ~MoonrakerTimelapseAPI via their own thread tracking
-}
-
-void MoonrakerAPI::launch_http_thread(std::function<void()> func) {
-    std::lock_guard<std::mutex> lock(http_threads_mutex_);
-
-    // Check shutdown under lock to prevent race with destructor's move
-    if (shutting_down_.load()) {
-        return;
-    }
-
-    // Prune completed threads to prevent unbounded list growth
-    for (auto it = http_threads_.begin(); it != http_threads_.end();) {
-        if (it->second->load()) {
-            it->first.join();
-            it = http_threads_.erase(it);
-        } else {
-            ++it;
-        }
-    }
-
-    auto done = std::make_shared<std::atomic<bool>>(false);
-    try {
-        http_threads_.emplace_back(std::thread([func = std::move(func), done]() {
-                                       func();
-                                       done->store(true);
-                                   }),
-                                   done);
-    } catch (const std::system_error& e) {
-        spdlog::error("[MoonrakerAPI] Failed to spawn HTTP thread: {} — dropping request",
-                      e.what());
-    }
+    // HTTP work runs on process-wide HttpExecutor::fast()/slow() singletons,
+    // which are stopped in Application::shutdown() after MoonrakerManager is
+    // destroyed.
 }
 
 bool MoonrakerAPI::ensure_http_base_url() {

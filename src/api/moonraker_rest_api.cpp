@@ -17,11 +17,10 @@
 
 #include "moonraker_rest_api.h"
 
+#include "http_executor.h"
 #include "hv/requests.h"
 #include "moonraker_error.h"
 #include "spdlog/spdlog.h"
-
-#include <chrono>
 
 namespace {
 
@@ -65,100 +64,7 @@ bool is_safe_endpoint(const std::string& endpoint) {
 MoonrakerRestAPI::MoonrakerRestAPI(helix::MoonrakerClient& client, const std::string& http_base_url)
     : client_(client), http_base_url_(http_base_url) {}
 
-MoonrakerRestAPI::~MoonrakerRestAPI() {
-    // Signal shutdown and wait for HTTP threads with timeout
-    shutting_down_.store(true);
-
-    std::list<std::pair<std::thread, std::shared_ptr<std::atomic<bool>>>> threads_to_join;
-    {
-        std::lock_guard<std::mutex> lock(http_threads_mutex_);
-        threads_to_join = std::move(http_threads_);
-    }
-
-    if (threads_to_join.empty()) {
-        return;
-    }
-
-    spdlog::debug("[MoonrakerRestAPI] Waiting for {} HTTP thread(s) to finish...",
-                  threads_to_join.size());
-
-    constexpr auto kJoinTimeout = std::chrono::seconds(2);
-    constexpr auto kPollInterval = std::chrono::milliseconds(10);
-
-    for (auto& thread_entry : threads_to_join) {
-        auto& t = thread_entry.first;
-        if (!t.joinable()) {
-            continue;
-        }
-
-        // Under thread exhaustion this constructor can throw
-        // std::system_error(EAGAIN) — catching it here is critical because
-        // we're on a destructor path and throws must not escape.
-        std::atomic<bool> joined{false};
-        std::thread join_helper;
-        try {
-            join_helper = std::thread([&t, &joined]() {
-                t.join();
-                joined.store(true);
-            });
-        } catch (const std::system_error& e) {
-            spdlog::warn("[MoonrakerRestAPI] Failed to spawn join_helper ({}) — "
-                         "detaching HTTP thread",
-                         e.what());
-            t.detach();
-            continue;
-        }
-
-        auto start = std::chrono::steady_clock::now();
-        while (!joined.load()) {
-            if (std::chrono::steady_clock::now() - start > kJoinTimeout) {
-                spdlog::warn("[MoonrakerRestAPI] HTTP thread still running after {}s - "
-                             "will terminate with process",
-                             kJoinTimeout.count());
-                join_helper.detach();
-                t.detach();
-                break;
-            }
-            std::this_thread::sleep_for(kPollInterval);
-        }
-
-        if (join_helper.joinable()) {
-            join_helper.join();
-        }
-    }
-}
-
-void MoonrakerRestAPI::launch_http_thread(std::function<void()> func) {
-    std::lock_guard<std::mutex> lock(http_threads_mutex_);
-
-    // Check shutdown under lock to prevent race with destructor's move
-    if (shutting_down_.load()) {
-        return;
-    }
-
-    // Prune completed threads to prevent unbounded list growth
-    for (auto it = http_threads_.begin(); it != http_threads_.end();) {
-        if (it->second->load()) {
-            it->first.join();
-            it = http_threads_.erase(it);
-        } else {
-            ++it;
-        }
-    }
-
-    auto done = std::make_shared<std::atomic<bool>>(false);
-    try {
-        http_threads_.emplace_back(
-            std::thread([func = std::move(func), done]() {
-                func();
-                done->store(true);
-            }),
-            done);
-    } catch (const std::system_error& e) {
-        spdlog::error("[MoonrakerRestAPI] Failed to spawn HTTP thread: {} — dropping request",
-                      e.what());
-    }
-}
+MoonrakerRestAPI::~MoonrakerRestAPI() = default;
 
 // ============================================================================
 // Generic REST Endpoint Operations
@@ -198,7 +104,7 @@ void MoonrakerRestAPI::call_rest_get(const std::string& endpoint, RestCallback o
     spdlog::debug("[MoonrakerRestAPI] REST GET: {}", url);
 
     // Run HTTP request in a tracked thread
-    launch_http_thread([url, endpoint, on_complete]() {
+    helix::http::HttpExecutor::fast().submit([url, endpoint, on_complete]() {
         RestResponse result;
 
         auto req = std::make_shared<HttpRequest>();
@@ -310,7 +216,7 @@ void MoonrakerRestAPI::call_rest_post(const std::string& endpoint, const json& p
     spdlog::debug("[MoonrakerRestAPI] REST POST: {} ({} bytes)", url, body.size());
 
     // Run HTTP request in a tracked thread
-    launch_http_thread([url, endpoint, body, on_complete]() {
+    helix::http::HttpExecutor::fast().submit([url, endpoint, body, on_complete]() {
         RestResponse result;
 
         auto req = std::make_shared<HttpRequest>();

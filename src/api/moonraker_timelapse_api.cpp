@@ -3,13 +3,13 @@
 
 #include "moonraker_timelapse_api.h"
 
+#include "http_executor.h"
 #include "hv/requests.h"
 #include "moonraker_client.h"
 #include "spdlog/spdlog.h"
 
 #include <iomanip>
 #include <sstream>
-#include <thread>
 
 using namespace helix;
 
@@ -21,53 +21,7 @@ MoonrakerTimelapseAPI::MoonrakerTimelapseAPI(MoonrakerClient& client,
                                              const std::string& http_base_url)
     : client_(client), http_base_url_(http_base_url) {}
 
-MoonrakerTimelapseAPI::~MoonrakerTimelapseAPI() {
-    shutting_down_.store(true);
-
-    std::list<std::pair<std::thread, std::shared_ptr<std::atomic<bool>>>> threads_to_join;
-    {
-        std::lock_guard<std::mutex> lock(http_threads_mutex_);
-        threads_to_join = std::move(http_threads_);
-    }
-
-    for (auto& [t, _] : threads_to_join) {
-        if (t.joinable()) {
-            t.join();
-        }
-    }
-}
-
-void MoonrakerTimelapseAPI::launch_http_thread(std::function<void()> func) {
-    std::lock_guard<std::mutex> lock(http_threads_mutex_);
-
-    // Check shutdown under lock to prevent race with destructor's move
-    if (shutting_down_.load()) {
-        return;
-    }
-
-    // Prune completed threads to prevent unbounded list growth
-    for (auto it = http_threads_.begin(); it != http_threads_.end();) {
-        if (it->second->load()) {
-            it->first.join();
-            it = http_threads_.erase(it);
-        } else {
-            ++it;
-        }
-    }
-
-    auto done = std::make_shared<std::atomic<bool>>(false);
-    try {
-        http_threads_.emplace_back(
-            std::thread([func = std::move(func), done]() {
-                func();
-                done->store(true);
-            }),
-            done);
-    } catch (const std::system_error& e) {
-        spdlog::error("[MoonrakerTimelapseAPI] Failed to spawn HTTP thread: {} — dropping request",
-                      e.what());
-    }
-}
+MoonrakerTimelapseAPI::~MoonrakerTimelapseAPI() = default;
 
 // ============================================================================
 // Timelapse Operations (Moonraker-Timelapse Plugin)
@@ -90,7 +44,7 @@ void MoonrakerTimelapseAPI::get_timelapse_settings(TimelapseSettingsCallback on_
     std::string url = http_base_url_ + "/machine/timelapse/settings";
     spdlog::debug("[Timelapse API] Fetching timelapse settings from: {}", url);
 
-    launch_http_thread([url, on_success, on_error]() {
+    helix::http::HttpExecutor::fast().submit([url, on_success, on_error]() {
         auto resp = requests::get(url.c_str());
 
         if (!resp) {
@@ -209,7 +163,7 @@ void MoonrakerTimelapseAPI::set_timelapse_settings(const TimelapseSettings& sett
                  settings.mode, settings.output_framerate);
     spdlog::debug("[Timelapse API] Timelapse URL: {}", url_str);
 
-    launch_http_thread([url_str, on_success, on_error]() {
+    helix::http::HttpExecutor::fast().submit([url_str, on_success, on_error]() {
         auto resp = requests::post(url_str.c_str(), "");
 
         if (!resp) {
@@ -265,7 +219,7 @@ void MoonrakerTimelapseAPI::set_timelapse_enabled(bool enabled, SuccessCallback 
 
     spdlog::info("[Timelapse API] Setting timelapse enabled={}", enabled);
 
-    launch_http_thread([url, enabled, on_success, on_error]() {
+    helix::http::HttpExecutor::fast().submit([url, enabled, on_success, on_error]() {
         auto resp = requests::post(url.c_str(), "");
 
         if (!resp) {

@@ -6,6 +6,7 @@
 #include "ui_error_reporting.h"
 #include "ui_notification.h"
 
+#include "http_executor.h"
 #include "hv/hfile.h"
 #include "hv/hurl.h"
 #include "hv/requests.h"
@@ -13,11 +14,9 @@
 #include "moonraker_api_internal.h"
 #include "spdlog/spdlog.h"
 
-#include <chrono>
 #include <filesystem>
 #include <fstream>
 #include <sstream>
-#include <thread>
 
 using namespace moonraker_internal;
 
@@ -29,110 +28,7 @@ MoonrakerFileTransferAPI::MoonrakerFileTransferAPI(helix::MoonrakerClient& clien
                                                    const std::string& http_base_url)
     : client_(client), http_base_url_(http_base_url) {}
 
-MoonrakerFileTransferAPI::~MoonrakerFileTransferAPI() {
-    // Signal shutdown and wait for HTTP threads with timeout
-    // File downloads/uploads can have long timeouts (up to 1 hour in libhv),
-    // so we use a timed join to avoid blocking shutdown indefinitely.
-    shutting_down_.store(true);
-
-    std::list<std::pair<std::thread, std::shared_ptr<std::atomic<bool>>>> threads_to_join;
-    {
-        std::lock_guard<std::mutex> lock(http_threads_mutex_);
-        threads_to_join = std::move(http_threads_);
-    }
-
-    if (threads_to_join.empty()) {
-        return;
-    }
-
-    spdlog::debug("[FileTransferAPI] Waiting for {} HTTP thread(s) to finish...",
-                  threads_to_join.size());
-
-    // Timed join pattern: use a helper thread to do the join, poll for completion.
-    // We can't use std::async because its std::future destructor blocks!
-    constexpr auto kJoinTimeout = std::chrono::seconds(2);
-    constexpr auto kPollInterval = std::chrono::milliseconds(10);
-
-    for (auto& [t, _] : threads_to_join) {
-        if (!t.joinable()) {
-            continue;
-        }
-
-        // Copy structured binding for lambda capture (GCC on Ubuntu doesn't
-        // allow capturing structured bindings in lambdas per C++17 rules)
-        auto& thread_ref = t;
-
-        // Launch helper thread to do the join. Under thread exhaustion this
-        // constructor can throw std::system_error(EAGAIN) — catching it here
-        // is critical because we're on a destructor path and throws must not
-        // escape. Detach the original thread as a fallback.
-        std::atomic<bool> joined{false};
-        std::thread join_helper;
-        try {
-            join_helper = std::thread([&thread_ref, &joined]() {
-                thread_ref.join();
-                joined.store(true);
-            });
-        } catch (const std::system_error& e) {
-            spdlog::warn("[FileTransferAPI] Failed to spawn join_helper ({}) — "
-                         "detaching HTTP thread",
-                         e.what());
-            t.detach();
-            continue;
-        }
-
-        // Poll for completion with timeout
-        auto start = std::chrono::steady_clock::now();
-        while (!joined.load()) {
-            if (std::chrono::steady_clock::now() - start > kJoinTimeout) {
-                spdlog::warn("[FileTransferAPI] HTTP thread still running after {}s - "
-                             "will terminate with process",
-                             kJoinTimeout.count());
-                join_helper.detach();
-                t.detach(); // Critical: avoid std::terminate on list destruction
-                break;
-            }
-            std::this_thread::sleep_for(kPollInterval);
-        }
-
-        // Use joinable() check - returns false after detach(), preventing UB
-        if (join_helper.joinable()) {
-            join_helper.join();
-        }
-    }
-}
-
-void MoonrakerFileTransferAPI::launch_http_thread(std::function<void()> func) {
-    std::lock_guard<std::mutex> lock(http_threads_mutex_);
-
-    // Check shutdown under lock to prevent race with destructor's move
-    if (shutting_down_.load()) {
-        return;
-    }
-
-    // Prune completed threads to prevent unbounded list growth
-    for (auto it = http_threads_.begin(); it != http_threads_.end();) {
-        if (it->second->load()) {
-            it->first.join();
-            it = http_threads_.erase(it);
-        } else {
-            ++it;
-        }
-    }
-
-    auto done = std::make_shared<std::atomic<bool>>(false);
-    try {
-        http_threads_.emplace_back(
-            std::thread([func = std::move(func), done]() {
-                func();
-                done->store(true);
-            }),
-            done);
-    } catch (const std::system_error& e) {
-        spdlog::error("[MoonrakerFileTransferAPI] Failed to spawn HTTP thread: {} — dropping request",
-                      e.what());
-    }
-}
+MoonrakerFileTransferAPI::~MoonrakerFileTransferAPI() = default;
 
 // ============================================================================
 // HTTP File Transfer Operations
@@ -159,7 +55,7 @@ void MoonrakerFileTransferAPI::download_file(const std::string& root, const std:
     spdlog::debug("[Moonraker API] Downloading file: {}", url);
 
     // Run HTTP request in a tracked thread to ensure clean shutdown
-    launch_http_thread([url, path, on_success, on_error]() {
+    helix::http::HttpExecutor::slow().submit([url, path, on_success, on_error]() {
         auto resp = requests::get(url.c_str());
 
         if (!handle_http_response(resp, "download_file", on_error)) {
@@ -197,7 +93,7 @@ void MoonrakerFileTransferAPI::download_file_partial(const std::string& root,
     spdlog::debug("[Moonraker API] Partial download (first {} bytes): {}", max_bytes, url);
 
     // Run HTTP request in a tracked thread
-    launch_http_thread([url, path, max_bytes, on_success, on_error]() {
+    helix::http::HttpExecutor::slow().submit([url, path, max_bytes, on_success, on_error]() {
         // Create request with Range header for partial content
         auto req = std::make_shared<HttpRequest>();
         req->method = HTTP_GET;
@@ -243,7 +139,7 @@ void MoonrakerFileTransferAPI::download_file_to_path(
 
     // Run HTTP request in a tracked thread to ensure clean shutdown
     // Use requests::downloadFile which streams directly to disk
-    launch_http_thread([url, path, dest_path, on_success, on_error, on_progress]() {
+    helix::http::HttpExecutor::slow().submit([url, path, dest_path, on_success, on_error, on_progress]() {
         // libhv's downloadFile progress callback signature matches our ProgressCallback
         size_t bytes_written = requests::downloadFile(url.c_str(), dest_path.c_str(), on_progress);
 
@@ -288,8 +184,10 @@ void MoonrakerFileTransferAPI::download_thumbnail(const std::string& thumbnail_p
 
     spdlog::trace("[Moonraker API] Downloading thumbnail: {} -> {}", url, cache_path);
 
-    // Run HTTP request in a tracked thread to ensure clean shutdown
-    launch_http_thread([url, thumbnail_path, cache_path, on_success, on_error]() {
+    // Thumbnails are small (tens of KB) and fetched in bursts when the file
+    // browser scrolls. Run them on the fast lane so uploads/downloads on the
+    // slow lane don't block the UI.
+    helix::http::HttpExecutor::fast().submit([url, thumbnail_path, cache_path, on_success, on_error]() {
         auto resp = requests::get(url.c_str());
 
         if (!handle_http_response(resp, "download_thumbnail", on_error)) {
@@ -343,8 +241,11 @@ void MoonrakerFileTransferAPI::upload_file_with_name(
 
     spdlog::debug("[Moonraker API] Uploading {} bytes to {}/{}", content.size(), root, path);
 
-    // Run HTTP request in a tracked thread to ensure clean shutdown
-    launch_http_thread([url, root, path, filename, content, on_success, on_error]() {
+    // Memory-buffer uploads are small (config edits, PRINT_START shim,
+    // macro files). Fast lane so they don't queue behind large gcode
+    // uploads on the slow lane. Use upload_file_from_path for large
+    // streaming uploads.
+    helix::http::HttpExecutor::fast().submit([url, root, path, filename, content, on_success, on_error]() {
         // Create multipart form request
         auto req = std::make_shared<HttpRequest>();
         req->method = HTTP_POST;
@@ -440,7 +341,7 @@ void MoonrakerFileTransferAPI::upload_file_from_path(
     }
 
     // Run streaming upload in a tracked thread using libhv's uploadLargeFormFile
-    launch_http_thread(
+    helix::http::HttpExecutor::slow().submit(
         [url, params, filename, local_path, file_size, on_success, on_error, on_progress]() {
             // Use libhv's streaming multipart upload with custom filename
             // Combine external progress callback with internal logging

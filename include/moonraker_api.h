@@ -717,13 +717,6 @@ class MoonrakerAPI {
     SafetyLimits safety_limits_;
     bool limits_explicitly_set_ = false;
 
-    /// Launch an HTTP thread with lifecycle tracking (joined on destruction)
-    void launch_http_thread(std::function<void()> func);
-
-    mutable std::mutex http_threads_mutex_;
-    std::list<std::pair<std::thread, std::shared_ptr<std::atomic<bool>>>> http_threads_;
-    std::atomic<bool> shutting_down_{false};
-
   protected:
     // Sub-API unique_ptrs declared AFTER data members they reference
     // (http_base_url_, safety_limits_) so they are destroyed FIRST.
