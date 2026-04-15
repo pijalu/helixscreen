@@ -12,6 +12,7 @@
 
 #include "ams_backend_ace.h"
 
+#include "data_root_resolver.h"
 #include "moonraker_api.h"
 #include "moonraker_client.h"
 #include "post_op_cooldown_manager.h"
@@ -1348,10 +1349,10 @@ void AmsBackendAce::save_slot_overrides_json() const {
         json_data = slot_overrides_to_json();
     }
 
-    auto path = fs::path(config_dir_) / SLOT_OVERRIDES_JSON;
+    auto path = fs::path(helix::get_user_config_dir()) / SLOT_OVERRIDES_JSON;
 
     try {
-        fs::create_directories(config_dir_);
+        fs::create_directories(path.parent_path());
 
         std::ofstream ofs(path);
         if (!ofs.is_open()) {
@@ -1368,7 +1369,7 @@ void AmsBackendAce::save_slot_overrides_json() const {
 bool AmsBackendAce::load_slot_overrides_json() {
     namespace fs = std::filesystem;
 
-    auto path = fs::path(config_dir_) / SLOT_OVERRIDES_JSON;
+    auto path = fs::path(helix::get_user_config_dir()) / SLOT_OVERRIDES_JSON;
 
     if (!fs::exists(path)) {
         spdlog::debug("[ACE] No slot overrides JSON file at {}", path.string());

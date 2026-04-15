@@ -462,17 +462,18 @@ int Application::run(int argc, char** argv) {
 
     // Initialize CrashReporter (independent of telemetry)
     // Write mock crash file first if --mock-crash flag is set (requires --test)
+    const std::string user_config_dir = helix::get_user_config_dir();
     if (get_runtime_config()->mock_crash) {
-        crash_handler::write_mock_crash_file("config/crash.txt");
+        crash_handler::write_mock_crash_file(user_config_dir + "/crash.txt");
         spdlog::info("[Application] Wrote mock crash file for testing");
     }
-    helix::CrashHistory::instance().init("config");
-    CrashReporter::instance().init("config");
+    helix::CrashHistory::instance().init(user_config_dir);
+    CrashReporter::instance().init(user_config_dir);
 
     // Initialize TelemetryManager (opt-in, default OFF)
     // Note: record_session() is called after init_panel_subjects() so that
     // SettingsManager subjects are ready and the enabled state can be synced.
-    TelemetryManager::instance().init();
+    TelemetryManager::instance().init(user_config_dir);
 
     // First heap snapshot, before panel construction and XML load. Later
     // snapshots are diffed against this to narrow down which startup phase

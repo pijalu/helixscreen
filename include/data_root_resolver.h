@@ -29,4 +29,18 @@ std::string resolve_data_root_from_exe(const std::string& exe_path);
  */
 bool is_valid_data_root(const std::string& dir);
 
+/**
+ * @brief Resolve the writable user-config directory
+ *
+ * Returns $HELIX_CONFIG_DIR if set and non-empty; otherwise returns the
+ * relative default "config". Does not create the directory — callers are
+ * responsible for fs::create_directories before writing.
+ *
+ * Used for runtime-mutable state (settings.json, tool_spools.json,
+ * crash_history.json, user themes, pending_remap.json, etc.). On
+ * read-only baselines (Yocto squashfs), HELIX_CONFIG_DIR points at a
+ * writable partition (e.g. ~/printer_data/config/helixscreen).
+ */
+std::string get_user_config_dir();
+
 } // namespace helix

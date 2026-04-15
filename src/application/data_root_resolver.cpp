@@ -3,6 +3,7 @@
 
 #include "data_root_resolver.h"
 
+#include <cstdlib>
 #include <cstring>
 #include <sys/stat.h>
 
@@ -46,6 +47,14 @@ std::string resolve_data_root_from_exe(const std::string& exe_path) {
     }
 
     return {};
+}
+
+std::string get_user_config_dir() {
+    const char* env_dir = std::getenv("HELIX_CONFIG_DIR");
+    if (env_dir != nullptr && env_dir[0] != '\0') {
+        return env_dir;
+    }
+    return "config";
 }
 
 } // namespace helix

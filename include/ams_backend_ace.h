@@ -242,6 +242,4 @@ class AmsBackendAce : public AmsSubscriptionBackend {
     bool load_slot_overrides_json();
     nlohmann::json slot_overrides_to_json() const;
     void apply_slot_overrides_json(const nlohmann::json& data);
-
-    std::string config_dir_ = "config";
 };
