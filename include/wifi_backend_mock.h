@@ -52,6 +52,7 @@ class WifiBackendMock : public WifiBackend {
     // ========================================================================
 
     WiFiError start() override;
+    void start_async() override;
     void stop() override;
     bool is_running() const override;
 

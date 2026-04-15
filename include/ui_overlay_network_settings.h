@@ -68,6 +68,7 @@ namespace helix {
 class WiFiManager;
 }
 class EthernetManager;
+struct EthernetInfo;
 struct WiFiNetwork;
 
 /**
@@ -258,7 +259,12 @@ class NetworkSettingsOverlay : public OverlayBase {
 
     // Helper functions
     void update_wifi_status();
+    // Kicks off an async probe of the Ethernet backend and applies the
+    // result on the UI thread via apply_ethernet_status(). Safe to call
+    // from the UI thread — does not block.
     void update_ethernet_status();
+    // Applies an EthernetInfo to the overlay subjects. UI-thread only.
+    void apply_ethernet_status(const EthernetInfo& info);
     void update_any_network_connected();
     void update_test_state(NetworkTester::TestState state, const NetworkTester::TestResult& result);
     void populate_network_list(const std::vector<WiFiNetwork>& networks);

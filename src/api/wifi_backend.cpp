@@ -5,6 +5,8 @@
 
 #include "runtime_config.h"
 #include "spdlog/spdlog.h"
+
+#include <unistd.h>
 #ifdef HELIX_ENABLE_MOCKS
 #include "wifi_backend_mock.h"
 #endif
@@ -23,61 +25,50 @@ std::unique_ptr<WifiBackend> WifiBackend::create(bool silent) {
         spdlog::debug("[WifiBackend] Test mode: using mock backend");
         auto mock = std::make_unique<WifiBackendMock>();
         mock->set_silent(silent);
-        mock->start();
+        // Non-blocking: mock fires READY immediately from start_async().
+        // We intentionally do NOT call it here — the test case explicitly
+        // invokes start_async() after registering its READY callback. For
+        // production callers, WiFiManager will call start_async() after
+        // registering its own event handlers.
         return mock;
     }
 #endif
 
 #ifdef __APPLE__
-    // macOS: Try CoreWLAN backend
-    spdlog::debug("[WifiBackend] Attempting CoreWLAN backend for macOS");
+    // macOS: Construct CoreWLAN backend and return immediately. The
+    // base-class default start_async() falls back to a synchronous start()
+    // — acceptable on macOS until we port the async pattern there.
+    spdlog::debug("[WifiBackend] Constructing CoreWLAN backend for macOS");
     auto backend = std::make_unique<WifiBackendMacOS>();
     backend->set_silent(silent);
-    WiFiError start_result = backend->start();
-
-    if (start_result.success()) {
-        spdlog::info("[WifiBackend] CoreWLAN backend started successfully");
-        return backend;
-    }
-
-    // In production mode, don't fallback to mock - WiFi is simply unavailable
-    spdlog::warn("[WifiBackend] CoreWLAN backend failed: {} - WiFi unavailable",
-                 start_result.technical_msg);
-    return nullptr;
+    return backend;
 #elif defined(__ANDROID__)
     // Android: WiFi managed by the OS, not by us
     spdlog::info("[WifiBackend] Android platform - WiFi not managed natively");
     return nullptr;
 #else
-    // Linux: Try NetworkManager first (fast probe, most distros use it)
-    spdlog::debug("[WifiBackend] Attempting NetworkManager backend for Linux{}",
-                  silent ? " (silent mode)" : "");
-    auto nm_backend = std::make_unique<WifiBackendNetworkManager>();
-    nm_backend->set_silent(true); // Silent during probe - we may fallback to wpa
-    WiFiError nm_result = nm_backend->start();
+    // Linux: pick between NetworkManager and wpa_supplicant using a CHEAP
+    // file-existence probe (no subprocess, no socket I/O). The actual
+    // initialization happens in the caller via start_async().
+    const bool has_nmcli = (access("/usr/bin/nmcli", X_OK) == 0) ||
+                           (access("/bin/nmcli", X_OK) == 0) ||
+                           (access("/usr/local/bin/nmcli", X_OK) == 0);
 
-    if (nm_result.success()) {
-        spdlog::info("[WifiBackend] NetworkManager backend started successfully");
-        return nm_backend;
+    if (has_nmcli) {
+        spdlog::debug(
+            "[WifiBackend] Selecting NetworkManager backend (nmcli available){}",
+            silent ? " (silent)" : "");
+        auto backend = std::make_unique<WifiBackendNetworkManager>();
+        backend->set_silent(silent);
+        return backend;
     }
 
-    spdlog::debug("[WifiBackend] NetworkManager failed: {} - trying wpa_supplicant",
-                  nm_result.technical_msg);
-
-    // Fallback: Try wpa_supplicant backend
-    auto wpa_backend = std::make_unique<WifiBackendWpaSupplicant>();
-    wpa_backend->set_silent(silent);
-    WiFiError wpa_result = wpa_backend->start();
-
-    if (wpa_result.success()) {
-        spdlog::info("[WifiBackend] wpa_supplicant backend started successfully");
-        return wpa_backend;
-    }
-
-    // Both backends failed
-    spdlog::warn("[WifiBackend] All backends failed - WiFi unavailable");
-    spdlog::warn("[WifiBackend]   NetworkManager: {}", nm_result.technical_msg);
-    spdlog::warn("[WifiBackend]   wpa_supplicant: {}", wpa_result.technical_msg);
-    return nullptr;
+    // No nmcli — fall back to wpa_supplicant. Its start_async() will fire
+    // INIT_FAILED if sockets are missing too; callers decide what to do.
+    spdlog::debug("[WifiBackend] Selecting wpa_supplicant backend (no nmcli){}",
+                  silent ? " (silent)" : "");
+    auto backend = std::make_unique<WifiBackendWpaSupplicant>();
+    backend->set_silent(silent);
+    return backend;
 #endif
 }

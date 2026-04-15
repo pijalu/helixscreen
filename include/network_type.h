@@ -5,7 +5,10 @@
 
 namespace helix {
 
-/// Network connection types used by HomePanel and NetworkWidget
-enum class NetworkType { Wifi, Ethernet, Disconnected };
+/// Network connection types used by HomePanel and NetworkWidget.
+/// `Unknown` is the pre-detection sentinel so widgets can distinguish a
+/// first activation (no prior state) from re-activations where the last
+/// known state should be reused to avoid provisional-state flicker.
+enum class NetworkType { Unknown, Wifi, Ethernet, Disconnected };
 
 } // namespace helix

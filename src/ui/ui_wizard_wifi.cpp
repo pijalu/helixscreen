@@ -210,26 +210,32 @@ void WizardWifiStep::update_ethernet_status() {
         return;
     }
 
-    EthernetInfo info = ethernet_manager_->get_info();
+    // Async probe — callback returns on worker thread; marshal to UI via tok.defer().
+    auto tok = lifetime_.token();
+    ethernet_manager_->get_info_async([this, tok](const EthernetInfo& info) {
+        if (tok.expired()) return;
+        EthernetInfo info_copy = info;
+        tok.defer("WizardWifiStep::apply_ethernet_status", [this, info_copy]() {
+            if (info_copy.connected) {
+                char status_buf[128];
+                snprintf(status_buf, sizeof(status_buf), lv_tr("Connected (%s)"),
+                         info_copy.ip_address.c_str());
+                lv_subject_copy_string(&ethernet_status_, status_buf);
+                spdlog::debug("[{}] Ethernet status: {}", get_name(), status_buf);
+            } else {
+                lv_subject_copy_string(&ethernet_status_, info_copy.status.c_str());
+                spdlog::debug("[{}] Ethernet status: {}", get_name(), info_copy.status);
+            }
 
-    if (info.connected) {
-        char status_buf[128];
-        snprintf(status_buf, sizeof(status_buf), lv_tr("Connected (%s)"), info.ip_address.c_str());
-        lv_subject_copy_string(&ethernet_status_, status_buf);
-        spdlog::debug("[{}] Ethernet status: {}", get_name(), status_buf);
-    } else {
-        lv_subject_copy_string(&ethernet_status_, info.status.c_str());
-        spdlog::debug("[{}] Ethernet status: {}", get_name(), info.status);
-    }
-
-    // Always show MAC address if available
-    if (!info.mac_address.empty()) {
-        char mac_buf[32];
-        snprintf(mac_buf, sizeof(mac_buf), "MAC: %s", info.mac_address.c_str());
-        lv_subject_copy_string(&ethernet_mac_, mac_buf);
-    } else {
-        lv_subject_copy_string(&ethernet_mac_, "");
-    }
+            if (!info_copy.mac_address.empty()) {
+                char mac_buf[32];
+                snprintf(mac_buf, sizeof(mac_buf), "MAC: %s", info_copy.mac_address.c_str());
+                lv_subject_copy_string(&ethernet_mac_, mac_buf);
+            } else {
+                lv_subject_copy_string(&ethernet_mac_, "");
+            }
+        });
+    });
 }
 
 void WizardWifiStep::populate_network_list(const std::vector<WiFiNetwork>& networks) {

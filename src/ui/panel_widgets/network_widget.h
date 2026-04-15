@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include "async_lifetime_guard.h"
 #include "panel_widget.h"
 
 #include <memory>
@@ -42,10 +43,14 @@ class NetworkWidget : public PanelWidget {
     lv_subject_t* network_icon_state_ = nullptr;
     lv_subject_t* network_label_subject_ = nullptr;
 
-    NetworkType current_network_ = NetworkType::Wifi;
+    NetworkType current_network_ = NetworkType::Unknown;
     lv_timer_t* signal_poll_timer_ = nullptr;
     std::shared_ptr<WiFiManager> wifi_manager_;
     std::unique_ptr<EthernetManager> ethernet_manager_;
+
+    // Async callback safety — expired on detach()/destruction so pending
+    // ethernet probes can't touch freed subjects.
+    helix::AsyncLifetimeGuard lifetime_;
 
     void detect_network_type();
     int compute_network_icon_state();

@@ -603,6 +603,71 @@ TEST_CASE_METHOD(WiFiBackendTestFixture, "Backend timer cleanup",
 // Edge Cases
 // ============================================================================
 
+// ============================================================================
+// Non-Blocking Construction Tests (proposed API)
+// ============================================================================
+//
+// WifiBackend::create() currently calls the concrete backend's start()
+// inline on the calling thread. For WifiBackendNetworkManager that means
+// 4+ blocking subprocess calls (nmcli, iw phy) before create() returns —
+// if NetworkManager is hung, the UI thread hangs with it.
+//
+// The proposed contract is:
+//   - WifiBackend::create() returns quickly, with the backend NOT yet running.
+//     Any subprocess probing must be deferred to a worker thread.
+//   - Callers can register an on-ready handler (or "READY" event) and only
+//     treat the backend as usable once it fires.
+//   - is_running() reflects the actual state (may be false immediately after
+//     create()) — callers must not assume the backend is ready synchronously.
+
+TEST_CASE("WifiBackend::create() does not block the caller",
+          "[network][backend][lifecycle][slow]") {
+    // Even if the platform backend would block in start(), create() must
+    // return immediately — the subprocess probing belongs on a worker.
+    auto t0 = std::chrono::steady_clock::now();
+    auto backend = WifiBackend::create(/*silent=*/true);
+    auto elapsed_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
+                          std::chrono::steady_clock::now() - t0)
+                          .count();
+
+    REQUIRE(backend != nullptr);
+    // Generous bound; a cold nmcli probe chain is typically 10-100ms+ and
+    // unbounded when NetworkManager is wedged. Anything under 50 ms here
+    // indicates the probe is not happening synchronously on this thread.
+    REQUIRE(elapsed_ms < 50);
+}
+
+TEST_CASE("WifiBackend: READY event fires once backend finishes async init",
+          "[network][backend][events][slow]") {
+    auto backend = WifiBackend::create(/*silent=*/true);
+    REQUIRE(backend != nullptr);
+
+    std::mutex m;
+    std::condition_variable cv;
+    std::atomic<bool> ready{false};
+
+    // NEW API — "READY" event signals that deferred start() completed.
+    // This must fail to compile or fail at runtime against current code,
+    // which never emits a READY event.
+    backend->register_event_callback("READY", [&](const std::string&) {
+        {
+            std::lock_guard<std::mutex> lock(m);
+            ready.store(true);
+        }
+        cv.notify_all();
+    });
+
+    // Explicitly kick off async init. The proposed API adds start_async()
+    // so callers can opt into the non-blocking lifecycle.
+    backend->start_async();
+
+    std::unique_lock<std::mutex> lock(m);
+    bool ok = cv.wait_for(lock, std::chrono::seconds(10),
+                          [&]() { return ready.load(); });
+    REQUIRE(ok);
+    REQUIRE(backend->is_running());
+}
+
 TEST_CASE_METHOD(WiFiBackendTestFixture, "Backend edge cases",
                  "[network][backend][edge-cases][slow]") {
     SECTION("Rapid start/stop cycles") {

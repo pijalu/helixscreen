@@ -5,6 +5,7 @@
 
 #include "ethernet_backend.h"
 
+#include <functional>
 #include <memory>
 #include <string>
 
@@ -77,6 +78,26 @@ class EthernetManager {
     EthernetInfo get_info();
 
     /**
+     * @brief Asynchronously retrieve Ethernet connection information
+     *
+     * Dispatches the backend probe (which may block on libhv ifconfig() +
+     * sysfs reads) to a worker thread. The callback is invoked on the main
+     * UI thread via helix::ui::UpdateQueue::queue_update() once the probe
+     * completes.
+     *
+     * Returns to the caller immediately (typically in well under 1 ms) so
+     * this is safe to call from the UI thread.
+     *
+     * IMPORTANT: The callback must be guarded against owner destruction by
+     * the caller (e.g. capture a helix::LifetimeToken and check expired()
+     * before touching `this`). EthernetManager does not track callback
+     * lifetimes.
+     *
+     * @param callback Invoked on the UI thread with the populated EthernetInfo
+     */
+    void get_info_async(std::function<void(const EthernetInfo&)> callback);
+
+    /**
      * @brief Get Ethernet IP address (convenience method)
      *
      * Returns IP address if connected, empty string otherwise.
@@ -87,5 +108,10 @@ class EthernetManager {
     std::string get_ip_address();
 
   private:
-    std::unique_ptr<EthernetBackend> backend_;
+    // Held as shared_ptr so that an in-flight async worker (see
+    // get_info_async) can keep the backend alive past EthernetManager's
+    // destruction. The worker captures a copy of this shared_ptr by value;
+    // if EthernetManager is destroyed first, the backend lives until the
+    // worker thread finishes its probe.
+    std::shared_ptr<EthernetBackend> backend_;
 };

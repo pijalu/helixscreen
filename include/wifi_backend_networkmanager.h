@@ -50,6 +50,7 @@ class WifiBackendNetworkManager : public WifiBackend {
     // ========================================================================
 
     WiFiError start() override;
+    void start_async() override;
     void stop() override;
     bool is_running() const override;
 
@@ -69,6 +70,7 @@ class WifiBackendNetworkManager : public WifiBackend {
     // ========================================================================
 
     std::atomic<bool> running_{false};
+    std::mutex start_mutex_; // Serializes start() against concurrent start_async()
     std::string wifi_interface_; ///< Detected WiFi interface (e.g., "wlan0")
 
     // Event system (thread-safe)
@@ -84,6 +86,10 @@ class WifiBackendNetworkManager : public WifiBackend {
     // Cached scan results (protected by mutex)
     std::mutex networks_mutex_;
     std::vector<WiFiNetwork> cached_networks_;
+
+    // Async init thread (used by start_async())
+    std::thread init_thread_;
+    std::atomic<bool> init_in_progress_{false};
 
     // Background status polling thread
     std::thread status_thread_;

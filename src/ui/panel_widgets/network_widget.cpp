@@ -117,6 +117,9 @@ void NetworkWidget::attach(lv_obj_t* widget_obj, lv_obj_t* parent_screen) {
 }
 
 void NetworkWidget::detach() {
+    // Expire pending async ethernet callbacks before tearing down subjects.
+    lifetime_.invalidate();
+
     if (lv_is_initialized() && signal_poll_timer_) {
         lv_timer_delete(signal_poll_timer_);
         signal_poll_timer_ = nullptr;
@@ -159,30 +162,55 @@ void NetworkWidget::on_deactivate() {
 
 void NetworkWidget::detect_network_type() {
     // Priority: Ethernet > WiFi > Disconnected
-    // Ensures users on wired connections see the Ethernet icon even if WiFi is also available
+    // Ensures users on wired connections see the Ethernet icon even if WiFi is also available.
+    //
+    // The Ethernet probe can block (libhv ifconfig + sysfs reads) so it runs
+    // asynchronously. Until the probe returns, fall back to WiFi/Disconnected
+    // detection; the callback upgrades to Ethernet if one is connected.
 
-    // Check Ethernet first (higher priority - more reliable connection)
-    if (ethernet_manager_) {
-        EthernetInfo eth_info = ethernet_manager_->get_info();
-        if (eth_info.connected) {
-            spdlog::debug("[NetworkWidget] Detected Ethernet connection on {} ({})",
-                          eth_info.interface, eth_info.ip_address);
-            set_network(NetworkType::Ethernet);
-            return;
+    auto apply_wifi_fallback = [this]() {
+        if (wifi_manager_ && wifi_manager_->is_connected()) {
+            spdlog::info("[NetworkWidget] Detected WiFi connection ({})",
+                         wifi_manager_->get_connected_ssid());
+            set_network(NetworkType::Wifi);
+        } else {
+            spdlog::info("[NetworkWidget] No network connection detected");
+            set_network(NetworkType::Disconnected);
         }
-    }
+    };
 
-    // Check WiFi second
-    if (wifi_manager_ && wifi_manager_->is_connected()) {
-        spdlog::info("[NetworkWidget] Detected WiFi connection ({})",
-                     wifi_manager_->get_connected_ssid());
-        set_network(NetworkType::Wifi);
+    if (!ethernet_manager_) {
+        apply_wifi_fallback();
         return;
     }
 
-    // Neither connected
-    spdlog::info("[NetworkWidget] No network connection detected");
-    set_network(NetworkType::Disconnected);
+    // Provisional state until the async probe lands.
+    //
+    // On re-activation, keep the last-known state instead of blindly
+    // falling back to WiFi/Disconnected — otherwise Ethernet-only hosts
+    // flicker "Disconnected" -> "Ethernet" every time the panel activates
+    // while waiting for the async probe to finish. Only use the fallback
+    // on the very first activation, before any probe has ever landed.
+    if (current_network_ == NetworkType::Unknown) {
+        apply_wifi_fallback();
+    }
+
+    auto tok = lifetime_.token();
+    ethernet_manager_->get_info_async([this, tok](const EthernetInfo& info) {
+        if (tok.expired()) return;
+        if (!info.connected) return; // Wifi/disconnected already reflected
+        EthernetInfo info_copy = info;
+        tok.defer("NetworkWidget::apply_ethernet_detection", [this, info_copy]() {
+            spdlog::debug("[NetworkWidget] Detected Ethernet connection on {} ({})",
+                          info_copy.interface, info_copy.ip_address);
+            set_network(NetworkType::Ethernet);
+            // Stop polling timer — ethernet doesn't need signal polling
+            if (signal_poll_timer_) {
+                lv_timer_delete(signal_poll_timer_);
+                signal_poll_timer_ = nullptr;
+            }
+        });
+    });
 }
 
 void NetworkWidget::set_network(NetworkType type) {
@@ -199,6 +227,9 @@ void NetworkWidget::set_network(NetworkType type) {
             break;
         case NetworkType::Disconnected:
             lv_subject_copy_string(network_label_subject_, lv_tr("Disconnected"));
+            break;
+        case NetworkType::Unknown:
+            // No label change — only reached if called with the sentinel.
             break;
         }
     }

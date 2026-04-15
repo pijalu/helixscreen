@@ -55,6 +55,12 @@ WifiBackendWpaSupplicant::~WifiBackendWpaSupplicant() {
     // Signal the init thread to abort (it checks this flag between operations)
     shutdown_requested_ = true;
 
+    // Join the async init worker (if any) so it can't call start() into us
+    // while we're tearing down.
+    if (async_init_thread_.joinable()) {
+        async_init_thread_.join();
+    }
+
     // Stop the event loop and join the thread BEFORE freeing resources.
     // This prevents the use-after-free race (GitHub issue #8) where
     // cleanup_wpa() frees conn/mon_conn while init_wpa() is still using them.
@@ -130,7 +136,43 @@ WiFiError WifiBackendWpaSupplicant::start() {
     return WiFiErrorHelper::success();
 }
 
+void WifiBackendWpaSupplicant::start_async() {
+    // Non-blocking variant: run start() on a worker thread. Fire READY on
+    // success or INIT_FAILED on failure so callers can react without
+    // blocking on socket discovery / event-loop startup.
+    bool expected = false;
+    if (!async_init_in_progress_.compare_exchange_strong(expected, true)) {
+        spdlog::debug("[WifiBackend] wpa: start_async already in progress");
+        return;
+    }
+    if (init_complete_.load()) {
+        async_init_in_progress_ = false;
+        dispatch_event("READY", "");
+        return;
+    }
+
+    if (async_init_thread_.joinable()) {
+        async_init_thread_.join();
+    }
+
+    async_init_thread_ = std::thread([this]() {
+        WiFiError result = start();
+        async_init_in_progress_ = false;
+        if (result.success()) {
+            dispatch_event("READY", "");
+        } else {
+            dispatch_event("INIT_FAILED", result.technical_msg);
+        }
+    });
+}
+
 void WifiBackendWpaSupplicant::stop() {
+    // Join any outstanding async init worker before teardown so it can't
+    // race with cleanup_wpa() running on the event loop thread.
+    if (async_init_thread_.joinable()) {
+        async_init_thread_.join();
+    }
+
     // NOTE: We intentionally do NOT stop the EventLoopThread here.
     // libhv's EventLoopThread doesn't support restart after stop(), so we keep
     // the thread running and just cleanup wpa connections. This allows set_enabled()
@@ -590,20 +632,27 @@ void WifiBackendWpaSupplicant::handle_wpa_events(void* data, int len) {
         return;
     }
 
-    // THREAD SAFETY: Lock callbacks during lookup and dispatch
-    std::lock_guard<std::mutex> lock(callbacks_mutex_);
-    auto it = callbacks.find(callback_name);
-    if (it != callbacks.end()) {
-        spdlog::debug("[WifiBackend] Dispatching {} event to callback", callback_name);
-        try {
-            it->second(event);
-        } catch (const std::exception& e) {
-            LOG_ERROR_INTERNAL("Exception in callback '{}': {}", callback_name, e.what());
-        } catch (...) {
-            LOG_ERROR_INTERNAL("Unknown exception in callback '{}'", callback_name);
+    // THREAD SAFETY: Copy callback out under the mutex, then release BEFORE
+    // invoking. Holding callbacks_mutex_ across the callback invites deadlock
+    // if a handler acquires another backend lock or re-enters the backend.
+    std::function<void(const std::string&)> cb;
+    {
+        std::lock_guard<std::mutex> lock(callbacks_mutex_);
+        auto it = callbacks.find(callback_name);
+        if (it == callbacks.end()) {
+            spdlog::trace("[WifiBackend] No callback registered for event type: {}", callback_name);
+            return;
         }
-    } else {
-        spdlog::trace("[WifiBackend] No callback registered for event type: {}", callback_name);
+        cb = it->second;
+    }
+
+    spdlog::debug("[WifiBackend] Dispatching {} event to callback", callback_name);
+    try {
+        cb(event);
+    } catch (const std::exception& e) {
+        LOG_ERROR_INTERNAL("Exception in callback '{}': {}", callback_name, e.what());
+    } catch (...) {
+        LOG_ERROR_INTERNAL("Unknown exception in callback '{}'", callback_name);
     }
 }
 
@@ -619,18 +668,26 @@ void WifiBackendWpaSupplicant::_handle_wpa_events(hio_t* io, void* data, int rea
 
 void WifiBackendWpaSupplicant::dispatch_event(const std::string& event_name,
                                               const std::string& message) {
-    // Dispatch to a specific registered callback (for synthetic events like INIT_FAILED)
-    std::lock_guard<std::mutex> lock(callbacks_mutex_);
-    auto it = callbacks.find(event_name);
-    if (it != callbacks.end()) {
-        spdlog::debug("[WifiBackend] Dispatching synthetic event '{}': {}", event_name, message);
-        try {
-            it->second(message);
-        } catch (const std::exception& e) {
-            LOG_ERROR_INTERNAL("Exception in callback '{}': {}", event_name, e.what());
-        } catch (...) {
-            LOG_ERROR_INTERNAL("Unknown exception in callback '{}'", event_name);
+    // Dispatch to a specific registered callback (for synthetic events like INIT_FAILED).
+    // Copy the callback out under the mutex, then release BEFORE invoking — same
+    // deadlock-avoidance rationale as handle_wpa_events().
+    std::function<void(const std::string&)> cb;
+    {
+        std::lock_guard<std::mutex> lock(callbacks_mutex_);
+        auto it = callbacks.find(event_name);
+        if (it == callbacks.end()) {
+            return;
         }
+        cb = it->second;
+    }
+
+    spdlog::debug("[WifiBackend] Dispatching synthetic event '{}': {}", event_name, message);
+    try {
+        cb(message);
+    } catch (const std::exception& e) {
+        LOG_ERROR_INTERNAL("Exception in callback '{}': {}", event_name, e.what());
+    } catch (...) {
+        LOG_ERROR_INTERNAL("Unknown exception in callback '{}'", event_name);
     }
 }
 

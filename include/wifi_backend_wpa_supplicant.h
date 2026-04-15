@@ -79,6 +79,12 @@ class WifiBackendWpaSupplicant : public WifiBackend, private hv::EventLoopThread
     WiFiError start() override;
 
     /**
+     * @brief Non-blocking start — runs start() on a worker thread and
+     * fires "READY" or "INIT_FAILED" events on completion.
+     */
+    void start_async() override;
+
+    /**
      * @brief Stop wpa_supplicant backend
      *
      * Blocks until event loop thread terminates.
@@ -277,6 +283,10 @@ class WifiBackendWpaSupplicant : public WifiBackend, private hv::EventLoopThread
     // Shutdown coordination - prevents use-after-free when start() times out
     // (GitHub issue #8: thread still in wpa_ctrl_attach when destructor runs)
     std::atomic<bool> shutdown_requested_{false};
+
+    // Async init worker (used by start_async())
+    std::thread async_init_thread_;
+    std::atomic<bool> async_init_in_progress_{false};
 };
 
 #endif // __APPLE__

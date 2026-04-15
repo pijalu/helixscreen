@@ -226,9 +226,30 @@ class WifiBackend {
      * Establishes connection to underlying WiFi system (wpa_supplicant, mock, etc.)
      * and starts any background processing threads.
      *
+     * Note: This method is potentially BLOCKING on real backends (subprocess
+     * probing, socket I/O). Prefer start_async() from UI threads.
+     *
      * @return WiFiError with detailed status information
      */
     virtual WiFiError start() = 0;
+
+    /**
+     * @brief Non-blocking variant of start()
+     *
+     * Returns immediately. Concrete implementations perform deferred
+     * initialization (subprocess probing, socket discovery, etc.) on a
+     * worker thread. Completion is signalled via the event system:
+     *   - "READY"        fires on successful initialization
+     *   - "INIT_FAILED"  fires with an error message on failure
+     *
+     * After a READY event is received, is_running() will return true.
+     *
+     * Default implementation simply calls start() synchronously — backends
+     * that need non-blocking behaviour must override.
+     */
+    virtual void start_async() {
+        (void)start();
+    }
 
     /**
      * @brief Stop the WiFi backend
@@ -342,11 +363,25 @@ class WifiBackend {
     /**
      * @brief Create appropriate backend for current platform
      *
-     * - Linux: WifiBackendWpaSupplicant (real wpa_supplicant integration)
-     * - macOS: WifiBackendMock (simulator with fake data)
+     * - Linux: WifiBackendNetworkManager (preferred) or WifiBackendWpaSupplicant
+     * - macOS: WifiBackendMacOS (or mock in test mode)
+     *
+     * NON-BLOCKING CONTRACT: This factory MUST return quickly (< 50 ms)
+     * and MUST NOT run any synchronous subprocess probing on the caller's
+     * thread. The returned backend is constructed but may not yet be
+     * initialized — start_async() is kicked off internally, and callers
+     * should register for the "READY" event (or "INIT_FAILED") before
+     * relying on is_running().
+     *
+     * Selection strategy on Linux: a cheap file-existence probe
+     * (access("/usr/bin/nmcli", X_OK)) picks NetworkManager when present,
+     * otherwise wpa_supplicant. No subprocesses are spawned during
+     * selection.
      *
      * @param silent If true, suppress error modals on startup failures
-     * @return Unique pointer to backend instance
+     * @return Unique pointer to backend instance (non-null on supported
+     *         platforms if any binary is available). The backend may be
+     *         not-yet-running — watch for the READY event.
      */
     static std::unique_ptr<WifiBackend> create(bool silent = false);
 

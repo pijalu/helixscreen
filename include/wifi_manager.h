@@ -207,6 +207,17 @@ class WiFiManager {
     void handle_connected(const std::string& event_data);
     void handle_disconnected(const std::string& event_data);
     void handle_auth_failed(const std::string& event_data);
+    void handle_init_failed(bool silent, const std::string& msg);
+
+    // Registers SCAN_COMPLETE/CONNECTED/DISCONNECTED/AUTH_FAILED/INIT_FAILED/READY
+    // handlers on the current backend_. Called once from the constructor and
+    // again after swapping backends during INIT_FAILED auto-failover.
+    void register_backend_callbacks(bool silent);
+
+    // On Linux, WiFiManager attempts a one-shot NetworkManager -> wpa_supplicant
+    // fallback when NM's INIT_FAILED fires (daemon dead despite nmcli present).
+    // This flag prevents infinite loops if wpa_supplicant also fails.
+    bool tried_fallback_ = false;
 
     // Timer callbacks (must be static for LVGL)
     static void scan_timer_callback(lv_timer_t* timer);

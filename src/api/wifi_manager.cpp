@@ -20,6 +20,11 @@
 #include "safe_log.h"
 #include "spdlog/spdlog.h"
 
+#if !defined(__APPLE__) && !defined(__ANDROID__)
+#include "wifi_backend_networkmanager.h"
+#include "wifi_backend_wpa_supplicant.h"
+#endif
+
 #include <algorithm>
 #include <cstring>
 #include <dirent.h>
@@ -35,7 +40,10 @@ WiFiManager::WiFiManager(bool silent) : scan_timer_(nullptr), scan_pending_(fals
     spdlog::debug("[WiFiManager] Initializing with backend system{}",
                   silent ? " (silent mode)" : "");
 
-    // Create platform-appropriate backend (already started by factory)
+    // Create platform-appropriate backend. Factory returns immediately —
+    // backend is NOT yet initialized. We register our event handlers first,
+    // then kick off the deferred init via start_async() so we never miss a
+    // READY / INIT_FAILED event.
     backend_ = WifiBackend::create(silent);
     if (!backend_) {
         if (!silent) {
@@ -47,14 +55,15 @@ WiFiManager::WiFiManager(bool silent) : scan_timer_(nullptr), scan_pending_(fals
         return;
     }
 
-    // Check backend status immediately after creation
-    if (backend_->is_running()) {
-        spdlog::debug("[WiFiManager] WiFi backend initialized and running");
-    } else if (!silent) {
-        NOTIFY_WARNING("WiFi backend created but not running. Check system permissions.");
-    }
+    // Register event callbacks BEFORE kicking off async init
+    register_backend_callbacks(silent);
 
-    // Register event callbacks
+    // Kick off deferred initialization on a worker thread — this returns
+    // immediately so the UI thread isn't blocked on subprocess probing.
+    backend_->start_async();
+}
+
+void WiFiManager::register_backend_callbacks(bool silent) {
     backend_->register_event_callback(
         "SCAN_COMPLETE", [this](const std::string& data) { handle_scan_complete(data); });
     backend_->register_event_callback("CONNECTED",
@@ -63,10 +72,42 @@ WiFiManager::WiFiManager(bool silent) : scan_timer_(nullptr), scan_pending_(fals
         "DISCONNECTED", [this](const std::string& data) { handle_disconnected(data); });
     backend_->register_event_callback(
         "AUTH_FAILED", [this](const std::string& data) { handle_auth_failed(data); });
-    backend_->register_event_callback("INIT_FAILED", [](const std::string& msg) {
-        // Backend initialization failed asynchronously - notify user
-        NOTIFY_ERROR("WiFi initialization failed: {}", msg);
+    backend_->register_event_callback(
+        "INIT_FAILED", [this, silent](const std::string& msg) { handle_init_failed(silent, msg); });
+    backend_->register_event_callback("READY", [](const std::string&) {
+        spdlog::debug("[WiFiManager] Backend READY event received");
     });
+}
+
+void WiFiManager::handle_init_failed(bool silent, const std::string& msg) {
+    // On Linux, if the NetworkManager backend fails (e.g. nmcli binary present
+    // but NM daemon masked/dead), transparently fall back to wpa_supplicant
+    // so users aren't left WiFi-less because of a dormant NM install. Guarded
+    // by tried_fallback_ to avoid infinite loops if wpa_supplicant also fails.
+#if !defined(__APPLE__) && !defined(__ANDROID__)
+    if (!tried_fallback_ && backend_ &&
+        dynamic_cast<WifiBackendNetworkManager*>(backend_.get()) != nullptr) {
+        tried_fallback_ = true;
+        spdlog::warn("[WiFiManager] NetworkManager backend INIT_FAILED ({}); "
+                     "falling back to wpa_supplicant",
+                     msg);
+        // Tear down failed NM backend (stop() joins any init thread), then
+        // construct wpa_supplicant and kick it off.
+        backend_->stop();
+        backend_.reset();
+        backend_ = std::make_unique<WifiBackendWpaSupplicant>();
+        backend_->set_silent(silent);
+        register_backend_callbacks(silent);
+        backend_->start_async();
+        return;
+    }
+#endif
+    // Backend initialization failed asynchronously - notify user (unless silent)
+    if (!silent) {
+        NOTIFY_ERROR("WiFi initialization failed: {}", msg);
+    } else {
+        spdlog::debug("[WiFiManager] WiFi init failed (silent): {}", msg);
+    }
 }
 
 void WiFiManager::init_self_reference(std::shared_ptr<WiFiManager> self) {
@@ -301,6 +342,10 @@ bool WiFiManager::set_enabled(bool enabled) {
     spdlog::debug("[WiFiManager] set_enabled({})", enabled);
 
     if (enabled) {
+        // Explicit user toggle — synchronous start() is acceptable here
+        // (user already gated on the click; brief subprocess probing is OK).
+        // The non-blocking path lives in the constructor so first-paint
+        // isn't stalled.
         WiFiError result = backend_->start();
         if (!result.success()) {
             NOTIFY_ERROR("Failed to enable WiFi: {}",

@@ -39,6 +39,17 @@ WiFiError WifiBackendMock::start() {
     return WiFiErrorHelper::success();
 }
 
+void WifiBackendMock::start_async() {
+    // Mock init is instantaneous — just run start() on the caller's thread
+    // and fire READY so tests waiting on the event see it.
+    WiFiError result = start();
+    if (result.success()) {
+        fire_event("READY");
+    } else {
+        fire_event("INIT_FAILED", result.technical_msg);
+    }
+}
+
 void WifiBackendMock::stop() {
     if (!running_)
         return;

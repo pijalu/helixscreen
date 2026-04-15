@@ -476,8 +476,21 @@ void NetworkSettingsOverlay::update_ethernet_status() {
         return;
     }
 
-    EthernetInfo info = ethernet_manager_->get_info();
+    // Kick off an async probe — the callback fires on the UI thread via
+    // tok.defer() so it's safe to touch subjects there.
+    auto tok = lifetime_.token();
+    ethernet_manager_->get_info_async([this, tok](const EthernetInfo& info) {
+        if (tok.expired()) return;
+        // Copy into a movable holder so the struct survives the hop to the
+        // UI thread without requiring EthernetInfo to be captured by value
+        // through defer's lambda (it already is — defer copies the lambda).
+        EthernetInfo info_copy = info;
+        tok.defer("NetworkSettingsOverlay::apply_ethernet_status",
+                  [this, info_copy]() { apply_ethernet_status(info_copy); });
+    });
+}
 
+void NetworkSettingsOverlay::apply_ethernet_status(const EthernetInfo& info) {
     lv_subject_set_int(&eth_connected_, info.connected ? 1 : 0);
 
     if (info.connected) {
@@ -497,6 +510,7 @@ void NetworkSettingsOverlay::update_ethernet_status() {
         lv_subject_notify(&eth_mac_address_);
         spdlog::debug("[NetworkSettingsOverlay] Ethernet not connected: {}", info.status);
     }
+    update_any_network_connected();
 }
 
 void NetworkSettingsOverlay::update_any_network_connected() {

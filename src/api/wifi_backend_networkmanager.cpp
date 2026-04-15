@@ -39,6 +39,12 @@ WifiBackendNetworkManager::~WifiBackendNetworkManager() {
 WiFiError WifiBackendNetworkManager::start() {
     spdlog::debug("[WifiBackend] Starting NetworkManager backend...");
 
+    // Serialize against concurrent start_async() workers. Hold the mutex
+    // for the entire startup sequence — including the running_ check AND
+    // status_thread_ assignment — so we can never double-spawn the status
+    // thread (which would terminate() on the overwritten joinable thread).
+    std::lock_guard<std::mutex> start_lock(start_mutex_);
+
     if (running_) {
         spdlog::debug("[WifiBackend] Already running");
         return WiFiErrorHelper::success();
@@ -101,7 +107,44 @@ WiFiError WifiBackendNetworkManager::start() {
     return WiFiErrorHelper::success();
 }
 
+void WifiBackendNetworkManager::start_async() {
+    // Non-blocking variant: run start() on a worker thread. Fire READY on
+    // success or INIT_FAILED on failure so callers can react without
+    // blocking the UI thread on subprocess probing.
+    bool expected = false;
+    if (!init_in_progress_.compare_exchange_strong(expected, true)) {
+        spdlog::debug("[WifiBackend] NM: start_async already in progress");
+        return;
+    }
+    if (running_) {
+        init_in_progress_ = false;
+        fire_event("READY");
+        return;
+    }
+
+    // If a previous init thread ever ran, join it before replacing
+    if (init_thread_.joinable()) {
+        init_thread_.join();
+    }
+
+    init_thread_ = std::thread([this]() {
+        WiFiError result = start();
+        init_in_progress_ = false;
+        if (result.success()) {
+            fire_event("READY");
+        } else {
+            fire_event("INIT_FAILED", result.technical_msg);
+        }
+    });
+}
+
 void WifiBackendNetworkManager::stop() {
+    // Ensure any in-flight async init completes before we tear down, so the
+    // init thread can't call start() concurrently with stop().
+    if (init_thread_.joinable()) {
+        init_thread_.join();
+    }
+
     if (!running_) {
         return;
     }
@@ -157,19 +200,27 @@ void WifiBackendNetworkManager::register_event_callback(
 }
 
 void WifiBackendNetworkManager::fire_event(const std::string& event_name, const std::string& data) {
-    std::lock_guard<std::mutex> lock(callbacks_mutex_);
-    auto it = callbacks_.find(event_name);
-    if (it != callbacks_.end()) {
-        spdlog::debug("[WifiBackend] NM: Firing event '{}'", event_name);
-        try {
-            it->second(data);
-        } catch (const std::exception& e) {
-            spdlog::error("[WifiBackend] NM: Exception in callback '{}': {}", event_name, e.what());
-        } catch (...) {
-            spdlog::error("[WifiBackend] NM: Unknown exception in callback '{}'", event_name);
+    // Copy the callback out under the mutex, then release BEFORE invoking it.
+    // Holding callbacks_mutex_ across the callback invites deadlock if a
+    // handler acquires another backend lock (or re-enters the backend).
+    std::function<void(const std::string&)> cb;
+    {
+        std::lock_guard<std::mutex> lock(callbacks_mutex_);
+        auto it = callbacks_.find(event_name);
+        if (it == callbacks_.end()) {
+            spdlog::trace("[WifiBackend] NM: No callback registered for '{}'", event_name);
+            return;
         }
-    } else {
-        spdlog::trace("[WifiBackend] NM: No callback registered for '{}'", event_name);
+        cb = it->second;
+    }
+
+    spdlog::debug("[WifiBackend] NM: Firing event '{}'", event_name);
+    try {
+        cb(data);
+    } catch (const std::exception& e) {
+        spdlog::error("[WifiBackend] NM: Exception in callback '{}': {}", event_name, e.what());
+    } catch (...) {
+        spdlog::error("[WifiBackend] NM: Unknown exception in callback '{}'", event_name);
     }
 }
 
