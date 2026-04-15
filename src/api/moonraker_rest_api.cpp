@@ -135,12 +135,17 @@ void MoonrakerRestAPI::launch_http_thread(std::function<void()> func) {
     }
 
     auto done = std::make_shared<std::atomic<bool>>(false);
-    http_threads_.emplace_back(
-        std::thread([func = std::move(func), done]() {
-            func();
-            done->store(true);
-        }),
-        done);
+    try {
+        http_threads_.emplace_back(
+            std::thread([func = std::move(func), done]() {
+                func();
+                done->store(true);
+            }),
+            done);
+    } catch (const std::system_error& e) {
+        spdlog::error("[MoonrakerRestAPI] Failed to spawn HTTP thread: {} — dropping request",
+                      e.what());
+    }
 }
 
 // ============================================================================
