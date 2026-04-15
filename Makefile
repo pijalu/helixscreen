@@ -532,7 +532,7 @@ PCH_FLAGS := -include $(PCH_HEADER)
 # This allows `make strict` to catch issues in project code while ignoring third-party header warnings
 # stb_image headers (used for thumbnail processing)
 STB_INC := -isystem lib/stb
-INCLUDES := -I. -I$(INC_DIR) -Isrc/generated -Isrc/ui/tour -I$(BUILD_DIR)/generated -isystem lib -isystem lib/glm $(LVGL_INC) $(LIBHV_INC) $(SPDLOG_INC) $(STB_INC) $(LV_MARKDOWN_INC) $(QUIRC_INC) $(WPA_INC) $(SDL2_INC)
+INCLUDES := -I. -I$(INC_DIR) -Isrc/generated -I$(BUILD_DIR)/generated -isystem lib -isystem lib/glm $(LVGL_INC) $(LIBHV_INC) $(SPDLOG_INC) $(STB_INC) $(LV_MARKDOWN_INC) $(QUIRC_INC) $(WPA_INC) $(SDL2_INC)
 
 # Common linker flags (used by both macOS and Linux)
 LDFLAGS_COMMON := $(SDL2_LIBS) $(LIBHV_LIBS) $(FMT_LIBS) -lz -lm -lpthread

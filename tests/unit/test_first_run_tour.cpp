@@ -13,8 +13,10 @@ namespace {
 void reset_tour_settings() {
     auto* cfg = Config::get_instance();
     cfg->set<bool>("/tour/completed", false);
-    cfg->set<int>("/tour/version", 1);
     cfg->set<int>("/tour/last_seen_version", 0);
+    // is_wizard_required() checks per-printer first, then falls back to root-level.
+    // In the singleton-without-init test environment, active_printer_id_ is empty,
+    // so the root-level key is the one that's read.
     cfg->set<bool>("/wizard_completed", true);
 }
 } // namespace
@@ -38,10 +40,10 @@ TEST_CASE("FirstRunTour gate: allows auto-start when fresh and wizards done", "[
     REQUIRE(FirstRunTour::should_auto_start() == true);
 }
 
-TEST_CASE("FirstRunTour gate: re-triggers when tour version bumped", "[tour]") {
+TEST_CASE("FirstRunTour gate: re-triggers when last_seen_version is behind kTourVersion",
+          "[tour]") {
     reset_tour_settings();
     Config::get_instance()->set<bool>("/tour/completed", true);
-    Config::get_instance()->set<int>("/tour/version", 2);
     Config::get_instance()->set<int>("/tour/last_seen_version", 0);
     // kTourVersion is 1; last_seen=0 < 1, so tour should re-trigger.
     REQUIRE(FirstRunTour::should_auto_start() == true);

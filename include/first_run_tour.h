@@ -10,6 +10,7 @@ constexpr int kTourVersion = 1;
 
 class FirstRunTour {
   public:
+    // Singleton used by runtime methods (Task 5); gate helpers below are static.
     static FirstRunTour& instance();
 
     /// Gate check: true iff tour should auto-start on home activate.
