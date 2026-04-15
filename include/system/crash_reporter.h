@@ -82,6 +82,23 @@ class CrashReporter {
         std::string event_target;
         int event_code = 0;
 
+        // Cached heap snapshot (refreshed every ~10s from main loop)
+        struct HeapSnapshot {
+            long age_ms = 0;                 // monotonic-ms timestamp when captured
+            long rss_kb = 0;
+            long vsz_kb = 0;
+            long arena_kb = 0;               // glibc mallinfo total arena
+            long used_kb = 0;                // glibc uordblks
+            long free_kb = 0;                // glibc fordblks
+            long mmap_kb = 0;                // glibc hblkhd
+            long lv_total_kb = 0;            // LVGL internal heap total
+            int  lv_used_pct = 0;
+            int  lv_frag_pct = 0;
+            long lv_free_biggest_kb = 0;
+            bool present = false;            // true if any heap_* was parsed
+        };
+        HeapSnapshot heap;
+
         // Breadcrumbs from the in-process ring buffer.
         // Each entry: "<monotonic_ms> <category> <subject>" (space-separated)
         std::vector<std::string> breadcrumbs;

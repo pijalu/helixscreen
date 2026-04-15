@@ -115,6 +115,18 @@ void register_callback_tag_ptr(volatile const char* const* tag_ptr);
 void set_current_event(const void* target, unsigned int code) noexcept;
 
 /**
+ * @brief Refresh the cached heap snapshot
+ *
+ * Call from the main loop every ~10s. Captures /proc/self/statm RSS,
+ * glibc mallinfo (when available), and lv_mem_monitor() into a static
+ * buffer. On crash, the signal handler dumps the most recent snapshot
+ * without calling any of these non-async-signal-safe functions.
+ *
+ * Cheap enough (~1 µs) to call every frame if desired, but 10s is plenty.
+ */
+void refresh_heap_snapshot() noexcept;
+
+/**
  * @brief Breadcrumb ring buffer for crash-time activity context
  *
  * Records short, structured events into a fixed-size ring. On crash, the last

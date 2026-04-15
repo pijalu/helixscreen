@@ -2732,6 +2732,13 @@ int Application::main_loop() {
     static constexpr uint32_t TICK_CRUMB_INTERVAL_MS = 30000;
     uint64_t frame_counter = 0;
 
+    // Heap snapshot refresh cadence — cheap, called from the main thread so the
+    // crash signal handler can read the cached values without touching
+    // non-async-signal-safe APIs (mallinfo, open, lv_mem_monitor).
+    uint32_t last_heap_refresh = start_time;
+    static constexpr uint32_t HEAP_REFRESH_INTERVAL_MS = 10000;
+    crash_handler::refresh_heap_snapshot();
+
     // Failsafe: track invalidation suppression with a hard deadline.
     // If splash handoff doesn't complete within this time, force rendering back on
     // to avoid a permanently black screen.
@@ -2818,6 +2825,13 @@ int Application::main_loop() {
         if ((current_tick - last_tick_crumb) >= TICK_CRUMB_INTERVAL_MS) {
             crash_handler::breadcrumb::note("tick", "", static_cast<long>(frame_counter));
             last_tick_crumb = current_tick;
+        }
+
+        // Refresh cached heap snapshot so any crash within the next window
+        // reports recent memory state.
+        if ((current_tick - last_heap_refresh) >= HEAP_REFRESH_INTERVAL_MS) {
+            crash_handler::refresh_heap_snapshot();
+            last_heap_refresh = current_tick;
         }
 
         // Run LVGL tasks — returns ms until next timer needs to fire

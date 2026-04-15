@@ -10,6 +10,7 @@
 #include <atomic>
 #include <cerrno>
 #include <chrono>
+#include <cstdio>
 #include <cstring>
 #include <ctime>
 #include <fcntl.h>
@@ -19,6 +20,17 @@
 #include <sstream>
 #include <string>
 #include <unistd.h>
+
+// mallinfo2 (glibc >= 2.33). Fallback to mallinfo (deprecated, 32-bit) for older
+// systems like the AD5M (bullseye, glibc 2.31). Both are in <malloc.h>.
+#if __has_include(<malloc.h>) && !defined(__APPLE__) && !defined(__ANDROID__)
+#include <malloc.h>
+#define HAVE_GLIBC_MALLINFO 1
+#endif
+
+// LVGL heap monitor
+#include "misc/lv_types.h"
+#include "stdlib/lv_mem.h"
 
 // ucontext_t is needed for register state capture in the signal handler.
 // On macOS, <sys/ucontext.h> is available without _XOPEN_SOURCE.
@@ -77,6 +89,29 @@ static uintptr_t s_text_end = 0;
 
 /// Pointer to the UpdateQueue's current callback tag (registered at init)
 static volatile const char* const* s_callback_tag_ptr = nullptr;
+
+// =============================================================================
+// Heap snapshot cache
+// =============================================================================
+//
+// Refreshed from the main loop (non-signal-safe calls: open, read, mallinfo2,
+// lv_mem_monitor). Signal handler reads these fields directly — pure memory
+// load from static storage, async-signal-safe.
+
+struct HeapSnapshot {
+    uint32_t ts_ms;            // monotonic ms when captured (0 = never)
+    size_t   rss_kb;           // /proc/self/statm resident pages * pagesize
+    size_t   vsz_kb;           // virtual size
+    size_t   arena_kb;         // glibc: total heap arena
+    size_t   uordblks_kb;      // glibc: in-use bytes
+    size_t   fordblks_kb;      // glibc: free bytes in arena
+    size_t   hblkhd_kb;        // glibc: mmap'd bytes
+    uint8_t  lv_used_pct;      // LVGL: internal heap usage %
+    uint8_t  lv_frag_pct;      // LVGL: internal fragmentation %
+    size_t   lv_total_kb;      // LVGL: total heap size
+    size_t   lv_free_biggest_kb; // LVGL: largest free block
+};
+static HeapSnapshot s_heap_snapshot = {};
 
 /// Innermost LVGL event under dispatch, updated from a hook inside
 /// lv_obj_event.c::event_send_core. Both fields are raw volatile for
@@ -522,6 +557,58 @@ static void crash_signal_handler(int sig, siginfo_t* info, void* ucontext) {
         }
     }
 
+    // Cached heap snapshot (refreshed from main loop; reads here are signal-safe)
+    if (s_heap_snapshot.ts_ms != 0) {
+        safe_write(fd, "heap_snapshot_age_ms:");
+        safe_write(fd, int_to_str(num_buf, sizeof(num_buf),
+                                  static_cast<long>(s_heap_snapshot.ts_ms)));
+        safe_write(fd, "\n");
+        safe_write(fd, "heap_rss_kb:");
+        safe_write(fd, int_to_str(num_buf, sizeof(num_buf),
+                                  static_cast<long>(s_heap_snapshot.rss_kb)));
+        safe_write(fd, "\n");
+        safe_write(fd, "heap_vsz_kb:");
+        safe_write(fd, int_to_str(num_buf, sizeof(num_buf),
+                                  static_cast<long>(s_heap_snapshot.vsz_kb)));
+        safe_write(fd, "\n");
+        if (s_heap_snapshot.arena_kb != 0) {
+            safe_write(fd, "heap_arena_kb:");
+            safe_write(fd, int_to_str(num_buf, sizeof(num_buf),
+                                      static_cast<long>(s_heap_snapshot.arena_kb)));
+            safe_write(fd, "\n");
+            safe_write(fd, "heap_used_kb:");
+            safe_write(fd, int_to_str(num_buf, sizeof(num_buf),
+                                      static_cast<long>(s_heap_snapshot.uordblks_kb)));
+            safe_write(fd, "\n");
+            safe_write(fd, "heap_free_kb:");
+            safe_write(fd, int_to_str(num_buf, sizeof(num_buf),
+                                      static_cast<long>(s_heap_snapshot.fordblks_kb)));
+            safe_write(fd, "\n");
+            safe_write(fd, "heap_mmap_kb:");
+            safe_write(fd, int_to_str(num_buf, sizeof(num_buf),
+                                      static_cast<long>(s_heap_snapshot.hblkhd_kb)));
+            safe_write(fd, "\n");
+        }
+        if (s_heap_snapshot.lv_total_kb != 0) {
+            safe_write(fd, "lv_heap_total_kb:");
+            safe_write(fd, int_to_str(num_buf, sizeof(num_buf),
+                                      static_cast<long>(s_heap_snapshot.lv_total_kb)));
+            safe_write(fd, "\n");
+            safe_write(fd, "lv_heap_used_pct:");
+            safe_write(fd, int_to_str(num_buf, sizeof(num_buf),
+                                      static_cast<long>(s_heap_snapshot.lv_used_pct)));
+            safe_write(fd, "\n");
+            safe_write(fd, "lv_heap_frag_pct:");
+            safe_write(fd, int_to_str(num_buf, sizeof(num_buf),
+                                      static_cast<long>(s_heap_snapshot.lv_frag_pct)));
+            safe_write(fd, "\n");
+            safe_write(fd, "lv_heap_free_biggest_kb:");
+            safe_write(fd, int_to_str(num_buf, sizeof(num_buf),
+                                      static_cast<long>(s_heap_snapshot.lv_free_biggest_kb)));
+            safe_write(fd, "\n");
+        }
+    }
+
     // Current LVGL event under dispatch (updated by event_send_core hook)
     {
         uintptr_t tgt = s_current_event_target;
@@ -759,6 +846,67 @@ void crash_handler::set_current_event(const void* target, unsigned int code) noe
 // C-ABI bridge for LVGL — see include/system/crash_handler.h
 extern "C" void helix_crash_note_event(const void* target, unsigned int code) {
     crash_handler::set_current_event(target, code);
+}
+
+void crash_handler::refresh_heap_snapshot() noexcept {
+    // Timestamp first so a racing signal-handler reader either sees a stale
+    // complete snapshot or the prior one — never a mix of old/new fields.
+    HeapSnapshot snap = {};
+
+    // /proc/self/statm: "size resident shared text lib data dt" in pages
+    int fd = open("/proc/self/statm", O_RDONLY);
+    if (fd >= 0) {
+        char buf[128];
+        ssize_t n = read(fd, buf, sizeof(buf) - 1);
+        close(fd);
+        if (n > 0) {
+            buf[n] = '\0';
+            unsigned long size_pages = 0, rss_pages = 0;
+            if (sscanf(buf, "%lu %lu", &size_pages, &rss_pages) == 2) {
+                long page_kb = sysconf(_SC_PAGESIZE) / 1024;
+                snap.vsz_kb = size_pages * static_cast<size_t>(page_kb);
+                snap.rss_kb = rss_pages * static_cast<size_t>(page_kb);
+            }
+        }
+    }
+
+#ifdef HAVE_GLIBC_MALLINFO
+    // Prefer mallinfo2 (glibc >= 2.33, 64-bit fields). Fall back to mallinfo on
+    // older systems (AD5M runs bullseye with glibc 2.31).
+#if defined(__GLIBC__) && (__GLIBC__ > 2 || (__GLIBC__ == 2 && __GLIBC_MINOR__ >= 33))
+    struct mallinfo2 mi = mallinfo2();
+    snap.arena_kb    = mi.arena    / 1024;
+    snap.uordblks_kb = mi.uordblks / 1024;
+    snap.fordblks_kb = mi.fordblks / 1024;
+    snap.hblkhd_kb   = mi.hblkhd   / 1024;
+#elif defined(__GLIBC__)
+    // mallinfo() uses int fields — truncates past 2 GiB, fine for our targets
+    struct mallinfo mi = mallinfo();
+    snap.arena_kb    = static_cast<unsigned>(mi.arena)    / 1024;
+    snap.uordblks_kb = static_cast<unsigned>(mi.uordblks) / 1024;
+    snap.fordblks_kb = static_cast<unsigned>(mi.fordblks) / 1024;
+    snap.hblkhd_kb   = static_cast<unsigned>(mi.hblkhd)   / 1024;
+#endif
+#endif
+
+    lv_mem_monitor_t mon = {};
+    lv_mem_monitor(&mon);
+    snap.lv_total_kb        = mon.total_size / 1024;
+    snap.lv_used_pct        = mon.used_pct;
+    snap.lv_frag_pct        = mon.frag_pct;
+    snap.lv_free_biggest_kb = mon.free_biggest_size / 1024;
+
+    struct timespec ts;
+    clock_gettime(CLOCK_MONOTONIC, &ts);
+    uint64_t ms = static_cast<uint64_t>(ts.tv_sec) * 1000 +
+                  static_cast<uint64_t>(ts.tv_nsec) / 1000000;
+    snap.ts_ms = static_cast<uint32_t>(ms);
+    if (snap.ts_ms == 0) snap.ts_ms = 1;
+
+    // Publish: memcpy of a POD struct is what we have. Readers (signal handler)
+    // may see a torn snapshot across fields, but all fields are independent
+    // counters — torn reads produce slightly stale values at worst.
+    s_heap_snapshot = snap;
 }
 
 // -----------------------------------------------------------------------------
@@ -1015,6 +1163,13 @@ nlohmann::json crash_handler::read_crash_file(const std::string& crash_file_path
                 } catch (...) {
                     result["event_code"] = 0;
                 }
+            } else if (key.rfind("heap_", 0) == 0 || key.rfind("lv_heap_", 0) == 0) {
+                // All heap snapshot fields are numeric kilobyte / percent values
+                try {
+                    result[key] = std::stol(value);
+                } catch (...) {
+                    result[key] = 0;
+                }
             } else if (key == "text_start") {
                 result["text_start"] = value;
             } else if (key == "text_end") {
@@ -1114,6 +1269,17 @@ void crash_handler::write_mock_crash_file(const std::string& crash_file_path) {
     ofs << "crumb:9100 nav status\n";
     ofs << "event_target:0x7fc0d2a8\n";
     ofs << "event_code:29\n"; /* LV_EVENT_REFR_EXT_DRAW_SIZE */
+    ofs << "heap_snapshot_age_ms:8217\n";
+    ofs << "heap_rss_kb:38400\n";
+    ofs << "heap_vsz_kb:102400\n";
+    ofs << "heap_arena_kb:40960\n";
+    ofs << "heap_used_kb:38912\n";
+    ofs << "heap_free_kb:2048\n";
+    ofs << "heap_mmap_kb:512\n";
+    ofs << "lv_heap_total_kb:512\n";
+    ofs << "lv_heap_used_pct:88\n";
+    ofs << "lv_heap_frag_pct:31\n";
+    ofs << "lv_heap_free_biggest_kb:14\n";
 
     spdlog::info("[CrashHandler] Wrote mock crash file: {}", crash_file_path);
 }
