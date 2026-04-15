@@ -3,11 +3,14 @@
 
 #include "config.h"
 #include "first_run_tour.h"
+#include "tour_steps.h"
 
 #include "../catch_amalgamated.hpp"
 
 using helix::Config;
+using helix::tour::build_tour_steps;
 using helix::tour::FirstRunTour;
+using helix::tour::TourStep;
 
 namespace {
 void reset_tour_settings() {
@@ -55,4 +58,33 @@ TEST_CASE("FirstRunTour mark_completed writes both flags", "[tour]") {
     auto* cfg = Config::get_instance();
     REQUIRE(cfg->get<bool>("/tour/completed", false) == true);
     REQUIRE(cfg->get<int>("/tour/last_seen_version", 0) == helix::tour::kTourVersion);
+}
+
+TEST_CASE("Tour steps: always 8 steps regardless of AMS", "[tour]") {
+    auto steps_no_ams = build_tour_steps(/*has_ams=*/false);
+    auto steps_with_ams = build_tour_steps(/*has_ams=*/true);
+    REQUIRE(steps_no_ams.size() == 8);
+    REQUIRE(steps_with_ams.size() == 8);
+}
+
+TEST_CASE("Tour steps: step 2 sub-spotlights AMS only when present", "[tour]") {
+    auto with_ams = build_tour_steps(true);
+    auto without = build_tour_steps(false);
+    REQUIRE(with_ams[1].sub_spotlights.size() == 3);     // nozzle + fan + ams
+    REQUIRE(without[1].sub_spotlights.size() == 2);      // nozzle + fan
+}
+
+TEST_CASE("Tour steps: navbar steps 4-8 target nav buttons", "[tour]") {
+    auto steps = build_tour_steps(true);
+    REQUIRE(steps[3].target_name == "nav_btn_print_select");
+    REQUIRE(steps[4].target_name == "nav_btn_controls");
+    REQUIRE(steps[5].target_name == "nav_btn_filament");
+    REQUIRE(steps[6].target_name == "nav_btn_advanced");
+    REQUIRE(steps[7].target_name == "nav_btn_settings");
+}
+
+TEST_CASE("Tour steps: welcome and customize steps have correct targets", "[tour]") {
+    auto steps = build_tour_steps(true);
+    REQUIRE(steps[0].target_name.empty());              // Welcome is centered
+    REQUIRE(steps[2].target_name == "carousel_host");   // Long-press step
 }
