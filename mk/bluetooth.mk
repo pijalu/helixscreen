@@ -23,10 +23,9 @@ ifneq ($(CROSS_COMPILE),)
     BT_SYSTEMD_OK := $(shell test -f /usr/lib/$(TARGET_TRIPLE)/libsystemd.so -o \
                                    -f /usr/lib/$(TARGET_TRIPLE)/libsystemd.a && echo yes)
 else
-    # Native: try pkg-config for libsystemd, compile test for bluetooth/bluetooth.h
+    # Native: use pkg-config for both
     BT_SYSTEMD_OK := $(shell pkg-config --exists libsystemd 2>/dev/null && echo yes)
-    BT_BLUEZ_OK := $(shell echo '\#include <bluetooth/bluetooth.h>' | \
-                     $(firstword $(CXX)) -x c++ -fsyntax-only - -lbluetooth 2>/dev/null && echo yes)
+    BT_BLUEZ_OK := $(shell pkg-config --exists bluez 2>/dev/null && echo yes)
 endif
 
 ifeq ($(BT_SYSTEMD_OK)-$(BT_BLUEZ_OK),yes-yes)
