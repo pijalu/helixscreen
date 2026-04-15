@@ -3,6 +3,7 @@
 
 #include "ams_backend_cfs.h"
 
+#include "data_root_resolver.h"
 #include "moonraker_error.h"
 #include "post_op_cooldown_manager.h"
 #include "ui_update_queue.h"
@@ -188,6 +189,7 @@ std::optional<AmsAlert> CfsErrorDecoder::decode(const std::string& key_code,
 
 AmsBackendCfs::AmsBackendCfs(MoonrakerAPI* api, helix::MoonrakerClient* client)
     : AmsSubscriptionBackend(api, client) {
+    config_dir_ = helix::get_user_config_dir();
     system_info_.type = AmsType::CFS;
     system_info_.type_name = "CFS";
     system_info_.supports_bypass = false;

@@ -3,6 +3,7 @@
 
 #include "print_start_profile.h"
 
+#include "data_root_resolver.h"
 #include "lvgl/src/others/translation/lv_translation.h"
 
 #include <spdlog/spdlog.h>
@@ -33,7 +34,7 @@ static std::string to_upper(const std::string& s) {
 // ============================================================================
 
 std::shared_ptr<PrintStartProfile> PrintStartProfile::load(const std::string& profile_name) {
-    std::string path = "config/print_start_profiles/" + profile_name + ".json";
+    std::string path = helix::find_readable("print_start_profiles/" + profile_name + ".json");
 
     std::ifstream file(path);
     if (!file.is_open()) {
@@ -60,7 +61,7 @@ std::shared_ptr<PrintStartProfile> PrintStartProfile::load(const std::string& pr
 }
 
 std::shared_ptr<PrintStartProfile> PrintStartProfile::load_default() {
-    std::string path = "config/print_start_profiles/default.json";
+    std::string path = helix::find_readable("print_start_profiles/default.json");
 
     // Try to load from JSON file first
     do {

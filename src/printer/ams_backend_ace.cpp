@@ -12,6 +12,7 @@
 
 #include "ams_backend_ace.h"
 
+#include "data_root_resolver.h"
 #include "moonraker_api.h"
 #include "moonraker_client.h"
 #include "post_op_cooldown_manager.h"
@@ -39,6 +40,10 @@ static constexpr const char* MOONRAKER_DB_NAMESPACE = "helix-screen";
 
 AmsBackendAce::AmsBackendAce(MoonrakerAPI* api, MoonrakerClient* client)
     : AmsSubscriptionBackend(api, client) {
+    // Persist slot overrides into the user-writable config dir (HELIX_CONFIG_DIR
+    // when set, otherwise the cwd-relative "config" used by tarball installs).
+    config_dir_ = helix::get_user_config_dir();
+
     // Initialize system info with ACE defaults
     system_info_.type = AmsType::ACE;
     system_info_.type_name = "ACE";

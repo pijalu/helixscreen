@@ -23,6 +23,7 @@
 
 #include "backlight_backend.h"
 #include "config.h"
+#include "data_root_resolver.h"
 #include "display_backend.h"
 #ifdef HELIX_DISPLAY_DRM
 #include "display_backend_drm.h"
@@ -120,15 +121,14 @@ static void setup_signal_handlers() {
  * @return Timeout in seconds (0 = disabled), or default on failure
  */
 static int read_auto_restart_timeout() {
-    std::vector<std::string> paths;
-    // HELIX_CONFIG_DIR override: mirrors Config::init so the watchdog reads
-    // from the same writable dir helix-screen saves into on RO baseline installs.
-    if (const char* env_dir = std::getenv("HELIX_CONFIG_DIR");
-        env_dir != nullptr && env_dir[0] != '\0') {
-        paths.emplace_back(std::string(env_dir) + "/settings.json");
-    }
-    paths.insert(paths.end(), {"config/settings.json", "config/helixconfig.json",
-                               "helixconfig.json", "/opt/helixscreen/helixconfig.json"});
+    // writable_path honors HELIX_CONFIG_DIR (Yocto) or "config/" (tarball);
+    // legacy paths are kept for AD5M-style installs that predate either env.
+    std::vector<std::string> paths{
+        helix::writable_path("settings.json"),
+        helix::writable_path("helixconfig.json"),
+        "helixconfig.json",
+        "/opt/helixscreen/helixconfig.json",
+    };
 
     for (const std::string& path : paths) {
         std::ifstream file(path);
@@ -157,13 +157,12 @@ static int read_auto_restart_timeout() {
  * @brief Read brightness from settings.json (same as splash)
  */
 static int read_config_brightness(int default_value = 100) {
-    std::vector<std::string> paths;
-    if (const char* env_dir = std::getenv("HELIX_CONFIG_DIR");
-        env_dir != nullptr && env_dir[0] != '\0') {
-        paths.emplace_back(std::string(env_dir) + "/settings.json");
-    }
-    paths.insert(paths.end(), {"config/settings.json", "config/helixconfig.json",
-                               "helixconfig.json", "/opt/helixscreen/helixconfig.json"});
+    std::vector<std::string> paths{
+        helix::writable_path("settings.json"),
+        helix::writable_path("helixconfig.json"),
+        "helixconfig.json",
+        "/opt/helixscreen/helixconfig.json",
+    };
 
     for (const std::string& path : paths) {
         std::ifstream file(path);
@@ -733,7 +732,7 @@ static DialogChoice show_crash_dialog(int width, int height, int rotation, const
     spdlog::info("[Watchdog] Showing crash dialog (auto_restart={}s)", auto_restart_sec);
 
     // Initialize config so touch calibration data is available
-    helix::Config::get_instance()->init("config/settings.json");
+    helix::Config::get_instance()->init(helix::writable_path("settings.json"));
 
     // Initialize LVGL
     lv_init();

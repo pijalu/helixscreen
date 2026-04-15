@@ -12,6 +12,7 @@
  */
 
 #include "application.h"
+#include "data_root_resolver.h"
 #include "helix_version.h"
 
 #include <cerrno>
@@ -64,8 +65,8 @@ static int find_load_base_cb(struct dl_phdr_info* info, size_t /*size*/, void* d
 // Uses the same key:value format as crash_handler's signal handler so
 // CrashReporter can parse it on next startup.
 static void write_exception_crash_file(const char* what) {
-    static const char crash_path[] = "config/crash.txt";
-    int fd = open(crash_path, O_CREAT | O_WRONLY | O_TRUNC, 0644);
+    const std::string crash_path = helix::writable_path("crash.txt");
+    int fd = open(crash_path.c_str(), O_CREAT | O_WRONLY | O_TRUNC, 0644);
     if (fd < 0) {
         return;
     }

@@ -11,6 +11,7 @@
 
 #include "tool_state.h"
 
+#include "data_root_resolver.h"
 #include "ui_update_queue.h"
 
 #include "ams_state.h"
@@ -42,6 +43,9 @@ void ToolState::init_subjects(bool register_xml) {
         spdlog::debug("[ToolState] Subjects already initialized, skipping");
         return;
     }
+
+    // Persist tool_spools.json to the user-writable config dir.
+    config_dir_ = helix::get_user_config_dir();
 
     spdlog::trace("[ToolState] Initializing subjects (register_xml={})", register_xml);
 

@@ -20,6 +20,7 @@
  */
 
 #include "backlight_backend.h"
+#include "data_root_resolver.h"
 #include "display_backend.h"
 #include "helix_version.h"
 
@@ -61,11 +62,14 @@ static constexpr int FRAME_DELAY_US = 16000;  // ~60 FPS
 // Read brightness from config file (simple parsing, no JSON library)
 // Returns configured brightness (10-100) or default_value on failure
 static int read_config_brightness(int default_value = 100) {
-    // Try config paths (new location first, then legacy)
-    const char* paths[] = {"config/settings.json", "config/helixconfig.json",
-                           "helixconfig.json", "/opt/helixscreen/helixconfig.json"};
+    // writable_path honors HELIX_CONFIG_DIR (Yocto) or "config/" (tarball);
+    // legacy paths are kept for old install layouts.
+    const std::string main_settings = helix::writable_path("settings.json");
+    const std::string main_legacy = helix::writable_path("helixconfig.json");
+    const std::string paths[] = {main_settings, main_legacy, "helixconfig.json",
+                                 "/opt/helixscreen/helixconfig.json"};
 
-    for (const char* path : paths) {
+    for (const auto& path : paths) {
         std::ifstream file(path);
         if (!file.is_open()) {
             continue;
@@ -100,10 +104,12 @@ static constexpr uint32_t BG_COLOR_3D_LIGHT =
 // Read dark_mode setting from config file (same parsing approach as brightness)
 // Returns configured value or default_value on failure
 static bool read_config_dark_mode(bool default_value = true) {
-    const char* paths[] = {"config/settings.json", "config/helixconfig.json",
-                           "helixconfig.json", "/opt/helixscreen/helixconfig.json"};
+    const std::string main_settings = helix::writable_path("settings.json");
+    const std::string main_legacy = helix::writable_path("helixconfig.json");
+    const std::string paths[] = {main_settings, main_legacy, "helixconfig.json",
+                                 "/opt/helixscreen/helixconfig.json"};
 
-    for (const char* path : paths) {
+    for (const auto& path : paths) {
         std::ifstream file(path);
         if (!file.is_open()) {
             continue;
