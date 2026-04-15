@@ -71,9 +71,30 @@ class MoonrakerDiscoverySequence {
         identified_.store(false);
     }
 
+    /**
+     * @brief Reset the per-connection completion flag.
+     *
+     * Must be called on every disconnect so that the next connection's
+     * notify_klippy_* handlers correctly retry discovery if the gate rejected
+     * the initial attempt. Paired with reset_identified().
+     */
+    void reset_completion() {
+        discovery_completed_.store(false);
+    }
+
     /** @brief Check if identified to Moonraker */
     [[nodiscard]] bool is_identified() const {
         return identified_.load();
+    }
+
+    /**
+     * @brief Whether a discovery has successfully completed on the current connection.
+     *
+     * Used by the Klippy-state notification handlers to decide whether a
+     * transition to ready/shutdown should trigger a retry.
+     */
+    [[nodiscard]] bool is_completed() const {
+        return discovery_completed_.load();
     }
 
     /** @brief Clear all cached discovery data (vectors + hardware) */
@@ -252,6 +273,7 @@ class MoonrakerDiscoverySequence {
     PrinterDiscovery hardware_;
     mutable std::mutex hardware_mutex_; // Protects hardware_ from concurrent read/write (#777)
     std::atomic<bool> identified_{false};
+    std::atomic<bool> discovery_completed_{false};
 
     // Callbacks
     std::function<void(const PrinterDiscovery&)> on_hardware_discovered_;

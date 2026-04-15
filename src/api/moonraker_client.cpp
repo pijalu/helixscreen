@@ -292,6 +292,7 @@ void MoonrakerClient::disconnect() {
 
     // Reset discovery state for next connection
     discovery_.reset_identified();
+    discovery_.reset_completion();
 
     // Reset connection state
     set_connection_state(ConnectionState::DISCONNECTED);
@@ -393,18 +394,7 @@ int MoonrakerClient::connect(const char* url, std::function<void()> on_connected
             // Reset notification flags on successful connection
             reset_notification_flags();
 
-            // Invoke user callback with exception safety
-            if (on_connected) {
-                try {
-                    on_connected();
-                } catch (const std::exception& e) {
-                    LOG_ERROR_INTERNAL("[Moonraker Client] Connection callback threw exception: {}",
-                                       e.what());
-                } catch (...) {
-                    LOG_ERROR_INTERNAL(
-                        "[Moonraker Client] Connection callback threw unknown exception");
-                }
-            }
+            invoke_connected_callback(on_connected, "WebSocket opened");
         } catch (const std::exception& e) {
             LOG_ERROR_INTERNAL("[Moonraker Client] onopen callback threw unexpected exception: {}",
                                e.what());
@@ -585,6 +575,14 @@ int MoonrakerClient::connect(const char* url, std::function<void()> on_connected
                     // Emit event for UI layer — recovery dialog will show
                     emit_event(MoonrakerEventType::KLIPPY_SHUTDOWN,
                                "Klipper has entered shutdown state.", true);
+
+                    // Shutdown is a valid gate state for discovery. If we never
+                    // completed one on this connection (Klippy was unreachable
+                    // at WS-connect time), retry now (#802).
+                    if (!discovery_.is_completed()) {
+                        spdlog::info("[Moonraker Client] Retrying discovery after Klippy shutdown");
+                        invoke_connected_callback(on_connected, "Klippy shutdown");
+                    }
                 }
                 // Klippy reconnected to Moonraker
                 else if (method == "notify_klippy_ready") {
@@ -596,19 +594,7 @@ int MoonrakerClient::connect(const char* url, std::function<void()> on_connected
                     // Emit event for UI layer to show success toast
                     emit_event(MoonrakerEventType::KLIPPY_READY, "Klipper ready", false);
 
-                    // Invoke user callback with exception safety
-                    if (on_connected) {
-                        try {
-                            on_connected();
-                        } catch (const std::exception& e) {
-                            LOG_ERROR_INTERNAL(
-                                "[Moonraker Client] Connection callback threw exception: {}",
-                                e.what());
-                        } catch (...) {
-                            LOG_ERROR_INTERNAL(
-                                "[Moonraker Client] Connection callback threw unknown exception");
-                        }
-                    }
+                    invoke_connected_callback(on_connected, "Klippy ready");
                 }
             }
         } catch (const std::exception& e) {
@@ -654,7 +640,9 @@ int MoonrakerClient::connect(const char* url, std::function<void()> on_connected
                 TelemetryManager::instance().record_error("websocket", "disconnected",
                                                           "connection closed unexpectedly");
                 was_connected_ = false;
-                discovery_.reset_identified(); // Reset so re-identification happens on reconnect
+                // Reset so re-identification + retry-on-klippy-state happen on reconnect
+                discovery_.reset_identified();
+                discovery_.reset_completion();
 
                 // Emit event with rate limiting to prevent spam during reconnect loop
                 if (!g_already_notified_disconnect.load()) {
@@ -976,6 +964,20 @@ void MoonrakerClient::get_gcode_store(
             }
         },
         on_error);
+}
+
+void MoonrakerClient::invoke_connected_callback(const std::function<void()>& cb,
+                                                const char* cause) {
+    if (!cb) {
+        return;
+    }
+    try {
+        cb();
+    } catch (const std::exception& e) {
+        LOG_ERROR_INTERNAL("[Moonraker Client] {} callback threw exception: {}", cause, e.what());
+    } catch (...) {
+        LOG_ERROR_INTERNAL("[Moonraker Client] {} callback threw unknown exception", cause);
+    }
 }
 
 void MoonrakerClient::discover_printer(std::function<void()> on_complete,

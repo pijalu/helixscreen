@@ -598,6 +598,18 @@ class MoonrakerClient : public hv::WebSocketClient {
      */
     void dispatch_status_update(const json& status);
 
+    /**
+     * @brief Invoke an on_connected-style callback with exception safety.
+     *
+     * Shared by the onopen path and the notify_klippy_ready / notify_klippy_shutdown
+     * retry paths so they all produce consistent logging and can't propagate
+     * exceptions back into libhv's event loop.
+     *
+     * @param cb The callback to invoke; no-op if empty.
+     * @param cause Short human-readable label for log messages.
+     */
+    static void invoke_connected_callback(const std::function<void()>& cb, const char* cause);
+
   protected:
     /**
      * @brief Transition to new connection state

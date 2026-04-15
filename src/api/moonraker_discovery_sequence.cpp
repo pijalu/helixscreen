@@ -39,6 +39,7 @@ void MoonrakerDiscoverySequence::clear_cache() {
         std::lock_guard<std::mutex> lock(hardware_mutex_);
         hardware_ = PrinterDiscovery{};
     }
+    discovery_completed_.store(false);
     MacroParamCache::instance().clear();
 }
 
@@ -1071,6 +1072,7 @@ void MoonrakerDiscoverySequence::complete_discovery_subscription(uint64_t seq) {
                 }
                 on_discovery_complete_(hw_snapshot, initial_status);
             }
+            discovery_completed_.store(true);
             if (on_complete_discovery_) {
                 auto cb = std::move(on_complete_discovery_);
                 on_error_discovery_ = nullptr;

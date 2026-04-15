@@ -345,11 +345,14 @@ void MoonrakerManager::register_callbacks() {
             (now - m_startup_time) < AppConstants::Startup::NOTIFICATION_GRACE_PERIOD;
 
         if (evt.is_error) {
-            // Suppress discovery failures during startup — Klipper may still be starting
-            // on slow embedded devices (e.g. AD5M). Discovery will retry automatically.
-            if (evt.type == MoonrakerEventType::DISCOVERY_FAILED && within_grace_period) {
-                spdlog::info("[MoonrakerManager] Suppressing startup discovery failure: {}",
-                             evt.message);
+            // Discovery failures are always transient — Klipper may still be
+            // starting (slow embedded devices), restarting after a config edit,
+            // or recovering from a Moonraker event-loop stall. The discovery
+            // sequence retries via notify_klippy_ready/shutdown and on
+            // WebSocket reconnect, and the UI already surfaces connection
+            // state through the status icon. Surface as a log line only.
+            if (evt.type == MoonrakerEventType::DISCOVERY_FAILED) {
+                spdlog::info("[MoonrakerManager] Suppressing discovery failure: {}", evt.message);
                 return;
             }
 
