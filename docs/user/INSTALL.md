@@ -14,7 +14,7 @@ This guide walks you through installing HelixScreen on your 3D printer's touchsc
 - [Flashforge Adventurer 5M Installation](#flashforge-adventurer-5m-installation)
 - [Creality K1 Installation](#creality-k1-series)
 - [Creality K2 Series](#creality-k2-series-untested)
-- [FlashForge Adventurer 5X (Testing)](#flashforge-adventurer-5x-testing)
+- [FlashForge Adventurer 5X](#flashforge-adventurer-5x)
 - [Elegoo Centauri Carbon 1](#elegoo-centauri-carbon)
 - [Creality Sonic Pad](#creality-sonic-pad)
 - [Snapmaker U1](#snapmaker-u1)
@@ -48,7 +48,7 @@ No SSL required — uses plain HTTP. See [Creality K1 Series](#creality-k1-serie
 
 **Flashforge Adventurer 5M:** The easiest option is our [ready-made firmware image](https://github.com/prestonbrown/ff5m) — just flash from a USB drive. For manual installation on existing Forge-X or Klipper Mod setups, see [Flashforge Adventurer 5M Installation](#flashforge-adventurer-5m-installation).
 
-**Flashforge Adventurer 5X:** Install [ZMOD](https://github.com/ghzserg/zmod), which manages HelixScreen installation and updates. See [FlashForge Adventurer 5X (Testing)](#flashforge-adventurer-5x-testing).
+**Flashforge Adventurer 5X:** Install [ZMOD](https://github.com/ghzserg/zmod), which manages HelixScreen installation and updates. See [FlashForge Adventurer 5X](#flashforge-adventurer-5x).
 
 **Snapmaker U1:** Run directly on the printer via SSH (requires [Extended Firmware](https://github.com/paxx12/SnapmakerU1-Extended-Firmware)):
 ```bash
@@ -202,9 +202,9 @@ wget -O - http://dl.helixscreen.org/install.sh | sh
 - OpenWrt-based init system (procd, not SysV)
 - CFS (Creality Filament System) support for RS-485 filament management
 
-### FlashForge Adventurer 5X (Testing)
+### FlashForge Adventurer 5X
 
-> **Active testing is underway on this platform.** Prebuilt binaries are included in releases. Installation is handled through the ZMOD firmware modification.
+> **Tested and working.** Prebuilt binaries are included in releases. Installation is handled through the ZMOD firmware modification.
 
 - **Hardware:**
   - FlashForge Adventurer 5X
@@ -220,9 +220,7 @@ wget -O - http://dl.helixscreen.org/install.sh | sh
 - Prebuilt `ad5x` binaries are included in GitHub releases
 - ZMOD manages installation and updates via Moonraker update manager
 - **Auto-detection:** HelixScreen automatically detects ZMOD firmware (by recognizing ZMOD-specific Klipper device names) and applies ZMOD-optimized presets for display, input, and fan configuration. No manual configuration needed.
-- IFS (4-channel filament system) support is in testing — see [Filament Management](guide/filament.md)
-
-**If you're testing on this printer**, please report your results via [GitHub Issues](https://github.com/prestonbrown/helixscreen/issues) or [Discord](https://discord.gg/RZCT2StKhr).
+- IFS (4-channel filament system) supported — see [Filament Management](guide/filament.md)
 
 ### Elegoo Centauri Carbon
 
