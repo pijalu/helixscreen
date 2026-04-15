@@ -57,7 +57,7 @@ std::unordered_set<PrintStatusWidget*>& PrintStatusWidget::live_instances() {
 }
 
 PrintStatusWidget::PrintStatusWidget() : printer_state_(get_printer_state()) {
-    // Register column_mode subject before XML parsing so bind_flag_if_eq can find it
+    // Register subjects before XML parsing so bind_flag_if_eq / bind_style can find them
     if (!column_mode_subject_initialized_) {
         lv_subject_init_int(&column_mode_subject_, 0);
         lv_xml_register_subject(nullptr, "print_status_column_mode", &column_mode_subject_);
@@ -65,7 +65,31 @@ PrintStatusWidget::PrintStatusWidget() : printer_state_(get_printer_state()) {
         lv_subject_init_int(&colspan_subject_, 2);
         lv_xml_register_subject(nullptr, "print_status_colspan", &colspan_subject_);
         colspan_subject_initialized_ = true;
+
+        lv_subject_init_int(&title_hidden_subject_, 0);
+        lv_xml_register_subject(nullptr, "print_status_title_hidden", &title_hidden_subject_);
+        lv_subject_init_int(&files_hidden_subject_, 0);
+        lv_xml_register_subject(nullptr, "print_status_files_hidden", &files_hidden_subject_);
+        lv_subject_init_int(&last_hidden_subject_, 0);
+        lv_xml_register_subject(nullptr, "print_status_last_hidden", &last_hidden_subject_);
+        lv_subject_init_int(&recent_hidden_subject_, 0);
+        lv_xml_register_subject(nullptr, "print_status_recent_hidden", &recent_hidden_subject_);
+        lv_subject_init_int(&queue_hidden_subject_, 1); // queue starts hidden until jobs arrive
+        lv_xml_register_subject(nullptr, "print_status_queue_hidden", &queue_hidden_subject_);
+        lv_subject_init_int(&actions_hidden_subject_, 0);
+        lv_xml_register_subject(nullptr, "print_status_actions_hidden", &actions_hidden_subject_);
+        visibility_subjects_initialized_ = true;
+
         StaticSubjectRegistry::instance().register_deinit("PrintStatusWidgetSubjects", []() {
+            if (visibility_subjects_initialized_ && lv_is_initialized()) {
+                lv_subject_deinit(&title_hidden_subject_);
+                lv_subject_deinit(&files_hidden_subject_);
+                lv_subject_deinit(&last_hidden_subject_);
+                lv_subject_deinit(&recent_hidden_subject_);
+                lv_subject_deinit(&queue_hidden_subject_);
+                lv_subject_deinit(&actions_hidden_subject_);
+                visibility_subjects_initialized_ = false;
+            }
             if (colspan_subject_initialized_ && lv_is_initialized()) {
                 lv_subject_deinit(&colspan_subject_);
                 colspan_subject_initialized_ = false;
@@ -208,8 +232,18 @@ void PrintStatusWidget::attach(lv_obj_t* widget_obj, lv_obj_t* parent_screen) {
                      print_card_thumb_ != nullptr, print_card_active_thumb_ != nullptr);
     }
 
-    // Apply section visibility from config
+    // Apply section visibility from config (drives all print_status_*_hidden subjects)
     apply_visibility_config();
+
+    // Re-run visibility when the breakpoint changes so the 'Print Library' header
+    // hides on shrink-to-micro and returns on grow-past-micro.
+    if (auto* bp_subj = theme_manager_get_breakpoint_subject()) {
+        breakpoint_observer_ = observe_int_sync<PrintStatusWidget>(
+            bp_subj, this, [](PrintStatusWidget* self, int /*bp*/) {
+                if (self->widget_obj_)
+                    self->apply_visibility_config();
+            });
+    }
 
     spdlog::debug("[PrintStatusWidget] Attached");
 }
@@ -233,6 +267,7 @@ void PrintStatusWidget::detach() {
     filament_runout_observer_.reset();
     job_queue_count_observer_.reset();
     connection_observer_.reset();
+    breakpoint_observer_.reset();
 
     // Clear widget references
     print_card_thumb_ = nullptr;
@@ -439,21 +474,19 @@ void PrintStatusWidget::handle_library_queue() {
 }
 
 void PrintStatusWidget::update_job_queue_row_visibility() {
-    if (!library_row_queue_)
-        return;
-
-    // Show only if config allows AND there are jobs in queue
+    // Queue row: visible when config allows AND there are jobs in queue.
+    // Purely subject-driven — XML binds hidden flag to print_status_queue_hidden.
     bool has_jobs = false;
     auto* jq_count_subj = lv_xml_get_subject(nullptr, "job_queue_count");
     if (jq_count_subj) {
         has_jobs = lv_subject_get_int(jq_count_subj) > 0;
     }
+    bool queue_visible = show_job_queue_ && has_jobs;
+    lv_subject_set_int(&queue_hidden_subject_, queue_visible ? 0 : 1);
 
-    if (show_job_queue_ && has_jobs) {
-        lv_obj_remove_flag(library_row_queue_, LV_OBJ_FLAG_HIDDEN);
-    } else {
-        lv_obj_add_flag(library_row_queue_, LV_OBJ_FLAG_HIDDEN);
-    }
+    // The library_actions container hides when no action row is visible — re-evaluate
+    // here since queue visibility contributes to that combined state.
+    recompute_actions_visibility();
 }
 
 // ============================================================================
@@ -763,90 +796,47 @@ bool PrintStatusWidget::on_edit_configure() {
 }
 
 void PrintStatusWidget::apply_visibility_config() {
-    // Full idle card elements
-    lv_obj_t* library_header = lv_obj_find_by_name(widget_obj_, "library_header");
-    lv_obj_t* library_row_recent = lv_obj_find_by_name(widget_obj_, "library_row_recent");
+    // Per-element hidden flags are driven entirely by subjects; XML binds hidden
+    // to print_status_*_hidden via bind_flag_if_eq ref_value="1". Here we just
+    // compute each value from config + live breakpoint and push into subjects.
+    lv_subject_t* bp_subj = theme_manager_get_breakpoint_subject();
+    bool at_micro = bp_subj && as_breakpoint(lv_subject_get_int(bp_subj)) == UiBreakpoint::Micro;
 
-    if (library_header) {
-        // Hide at micro breakpoint regardless of show_title_ — no vertical space for it.
-        lv_subject_t* bp_subj = theme_manager_get_breakpoint_subject();
-        bool at_micro =
-            bp_subj && as_breakpoint(lv_subject_get_int(bp_subj)) == UiBreakpoint::Micro;
-        if (show_title_ && !at_micro)
-            lv_obj_remove_flag(library_header, LV_OBJ_FLAG_HIDDEN);
-        else
-            lv_obj_add_flag(library_header, LV_OBJ_FLAG_HIDDEN);
-    }
+    lv_subject_set_int(&title_hidden_subject_, (!show_title_ || at_micro) ? 1 : 0);
+    lv_subject_set_int(&files_hidden_subject_, show_print_files_ ? 0 : 1);
+    lv_subject_set_int(&last_hidden_subject_, show_reprint_last_ ? 0 : 1);
+    lv_subject_set_int(&recent_hidden_subject_, show_recent_prints_ ? 0 : 1);
 
-    // Print Files rows (both full and compact)
-    lv_obj_t* library_row_files = lv_obj_find_by_name(widget_obj_, "library_row_files");
-    lv_obj_t* compact_row_files = lv_obj_find_by_name(widget_obj_, "compact_row_files");
-    if (library_row_files) {
-        if (show_print_files_)
-            lv_obj_remove_flag(library_row_files, LV_OBJ_FLAG_HIDDEN);
-        else
-            lv_obj_add_flag(library_row_files, LV_OBJ_FLAG_HIDDEN);
-    }
-    if (compact_row_files) {
-        if (show_print_files_)
-            lv_obj_remove_flag(compact_row_files, LV_OBJ_FLAG_HIDDEN);
-        else
-            lv_obj_add_flag(compact_row_files, LV_OBJ_FLAG_HIDDEN);
-    }
-
-    // Reprint Last rows (both full and compact)
-    if (library_row_last_) {
-        if (show_reprint_last_)
-            lv_obj_remove_flag(library_row_last_, LV_OBJ_FLAG_HIDDEN);
-        else
-            lv_obj_add_flag(library_row_last_, LV_OBJ_FLAG_HIDDEN);
-    }
-    if (compact_row_last_) {
-        if (show_reprint_last_)
-            lv_obj_remove_flag(compact_row_last_, LV_OBJ_FLAG_HIDDEN);
-        else
-            lv_obj_add_flag(compact_row_last_, LV_OBJ_FLAG_HIDDEN);
-    }
-
-    // Recent Prints row
-    if (library_row_recent) {
-        if (show_recent_prints_)
-            lv_obj_remove_flag(library_row_recent, LV_OBJ_FLAG_HIDDEN);
-        else
-            lv_obj_add_flag(library_row_recent, LV_OBJ_FLAG_HIDDEN);
-    }
-
-    // Job Queue row
+    // Queue row uses a live count — defer to the dedicated helper, which also
+    // triggers recompute_actions_visibility() since queue state affects it.
     update_job_queue_row_visibility();
+}
 
-    // If all action buttons are hidden, hide the actions container and expand thumbnail
-    lv_obj_t* library_actions = lv_obj_find_by_name(widget_obj_, "library_actions");
+void PrintStatusWidget::recompute_actions_visibility() {
+    // The action-list container hides when no individual row is visible. That
+    // also forces the thumbnail to grow to 100% width and re-centers the body.
+    // Width/alignment changes stay imperative (not simple flag toggles); the
+    // hidden flag itself rides the actions_hidden subject.
+    bool queue_visible = lv_subject_get_int(&queue_hidden_subject_) == 0;
+    bool any_button_visible =
+        show_print_files_ || show_reprint_last_ || show_recent_prints_ || queue_visible;
+
+    lv_subject_set_int(&actions_hidden_subject_, any_button_visible ? 0 : 1);
+
+    if (!widget_obj_ || !print_card_thumb_)
+        return;
     lv_obj_t* library_body = lv_obj_find_by_name(widget_obj_, "library_body");
-
-    if (library_actions && print_card_thumb_) {
-        // Job queue is visible only if config allows AND jobs exist
-        bool queue_visible = false;
-        if (library_row_queue_ && !lv_obj_has_flag(library_row_queue_, LV_OBJ_FLAG_HIDDEN)) {
-            queue_visible = true;
+    if (any_button_visible) {
+        lv_obj_set_width(print_card_thumb_, LV_PCT(40));
+        if (library_body) {
+            lv_obj_set_style_flex_main_place(library_body, LV_FLEX_ALIGN_START, 0);
+            lv_obj_set_style_flex_cross_place(library_body, LV_FLEX_ALIGN_START, 0);
         }
-
-        bool any_button_visible =
-            show_print_files_ || show_reprint_last_ || show_recent_prints_ || queue_visible;
-
-        if (!any_button_visible) {
-            lv_obj_add_flag(library_actions, LV_OBJ_FLAG_HIDDEN);
-            lv_obj_set_width(print_card_thumb_, LV_PCT(100));
-            if (library_body) {
-                lv_obj_set_style_flex_main_place(library_body, LV_FLEX_ALIGN_CENTER, 0);
-                lv_obj_set_style_flex_cross_place(library_body, LV_FLEX_ALIGN_CENTER, 0);
-            }
-        } else {
-            lv_obj_remove_flag(library_actions, LV_OBJ_FLAG_HIDDEN);
-            lv_obj_set_width(print_card_thumb_, LV_PCT(40));
-            if (library_body) {
-                lv_obj_set_style_flex_main_place(library_body, LV_FLEX_ALIGN_START, 0);
-                lv_obj_set_style_flex_cross_place(library_body, LV_FLEX_ALIGN_START, 0);
-            }
+    } else {
+        lv_obj_set_width(print_card_thumb_, LV_PCT(100));
+        if (library_body) {
+            lv_obj_set_style_flex_main_place(library_body, LV_FLEX_ALIGN_CENTER, 0);
+            lv_obj_set_style_flex_cross_place(library_body, LV_FLEX_ALIGN_CENTER, 0);
         }
     }
 }

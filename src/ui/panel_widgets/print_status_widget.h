@@ -85,6 +85,18 @@ class PrintStatusWidget : public PanelWidget {
     static inline lv_subject_t colspan_subject_;
     static inline bool colspan_subject_initialized_ = false;
 
+    // Per-element visibility subjects — 1 = hidden, 0 = visible. XML binds via
+    // <bind_flag_if_eq ... ref_value="1"/>. apply_visibility_config() computes
+    // each value from show_* config + breakpoint + job queue count and writes
+    // these subjects; C++ no longer toggles LV_OBJ_FLAG_HIDDEN directly.
+    static inline lv_subject_t title_hidden_subject_;
+    static inline lv_subject_t files_hidden_subject_;
+    static inline lv_subject_t last_hidden_subject_;
+    static inline lv_subject_t recent_hidden_subject_;
+    static inline lv_subject_t queue_hidden_subject_;
+    static inline lv_subject_t actions_hidden_subject_;
+    static inline bool visibility_subjects_initialized_ = false;
+
     // Compact mode and state tracking
     bool is_compact_ = false;
     bool is_column_ = false;
@@ -99,6 +111,7 @@ class PrintStatusWidget : public PanelWidget {
     ObserverGuard filament_runout_observer_;
     ObserverGuard job_queue_count_observer_;
     ObserverGuard connection_observer_;
+    ObserverGuard breakpoint_observer_;
 
     // Guards async thumbnail callbacks and history observer from use-after-free
     helix::AsyncLifetimeGuard lifetime_;
@@ -146,6 +159,7 @@ class PrintStatusWidget : public PanelWidget {
     void show_configure_picker();
     void dismiss_configure_picker();
     void apply_visibility_config();
+    void recompute_actions_visibility();
     void apply_picker_state();
 
     static PrintStatusWidget* s_active_picker_;

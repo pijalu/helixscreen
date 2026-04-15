@@ -16,11 +16,13 @@
     <lv_obj name="print_card_idle"
             width="100%" height="100%" style_pad_all="0" flex_flow="column" style_pad_gap="0" clickable="false"
             event_bubble="true">
-      <!-- Header: "Library" label with underline -->
+      <!-- Header: "Library" label with underline. Hidden flag bound to
+           print_status_title_hidden (1 when show_title config is off OR at micro breakpoint). -->
       <lv_obj name="library_header"
               width="100%" height="content" flex_flow="column" style_pad_left="#space_sm" style_pad_right="#space_sm"
               style_pad_top="#space_xs" style_pad_bottom="0" style_pad_gap="#space_xxs" clickable="false"
               event_bubble="true">
+        <bind_flag_if_eq subject="print_status_title_hidden" flag="hidden" ref_value="1"/>
         <text_small text="Print Library"
                     translation_tag="Print Library" text_transform="uppercase" variant="muted" clickable="false"
                     event_bubble="true"/>
@@ -37,12 +39,15 @@
         <lv_image name="print_card_thumb"
                   width="40%" height="100%" src="A:assets/images/benchy_thumbnail_white.png" inner_align="contain"
                   clickable="false" event_bubble="true"/>
-        <!-- Action list -->
+        <!-- Action list. Container hides when every row is hidden so the thumbnail
+             can expand; C++ also adjusts width + flex alignment on that transition. -->
         <lv_obj name="library_actions"
                 height="100%" flex_grow="1" flex_flow="column" style_pad_all="0" style_pad_top="#space_xxs"
                 style_pad_bottom="#space_xxs" style_pad_gap="#space_sm" style_flex_main_place="space_evenly"
                 scrollable="false" clickable="false" event_bubble="true">
+          <bind_flag_if_eq subject="print_status_actions_hidden" flag="hidden" ref_value="1"/>
           <ui_button name="library_row_files" width="100%" height="#button_height_sm" variant="outline" layout="row">
+            <bind_flag_if_eq subject="print_status_files_hidden" flag="hidden" ref_value="1"/>
             <icon src="folder" size="sm" clickable="false" event_bubble="true">
               <bind_flag_if_eq subject="print_status_column_mode" flag="hidden" ref_value="1"/>
             </icon>
@@ -50,6 +55,7 @@
             <event_cb trigger="clicked" callback="library_files_cb"/>
           </ui_button>
           <ui_button name="library_row_last" width="100%" height="#button_height_sm" variant="outline" layout="row">
+            <bind_flag_if_eq subject="print_status_last_hidden" flag="hidden" ref_value="1"/>
             <icon src="clock" size="sm" clickable="false" event_bubble="true">
               <bind_flag_if_eq subject="print_status_column_mode" flag="hidden" ref_value="1"/>
             </icon>
@@ -58,6 +64,7 @@
             <event_cb trigger="clicked" callback="library_last_cb"/>
           </ui_button>
           <ui_button name="library_row_recent" width="100%" height="#button_height_sm" variant="outline" layout="row">
+            <bind_flag_if_eq subject="print_status_recent_hidden" flag="hidden" ref_value="1"/>
             <icon src="star" size="sm" clickable="false" event_bubble="true">
               <bind_flag_if_eq subject="print_status_column_mode" flag="hidden" ref_value="1"/>
             </icon>
@@ -66,6 +73,7 @@
           </ui_button>
           <ui_button name="library_row_queue"
                      width="100%" height="#button_height_sm" variant="outline" layout="row" hidden="true">
+            <bind_flag_if_eq subject="print_status_queue_hidden" flag="hidden" ref_value="1"/>
             <icon src="progress_clock" size="sm" clickable="false" event_bubble="true">
               <bind_flag_if_eq subject="print_status_column_mode" flag="hidden" ref_value="1"/>
             </icon>
@@ -88,11 +96,13 @@
       <ui_button name="compact_row_files"
                  width="100%" height="#button_height_sm" variant="outline" text="Print Files"
                  translation_tag="Print Files">
+        <bind_flag_if_eq subject="print_status_files_hidden" flag="hidden" ref_value="1"/>
         <event_cb trigger="clicked" callback="library_files_cb"/>
       </ui_button>
       <ui_button name="compact_row_last"
                  width="100%" height="#button_height_sm" variant="outline" text="Reprint Last"
                  translation_tag="Reprint Last">
+        <bind_flag_if_eq subject="print_status_last_hidden" flag="hidden" ref_value="1"/>
         <event_cb trigger="clicked" callback="library_last_cb"/>
       </ui_button>
     </lv_obj>
