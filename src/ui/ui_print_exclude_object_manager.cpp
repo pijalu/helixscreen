@@ -10,6 +10,7 @@
 
 #include "lvgl/src/others/translation/lv_translation.h"
 #include "moonraker_api.h"
+#include "moonraker_error.h"
 #include "observer_factory.h"
 #include "printer_state.h"
 
@@ -296,39 +297,35 @@ void PrintExcludeObjectManager::exclude_undo_timer_cb(lv_timer_t* timer) {
     // Capture token for async callback safety
     auto token = self->lifetime_.token();
 
-    // Actually send the command to Klipper via MoonrakerAPI
+    // Actually send the command to Klipper via MoonrakerAPI.
+    //
+    // Truth model: the `exclude_object.excluded_objects` status subscription drives
+    // `excluded_objects_` via on_excluded_objects_changed(). The RPC success callback is
+    // advisory — it just means Klipper finished running the gcode (which during pre-print
+    // may take many minutes, because printer.gcode.script blocks on the gcode queue).
+    //
+    // A TIMEOUT-type error from the RPC is NOT a real failure: the request may still
+    // execute on Klipper and the status push will confirm it. Only non-timeout errors
+    // (validation, connection lost, JSON-RPC error, etc.) warrant reverting the visual
+    // and surfacing an error toast.
+    self->awaiting_confirmation_.insert(object_name);
     if (self->api_) {
         self->api_->exclude_object(
             object_name,
             [self, token, object_name]() {
                 if (token.expired())
                     return;
-                spdlog::info("[PrintExcludeObjectManager] EXCLUDE_OBJECT '{}' sent successfully",
+                spdlog::info("[PrintExcludeObjectManager] EXCLUDE_OBJECT '{}' RPC returned success",
                              object_name);
-                // Move to confirmed excluded set
-                self->excluded_objects_.insert(object_name);
+                // Note: we do NOT insert into excluded_objects_ here. The subscription-driven
+                // on_excluded_objects_changed() path is the single source of truth; inserting
+                // here would create a second path that could drift if Klipper's internal state
+                // diverges from what it told us via gcode.script return.
             },
             [self, token, object_name](const MoonrakerError& err) {
                 if (token.expired())
                     return;
-                spdlog::error("[PrintExcludeObjectManager] Failed to exclude '{}': {}", object_name,
-                              err.message);
-
-                // UI operations must happen on the main thread
-                token.defer(
-                    "PrintExcludeObjectManager::exclude_error",
-                    [self, object_name, user_msg = err.user_message()]() {
-                        NOTIFY_ERROR(lv_tr("Failed to exclude '{}': {}"), object_name, user_msg);
-
-                        // Revert visual state - refresh viewer with only confirmed exclusions
-                        if (self->gcode_viewer_) {
-                            ui_gcode_viewer_set_excluded_objects(self->gcode_viewer_,
-                                                                 self->excluded_objects_);
-                            spdlog::debug(
-                                "[PrintExcludeObjectManager] Reverted visual exclusion for '{}'",
-                                object_name);
-                        }
-                    });
+                self->on_exclude_rpc_error(object_name, err);
             });
     } else {
         spdlog::warn("[PrintExcludeObjectManager] No API available - simulating exclusion");
@@ -346,14 +343,18 @@ void PrintExcludeObjectManager::on_excluded_objects_changed() {
     // Sync excluded objects from PrinterState (Klipper/Moonraker)
     const auto& klipper_excluded = printer_state_.get_excluded_objects();
 
-    // Merge Klipper's excluded set with our local set
-    // This ensures objects excluded via Klipper (e.g., from another client) are shown
+    // Merge Klipper's excluded set with our local set. Klipper's `exclude_object.excluded_objects`
+    // is the authoritative source of truth — objects appear here regardless of whether the
+    // exclusion came from us, another client, or a webcam-style frontend. Clearing from
+    // awaiting_confirmation_ on arrival lets our RPC path know the optimistic visual is now
+    // backed by Klipper's own confirmation.
     for (const auto& obj : klipper_excluded) {
         if (excluded_objects_.count(obj) == 0) {
             excluded_objects_.insert(obj);
             spdlog::info("[PrintExcludeObjectManager] Synced excluded object from Klipper: '{}'",
                          obj);
         }
+        awaiting_confirmation_.erase(obj);
     }
 
     // Update the G-code viewer visual state
@@ -367,6 +368,45 @@ void PrintExcludeObjectManager::on_excluded_objects_changed() {
         spdlog::debug("[PrintExcludeObjectManager] Updated viewer with {} excluded objects",
                       visual_excluded.size());
     }
+}
+
+void PrintExcludeObjectManager::on_exclude_rpc_error(const std::string& object_name,
+                                                     const MoonrakerError& err) {
+    if (err.type == MoonrakerErrorType::TIMEOUT) {
+        // Advisory path. printer.gcode.script blocks until Klipper executes the queued
+        // gcode; during pre-print this can legitimately take >15 minutes (our ceiling).
+        // If we DO hit that ceiling, we log silently and keep the optimistic visual in
+        // place. Worst case: Klipper never ran the command and the visual is wrong until
+        // the next print or the user manually reverts — tradeoff for avoiding the
+        // false-positive toast that motivated this refactor. TODO(post-1.0): watchdog
+        // that reverts visual if still awaiting_confirmation_ when print state leaves
+        // the pre-print/printing phases.
+        spdlog::warn("[PrintExcludeObjectManager] EXCLUDE_OBJECT '{}' RPC timed out ({}) — "
+                     "continuing to wait for status subscription to confirm",
+                     object_name, err.message);
+        return;
+    }
+
+    spdlog::error("[PrintExcludeObjectManager] Failed to exclude '{}': {}", object_name,
+                  err.message);
+
+    // UI operations must happen on the main thread. We defer regardless of which thread
+    // we were called on — lifetime_.defer is safe from the main thread and tok.defer
+    // would have handled the background case via the dispatch path.
+    auto defer_tok = lifetime_.token();
+    defer_tok.defer("PrintExcludeObjectManager::exclude_error",
+                    [this, object_name, user_msg = err.user_message()]() {
+                        awaiting_confirmation_.erase(object_name);
+                        NOTIFY_ERROR(lv_tr("Failed to exclude '{}': {}"), object_name, user_msg);
+
+                        if (gcode_viewer_) {
+                            ui_gcode_viewer_set_excluded_objects(gcode_viewer_,
+                                                                 excluded_objects_);
+                            spdlog::debug(
+                                "[PrintExcludeObjectManager] Reverted visual exclusion for '{}'",
+                                object_name);
+                        }
+                    });
 }
 
 } // namespace helix::ui

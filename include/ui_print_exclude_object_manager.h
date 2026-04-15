@@ -29,6 +29,7 @@
 
 // Forward declarations
 class MoonrakerAPI;
+struct MoonrakerError;
 namespace helix {
 class PrinterState;
 }
@@ -159,12 +160,39 @@ class PrintExcludeObjectManager {
     }
 
     /**
+     * @brief Test-only: inject an object into the awaiting-confirmation set.
+     *
+     * Exists so tests can exercise the status-arrival confirmation path without
+     * having to drive the full modal → undo timer → RPC dispatch flow.
+     */
+    void add_awaiting_confirmation_for_testing(const std::string& name) {
+        awaiting_confirmation_.insert(name);
+    }
+
+    /** @brief Test-only: check whether an object is still waiting for status confirmation. */
+    bool is_awaiting_confirmation_for_testing(const std::string& name) const {
+        return awaiting_confirmation_.count(name) > 0;
+    }
+
+    /**
+     * @brief Test-only: run the RPC error-handling branch directly.
+     *
+     * Extracted so tests can cover TIMEOUT-vs-other-error branching without driving
+     * the full modal → undo-timer → RPC dispatch flow. Equivalent to what the error
+     * lambda in `exclude_undo_timer_cb` does.
+     */
+    void handle_rpc_error_for_testing(const std::string& object_name, const MoonrakerError& err) {
+        on_exclude_rpc_error(object_name, err);
+    }
+
+    /**
      * @brief Clear excluded objects state
      *
      * Called when a new print starts to reset the exclusion state.
      */
     void clear_excluded_objects() {
         excluded_objects_.clear();
+        awaiting_confirmation_.clear();
         pending_exclude_object_.clear();
         if (exclude_undo_timer_) {
             lv_timer_delete(exclude_undo_timer_);
@@ -187,6 +215,16 @@ class PrintExcludeObjectManager {
 
     /// Objects already excluded (sent to Klipper, cannot be undone)
     std::unordered_set<std::string> excluded_objects_;
+
+    /// Objects for which we have dispatched EXCLUDE_OBJECT but not yet seen the status
+    /// subscription confirm them. Used to tell apart "RPC in flight" from "genuinely failed"
+    /// when an RPC-level TIMEOUT arrives (Klipper may still run the queued gcode).
+    ///
+    /// Main-thread only — populated in `exclude_undo_timer_cb` (LVGL timer, main thread),
+    /// cleared from `tok.defer` bodies (UpdateQueue drained on main) and from
+    /// `on_excluded_objects_changed` (observe_int_sync defers to UpdateQueue per L048).
+    /// No mutex needed.
+    std::unordered_set<std::string> awaiting_confirmation_;
 
     /// Object pending exclusion (in undo window, not yet sent to Klipper)
     std::string pending_exclude_object_;
@@ -236,6 +274,16 @@ class PrintExcludeObjectManager {
      * Updates gcode viewer visual state.
      */
     void on_excluded_objects_changed();
+
+    /**
+     * @brief Handle an RPC error from EXCLUDE_OBJECT.
+     *
+     * TIMEOUT errors are advisory (log, keep optimistic visual, keep awaiting entry —
+     * Klipper may still run the queued gcode). Other error types revert the visual,
+     * clear awaiting, and toast the user. Invoked from the error lambda in
+     * `exclude_undo_timer_cb` and from `handle_rpc_error_for_testing`.
+     */
+    void on_exclude_rpc_error(const std::string& object_name, const MoonrakerError& err);
 
     //
     // === Static Callbacks ===
