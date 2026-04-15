@@ -7,6 +7,7 @@
 
 #include "app_globals.h"
 #include "fan_gcode.h"
+#include "http_executor.h"
 #include "hv/requests.h"
 #include "moonraker_api.h"
 #include "moonraker_api_internal.h"
@@ -147,7 +148,7 @@ void MoonrakerAPI::get_power_devices(PowerDevicesCallback on_success, ErrorCallb
     std::string url = http_base_url_ + "/machine/device_power/devices";
     spdlog::debug("[Moonraker API] Fetching power devices from: {}", url);
 
-    std::thread([url, on_success, on_error]() {
+    helix::http::HttpExecutor::fast().submit([url, on_success, on_error]() {
         auto resp = requests::get(url.c_str());
 
         if (!resp) {
@@ -208,7 +209,7 @@ void MoonrakerAPI::get_power_devices(PowerDevicesCallback on_success, ErrorCallb
                 on_error(err);
             }
         }
-    }).detach();
+    });
 }
 
 void MoonrakerAPI::set_device_power(const std::string& device, const std::string& action,
@@ -269,7 +270,7 @@ void MoonrakerAPI::set_device_power(const std::string& device, const std::string
 
     spdlog::info("[Moonraker API] Setting power device '{}' to '{}'", device, action);
 
-    std::thread([url, device, action, on_success, on_error]() {
+    helix::http::HttpExecutor::fast().submit([url, device, action, on_success, on_error]() {
         auto resp = requests::post(url.c_str(), "");
 
         if (!resp) {
@@ -302,7 +303,7 @@ void MoonrakerAPI::set_device_power(const std::string& device, const std::string
         if (on_success) {
             on_success();
         }
-    }).detach();
+    });
 }
 
 // ============================================================================

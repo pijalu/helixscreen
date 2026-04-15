@@ -241,6 +241,10 @@ void SensorState::on_sensor_update(const nlohmann::json& msg) {
         return;
     }
 
+    auto tok = lifetime_.token();
+    if (tok.expired())
+        return;
+
     for (auto it = params.begin(); it != params.end(); ++it) {
         const std::string& sensor_id = it.key();
         const auto& values = it.value();
@@ -258,7 +262,7 @@ void SensorState::on_sensor_update(const nlohmann::json& msg) {
             double raw_value = vit.value().get<double>();
             int centi = to_centi_units(key, raw_value);
 
-            lifetime_.defer("SensorState::on_sensor_update", [this, sensor_id, key, centi]() {
+            tok.defer("SensorState::on_sensor_update", [this, sensor_id, key, centi]() {
                 std::lock_guard<std::recursive_mutex> lock(mutex_);
 
                 auto sit = sensors_.find(sensor_id);

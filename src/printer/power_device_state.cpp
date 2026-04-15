@@ -142,7 +142,10 @@ void PowerDeviceState::update_device_status(const std::string& device, const std
     int new_raw = status_string_to_int(status);
     spdlog::debug("[PowerDeviceState] update_device_status: device='{}' status='{}'", device,
                   status);
-    lifetime_.defer("PowerDeviceState::update_device_status", [this, device, new_raw]() {
+    auto tok = lifetime_.token();
+    if (tok.expired())
+        return;
+    tok.defer("PowerDeviceState::update_device_status", [this, device, new_raw]() {
         auto it = devices_.find(device);
         if (it == devices_.end())
             return;
@@ -170,6 +173,10 @@ void PowerDeviceState::on_power_changed(const nlohmann::json& msg) {
         return;
     }
 
+    auto tok = lifetime_.token();
+    if (tok.expired())
+        return;
+
     for (const auto& param : msg["params"]) {
         if (!param.is_object() || !param.contains("device") || !param.contains("status")) {
             continue;
@@ -192,7 +199,7 @@ void PowerDeviceState::on_power_changed(const nlohmann::json& msg) {
         }
 
         // Marshal to UI thread for subject updates
-        lifetime_.defer("PowerDeviceState::on_power_changed", [this, device_name, new_raw]() {
+        tok.defer("PowerDeviceState::on_power_changed", [this, device_name, new_raw]() {
             auto it = devices_.find(device_name);
             if (it == devices_.end()) {
                 spdlog::trace("[PowerDeviceState] Ignoring update for unknown device '{}'",
