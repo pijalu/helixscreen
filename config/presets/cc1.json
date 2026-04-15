@@ -5,6 +5,7 @@
     "backlight_enable_ioctl": false,
     "hardware_blank": 0,
     "sleep_backlight_off": false,
+    "animations_enabled": false,
     "gamma": 2.0,
     "r_gain": 1.0,
     "g_gain": 0.851,
@@ -31,10 +32,19 @@
     },
     "temp_sensors": {
       "bed": "heater_bed",
-      "hotend": "extruder"
+      "hotend": "extruder",
+      "chamber": "temperature_sensor box"
     },
-    "fans": {},
-    "leds": {},
+    "fans": {
+      "part": "fan",
+      "hotend": "heater_fan extruder",
+      "aux": "fan_generic model_helper_fan",
+      "chamber": "fan_generic box_fan"
+    },
+    "leds": {
+      "strip": "led case",
+      "selected_strips": ["led case", "led hotend"]
+    },
     "filament_sensors": {
       "master_enabled": true,
       "sensors": []
@@ -42,11 +52,24 @@
     "hardware": {
       "expected": [
         "heater_bed",
-        "extruder"
+        "extruder",
+        "fan",
+        "heater_fan extruder",
+        "fan_generic model_helper_fan",
+        "fan_generic box_fan",
+        "temperature_sensor box",
+        "led case",
+        "led hotend",
+        "load_cell_probe"
       ]
     },
     "default_macros": {
-      "cooldown": "SET_HEATER_TEMPERATURE HEATER=extruder TARGET=0\nSET_HEATER_TEMPERATURE HEATER=heater_bed TARGET=0"
+      "cooldown": "SET_HEATER_TEMPERATURE HEATER=extruder TARGET=0\nSET_HEATER_TEMPERATURE HEATER=heater_bed TARGET=0",
+      "load_filament": { "label": "Load", "gcode": "LOAD_FILAMENT" },
+      "unload_filament": { "label": "Unload", "gcode": "UNLOAD_FILAMENT" },
+      "macro_1": { "label": "Clean Nozzle", "gcode": "WIPE_NOZZLE" },
+      "macro_2": { "label": "Bed Mesh", "gcode": "BED_MESH_CALIBRATE_WITH_WIPE" },
+      "macro_3": { "label": "Full Calibration", "gcode": "FULL_CALIBRATION" }
     }
   }
 }

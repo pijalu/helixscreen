@@ -1650,7 +1650,7 @@
           "type": "kinematics_match",
           "field": "kinematics",
           "pattern": "corexy",
-          "confidence": 30,
+          "confidence": 40,
           "reason": "CoreXY kinematics"
         },
         {
@@ -1664,10 +1664,31 @@
           "reason": "256×270 build volume"
         },
         {
+          "type": "object_exists",
+          "field": "printer_objects",
+          "pattern": "lis2dw",
+          "confidence": 70,
+          "reason": "LIS2DW accelerometer (CC1 toolhead input shaper)"
+        },
+        {
+          "type": "object_exists",
+          "field": "printer_objects",
+          "pattern": "load_cell_probe",
+          "confidence": 70,
+          "reason": "Strain-gauge load cell probe"
+        },
+        {
+          "type": "hostname_match",
+          "field": "hostname",
+          "pattern": "elegoo-centauri-carbon",
+          "confidence": 95,
+          "reason": "Hostname matches stock COSMOS image"
+        },
+        {
           "type": "hostname_match",
           "field": "hostname",
           "pattern": "centauri",
-          "confidence": 95,
+          "confidence": 90,
           "reason": "Hostname contains 'centauri'"
         },
         {
@@ -1676,6 +1697,13 @@
           "pattern": "opencentauri",
           "confidence": 95,
           "reason": "Hostname contains 'opencentauri' (COSMOS)"
+        },
+        {
+          "type": "hostname_match",
+          "field": "hostname",
+          "pattern": "elegoo",
+          "confidence": 80,
+          "reason": "Hostname contains 'elegoo'"
         }
       ]
     },
@@ -1899,49 +1927,6 @@
           "pattern": "neptune-4-max",
           "confidence": 95,
           "reason": "Hostname contains 'neptune-4-max'"
-        }
-      ]
-    },
-    {
-      "id": "elegoo_centauri_carbon",
-      "name": "Elegoo Centauri Carbon",
-      "manufacturer": "Elegoo",
-      "image": "elegoo-centauri-carbon.png",
-      "heuristics": [
-        {
-          "type": "kinematics_match",
-          "field": "kinematics",
-          "pattern": "corexy",
-          "confidence": 40,
-          "reason": "CoreXY kinematics"
-        },
-        {
-          "type": "sensor_match",
-          "field": "sensors",
-          "pattern": "chamber",
-          "confidence": 70,
-          "reason": "Chamber temperature sensor (enclosed)"
-        },
-        {
-          "type": "object_exists",
-          "field": "printer_objects",
-          "pattern": "adxl345",
-          "confidence": 60,
-          "reason": "ADXL345 accelerometer (input shaper)"
-        },
-        {
-          "type": "hostname_match",
-          "field": "hostname",
-          "pattern": "elegoo",
-          "confidence": 80,
-          "reason": "Hostname contains 'elegoo'"
-        },
-        {
-          "type": "hostname_match",
-          "field": "hostname",
-          "pattern": "centauri",
-          "confidence": 95,
-          "reason": "Hostname contains 'centauri'"
         }
       ]
     },
@@ -2175,7 +2160,7 @@
           "field": "hostname",
           "pattern": "prusawire",
           "confidence": 99,
-          "reason": "Hostname contains 'prusawire' \u2014 definitive match"
+          "reason": "Hostname contains 'prusawire' — definitive match"
         },
         {
           "type": "hostname_match",
@@ -2189,7 +2174,7 @@
           "field": "macros",
           "pattern": "PRUSAWIRE",
           "confidence": 95,
-          "reason": "PRUSAWIRE macro present \u2014 strong indicator"
+          "reason": "PRUSAWIRE macro present — strong indicator"
         }
       ]
     },
