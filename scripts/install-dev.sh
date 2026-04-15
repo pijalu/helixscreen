@@ -38,6 +38,7 @@ if [ -z "${_HELIX_BUNDLED_INSTALLER:-}" ]; then
     . "$LIB_DIR/release.sh"
     . "$LIB_DIR/service.sh"
     . "$LIB_DIR/moonraker.sh"
+    . "$LIB_DIR/kiauh.sh"
     . "$LIB_DIR/uninstall.sh"  # Must be last - uses functions from other modules
 fi
 
@@ -57,6 +58,7 @@ usage() {
     echo "                 including config and caches (asks for confirmation)"
     echo "  --version VER  Install specific version (default: latest)"
     echo "  --local FILE   Install from local archive (.zip or .tar.gz, skip download)"
+    echo "  --kiauh yes|no Install KIAUH extension without prompting (default: ask if detected)"
     echo "  --help         Show this help message"
     echo ""
     echo "Examples:"
@@ -74,6 +76,7 @@ main() {
     clean_mode=false
     version=""
     local_tarball=""
+    kiauh_mode=""
 
     # Parse arguments
     while [ $# -gt 0 ]; do
@@ -104,6 +107,14 @@ main() {
                     exit 1
                 fi
                 local_tarball="$2"
+                shift 2
+                ;;
+            --kiauh)
+                if [ -z "${2:-}" ]; then
+                    log_error "--kiauh requires yes|no"
+                    exit 1
+                fi
+                kiauh_mode="$2"
                 shift 2
                 ;;
             --help|-h)
@@ -230,6 +241,9 @@ main() {
 
     extract_release "$platform"
     install_service "$platform"
+
+    # Install KIAUH extension if KIAUH is detected
+    install_kiauh_extension "$kiauh_mode" || true
 
     # Install udev/polkit rules for non-root operation (backlight, Wi-Fi)
     install_permission_rules "$platform"

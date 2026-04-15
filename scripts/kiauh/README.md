@@ -6,41 +6,39 @@ This directory contains a KIAUH (Klipper Installation And Update Helper) extensi
 
 ### Method 1: Use the Direct Installer (Recommended)
 
-The simplest way to install HelixScreen is using our bundled installer directly:
+The simplest way to install HelixScreen is using our bundled installer:
 
 ```bash
 curl -sSL https://raw.githubusercontent.com/prestonbrown/helixscreen/main/scripts/install.sh | sh
 ```
 
-This works on any platform (MainsailOS, KIAUH, manual installs, AD5M) and doesn't require KIAUH.
+If KIAUH is detected at `~/kiauh/kiauh/extensions/`, the installer automatically
+offers to register the HelixScreen KIAUH extension. Answer `Y` at the prompt,
+or pass `--kiauh yes` / `--kiauh no` to skip the prompt:
 
-### Method 2: Via KIAUH Extension System
+```bash
+curl -sSL https://raw.githubusercontent.com/prestonbrown/helixscreen/main/scripts/install.sh | sh -s -- --kiauh yes
+```
 
-If you prefer to manage HelixScreen through KIAUH's menu system, you can add this extension:
+After install, restart KIAUH (`~/kiauh/kiauh.sh`) and HelixScreen will appear
+in the **Extensions** menu.
 
-#### Adding the Extension
+### Method 2: Manually Register the Extension
 
-1. Copy the `helixscreen` directory to KIAUH's extensions folder:
+If you already have HelixScreen installed and want to add the KIAUH extension
+afterward, copy the extension files into KIAUH's `extensions/` directory:
 
-   ```bash
-   cp -r ~/helixscreen/scripts/kiauh/helixscreen ~/kiauh/kiauh/extensions/
-   ```
+```bash
+# Release tarball ships the extension under the install dir:
+cp -r ~/helixscreen/scripts/kiauh/helixscreen ~/kiauh/kiauh/extensions/
 
-   Or if HelixScreen isn't cloned yet:
+# Or fetch directly from the repo:
+git clone --depth 1 https://github.com/prestonbrown/helixscreen.git /tmp/helixscreen
+cp -r /tmp/helixscreen/scripts/kiauh/helixscreen ~/kiauh/kiauh/extensions/
+rm -rf /tmp/helixscreen
+```
 
-   ```bash
-   git clone --depth 1 https://github.com/prestonbrown/helixscreen.git /tmp/helixscreen
-   cp -r /tmp/helixscreen/scripts/kiauh/helixscreen ~/kiauh/kiauh/extensions/
-   rm -rf /tmp/helixscreen
-   ```
-
-2. Restart KIAUH:
-
-   ```bash
-   ~/kiauh/kiauh.sh
-   ```
-
-3. Navigate to the Extensions menu. HelixScreen should now appear as an option.
+Then restart KIAUH and open the Extensions menu — HelixScreen should be listed.
 
 #### Using the Extension
 

@@ -77,7 +77,7 @@ SERVICE_NAME="helixscreen"
 HEADER
 
     # Include each module (skip shebang and source guards)
-    for module in common.sh platform.sh permissions.sh requirements.sh forgex.sh competing_uis.sh release.sh service.sh moonraker.sh uninstall.sh; do
+    for module in common.sh platform.sh permissions.sh requirements.sh forgex.sh competing_uis.sh release.sh service.sh moonraker.sh kiauh.sh uninstall.sh; do
         module_path="$LIB_DIR/$module"
         if [ ! -f "$module_path" ]; then
             echo "ERROR: Module not found: $module_path" >&2
@@ -133,6 +133,7 @@ usage() {
     echo "                 including config and caches (asks for confirmation)"
     echo "  --version VER  Install specific version (default: latest)"
     echo "  --local FILE   Install from local tarball (skip download)"
+    echo "  --kiauh yes|no Install KIAUH extension without prompting (default: ask if detected)"
     echo "  --help         Show this help message"
     echo ""
     echo "Examples:"
@@ -189,6 +190,7 @@ main() {
     clean_mode=false
     version=""
     local_tarball=""
+    kiauh_mode=""
 
     # Parse arguments
     while [ $# -gt 0 ]; do
@@ -219,6 +221,14 @@ main() {
                     exit 1
                 fi
                 local_tarball="$2"
+                shift 2
+                ;;
+            --kiauh)
+                if [ -z "${2:-}" ]; then
+                    log_error "--kiauh requires yes|no"
+                    exit 1
+                fi
+                kiauh_mode="$2"
                 shift 2
                 ;;
             --help|-h)
@@ -335,6 +345,9 @@ main() {
     fix_install_ownership
     install_service "$platform"
     install_platform_hooks
+
+    # Install KIAUH extension if KIAUH is detected
+    install_kiauh_extension "$kiauh_mode" || true
 
     # K1: ensure SSH (dropbear) is running — recovers from #535 where disabling
     # S99start_app also killed SSH. Runs on both fresh install and self-update.

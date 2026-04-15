@@ -164,6 +164,10 @@ package_platform() {
     cp "${PROJECT_DIR}/scripts/snapmaker-u1-setup-autostart.sh" "$pkg_dir/scripts/"
     chmod +x "$pkg_dir/scripts/snapmaker-u1-setup-autostart.sh"
 
+    # Copy KIAUH extension sources (installer auto-copies these into
+    # ~/kiauh/kiauh/extensions/helixscreen when KIAUH is detected)
+    cp -r "${PROJECT_DIR}/scripts/kiauh" "$pkg_dir/scripts/"
+
     # Copy config files
     cp "${PROJECT_DIR}/config/helixscreen.init" "$pkg_dir/config/"
     cp "${PROJECT_DIR}/config/helixscreen.service" "$pkg_dir/config/"

@@ -4224,6 +4224,99 @@ remove_update_manager_section() {
 }
 
 # ============================================
+# Module: kiauh.sh
+# ============================================
+
+#
+# Detect KIAUH extensions directory
+# Returns the path to the extensions dir, or empty string if not found
+detect_kiauh_dir() {
+    # Check current user's home first (most common)
+    if [ -d "$HOME/kiauh/kiauh/extensions" ]; then
+        echo "$HOME/kiauh/kiauh/extensions"
+        return 0
+    fi
+
+    # Scan /home/*/kiauh/kiauh/extensions/ for other users
+    if [ -d "/home" ]; then
+        for user_home in /home/*/kiauh/kiauh/extensions; do
+            if [ -d "$user_home" ]; then
+                echo "$user_home"
+                return 0
+            fi
+        done
+    fi
+
+    # Not found
+    echo ""
+    return 0
+}
+
+# Install KIAUH extension for HelixScreen
+# Args: $1 = kiauh_mode ("yes", "no", or "" for interactive)
+install_kiauh_extension() {
+    local kiauh_mode="${1:-}"
+    local kiauh_ext_dir
+    local src_dir="$INSTALL_DIR/scripts/kiauh/helixscreen"
+
+    kiauh_ext_dir=$(detect_kiauh_dir)
+
+    # No KIAUH installed — nothing to do
+    if [ -z "$kiauh_ext_dir" ]; then
+        return 0
+    fi
+
+    local target_dir="$kiauh_ext_dir/helixscreen"
+    local is_update=false
+
+    if [ -d "$target_dir" ]; then
+        is_update=true
+    fi
+
+    # Check source files exist
+    if [ ! -f "$src_dir/__init__.py" ] || [ ! -f "$src_dir/helixscreen_extension.py" ] || [ ! -f "$src_dir/metadata.json" ]; then
+        log_warn "KIAUH extension source files not found in release package"
+        return 0
+    fi
+
+    # For new installs, handle interactive/forced modes
+    if [ "$is_update" = false ]; then
+        case "$kiauh_mode" in
+            yes)
+                log_info "Installing KIAUH extension (--kiauh yes)..."
+                ;;
+            no)
+                log_info "Skipping KIAUH extension (--kiauh no)"
+                return 0
+                ;;
+            *)
+                # Interactive mode
+                printf "KIAUH detected. Install HelixScreen extension for KIAUH? [Y/n] "
+                read -r reply </dev/tty 2>/dev/null || reply="y"
+                case "$reply" in
+                    [Nn]*)
+                        log_info "Skipping KIAUH extension"
+                        return 0
+                        ;;
+                esac
+                ;;
+        esac
+    fi
+
+    # Copy extension files
+    mkdir -p "$target_dir"
+    cp "$src_dir/__init__.py" "$target_dir/"
+    cp "$src_dir/helixscreen_extension.py" "$target_dir/"
+    cp "$src_dir/metadata.json" "$target_dir/"
+
+    if [ "$is_update" = true ]; then
+        log_info "Updated KIAUH extension in $target_dir"
+    else
+        log_success "Installed KIAUH extension to $target_dir"
+    fi
+}
+
+# ============================================
 # Module: uninstall.sh
 # ============================================
 
@@ -4549,6 +4642,7 @@ usage() {
     echo "                 including config and caches (asks for confirmation)"
     echo "  --version VER  Install specific version (default: latest)"
     echo "  --local FILE   Install from local tarball (skip download)"
+    echo "  --kiauh yes|no Install KIAUH extension without prompting (default: ask if detected)"
     echo "  --help         Show this help message"
     echo ""
     echo "Examples:"
@@ -4605,6 +4699,7 @@ main() {
     clean_mode=false
     version=""
     local_tarball=""
+    kiauh_mode=""
 
     # Parse arguments
     while [ $# -gt 0 ]; do
@@ -4635,6 +4730,14 @@ main() {
                     exit 1
                 fi
                 local_tarball="$2"
+                shift 2
+                ;;
+            --kiauh)
+                if [ -z "${2:-}" ]; then
+                    log_error "--kiauh requires yes|no"
+                    exit 1
+                fi
+                kiauh_mode="$2"
                 shift 2
                 ;;
             --help|-h)
@@ -4751,6 +4854,9 @@ main() {
     fix_install_ownership
     install_service "$platform"
     install_platform_hooks
+
+    # Install KIAUH extension if KIAUH is detected
+    install_kiauh_extension "$kiauh_mode" || true
 
     # K1: ensure SSH (dropbear) is running — recovers from #535 where disabling
     # S99start_app also killed SSH. Runs on both fresh install and self-update.
