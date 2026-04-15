@@ -2106,6 +2106,22 @@ translations:
   set to: set to
   started: started
   tall: tall
+  tour.step.advanced.body: Macros, console, calibration, and updates.
+  tour.step.advanced.title: Advanced
+  tour.step.controls.body: Move axes, home, level. Adjust temps and fans.
+  tour.step.controls.title: Controls
+  tour.step.customize.body: Long-press any tile to enter edit mode — rearrange, remove, or add widgets, and add pages.
+  tour.step.customize.title: Customize your home screen
+  tour.step.filament.body: Load, unload, and swap spools. AMS and AFC live here.
+  tour.step.filament.title: Filament
+  tour.step.home_grid.body: Tiles like this show live status. Tap any tile to open its full controls.
+  tour.step.home_grid.title: Your printer at a glance
+  tour.step.print.body: Browse and start prints from SD, uploads, or network shares.
+  tour.step.print.title: Print
+  tour.step.settings.body: Network, display, and you can replay this tour here anytime.
+  tour.step.settings.title: Settings
+  tour.step.welcome.body: Let's take a quick tour.
+  tour.step.welcome.title: Welcome to HelixScreen
   used: used
   v{} is available. Tap to update.: v{} is available. Tap to update.
   '{} axis homed': '{} axis homed'

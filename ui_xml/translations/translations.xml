@@ -1048,7 +1048,6 @@
   <translation tag="No files available for printing" de="Keine Dateien zum Drucken verfügbar" en="No files available for printing" es="No hay archivos disponibles para imprimir" fr="Aucun fichier disponible pour l&apos;impression" it="Nessun file disponibile per la stampa" ja="印刷可能なファイルがありません" pt="Nenhum arquivo disponível para impressão" ru="Нет файлов для печати" zh="没有可用于打印的文件"/>
   <translation tag="No images found on USB drive" de="Keine Bilder auf USB-Laufwerk gefunden" en="No images found on USB drive" es="No se encontraron imágenes en la unidad USB" fr="Aucune image trouvée sur la clé USB" it="Nessuna immagine trovata sulla chiavetta USB" ja="USBドライブに画像が見つかりません" pt="Nenhuma imagem encontrada na unidade USB" ru="Изображения на USB-накопителе не найдены" zh="USB驱动器上未找到图片"/>
   <translation tag="No jobs in queue" de="Keine Aufträge in der Warteschlange" en="No jobs in queue" es="Sin trabajos en cola" fr="Aucun travail en file" it="Nessun lavoro in coda" ja="キューにジョブがありません" pt="Nenhum trabalho na fila" ru="Очередь пуста" zh="队列中无任务"/>
-  <translation tag="No objects defined for this print" de="Keine Objekte für diesen Druck definiert" en="No objects defined for this print" es="No hay objetos definidos para esta impresión" fr="Aucun objet défini pour cette impression" it="Nessun oggetto definito per questa stampa" ja="この印刷にオブジェクトが定義されていません" pt="Nenhum objeto definido para esta impressão" ru="Для этой печати не определены объекты" zh="此次打印未定义对象"/>
   <translation tag="No light configured. Set up in Settings &gt; LED Settings." de="Kein Licht konfiguriert. Einrichten unter Einstellungen &gt; LED-Einstellungen." en="No light configured. Set up in Settings &gt; LED Settings." es="No hay luz configurada. Configure en Ajustes &gt; Configuración LED." fr="Aucune lumière configurée. Configurer dans Paramètres &gt; Paramètres LED." it="Nessuna luce configurata. Configura in Impostazioni &gt; Impostazioni LED." ja="ライトが未設定です。設定 &gt; LED設定で設定してください。" pt="Nenhuma luz configurada. Configure em Ajustes &gt; Configuração LED." ru="Освещение не настроено. Настройте в Настройки &gt; Настройки LED." zh="未配置灯光。请在设置 &gt; LED 设置中配置。"/>
   <translation tag="No macros available" de="Keine Makros verfügbar" en="No macros available" es="No hay macros disponibles" fr="Aucune macro disponible" it="Nessuna macro disponibile" ja="利用可能なマクロがありません" pt="Nenhuma macro disponível" ru="Нет доступных макросов" zh="无可用宏"/>
   <translation tag="No macros found" de="Keine Makros gefunden" en="No macros found" es="No se encontraron macros" fr="Aucune macro trouvée" it="Nessuna macro trovata" ja="マクロが見つかりません" pt="Nenhuma macro encontrada" ru="Макросы не найдены" zh="未找到宏"/>
@@ -1896,6 +1895,22 @@
   <translation tag="set to" de="gesetzt auf" en="set to" es="establecido en" fr="réglé à" it="impostato a" ja="に設定" pt="definido para" ru="установлено на" zh="设置为"/>
   <translation tag="started" de="gestartet" en="started" es="iniciado" fr="lancé" it="avviato" ja="開始" pt="iniciado" ru="запущено" zh="已启动"/>
   <translation tag="tall" de="hoch" en="tall" es="de alto" fr="de haut" it="di altezza" ja="高さ" pt="de altura" ru="высотой" zh="高"/>
+  <translation tag="tour.step.advanced.body" en="Macros, console, calibration, and updates."/>
+  <translation tag="tour.step.advanced.title" en="Advanced"/>
+  <translation tag="tour.step.controls.body" en="Move axes, home, level. Adjust temps and fans."/>
+  <translation tag="tour.step.controls.title" en="Controls"/>
+  <translation tag="tour.step.customize.body" en="Long-press any tile to enter edit mode — rearrange, remove, or add widgets, and add pages."/>
+  <translation tag="tour.step.customize.title" en="Customize your home screen"/>
+  <translation tag="tour.step.filament.body" en="Load, unload, and swap spools. AMS and AFC live here."/>
+  <translation tag="tour.step.filament.title" en="Filament"/>
+  <translation tag="tour.step.home_grid.body" en="Tiles like this show live status. Tap any tile to open its full controls."/>
+  <translation tag="tour.step.home_grid.title" en="Your printer at a glance"/>
+  <translation tag="tour.step.print.body" en="Browse and start prints from SD, uploads, or network shares."/>
+  <translation tag="tour.step.print.title" en="Print"/>
+  <translation tag="tour.step.settings.body" en="Network, display, and you can replay this tour here anytime."/>
+  <translation tag="tour.step.settings.title" en="Settings"/>
+  <translation tag="tour.step.welcome.body" en="Let&apos;s take a quick tour."/>
+  <translation tag="tour.step.welcome.title" en="Welcome to HelixScreen"/>
   <translation tag="used" de="verbraucht" en="used" es="usado" fr="utilisé" it="usato" ja="使用" pt="usado" ru="использ." zh="已使用"/>
   <translation tag="v{} is available. Tap to update." de="v{} ist verfügbar. Tippen zum Aktualisieren." en="v{} is available. Tap to update." es="v{} disponible. Toque para actualizar." fr="v{} est disponible. Appuyez pour mettre à jour." it="v{} disponibile. Tocca per aggiornare." ja="v{} が利用可能です。タップして更新してください。" pt="v{} disponível. Toque para atualizar." ru="v{} доступна. Нажмите для обновления." zh="v{} 可用。点击以更新。"/>
   <translation tag="{} axis homed" de="{}-Achse referenziert" en="{} axis homed" es="Eje {} en origen" fr="Axe {} référencé" it="Asse {} in posizione" ja="{} 軸がホーミング済み" pt="Eixo {} referenciado" ru="Ось {} запаркована" zh="{} 轴已归位"/>

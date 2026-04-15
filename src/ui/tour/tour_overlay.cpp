@@ -228,15 +228,8 @@ void TourOverlay::update_tooltip_text(const TourStep& step, size_t index, size_t
     lv_obj_t* body = lv_obj_find_by_name(tooltip_, "tour_body");
     lv_obj_t* next_btn = lv_obj_find_by_name(tooltip_, "tour_next_btn");
 
-    // DEBUG: bypass lv_tr to verify tooltip layout is sound when translation
-    // keys are missing. If tour.step.*.title / .body keys aren't registered,
-    // lv_tr() should still echo the key back — but we want to confirm the
-    // labels render at all. Remove once Task 8 adds translations.
-    if (title) lv_label_set_text(title, step.title_key.c_str());
-    if (body) lv_label_set_text(body, step.body_key.c_str());
-    spdlog::debug("[TourOverlay] text set: title='{}' body='{}' (title_obj={} body_obj={})",
-                  step.title_key, step.body_key,
-                  static_cast<const void*>(title), static_cast<const void*>(body));
+    if (title) lv_label_set_text(title, lv_tr(step.title_key.c_str()));
+    if (body) lv_label_set_text(body, lv_tr(step.body_key.c_str()));
 
     // Change "Next" to "Done" on last step.
     if (next_btn) {
