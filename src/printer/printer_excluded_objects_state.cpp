@@ -29,6 +29,7 @@ void PrinterExcludedObjectsState::init_subjects(bool register_xml) {
     // Initialize version subject to 0 (no changes yet)
     INIT_SUBJECT_INT(excluded_objects_version, 0, subjects_, register_xml);
     INIT_SUBJECT_INT(defined_objects_version, 0, subjects_, register_xml);
+    INIT_SUBJECT_INT(defined_objects_count, 0, subjects_, register_xml);
 
     subjects_initialized_ = true;
     spdlog::trace("[PrinterExcludedObjectsState] Subjects initialized successfully");
@@ -68,6 +69,7 @@ void PrinterExcludedObjectsState::set_defined_objects(const std::vector<std::str
         // Increment version to notify observers
         int version = lv_subject_get_int(&defined_objects_version_);
         lv_subject_set_int(&defined_objects_version_, version + 1);
+        lv_subject_set_int(&defined_objects_count_, static_cast<int>(defined_objects_.size()));
 
         spdlog::debug("[PrinterExcludedObjectsState] Defined objects updated: {} objects "
                       "(version {})",
@@ -90,7 +92,8 @@ void PrinterExcludedObjectsState::set_defined_objects_with_geometry(
 std::optional<PrinterExcludedObjectsState::ObjectInfo>
 PrinterExcludedObjectsState::get_object_geometry(const std::string& name) const {
     auto it = object_geometry_.find(name);
-    if (it != object_geometry_.end()) return it->second;
+    if (it != object_geometry_.end())
+        return it->second;
     return std::nullopt;
 }
 

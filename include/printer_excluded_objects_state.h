@@ -38,7 +38,7 @@ class PrinterExcludedObjectsState {
         glm::vec2 center{0.0f, 0.0f};
         glm::vec2 bbox_min{0.0f, 0.0f};
         glm::vec2 bbox_max{0.0f, 0.0f};
-        std::vector<glm::vec2> polygon;  ///< Outline polygon from slicer (may be empty)
+        std::vector<glm::vec2> polygon; ///< Outline polygon from slicer (may be empty)
         bool has_center{true};
         bool has_bbox{true};
     };
@@ -133,6 +133,16 @@ class PrinterExcludedObjectsState {
         return &defined_objects_version_;
     }
 
+    /**
+     * @brief Get defined objects count subject (registered as "defined_objects_count" in XML)
+     *
+     * Holds the current size of the defined objects list. Use this for declarative
+     * visibility gating (e.g., show an empty-state placeholder when the count is 0).
+     */
+    lv_subject_t* get_defined_objects_count_subject() {
+        return &defined_objects_count_;
+    }
+
     // ========================================================================
     // Query methods
     // ========================================================================
@@ -208,6 +218,10 @@ class PrinterExcludedObjectsState {
 
     // Version subject for defined objects list (incremented when list changes)
     lv_subject_t defined_objects_version_{};
+
+    // Count of defined objects (held in sync with defined_objects_.size()) — used for
+    // declarative XML visibility gating of list/empty-state widgets.
+    lv_subject_t defined_objects_count_{};
 
     // Geometry map: object name -> ObjectInfo (center + bbox)
     // Populated by set_defined_objects_with_geometry(); empty if only names are known

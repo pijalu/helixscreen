@@ -362,6 +362,16 @@ void PrinterState::update_from_status(const json& state) {
     if (state.contains("exclude_object")) {
         const auto& eo = state["exclude_object"];
 
+        spdlog::debug("[PrinterState] exclude_object status update: objects={}, "
+                      "excluded_objects={}, current_object={}",
+                      eo.contains("objects") && eo["objects"].is_array() ? eo["objects"].size() : 0,
+                      eo.contains("excluded_objects") && eo["excluded_objects"].is_array()
+                          ? eo["excluded_objects"].size()
+                          : 0,
+                      eo.contains("current_object") && eo["current_object"].is_string()
+                          ? eo["current_object"].get<std::string>()
+                          : std::string("<none>"));
+
         if (eo.contains("excluded_objects") && eo["excluded_objects"].is_array()) {
             std::unordered_set<std::string> excluded;
             for (const auto& obj : eo["excluded_objects"]) {

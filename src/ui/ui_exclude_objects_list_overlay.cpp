@@ -321,6 +321,8 @@ void ExcludeObjectsListOverlay::populate_list() {
     spdlog::debug("[{}] Populating list: {} defined, {} excluded, current='{}'", get_name(),
                   defined.size(), excluded.size(), current);
 
+    // Empty-state placeholder is handled declaratively via bind_flag_if_eq on the XML
+    // `defined_objects_count` subject — no imperative fallback needed here.
     for (const auto& name : defined) {
         bool is_excluded = excluded.count(name) > 0;
         bool is_current = (name == current);

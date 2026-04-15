@@ -430,8 +430,14 @@ bool MoonrakerAPI::is_safe_gcode_param(const std::string& str) {
 
 void MoonrakerAPI::exclude_object(const std::string& object_name, SuccessCallback on_success,
                                   ErrorCallback on_error) {
-    // Validate object name to prevent G-code injection
-    if (!is_safe_identifier(object_name)) {
+    // Validate object name to prevent G-code injection. Uses the object-name allowlist
+    // (permits `. - : ( ) [ ]`, no whitespace) because slicer-generated names routinely
+    // contain these characters and the stricter `is_safe_identifier()` rejected legitimate
+    // names. Log the offending name so operators can diagnose character-class regressions.
+    if (!is_safe_object_name(object_name)) {
+        spdlog::warn("[Moonraker API] Rejected exclude_object name '{}' — contains characters "
+                     "outside the object-name allowlist",
+                     object_name);
         NOTIFY_ERROR("Invalid object name '{}'. Contains unsafe characters.", object_name);
         if (on_error) {
             MoonrakerError err;

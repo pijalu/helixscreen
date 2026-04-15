@@ -124,6 +124,17 @@ void PrintExcludeObjectManager::handle_object_long_press(const char* object_name
         return;
     }
 
+    // Defense in depth: if Klipper's [exclude_object] module isn't configured, or the slicer
+    // didn't emit EXCLUDE_OBJECT_DEFINE markers, `defined_objects` will be empty and the
+    // EXCLUDE_OBJECT gcode would be a silent no-op on the printer. Bail here rather than
+    // showing a confirmation dialog that won't accomplish anything.
+    if (printer_state_.get_defined_objects().empty()) {
+        spdlog::info("[PrintExcludeObjectManager] Long-press on '{}' ignored: no defined objects "
+                     "(exclude_object module unconfigured or slicer didn't label objects)",
+                     object_name);
+        return;
+    }
+
     // Check if already excluded
     if (excluded_objects_.count(object_name) > 0) {
         spdlog::info("[PrintExcludeObjectManager] Object '{}' already excluded - ignoring",
