@@ -438,8 +438,6 @@ void register_xml_components() {
     // QR Scanner Overlay (fullscreen camera viewfinder for spool assignment)
     register_xml("qr_scanner_overlay.xml");
 
-    // Scanner Device Picker Modal (USB HID device selection for barcode scanner)
-    register_xml("scanner_picker_modal.xml");
     register_xml("components/barcode_scanner_device_row.xml");
     // Barcode Scanner Settings Overlay (persistent device selection + keymap)
     register_xml("barcode_scanner_settings.xml");

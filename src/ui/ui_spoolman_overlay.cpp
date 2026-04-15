@@ -15,7 +15,7 @@
 #if HELIX_HAS_LABEL_PRINTER
 #include "ui_settings_label_printer.h"
 #endif
-#include "ui_modal_scanner_picker.h"
+#include "ui_settings_barcode_scanner.h"
 #include "ui_spoolman_setup.h"
 #include "ui_toast_manager.h"
 #include "ui_update_queue.h"
@@ -497,14 +497,8 @@ void SpoolmanOverlay::on_barcode_scanner_clicked(lv_event_t* /*e*/) {
 }
 
 void SpoolmanOverlay::handle_barcode_scanner_clicked() {
-    spdlog::debug("[{}] Barcode Scanner clicked - opening picker", get_name());
-
-    // Create picker modal owned by overlay (survives until next open or overlay destruction)
-    scanner_picker_modal_ = std::make_unique<ScannerPickerModal>(
-        [this](const std::string& /*vendor_product*/, const std::string& /*device_name*/) {
-            update_scanner_status_text();
-        });
-    scanner_picker_modal_->show(lv_screen_active());
+    spdlog::debug("[{}] Barcode Scanner clicked - opening settings overlay", get_name());
+    helix::ui::get_barcode_scanner_settings_overlay().show(parent_screen_);
 }
 
 void SpoolmanOverlay::update_scanner_status_text() {
