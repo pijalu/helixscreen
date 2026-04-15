@@ -75,7 +75,6 @@ class PrintStatusWidget : public PanelWidget {
     lv_obj_t* print_card_thumb_compact_ = nullptr; // Compact thumbnail
     lv_obj_t* library_row_last_ = nullptr;         // Print Last row (for graying out)
     lv_obj_t* compact_row_last_ = nullptr;         // Compact Print Last row (for graying out)
-    lv_obj_t* library_row_queue_ = nullptr;
 
     // Size-dependent subject for XML bindings (1 = column/2x2 mode, 0 = row/wide)
     static inline lv_subject_t column_mode_subject_;
@@ -89,6 +88,8 @@ class PrintStatusWidget : public PanelWidget {
     // <bind_flag_if_eq ... ref_value="1"/>. apply_visibility_config() computes
     // each value from show_* config + breakpoint + job queue count and writes
     // these subjects; C++ no longer toggles LV_OBJ_FLAG_HIDDEN directly.
+    // Initial values (0 visible, 1 hidden for queue) are safe defaults for the
+    // first XML parse; apply_visibility_config() re-derives them on attach().
     static inline lv_subject_t title_hidden_subject_;
     static inline lv_subject_t files_hidden_subject_;
     static inline lv_subject_t last_hidden_subject_;
