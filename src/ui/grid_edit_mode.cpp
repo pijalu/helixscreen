@@ -242,19 +242,6 @@ void GridEditMode::handle_click(lv_event_t* /*e*/) {
             spdlog::debug("[GridEditMode] Widget position stable after select: ({},{})",
                           post_coords.x1, post_coords.y1);
         }
-
-        // Also check all grid children for any position changes
-        for (uint32_t i = 0; i < child_count; ++i) {
-            lv_obj_t* child = lv_obj_get_child(container_, static_cast<int32_t>(i));
-            if (!child || lv_obj_has_flag(child, LV_OBJ_FLAG_FLOATING))
-                continue;
-            lv_area_t ccoords;
-            lv_obj_get_coords(child, &ccoords);
-            const char* cname = lv_obj_get_name(child);
-            spdlog::debug("[GridEditMode]   child '{}': ({},{})→({},{}) state=0x{:x}",
-                          cname ? cname : "?", ccoords.x1, ccoords.y1, ccoords.x2, ccoords.y2,
-                          static_cast<uint32_t>(lv_obj_get_state(child)));
-        }
     } else {
         // Before deselecting, check if the click is within the edge resize zone
         // of the currently selected widget. If so, keep the selection — the user
