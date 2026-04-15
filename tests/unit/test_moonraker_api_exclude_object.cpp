@@ -563,3 +563,36 @@ TEST_CASE_METHOD(ExcludeObjectTestFixture, "exclude_object handles null callback
         REQUIRE_NOTHROW(api->exclude_object("Part\n1", nullptr, nullptr));
     }
 }
+
+// ============================================================================
+// RPC Parameter Tests — silent mode + long timeout
+// ============================================================================
+//
+// Context: printer.gcode.script does not return until Klipper actually executes the
+// queued gcode. During pre-print (heating/homing/purge) an EXCLUDE_OBJECT can sit
+// queued for minutes. The default 60s RPC timeout would fire spuriously and surface
+// a "timed out" toast even though the command will succeed. exclude_object() must:
+//   1. pass silent=true so the global REQUEST_TIMEOUT event is suppressed
+//   2. pass a long (15 min) timeout ceiling so the request rarely times out at all
+// Truth comes from the `exclude_object.excluded_objects` status subscription, not
+// the RPC return — see PrintExcludeObjectManager.
+
+TEST_CASE_METHOD(ExcludeObjectMockTestFixture,
+                 "exclude_object passes silent=true and 15-minute timeout to transport",
+                 "[mock][print][regression]") {
+    api->exclude_object(
+        "Part_1", [this]() { this->success_callback(); },
+        [this](const MoonrakerError& err) { this->error_callback(err); });
+
+    REQUIRE(mock_client.last_send_method() == "printer.gcode.script");
+
+    SECTION("silent=true so check_timeouts() won't spam the user with REQUEST_TIMEOUT") {
+        REQUIRE(mock_client.last_send_silent() == true);
+    }
+
+    SECTION("timeout comfortably exceeds realistic pre-print durations") {
+        // 15 minutes — longer than any plausible heat+home+purge sequence, but still a
+        // ceiling so genuinely stuck requests don't leak forever.
+        REQUIRE(mock_client.last_send_timeout_ms() == 15 * 60 * 1000);
+    }
+}

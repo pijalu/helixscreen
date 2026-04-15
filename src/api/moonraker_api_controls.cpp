@@ -454,7 +454,15 @@ void MoonrakerAPI::exclude_object(const std::string& object_name, SuccessCallbac
 
     spdlog::info("[Moonraker API] Excluding object: {}", object_name);
 
-    execute_gcode(gcode.str(), on_success, on_error);
+    // Klipper's printer.gcode.script does not return until the script actually executes.
+    // During pre-print (heating/homing/purge), EXCLUDE_OBJECT can sit queued for many
+    // minutes. The default 60s RPC timeout would fire spuriously and surface a scary
+    // "timed out" toast even though Klipper will eventually run the command and exclude
+    // the object. Pass silent=true so any late timeout does not emit a user-facing event;
+    // truth comes from the `exclude_object.excluded_objects` status subscription. A 15-minute
+    // ceiling still catches genuinely stuck requests without aborting legitimate pre-prints.
+    constexpr uint32_t EXCLUDE_OBJECT_TIMEOUT_MS = 15 * 60 * 1000;
+    execute_gcode(gcode.str(), on_success, on_error, EXCLUDE_OBJECT_TIMEOUT_MS, /*silent=*/true);
 }
 
 void MoonrakerAPI::emergency_stop(SuccessCallback on_success, ErrorCallback on_error) {

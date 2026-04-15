@@ -876,6 +876,23 @@ class MoonrakerClientMock : public helix::MoonrakerClient {
         return mock_request_id_counter_.fetch_add(1) + 1;
     }
 
+  public:
+    /// Test inspection: the most recent timeout_ms passed to the 5-arg send_jsonrpc().
+    /// 0 means either "not yet called" or "caller relied on default".
+    uint32_t last_send_timeout_ms() const {
+        return last_send_timeout_ms_;
+    }
+
+    /// Test inspection: the most recent silent flag passed to the 5-arg send_jsonrpc().
+    bool last_send_silent() const {
+        return last_send_silent_;
+    }
+
+    /// Test inspection: the most recent RPC method name passed to the 5-arg send_jsonrpc().
+    const std::string& last_send_method() const {
+        return last_send_method_;
+    }
+
   private:
     PrinterType printer_type_;
 
@@ -886,6 +903,11 @@ class MoonrakerClientMock : public helix::MoonrakerClient {
 
     // Mock request ID counter for simulating send_jsonrpc return values
     std::atomic<helix::RequestId> mock_request_id_counter_{0};
+
+    // Test inspection: last send_jsonrpc(method,params,succ,err,timeout_ms,silent) args.
+    std::string last_send_method_;
+    uint32_t last_send_timeout_ms_{0};
+    bool last_send_silent_{false};
 
     // Temperature simulation state
     std::atomic<double> extruder_temp_{25.0};  // Current temperature
