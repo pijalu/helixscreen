@@ -78,6 +78,14 @@ static uintptr_t s_text_end = 0;
 /// Pointer to the UpdateQueue's current callback tag (registered at init)
 static volatile const char* const* s_callback_tag_ptr = nullptr;
 
+/// Innermost LVGL event under dispatch, updated from a hook inside
+/// lv_obj_event.c::event_send_core. Both fields are raw volatile for
+/// signal-handler read without synchronization. Writes are racy across
+/// threads but LVGL is single-threaded, so only the signal handler can
+/// observe a partial update — and it tolerates garbage on either field.
+static volatile uintptr_t    s_current_event_target = 0;
+static volatile unsigned int s_current_event_code   = 0;
+
 // =============================================================================
 // Breadcrumb ring buffer (activity context for crash diagnosis)
 // =============================================================================
@@ -514,6 +522,20 @@ static void crash_signal_handler(int sig, siginfo_t* info, void* ucontext) {
         }
     }
 
+    // Current LVGL event under dispatch (updated by event_send_core hook)
+    {
+        uintptr_t tgt = s_current_event_target;
+        if (tgt != 0) {
+            safe_write(fd, "event_target:");
+            safe_write(fd, ptr_to_hex(hex_buf, sizeof(hex_buf), tgt));
+            safe_write(fd, "\n");
+            safe_write(fd, "event_code:");
+            safe_write(fd, int_to_str(num_buf, sizeof(num_buf),
+                                      static_cast<long>(s_current_event_code)));
+            safe_write(fd, "\n");
+        }
+    }
+
     // Dump breadcrumb ring (oldest → newest). Torn writes are tolerated:
     // slot.ts_ms is stored last with release semantics, so a zero ts means the
     // slot is either empty or mid-write. In both cases we skip.
@@ -727,6 +749,16 @@ static void crash_signal_handler(int sig, siginfo_t* info, void* ucontext) {
 
 void crash_handler::register_callback_tag_ptr(volatile const char* const* tag_ptr) {
     s_callback_tag_ptr = tag_ptr;
+}
+
+void crash_handler::set_current_event(const void* target, unsigned int code) noexcept {
+    s_current_event_target = reinterpret_cast<uintptr_t>(target);
+    s_current_event_code   = code;
+}
+
+// C-ABI bridge for LVGL — see include/system/crash_handler.h
+extern "C" void helix_crash_note_event(const void* target, unsigned int code) {
+    crash_handler::set_current_event(target, code);
 }
 
 // -----------------------------------------------------------------------------
@@ -975,6 +1007,14 @@ nlohmann::json crash_handler::read_crash_file(const std::string& crash_file_path
                 result["load_base"] = value;
             } else if (key == "queue_callback") {
                 result["queue_callback"] = value;
+            } else if (key == "event_target") {
+                result["event_target"] = value;
+            } else if (key == "event_code") {
+                try {
+                    result["event_code"] = std::stoi(value);
+                } catch (...) {
+                    result["event_code"] = 0;
+                }
             } else if (key == "text_start") {
                 result["text_start"] = value;
             } else if (key == "text_end") {
@@ -1072,6 +1112,8 @@ void crash_handler::write_mock_crash_file(const std::string& crash_file_path) {
     ofs << "crumb:5210 xml home_card\n";
     ofs << "crumb:8300 modal confirm_print\n";
     ofs << "crumb:9100 nav status\n";
+    ofs << "event_target:0x7fc0d2a8\n";
+    ofs << "event_code:29\n"; /* LV_EVENT_REFR_EXT_DRAW_SIZE */
 
     spdlog::info("[CrashHandler] Wrote mock crash file: {}", crash_file_path);
 }

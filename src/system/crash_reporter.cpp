@@ -136,6 +136,12 @@ CrashReporter::CrashReport CrashReporter::collect_report() {
     if (crash_data.contains("queue_callback"))
         report.queue_callback = crash_data["queue_callback"];
 
+    // Current LVGL event (from event_send_core hook)
+    if (crash_data.contains("event_target"))
+        report.event_target = crash_data["event_target"];
+    if (crash_data.contains("event_code"))
+        report.event_code = crash_data["event_code"];
+
     // Activity breadcrumbs from the in-process ring buffer
     if (crash_data.contains("breadcrumbs") && crash_data["breadcrumbs"].is_array()) {
         for (const auto& line : crash_data["breadcrumbs"]) {
@@ -309,6 +315,12 @@ nlohmann::json CrashReporter::report_to_json(const CrashReport& report) {
         j["queue_callback"] = report.queue_callback;
     }
 
+    // Current LVGL event at crash time
+    if (!report.event_target.empty()) {
+        j["event_target"] = report.event_target;
+        j["event_code"] = report.event_code;
+    }
+
     // Activity breadcrumbs (in-process ring buffer)
     if (!report.breadcrumbs.empty()) {
         j["breadcrumbs"] = report.breadcrumbs;
@@ -395,6 +407,11 @@ std::string CrashReporter::report_to_text(const CrashReport& report) {
 
     if (!report.queue_callback.empty()) {
         ss << "Queue Callback: " << report.queue_callback << "\n";
+    }
+
+    if (!report.event_target.empty()) {
+        ss << "LVGL Event: target=" << report.event_target
+           << " code=" << report.event_code << "\n";
     }
 
     if (!report.breadcrumbs.empty()) {
@@ -484,6 +501,10 @@ std::string CrashReporter::generate_github_url(const CrashReport& report) {
     }
     if (!report.queue_callback.empty()) {
         body << "- **Active Callback:** " << report.queue_callback << "\n";
+    }
+    if (!report.event_target.empty()) {
+        body << "- **LVGL Event:** target=`" << report.event_target
+             << "` code=" << report.event_code << "\n";
     }
     if (!report.load_base.empty()) {
         body << "- **Load Base:** " << report.load_base << "\n";

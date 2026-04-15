@@ -98,6 +98,23 @@ void write_mock_crash_file(const std::string& crash_file_path);
 void register_callback_tag_ptr(volatile const char* const* tag_ptr);
 
 /**
+ * @brief Record the LVGL event currently being dispatched
+ *
+ * Maintains a volatile record of the innermost lv_obj_t under dispatch.
+ * Patched into LVGL's event_send_core() via patches/lvgl_event_crash_hook
+ * so every event dispatch (including internal ones like REFR_EXT_DRAW_SIZE
+ * and LAYOUT_CHANGED) updates this slot. On crash, the signal handler
+ * dumps the last-seen target as event_target and event_code lines.
+ *
+ * This gives crashes in LVGL layout/draw code the pointer + event code of
+ * the widget that was being processed — enough to cross-reference with
+ * breadcrumbs (e.g. last XML component instantiated) and name the widget.
+ *
+ * Signal-safe: two volatile writes, no locks, no allocations.
+ */
+void set_current_event(const void* target, unsigned int code) noexcept;
+
+/**
  * @brief Breadcrumb ring buffer for crash-time activity context
  *
  * Records short, structured events into a fixed-size ring. On crash, the last
@@ -135,3 +152,7 @@ void note(const char* category, const char* subject, long detail) noexcept;
 } // namespace breadcrumb
 
 } // namespace crash_handler
+
+// C-ABI bridge for LVGL (C source) to record the current event target. Calls
+// crash_handler::set_current_event() — same semantics, usable from C.
+extern "C" void helix_crash_note_event(const void* target, unsigned int code);

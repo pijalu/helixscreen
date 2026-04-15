@@ -77,6 +77,11 @@ class CrashReporter {
         // UpdateQueue callback tag (identifies which queued callback was executing)
         std::string queue_callback;
 
+        // LVGL event under dispatch at crash time (set by event_send_core hook).
+        // event_target is a raw pointer hex string; event_code is an lv_event_code_t.
+        std::string event_target;
+        int event_code = 0;
+
         // Breadcrumbs from the in-process ring buffer.
         // Each entry: "<monotonic_ms> <category> <subject>" (space-separated)
         std::vector<std::string> breadcrumbs;

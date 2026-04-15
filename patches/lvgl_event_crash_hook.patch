@@ -1,0 +1,26 @@
+diff --git a/src/core/lv_obj_event.c b/src/core/lv_obj_event.c
+index bbb44fbf4..9cf751d52 100644
+--- a/src/core/lv_obj_event.c
++++ b/src/core/lv_obj_event.c
+@@ -13,6 +13,11 @@
+ #include "../indev/lv_indev.h"
+ #include "../indev/lv_indev_private.h"
+ 
++/* HelixScreen crash diagnostic hook — records current event target/code so a
++ * signal handler can report what LVGL was dispatching when a crash occurred.
++ * Weak so non-HelixScreen builds (e.g. LVGL demos, tests) link without it. */
++__attribute__((weak)) extern void helix_crash_note_event(const void * target, unsigned int code);
++
+ /*********************
+  *      DEFINES
+  *********************/
+@@ -368,6 +373,9 @@ static lv_result_t event_send_core(lv_event_t * e)
+ {
+     LV_TRACE_EVENT("Sending event %d to %p with %p param", e->code, (void *)e->original_target, e->param);
+ 
++    /* HelixScreen: record innermost dispatch target for crash diagnosis. */
++    if(helix_crash_note_event) helix_crash_note_event(e->current_target, (unsigned int)e->code);
++
+     lv_indev_t * indev_act = lv_indev_active();
+     if(indev_act) {
+         if(e->stop_processing) return LV_RESULT_OK;

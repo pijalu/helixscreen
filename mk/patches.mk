@@ -48,6 +48,7 @@ LVGL_PATCHED_FILES := \
 	src/lv_conf_internal.h \
 	src/misc/lv_event.c \
 	src/misc/lv_event.h \
+	src/core/lv_obj_event.c \
 	src/core/lv_obj_pos.c \
 	src/core/lv_obj_tree.c \
 	src/core/lv_obj.c \
@@ -466,6 +467,17 @@ $(PATCHES_STAMP): $(PATCH_FILES) $(LVGL_HEAD) $(LIBHV_HEAD)
 		echo "$(GREEN)✓ SW draw wait_for_finish patch applied$(RESET)"; \
 	else \
 		echo "$(GREEN)✓ LVGL SW draw wait_for_finish patch already applied$(RESET)"; \
+	fi
+	$(Q)if git -C $(LVGL_DIR) diff --quiet src/core/lv_obj_event.c 2>/dev/null; then \
+		echo "$(YELLOW)→ Applying LVGL event crash-diagnostic hook patch...$(RESET)"; \
+		if git -C $(LVGL_DIR) apply --check ../../patches/lvgl_event_crash_hook.patch 2>/dev/null; then \
+			git -C $(LVGL_DIR) apply ../../patches/lvgl_event_crash_hook.patch && \
+			echo "$(GREEN)✓ Event crash-diagnostic hook patch applied$(RESET)"; \
+		else \
+			echo "$(YELLOW)⚠ Cannot apply patch (already applied or conflicts)$(RESET)"; \
+		fi \
+	else \
+		echo "$(GREEN)✓ LVGL event crash-diagnostic hook patch already applied$(RESET)"; \
 	fi
 	$(ECHO) "$(CYAN)Checking libhv patches...$(RESET)"
 	$(Q)if git -C $(LIBHV_DIR) diff --quiet Makefile.in 2>/dev/null; then \
