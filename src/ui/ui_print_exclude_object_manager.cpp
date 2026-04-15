@@ -58,6 +58,15 @@ void PrintExcludeObjectManager::init() {
         printer_state_.get_excluded_objects_version_subject(), this,
         [](PrintExcludeObjectManager* self, int) { self->on_excluded_objects_changed(); });
 
+    // Watchdog: if the print ends (cancel, complete, error, standby) while we still
+    // hold optimistic visuals for unconfirmed exclusions, drop them. Guards against
+    // the stuck-visual edge case where both the status push and the RPC return fail
+    // to arrive (Klipper crash, network drop, etc). Done silently per UX review —
+    // cancels are usually deliberate and a toast would just be noise.
+    print_state_observer_ = helix::ui::observe_int_sync<PrintExcludeObjectManager>(
+        printer_state_.get_print_state_enum_subject(), this,
+        [](PrintExcludeObjectManager* self, int state) { self->on_print_state_changed(state); });
+
     // Register long-press callback on gcode viewer
     if (gcode_viewer_) {
         ui_gcode_viewer_set_object_long_press_callback(gcode_viewer_, on_object_long_pressed, this);
@@ -367,6 +376,33 @@ void PrintExcludeObjectManager::on_excluded_objects_changed() {
         ui_gcode_viewer_set_excluded_objects(gcode_viewer_, visual_excluded);
         spdlog::debug("[PrintExcludeObjectManager] Updated viewer with {} excluded objects",
                       visual_excluded.size());
+    }
+}
+
+void PrintExcludeObjectManager::on_print_state_changed(int state_enum) {
+    // Terminal states mirror PrintJobState in printer_state.h:
+    //   STANDBY=0, PRINTING=1, PAUSED=2, COMPLETE=3, CANCELLED=4, ERROR=5
+    // Anything that isn't PRINTING or PAUSED means there's no live print queue for
+    // a still-awaiting EXCLUDE_OBJECT to land on.
+    const auto state = static_cast<helix::PrintJobState>(state_enum);
+    const bool print_active =
+        (state == helix::PrintJobState::PRINTING) || (state == helix::PrintJobState::PAUSED);
+    if (print_active) {
+        return;
+    }
+    if (awaiting_confirmation_.empty()) {
+        return;
+    }
+
+    spdlog::info("[PrintExcludeObjectManager] Print ended (state={}) with {} unconfirmed "
+                 "exclusion(s) — dropping optimistic visuals",
+                 state_enum, awaiting_confirmation_.size());
+    awaiting_confirmation_.clear();
+
+    // Refresh the viewer so any red-ghosted objects that never made it to
+    // excluded_objects_ revert to normal rendering.
+    if (gcode_viewer_) {
+        ui_gcode_viewer_set_excluded_objects(gcode_viewer_, excluded_objects_);
     }
 }
 

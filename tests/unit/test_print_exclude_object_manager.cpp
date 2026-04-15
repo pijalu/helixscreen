@@ -26,6 +26,8 @@
 #include "../../include/moonraker_api.h"
 #include "../../include/moonraker_client_mock.h"
 #include "../../include/moonraker_error.h"
+
+#include "hv/json.hpp"
 #include "../../include/printer_state.h"
 #include "../../include/ui_print_exclude_object_manager.h"
 #include "../../include/ui_update_queue.h"
@@ -86,6 +88,13 @@ class ExcludeManagerFixture {
     std::unique_ptr<MoonrakerAPI> api;
     std::unique_ptr<PrintExcludeObjectManager> manager;
 };
+
+/// Helper to drive the print-state subject the same way Moonraker's status push does —
+/// we feed a minimal notification payload through update_from_status().
+void set_print_state_str(PrinterState& state, const char* moonraker_state) {
+    json status = {{"print_stats", {{"state", moonraker_state}}}};
+    state.update_from_status(status);
+}
 
 } // namespace
 
@@ -215,6 +224,78 @@ TEST_CASE_METHOD(ExcludeManagerFixture,
     // Connection loss is a real failure — drop the awaiting entry. Self-healing case:
     // on reconnect, status subscription will re-sync any exclusions that did run.
     REQUIRE_FALSE(manager->is_awaiting_confirmation_for_testing("OrphanedExclude"));
+}
+
+// ============================================================================
+// Print-state watchdog — drop stuck optimistic visuals when the print ends
+// ============================================================================
+
+TEST_CASE_METHOD(ExcludeManagerFixture,
+                 "print ending clears awaiting-confirmation entries silently",
+                 "[exclude_object][manager][watchdog]") {
+    manager->add_awaiting_confirmation_for_testing("UnconfirmedPart");
+
+    // Print starts and runs — the awaiting visual is legitimate.
+    set_print_state_str(state, "printing");
+    UpdateQueue::instance().drain();
+    REQUIRE(manager->is_awaiting_confirmation_for_testing("UnconfirmedPart"));
+
+    SECTION("user cancels the print — drop the optimistic visual") {
+        set_print_state_str(state, "cancelled");
+        UpdateQueue::instance().drain();
+        REQUIRE_FALSE(manager->is_awaiting_confirmation_for_testing("UnconfirmedPart"));
+        // Nothing was ever confirmed, so confirmed set stays empty.
+        REQUIRE(manager->get_excluded_objects().empty());
+    }
+
+    SECTION("print completes without Klipper confirming — drop the visual") {
+        set_print_state_str(state, "complete");
+        UpdateQueue::instance().drain();
+        REQUIRE_FALSE(manager->is_awaiting_confirmation_for_testing("UnconfirmedPart"));
+    }
+
+    SECTION("print errors out — drop the visual") {
+        set_print_state_str(state, "error");
+        UpdateQueue::instance().drain();
+        REQUIRE_FALSE(manager->is_awaiting_confirmation_for_testing("UnconfirmedPart"));
+    }
+
+    SECTION("print drops back to standby — drop the visual") {
+        set_print_state_str(state, "standby");
+        UpdateQueue::instance().drain();
+        REQUIRE_FALSE(manager->is_awaiting_confirmation_for_testing("UnconfirmedPart"));
+    }
+}
+
+TEST_CASE_METHOD(ExcludeManagerFixture,
+                 "paused print keeps awaiting-confirmation — still active",
+                 "[exclude_object][manager][watchdog]") {
+    manager->add_awaiting_confirmation_for_testing("PausedPart");
+
+    set_print_state_str(state, "printing");
+    UpdateQueue::instance().drain();
+    set_print_state_str(state, "paused");
+    UpdateQueue::instance().drain();
+
+    // Pause is not a terminal state — Klipper can still execute the queued gcode
+    // when the print resumes, so the awaiting entry stays.
+    REQUIRE(manager->is_awaiting_confirmation_for_testing("PausedPart"));
+}
+
+TEST_CASE_METHOD(ExcludeManagerFixture,
+                 "confirmed exclusions survive the watchdog",
+                 "[exclude_object][manager][watchdog]") {
+    // Dispatch, Klipper confirms, THEN the user cancels. The confirmed exclusion
+    // must stay in excluded_objects_ — only un-confirmed awaiting entries get dropped.
+    manager->add_awaiting_confirmation_for_testing("ConfirmedPart");
+    state.set_excluded_objects({"ConfirmedPart"});
+    UpdateQueue::instance().drain();
+    REQUIRE(manager->get_excluded_objects().count("ConfirmedPart") == 1);
+
+    set_print_state_str(state, "cancelled");
+    UpdateQueue::instance().drain();
+
+    REQUIRE(manager->get_excluded_objects().count("ConfirmedPart") == 1);
 }
 
 TEST_CASE_METHOD(ExcludeManagerFixture,

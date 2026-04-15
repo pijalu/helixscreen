@@ -238,6 +238,13 @@ class PrintExcludeObjectManager {
     /// Observer for excluded objects changes from PrinterState
     ObserverGuard excluded_objects_observer_;
 
+    /// Observer for print-state transitions. When the print ends (STANDBY/COMPLETE/
+    /// CANCELLED/ERROR) with un-confirmed exclusions still pending, we silently drop
+    /// the optimistic visual — either Klipper ran them (in which case they'd already
+    /// be in excluded_objects_) or the user gave up on the print. No toast: a cancel
+    /// is usually intentional and a notification about stale excludes would be noise.
+    ObserverGuard print_state_observer_;
+
     /// Async callback safety guard
     helix::AsyncLifetimeGuard lifetime_;
 
@@ -274,6 +281,16 @@ class PrintExcludeObjectManager {
      * Updates gcode viewer visual state.
      */
     void on_excluded_objects_changed();
+
+    /**
+     * @brief Called when the print-state enum transitions.
+     *
+     * If the new state is a terminal state (STANDBY/COMPLETE/CANCELLED/ERROR) and
+     * we're still holding optimistic visuals for unconfirmed exclusions, drop them
+     * silently. Prevents a stuck red-ghosted object from lingering into the next
+     * print if Klipper's status push never arrived (crash, disconnect, etc).
+     */
+    void on_print_state_changed(int state_enum);
 
     /**
      * @brief Handle an RPC error from EXCLUDE_OBJECT.
