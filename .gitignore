@@ -70,6 +70,7 @@ IMPLEMENTATION_PLAN.md
 
 # Claude plugin local config
 .claude/*.local.md
+.claude/*.lock
 .claude/projects/
 .claude/worktrees/
 .claude-recall/.gitignore
