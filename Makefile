@@ -413,7 +413,14 @@ endif
 # LIBHV_DIR always points to the submodule — needed for internal headers (e.g. base/dns_resolv.h)
 LIBHV_DIR := lib/libhv
 LIBHV_PKG_CONFIG := $(shell pkg-config --exists libhv 2>/dev/null && echo "yes")
-ifeq ($(LIBHV_PKG_CONFIG),yes)
+ifeq ($(YOCTO_BUILD),yes)
+    # Yocto: libhv comes from DEPENDS (sysroot include/link paths baked into CC).
+    # Submodule path supplies internal headers (base/dns_resolv.h, cpputil/ifconfig.h)
+    # not shipped by the libhv public install.
+    LIBHV_INC := -isystem $(LIBHV_DIR)/include -isystem $(LIBHV_DIR)/cpputil -isystem $(LIBHV_DIR)
+    LIBHV_LIBS := -lhv
+    LIBHV_LIB :=
+else ifeq ($(LIBHV_PKG_CONFIG),yes)
     # System libhv found via pkg-config (pkg-config already returns system include paths)
     # Also add submodule path for internal headers used by tests
     LIBHV_INC := $(shell pkg-config --cflags libhv) -isystem $(LIBHV_DIR)
@@ -459,7 +466,10 @@ endif
 
 # fmt (formatting library required by header-only spdlog)
 # For cross-compilation, we can't use host pkg-config - must detect target library directly
-ifneq ($(CROSS_COMPILE),)
+ifeq ($(YOCTO_BUILD),yes)
+    # Yocto: libfmt from DEPENDS, sysroot-aware linker resolves -lfmt.
+    FMT_LIBS := -lfmt
+else ifneq ($(CROSS_COMPILE),)
     # Cross-compiling: check if target fmt library exists (installed via libfmt-dev:arm64 etc.)
     FMT_TARGET_LIB := $(shell ls /usr/lib/$(TARGET_TRIPLE)/libfmt.so 2>/dev/null || ls /usr/lib/$(TARGET_TRIPLE)/libfmt.a 2>/dev/null)
     ifneq ($(FMT_TARGET_LIB),)
@@ -556,7 +566,23 @@ LDFLAGS_COMMON := $(SDL2_LIBS) $(LIBHV_LIBS) $(FMT_LIBS) -lz -lm -lpthread
 
 # Platform-specific configuration
 # Cross-compilation targets (pi, ad5m, k1) are Linux-based embedded systems
-ifneq ($(CROSS_COMPILE)$(filter x86 x86-fbdev x86-both,$(PLATFORM_TARGET)),)
+ifeq ($(YOCTO_BUILD),yes)
+    # Yocto/bitbake: CC already carries sysroot + mcpu/mfpu flags. All dependencies
+    # come from DEPENDS in the .bb recipe (libhv, openssl, spdlog, fmt, alsa-lib,
+    # libusb1, wpa-supplicant, libnl). Do not build any submodule library here —
+    # link against system libraries resolved by the sysroot-aware toolchain.
+    NPROC := $(shell nproc 2>/dev/null || echo 4)
+    LIBNL_LIBS := -lnl-genl-3 -lnl-3
+    LDFLAGS := $(LIBHV_LIBS) $(FMT_LIBS) -lwpa_client $(LIBNL_LIBS) -ldl -lz -lm -lpthread
+    ifeq ($(ENABLE_SSL),yes)
+        LDFLAGS += -lssl -lcrypto
+    endif
+    LDFLAGS += $(TARGET_LDFLAGS)
+    PLATFORM := Linux-yocto
+    # No submodule wpa_client to depend on — wpa-supplicant recipe installs libwpa_client.
+    WPA_DEPS :=
+    WPA_CLIENT_LIB :=
+else ifneq ($(CROSS_COMPILE)$(filter x86 x86-fbdev x86-both,$(PLATFORM_TARGET)),)
     # Platform builds (cross-compilation or x86 Docker native)
     NPROC := $(shell nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 4)
     # libnl libraries: cross-compiled targets use static archives from submodule,
