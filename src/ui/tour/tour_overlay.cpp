@@ -17,7 +17,7 @@ namespace {
 constexpr int kHighlightOutlinePad = 6;
 constexpr int kHighlightOutlineWidth = 3;
 constexpr int kTooltipMargin = 12; // gap between target and tooltip
-constexpr int kTooltipMaxWidth = 280;
+constexpr int kTooltipMaxWidth = 480;
 
 // Per-screen dim fill with ~55% opacity.
 constexpr uint8_t kDimOpa = 140;
@@ -87,6 +87,10 @@ void TourOverlay::build_tree() {
         spdlog::error("[TourOverlay] Failed to instantiate tour_tooltip_card");
         return;
     }
+    // Responsive tooltip width: ~55% of screen, clamped to [220, 480].
+    // Covers AD5M (480 -> 264px) through Sonic Pad (1024 -> 480px).
+    const int tooltip_w = std::clamp(screen_w * 55 / 100, 220, 480);
+    lv_obj_set_width(tooltip_, tooltip_w);
     lv_obj_update_layout(tooltip_);
     spdlog::debug("[TourOverlay] tooltip created: {}x{} at ({},{}) children={}",
                   lv_obj_get_width(tooltip_), lv_obj_get_height(tooltip_),

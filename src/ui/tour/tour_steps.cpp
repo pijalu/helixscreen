@@ -19,18 +19,16 @@ std::vector<TourStep> build_tour_steps(bool has_ams) {
     steps.push_back({"", "tour.step.welcome.title", "tour.step.welcome.body",
                      TooltipAnchor::Center, {}});
 
-    // 2. Home widget examples — sub-spotlight nozzle, fan, (AMS if present)
-    {
-        TourStep s{"carousel_host", "tour.step.home_grid.title",
-                   "tour.step.home_grid.body", TooltipAnchor::PreferBelow, {}};
-        s.sub_spotlights.push_back("widget_nozzle_temp");
-        s.sub_spotlights.push_back("widget_fan");
-        if (has_ams) s.sub_spotlights.push_back("widget_ams");
-        steps.push_back(s);
-    }
+    // 2. Home widget example — highlight a concrete tile. Widget root objects
+    //    are named by their factory widget_id (see panel_widget_manager.cpp).
+    //    Prefer AMS if the printer has one (most visually distinctive).
+    steps.push_back({has_ams ? "ams" : "nozzle_temps",
+                     "tour.step.home_grid.title", "tour.step.home_grid.body",
+                     TooltipAnchor::PreferBelow, {}});
 
-    // 3. Long-press to customize
-    steps.push_back({"carousel_host", "tour.step.customize.title",
+    // 3. Long-press to customize — highlight a different tile so the user sees
+    //    the edit-mode message paired with a concrete example they can try.
+    steps.push_back({"fan_stack", "tour.step.customize.title",
                      "tour.step.customize.body", TooltipAnchor::PreferBelow, {}});
 
     // 4-8. Navbar tour

@@ -67,11 +67,11 @@ TEST_CASE("Tour steps: always 8 steps regardless of AMS", "[tour]") {
     REQUIRE(steps_with_ams.size() == 8);
 }
 
-TEST_CASE("Tour steps: step 2 sub-spotlights AMS only when present", "[tour]") {
+TEST_CASE("Tour steps: step 2 targets AMS widget when present, nozzle otherwise", "[tour]") {
     auto with_ams = build_tour_steps(true);
     auto without = build_tour_steps(false);
-    REQUIRE(with_ams[1].sub_spotlights.size() == 3);     // nozzle + fan + ams
-    REQUIRE(without[1].sub_spotlights.size() == 2);      // nozzle + fan
+    REQUIRE(with_ams[1].target_name == "ams");
+    REQUIRE(without[1].target_name == "nozzle_temps");
 }
 
 TEST_CASE("Tour steps: navbar steps 4-8 target nav buttons", "[tour]") {
@@ -86,7 +86,7 @@ TEST_CASE("Tour steps: navbar steps 4-8 target nav buttons", "[tour]") {
 TEST_CASE("Tour steps: welcome and customize steps have correct targets", "[tour]") {
     auto steps = build_tour_steps(true);
     REQUIRE(steps[0].target_name.empty());              // Welcome is centered
-    REQUIRE(steps[2].target_name == "carousel_host");   // Long-press step
+    REQUIRE(steps[2].target_name == "fan_stack");       // Customize example tile
 }
 
 TEST_CASE("FirstRunTour: start() sets is_running", "[tour]") {

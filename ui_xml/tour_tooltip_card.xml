@@ -2,14 +2,12 @@
 <!-- Copyright (C) 2025-2026 356C LLC -->
 <!-- SPDX-License-Identifier: GPL-3.0-or-later -->
 <component>
-  <consts>
-    <px name="tour_tooltip_max_width" value="280"/>
-  </consts>
-  <!-- ui_card provides bg_color, border, and #space_md padding via theme. -->
-  <!-- Heavier shadow than ui_card for floating-tooltip feel -->
+  <!-- Width is set programmatically in TourOverlay::build_tree based on -->
+  <!-- screen breakpoint (screen_w clamped to [220, 480]) — responsive.     -->
+  <!-- ui_card provides bg_color, border, and #space_md padding via theme.  -->
+  <!-- Heavier shadow than ui_card for floating-tooltip feel.               -->
   <view name="tour_tooltip_card"
         extends="ui_card"
-        width="#tour_tooltip_max_width"
         height="content"
         style_shadow_width="16"
         style_shadow_opa="120"
