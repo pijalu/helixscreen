@@ -499,10 +499,15 @@ bool DisplayManager::init(const Config& config) {
         float gamma = static_cast<float>(cfg->get<double>("/display/gamma", 1.0));
         int warmth = cfg->get<int>("/display/warmth", 0);
         int tint = cfg->get<int>("/display/tint", 0);
+        float r_gain = static_cast<float>(cfg->get<double>("/display/r_gain", 1.0));
+        float g_gain = static_cast<float>(cfg->get<double>("/display/g_gain", 1.0));
+        float b_gain = static_cast<float>(cfg->get<double>("/display/b_gain", 1.0));
+        m_color_transform.set_panel_gain(r_gain, g_gain, b_gain);
         m_color_transform.set(gamma, warmth, tint);
         if (!m_color_transform.is_identity()) {
-            spdlog::info("[DisplayManager] Color transform active: gamma={:.2f}, warmth={}, tint={}",
-                         gamma, warmth, tint);
+            spdlog::info("[DisplayManager] Color transform active: gamma={:.2f}, "
+                         "warmth={}, tint={}, panel_gain=({:.3f},{:.3f},{:.3f})",
+                         gamma, warmth, tint, r_gain, g_gain, b_gain);
         }
     }
 

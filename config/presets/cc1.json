@@ -5,8 +5,10 @@
     "backlight_enable_ioctl": false,
     "hardware_blank": 0,
     "sleep_backlight_off": false,
-    "gamma": 1.0,
-    "warmth": -15
+    "gamma": 2.0,
+    "r_gain": 1.0,
+    "g_gain": 0.851,
+    "b_gain": 0.608
   },
   "input": {
     "calibration": {

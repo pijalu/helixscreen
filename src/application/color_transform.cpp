@@ -21,12 +21,21 @@ void ColorTransform::reset() {
     identity_ = true;
 }
 
+void ColorTransform::set_panel_gain(float r_gain, float g_gain, float b_gain) {
+    panel_r_gain_ = std::clamp(r_gain, 0.1f, 1.0f);
+    panel_g_gain_ = std::clamp(g_gain, 0.1f, 1.0f);
+    panel_b_gain_ = std::clamp(b_gain, 0.1f, 1.0f);
+}
+
 void ColorTransform::set(float gamma, int warmth, int tint) {
     gamma = std::clamp(gamma, 0.5f, 2.0f);
     warmth = std::clamp(warmth, -50, 50);
     tint = std::clamp(tint, -50, 50);
 
-    if (std::fabs(gamma - 1.0f) < 0.01f && warmth == 0 && tint == 0) {
+    const bool gain_is_identity = panel_r_gain_ >= 0.999f && panel_g_gain_ >= 0.999f &&
+                                  panel_b_gain_ >= 0.999f;
+
+    if (std::fabs(gamma - 1.0f) < 0.01f && warmth == 0 && tint == 0 && gain_is_identity) {
         reset();
         return;
     }
@@ -34,9 +43,12 @@ void ColorTransform::set(float gamma, int warmth, int tint) {
     // warmth ±50 = ±25% R/B opposing shift (white-balance temperature)
     // tint   ±50 = ±25% G shift opposite R/B (white-balance tint, fixes
     //              magenta/green casts that warmth can't touch)
-    const float r_scale = 1.0f + warmth * 0.005f - tint * 0.0025f;
-    const float g_scale = 1.0f + tint * 0.005f;
-    const float b_scale = 1.0f - warmth * 0.005f - tint * 0.0025f;
+    // panel_*_gain is a fixed factory baseline applied multiplicatively on top —
+    // lets a preset bake panel-specific white-point correction beyond what the
+    // ±25% slider range can express.
+    const float r_scale = (1.0f + warmth * 0.005f - tint * 0.0025f) * panel_r_gain_;
+    const float g_scale = (1.0f + tint * 0.005f) * panel_g_gain_;
+    const float b_scale = (1.0f - warmth * 0.005f - tint * 0.0025f) * panel_b_gain_;
     const float inv_gamma = 1.0f / gamma;
 
     for (int i = 0; i < 256; ++i) {

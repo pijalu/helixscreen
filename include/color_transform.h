@@ -41,6 +41,13 @@ class ColorTransform {
      */
     void set(float gamma, int warmth, int tint);
 
+    /** @brief Set per-channel factory panel gain (baseline, applied before
+     *  user warmth/tint). Values are in 0..1 (1.0 = no attenuation). Use to
+     *  bake panel-specific white-point correction into a preset (e.g. cc1.json).
+     *  Call before set() — set() rebuilds the LUTs honoring these gains.
+     */
+    void set_panel_gain(float r_gain, float g_gain, float b_gain);
+
     /** @brief True if the transform is identity (no-op). */
     bool is_identity() const {
         return identity_;
@@ -58,6 +65,9 @@ class ColorTransform {
     uint8_t r_lut_[256] = {};
     uint8_t g_lut_[256] = {};
     uint8_t b_lut_[256] = {};
+    float panel_r_gain_ = 1.0f;
+    float panel_g_gain_ = 1.0f;
+    float panel_b_gain_ = 1.0f;
     bool identity_ = true;
 };
 
