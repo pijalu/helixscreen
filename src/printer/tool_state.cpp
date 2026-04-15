@@ -26,7 +26,10 @@
 
 #include <algorithm>
 #include <cctype>
+#include <cerrno>
 #include <cmath>
+#include <cstdio>
+#include <cstring>
 #include <filesystem>
 #include <fstream>
 
@@ -536,12 +539,34 @@ void ToolState::save_spool_json() const {
         // Ensure directory exists
         fs::create_directories(config_dir_);
 
-        std::ofstream ofs(path);
-        if (!ofs.is_open()) {
-            spdlog::warn("[ToolState] Failed to open {} for writing", path.string());
+        // Atomic save: write to temp file, then rename to avoid partial writes on crash/power loss
+        auto tmp_path = path;
+        tmp_path += ".tmp";
+        {
+            std::ofstream ofs(tmp_path);
+            if (!ofs.is_open()) {
+                spdlog::error("[ToolState] Failed to open {} for writing: {}", tmp_path.string(),
+                              strerror(errno));
+                std::remove(tmp_path.c_str());
+                return;
+            }
+            ofs << json_data.dump(2);
+            ofs.flush();
+            if (!ofs.good()) {
+                spdlog::error("[ToolState] Failed to write spool JSON to {}: {}",
+                              tmp_path.string(), strerror(errno));
+                std::remove(tmp_path.c_str());
+                return;
+            }
+        }
+
+        if (std::rename(tmp_path.c_str(), path.c_str()) != 0) {
+            spdlog::error("[ToolState] Failed to rename '{}' to '{}': {}", tmp_path.string(),
+                          path.string(), strerror(errno));
+            std::remove(tmp_path.c_str());
             return;
         }
-        ofs << json_data.dump(2);
+
         spdlog::debug("[ToolState] Saved spool assignments to {}", path.string());
     } catch (const std::exception& e) {
         spdlog::warn("[ToolState] Error saving spool JSON: {}", e.what());
