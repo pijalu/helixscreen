@@ -168,7 +168,9 @@ void TipsWidget::on_size_changed(int colspan, int /*rowspan*/, int /*width_px*/,
     if (!text_font)
         return;
 
-    const lv_font_t* icon_font = compact ? &mdi_icons_32 : &mdi_icons_48;
+    const lv_font_t* icon_font = theme_manager_get_font("icon_font_md");
+    if (!icon_font)
+        icon_font = &mdi_icons_32;
 
     // Update text labels: "Tip:" prefix and bound tip text
     auto* tip_container = lv_obj_find_by_name(widget_obj_, "tip_container");
