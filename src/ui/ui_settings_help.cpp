@@ -8,6 +8,7 @@
 
 #include "ui_settings_help.h"
 
+#include "first_run_tour.h"
 #include "ui_callback_helpers.h"
 #include "ui_debug_bundle_modal.h"
 #include "ui_event_safety.h"
@@ -65,6 +66,7 @@ void HelpSettingsOverlay::init_subjects() {
 
 void HelpSettingsOverlay::register_callbacks() {
     register_xml_callbacks({
+        {"on_replay_tour_clicked", on_replay_tour_clicked},
         {"on_debug_bundle_clicked", on_debug_bundle_clicked},
         {"on_discord_clicked", on_discord_clicked},
         {"on_docs_clicked", on_docs_clicked},
@@ -144,6 +146,16 @@ void HelpSettingsOverlay::on_deactivate() {
 // ============================================================================
 // STATIC CALLBACKS
 // ============================================================================
+
+void HelpSettingsOverlay::on_replay_tour_clicked(lv_event_t* /*e*/) {
+    LVGL_SAFE_EVENT_CB_BEGIN("[HelpSettingsOverlay] on_replay_tour_clicked");
+    spdlog::info("[HelpSettingsOverlay] Replay Welcome Tour clicked");
+    // Close the help overlay so the tour has a clean home panel underneath.
+    NavigationManager::instance().go_back();
+    // Start bypasses the first-run gate (replay entry point).
+    helix::tour::FirstRunTour::instance().start();
+    LVGL_SAFE_EVENT_CB_END();
+}
 
 void HelpSettingsOverlay::on_debug_bundle_clicked(lv_event_t* /*e*/) {
     LVGL_SAFE_EVENT_CB_BEGIN("[HelpSettingsOverlay] on_debug_bundle_clicked");

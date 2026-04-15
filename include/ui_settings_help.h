@@ -74,6 +74,7 @@ class HelpSettingsOverlay : public OverlayBase {
     // === Static Callbacks ===
     //
 
+    static void on_replay_tour_clicked(lv_event_t* e);
     static void on_debug_bundle_clicked(lv_event_t* e);
     static void on_discord_clicked(lv_event_t* e);
     static void on_docs_clicked(lv_event_t* e);
