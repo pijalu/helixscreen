@@ -7,6 +7,47 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.99.32] - 2026-04-15
+
+Adds COSMOS firmware support for the Elegoo Centauri Carbon (CC1) and new per-channel display color correction (gamma, warmth, tint). Also includes a motion home widget, extensive crash/observer telemetry, and numerous discovery, installer, and widget fixes.
+
+### Added
+- CC1 (Elegoo Centauri Carbon) support on COSMOS firmware with factory white-balance calibration and live-hardware-driven preset
+- Per-channel gamma + warmth display color correction (#803)
+- Tint axis (G shift) for purple/magenta correction (#803)
+- Motion home widget that opens the motion overlay directly
+- Type icon stacked under cancel badge for gated panel widgets
+- LVGL anomaly detection with call traces and arc/observer silent null-return logging
+
+### Fixed
+- Crash handler: stack-scan backtrace fallback for aarch64 and x86_64 (#795, #796)
+- Crash: backtrace captured in terminate_handler (#801)
+- Grid edit: stale child_count debug loop crash removed (#800)
+- PrinterState: aliased hash copy eliminated in set_hardware (#799)
+- Print status: Pause/Tune/Cancel enabled during Preparing phase (#798)
+- Discovery: live hardware passed to auto_detect_and_save (#802)
+- Discovery: retry on klippy state transitions, suppress retry toast, and differentiate deferred vs failed discovery
+- Preset: deep-merge full preset and populate printer type from DB; CC1 gamma dropped to 1.0 to stop washing out shadows
+- Panel widgets: eliminate load-on-every-access churn (#804); gate-aware rebuild short-circuit so ungating takes effect
+- Touch calibration: settings-path accuracy, safety, and watchdog
+- Update queue: queue_critical bypass for one-shot init callbacks
+- Config: gate preset printer-type lookup out of splash/watchdog builds
+- AD5X IFS: use IFS_REMOVE_PRUTOK when unloading active slot
+- Snapmaker U1: keep WiFi alive across helixscreen stop/update (#797)
+- Installer: escalate to SIGKILL without tripping set -e on orphaned procs; add CC1 + Snapmaker install dirs to uninstall search; work around COSMOS config-manager screen_ui allowlist on CC1
+- Updater: cover all release platforms and prefer tar.gz on GitHub fallback
+- Scanner picker: re-find device_list widget to avoid stale cached pointer
+- LVGL: instrument lv_obj_delete_async for double-schedule + UAF telemetry
+- About: source contributor list from committed CONTRIBUTORS.txt
+- Home: observe every gate subject directly and shrink coalesce window so late-arriving capabilities un-gate widgets promptly
+- Release manifest: default to tar.gz-only until pre-v0.99.31 ages out
+- Build: stub helix_lvgl_anomaly() for splash and watchdog binaries
+- Tests: stabilize eventloop shard flakes
+
+### Changed
+- Print status: button enable driven by subjects + XML bindings
+- Home: panel rebuild triggered on capabilities_version instead of coalesce timer
+
 ## [0.99.31] - 2026-04-14
 
 Adds a new XXLARGE responsive breakpoint tier and HiDPI font scaling for displays above 1000px tall (1440p/4K), with per-platform font pruning to keep binary size in check on constrained devices. Also includes a telemetry-driven printer database updater, bed mesh nozzle preheat, and a handful of crash and correctness fixes.
@@ -2916,6 +2957,7 @@ Initial tagged release. Foundation for all subsequent development.
 - Automated GitHub Actions release pipeline
 - One-liner installation script with platform auto-detection
 
+[0.99.32]: https://github.com/prestonbrown/helixscreen/compare/v0.99.31...v0.99.32
 [0.99.31]: https://github.com/prestonbrown/helixscreen/compare/v0.99.30...v0.99.31
 [0.99.30]: https://github.com/prestonbrown/helixscreen/compare/v0.99.29...v0.99.30
 [0.99.29]: https://github.com/prestonbrown/helixscreen/compare/v0.99.28...v0.99.29
