@@ -71,8 +71,7 @@
             <text_small text="Recent Prints" translation_tag="Recent Prints" clickable="false" event_bubble="true"/>
             <event_cb trigger="clicked" callback="library_recent_cb"/>
           </ui_button>
-          <ui_button name="library_row_queue"
-                     width="100%" height="#button_height_sm" variant="outline" layout="row">
+          <ui_button name="library_row_queue" width="100%" height="#button_height_sm" variant="outline" layout="row">
             <bind_flag_if_eq subject="print_status_queue_hidden" flag="hidden" ref_value="1"/>
             <icon src="progress_clock" size="sm" clickable="false" event_bubble="true">
               <bind_flag_if_eq subject="print_status_column_mode" flag="hidden" ref_value="1"/>
