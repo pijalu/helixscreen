@@ -3,6 +3,7 @@
 
 #include "ui_keyboard_manager.h"
 
+#include "ui_breakpoint.h"
 #include "ui_event_safety.h"
 #include "ui_fonts.h"
 #include "ui_text_input.h"
@@ -180,9 +181,15 @@ void KeyboardManager::show_overlay(const lv_area_t* key_area, const char* altern
     }
 
     size_t alt_count = strlen(alternatives);
-    const int32_t char_width = 50;
-    const int32_t char_height = 60;
-    const int32_t padding = 8;
+    // Size overlay cells proportional to the current keyboard font so they
+    // stay usable at micro (CC1 480×272) and scale up cleanly on larger panels.
+    const lv_font_t* overlay_font = theme_manager_get_font("font_heading");
+    if (!overlay_font)
+        overlay_font = &noto_sans_20;
+    const int32_t font_h = theme_manager_get_font_height(overlay_font);
+    const int32_t char_width = static_cast<int32_t>(font_h * 2);
+    const int32_t char_height = static_cast<int32_t>(font_h * 2.5f);
+    const int32_t padding = font_h / 3;
     int32_t overlay_width = (static_cast<int32_t>(alt_count) * char_width) + (padding * 2);
     int32_t overlay_height = char_height;
 
@@ -221,7 +228,7 @@ void KeyboardManager::show_overlay(const lv_area_t* key_area, const char* altern
         lv_obj_t* label = lv_label_create(overlay_);
         char char_str[2] = {alternatives[i], '\0'};
         lv_label_set_text(label, char_str);
-        lv_obj_set_style_text_font(label, &noto_sans_20, LV_PART_MAIN);
+        lv_obj_set_style_text_font(label, overlay_font, LV_PART_MAIN);
         lv_obj_set_style_text_color(label, text_color, LV_PART_MAIN);
         lv_obj_set_flex_grow(label, 1);
         lv_obj_set_style_text_align(label, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN);
@@ -695,24 +702,38 @@ void KeyboardManager::keyboard_draw_alternative_chars(lv_event_t* e) {
 
                 lv_coord_t current_btn_width = 4 * unit_width;
 
-                lv_coord_t btn_x = kb_coords.x1 + cumulative_width + current_btn_width - 10;
-                lv_coord_t btn_y = kb_coords.y1 + static_cast<lv_coord_t>(row) * row_height + 6;
+                // Responsive hint font; anchor in the upper-right corner of the
+                // key with insets proportional to the hint font height so the
+                // overlay renders cleanly at micro as well as larger breakpoints.
+                const lv_font_t* hint_font = theme_manager_get_font("font_xs");
+                if (!hint_font)
+                    hint_font = &noto_sans_12;
+                const lv_coord_t hint_h = theme_manager_get_font_height(hint_font);
+                const lv_coord_t hint_w = static_cast<lv_coord_t>(hint_h * 0.9f);
+                // Equal padding from the key's top and right edges.
+                const lv_coord_t inset = hint_h / 5 + 1;
+                const lv_coord_t inset_x = inset;
+                const lv_coord_t inset_y = inset;
+
+                lv_coord_t btn_right = kb_coords.x1 + cumulative_width + current_btn_width;
+                lv_coord_t btn_top = kb_coords.y1 + static_cast<lv_coord_t>(row) * row_height;
 
                 lv_draw_label_dsc_t label_dsc;
                 lv_draw_label_dsc_init(&label_dsc);
-                label_dsc.font = &noto_sans_12;
+                label_dsc.font = hint_font;
                 label_dsc.color = gray_color;
                 label_dsc.opa = LV_OPA_60;
 
                 char alt_str[2] = {alternatives[0], '\0'};
                 label_dsc.text = alt_str;
                 label_dsc.text_local = true;
+                label_dsc.align = LV_TEXT_ALIGN_CENTER;
 
                 lv_area_t alt_area;
-                alt_area.x1 = btn_x - 12;
-                alt_area.y1 = btn_y;
-                alt_area.x2 = btn_x;
-                alt_area.y2 = btn_y + 14;
+                alt_area.x2 = btn_right - inset_x;
+                alt_area.x1 = alt_area.x2 - hint_w;
+                alt_area.y1 = btn_top + inset_y;
+                alt_area.y2 = alt_area.y1 + hint_h + 2;
 
                 lv_draw_label(layer, &label_dsc, &alt_area);
             }
@@ -735,8 +756,14 @@ void KeyboardManager::init(lv_obj_t* parent) {
     spdlog::debug("[KeyboardManager] Initializing global keyboard");
 
     if (!keyboard_font_initialized_) {
-        memcpy(&keyboard_font_, &noto_sans_20, sizeof(lv_font_t));
-        keyboard_font_.fallback = &mdi_icons_24;
+        const lv_font_t* base_font = theme_manager_get_font("font_heading");
+        if (!base_font)
+            base_font = &noto_sans_20;
+        const lv_font_t* icon_font = theme_manager_get_font("icon_font_sm");
+        if (!icon_font)
+            icon_font = &mdi_icons_24;
+        memcpy(&keyboard_font_, base_font, sizeof(lv_font_t));
+        keyboard_font_.fallback = icon_font;
         keyboard_font_initialized_ = true;
         spdlog::debug("[KeyboardManager] Created font with MDI fallback");
     }
@@ -759,9 +786,16 @@ void KeyboardManager::init(lv_obj_t* parent) {
     apply_keyboard_mode();
 
     lv_color_t keyboard_bg = theme_manager_get_color("screen_bg");
-    lv_color_t key_bg = theme_manager_get_color("card_bg");
-    lv_color_t key_special_bg = theme_manager_get_color("overlay_bg");
-    lv_color_t key_text = theme_manager_get_color("text");
+    lv_color_t key_bg = theme_manager_get_color("elevated_bg");
+    // Special (shift-lock, mode-toggle) keys derive from the regular key color
+    // by lightening in dark mode / darkening in light mode so they read as
+    // distinct without a dedicated theme token.
+    lv_color_t key_special_bg = theme_manager_is_dark_mode() ? lv_color_lighten(key_bg, LV_OPA_20)
+                                                             : lv_color_darken(key_bg, LV_OPA_20);
+    // Auto-pick text color for contrast against each key background so key
+    // glyphs stay legible across themes and light/dark modes.
+    lv_color_t key_text = theme_manager_get_contrast_color(key_bg);
+    lv_color_t key_special_text = theme_manager_get_contrast_color(key_special_bg);
 
     lv_obj_set_style_bg_color(keyboard_, keyboard_bg, LV_PART_MAIN);
     lv_obj_set_style_bg_opa(keyboard_, LV_OPA_COVER, LV_PART_MAIN);
@@ -776,6 +810,7 @@ void KeyboardManager::init(lv_obj_t* parent) {
     lv_obj_set_style_shadow_color(keyboard_, lv_color_black(), LV_PART_ITEMS);
 
     lv_obj_set_style_bg_color(keyboard_, key_special_bg, LV_PART_ITEMS | LV_STATE_CHECKED);
+    lv_obj_set_style_text_color(keyboard_, key_special_text, LV_PART_ITEMS | LV_STATE_CHECKED);
 
     lv_obj_set_style_text_font(keyboard_, &keyboard_font_, LV_PART_ITEMS);
     lv_obj_set_style_text_color(keyboard_, key_text, LV_PART_ITEMS);
