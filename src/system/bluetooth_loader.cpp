@@ -133,6 +133,7 @@ bool BluetoothLoader::try_load() {
         reinterpret_cast<helix_bt_enumerate_known_fn>(resolve(HELIX_BT_SYM_ENUMERATE_KNOWN));
     pair = reinterpret_cast<helix_bt_pair_fn>(resolve(HELIX_BT_SYM_PAIR));
     is_paired = reinterpret_cast<helix_bt_is_paired_fn>(resolve(HELIX_BT_SYM_IS_PAIRED));
+    is_bonded = reinterpret_cast<helix_bt_is_bonded_fn>(resolve(HELIX_BT_SYM_IS_BONDED));
     is_connected = reinterpret_cast<helix_bt_is_connected_fn>(resolve(HELIX_BT_SYM_IS_CONNECTED));
     remove_device =
         reinterpret_cast<helix_bt_remove_device_fn>(resolve(HELIX_BT_SYM_REMOVE_DEVICE));

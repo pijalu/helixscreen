@@ -81,6 +81,12 @@ typedef int (*helix_bt_pair_fn)(helix_bt_context*, const char* mac);
 /// Check if device is paired. Returns 1=paired, 0=not paired, negative=error.
 typedef int (*helix_bt_is_paired_fn)(helix_bt_context*, const char* mac);
 
+/// Check if device is bonded (paired with a persistent Long-Term Key).
+/// Just-Works SSP can produce paired-but-not-bonded sessions, which BlueZ's
+/// input plugin rejects for HID profiles (hidp_add_connection "!bonded").
+/// Returns 1=bonded, 0=not bonded, negative=error.
+typedef int (*helix_bt_is_bonded_fn)(helix_bt_context*, const char* mac);
+
 /// Check if device is connected. Returns 1=connected, 0=not connected, negative=error.
 typedef int (*helix_bt_is_connected_fn)(helix_bt_context*, const char* mac);
 
@@ -128,6 +134,7 @@ typedef int (*helix_bt_sdp_find_rfcomm_channel_fn)(helix_bt_context* ctx, const 
 #define HELIX_BT_SYM_ENUMERATE_KNOWN "helix_bt_enumerate_known"
 #define HELIX_BT_SYM_PAIR "helix_bt_pair"
 #define HELIX_BT_SYM_IS_PAIRED "helix_bt_is_paired"
+#define HELIX_BT_SYM_IS_BONDED "helix_bt_is_bonded"
 #define HELIX_BT_SYM_IS_CONNECTED "helix_bt_is_connected"
 #define HELIX_BT_SYM_CONNECT_RFCOMM "helix_bt_connect_rfcomm"
 #define HELIX_BT_SYM_CONNECT_BLE "helix_bt_connect_ble"

@@ -788,19 +788,23 @@ void BarcodeScannerSettingsOverlay::on_bs_pair_confirm(lv_event_t* e) {
                     auto& ldr   = helix::bluetooth::BluetoothLoader::instance();
                     int ret     = ldr.pair(bt_ctx, mac.c_str());
                     int paired_r = -1;
+                    int bonded_r = -1;
                     // sd_bus_call_method returns any non-negative integer on success.
                     if (ret >= 0) {
                         paired_r = ldr.is_paired ? ldr.is_paired(bt_ctx, mac.c_str()) : -1;
-                        spdlog::info("[BarcodeScannerSettings] Post-pair: ret={} is_paired={}",
-                                     ret, paired_r);
+                        bonded_r = ldr.is_bonded ? ldr.is_bonded(bt_ctx, mac.c_str()) : -1;
+                        spdlog::info(
+                            "[BarcodeScannerSettings] Post-pair: ret={} is_paired={} is_bonded={}",
+                            ret, paired_r, bonded_r);
                     }
 
                     // After BlueZ reports Pair success, the kernel still has to
                     // bring up the HID profile and create /dev/input/eventN.
-                    // That can fail silently (e.g. BlueZ rejects the HID
-                    // connection from a non-bonded device). Poll for up to 5s.
-                    // A false "hid_ok" lets us warn the user honestly instead
-                    // of celebrating a half-broken pair.
+                    // Always poll — even when Bonded=false, operators who set
+                    // ClassicBondedOnly=false in /etc/bluetooth/input.conf can
+                    // still get HID to attach, and we don't want to falsely
+                    // report failure in that case. bonded_r is used below only
+                    // to pick the right toast wording when HID does not appear.
                     bool hid_ok = false;
                     if (ret >= 0) {
                         for (int i = 0; i < 25; ++i) {
@@ -814,27 +818,41 @@ void BarcodeScannerSettingsOverlay::on_bs_pair_confirm(lv_event_t* e) {
                                      hid_ok);
                     }
 
-                    helix::ui::queue_update([ret, mac, name, token, bt_ctx, paired_r, hid_ok]() {
+                    helix::ui::queue_update(
+                        [ret, mac, name, token, bt_ctx, paired_r, bonded_r, hid_ok]() {
                         if (token.expired())
                             return;
 
                         if (ret >= 0 && hid_ok) {
                             ToastManager::instance().show(ToastSeverity::SUCCESS,
                                                           lv_tr("Paired successfully"), 2000);
-                        } else if (ret >= 0) {
-                            // Paired but HID profile never came up. This almost always means
-                            // the scanner did Just-Works pairing (no PIN) and BlueZ's input
-                            // plugin refuses the HID connection because the device isn't
-                            // bonded. Tell the user what actually happened.
-                            spdlog::warn("[BarcodeScannerSettings] Paired but HID profile did "
-                                         "not connect within 5s — scanner will not be usable");
+                        } else if (ret >= 0 && bonded_r != 1) {
+                            // Paired but not bonded — Just-Works SSP left no
+                            // persistent key, so BlueZ's input plugin will
+                            // refuse HID. Almost always means the scanner
+                            // wasn't in pairing mode when Pair ran.
+                            spdlog::warn("[BarcodeScannerSettings] Paired but not bonded — "
+                                         "scanner needs to be in pairing mode");
                             ToastManager::instance().show(
                                 ToastSeverity::WARNING,
-                                lv_tr("Paired, but scanner is not usable. BlueZ refused the HID "
-                                      "connection (non-bonded device). Try BLE mode on the "
-                                      "scanner, or set ClassicBondedOnly=false in "
-                                      "/etc/bluetooth/input.conf."),
-                                8000);
+                                lv_tr("Scanner paired but can't receive input. Put the scanner in "
+                                      "pairing mode (see its manual — usually a setup barcode or a "
+                                      "button hold) and tap Pair again."),
+                                10000);
+                        } else if (ret >= 0) {
+                            // Bonded but HID profile still never came up.
+                            // Rarer — device-specific firmware quirk or HID
+                            // descriptor rejected by the kernel. Keep the
+                            // technical escape hatch here for operators who
+                            // can edit system config.
+                            spdlog::warn("[BarcodeScannerSettings] Bonded but HID profile did not "
+                                         "connect within 5s — scanner will not be usable");
+                            ToastManager::instance().show(
+                                ToastSeverity::WARNING,
+                                lv_tr("Scanner bonded but didn't attach as a keyboard. Try turning "
+                                      "the scanner off and on, then tap Pair again. If that fails, "
+                                      "add ClassicBondedOnly=false to /etc/bluetooth/input.conf."),
+                                10000);
                         }
 
                         if (ret >= 0) {

@@ -56,7 +56,39 @@ extern "C" int helix_bt_pair(helix_bt_context* ctx, const char* mac) {
             sd_bus_error error = SD_BUS_ERROR_NULL;
             r = sd_bus_call_method(bus, "org.bluez", path.c_str(), "org.bluez.Device1", "Pair",
                                    &error, nullptr, "");
+            // HID profile UUID. Explicit ConnectProfile(HID) is required for
+            // dual-profile HID scanners that also advertise SPP — bare
+            // Device1.Connect() lets BlueZ pick the primary profile, which
+            // can end up being SPP (succeeds cleanly but HID never attaches,
+            // so the kernel creates no evdev node).
+            static constexpr const char* kHidUuid = "00001124-0000-1000-8000-00805f9b34fb";
             auto try_connect_profile = [&](sd_bus* b) {
+                // Try HID-specific ConnectProfile first. If the device
+                // doesn't advertise HID, BlueZ returns NotSupported /
+                // DoesNotExist — fall back to bare Connect() for
+                // non-HID devices (label printers etc.).
+                sd_bus_error hidErr = SD_BUS_ERROR_NULL;
+                int hr = sd_bus_call_method(b, "org.bluez", path.c_str(), "org.bluez.Device1",
+                                            "ConnectProfile", &hidErr, nullptr, "s", kHidUuid);
+                if (hr >= 0) {
+                    fprintf(stderr, "[bt] post-pair ConnectProfile(HID) succeeded for %s\n", mac);
+                    sd_bus_error_free(&hidErr);
+                    return;
+                }
+                if (sd_bus_error_has_name(&hidErr, "org.bluez.Error.AlreadyConnected")) {
+                    fprintf(stderr, "[bt] HID profile already connected on %s\n", mac);
+                    sd_bus_error_free(&hidErr);
+                    return;
+                }
+                bool is_no_hid =
+                    sd_bus_error_has_name(&hidErr, "org.bluez.Error.NotSupported") ||
+                    sd_bus_error_has_name(&hidErr, "org.bluez.Error.DoesNotExist");
+                if (!is_no_hid) {
+                    fprintf(stderr, "[bt] ConnectProfile(HID) failed for %s: %s\n", mac,
+                            hidErr.message ? hidErr.message : strerror(-hr));
+                }
+                sd_bus_error_free(&hidErr);
+
                 sd_bus_error cerr = SD_BUS_ERROR_NULL;
                 int cr = sd_bus_call_method(b, "org.bluez", path.c_str(), "org.bluez.Device1",
                                             "Connect", &cerr, nullptr, "");
@@ -179,6 +211,50 @@ extern "C" int helix_bt_is_connected(helix_bt_context* ctx, const char* mac) {
         return r;
     }
     return connected ? 1 : 0;
+}
+
+extern "C" int helix_bt_is_bonded(helix_bt_context* ctx, const char* mac) {
+    if (!ctx)
+        return -EINVAL;
+    if (!mac) {
+        std::lock_guard<std::mutex> lock(ctx->mutex);
+        ctx->last_error = "null MAC address";
+        return -EINVAL;
+    }
+    if (!ctx->bus || !ctx->bus_thread) {
+        std::lock_guard<std::mutex> lock(ctx->mutex);
+        ctx->last_error = "bus not initialized";
+        return -ENODEV;
+    }
+
+    std::string path = mac_to_dbus_path(mac);
+    int r = 0;
+    int bonded = 0;
+    std::string err;
+
+    try {
+        ctx->bus_thread->run_sync([&](sd_bus* bus) {
+            sd_bus_error error = SD_BUS_ERROR_NULL;
+            r = sd_bus_get_property_trivial(bus, "org.bluez", path.c_str(), "org.bluez.Device1",
+                                            "Bonded", &error, 'b', &bonded);
+            if (r < 0) {
+                fprintf(stderr, "[bt] is_bonded check failed for %s: %s\n", mac,
+                        error.message ? error.message : strerror(-r));
+                err = error.message ? error.message : "failed to read Bonded property";
+            }
+            sd_bus_error_free(&error);
+        });
+    } catch (const std::exception& e) {
+        err = e.what();
+        r = -EIO;
+    }
+
+    if (r < 0) {
+        std::lock_guard<std::mutex> lock(ctx->mutex);
+        ctx->last_error = err.empty() ? strerror(-r) : err;
+        return r;
+    }
+    return bonded ? 1 : 0;
 }
 
 extern "C" int helix_bt_is_paired(helix_bt_context* ctx, const char* mac) {

@@ -26,6 +26,7 @@ class BluetoothLoader {
     helix_bt_enumerate_known_fn enumerate_known = nullptr;
     helix_bt_pair_fn pair = nullptr;
     helix_bt_is_paired_fn is_paired = nullptr;
+    helix_bt_is_bonded_fn is_bonded = nullptr;
     helix_bt_is_connected_fn is_connected = nullptr;
     helix_bt_remove_device_fn remove_device = nullptr;
     helix_bt_connect_rfcomm_fn connect_rfcomm = nullptr;
