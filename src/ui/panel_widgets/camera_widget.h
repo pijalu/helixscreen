@@ -65,8 +65,11 @@ class CameraWidget : public PanelWidget {
     // Observer for webcam availability — starts stream when URLs arrive
     ObserverGuard webcam_observer_;
 
-    // Lifetime guard — prevents use-after-free in queued callbacks
+    // Lifetime guard — prevents use-after-free in queued callbacks.
+    // stream lifetime is invalidated on each stop_stream() cycle;
+    // widget lifetime lives for the entire CameraWidget object.
     helix::AsyncLifetimeGuard lifetime_;
+    helix::AsyncLifetimeGuard widget_lifetime_;
 
     // Config modal (owned, destroyed when modal closes)
     std::unique_ptr<CameraConfigModal> config_modal_;

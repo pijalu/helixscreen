@@ -174,7 +174,7 @@ void CameraWidget::on_activate() {
     // Uses LifetimeToken so the callback safely no-ops after destruction.
     if (!sleep_cb_registered_) {
         if (auto* dm = DisplayManager::instance()) {
-            auto token = lifetime_.token();
+            auto token = widget_lifetime_.token();
             dm->register_sleep_callback([this, token](bool sleeping) {
                 if (token.expired())
                     return;
