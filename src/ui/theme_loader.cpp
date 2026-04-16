@@ -18,7 +18,6 @@
 #include <stdexcept>
 #include <sys/stat.h>
 
-#include "data_root_resolver.h"
 #include "hv/json.hpp"
 
 namespace helix {
