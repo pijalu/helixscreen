@@ -231,7 +231,11 @@ std::vector<std::string> SoundManager::get_available_themes() const {
         closedir(dir);
     };
 
+    // RO seeds: prefer the new shipped layout under HELIX_DATA_DIR, fall
+    // back to the legacy "config/sounds" so existing tarball installs that
+    // haven't been re-shipped under assets/config/ keep working.
     enumerate(helix::get_data_dir() + "/assets/config/sounds");
+    enumerate("config/sounds");
     enumerate(helix::writable_path("sounds"));
 
     // Dedupe before sorting (user themes can shadow shipped ones by name).

@@ -353,7 +353,15 @@ std::string get_themes_directory() {
 }
 
 std::string get_default_themes_directory() {
-    return get_data_dir() + "/assets/config/themes/defaults";
+    // New shipped layout: $HELIX_DATA_DIR/assets/config/themes/defaults.
+    // Legacy tarball layout (install.sh hasn't moved seeds yet): cwd-relative
+    // config/themes/defaults. Fall through if the new path doesn't exist so
+    // existing tarball installs keep finding their bundled themes.
+    std::string preferred = get_data_dir() + "/assets/config/themes/defaults";
+    struct stat st;
+    if (stat(preferred.c_str(), &st) == 0 && S_ISDIR(st.st_mode))
+        return preferred;
+    return "config/themes/defaults";
 }
 
 bool has_default_theme(const std::string& filename) {
