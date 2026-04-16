@@ -7,14 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.99.33] - 2026-04-15
+## [0.99.33] - 2026-04-16
 
-Major Bluetooth reliability overhaul, new barcode scanner settings UI, first-run guided tour, HttpExecutor for bounded HTTP threading, and a broad config refactor splitting read-only seed data from writable state.
+Major Bluetooth reliability overhaul, new barcode scanner settings UI, first-run guided tour, HttpExecutor for bounded HTTP threading, responsive setting rows that collapse 7 micro/ XML variants, and a broad config refactor splitting read-only seed data from writable state.
 
 ### Added
 - First-run guided tour with coach-mark overlay, responsive tooltips, AMS-conditional steps, and replay from Settings > Help
 - Barcode scanner settings overlay with BT device discovery, pairing, MAC binding, and USB device list
 - HttpExecutor — bounded-worker HTTP executor (fast lane: 4 workers, slow lane: 1) replacing unbounded thread spawns
+- Responsive setting rows with info icon, collapsing 7 micro/ XML layout variants (#805)
+- New XML binding attributes: hidden_if_prop_eq/not_eq/empty and bind_style_if_eq/not_eq/gt/ge/lt/le (#805)
+- Frame performance telemetry: idle filtering, per-panel breakdown, and separate render/flush timers
+- LVGL display anomaly section in stability dashboard
 - Bluetooth HID scanner binding by MAC address with exclusive grab
 - BT HID link verification after pairing with bond-refusal warning
 - Bluetooth `enumerate_known` API for paired device listing
@@ -23,15 +27,21 @@ Major Bluetooth reliability overhaul, new barcode scanner settings UI, first-run
 - Crash diagnostics: activity breadcrumb ring, cached heap snapshot, LVGL event dispatch hook
 - Silenced hardware items logged at startup for easier debugging
 - Moonraker silent request mode — suppresses `REQUEST_TIMEOUT` events for background queries
+- Cycling encouragement messages during long installs (#809)
 - Responsive keyboard sizing with elevated keycaps and smart contrast text
 - KIAUH extension shipped and registered on release installs
 
 ### Fixed
+- Crash: defer GridEditMode rebuild + harden LVGL event chain (#814, #812)
 - Bluetooth: serialize all D-Bus operations (discovery, pairing, GATT, notifications) through BusThread, eliminating race conditions and thread-safety issues (#811)
 - Bluetooth: `thread_id_` race, submit TOCTOU, slot unref routing, `StartNotify` fallback guard
 - Network: async backend init eliminates UI-thread blocking; self-join deadlock and ethernet thread pool fixes
 - Exclude object: sync removals from Klipper status, drop stuck optimistic visuals on print end, silence spurious pre-print RPC timeouts
 - Moonraker API callbacks guarded with lifetime tokens to prevent use-after-free
+- Controls: segmented homing button bar on controls and micro controls panels
+- Slider: responsive knob padding at tiny/micro breakpoints; fix overflow_visible attribute name
+- Z-offset: compact format and wider temp icon gap at tiny breakpoint
+- Camera: sleep callback token survives stream stop/start cycles
 - Watchdog: bail out of restart loop on persistent failure instead of infinite retries
 - Tour: re-target highlight on breakpoint change; cancel on navigation away from Home
 - AMS: unlink external spool updates UI when previous filament color was black
@@ -42,6 +52,7 @@ Major Bluetooth reliability overhaul, new barcode scanner settings UI, first-run
 - Print status idle card: micro breakpoint polish, subject-driven visibility
 - Installer: prefer `/user-resource` for temp dir on CC1
 - Help icon: resolve via responsive theme token
+- Updater: 2min timeout extended for slow printers
 
 ### Changed
 - Config layout: read-only seed configs moved to `assets/config/`, writable state stays in `config/`
