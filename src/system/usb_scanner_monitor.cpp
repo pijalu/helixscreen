@@ -465,7 +465,7 @@ void UsbScannerMonitor::monitor_thread_func() {
 
 #else // !__linux__
 
-std::vector<std::string> UsbScannerMonitor::find_scanner_devices() {
+std::vector<UsbScannerMonitor::ScannerSource> UsbScannerMonitor::find_scanner_devices() {
     return {};
 }
 void UsbScannerMonitor::start(ScanCallback) {
