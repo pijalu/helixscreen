@@ -71,7 +71,7 @@
           <lv_obj width="100%"
                   height="40" flex_flow="row" style_pad_top="#space_md" style_pad_bottom="#space_md"
                   style_pad_left="#space_md" style_pad_right="#space_xl" style_flex_cross_place="center"
-                  flag_overflow_visible="true">
+                  overflow_visible="true">
             <lv_slider name="layer_slider" flex_grow="1" min_value="0" max_value="100" value="100"/>
           </lv_obj>
           <!-- Ghost Mode Dropdown -->
