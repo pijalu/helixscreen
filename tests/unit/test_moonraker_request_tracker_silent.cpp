@@ -21,6 +21,17 @@
 
 using namespace helix;
 
+/// Friend-class test accessor (L065 / test_code_lint.bats): keeps production
+/// headers free of `_for_testing` methods.
+class MoonrakerRequestTrackerTestAccess {
+  public:
+    static void inject_request(MoonrakerRequestTracker& tracker, RequestId id,
+                               PendingRequest request) {
+        std::lock_guard<std::mutex> lock(tracker.requests_mutex_);
+        tracker.pending_requests_[id] = std::move(request);
+    }
+};
+
 namespace {
 
 /// Capture harness passed as the emit_event lambda — records any events emitted
@@ -66,7 +77,7 @@ TEST_CASE("check_timeouts suppresses REQUEST_TIMEOUT event for silent requests",
     EventCapture capture;
     auto err_fired = std::make_shared<std::atomic<bool>>(false);
 
-    tracker.inject_request_for_testing(
+    MoonrakerRequestTrackerTestAccess::inject_request(tracker,
         /*id=*/42, make_timed_out_request("printer.gcode.script", /*silent=*/true, err_fired));
 
     tracker.check_timeouts(capture.as_lambda());
@@ -90,7 +101,7 @@ TEST_CASE("check_timeouts still emits REQUEST_TIMEOUT for non-silent requests",
     EventCapture capture;
     auto err_fired = std::make_shared<std::atomic<bool>>(false);
 
-    tracker.inject_request_for_testing(
+    MoonrakerRequestTrackerTestAccess::inject_request(tracker,
         /*id=*/7, make_timed_out_request("printer.objects.query", /*silent=*/false, err_fired));
 
     tracker.check_timeouts(capture.as_lambda());
@@ -118,9 +129,9 @@ TEST_CASE("check_timeouts handles a mix of silent and non-silent timeouts in one
     auto silent_fired = std::make_shared<std::atomic<bool>>(false);
     auto loud_fired = std::make_shared<std::atomic<bool>>(false);
 
-    tracker.inject_request_for_testing(
+    MoonrakerRequestTrackerTestAccess::inject_request(tracker,
         /*id=*/1, make_timed_out_request("silent.op", /*silent=*/true, silent_fired));
-    tracker.inject_request_for_testing(
+    MoonrakerRequestTrackerTestAccess::inject_request(tracker,
         /*id=*/2, make_timed_out_request("loud.op", /*silent=*/false, loud_fired));
 
     tracker.check_timeouts(capture.as_lambda());

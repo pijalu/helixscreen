@@ -20,6 +20,8 @@ namespace hv {
 class WebSocketClient;
 }
 
+class MoonrakerRequestTrackerTestAccess;
+
 namespace helix {
 
 using ::json;
@@ -134,22 +136,13 @@ class MoonrakerRequestTracker {
     /// Default timeout for Moonraker requests (tool changes, moves, etc.)
     static constexpr uint32_t DEFAULT_REQUEST_TIMEOUT_MS = 60000; // 60s
 
-    /**
-     * @brief Test-only: directly inject a PendingRequest so unit tests can exercise
-     * check_timeouts() / cleanup_all() without needing a real WebSocket.
-     *
-     * Not for production use. The request map is otherwise only populated via send().
-     */
-    void inject_request_for_testing(RequestId id, PendingRequest request) {
-        std::lock_guard<std::mutex> lock(requests_mutex_);
-        pending_requests_[id] = std::move(request);
-    }
-
   private:
     std::map<uint64_t, PendingRequest> pending_requests_;
     std::mutex requests_mutex_;
     std::atomic_uint64_t request_id_{0};
     uint32_t default_request_timeout_ms_{DEFAULT_REQUEST_TIMEOUT_MS};
+
+    friend class ::MoonrakerRequestTrackerTestAccess;
 };
 
 } // namespace helix

@@ -30,6 +30,7 @@
 // Forward declarations
 class MoonrakerAPI;
 struct MoonrakerError;
+class PrintExcludeObjectManagerTestAccess;
 namespace helix {
 class PrinterState;
 }
@@ -160,32 +161,6 @@ class PrintExcludeObjectManager {
     }
 
     /**
-     * @brief Test-only: inject an object into the awaiting-confirmation set.
-     *
-     * Exists so tests can exercise the status-arrival confirmation path without
-     * having to drive the full modal → undo timer → RPC dispatch flow.
-     */
-    void add_awaiting_confirmation_for_testing(const std::string& name) {
-        awaiting_confirmation_.insert(name);
-    }
-
-    /** @brief Test-only: check whether an object is still waiting for status confirmation. */
-    bool is_awaiting_confirmation_for_testing(const std::string& name) const {
-        return awaiting_confirmation_.count(name) > 0;
-    }
-
-    /**
-     * @brief Test-only: run the RPC error-handling branch directly.
-     *
-     * Extracted so tests can cover TIMEOUT-vs-other-error branching without driving
-     * the full modal → undo-timer → RPC dispatch flow. Equivalent to what the error
-     * lambda in `exclude_undo_timer_cb` does.
-     */
-    void handle_rpc_error_for_testing(const std::string& object_name, const MoonrakerError& err) {
-        on_exclude_rpc_error(object_name, err);
-    }
-
-    /**
      * @brief Clear excluded objects state
      *
      * Called when a new print starts to reset the exclusion state.
@@ -298,9 +273,11 @@ class PrintExcludeObjectManager {
      * TIMEOUT errors are advisory (log, keep optimistic visual, keep awaiting entry —
      * Klipper may still run the queued gcode). Other error types revert the visual,
      * clear awaiting, and toast the user. Invoked from the error lambda in
-     * `exclude_undo_timer_cb` and from `handle_rpc_error_for_testing`.
+     * `exclude_undo_timer_cb`.
      */
     void on_exclude_rpc_error(const std::string& object_name, const MoonrakerError& err);
+
+    friend class ::PrintExcludeObjectManagerTestAccess;
 
     //
     // === Static Callbacks ===
