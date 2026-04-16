@@ -2,6 +2,7 @@
 
 #pragma once
 
+#include "async_lifetime_guard.h"
 #include "lvgl/lvgl.h"
 
 #include <functional>
@@ -126,6 +127,11 @@ class GridEditMode {
     void remove_selected_widget();
     void configure_selected_widget();
 
+    /// Defer rebuild_cb_ + lv_indev_reset to the next lv_timer_handler tick
+    /// via lv_async_call, so that lv_obj_clean runs outside indev_proc_release.
+    /// @param post_rebuild  Optional work to run after the rebuild completes
+    void schedule_deferred_rebuild(std::function<void()> post_rebuild = nullptr);
+
     /// Find the config entry index for a given container child widget.
     /// Returns -1 if not found.
     int find_config_index_for_widget(lv_obj_t* widget) const;
@@ -198,6 +204,11 @@ class GridEditMode {
     // Set while the widget catalog overlay is open to prevent
     // on_deactivate → exit() from killing edit mode state.
     bool catalog_open_ = false;
+
+    // Guards deferred lv_async_call callbacks scheduled by schedule_deferred_rebuild().
+    // Destructor expires all tokens so callbacks become no-ops if GridEditMode
+    // (and its owning HomePanel) is destroyed during switch_printer teardown.
+    helix::AsyncLifetimeGuard lifetime_;
 };
 
 } // namespace helix

@@ -52,6 +52,7 @@ LVGL_PATCHED_FILES := \
 	src/core/lv_obj_pos.c \
 	src/core/lv_obj_tree.c \
 	src/core/lv_obj.c \
+	src/core/lv_obj_style.c \
 	src/draw/sw/lv_draw_sw.c \
 	lv_conf_template.h
 
@@ -210,6 +211,17 @@ $(PATCHES_STAMP): $(PATCH_FILES) $(LVGL_HEAD) $(LIBHV_HEAD)
 		echo "$(GREEN)✓ Observer remove NULL guard patch applied$(RESET)"; \
 	else \
 		echo "$(GREEN)✓ LVGL observer remove NULL guard patch already applied$(RESET)"; \
+	fi
+	$(Q)if ! grep -q 'lv_subject_set_int: subject is NULL' $(LVGL_DIR)/src/core/lv_observer.c 2>/dev/null; then \
+		echo "$(YELLOW)→ Applying LVGL observer subject NULL guards patch...$(RESET)"; \
+		if git -C $(LVGL_DIR) apply --check ../../patches/lvgl_observer_null_guards.patch 2>/dev/null; then \
+			git -C $(LVGL_DIR) apply ../../patches/lvgl_observer_null_guards.patch && \
+			echo "$(GREEN)✓ Observer subject NULL guards patch applied$(RESET)"; \
+		else \
+			echo "$(YELLOW)⚠ Cannot apply patch (already applied or conflicts)$(RESET)"; \
+		fi \
+	else \
+		echo "$(GREEN)✓ LVGL observer subject NULL guards patch already applied$(RESET)"; \
 	fi
 	$(Q)if git -C $(LVGL_DIR) diff --quiet src/widgets/slider/lv_slider.c 2>/dev/null; then \
 		echo "$(YELLOW)→ Applying LVGL slider scroll chain patch...$(RESET)"; \
@@ -478,6 +490,13 @@ $(PATCHES_STAMP): $(PATCH_FILES) $(LVGL_HEAD) $(LIBHV_HEAD)
 		fi \
 	else \
 		echo "$(GREEN)✓ LVGL event crash-diagnostic hook patch already applied$(RESET)"; \
+	fi
+	$(Q)if git -C $(LVGL_DIR) apply --check ../../patches/lvgl_style_null_guards.patch 2>/dev/null; then \
+		echo "$(YELLOW)→ Applying LVGL style NULL guards patch (null style pointers in transitions/cache)...$(RESET)"; \
+		git -C $(LVGL_DIR) apply ../../patches/lvgl_style_null_guards.patch && \
+		echo "$(GREEN)✓ Style NULL guards patch applied$(RESET)"; \
+	else \
+		echo "$(GREEN)✓ LVGL style NULL guards patch already applied$(RESET)"; \
 	fi
 	$(ECHO) "$(CYAN)Checking libhv patches...$(RESET)"
 	$(Q)if git -C $(LIBHV_DIR) diff --quiet Makefile.in 2>/dev/null; then \

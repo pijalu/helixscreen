@@ -128,21 +128,13 @@ void GridEditMode::exit() {
     if (config_) {
         config_->save();
     }
-    // Rebuild widgets to restore normal click behavior (the dots overlay
-    // absorbed all events during edit mode; rebuild creates fresh widgets).
-    // The rebuild's lv_obj_clean(container) destroys all overlay objects.
-    if (rebuild_cb_) {
-        rebuild_cb_();
-    }
-    // Reset input device to clear stale object pointers held by LVGL's
-    // indev processing — the rebuild (lv_obj_clean) destroyed tracked objects.
-    lv_indev_t* indev = lv_indev_active();
-    if (indev) {
-        lv_indev_reset(indev, nullptr);
-    }
-    if (save_cb_) {
-        save_cb_();
-    }
+    // Defer the rebuild to the next timer tick so lv_obj_clean runs outside
+    // indev_proc_release — synchronous deletion during input processing
+    // corrupts LVGL's child list iteration (#814).
+    auto save = save_cb_;
+    schedule_deferred_rebuild([save]() {
+        if (save) save();
+    });
 
     container_ = nullptr;
     config_ = nullptr;
@@ -618,6 +610,40 @@ void GridEditMode::sync_config_from_screen() {
     }
 }
 
+void GridEditMode::schedule_deferred_rebuild(std::function<void()> post_rebuild) {
+    if (!rebuild_cb_) {
+        if (post_rebuild) post_rebuild();
+        return;
+    }
+    // Heap-allocate the callbacks so lv_async_call can carry them as void*.
+    // The deferred execution runs on the next lv_timer_handler tick, safely
+    // outside any indev_proc_release call stack (#814).
+    // The LifetimeToken ensures the callback is a no-op if GridEditMode is
+    // destroyed before the async call fires (e.g., switch_printer teardown).
+    struct Ctx {
+        helix::LifetimeToken tok;
+        RebuildCallback rebuild;
+        std::function<void()> post;
+    };
+    auto* ctx = new Ctx{lifetime_.token(), rebuild_cb_, std::move(post_rebuild)};
+    lv_async_call(
+        [](void* data) {
+            auto* c = static_cast<Ctx*>(data);
+            if (c->tok.expired()) {
+                delete c;
+                return;
+            }
+            c->rebuild();
+            lv_indev_t* indev = lv_indev_active();
+            if (indev) {
+                lv_indev_reset(indev, nullptr);
+            }
+            if (c->post) c->post();
+            delete c;
+        },
+        ctx);
+}
+
 void GridEditMode::remove_selected_widget() {
     if (!selected_ || !config_) {
         spdlog::warn("[GridEditMode] remove_selected_widget: no selection or config");
@@ -653,23 +679,13 @@ void GridEditMode::remove_selected_widget() {
     delete_page_btn_ = nullptr;
     dots_overlay_ = nullptr;
 
-    // Save config and trigger rebuild
+    // Save config and defer rebuild to next timer tick (#814)
     config_->save();
-    if (rebuild_cb_) {
-        rebuild_cb_();
-    }
-    // Reset input device to clear stale object pointers held by LVGL's
-    // indev processing — the rebuild (lv_obj_clean) destroyed tracked objects.
-    {
-        lv_indev_t* indev = lv_indev_active();
-        if (indev) {
-            lv_indev_reset(indev, nullptr);
+    schedule_deferred_rebuild([this]() {
+        if (active_) {
+            create_dots_overlay();
         }
-    }
-    // Recreate dots overlay (rebuild destroyed all container children)
-    if (active_) {
-        create_dots_overlay();
-    }
+    });
 }
 
 void GridEditMode::configure_selected_widget() {
@@ -700,31 +716,22 @@ void GridEditMode::configure_selected_widget() {
     configure_btn_ = nullptr;
     remove_btn_ = nullptr;
 
-    if (rebuild_cb_) {
-        rebuild_cb_();
-    }
-    // Reset input device to clear stale object pointers held by LVGL's
-    // indev processing — the rebuild (lv_obj_clean) destroyed tracked objects.
-    {
-        lv_indev_t* indev = lv_indev_active();
-        if (indev) {
-            lv_indev_reset(indev, nullptr);
-        }
-    }
-    if (active_ && container_) {
-        disable_widget_clicks_recursive(container_);
-        create_dots_overlay();
+    schedule_deferred_rebuild([this, widget_id]() {
+        if (active_ && container_) {
+            disable_widget_clicks_recursive(container_);
+            create_dots_overlay();
 
-        // Re-select the widget by finding it in the rebuilt container.
-        // Force layout first so the widget has valid screen coordinates.
-        if (!widget_id.empty()) {
-            lv_obj_update_layout(container_);
-            lv_obj_t* new_widget = lv_obj_find_by_name(container_, widget_id.c_str());
-            if (new_widget) {
-                select_widget(new_widget);
+            // Re-select the widget by finding it in the rebuilt container.
+            // Force layout first so the widget has valid screen coordinates.
+            if (!widget_id.empty()) {
+                lv_obj_update_layout(container_);
+                lv_obj_t* new_widget = lv_obj_find_by_name(container_, widget_id.c_str());
+                if (new_widget) {
+                    select_widget(new_widget);
+                }
             }
         }
-    }
+    });
 }
 
 // ---------------------------------------------------------------------------
@@ -1414,39 +1421,29 @@ void GridEditMode::handle_drag_end(lv_event_t* /*e*/) {
         delete_page_btn_ = nullptr;
         dots_overlay_ = nullptr;
         config_->save();
-        spdlog::debug("[GridEditMode] Config saved, rebuilding widgets...");
-        if (rebuild_cb_) {
-            rebuild_cb_();
-        }
-        // Reset input device to clear stale object pointers held by LVGL's
-        // indev processing — the rebuild (lv_obj_clean) destroyed tracked objects.
-        {
-            lv_indev_t* indev = lv_indev_active();
-            if (indev) {
-                lv_indev_reset(indev, nullptr);
+        spdlog::debug("[GridEditMode] Config saved, scheduling deferred rebuild...");
+        schedule_deferred_rebuild([this, moved_id]() {
+            spdlog::debug("[GridEditMode] Rebuild complete, recreating dots overlay");
+            if (active_) {
+                create_dots_overlay();
             }
-        }
-        spdlog::debug("[GridEditMode] Rebuild complete, recreating dots overlay");
-        // Recreate dots overlay (rebuild destroyed all container children)
-        if (active_) {
-            create_dots_overlay();
-        }
-        // Re-select the moved widget after rebuild (layout must be
-        // recalculated first so widget coords are valid for chrome placement)
-        if (container_) {
-            lv_obj_update_layout(container_);
-            for (uint32_t i = 0; i < lv_obj_get_child_count(container_); ++i) {
-                lv_obj_t* child = lv_obj_get_child(container_, static_cast<int32_t>(i));
-                if (!child) {
-                    continue;
-                }
-                const char* cname = lv_obj_get_name(child);
-                if (cname && moved_id == cname) {
-                    select_widget(child);
-                    break;
+            // Re-select the moved widget after rebuild (layout must be
+            // recalculated first so widget coords are valid for chrome placement)
+            if (container_) {
+                lv_obj_update_layout(container_);
+                for (uint32_t i = 0; i < lv_obj_get_child_count(container_); ++i) {
+                    lv_obj_t* child = lv_obj_get_child(container_, static_cast<int32_t>(i));
+                    if (!child) {
+                        continue;
+                    }
+                    const char* cname = lv_obj_get_name(child);
+                    if (cname && moved_id == cname) {
+                        select_widget(child);
+                        break;
+                    }
                 }
             }
-        }
+        });
     } else {
         // Re-select to show chrome again (widget snaps back via grid layout)
         selected_ = nullptr;
@@ -1834,35 +1831,28 @@ void GridEditMode::commit_resize_with_snap(const ResizeResult& result) {
         dots_overlay_ = nullptr;
         snap_preview_ = nullptr;
         config_->save();
-        if (rebuild_cb_) {
-            rebuild_cb_();
-        }
-        // Reset input device to clear stale object pointers held by LVGL's
-        // indev processing — the rebuild (lv_obj_clean) destroyed tracked objects.
-        lv_indev_t* indev = lv_indev_active();
-        if (indev) {
-            lv_indev_reset(indev, nullptr);
-        }
-        if (active_ && container_) {
-            create_dots_overlay();
-        }
-        // Re-select the resized widget after rebuild (layout must be
-        // recalculated first so widget coords are valid for chrome placement)
-        if (!container_) {
-            return;
-        }
-        lv_obj_update_layout(container_);
-        for (uint32_t i = 0; i < lv_obj_get_child_count(container_); ++i) {
-            lv_obj_t* child = lv_obj_get_child(container_, static_cast<int32_t>(i));
-            if (!child) {
-                continue;
+        schedule_deferred_rebuild([this, resized_id]() {
+            if (active_ && container_) {
+                create_dots_overlay();
             }
-            const char* cname = lv_obj_get_name(child);
-            if (cname && resized_id == cname) {
-                select_widget(child);
-                break;
+            // Re-select the resized widget after rebuild (layout must be
+            // recalculated first so widget coords are valid for chrome placement)
+            if (!container_) {
+                return;
             }
-        }
+            lv_obj_update_layout(container_);
+            for (uint32_t i = 0; i < lv_obj_get_child_count(container_); ++i) {
+                lv_obj_t* child = lv_obj_get_child(container_, static_cast<int32_t>(i));
+                if (!child) {
+                    continue;
+                }
+                const char* cname = lv_obj_get_name(child);
+                if (cname && resized_id == cname) {
+                    select_widget(child);
+                    break;
+                }
+            }
+        });
     };
 
     // Animate preview to final grid position, then rebuild on completion.
@@ -1922,35 +1912,28 @@ void GridEditMode::commit_resize_with_snap(const ResizeResult& result) {
             self->dots_overlay_ = nullptr;
             self->snap_preview_ = nullptr;
             self->config_->save();
-            if (self->rebuild_cb_) {
-                self->rebuild_cb_();
-            }
-            // Reset input device to clear stale object pointers held by LVGL's
-            // indev processing — the rebuild (lv_obj_clean) destroyed tracked objects.
-            lv_indev_t* indev = lv_indev_active();
-            if (indev) {
-                lv_indev_reset(indev, nullptr);
-            }
-            if (self->active_ && self->container_) {
-                self->create_dots_overlay();
-            }
-            // Re-select the resized widget after rebuild (layout must be
-            // recalculated first so widget coords are valid for chrome placement)
-            if (!self->container_) {
-                return;
-            }
-            lv_obj_update_layout(self->container_);
-            for (uint32_t i = 0; i < lv_obj_get_child_count(self->container_); ++i) {
-                lv_obj_t* child = lv_obj_get_child(self->container_, static_cast<int32_t>(i));
-                if (!child) {
-                    continue;
+            self->schedule_deferred_rebuild([self, rid]() {
+                if (self->active_ && self->container_) {
+                    self->create_dots_overlay();
                 }
-                const char* cname = lv_obj_get_name(child);
-                if (cname && rid == cname) {
-                    self->select_widget(child);
-                    break;
+                // Re-select the resized widget after rebuild
+                if (!self->container_) {
+                    return;
                 }
-            }
+                lv_obj_update_layout(self->container_);
+                for (uint32_t i = 0; i < lv_obj_get_child_count(self->container_); ++i) {
+                    lv_obj_t* child =
+                        lv_obj_get_child(self->container_, static_cast<int32_t>(i));
+                    if (!child) {
+                        continue;
+                    }
+                    const char* cname = lv_obj_get_name(child);
+                    if (cname && rid == cname) {
+                        self->select_widget(child);
+                        break;
+                    }
+                }
+            });
         });
         lv_anim_start(&anim);
 
@@ -2431,31 +2414,21 @@ void GridEditMode::place_widget_from_catalog(const std::string& widget_id) {
     delete_page_btn_ = nullptr;
     dots_overlay_ = nullptr;
     config_->save();
-    if (rebuild_cb_) {
-        rebuild_cb_();
-    }
-    // Recreate dots overlay (rebuild destroys all container children)
-    if (active_ && container_) {
-        create_dots_overlay();
-    }
-
-    // Select the newly added widget so its chrome is visible immediately.
-    // Force layout update first — the widget was just created by rebuild_cb_()
-    // so LVGL hasn't calculated its position yet (coordinates would be 0,0).
-    if (active_ && container_) {
-        lv_obj_update_layout(container_);
-        lv_obj_t* new_widget = lv_obj_find_by_name(container_, widget_id.c_str());
-        if (new_widget) {
-            select_widget(new_widget);
+    schedule_deferred_rebuild([this, widget_id]() {
+        if (active_ && container_) {
+            create_dots_overlay();
         }
-    }
-
-    // Reset input device AFTER all UI changes complete — the rebuild
-    // (lv_obj_clean) destroyed tracked objects held by LVGL's indev processing.
-    lv_indev_t* indev = lv_indev_active();
-    if (indev) {
-        lv_indev_reset(indev, nullptr);
-    }
+        // Select the newly added widget so its chrome is visible immediately.
+        // Force layout update first — the widget was just created by the rebuild
+        // so LVGL hasn't calculated its position yet (coordinates would be 0,0).
+        if (active_ && container_) {
+            lv_obj_update_layout(container_);
+            lv_obj_t* new_widget = lv_obj_find_by_name(container_, widget_id.c_str());
+            if (new_widget) {
+                select_widget(new_widget);
+            }
+        }
+    });
 }
 
 } // namespace helix

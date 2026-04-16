@@ -1,38 +1,45 @@
 diff --git a/src/core/lv_observer.c b/src/core/lv_observer.c
-index 033deb328..279032992 100644
+index d7c7214..a424cfa 100644
 --- a/src/core/lv_observer.c
 +++ b/src/core/lv_observer.c
-@@ -117,8 +117,13 @@ void lv_subject_init_int(lv_subject_t * subject, int32_t value)
+@@ -14,6 +14,10 @@
+ #include "../core/lv_obj_private.h"
+ #include "../misc/lv_event_private.h"
+ 
++/* Telemetry hook provided by helix_lvgl_anomaly.cpp — reports LVGL anomalies
++ * with backtrace + device context for remote crash diagnostics. */
++extern void helix_lvgl_anomaly(const char * code, const char * context);
++
+ /*********************
+  *      DEFINES
+  *********************/
+@@ -117,6 +121,12 @@ void lv_subject_init_int(lv_subject_t * subject, int32_t value)
  
  void lv_subject_set_int(lv_subject_t * subject, int32_t value)
  {
 +    if(subject == NULL) {
 +        LV_LOG_WARN("lv_subject_set_int: subject is NULL");
++        helix_lvgl_anomaly("observer_null_subject", "lv_subject_set_int: subject is NULL");
 +        return;
 +    }
 +
      if(subject->type != LV_SUBJECT_TYPE_INT) {
--        LV_LOG_WARN("Subject type is not LV_SUBJECT_TYPE_INT");
-+        LV_LOG_WARN("Subject type is not LV_SUBJECT_TYPE_INT (ptr=%p, type=%d)", (void*)subject, subject->type);
+         LV_LOG_WARN("Subject type is not LV_SUBJECT_TYPE_INT (ptr=%p, type=%d)", (void*)subject, subject->type);
          return;
-     }
- 
-@@ -131,8 +136,13 @@ void lv_subject_set_int(lv_subject_t * subject, int32_t value)
+@@ -131,6 +141,12 @@ void lv_subject_set_int(lv_subject_t * subject, int32_t value)
  
  int32_t lv_subject_get_int(lv_subject_t * subject)
  {
 +    if(subject == NULL) {
 +        LV_LOG_WARN("lv_subject_get_int: subject is NULL");
++        helix_lvgl_anomaly("observer_null_subject", "lv_subject_get_int: subject is NULL");
 +        return 0;
 +    }
 +
      if(subject->type != LV_SUBJECT_TYPE_INT) {
--        LV_LOG_WARN("Subject type is not LV_SUBJECT_TYPE_INT");
-+        LV_LOG_WARN("Subject type is not LV_SUBJECT_TYPE_INT (ptr=%p, type=%d)", (void*)subject, subject->type);
+         LV_LOG_WARN("Subject type is not LV_SUBJECT_TYPE_INT (ptr=%p, type=%d)", (void*)subject, subject->type);
          return 0;
-     }
- 
-@@ -141,8 +151,13 @@ int32_t lv_subject_get_int(lv_subject_t * subject)
+@@ -141,6 +157,11 @@ int32_t lv_subject_get_int(lv_subject_t * subject)
  
  int32_t lv_subject_get_previous_int(lv_subject_t * subject)
  {
@@ -42,116 +49,46 @@ index 033deb328..279032992 100644
 +    }
 +
      if(subject->type != LV_SUBJECT_TYPE_INT) {
--        LV_LOG_WARN("Subject type is not LV_SUBJECT_TYPE_INT");
-+        LV_LOG_WARN("Subject type is not LV_SUBJECT_TYPE_INT (ptr=%p, type=%d)", (void*)subject, subject->type);
+         LV_LOG_WARN("Subject type is not LV_SUBJECT_TYPE_INT (ptr=%p, type=%d)", (void*)subject, subject->type);
          return 0;
-     }
- 
-@@ -152,7 +167,7 @@ int32_t lv_subject_get_previous_int(lv_subject_t * subject)
- void lv_subject_set_min_value_int(lv_subject_t * subject, int32_t min_value)
- {
-     if(subject->type != LV_SUBJECT_TYPE_INT) {
--        LV_LOG_WARN("Subject type is not LV_SUBJECT_TYPE_INT");
-+        LV_LOG_WARN("Subject type is not LV_SUBJECT_TYPE_INT (ptr=%p, type=%d)", (void*)subject, subject->type);
-         return;
-     }
- 
-@@ -162,7 +177,7 @@ void lv_subject_set_min_value_int(lv_subject_t * subject, int32_t min_value)
- void lv_subject_set_max_value_int(lv_subject_t * subject, int32_t max_value)
- {
-     if(subject->type != LV_SUBJECT_TYPE_INT) {
--        LV_LOG_WARN("Subject type is not LV_SUBJECT_TYPE_INT");
-+        LV_LOG_WARN("Subject type is not LV_SUBJECT_TYPE_INT (ptr=%p, type=%d)", (void*)subject, subject->type);
-         return;
-     }
- 
-@@ -185,7 +200,7 @@ void lv_subject_init_float(lv_subject_t * subject, float value)
- void lv_subject_set_float(lv_subject_t * subject, float value)
- {
-     if(subject->type != LV_SUBJECT_TYPE_FLOAT) {
--        LV_LOG_WARN("Subject type is not LV_SUBJECT_TYPE_FLOAT");
-+        LV_LOG_WARN("Subject type is not LV_SUBJECT_TYPE_FLOAT (ptr=%p, type=%d)", (void*)subject, subject->type);
-         return;
-     }
- 
-@@ -199,7 +214,7 @@ void lv_subject_set_float(lv_subject_t * subject, float value)
- float lv_subject_get_float(lv_subject_t * subject)
- {
-     if(subject->type != LV_SUBJECT_TYPE_FLOAT) {
--        LV_LOG_WARN("Subject type is not LV_SUBJECT_TYPE_FLOAT");
-+        LV_LOG_WARN("Subject type is not LV_SUBJECT_TYPE_FLOAT (ptr=%p, type=%d)", (void*)subject, subject->type);
-         return 0;
-     }
- 
-@@ -209,7 +224,7 @@ float lv_subject_get_float(lv_subject_t * subject)
- float lv_subject_get_previous_float(lv_subject_t * subject)
- {
-     if(subject->type != LV_SUBJECT_TYPE_FLOAT) {
--        LV_LOG_WARN("Subject type is not LV_SUBJECT_TYPE_FLOAT");
-+        LV_LOG_WARN("Subject type is not LV_SUBJECT_TYPE_FLOAT (ptr=%p, type=%d)", (void*)subject, subject->type);
-         return 0;
-     }
- 
-@@ -219,7 +234,7 @@ float lv_subject_get_previous_float(lv_subject_t * subject)
- void lv_subject_set_min_value_float(lv_subject_t * subject, float min_value)
- {
-     if(subject->type != LV_SUBJECT_TYPE_FLOAT) {
--        LV_LOG_WARN("Subject type is not LV_SUBJECT_TYPE_FLOAT");
-+        LV_LOG_WARN("Subject type is not LV_SUBJECT_TYPE_FLOAT (ptr=%p, type=%d)", (void*)subject, subject->type);
-         return;
-     }
- 
-@@ -229,7 +244,7 @@ void lv_subject_set_min_value_float(lv_subject_t * subject, float min_value)
- void lv_subject_set_max_value_float(lv_subject_t * subject, float max_value)
- {
-     if(subject->type != LV_SUBJECT_TYPE_FLOAT) {
--        LV_LOG_WARN("Subject type is not LV_SUBJECT_TYPE_FLOAT");
-+        LV_LOG_WARN("Subject type is not LV_SUBJECT_TYPE_FLOAT (ptr=%p, type=%d)", (void*)subject, subject->type);
-         return;
-     }
- 
-@@ -255,8 +270,13 @@ void lv_subject_init_string(lv_subject_t * subject, char * buf, char * prev_buf,
+@@ -255,6 +276,12 @@ void lv_subject_init_string(lv_subject_t * subject, char * buf, char * prev_buf,
  
  void lv_subject_copy_string(lv_subject_t * subject, const char * buf)
  {
 +    if(subject == NULL) {
 +        LV_LOG_WARN("lv_subject_copy_string: subject is NULL");
++        helix_lvgl_anomaly("observer_null_subject", "lv_subject_copy_string: subject is NULL");
 +        return;
 +    }
 +
      if(subject->type != LV_SUBJECT_TYPE_STRING) {
--        LV_LOG_WARN("Subject type is not LV_SUBJECT_TYPE_STRING");
-+        LV_LOG_WARN("Subject type is not LV_SUBJECT_TYPE_STRING (ptr=%p, type=%d)", (void*)subject, subject->type);
+         LV_LOG_WARN("Subject type is not LV_SUBJECT_TYPE_STRING (ptr=%p, type=%d)", (void*)subject, subject->type);
          return;
-     }
- 
-@@ -272,8 +292,13 @@ void lv_subject_copy_string(lv_subject_t * subject, const char * buf)
+@@ -272,6 +299,12 @@ void lv_subject_copy_string(lv_subject_t * subject, const char * buf)
  
  void lv_subject_snprintf(lv_subject_t * subject, const char * format, ...)
  {
 +    if(subject == NULL) {
 +        LV_LOG_WARN("lv_subject_snprintf: subject is NULL");
++        helix_lvgl_anomaly("observer_null_subject", "lv_subject_snprintf: subject is NULL");
 +        return;
 +    }
 +
      if(subject->type != LV_SUBJECT_TYPE_STRING) {
--        LV_LOG_WARN("Subject type is not LV_SUBJECT_TYPE_STRING");
-+        LV_LOG_WARN("Subject type is not LV_SUBJECT_TYPE_STRING (ptr=%p, type=%d)", (void*)subject, subject->type);
+         LV_LOG_WARN("Subject type is not LV_SUBJECT_TYPE_STRING (ptr=%p, type=%d)", (void*)subject, subject->type);
          return;
-     }
- 
-@@ -294,22 +319,32 @@ void lv_subject_snprintf(lv_subject_t * subject, const char * format, ...)
+@@ -294,22 +327,33 @@ void lv_subject_snprintf(lv_subject_t * subject, const char * format, ...)
  
  const char * lv_subject_get_string(lv_subject_t * subject)
  {
 +    if(subject == NULL) {
 +        LV_LOG_WARN("lv_subject_get_string: subject is NULL");
++        helix_lvgl_anomaly("observer_null_subject", "lv_subject_get_string: subject is NULL");
 +        return "";
 +    }
 +
      if(subject->type != LV_SUBJECT_TYPE_STRING) {
--        LV_LOG_WARN("Subject type is not LV_SUBJECT_TYPE_STRING");
-+        LV_LOG_WARN("Subject type is not LV_SUBJECT_TYPE_STRING (ptr=%p, type=%d)", (void*)subject, subject->type);
+         LV_LOG_WARN("Subject type is not LV_SUBJECT_TYPE_STRING (ptr=%p, type=%d)", (void*)subject, subject->type);
          return "";
      }
  
@@ -167,9 +104,8 @@ index 033deb328..279032992 100644
 +    }
 +
      if(subject->type != LV_SUBJECT_TYPE_STRING) {
--        LV_LOG_WARN("Subject type is not LV_SUBJECT_TYPE_STRING");
+         LV_LOG_WARN("Subject type is not LV_SUBJECT_TYPE_STRING (ptr=%p, type=%d)", (void*)subject, subject->type);
 -        return NULL;
-+        LV_LOG_WARN("Subject type is not LV_SUBJECT_TYPE_STRING (ptr=%p, type=%d)", (void*)subject, subject->type);
 +        return "";
      }
  
@@ -178,130 +114,61 @@ index 033deb328..279032992 100644
  }
  
  void lv_subject_init_pointer(lv_subject_t * subject, void * value)
-@@ -324,7 +359,7 @@ void lv_subject_init_pointer(lv_subject_t * subject, void * value)
- void lv_subject_set_pointer(lv_subject_t * subject, void * ptr)
- {
-     if(subject->type != LV_SUBJECT_TYPE_POINTER) {
--        LV_LOG_WARN("Subject type is not LV_SUBJECT_TYPE_POINTER");
-+        LV_LOG_WARN("Subject type is not LV_SUBJECT_TYPE_POINTER (ptr=%p, type=%d)", (void*)subject, subject->type);
-         return;
-     }
- 
-@@ -336,7 +371,7 @@ void lv_subject_set_pointer(lv_subject_t * subject, void * ptr)
- const void * lv_subject_get_pointer(lv_subject_t * subject)
- {
-     if(subject->type != LV_SUBJECT_TYPE_POINTER) {
--        LV_LOG_WARN("Subject type is not LV_SUBJECT_TYPE_POINTER");
-+        LV_LOG_WARN("Subject type is not LV_SUBJECT_TYPE_POINTER (ptr=%p, type=%d)", (void*)subject, subject->type);
-         return NULL;
-     }
- 
-@@ -346,7 +381,7 @@ const void * lv_subject_get_pointer(lv_subject_t * subject)
- const void * lv_subject_get_previous_pointer(lv_subject_t * subject)
- {
-     if(subject->type != LV_SUBJECT_TYPE_POINTER) {
--        LV_LOG_WARN("Subject type is not LV_SUBJECT_TYPE_POINTER");
-+        LV_LOG_WARN("Subject type is not LV_SUBJECT_TYPE_POINTER (ptr=%p, type=%d)", (void*)subject, subject->type);
-         return NULL;
-     }
- 
-@@ -365,7 +400,7 @@ void lv_subject_init_color(lv_subject_t * subject, lv_color_t color)
- void lv_subject_set_color(lv_subject_t * subject, lv_color_t color)
- {
-     if(subject->type != LV_SUBJECT_TYPE_COLOR) {
--        LV_LOG_WARN("Subject type is not LV_SUBJECT_TYPE_COLOR");
-+        LV_LOG_WARN("Subject type is not LV_SUBJECT_TYPE_COLOR (ptr=%p, type=%d)", (void*)subject, subject->type);
-         return;
-     }
- 
-@@ -377,7 +412,7 @@ void lv_subject_set_color(lv_subject_t * subject, lv_color_t color)
- lv_color_t lv_subject_get_color(lv_subject_t * subject)
- {
-     if(subject->type != LV_SUBJECT_TYPE_COLOR) {
--        LV_LOG_WARN("Subject type is not LV_SUBJECT_TYPE_COLOR");
-+        LV_LOG_WARN("Subject type is not LV_SUBJECT_TYPE_COLOR (ptr=%p, type=%d)", (void*)subject, subject->type);
-         return lv_color_black();
-     }
- 
-@@ -387,7 +422,7 @@ lv_color_t lv_subject_get_color(lv_subject_t * subject)
- lv_color_t lv_subject_get_previous_color(lv_subject_t * subject)
- {
-     if(subject->type != LV_SUBJECT_TYPE_COLOR) {
--        LV_LOG_WARN("Subject type is not LV_SUBJECT_TYPE_COLOR");
-+        LV_LOG_WARN("Subject type is not LV_SUBJECT_TYPE_COLOR (ptr=%p, type=%d)", (void*)subject, subject->type);
-         return lv_color_black();
-     }
- 
-@@ -411,6 +446,11 @@ void lv_subject_init_group(lv_subject_t * group_subject, lv_subject_t * list[],
+@@ -411,6 +455,12 @@ void lv_subject_init_group(lv_subject_t * group_subject, lv_subject_t * list[],
  
  void lv_subject_deinit(lv_subject_t * subject)
  {
 +    if(subject == NULL) {
 +        LV_LOG_WARN("lv_subject_deinit: subject is NULL");
++        helix_lvgl_anomaly("observer_null_subject", "lv_subject_deinit: subject is NULL");
 +        return;
 +    }
 +
      lv_observer_t * observer = lv_ll_get_head(&subject->subs_ll);
      while(observer) {
          lv_observer_t * observer_next = lv_ll_get_next(&subject->subs_ll, observer);
-@@ -425,7 +465,7 @@ void lv_subject_deinit(lv_subject_t * subject)
- lv_subject_t * lv_subject_get_group_element(lv_subject_t * subject, int32_t index)
- {
-     if(subject->type != LV_SUBJECT_TYPE_GROUP) {
--        LV_LOG_WARN("Subject type is not LV_SUBJECT_TYPE_GROUP");
-+        LV_LOG_WARN("Subject type is not LV_SUBJECT_TYPE_GROUP (ptr=%p, type=%d)", (void*)subject, subject->type);
-         return NULL;
-     }
- 
-@@ -447,7 +487,10 @@ lv_observer_t * lv_subject_add_observer(lv_subject_t * subject, lv_observer_cb_t
+@@ -447,7 +497,11 @@ lv_observer_t * lv_subject_add_observer(lv_subject_t * subject, lv_observer_cb_t
  lv_observer_t * lv_subject_add_observer_obj(lv_subject_t * subject, lv_observer_cb_t cb, lv_obj_t * obj,
                                              void * user_data)
  {
 -    LV_ASSERT_NULL(subject);
 +    if(subject == NULL) {
 +        LV_LOG_WARN("lv_subject_add_observer_obj: subject is NULL");
++        helix_lvgl_anomaly("observer_null_subject", "lv_subject_add_observer_obj: subject is NULL");
 +        return NULL;
 +    }
      if(subject->type == LV_SUBJECT_TYPE_INVALID) {
          LV_LOG_WARN("Subject not initialized yet");
          return NULL;
-@@ -477,7 +520,10 @@ lv_observer_t * lv_subject_add_observer_obj(lv_subject_t * subject, lv_observer_
+@@ -477,7 +531,11 @@ lv_observer_t * lv_subject_add_observer_obj(lv_subject_t * subject, lv_observer_
  lv_observer_t * lv_subject_add_observer_with_target(lv_subject_t * subject, lv_observer_cb_t cb, void * target,
                                                      void * user_data)
  {
 -    LV_ASSERT_NULL(subject);
 +    if(subject == NULL) {
 +        LV_LOG_WARN("lv_subject_add_observer_with_target: subject is NULL");
++        helix_lvgl_anomaly("observer_null_subject", "lv_subject_add_observer_with_target: subject is NULL");
 +        return NULL;
 +    }
      if(subject->type == LV_SUBJECT_TYPE_INVALID) {
          LV_LOG_WARN("Subject not initialized yet");
          return NULL;
-@@ -509,6 +555,17 @@ void lv_observer_remove(lv_observer_t * observer)
-         lv_obj_remove_event_cb_with_user_data(observer->target, NULL, observer->subject);
-     }
- 
-+    /*Subject may have been freed already (e.g. XML component scope teardown
-+     *before the observing widget's delete event fires). Skip the unlink and
-+     *just free the observer to avoid a NULL dereference.*/
-+    if(!observer->subject) {
-+        if(observer->auto_free_user_data) {
-+            lv_free(observer->user_data);
-+        }
-+        lv_free(observer);
-+        return;
-+    }
-+
-     observer->subject->notify_restart_query = 1;
- 
- #if LV_USE_EXT_DATA
-@@ -564,7 +621,10 @@ void * lv_observer_get_target(lv_observer_t * observer)
+@@ -515,6 +573,7 @@ void lv_observer_remove(lv_observer_t * observer)
+     if(!observer->subject) {
+         LV_LOG_WARN("lv_observer_remove: observer->subject is NULL (observer=%p target=%p)",
+                     (void *)observer, (void *)observer->target);
++        helix_lvgl_anomaly("observer_remove_null_subject", "lv_observer_remove: observer->subject is NULL");
+         if(observer->auto_free_user_data) {
+             lv_free(observer->user_data);
+         }
+@@ -577,7 +636,11 @@ void * lv_observer_get_target(lv_observer_t * observer)
  
  void lv_subject_notify(lv_subject_t * subject)
  {
 -    LV_ASSERT_NULL(subject);
 +    if(subject == NULL) {
 +        LV_LOG_WARN("lv_subject_notify: subject is NULL");
++        helix_lvgl_anomaly("observer_null_subject", "lv_subject_notify: subject is NULL");
 +        return;
 +    }
  
