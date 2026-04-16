@@ -827,6 +827,11 @@ export default {
             executeQuery(queryConfig, queries[8]),  // error categories
             executeQuery(queryConfig, queries[9]),  // error codes
             executeQuery(queryConfig, crashListSql),
+            executeQuery(queryConfig, queries[10]), // display anomaly trend
+            executeQuery(queryConfig, queries[11]), // display anomaly codes
+            executeQuery(queryConfig, queries[12]), // display anomaly by version
+            executeQuery(queryConfig, queries[13]), // recent display anomalies
+            executeQuery(queryConfig, queries[14]), // display affected devices
           ]);
 
           const sessionTimeRes = allResults[0] as { data: Array<{ date: string; session_count: number }> };
@@ -835,6 +840,21 @@ export default {
           const memWarnRes = allResults[3] as { data: Array<{ date: string; count: number }> };
           const errorCatsRes = allResults[4] as { data: Array<{ category: string; count: number }> };
           const errorCodesRes = allResults[5] as { data: Array<{ category: string; code: string; count: number }> };
+          const displayTrendRes = allResults[7] as { data: Array<{ date: string; count: number }> };
+          const displayCodesRes = allResults[8] as { data: Array<{ code: string; count: number }> };
+          const displayByVerRes = allResults[9] as { data: Array<{ version: string; count: number }> };
+          const displayRecentRes = allResults[10] as {
+            data: Array<{
+              timestamp: string;
+              device_id: string;
+              version: string;
+              platform: string;
+              code: string;
+              context: string;
+              uptime_sec: number;
+            }>;
+          };
+          const displayDevicesRes = allResults[11] as { data: Array<{ affected_devices: number }> };
           const crashListRes = allResults[6] as {
             data: Array<{
               timestamp: string;
@@ -935,6 +955,30 @@ export default {
               uptime_sec: r.uptime_sec,
               occurrences: r.occurrences,
             })),
+            display_anomalies: {
+              affected_devices: displayDevicesRes.data?.[0]?.affected_devices ?? 0,
+              trend: (displayTrendRes.data ?? []).map((r) => ({
+                date: r.date,
+                count: r.count,
+              })),
+              by_code: (displayCodesRes.data ?? []).map((r) => ({
+                code: r.code,
+                count: r.count,
+              })),
+              by_version: (displayByVerRes.data ?? []).map((r) => ({
+                version: r.version,
+                count: r.count,
+              })),
+              recent: (displayRecentRes.data ?? []).map((r) => ({
+                timestamp: r.timestamp,
+                device_id: r.device_id,
+                version: r.version,
+                platform: r.platform,
+                code: r.code,
+                context: r.context,
+                uptime_sec: r.uptime_sec,
+              })),
+            },
           });
         }
 

@@ -496,6 +496,16 @@ export function stabilityQueries(days: number, filters?: FilterParams): string[]
     `SELECT blob4 as category, count() as count FROM ${dataset} WHERE timestamp >= NOW() - INTERVAL '${days}' DAY AND index1 = 'error_encountered' AND blob4 != ''${f} GROUP BY category ORDER BY count DESC LIMIT 20`,
     // 9: Error codes detail
     `SELECT blob4 as category, blob5 as code, count() as count FROM ${dataset} WHERE timestamp >= NOW() - INTERVAL '${days}' DAY AND index1 = 'error_encountered' AND blob4 != ''${f} GROUP BY category, code ORDER BY count DESC LIMIT 50`,
+    // 10: Display anomaly count over time (category='display')
+    `SELECT toDate(timestamp) as date, count() as count FROM ${dataset} WHERE timestamp >= NOW() - INTERVAL '${days}' DAY AND index1 = 'error_encountered' AND blob4 = 'display'${f} GROUP BY date ORDER BY date`,
+    // 11: Display anomaly codes breakdown
+    `SELECT blob5 as code, count() as count FROM ${dataset} WHERE timestamp >= NOW() - INTERVAL '${days}' DAY AND index1 = 'error_encountered' AND blob4 = 'display'${f} GROUP BY code ORDER BY count DESC LIMIT 20`,
+    // 12: Display anomaly by version
+    `SELECT blob2 as version, count() as count FROM ${dataset} WHERE timestamp >= NOW() - INTERVAL '${days}' DAY AND index1 = 'error_encountered' AND blob4 = 'display' AND blob2 != ''${f} GROUP BY version ORDER BY count DESC LIMIT 20`,
+    // 13: Recent display anomalies with context (for backtrace inspection)
+    `SELECT timestamp, blob1 as device_id, blob2 as version, blob3 as platform, blob5 as code, blob6 as context, double1 as uptime_sec FROM ${dataset} WHERE timestamp >= NOW() - INTERVAL '${days}' DAY AND index1 = 'error_encountered' AND blob4 = 'display'${f} ORDER BY timestamp DESC LIMIT 50`,
+    // 14: Display anomaly affected devices count
+    `SELECT count(DISTINCT blob1) as affected_devices FROM ${dataset} WHERE timestamp >= NOW() - INTERVAL '${days}' DAY AND index1 = 'error_encountered' AND blob4 = 'display'${f}`,
   ];
 }
 

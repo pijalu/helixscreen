@@ -90,6 +90,88 @@
           </div>
         </div>
 
+        <!-- LVGL Display Anomalies -->
+        <template v-if="data.display_anomalies">
+          <div class="section-divider">
+            <h2>LVGL Display Anomalies</h2>
+            <span class="section-subtitle">Double-schedule, use-after-free near-miss, event chain corruption</span>
+          </div>
+
+          <div class="metrics-row">
+            <MetricCard
+              title="Display Anomalies"
+              :value="totalDisplayAnomalies.toLocaleString()"
+              subtitle="in period"
+              color="#a855f7"
+            />
+            <MetricCard
+              title="Affected Devices"
+              :value="(data.display_anomalies.affected_devices ?? 0).toLocaleString()"
+              subtitle="with anomalies"
+              color="#8b5cf6"
+            />
+            <MetricCard
+              title="Anomaly Codes"
+              :value="(data.display_anomalies.by_code?.length ?? 0).toString()"
+              subtitle="distinct types"
+              color="#7c3aed"
+            />
+            <MetricCard
+              title="Affected Versions"
+              :value="(data.display_anomalies.by_version?.length ?? 0).toString()"
+              subtitle="with anomalies"
+              color="#6d28d9"
+            />
+          </div>
+
+          <div class="chart-section" v-if="displayTrendChartData.labels.length > 0">
+            <h3>Display Anomalies Over Time</h3>
+            <LineChart :data="displayTrendChartData" />
+          </div>
+
+          <div class="grid-2col" v-if="displayCodeChartData.labels.length > 0 || displayVersionChartData.labels.length > 0">
+            <div class="chart-section" v-if="displayCodeChartData.labels.length > 0">
+              <h3>By Anomaly Code</h3>
+              <BarChart :data="displayCodeChartData" :options="horizontalBarOpts" />
+            </div>
+            <div class="chart-section" v-if="displayVersionChartData.labels.length > 0">
+              <h3>By Version</h3>
+              <BarChart :data="displayVersionChartData" :options="horizontalBarOpts" />
+            </div>
+          </div>
+
+          <div class="chart-section">
+            <h3>Recent Display Anomalies</h3>
+            <div v-if="!data.display_anomalies.recent?.length" class="empty-state">No display anomalies found in this period.</div>
+            <div v-else class="table-wrapper">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Time</th>
+                    <th>Version</th>
+                    <th>Platform</th>
+                    <th>Code</th>
+                    <th>Uptime</th>
+                    <th>Device</th>
+                    <th>Context</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="(row, i) in data.display_anomalies.recent" :key="i">
+                    <td class="mono">{{ formatTimestamp(row.timestamp) }}</td>
+                    <td><span class="badge version">{{ row.version || '—' }}</span></td>
+                    <td>{{ row.platform || '—' }}</td>
+                    <td><span class="badge anomaly-code">{{ row.code }}</span></td>
+                    <td class="mono">{{ formatDuration(row.uptime_sec) }}</td>
+                    <td class="mono device-id">{{ shortDeviceId(row.device_id) }}</td>
+                    <td class="mono context-cell" :title="row.context">{{ truncateContext(row.context) }}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </template>
+
         <div class="chart-section">
           <h3>Recent Crashes</h3>
           <div v-if="data.recent_crashes.length === 0" class="empty-state">No crash events found in this period.</div>
@@ -292,6 +374,52 @@ const errorCategoryChartData = computed(() => ({
   }]
 }))
 
+const totalDisplayAnomalies = computed(() =>
+  (data.value?.display_anomalies?.trend ?? []).reduce((sum, d) => sum + d.count, 0)
+)
+
+const displayTrendChartData = computed(() => ({
+  labels: data.value?.display_anomalies?.trend.map(d => d.date) ?? [],
+  datasets: [{
+    label: 'Anomalies',
+    data: data.value?.display_anomalies?.trend.map(d => d.count) ?? [],
+    borderColor: '#a855f7',
+    backgroundColor: 'rgba(168, 85, 247, 0.1)',
+    fill: true,
+    tension: 0.3
+  }]
+}))
+
+const displayCodeChartData = computed(() => ({
+  labels: data.value?.display_anomalies?.by_code.map(c => c.code) ?? [],
+  datasets: [{
+    label: 'Count',
+    data: data.value?.display_anomalies?.by_code.map(c => c.count) ?? [],
+    backgroundColor: '#a855f7'
+  }]
+}))
+
+const displayVersionChartData = computed(() => {
+  const sorted = [...(data.value?.display_anomalies?.by_version ?? [])]
+    .sort((a, b) => compareVersions(a.version, b.version))
+  return {
+    labels: sorted.map(v => v.version),
+    datasets: [{
+      label: 'Count',
+      data: sorted.map(v => v.count),
+      backgroundColor: '#8b5cf6'
+    }]
+  }
+})
+
+function truncateContext(ctx: string): string {
+  if (!ctx) return '—'
+  // Show the descriptive part before the backtrace
+  const btIdx = ctx.indexOf(' | bt=')
+  const display = btIdx >= 0 ? ctx.slice(0, btIdx) : ctx
+  return display.length > 80 ? display.slice(0, 77) + '...' : display
+}
+
 async function fetchData() {
   loading.value = true
   error.value = ''
@@ -474,5 +602,36 @@ watch(() => filters.queryString, fetchData, { immediate: true })
 .badge.occurrences {
   background: rgba(245, 158, 11, 0.15);
   color: #fbbf24;
+}
+
+.badge.anomaly-code {
+  background: rgba(168, 85, 247, 0.15);
+  color: #c084fc;
+}
+
+.section-divider {
+  margin-top: 40px;
+  margin-bottom: 24px;
+  padding-top: 24px;
+  border-top: 1px solid var(--border);
+}
+
+.section-divider h2 {
+  font-size: 20px;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.section-subtitle {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.context-cell {
+  max-width: 300px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 11px;
+  color: var(--text-secondary);
 }
 </style>

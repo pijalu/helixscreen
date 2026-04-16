@@ -117,6 +117,14 @@ export interface ReliabilityData {
   error_codes: { category: string; code: string; count: number }[]
 }
 
+export interface DisplayAnomalyData {
+  affected_devices: number
+  trend: { date: string; count: number }[]
+  by_code: { code: string; count: number }[]
+  by_version: { version: string; count: number }[]
+  recent: { timestamp: string; device_id: string; version: string; platform: string; code: string; context: string; uptime_sec: number }[]
+}
+
 export interface StabilityData {
   crash_rate_trend: { date: string; crashes: number; sessions: number; rate: number }[]
   by_version: { version: string; crash_count: number; session_count: number; rate: number }[]
@@ -127,6 +135,7 @@ export interface StabilityData {
   error_categories: { category: string; count: number }[]
   error_codes: { category: string; code: string; count: number }[]
   recent_crashes: { timestamp: string; device_id: string; version: string; signal: string; platform: string; uptime_sec: number; occurrences: number }[]
+  display_anomalies?: DisplayAnomalyData
 }
 
 export interface PrintStartData {
