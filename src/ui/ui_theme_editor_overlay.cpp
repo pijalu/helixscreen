@@ -271,7 +271,7 @@ void ThemeEditorOverlay::update_property_sliders() {
     if (radius_slider) {
         lv_slider_set_value(radius_slider, editing_theme_.properties.border_radius_size, LV_ANIM_OFF);
         update_slider_value_label("row_border_radius",
-                                  helix::BorderRadiusSizes::name(editing_theme_.properties.border_radius_size));
+                                  lv_tr(helix::BorderRadiusSizes::name(editing_theme_.properties.border_radius_size)));
     }
 
     // Update border width slider
@@ -518,13 +518,22 @@ void ThemeEditorOverlay::handle_back_clicked() {
 // INSTANCE HANDLERS - Slider Property Changes
 // ============================================================================
 
+// Translation hints for border radius size names (dynamic lookup via BorderRadiusSizes::name()).
+// These are never called — they exist so the translation extractor can find the strings.
+// clang-format off
+static void border_radius_translation_hints_() {
+    (void)lv_tr("None"); (void)lv_tr("Minimal"); (void)lv_tr("Subtle"); (void)lv_tr("Soft");
+    (void)lv_tr("Rounded"); (void)lv_tr("Bold"); (void)lv_tr("Pill"); (void)lv_tr("Full");
+}
+// clang-format on
+
 void ThemeEditorOverlay::handle_border_radius_changed(int value) {
     int clamped = std::clamp(value, 0, helix::BorderRadiusSizes::count() - 1);
     editing_theme_.properties.border_radius_size = clamped;
     mark_dirty();
     theme_manager_preview(editing_theme_);
     update_slider_value_label("row_border_radius",
-                              helix::BorderRadiusSizes::name(clamped));
+                              lv_tr(helix::BorderRadiusSizes::name(clamped)));
     spdlog::debug("[{}] Border radius size changed to {} ({})", get_name(), clamped,
                   helix::BorderRadiusSizes::name(clamped));
 }
