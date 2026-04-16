@@ -297,8 +297,8 @@
       <setting_section_header title="STYLE PROPERTIES" title_tag="STYLE PROPERTIES" icon="tune_variant"/>
 
       <setting_slider_row name="row_border_radius"
-                          label="Border Radius" label_tag="Border Radius" icon="cube" description="Corner roundness (0 = sharp, 40 = very round)" description_tag="Corner roundness (0 = sharp, 40 = very round)"
-                          min="0" max="40" value="8" min_icon="minus" max_icon="plus"
+                          label="Border Radius" label_tag="Border Radius" icon="cube" description="Corner roundness" description_tag="Corner roundness"
+                          min="0" max="7" value="3" min_icon="minus" max_icon="plus"
                           callback="on_theme_property_changed" user_data="border_radius"/>
 
       <setting_slider_row name="row_border_width"

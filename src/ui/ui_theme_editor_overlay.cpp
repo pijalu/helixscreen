@@ -16,6 +16,7 @@
 #include "helix-xml/src/xml/lv_xml.h"
 #include "lvgl/src/others/translation/lv_translation.h"
 #include "settings_manager.h"
+#include "border_radius_sizes.h"
 #include "theme_loader.h"
 #include "theme_manager.h"
 
@@ -269,6 +270,8 @@ void ThemeEditorOverlay::update_property_sliders() {
     lv_obj_t* radius_slider = radius_row ? lv_obj_find_by_name(radius_row, "slider") : nullptr;
     if (radius_slider) {
         lv_slider_set_value(radius_slider, editing_theme_.properties.border_radius_size, LV_ANIM_OFF);
+        update_slider_value_label("row_border_radius",
+                                  helix::BorderRadiusSizes::name(editing_theme_.properties.border_radius_size));
     }
 
     // Update border width slider
@@ -292,9 +295,10 @@ void ThemeEditorOverlay::update_property_sliders() {
         lv_slider_set_value(shadow_slider, editing_theme_.properties.shadow_intensity, LV_ANIM_OFF);
     }
 
-    spdlog::debug("[{}] Property sliders updated: border_radius={}, border_width={}, "
+    spdlog::debug("[{}] Property sliders updated: border_radius_size={} ({}), border_width={}, "
                   "border_opacity={}, shadow_intensity={}",
                   get_name(), editing_theme_.properties.border_radius_size,
+                  helix::BorderRadiusSizes::name(editing_theme_.properties.border_radius_size),
                   editing_theme_.properties.border_width, editing_theme_.properties.border_opacity,
                   editing_theme_.properties.shadow_intensity);
 }
@@ -310,6 +314,15 @@ void ThemeEditorOverlay::update_slider_value_label(const char* row_name, int val
         char buf[16];
         std::snprintf(buf, sizeof(buf), "%d", value);
         lv_label_set_text(label, buf);
+    }
+}
+
+void ThemeEditorOverlay::update_slider_value_label(const char* row_name, const char* text) {
+    if (!overlay_root_) return;
+    lv_obj_t* row = lv_obj_find_by_name(overlay_root_, row_name);
+    lv_obj_t* label = row ? lv_obj_find_by_name(row, "value_label") : nullptr;
+    if (label) {
+        lv_label_set_text(label, text);
     }
 }
 
@@ -506,11 +519,14 @@ void ThemeEditorOverlay::handle_back_clicked() {
 // ============================================================================
 
 void ThemeEditorOverlay::handle_border_radius_changed(int value) {
-    editing_theme_.properties.border_radius_size = value;
+    int clamped = std::clamp(value, 0, helix::BorderRadiusSizes::count() - 1);
+    editing_theme_.properties.border_radius_size = clamped;
     mark_dirty();
     theme_manager_preview(editing_theme_);
-    update_slider_value_label("row_border_radius", value);
-    spdlog::debug("[{}] Border radius changed to {}", get_name(), value);
+    update_slider_value_label("row_border_radius",
+                              helix::BorderRadiusSizes::name(clamped));
+    spdlog::debug("[{}] Border radius size changed to {} ({})", get_name(), clamped,
+                  helix::BorderRadiusSizes::name(clamped));
 }
 
 void ThemeEditorOverlay::handle_border_width_changed(int value) {
