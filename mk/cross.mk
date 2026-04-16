@@ -2160,8 +2160,13 @@ VERSION := $(shell cat VERSION.txt 2>/dev/null || echo "dev")
 # Release filenames include 'v' prefix to match git tag convention (v0.9.3)
 RELEASE_VERSION := v$(VERSION)
 
-# Assets to include (exclude test_gcodes, gcode test files)
-RELEASE_ASSETS := assets/fonts assets/images
+# Assets to include (exclude test_gcodes, gcode test files).
+# assets/config ships the RO seed tree split out by bfeba7c26: printer_database.json,
+# printing_tips.json, default_layout.json, helix_macros.cfg, themes/defaults/,
+# presets/, print_start_profiles/, sounds/, platform/hooks-*.sh. Omitting it
+# breaks printer detection, shipped themes, and platform init hooks on every
+# embedded target (v0.99.33 regression).
+RELEASE_ASSETS := assets/fonts assets/images assets/config
 
 # Clean up release assets: remove files that are compiled into the binary or dev-only
 # .c font files are compiled into the binary at build time
