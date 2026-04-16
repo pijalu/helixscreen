@@ -205,7 +205,10 @@ std::atomic<bool> s_app_backgrounded{false};
 
 // Crash loop detection marker file. Routed through the writable config
 // dir so it survives RO-rootfs platforms (Yocto squashfs etc.).
-inline std::string crash_marker_path() { return helix::writable_path(".crash_restart_count"); }
+const std::string& crash_marker_path() {
+    static const std::string p = helix::writable_path(".crash_restart_count");
+    return p;
+}
 
 /**
  * @brief Recursively invalidate all widgets in the tree
@@ -247,7 +250,10 @@ extern "C" void helix_notify_app_foregrounded() {
     spdlog::info("[Application] App returning to foreground");
 }
 
-static std::string instance_lock_path() { return helix::writable_path(".helix-screen.lock"); }
+const std::string& instance_lock_path() {
+    static const std::string p = helix::writable_path(".helix-screen.lock");
+    return p;
+}
 
 bool Application::acquire_instance_lock() {
     const std::string lock_path = instance_lock_path();

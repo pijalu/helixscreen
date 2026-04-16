@@ -40,6 +40,10 @@ bool is_valid_data_root(const std::string& dir);
  * telemetry_*.json, custom_images/, user themes, pending_remap.json,
  * etc.). On read-only baselines (Yocto squashfs) HELIX_CONFIG_DIR points
  * at a writable partition (e.g. /etc/klipper/config/helixscreen).
+ *
+ * Not thread-safe with concurrent setenv(); call after env vars are
+ * stable (before worker threads spawn). Safe to call from any thread
+ * once env is frozen.
  */
 std::string get_user_config_dir();
 
@@ -49,6 +53,8 @@ std::string get_user_config_dir();
  * Returns $HELIX_DATA_DIR if set and non-empty; otherwise returns "."
  * (relative to cwd, which is the install root after Application bootstrap).
  * Yocto sets HELIX_DATA_DIR=/usr/share/helixscreen.
+ *
+ * Same thread-safety caveats as get_user_config_dir().
  */
 std::string get_data_dir();
 
