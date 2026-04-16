@@ -1268,7 +1268,7 @@ void UpdateChecker::do_install(const std::string& tarball_path) {
         return;
     }
 
-    report_download_status(DownloadStatus::Installing, 100, "Installing update...");
+    report_download_status(DownloadStatus::Installing, 100, "");
 
     // Resolve install root BEFORE install.sh runs.  After the installer swaps
     // the directory, /proc/self/exe shows "(deleted)" and resolve_install_root()
@@ -1444,10 +1444,19 @@ void UpdateChecker::do_install(const std::string& tarball_path) {
             if (log_fd >= 0)
                 close(log_fd);
 
-            // Wait up to 10min
             constexpr int timeout_seconds = 600;
             int status = 0;
             bool exited = false;
+
+            static constexpr const char* install_message_keys[] = {
+                "Still working...",
+                "Almost there...",
+                "Just a bit more...",
+                "Hang tight...",
+                "Finishing up...",
+            };
+            constexpr int num_messages =
+                sizeof(install_message_keys) / sizeof(install_message_keys[0]);
 
             for (int elapsed = 0; elapsed < timeout_seconds; ++elapsed) {
                 pid_t result = waitpid(pid, &status, WNOHANG);
@@ -1462,10 +1471,14 @@ void UpdateChecker::do_install(const std::string& tarball_path) {
                               elapsed);
                     break;
                 }
-                // Log progress every 10 seconds so we can see the wait is active
                 if (elapsed > 0 && elapsed % 10 == 0) {
                     flog_info("[UpdateChecker] Still waiting for install.sh pid={} ({}s/{}s)", pid,
                               elapsed, timeout_seconds);
+                    if (elapsed >= 30) {
+                        int idx = ((elapsed - 30) / 10) % num_messages;
+                        report_download_status(DownloadStatus::Installing, 100,
+                                               lv_tr(install_message_keys[idx]));
+                    }
                 }
                 std::this_thread::sleep_for(std::chrono::seconds(1));
             }

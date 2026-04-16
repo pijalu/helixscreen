@@ -50,6 +50,8 @@
             style_pad_gap="#space_md" hidden="true">
       <bind_flag_if_not_eq subject="download_status" flag="hidden" ref_value="4"/>
       <spinner size="lg"/>
+      <text_muted name="install_encouragement" width="100%"
+                  bind_text="download_text" style_text_align="center" style_opa="180"/>
       <text_heading text="Installing..." translation_tag="Installing..."/>
       <text_muted width="100%"
                   text="Do not power off your printer." translation_tag="Do not power off your printer."
