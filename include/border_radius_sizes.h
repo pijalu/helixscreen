@@ -71,13 +71,14 @@ class BorderRadiusSizes {
 
     static const std::array<SizeEntry, SIZE_COUNT>& table() {
         static constexpr std::array<SizeEntry, SIZE_COUNT> t = {{
-            {"None",    {{ 0,  0,  0,  0,  0,  0,  0}}},
-            {"Minimal", {{ 2,  2,  3,  3,  4,  4,  4}}},
-            {"Subtle",  {{ 3,  3,  4,  5,  6,  7,  8}}},
-            {"Soft",    {{ 4,  5,  6,  8, 10, 11, 12}}},
-            {"Rounded", {{ 5,  6,  8, 10, 12, 14, 16}}},
-            {"Bold",    {{ 6,  8, 10, 13, 16, 18, 20}}},
-            {"Pill",    {{ 8, 10, 12, 16, 20, 24, 28}}},
+            //                micro tiny small med  large xl   xxl
+            {"None",    {{  0,  0,  0,  0,  0,  0,  0}}},
+            {"Minimal", {{  1,  1,  2,  3,  4,  4,  4}}},
+            {"Subtle",  {{  2,  2,  3,  4,  6,  7,  8}}},
+            {"Soft",    {{  2,  3,  4,  6, 10, 11, 12}}},
+            {"Rounded", {{  3,  4,  6,  8, 12, 14, 16}}},
+            {"Bold",    {{  4,  5,  8, 10, 16, 18, 20}}},
+            {"Pill",    {{  5,  6, 10, 14, 20, 24, 28}}},
             {"Full",    {{9999, 9999, 9999, 9999, 9999, 9999, 9999}}},
         }};
         return t;

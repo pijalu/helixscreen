@@ -18,8 +18,8 @@ TEST_CASE("BorderRadiusSizes: name lookup", "[theme]") {
 TEST_CASE("BorderRadiusSizes: pixel value at breakpoint", "[theme]") {
     // "Soft" (index 3) at Large breakpoint = 10
     REQUIRE(BorderRadiusSizes::pixels(3, "_large") == 10);
-    // "Soft" at Micro = 4
-    REQUIRE(BorderRadiusSizes::pixels(3, "_micro") == 4);
+    // "Soft" at Micro = 2
+    REQUIRE(BorderRadiusSizes::pixels(3, "_micro") == 2);
     // "None" is always 0
     REQUIRE(BorderRadiusSizes::pixels(0, "_xxlarge") == 0);
     // "Full" is always 9999
