@@ -386,11 +386,15 @@ static void update_handle_styles(const theme_palette_t* palette, int border_radi
         lv_style_set_pad_top(&slider_knob_style, 8);
         lv_style_set_pad_bottom(&slider_knob_style, 8);
     } else {
-        // Reset to defaults when switching away from bar style
-        lv_style_set_pad_left(&slider_knob_style, LV_DPX(6));
-        lv_style_set_pad_right(&slider_knob_style, LV_DPX(6));
-        lv_style_set_pad_top(&slider_knob_style, LV_DPX(6));
-        lv_style_set_pad_bottom(&slider_knob_style, LV_DPX(6));
+        // Responsive knob padding: smaller at tiny/micro to avoid clipping in compact cards
+        auto* display = lv_display_get_default();
+        auto bp = display ? compute_breakpoint_from_height(lv_display_get_vertical_resolution(display))
+                          : UiBreakpoint::Medium;
+        int32_t knob_pad = (bp <= UiBreakpoint::Tiny) ? LV_DPX(4) : LV_DPX(6);
+        lv_style_set_pad_left(&slider_knob_style, knob_pad);
+        lv_style_set_pad_right(&slider_knob_style, knob_pad);
+        lv_style_set_pad_top(&slider_knob_style, knob_pad);
+        lv_style_set_pad_bottom(&slider_knob_style, knob_pad);
     }
 
     // Slider knob shadow: functional depth cue
