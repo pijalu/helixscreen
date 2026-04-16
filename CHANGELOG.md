@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.99.34] - 2026-04-16
+
+Hotfix for the v0.99.33 release: cross-compiled release bundles for every embedded platform (ad5m, ad5x, cc1, k1, k2, pi, pi32, snapmaker-u1, x86) shipped without `assets/config/`, causing "Could not load printer database" on first launch and breaking shipped themes, platform init hooks, print start profiles, and sound themes. v0.99.33 artifacts have been withdrawn.
+
+### Fixed
+- Release bundle omitted `assets/config/` seed tree — the refactor that split RO seeds out of `config/` updated `scripts/package.sh` but missed `mk/cross.mk`, which is the actual pipeline every embedded release uses. All `release-*` targets now ship `assets/config/printer_database.json`, `printing_tips.json`, `default_layout.json`, `helix_macros.cfg`, `themes/defaults/`, `presets/`, `print_start_profiles/`, `sounds/`, and `platform/hooks-*.sh`.
+
 ## [0.99.33] - 2026-04-16
 
 Major Bluetooth reliability overhaul, new barcode scanner settings UI, first-run guided tour, HttpExecutor for bounded HTTP threading, responsive setting rows that collapse 7 micro/ XML variants, and a broad config refactor splitting read-only seed data from writable state.
