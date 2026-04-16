@@ -1444,7 +1444,8 @@ void UpdateChecker::do_install(const std::string& tarball_path) {
             if (log_fd >= 0)
                 close(log_fd);
 
-            constexpr int timeout_seconds = 120;
+            // Wait up to 10min
+            constexpr int timeout_seconds = 600;
             int status = 0;
             bool exited = false;
 
