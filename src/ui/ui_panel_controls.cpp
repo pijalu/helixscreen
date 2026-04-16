@@ -937,8 +937,15 @@ void ControlsPanel::update_z_offset_delta_display(int delta_microns) {
 }
 
 void ControlsPanel::update_controls_z_offset_display(int offset_microns) {
-    helix::zoffset::format_offset(offset_microns, controls_z_offset_buf_,
-                                  sizeof(controls_z_offset_buf_));
+    auto* bp_subj = theme_manager_get_breakpoint_subject();
+    auto bp = bp_subj ? as_breakpoint(lv_subject_get_int(bp_subj)) : UiBreakpoint::Medium;
+    if (bp == UiBreakpoint::Tiny || bp == UiBreakpoint::Micro) {
+        helix::zoffset::format_offset_compact(offset_microns, controls_z_offset_buf_,
+                                              sizeof(controls_z_offset_buf_));
+    } else {
+        helix::zoffset::format_offset(offset_microns, controls_z_offset_buf_,
+                                      sizeof(controls_z_offset_buf_));
+    }
     lv_subject_copy_string(&controls_z_offset_subject_, controls_z_offset_buf_);
 }
 

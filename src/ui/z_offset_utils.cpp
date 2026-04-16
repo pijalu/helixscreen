@@ -42,6 +42,18 @@ void format_offset(int microns, char* buf, size_t buf_size) {
     std::snprintf(buf, buf_size, "%+.3fmm", mm);
 }
 
+void format_offset_compact(int microns, char* buf, size_t buf_size) {
+    // Drop leading zero for |value| < 1mm: "+.050mm" instead of "+0.050mm"
+    int abs_microns = microns < 0 ? -microns : microns;
+    if (abs_microns < 1000) {
+        char sign = microns < 0 ? '-' : '+';
+        std::snprintf(buf, buf_size, "%c.%03dmm", sign, abs_microns);
+    } else {
+        double mm = static_cast<double>(microns) / 1000.0;
+        std::snprintf(buf, buf_size, "%+.3fmm", mm);
+    }
+}
+
 void apply_and_save(MoonrakerAPI* api, ZOffsetCalibrationStrategy strategy,
                     std::function<void()> on_success,
                     std::function<void(const std::string& error)> on_error) {

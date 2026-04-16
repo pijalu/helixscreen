@@ -15,6 +15,9 @@
     <style name="slider_compact" pad_left="#space_md" pad_right="#space_md"/>
     <style name="slider_container_compact" pad_top="6" pad_bottom="6"/>
     <style name="slider_container_standard" pad_top="#space_xs" pad_bottom="#space_xs"/>
+    <!-- Icon-to-temp gap: wider on tiny breakpoint (labels hidden, icons too close) -->
+    <style name="temp_row_gap_standard" pad_column="#space_xs"/>
+    <style name="temp_row_gap_tiny" pad_column="#space_md"/>
     <!-- Homing indicator styles for Position card -->
     <style name="indicator_homed" bg_color="#success"/>
     <style name="indicator_unhomed" bg_color="#text_muted"/>
@@ -146,7 +149,9 @@
               <!-- Left side: animated heater icon + label -->
               <lv_obj width="content"
                       height="content" flex_flow="row" style_pad_all="0" scrollable="false"
-                      style_flex_cross_place="center" style_pad_gap="#space_xs" clickable="false" event_bubble="true">
+                      style_flex_cross_place="center" clickable="false" event_bubble="true">
+                <bind_style_if_eq name="temp_row_gap_tiny" subject="ui_breakpoint" ref_value="1"/>
+                <bind_style_if_ge name="temp_row_gap_standard" subject="ui_breakpoint" ref_value="2"/>
                 <icon name="nozzle_heater_icon"
                       src="heater" size="xs" variant="secondary" clickable="false" event_bubble="true"/>
                 <text_small bind_text="controls_nozzle_label">
@@ -178,7 +183,9 @@
               <!-- Left side: animated bed icon + label -->
               <lv_obj width="content"
                       height="content" flex_flow="row" style_pad_all="0" scrollable="false"
-                      style_flex_cross_place="center" style_pad_gap="#space_xs" clickable="false" event_bubble="true">
+                      style_flex_cross_place="center" clickable="false" event_bubble="true">
+                <bind_style_if_eq name="temp_row_gap_tiny" subject="ui_breakpoint" ref_value="1"/>
+                <bind_style_if_ge name="temp_row_gap_standard" subject="ui_breakpoint" ref_value="2"/>
                 <icon name="bed_heater_icon"
                       src="radiator" size="xs" variant="secondary" clickable="false" event_bubble="true"/>
                 <text_small text="Bed" translation_tag="Bed">
@@ -209,7 +216,9 @@
               <!-- Left side: icon + label + temp display -->
               <lv_obj width="content"
                       height="content" flex_flow="row" style_pad_all="0" scrollable="false"
-                      style_flex_cross_place="center" style_pad_gap="#space_xs" clickable="false" event_bubble="true">
+                      style_flex_cross_place="center" clickable="false" event_bubble="true">
+                <bind_style_if_eq name="temp_row_gap_tiny" subject="ui_breakpoint" ref_value="1"/>
+                <bind_style_if_ge name="temp_row_gap_standard" subject="ui_breakpoint" ref_value="2"/>
                 <icon src="fridge_industrial" size="xs" variant="secondary" clickable="false" event_bubble="true"/>
                 <text_small text="Chamb:" translation_tag="Chamb:" clickable="false" event_bubble="true">
                   <bind_flag_if_eq subject="ui_breakpoint" flag="hidden" ref_value="1"/>

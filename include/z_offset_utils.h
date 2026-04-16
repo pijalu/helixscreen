@@ -22,6 +22,9 @@ void format_delta(int microns, char* buf, size_t buf_size);
 /// Format microns as "+0.050mm" (always shows value, even for 0).
 void format_offset(int microns, char* buf, size_t buf_size);
 
+/// Compact variant: drops leading zero for |value| < 1.0 → "+.050mm".
+void format_offset_compact(int microns, char* buf, size_t buf_size);
+
 /// Execute strategy-aware save sequence:
 ///   PROBE_CALIBRATE -> Z_OFFSET_APPLY_PROBE -> SAVE_CONFIG
 ///   ENDSTOP -> Z_OFFSET_APPLY_ENDSTOP -> SAVE_CONFIG
