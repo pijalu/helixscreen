@@ -1191,6 +1191,11 @@ void TelemetryManager::check_previous_crash() {
             event[key] = crash_data[key];
         }
     }
+    // MIPS spells the link register "ra". Forward it under "reg_lr" so the
+    // crash worker's Registers table shows the return address alongside PC.
+    if (!event.contains("reg_lr") && crash_data.contains("reg_ra")) {
+        event["reg_lr"] = crash_data["reg_ra"];
+    }
 
     // Filter memory map to executable mappings (.so files, main binary) to keep
     // telemetry payload small while retaining the data needed to identify which
@@ -2294,7 +2299,8 @@ void TelemetryManager::record_frame_time(uint32_t frame_time_us) {
     // Skip idle frames where LVGL did no rendering work.
     // Validated on Pi 4 (DRM/dumb buffers): minimum real render is ~1.3ms,
     // giving 2.6x safety margin above 500µs threshold.
-    if (frame_time_us < IDLE_FRAME_THRESHOLD_US) return;
+    if (frame_time_us < IDLE_FRAME_THRESHOLD_US)
+        return;
 
     // Always record even when telemetry is disabled to keep the buffer warm —
     // if telemetry is re-enabled mid-session the first snapshot has real data.
@@ -2363,7 +2369,9 @@ nlohmann::json TelemetryManager::build_performance_snapshot_event() const {
     std::string worst_panel;
     int worst_p95 = 0;
 
-    for (auto& [pid, ptimes] : per_panel) {
+    for (auto& panel_entry : per_panel) {
+        uint16_t pid = panel_entry.first;
+        auto& ptimes = panel_entry.second;
         if (pid >= panel_names_.size())
             continue;
 

@@ -46,6 +46,14 @@ class TempCwdGuard {
         int rc = chdir(tmp_dir_.c_str());
         (void)rc;
 
+        // Isolate from HELIX_DATA_DIR / HELIX_CONFIG_DIR leaked by other tests
+        // (e.g. test_display_manager.cpp::ensure_data_dir sets HELIX_DATA_DIR to
+        // the project root and never clears it). Without this, find_readable()
+        // would resolve the real assets/config/default_layout.json and the
+        // "missing file" fallback tests would see JSON data instead.
+        save_and_unset_env("HELIX_DATA_DIR", saved_data_dir_, had_data_dir_);
+        save_and_unset_env("HELIX_CONFIG_DIR", saved_config_dir_, had_config_dir_);
+
         // Reset breakpoint subject to Micro — prior tests may have
         // initialized it to a different breakpoint index via theme_manager_init
         lv_subject_t* bp = theme_manager_get_breakpoint_subject();
@@ -58,6 +66,8 @@ class TempCwdGuard {
         (void)chdir(original_cwd_.c_str());
         std::error_code ec;
         fs::remove_all(tmp_dir_, ec);
+        restore_env("HELIX_DATA_DIR", saved_data_dir_, had_data_dir_);
+        restore_env("HELIX_CONFIG_DIR", saved_config_dir_, had_config_dir_);
     }
 
     /// Write config/default_layout.json with given content
@@ -78,8 +88,29 @@ class TempCwdGuard {
     TempCwdGuard& operator=(const TempCwdGuard&) = delete;
 
   private:
+    static void save_and_unset_env(const char* name, std::string& saved, bool& had) {
+        const char* v = getenv(name);
+        had = (v != nullptr);
+        if (had) {
+            saved = v;
+            unsetenv(name);
+        }
+    }
+
+    static void restore_env(const char* name, const std::string& saved, bool had) {
+        if (had) {
+            setenv(name, saved.c_str(), 1);
+        } else {
+            unsetenv(name);
+        }
+    }
+
     std::string original_cwd_;
     fs::path tmp_dir_;
+    std::string saved_data_dir_;
+    std::string saved_config_dir_;
+    bool had_data_dir_ = false;
+    bool had_config_dir_ = false;
 };
 
 // ============================================================================
