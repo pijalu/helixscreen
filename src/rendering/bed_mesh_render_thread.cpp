@@ -43,7 +43,14 @@ void BedMeshRenderThread::stop() {
 
     spdlog::info("[BedMeshRenderThread] Stopping...");
 
-    running_.store(false);
+    // Set running_ under cv_mutex_ so the render loop cannot miss the wakeup.
+    // Without the lock, the store + notify can interleave between the render
+    // loop's predicate evaluation and its actual sleep on the condvar, leaving
+    // the thread waiting forever and hanging thread_.join().
+    {
+        std::lock_guard<std::mutex> lock(cv_mutex_);
+        running_.store(false);
+    }
     cv_.notify_all();
 
     if (thread_.joinable()) {
@@ -68,7 +75,10 @@ void BedMeshRenderThread::set_colors(const bed_mesh_render_colors_t& colors) {
 }
 
 void BedMeshRenderThread::request_render() {
-    render_requested_.store(true);
+    {
+        std::lock_guard<std::mutex> lock(cv_mutex_);
+        render_requested_.store(true);
+    }
     cv_.notify_one();
 }
 
