@@ -157,16 +157,16 @@ CrashReporter::CrashReport CrashReporter::collect_report() {
             report.heap.present = true;
         }
     };
-    copy_heap("heap_snapshot_age_ms",    report.heap.age_ms);
-    copy_heap("heap_rss_kb",             report.heap.rss_kb);
-    copy_heap("heap_vsz_kb",             report.heap.vsz_kb);
-    copy_heap("heap_arena_kb",           report.heap.arena_kb);
-    copy_heap("heap_used_kb",            report.heap.used_kb);
-    copy_heap("heap_free_kb",            report.heap.free_kb);
-    copy_heap("heap_mmap_kb",            report.heap.mmap_kb);
-    copy_heap("lv_heap_total_kb",        report.heap.lv_total_kb);
-    copy_heap_int("lv_heap_used_pct",    report.heap.lv_used_pct);
-    copy_heap_int("lv_heap_frag_pct",    report.heap.lv_frag_pct);
+    copy_heap("heap_snapshot_age_ms", report.heap.age_ms);
+    copy_heap("heap_rss_kb", report.heap.rss_kb);
+    copy_heap("heap_vsz_kb", report.heap.vsz_kb);
+    copy_heap("heap_arena_kb", report.heap.arena_kb);
+    copy_heap("heap_used_kb", report.heap.used_kb);
+    copy_heap("heap_free_kb", report.heap.free_kb);
+    copy_heap("heap_mmap_kb", report.heap.mmap_kb);
+    copy_heap("lv_heap_total_kb", report.heap.lv_total_kb);
+    copy_heap_int("lv_heap_used_pct", report.heap.lv_used_pct);
+    copy_heap_int("lv_heap_frag_pct", report.heap.lv_frag_pct);
     copy_heap("lv_heap_free_biggest_kb", report.heap.lv_free_biggest_kb);
 
     // Activity breadcrumbs from the in-process ring buffer
@@ -358,14 +358,14 @@ nlohmann::json CrashReporter::report_to_json(const CrashReport& report) {
         h["vsz_kb"] = report.heap.vsz_kb;
         if (report.heap.arena_kb) {
             h["arena_kb"] = report.heap.arena_kb;
-            h["used_kb"]  = report.heap.used_kb;
-            h["free_kb"]  = report.heap.free_kb;
-            h["mmap_kb"]  = report.heap.mmap_kb;
+            h["used_kb"] = report.heap.used_kb;
+            h["free_kb"] = report.heap.free_kb;
+            h["mmap_kb"] = report.heap.mmap_kb;
         }
         if (report.heap.lv_total_kb) {
-            h["lv_total_kb"]        = report.heap.lv_total_kb;
-            h["lv_used_pct"]        = report.heap.lv_used_pct;
-            h["lv_frag_pct"]        = report.heap.lv_frag_pct;
+            h["lv_total_kb"] = report.heap.lv_total_kb;
+            h["lv_used_pct"] = report.heap.lv_used_pct;
+            h["lv_frag_pct"] = report.heap.lv_frag_pct;
             h["lv_free_biggest_kb"] = report.heap.lv_free_biggest_kb;
         }
         j["heap"] = h;
@@ -470,15 +470,14 @@ std::string CrashReporter::report_to_text(const CrashReport& report) {
         ss << "Heap (age " << report.heap.age_ms << "ms): "
            << "RSS=" << report.heap.rss_kb << "kB VSZ=" << report.heap.vsz_kb << "kB";
         if (report.heap.arena_kb) {
-            ss << " arena=" << report.heap.arena_kb << "kB used="
-               << report.heap.used_kb << "kB free=" << report.heap.free_kb << "kB";
+            ss << " arena=" << report.heap.arena_kb << "kB used=" << report.heap.used_kb
+               << "kB free=" << report.heap.free_kb << "kB";
         }
         ss << "\n";
         if (report.heap.lv_total_kb) {
             ss << "LVGL heap: total=" << report.heap.lv_total_kb
-               << "kB used=" << report.heap.lv_used_pct << "% frag="
-               << report.heap.lv_frag_pct << "% biggest_free="
-               << report.heap.lv_free_biggest_kb << "kB\n";
+               << "kB used=" << report.heap.lv_used_pct << "% frag=" << report.heap.lv_frag_pct
+               << "% biggest_free=" << report.heap.lv_free_biggest_kb << "kB\n";
         }
     }
 
@@ -579,12 +578,12 @@ std::string CrashReporter::generate_github_url(const CrashReport& report) {
     if (report.heap.present) {
         body << "- **Heap:** RSS " << report.heap.rss_kb << "kB";
         if (report.heap.arena_kb) {
-            body << ", arena " << report.heap.arena_kb << "kB ("
-                 << report.heap.used_kb << " used / " << report.heap.free_kb << " free)";
+            body << ", arena " << report.heap.arena_kb << "kB (" << report.heap.used_kb
+                 << " used / " << report.heap.free_kb << " free)";
         }
         if (report.heap.lv_total_kb) {
-            body << ", LVGL " << report.heap.lv_used_pct << "% used "
-                 << report.heap.lv_frag_pct << "% frag";
+            body << ", LVGL " << report.heap.lv_used_pct << "% used " << report.heap.lv_frag_pct
+                 << "% frag";
         }
         body << " (age " << report.heap.age_ms << "ms)\n";
     }
