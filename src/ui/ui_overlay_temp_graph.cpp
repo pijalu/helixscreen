@@ -274,18 +274,26 @@ void TempGraphOverlay::discover_series() {
         series_.push_back(std::move(s));
     }
 
-    // 3. Chamber (if present)
+    // 3. Chamber (if present). Prefer the heater klipper name when a heater
+    // exists (enables target control); fall back to the sensor klipper name
+    // so sensor-only setups still graph a live series.
     {
         lv_subject_t* chamber_gate = lv_xml_get_subject(nullptr, "printer_has_chamber");
         if (chamber_gate && lv_subject_get_int(chamber_gate) != 0) {
-            SeriesInfo s;
-            s.display_name = "Chamber";
-            s.heater_name = "chamber"; // TemperatureHistoryManager might not track this
-            s.klipper_name = temp_state.chamber_heater_name();
-            s.color = helix::TEMP_GRAPH_SERIES_COLORS[color_idx++ % helix::TEMP_GRAPH_PALETTE_SIZE];
-            s.has_target = !s.klipper_name.empty();
-            s.is_dynamic = false;
-            series_.push_back(std::move(s));
+            const std::string& heater = temp_state.chamber_heater_name();
+            const std::string& sensor = temp_state.chamber_sensor_name();
+            const std::string& klipper = !heater.empty() ? heater : sensor;
+            if (!klipper.empty()) {
+                SeriesInfo s;
+                s.display_name = "Chamber";
+                s.heater_name = "chamber";
+                s.klipper_name = klipper;
+                s.color =
+                    helix::TEMP_GRAPH_SERIES_COLORS[color_idx++ % helix::TEMP_GRAPH_PALETTE_SIZE];
+                s.has_target = !heater.empty();
+                s.is_dynamic = false;
+                series_.push_back(std::move(s));
+            }
         }
     }
 
@@ -319,12 +327,14 @@ void TempGraphOverlay::discover_series() {
 }
 
 void TempGraphOverlay::apply_default_visibility() {
-    // In heater-specific modes, only the primary sensor is visible by default.
-    // In GraphOnly mode, all sensors are visible.
+    // GraphOnly defaults to the core heaters (nozzle(s), bed, chamber if present).
+    // Heater-specific modes show only their primary sensor. Users can toggle
+    // additional sensors on via the chip row.
     for (auto& s : series_) {
         switch (mode_) {
         case Mode::GraphOnly:
-            s.visible = true;
+            s.visible = (s.heater_name.find("extruder") == 0) ||
+                        (s.heater_name == "heater_bed") || (s.heater_name == "chamber");
             break;
         case Mode::Nozzle:
             // Match any extruder (extruder, extruder1, etc.)

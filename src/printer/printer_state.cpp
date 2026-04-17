@@ -557,8 +557,8 @@ void PrinterState::set_hardware(helix::PrinterDiscovery hardware) {
 
     // Set kinematics from hardware discovery (configfile.config.printer.kinematics)
     // This is more reliable than toolhead status, which returns null on some printers
-    if (!hardware.kinematics().empty()) {
-        set_kinematics(hardware.kinematics());
+    if (!discovery_.kinematics().empty()) {
+        set_kinematics(discovery_.kinematics());
     }
 
     // Resolve chamber assignments: manual override > auto-detection
@@ -566,14 +566,14 @@ void PrinterState::set_hardware(helix::PrinterDiscovery hardware) {
 
     std::string chamber_sensor = settings.get_chamber_sensor_assignment();
     if (chamber_sensor == "auto") {
-        chamber_sensor = hardware.chamber_sensor_name();
+        chamber_sensor = discovery_.chamber_sensor_name();
     } else if (chamber_sensor == "none") {
         chamber_sensor = "";
     }
 
     std::string chamber_heater = settings.get_chamber_heater_assignment();
     if (chamber_heater == "auto") {
-        chamber_heater = hardware.chamber_heater_name();
+        chamber_heater = discovery_.chamber_heater_name();
     } else if (chamber_heater == "none") {
         chamber_heater = "";
     }
