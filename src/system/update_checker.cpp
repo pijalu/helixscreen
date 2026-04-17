@@ -29,6 +29,7 @@
 #include "lvgl/src/others/translation/lv_translation.h"
 #include "printer_state.h"
 #include "spdlog/spdlog.h"
+#include "system/log_path_probe.h"
 #include "system/sha256_util.h"
 #include "system/telemetry_manager.h"
 #include "version.h"
@@ -1363,16 +1364,35 @@ void UpdateChecker::do_install(const std::string& tarball_path) {
     }
 
     // Write installer output to a persistent log in /var/log/ so it survives
-    // process restart and is available for post-update debugging.  Fall back to
-    // the tarball directory if /var/log/ isn't writable (e.g. read-only rootfs).
+    // process restart and is available for post-update debugging.  Fall back
+    // to the tarball directory if /var/log/ isn't writable — read-only rootfs,
+    // wedged tmpfs, etc.  See system/log_path_probe.h for why a real-write
+    // probe is needed: open(O_CREAT|O_TRUNC) succeeds on a full tmpfs and
+    // install.sh's first printf then dies silently under `set -e` with a
+    // 0-byte log (the CC1 failure mode).
+    //
+    // Sizing the headroom: install.sh emits ~20-50 KB on the happy path and
+    // up to ~500 KB on a cascading-error path.  On top of that the same
+    // tmpfs typically hosts syslog, dropbear, wpa_supplicant, and install.sh's
+    // own child processes, all writing during the install window.  5 MB is
+    // ~10× the log's worst case and leaves enough room that "passed the
+    // probe" means the FS is genuinely healthy, not marginal.
+    constexpr uint64_t kMinInstallLogFreeBytes = 5 * 1024 * 1024;  // 5 MB
+
     std::string install_log = "/var/log/helixscreen-install.log";
     {
-        int test_fd = open(install_log.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0640);
-        if (test_fd >= 0) {
-            close(test_fd);
-        } else {
-            install_log = tarball_path + ".install.log";
-            flog_warn("[UpdateChecker] /var/log not writable, using fallback: {}", install_log);
+        auto probe = helix::system::probe_log_path_writable(install_log, kMinInstallLogFreeBytes);
+        if (!probe.ok) {
+            const std::string fallback = tarball_path + ".install.log";
+            flog_warn("[UpdateChecker] {} not writable ({}), falling back to {}",
+                      install_log, probe.error, fallback);
+            install_log = fallback;
+            probe = helix::system::probe_log_path_writable(install_log, kMinInstallLogFreeBytes);
+            if (!probe.ok) {
+                flog_error("[UpdateChecker] fallback log {} also not writable ({}); "
+                           "install.sh stdout/stderr will be lost",
+                           install_log, probe.error);
+            }
         }
     }
 
