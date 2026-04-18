@@ -2028,6 +2028,7 @@ void AmsState::set_modal_preset(int temp_c, int duration_min) {
 // ============================================================================
 
 std::optional<SlotInfo> AmsState::get_external_spool_info() const {
+    std::lock_guard<std::recursive_mutex> lock(mutex_);
     // In-memory override takes priority when set (e.g. live tracker updates).
     if (in_memory_external_spool_.has_value()) {
         return in_memory_external_spool_;
