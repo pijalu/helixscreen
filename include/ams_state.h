@@ -915,6 +915,15 @@ class AmsState {
     void set_external_spool_info(const SlotInfo& info);
 
     /**
+     * Update the external-spool info without writing settings.json.
+     *
+     * Used by FilamentConsumptionTracker to push live weight updates
+     * to observers while throttling disk writes to a slower cadence.
+     * Callers that need persistence should call set_external_spool_info().
+     */
+    void set_external_spool_info_in_memory(const SlotInfo& info);
+
+    /**
      * @brief Clear external spool info
      */
     void clear_external_spool_info();
@@ -949,6 +958,9 @@ class AmsState {
 
   private:
     friend class AmsStateTestAccess;
+
+    /** @brief Fire external_spool_color_ subject to notify observers of spool changes */
+    void notify_external_spool_changed(const SlotInfo& info);
 
     /** @brief Set "Currently Loaded" subjects to default/empty state with guards */
     void set_current_loaded_defaults();

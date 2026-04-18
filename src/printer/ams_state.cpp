@@ -2031,9 +2031,18 @@ std::optional<SlotInfo> AmsState::get_external_spool_info() const {
     return helix::SettingsManager::instance().get_external_spool_info();
 }
 
+void AmsState::set_external_spool_info_in_memory(const SlotInfo& info) {
+    std::lock_guard<std::recursive_mutex> lock(mutex_);
+    notify_external_spool_changed(info);
+}
+
 void AmsState::set_external_spool_info(const SlotInfo& info) {
     std::lock_guard<std::recursive_mutex> lock(mutex_);
     helix::SettingsManager::instance().set_external_spool_info(info);
+    notify_external_spool_changed(info);
+}
+
+void AmsState::notify_external_spool_changed(const SlotInfo& info) {
     // Always notify observers — spool data (weight, name, etc.) may change
     // even when color stays the same
     int new_color = static_cast<int>(info.color_rgb);
