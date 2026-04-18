@@ -220,7 +220,14 @@ void PanelWidgetConfig::load() {
         return;
     }
 
-    // No saved config — build defaults
+    // No saved config — try a preset-shipped seed first, then fall back to
+    // breakpoint-driven defaults.
+    if (try_populate_from_preset_seed()) {
+        save(); // Persist seeded layout so user edits survive reload
+        loaded_ = true;
+        return;
+    }
+
     PageConfig page;
     page.id = "main";
     page.widgets = build_defaults();
@@ -228,6 +235,63 @@ void PanelWidgetConfig::load() {
     next_page_id_ = 1;
     save(); // Persist default grid positions for future launches
     loaded_ = true;
+}
+
+bool PanelWidgetConfig::try_populate_from_preset_seed() {
+    std::string preset = config_.get_preset();
+    if (preset.empty()) {
+        return false;
+    }
+
+    std::string rel_path = "panel_widgets/" + preset + "/" + panel_id_ + ".json";
+    std::string seed_path = helix::find_readable(rel_path);
+    std::ifstream in(seed_path);
+    if (!in.is_open()) {
+        return false;
+    }
+
+    nlohmann::json seed;
+    try {
+        seed = nlohmann::json::parse(in);
+    } catch (const std::exception& e) {
+        spdlog::warn("[PanelWidgetConfig] Failed to parse preset seed '{}': {}", seed_path,
+                     e.what());
+        return false;
+    }
+
+    if (!seed.is_object() || !seed.contains("pages") || !seed["pages"].is_array()) {
+        spdlog::warn("[PanelWidgetConfig] Preset seed '{}' missing 'pages' array", seed_path);
+        return false;
+    }
+
+    main_page_index_ = seed.value("main_page_index", 0);
+    next_page_id_ = seed.value("next_page_id", 0);
+
+    size_t page_idx = 0;
+    for (const auto& page_json : seed["pages"]) {
+        PageConfig page;
+        page.id = page_json.value("id", "");
+        if (page_json.contains("widgets") && page_json["widgets"].is_array()) {
+            bool append_defaults = (page_idx == 0);
+            page.widgets = parse_widget_array(page_json["widgets"], append_defaults);
+        }
+        pages_.push_back(std::move(page));
+        ++page_idx;
+    }
+
+    if (pages_.empty()) {
+        return false;
+    }
+    if (next_page_id_ <= 0) {
+        next_page_id_ = static_cast<int>(pages_.size());
+    }
+    if (main_page_index_ >= pages_.size()) {
+        main_page_index_ = 0;
+    }
+
+    spdlog::info("[PanelWidgetConfig] Seeded panel '{}' from preset '{}' ({})", panel_id_, preset,
+                 seed_path);
+    return true;
 }
 
 void PanelWidgetConfig::save() {

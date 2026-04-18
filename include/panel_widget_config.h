@@ -167,6 +167,11 @@ class PanelWidgetConfig {
     /// If append_registry_defaults is true, appends missing registry widgets.
     std::vector<PanelWidgetEntry> parse_widget_array(const nlohmann::json& arr,
                                                      bool append_registry_defaults = true);
+
+    /// Attempt to populate pages_ from a preset-shipped seed file at
+    /// assets/config/panel_widgets/<preset>/<panel_id>.json. Returns true if a
+    /// seed was found and applied. Used only on fresh installs (no saved config).
+    bool try_populate_from_preset_seed();
 };
 
 } // namespace helix
