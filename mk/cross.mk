@@ -1676,13 +1676,19 @@ ad5m-test: remote-ad5m deploy-ad5m-fg
 
 # Centauri Carbon 1 deployment settings (can override via environment or command line)
 # Example: make deploy-cc1 CC1_HOST=192.168.1.100
-# Note: CC1 has rsync and scp in /opt/bin
 #
-# Deploy directory: /opt/helixscreen (CC1 has /opt mounted on UDISK with ~6.5GB)
-# Override with CC1_DEPLOY_DIR if needed.
+# Deploy directory defaults to /user-resource/helixscreen (COSMOS stock firmware
+# install path). COSMOS mounts / read-only, so /opt does not exist; writable
+# space lives under /data and /user-resource. Override CC1_DEPLOY_DIR for
+# alternate firmware variants (Forge-X, OpenCentauri) as needed.
+#
+# Start/stop goes through /etc/init.d/helixscreen (the install script registers
+# it under S80/S90). This preserves splash, watchdog, and platform hooks rather
+# than racing them with killall.
 CC1_HOST ?= cc1.local
 CC1_USER ?= root
-CC1_DEPLOY_DIR ?= /opt/helixscreen
+CC1_DEPLOY_DIR ?= /user-resource/helixscreen
+CC1_INIT_SCRIPT ?= /etc/init.d/helixscreen
 
 # Build SSH target for CC1
 CC1_SSH_TARGET := $(CC1_USER)@$(CC1_HOST)
@@ -1707,8 +1713,8 @@ deploy-cc1:
 		echo "$(DIM)Generating pre-rendered printer images...$(RESET)"; \
 		$(MAKE) gen-printer-images; \
 	fi
-	@# Stop running processes and prepare directory
-	ssh $(CC1_SSH_TARGET) "killall helix-watchdog helix-screen helix-splash 2>/dev/null || true; sleep 1; killall -9 helix-watchdog helix-screen helix-splash 2>/dev/null || true; rm -f /tmp/helix-screen.lock; mkdir -p $(CC1_DEPLOY_DIR)/bin"
+	@# Stop running processes via init script (falls back to killall for pre-init installs)
+	ssh $(CC1_SSH_TARGET) "if [ -x $(CC1_INIT_SCRIPT) ]; then $(CC1_INIT_SCRIPT) stop || true; else killall helix-watchdog helix-screen helix-splash 2>/dev/null || true; sleep 1; killall -9 helix-watchdog helix-screen helix-splash 2>/dev/null || true; fi; rm -f /tmp/helix-screen.lock; mkdir -p $(CC1_DEPLOY_DIR)/bin"
 	@# Transfer binaries via cat/ssh
 	@echo "$(DIM)Transferring binaries...$(RESET)"
 	cat build/cc1/bin/helix-screen | ssh $(CC1_SSH_TARGET) "cat > $(CC1_DEPLOY_DIR)/bin/helix-screen && chmod +x $(CC1_DEPLOY_DIR)/bin/helix-screen"
@@ -1739,9 +1745,9 @@ deploy-cc1:
 	fi
 	@echo "$(GREEN)✓ Deployed to $(CC1_HOST):$(CC1_DEPLOY_DIR)$(RESET)"
 	@echo "$(CYAN)Starting helix-screen on $(CC1_HOST)...$(RESET)"
-	ssh $(CC1_SSH_TARGET) "cd $(CC1_DEPLOY_DIR) && ./bin/helix-launcher.sh >/dev/null 2>&1 &"
-	@echo "$(GREEN)✓ helix-screen started in background$(RESET)"
-	@echo "$(DIM)Logs: ssh $(CC1_SSH_TARGET) 'logread -f | grep helix'$(RESET)"
+	ssh $(CC1_SSH_TARGET) "if [ -x $(CC1_INIT_SCRIPT) ]; then $(CC1_INIT_SCRIPT) start; else cd $(CC1_DEPLOY_DIR) && ./bin/helix-launcher.sh >/dev/null 2>&1 & fi"
+	@echo "$(GREEN)✓ helix-screen started$(RESET)"
+	@echo "$(DIM)Logs: ssh $(CC1_SSH_TARGET) 'tail -f /tmp/helixscreen.log'$(RESET)"
 
 # Deploy and run in foreground with verbose logging (for interactive debugging)
 deploy-cc1-fg:
@@ -1755,7 +1761,7 @@ deploy-cc1-fg:
 deploy-cc1-bin:
 	@test -f build/cc1/bin/helix-screen || { echo "$(RED)Error: build/cc1/bin/helix-screen not found. Run 'make cc1-docker' first.$(RESET)"; exit 1; }
 	@echo "$(CYAN)Deploying binaries only to $(CC1_SSH_TARGET):$(CC1_DEPLOY_DIR)/bin...$(RESET)"
-	ssh $(CC1_SSH_TARGET) "killall helix-watchdog helix-screen helix-splash 2>/dev/null || true; sleep 1; killall -9 helix-watchdog helix-screen helix-splash 2>/dev/null || true; rm -f /tmp/helix-screen.lock; mkdir -p $(CC1_DEPLOY_DIR)/bin"
+	ssh $(CC1_SSH_TARGET) "if [ -x $(CC1_INIT_SCRIPT) ]; then $(CC1_INIT_SCRIPT) stop || true; else killall helix-watchdog helix-screen helix-splash 2>/dev/null || true; sleep 1; killall -9 helix-watchdog helix-screen helix-splash 2>/dev/null || true; fi; rm -f /tmp/helix-screen.lock; mkdir -p $(CC1_DEPLOY_DIR)/bin"
 	cat build/cc1/bin/helix-screen | ssh $(CC1_SSH_TARGET) "cat > $(CC1_DEPLOY_DIR)/bin/helix-screen && chmod +x $(CC1_DEPLOY_DIR)/bin/helix-screen"
 	cat build/cc1/bin/helix-splash | ssh $(CC1_SSH_TARGET) "cat > $(CC1_DEPLOY_DIR)/bin/helix-splash && chmod +x $(CC1_DEPLOY_DIR)/bin/helix-splash"
 	@if [ -f build/cc1/bin/helix-watchdog ]; then \
@@ -1763,7 +1769,7 @@ deploy-cc1-bin:
 	fi
 	@echo "$(GREEN)✓ Binaries deployed$(RESET)"
 	@echo "$(CYAN)Restarting helix-screen on $(CC1_HOST)...$(RESET)"
-	ssh $(CC1_SSH_TARGET) "killall helix-watchdog helix-screen helix-splash 2>/dev/null || true; sleep 1; killall -9 helix-watchdog helix-screen helix-splash 2>/dev/null || true; rm -f /tmp/helix-screen.lock; cd $(CC1_DEPLOY_DIR) && ./bin/helix-launcher.sh >/dev/null 2>&1 &"
+	ssh $(CC1_SSH_TARGET) "if [ -x $(CC1_INIT_SCRIPT) ]; then $(CC1_INIT_SCRIPT) start; else cd $(CC1_DEPLOY_DIR) && ./bin/helix-launcher.sh >/dev/null 2>&1 & fi"
 	@echo "$(GREEN)✓ helix-screen restarted$(RESET)"
 
 # Convenience: SSH into the CC1
