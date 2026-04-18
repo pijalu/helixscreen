@@ -3073,9 +3073,15 @@ TEST_CASE("Bed mesh calibration gcode override", "[printer_detector]") {
 
     SECTION("Elegoo Centauri Carbon returns loadcell template") {
         std::string gcode = PrinterDetector::get_bed_mesh_calibrate_gcode("Elegoo Centauri Carbon");
+        // Mirrors COSMOS _FULL_CALIBRATION minus PID/shaper: move to tray, heat
+        // to printing temp, scrub (M729) so nothing on the nozzle pre-loads the
+        // load cells, home, tare, then hand to the COSMOS-tuned wipe wrapper.
+        REQUIRE(gcode.find("MOVE_TO_TRAY") != std::string::npos);
+        REQUIRE(gcode.find("M109 S220") != std::string::npos);
+        REQUIRE(gcode.find("M729") != std::string::npos);
         REQUIRE(gcode.find("LOAD_CELL_SAVE_TARE") != std::string::npos);
         REQUIRE(gcode.find("BED_MESH_CALIBRATE_WITH_WIPE") != std::string::npos);
-        REQUIRE(gcode.find("{profile}") != std::string::npos);
+        REQUIRE(gcode.find("BED_MESH_PROFILE SAVE={profile}") != std::string::npos);
     }
 
     SECTION("Printer without override returns empty") {

@@ -1096,8 +1096,10 @@ void BedMeshPanel::start_calibration_probing() {
                     }
                 }
                 // Probe samples: each mesh point may be probed multiple times.
-                // Check [probe] and [bltouch] sections (bltouch inherits from probe).
-                for (const char* section : {"probe", "bltouch"}) {
+                // Check known probe sections — bltouch inherits from probe;
+                // load_cell_probe (Centauri Carbon's mainline-Klipper strain
+                // gauge module) has its own samples key.
+                for (const char* section : {"probe", "bltouch", "load_cell_probe"}) {
                     if (settings.contains(section) && settings[section].contains("samples")) {
                         int s = settings[section]["samples"].template get<int>();
                         if (s > 1) {
@@ -1392,25 +1394,43 @@ void BedMeshPanel::execute_calibration(const std::string& /*profile_name*/) {
     if (!api)
         return;
 
-    // Resolve the calibration macro via StandardMacros (user-configurable,
-    // defaults to auto-detected BED_MESH_CALIBRATE or G29)
-    const auto& macro_info = StandardMacros::instance().get(StandardMacroSlot::BedMesh);
-    std::string macro_name = macro_info.get_macro();
-    if (macro_name.empty()) {
-        macro_name = "BED_MESH_CALIBRATE"; // Fallback if nothing configured/detected
-    }
-
     // Probe into a temporary profile so we don't clobber an existing "default"
     // mesh. save_profile_with_name() renames this to the user's chosen name
     // after probing completes.
     static constexpr const char* TEMP_PROFILE = "_hs_temp";
+
+    // A printer may declare a multi-line gcode template in the database
+    // (calibration.bed_mesh_gcode). Used today by the Elegoo Centauri Carbon,
+    // whose mainline-Klipper [load_cell_probe] aborts on stale tare; the
+    // template tares first, runs the vendor's wipe wrapper, then saves the
+    // current mesh under {profile}.
+    const std::string& printer_name = get_printer_state().get_printer_type();
+    std::string cmd = PrinterDetector::get_bed_mesh_calibrate_gcode(printer_name);
+
+    std::string macro_name;
+    if (!cmd.empty()) {
+        const std::string placeholder = "{profile}";
+        for (size_t pos = cmd.find(placeholder); pos != std::string::npos;
+             pos = cmd.find(placeholder, pos + 1)) {
+            cmd.replace(pos, placeholder.size(), TEMP_PROFILE);
+        }
+        macro_name = "<calibration.bed_mesh_gcode>";
+    } else {
+        // Resolve the calibration macro via StandardMacros (user-configurable,
+        // defaults to auto-detected BED_MESH_CALIBRATE or G29)
+        const auto& macro_info = StandardMacros::instance().get(StandardMacroSlot::BedMesh);
+        macro_name = macro_info.get_macro();
+        if (macro_name.empty()) {
+            macro_name = "BED_MESH_CALIBRATE"; // Fallback if nothing configured/detected
+        }
+        cmd = macro_name + " PROFILE=" + std::string(TEMP_PROFILE);
+    }
 
     spdlog::info("[{}] Starting calibration (temp profile: {}, macro: {})", get_name(),
                  TEMP_PROFILE, macro_name);
     lv_subject_set_int(&bed_mesh_calibrating_, 1);
 
     auto token = lifetime_.token();
-    std::string cmd = macro_name + " PROFILE=" + std::string(TEMP_PROFILE);
     api->execute_gcode(
         cmd,
         [this, token]() {

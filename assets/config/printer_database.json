@@ -1650,7 +1650,7 @@
       "manufacturer": "Elegoo",
       "image": "elegoo-centauri-carbon.png",
       "calibration": {
-        "bed_mesh_gcode": "LOAD_CELL_SAVE_TARE\nG4 P2000\nBED_MESH_CALIBRATE_WITH_WIPE\nBED_MESH_PROFILE SAVE={profile}"
+        "bed_mesh_gcode": "MOVE_TO_TRAY\nM140 S60\nM104 S220\nM109 S220\nM190 S60\nM729\nG28\nM400\nLOAD_CELL_SAVE_TARE\nG4 P2000\nBED_MESH_CALIBRATE_WITH_WIPE\nBED_MESH_PROFILE SAVE={profile}"
       },
       "heuristics": [
         {
