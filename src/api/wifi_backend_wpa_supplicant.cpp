@@ -707,7 +707,12 @@ std::string WifiBackendWpaSupplicant::send_command(const std::string& cmd) {
     std::lock_guard<std::mutex> lock(cmd_mutex_);
 
     if (conn == nullptr) {
-        LOG_WARN_INTERNAL("send_command called but not connected to wpa_supplicant");
+        // Normal during the brief window between start_async() dispatch and
+        // init_wpa() opening the control connection — UI callers (e.g. the
+        // home-panel network widget) race the worker thread on boot. Keep at
+        // debug so it's available when troubleshooting but doesn't surface as
+        // a user-visible warning in the shipping build.
+        spdlog::debug("[WifiBackend] send_command called but not connected to wpa_supplicant");
         return "";
     }
 
@@ -998,7 +1003,10 @@ WifiBackend::ConnectionStatus WifiBackendWpaSupplicant::get_status() {
 
     std::string raw_status = send_command("STATUS");
     if (raw_status.empty()) {
-        LOG_WARN_INTERNAL("Empty STATUS response");
+        // send_command already logs (at debug) when conn is null during the
+        // startup race; post-init empty responses propagate upward as
+        // status.connected=false which is the correct observable behavior.
+        spdlog::debug("[WifiBackend] Empty STATUS response");
         return status;
     }
 
