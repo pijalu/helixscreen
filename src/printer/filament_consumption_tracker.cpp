@@ -117,6 +117,13 @@ void FilamentConsumptionTracker::on_filament_used_changed(int filament_mm) {
 
     info.remaining_weight_g = new_remaining_g;
     AmsState::instance().set_external_spool_info_in_memory(info);
+
+    // Throttled disk persist (crash-safety).
+    if (lv_tick_elaps(last_persist_tick_ms_) >= persist_interval_ms()) {
+        AmsState::instance().set_external_spool_info(info);
+        last_persist_tick_ms_ = lv_tick_get();
+    }
+
     last_written_weight_g_ = new_remaining_g;
 }
 

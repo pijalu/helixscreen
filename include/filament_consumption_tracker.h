@@ -26,6 +26,11 @@ class FilamentConsumptionTracker {
         return active_;
     }
 
+    /// Test-only: override the 60s persist interval. Pass 0 to restore default.
+    void set_persist_interval_for_test(uint32_t ms) {
+        persist_interval_override_ms_ = ms;
+    }
+
   private:
     FilamentConsumptionTracker() = default;
     ~FilamentConsumptionTracker() = default;
@@ -46,6 +51,11 @@ class FilamentConsumptionTracker {
 
     uint32_t last_persist_tick_ms_ = 0;
     static constexpr uint32_t kPersistIntervalMs = 60'000;
+
+    uint32_t persist_interval_override_ms_ = 0;
+    [[nodiscard]] uint32_t persist_interval_ms() const {
+        return persist_interval_override_ms_ ? persist_interval_override_ms_ : kPersistIntervalMs;
+    }
 
     ObserverGuard print_state_obs_;
     ObserverGuard filament_used_obs_;

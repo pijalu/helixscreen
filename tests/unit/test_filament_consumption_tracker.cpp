@@ -333,3 +333,42 @@ TEST_CASE("external weight edit during print triggers re-snapshot",
     tracker.stop();
     ams.clear_external_spool_info();
 }
+
+TEST_CASE("tracker throttles disk persist during print", "[filament][tracker]") {
+    LVGLTestFixture fx;
+    auto& ams = AmsState::instance();
+    auto& printer = get_printer_state();
+    auto& settings = SettingsManager::instance();
+    auto& tracker = FilamentConsumptionTracker::instance();
+
+    ams.init_subjects(false);
+    printer.init_subjects(false);
+
+    SlotInfo info;
+    info.material = "PLA";
+    info.remaining_weight_g = 1000.0f;
+    info.total_weight_g = 1000.0f;
+    ams.set_external_spool_info(info);
+
+    tracker.set_persist_interval_for_test(1); // persist on every tick
+    tracker.start();
+    lv_subject_set_int(printer.get_print_filament_used_subject(), 0);
+    lv_subject_set_int(printer.get_print_state_enum_subject(),
+                       static_cast<int>(PrintJobState::PRINTING));
+    helix::ui::UpdateQueue::instance().drain();
+    REQUIRE(tracker.is_active());
+
+    // Advance the tick so lv_tick_elaps() exceeds the 1ms test interval.
+    lv_tick_inc(2);
+
+    // Consume ~29.8g. With interval=1ms and 2ms elapsed, this should flush to disk.
+    lv_subject_set_int(printer.get_print_filament_used_subject(), 10000);
+    helix::ui::UpdateQueue::instance().drain();
+    auto persisted = settings.get_external_spool_info();
+    REQUIRE(persisted.has_value());
+    REQUIRE(persisted->remaining_weight_g == Catch::Approx(970.18f).margin(0.1));
+
+    tracker.set_persist_interval_for_test(0);
+    tracker.stop();
+    ams.clear_external_spool_info();
+}
