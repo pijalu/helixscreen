@@ -9,6 +9,7 @@
 #include "observer_factory.h"
 #include "printer_state.h"
 
+#include <cmath>
 #include <spdlog/spdlog.h>
 
 namespace helix {
@@ -60,8 +61,44 @@ void FilamentConsumptionTracker::on_print_state_changed(int job_state) {
     }
 }
 
-void FilamentConsumptionTracker::on_filament_used_changed(int /*filament_mm*/) {
-    // Implemented in Task 5.
+void FilamentConsumptionTracker::on_filament_used_changed(int filament_mm) {
+    if (!active_) {
+        return;
+    }
+
+    auto info_opt = AmsState::instance().get_external_spool_info();
+    if (!info_opt.has_value()) {
+        return;
+    }
+    SlotInfo info = *info_opt;
+
+    // External-write detection lands in Task 7. For now, proceed with the
+    // current info assuming the tracker owns remaining_weight_g.
+
+    float current_mm = static_cast<float>(filament_mm);
+    float consumed_mm = current_mm - snapshot_mm_;
+    if (consumed_mm < 0.0f) {
+        // filament_used was reset under us (e.g. new print). Rebase.
+        snapshot_mm_ = current_mm;
+        snapshot_weight_g_ = info.remaining_weight_g;
+        last_written_weight_g_ = info.remaining_weight_g;
+        return;
+    }
+
+    float consumed_g = filament::length_to_weight_g(consumed_mm, density_g_cm3_, diameter_mm_);
+    float new_remaining_g = snapshot_weight_g_ - consumed_g;
+    if (new_remaining_g < 0.0f) {
+        new_remaining_g = 0.0f;
+    }
+
+    // Avoid noise writes for sub-gram changes that the UI can't show anyway.
+    if (std::abs(new_remaining_g - info.remaining_weight_g) < 0.05f) {
+        return;
+    }
+
+    info.remaining_weight_g = new_remaining_g;
+    AmsState::instance().set_external_spool_info_in_memory(info);
+    last_written_weight_g_ = new_remaining_g;
 }
 
 void FilamentConsumptionTracker::snapshot() {

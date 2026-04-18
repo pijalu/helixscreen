@@ -17,6 +17,7 @@
 #include "../catch_amalgamated.hpp"
 #include "../lvgl_test_fixture.h"
 
+using Catch::Approx;
 using Catch::Matchers::WithinAbs;
 using namespace helix;
 
@@ -169,6 +170,74 @@ TEST_CASE("tracker stays inactive when material cannot be resolved",
     helix::ui::UpdateQueue::instance().drain();
 
     REQUIRE_FALSE(tracker.is_active());
+    tracker.stop();
+    ams.clear_external_spool_info();
+}
+
+TEST_CASE("tracker decrements remaining weight as filament_used grows",
+          "[filament][tracker]") {
+    LVGLTestFixture fx;
+    auto& ams = AmsState::instance();
+    auto& printer = get_printer_state();
+    auto& tracker = FilamentConsumptionTracker::instance();
+
+    ams.init_subjects(false);
+    printer.init_subjects(false);
+
+    SlotInfo info;
+    info.material = "PLA";
+    info.remaining_weight_g = 1000.0f;
+    info.total_weight_g = 1000.0f;
+    ams.set_external_spool_info_in_memory(info);
+
+    tracker.start();
+    lv_subject_set_int(printer.get_print_filament_used_subject(), 0);
+    lv_subject_set_int(printer.get_print_state_enum_subject(),
+                       static_cast<int>(PrintJobState::PRINTING));
+    helix::ui::UpdateQueue::instance().drain();
+    REQUIRE(tracker.is_active());
+
+    // Consume 1000 mm of 1.75mm PLA at 1.24 g/cm^3 ≈ 2.982 g.
+    lv_subject_set_int(printer.get_print_filament_used_subject(), 1000);
+    helix::ui::UpdateQueue::instance().drain();
+
+    auto after = ams.get_external_spool_info();
+    REQUIRE(after.has_value());
+    REQUIRE(after->remaining_weight_g == Approx(997.018f).margin(0.05));
+
+    tracker.stop();
+    ams.clear_external_spool_info();
+}
+
+TEST_CASE("tracker clamps remaining weight at zero", "[filament][tracker]") {
+    LVGLTestFixture fx;
+    auto& ams = AmsState::instance();
+    auto& printer = get_printer_state();
+    auto& tracker = FilamentConsumptionTracker::instance();
+
+    ams.init_subjects(false);
+    printer.init_subjects(false);
+
+    SlotInfo info;
+    info.material = "PLA";
+    info.remaining_weight_g = 5.0f;  // only 5g available
+    info.total_weight_g = 1000.0f;
+    ams.set_external_spool_info_in_memory(info);
+
+    tracker.start();
+    lv_subject_set_int(printer.get_print_filament_used_subject(), 0);
+    lv_subject_set_int(printer.get_print_state_enum_subject(),
+                       static_cast<int>(PrintJobState::PRINTING));
+    helix::ui::UpdateQueue::instance().drain();
+
+    // Consume 10000mm = ~29.8g — would drive remaining negative without clamp.
+    lv_subject_set_int(printer.get_print_filament_used_subject(), 10000);
+    helix::ui::UpdateQueue::instance().drain();
+
+    auto after = ams.get_external_spool_info();
+    REQUIRE(after.has_value());
+    REQUIRE(after->remaining_weight_g == 0.0f);
+
     tracker.stop();
     ams.clear_external_spool_info();
 }
