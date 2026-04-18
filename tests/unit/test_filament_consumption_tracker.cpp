@@ -21,6 +21,14 @@ using Catch::Approx;
 using Catch::Matchers::WithinAbs;
 using namespace helix;
 
+namespace helix {
+struct FilamentConsumptionTrackerTestAccess {
+    static void set_persist_interval(FilamentConsumptionTracker& t, uint32_t ms) {
+        t.persist_interval_override_ms_ = ms;
+    }
+};
+} // namespace helix
+
 TEST_CASE("length_to_weight_g: 1.75mm PLA", "[filament][conversion]") {
     // 1.75mm PLA at 1.24 g/cm^3 is the canonical ~2.98 g/m.
     float grams = filament::length_to_weight_g(1000.0f, 1.24f, 1.75f);
@@ -350,7 +358,7 @@ TEST_CASE("tracker throttles disk persist during print", "[filament][tracker]") 
     info.total_weight_g = 1000.0f;
     ams.set_external_spool_info(info);
 
-    tracker.set_persist_interval_for_test(1); // persist on every tick
+    FilamentConsumptionTrackerTestAccess::set_persist_interval(tracker, 1); // persist on every tick
     tracker.start();
     lv_subject_set_int(printer.get_print_filament_used_subject(), 0);
     lv_subject_set_int(printer.get_print_state_enum_subject(),
@@ -368,7 +376,7 @@ TEST_CASE("tracker throttles disk persist during print", "[filament][tracker]") 
     REQUIRE(persisted.has_value());
     REQUIRE(persisted->remaining_weight_g == Catch::Approx(970.18f).margin(0.1));
 
-    tracker.set_persist_interval_for_test(0);
+    FilamentConsumptionTrackerTestAccess::set_persist_interval(tracker, 0);
     tracker.stop();
     ams.clear_external_spool_info();
 }

@@ -26,12 +26,9 @@ class FilamentConsumptionTracker {
         return active_;
     }
 
-    /// Test-only: override the 60s persist interval. Pass 0 to restore default.
-    void set_persist_interval_for_test(uint32_t ms) {
-        persist_interval_override_ms_ = ms;
-    }
-
   private:
+    friend struct FilamentConsumptionTrackerTestAccess;
+
     FilamentConsumptionTracker() = default;
     ~FilamentConsumptionTracker() = default;
     FilamentConsumptionTracker(const FilamentConsumptionTracker&) = delete;
