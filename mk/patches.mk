@@ -462,6 +462,13 @@ $(PATCHES_STAMP): $(PATCH_FILES) $(LVGL_HEAD) $(LIBHV_HEAD)
 	else \
 		echo "$(GREEN)✓ LVGL obj delete async dedup patch already applied$(RESET)"; \
 	fi
+	$(Q)if git -C $(LVGL_DIR) apply --check ../../patches/lvgl_obj_get_screen_cycle_guard.patch 2>/dev/null; then \
+		echo "$(YELLOW)→ Applying LVGL obj_get_screen cycle guard patch (cap parent-walk depth to 128)...$(RESET)"; \
+		git -C $(LVGL_DIR) apply ../../patches/lvgl_obj_get_screen_cycle_guard.patch && \
+		echo "$(GREEN)✓ obj_get_screen cycle guard patch applied$(RESET)"; \
+	else \
+		echo "$(GREEN)✓ LVGL obj_get_screen cycle guard patch already applied$(RESET)"; \
+	fi
 	$(Q)if git -C $(LVGL_DIR) diff --quiet src/widgets/label/lv_label.c 2>/dev/null; then \
 		echo "$(YELLOW)→ Applying LVGL label text transform patch...$(RESET)"; \
 		if git -C $(LVGL_DIR) apply --check ../../patches/lvgl_label_text_transform.patch 2>/dev/null; then \

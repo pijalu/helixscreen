@@ -470,3 +470,65 @@ TEST_CASE_METHOD(LVGLTestFixture,
     helix::ui::clear_pressed_state_recursive(obj);
     REQUIRE_FALSE(lv_obj_has_state(obj, LV_STATE_PRESSED));
 }
+
+// ============================================================================
+// has_sane_parent_chain() Tests
+// ============================================================================
+
+TEST_CASE_METHOD(LVGLTestFixture, "UI Utils: has_sane_parent_chain - null is sane",
+                 "[ui_utils][parent_chain]") {
+    REQUIRE(helix::ui::has_sane_parent_chain(nullptr));
+}
+
+TEST_CASE_METHOD(LVGLTestFixture, "UI Utils: has_sane_parent_chain - screen is sane",
+                 "[ui_utils][parent_chain]") {
+    // test_screen() has parent == NULL (it's a top-level screen)
+    REQUIRE(helix::ui::has_sane_parent_chain(test_screen()));
+}
+
+TEST_CASE_METHOD(LVGLTestFixture, "UI Utils: has_sane_parent_chain - typical tree is sane",
+                 "[ui_utils][parent_chain]") {
+    lv_obj_t* parent = lv_obj_create(test_screen());
+    lv_obj_t* child = lv_obj_create(parent);
+    lv_obj_t* grandchild = lv_obj_create(child);
+    REQUIRE(helix::ui::has_sane_parent_chain(parent));
+    REQUIRE(helix::ui::has_sane_parent_chain(child));
+    REQUIRE(helix::ui::has_sane_parent_chain(grandchild));
+}
+
+TEST_CASE_METHOD(LVGLTestFixture,
+                 "UI Utils: has_sane_parent_chain - deep-but-bounded tree is sane",
+                 "[ui_utils][parent_chain]") {
+    // 128 is the cap; 100 levels should walk cleanly
+    lv_obj_t* cur = test_screen();
+    for (int i = 0; i < 100; ++i) {
+        cur = lv_obj_create(cur);
+    }
+    REQUIRE(helix::ui::has_sane_parent_chain(cur));
+}
+
+TEST_CASE_METHOD(LVGLTestFixture, "UI Utils: has_sane_parent_chain - cycle returns false",
+                 "[ui_utils][parent_chain][edge]") {
+    // Simulate the v0.99.35 bug: construct an obj whose parent pointer forms a
+    // cycle. We can't reach this state through normal LVGL APIs (lv_obj_set_parent
+    // rejects self-as-parent), so we poke obj->parent directly. This mirrors the
+    // real-world UAF / memory-reuse case that produced the SonicPad hang.
+    lv_obj_t* a = lv_obj_create(test_screen());
+    lv_obj_t* b = lv_obj_create(a);
+    // Force b->parent = a and a->parent = b (cycle of length 2)
+    // lv_obj_t is a private struct; use lv_obj_private.h-style access via the
+    // shim of reparenting through the API isn't possible, so we write directly.
+    // Offset of `parent` in lv_obj_t is 4 on 32-bit / 8 on 64-bit — use the
+    // field name via a reinterpret cast is UB but acceptable for this test.
+    // Simpler: lv_obj_set_parent cannot create cycles, so manually corrupt.
+    struct LvObjPublic {
+        void* class_p;
+        lv_obj_t* parent;
+    };
+    reinterpret_cast<LvObjPublic*>(a)->parent = b;
+    // Now a->parent = b, b->parent = a → cycle.
+    REQUIRE_FALSE(helix::ui::has_sane_parent_chain(a));
+    REQUIRE_FALSE(helix::ui::has_sane_parent_chain(b));
+    // Restore before teardown so LVGL cleanup doesn't spin.
+    reinterpret_cast<LvObjPublic*>(a)->parent = test_screen();
+}

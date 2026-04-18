@@ -128,6 +128,31 @@ inline bool safe_delete(lv_obj_t*& obj) {
 }
 
 /**
+ * @brief Check that an LVGL object's parent chain terminates within a sane depth
+ *
+ * A non-terminating parent chain indicates corruption: UAF where freed memory
+ * was reused, double-reparent producing a cycle, or wild pointer mistaken as
+ * valid by lv_obj_is_valid() (which walks the screen tree — a reused address
+ * can pass validity while pointing at a different live object).
+ *
+ * When this returns false, callers should avoid operations that walk or
+ * rewrite the parent chain (lv_obj_set_parent, lv_obj_get_display), since
+ * they'll spin or corrupt state further. Mirrors the 128-step cap applied
+ * in the lvgl_obj_get_screen_cycle_guard patch.
+ */
+inline bool has_sane_parent_chain(lv_obj_t* obj) {
+    uint32_t depth = 0;
+    lv_obj_t* p = obj;
+    while (p) {
+        if (++depth > 128) {
+            return false;
+        }
+        p = lv_obj_get_parent(p);
+    }
+    return true;
+}
+
+/**
  * @brief Queue LVGL object deletion for the next timer tick
  *
  * Immediately nullifies the pointer to prevent further use, hides the
@@ -151,6 +176,15 @@ inline void safe_delete_deferred(lv_obj_t*& obj) {
         return;
     }
     if (!lv_obj_is_valid(obj)) {
+        obj = nullptr;
+        return;
+    }
+    // Abort before touching obj if its parent chain is cyclic — lv_obj_is_valid
+    // has false positives when memory is reused by a different live object, and
+    // lv_obj_set_parent below would then spin in lv_obj_get_screen (#SonicPad
+    // v0.99.35 grid-edit hang). Null the caller's pointer and let the corrupt
+    // tree be cleaned up by lv_deinit() at shutdown.
+    if (!has_sane_parent_chain(obj)) {
         obj = nullptr;
         return;
     }
@@ -187,6 +221,9 @@ inline void safe_delete_deferred_raw(lv_obj_t* obj) {
         return;
     }
     if (!lv_obj_is_valid(obj)) {
+        return;
+    }
+    if (!has_sane_parent_chain(obj)) {
         return;
     }
     lv_obj_add_flag(obj, LV_OBJ_FLAG_HIDDEN);
