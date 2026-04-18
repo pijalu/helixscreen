@@ -43,9 +43,10 @@ class CameraWidget : public PanelWidget {
   private:
     void start_stream();
     void stop_stream();
-    void apply_transform(); // Push rotation/flip config to stream
+    void apply_transform();       // Push rotation/flip config to stream
+    void update_stream_fps();     // Re-evaluate and set max_fps based on current state
     void set_status_text(const char* text);
-    void destroy_fullscreen(); // Synchronous cleanup of fullscreen overlay
+    void destroy_fullscreen();    // Synchronous cleanup of fullscreen overlay
 
     lv_obj_t* widget_obj_ = nullptr;
     lv_obj_t* parent_screen_ = nullptr;
@@ -64,6 +65,11 @@ class CameraWidget : public PanelWidget {
 
     // Observer for webcam availability — starts stream when URLs arrive
     ObserverGuard webcam_observer_;
+    // Observer for home edit mode — throttles camera fps during editing
+    ObserverGuard edit_mode_observer_;
+
+    int target_fps_ = 15;              // From Moonraker webcam config
+    lv_timer_t* fps_recheck_timer_ = nullptr; // Periodic re-eval when paused
 
     // Lifetime guard — prevents use-after-free in queued callbacks.
     // stream lifetime is invalidated on each stop_stream() cycle;

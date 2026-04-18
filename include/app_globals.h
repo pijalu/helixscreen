@@ -215,6 +215,23 @@ void app_request_restart_service();
 char** app_get_stored_argv();
 
 /**
+ * @brief Get stored absolute executable path for execv()
+ *
+ * Returns the resolved absolute path captured by app_store_argv().
+ * Returns nullptr if app_store_argv() was not called or the path was empty.
+ */
+const char* app_get_executable_path();
+
+/**
+ * @brief Check whether app_request_restart() was called
+ *
+ * When true, main() should execv(app_get_executable_path(), app_get_stored_argv())
+ * after normal cleanup returns, instead of exiting to the shell.  This replaces
+ * the old fork+exec pattern (which raced the cleanup and lock file).
+ */
+bool app_restart_after_quit_requested();
+
+/**
  * @brief Check if quit has been requested
  * @return true if app_request_quit() or app_request_restart() was called
  */

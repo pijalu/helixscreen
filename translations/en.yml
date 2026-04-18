@@ -222,7 +222,7 @@ translations:
   Brother QL (Bluetooth): Brother QL (Bluetooth)
   Browse: Browse
   Browse and play recorded timelapses: Browse and play recorded timelapses
-  'Browse guides, configuration references, and troubleshooting ': 'Browse guides, configuration references, and troubleshooting '
+  Browse guides, configuration references, and troubleshooting resources for HelixScreen.: Browse guides, configuration references, and troubleshooting resources for HelixScreen.
   Buffer Status: Buffer Status
   Bundle Uploaded: Bundle Uploaded
   Button taps and navigation sounds: Button taps and navigation sounds
@@ -406,7 +406,7 @@ translations:
   Corner roundness: Corner roundness
   Corner roundness (0 = sharp, 40 = very round): Corner roundness (0 = sharp, 40 = very round)
   Correction (Ki): Correction (Ki)
-  'Could not analyze PRINT_START macro. Some print options may be ': 'Could not analyze PRINT_START macro. Some print options may be '
+  Could not analyze PRINT_START macro. Some print options may be unavailable.: Could not analyze PRINT_START macro. Some print options may be unavailable.
   Could not check webcam status.\nCheck printer connection.: Could not check webcam status.\nCheck printer connection.
   Could not forget device: Could not forget device
   Could not reach Spoolman at: Could not reach Spoolman at
@@ -758,7 +758,7 @@ translations:
   Heating (%d°C below minimum): Heating (%d°C below minimum)
   Heating Bed...: Heating Bed...
   Heating Nozzle...: Heating Nozzle...
-  Heating to %d\xC2\xB0: Heating to %d\xC2\xB0
+  Heating to %d\xC2\xB0C... %.0f\xC2\xB0C: Heating to %d\xC2\xB0C... %.0f\xC2\xB0C
   Heating to %d°C...: Heating to %d°C...
   Heating to target...: Heating to target...
   Heating to {}°C for {}...: Heating to {}°C for {}...
@@ -838,7 +838,7 @@ translations:
   Invalid port number: Invalid port number
   Issue description: Issue description
   Job Queue: Job Queue
-  'Join the HelixScreen community on Discord for discussion, ': 'Join the HelixScreen community on Discord for discussion, '
+  Join the HelixScreen community on Discord for discussion, tips, troubleshooting help, and feature requests.: Join the HelixScreen community on Discord for discussion, tips, troubleshooting help, and feature requests.
   Just now: Just now
   KEYBOARD LAYOUT: KEYBOARD LAYOUT
   KLICKY CONTROLS: KLICKY CONTROLS
@@ -847,9 +847,10 @@ translations:
   Keyboard Test (Gboard-style): Keyboard Test (Gboard-style)
   Kinematics: Kinematics
   Klipper: Klipper
-  'Klipper firmware has disconnected from the host. ': 'Klipper firmware has disconnected from the host. '
-  'Klipper has entered an error state. This is typically caused by an MCU ': 'Klipper has entered an error state. This is typically caused by an MCU '
-  'Klipper has entered shutdown state. This may be due to an emergency stop, ': 'Klipper has entered shutdown state. This may be due to an emergency stop, '
+  Klipper firmware has disconnected from the host. Try restarting Klipper or performing a firmware restart.: Klipper firmware has disconnected from the host. Try restarting Klipper or performing a firmware restart.
+  ? Klipper has entered an error state. This is typically caused by an MCU connection failure or configuration error. Try a firmware restart.
+  : Klipper has entered an error state. This is typically caused by an MCU connection failure or configuration error. Try a firmware restart.
+  Klipper has entered shutdown state. This may be due to an emergency stop, thermal runaway, or configuration error.: Klipper has entered shutdown state. This may be due to an emergency stop, thermal runaway, or configuration error.
   Klipper will restart to apply changes: Klipper will restart to apply changes
   Klipper will restart to apply changes.: Klipper will restart to apply changes.
   Klipper will restart to apply new settings.: Klipper will restart to apply new settings.
@@ -1041,7 +1042,7 @@ translations:
   No Filament Detected: No Filament Detected
   No History: No History
   No LED macros detected on your printer.: No LED macros detected on your printer.
-  'No LED macros detected on your printer. ': 'No LED macros detected on your printer. '
+  No LED macros detected on your printer. Add Klipper macros for LED control first.: No LED macros detected on your printer. Add Klipper macros for LED control first.
   No Macros Found: No Macros Found
   No PRINT_START macro found: No PRINT_START macro found
   No Power Devices: No Power Devices
@@ -1285,7 +1286,7 @@ translations:
   Printing: Printing
   Printing label...: Printing label...
   Printing test label...: Printing test label...
-  'Printing with the wrong material can cause clogs, poor adhesion, ': 'Printing with the wrong material can cause clogs, poor adhesion, '
+  Printing with the wrong material can cause clogs, poor adhesion, or failed prints.: Printing with the wrong material can cause clogs, poor adhesion, or failed prints.
   Prints: Prints
   Prints Trend: Prints Trend
   'Private:': 'Private:'
@@ -1472,6 +1473,10 @@ translations:
   Scan and select a Bluetooth printer first: Scan and select a Bluetooth printer first
   Scan for Printers: Scan for Printers
   Scanner: Scanner
+  ? Scanner bonded but didn't attach as a keyboard. Try turning the scanner off and on, then tap Pair again. If that fails, add ClassicBondedOnly=false to /etc/bluetooth/input.conf.
+  : Scanner bonded but didn't attach as a keyboard. Try turning the scanner off and on, then tap Pair again. If that fails, add ClassicBondedOnly=false to /etc/bluetooth/input.conf.
+  ? Scanner paired but can't receive input. Put the scanner in pairing mode (see its manual — usually a setup barcode or a button hold) and tap Pair again.
+  : Scanner paired but can't receive input. Put the scanner in pairing mode (see its manual — usually a setup barcode or a button hold) and tap Pair again.
   Scanning for networks...: Scanning for networks...
   Scanning...: Scanning...
   'Score: 0': 'Score: 0'
@@ -1592,7 +1597,6 @@ translations:
   Spoolman found! Configuring...: Spoolman found! Configuring...
   Spoolman has no spools configured: Spoolman has no spools configured
   Spoolman removed.: Spoolman removed.
-  'Spoolman unavailable — filament weights ': 'Spoolman unavailable — filament weights '
   Spoolman unavailable — filament weights may be stale: Spoolman unavailable — filament weights may be stale
   Square Corner Velocity: Square Corner Velocity
   Stable: Stable
@@ -1683,9 +1687,9 @@ translations:
   ? The HelixPrint plugin enables fast G-code modifications directly on your printer—like skipping bed mesh for quick reprints.
   : The HelixPrint plugin enables fast G-code modifications directly on your printer—like skipping bed mesh for quick reprints.
   The heater will cycle on and off several times.: The heater will cycle on and off several times.
-  'The runout sensor indicates no filament is loaded. ': 'The runout sensor indicates no filament is loaded. '
-  'The toolhead sensor indicates filament is already loaded. ': 'The toolhead sensor indicates filament is already loaded. '
-  'The toolhead sensor indicates no filament is present. ': 'The toolhead sensor indicates no filament is present. '
+  The runout sensor indicates no filament is loaded. Start print anyway?: The runout sensor indicates no filament is loaded. Start print anyway?
+  The toolhead sensor indicates filament is already loaded. Proceed with load anyway?: The toolhead sensor indicates filament is already loaded. Proceed with load anyway?
+  The toolhead sensor indicates no filament is present. Proceed with unload anyway?: The toolhead sensor indicates no filament is present. Proceed with unload anyway?
   Theme: Theme
   Theme Colors: Theme Colors
   Theme Preset: Theme Preset
@@ -1703,8 +1707,10 @@ translations:
   ? This plugin lets HelixScreen control print start options like bed mesh and QGL. Once installed, use Configure PRINT_START below to enable optional steps.
   : This plugin lets HelixScreen control print start options like bed mesh and QGL. Once installed, use Configure PRINT_START below to enable optional steps.
   This tool probes each bed screw and tells you how much to adjust.: This tool probes each bed screw and tells you how much to adjust.
-  'This will apply the Z-offset to your endstop and restart Klipper to save the ': 'This will apply the Z-offset to your endstop and restart Klipper to save the '
-  'This will apply the Z-offset to your probe and restart Klipper to save the ': 'This will apply the Z-offset to your probe and restart Klipper to save the '
+  ? This will apply the Z-offset to your endstop and restart Klipper to save the configuration. The printer will briefly disconnect.
+  : This will apply the Z-offset to your endstop and restart Klipper to save the configuration. The printer will briefly disconnect.
+  ? This will apply the Z-offset to your probe and restart Klipper to save the configuration. The printer will briefly disconnect.
+  : This will apply the Z-offset to your probe and restart Klipper to save the configuration. The printer will briefly disconnect.
   ? This will collect system info, logs, settings, and printer data to help diagnose issues. No passwords or sensitive data will be included.
   : This will collect system info, logs, settings, and printer data to help diagnose issues. No passwords or sensitive data will be included.
   This will immediately halt all printer operations. The printer will require a restart to resume.: This will immediately halt all printer operations. The printer will require a restart to resume.
@@ -1844,7 +1850,8 @@ translations:
   : Weight data is synced from Spoolman to display remaining filament. Changes are also synced when prints start, pause, or complete.
   What We Collect: What We Collect
   When enabled, only the macro runs. When disabled, temperatures are set first, then the macro runs.: When enabled, only the macro runs. When disabled, temperatures are set first, then the macro runs.
-  'When starting a print, you''ll be able to choose whether to run %s. ': 'When starting a print, you''ll be able to choose whether to run %s. '
+  ? When starting a print, you'll be able to choose whether to run %s. This saves time when you've already done it recently or want more control over your print preparation.
+  : When starting a print, you'll be able to choose whether to run %s. This saves time when you've already done it recently or want more control over your print preparation.
   White: White
   WiFi: WiFi
   WiFi Disabled: WiFi Disabled
@@ -1872,7 +1879,8 @@ translations:
   'Y jog failed: {}': 'Y jog failed: {}'
   'Y:': 'Y:'
   Year: Year
-  You can now skip these operations when starting prints.\n\n: You can now skip these operations when starting prints.\n\n
+  ? You can now skip these operations when starting prints.\n\nLook for the new options in the print details before starting each print.\n\nA backup of your config was saved automatically.
+  : You can now skip these operations when starting prints.\n\nLook for the new options in the print details before starting each print.\n\nA backup of your config was saved automatically.
   You can skip this and calibrate later in Settings.: You can skip this and calibrate later in Settings.
   You have unsaved changes. Discard them?: You have unsaved changes. Discard them?
   Your PRINT_START macro will be updated to give you control over:\n\n: Your PRINT_START macro will be updated to give you control over:\n\n

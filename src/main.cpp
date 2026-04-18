@@ -11,6 +11,7 @@
  * @see Application
  */
 
+#include "app_globals.h"
 #include "application.h"
 #include "data_root_resolver.h"
 #include "helix_version.h"
@@ -138,9 +139,10 @@ static void terminate_handler() {
 int main(int argc, char** argv) {
     std::set_terminate(terminate_handler);
 
+    int rc = 1;
     try {
         Application app;
-        return app.run(argc, argv);
+        rc = app.run(argc, argv);
     } catch (const std::exception& e) {
         fprintf(stderr, "[FATAL] Unhandled exception in Application: %s\n", e.what());
         fflush(stderr);
@@ -151,4 +153,24 @@ int main(int argc, char** argv) {
         write_exception_crash_file("non-std::exception");
         return 1;
     }
+
+    // In-place restart: if the UI asked for a restart, replace this process
+    // image with a fresh instance.  Cleanup ran on the way out of app.run(),
+    // so the lockfile is released and LVGL/display state is torn down — the
+    // new instance comes up clean.  See app_globals.cpp app_request_restart().
+    if (app_restart_after_quit_requested()) {
+        char** new_argv = app_get_stored_argv();
+        const char* exe = app_get_executable_path();
+        if (exe && new_argv) {
+            fprintf(stderr, "[App] In-place restart: execv(%s)\n", exe);
+            fflush(stderr);
+            execv(exe, new_argv);
+            fprintf(stderr, "[App] execv failed: %s\n", strerror(errno));
+            fflush(stderr);
+            return 1;
+        }
+        fprintf(stderr, "[App] Restart requested but argv/exe unavailable\n");
+        fflush(stderr);
+    }
+    return rc;
 }

@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.99.35] - 2026-04-17
+
+### Added
+- Touch-friendly filament mapping: print-file details card shows a 2×2 grid of pills with the tool number (Tx) centered inside the gcode color dot; overflow past six tools collapses into a "+N" indicator. Mapping modal rows and slot-picker popup rows are taller, wider, and consistent with the same Tx-in-dot treatment.
+
+### Fixed
+- Settings → About: update modal reshows correctly after backdrop/ESC dismiss; DownloadStatus is reset before reopening.
+- Updater: detect a wedged `/var/log` before launching install.sh; set `O_CLOEXEC` on the instance lock so post-install restart is not blocked.
+- Restart: exec in-place instead of fork+exec to avoid a zombie race.
+- Barcode scanner: AZERTY punctuation mapping corrected with a cross-layout regression test; BT pairing UX, keycode diagnostics, accent variant, reduced log noise.
+- Bluetooth: register BlueZ `Agent1` so pairing completes into a real bond.
+- Temperature graph: chamber series now shown for sensor-only (no thermistor) setups.
+- Wi-Fi: require a live NetworkManager daemon before choosing the NM backend.
+- Crash reports (AD5X / MIPS): surface the return-address register so MIPS backtraces resolve (prestonbrown/helixscreen#818).
+- Bed mesh rendering: close a missed-wakeup race in the render thread's stop/request handshake.
+
+### Changed
+- Render performance: pre-blended card borders, 1:1 thumbnail blit, and camera FPS throttling cut per-frame CPU load.
+
 ## [0.99.34] - 2026-04-16
 
 Hotfix for the v0.99.33 release: cross-compiled release bundles for every embedded platform (ad5m, ad5x, cc1, k1, k2, pi, pi32, snapmaker-u1, x86) shipped without `assets/config/`, causing "Could not load printer database" on first launch and breaking shipped themes, platform init hooks, print start profiles, and sound themes. v0.99.33 artifacts have been withdrawn.
@@ -3018,6 +3037,8 @@ Initial tagged release. Foundation for all subsequent development.
 - Automated GitHub Actions release pipeline
 - One-liner installation script with platform auto-detection
 
+[0.99.35]: https://github.com/prestonbrown/helixscreen/compare/v0.99.34...v0.99.35
+[0.99.34]: https://github.com/prestonbrown/helixscreen/compare/v0.99.33...v0.99.34
 [0.99.33]: https://github.com/prestonbrown/helixscreen/compare/v0.99.32...v0.99.33
 [0.99.32]: https://github.com/prestonbrown/helixscreen/compare/v0.99.31...v0.99.32
 [0.99.31]: https://github.com/prestonbrown/helixscreen/compare/v0.99.30...v0.99.31

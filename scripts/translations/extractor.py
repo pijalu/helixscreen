@@ -63,15 +63,33 @@ LANGUAGE_NAMES = {
     "Čeština", "Magyar", "Română", "Українська", "Ελληνικά",
 }
 
-# C++ patterns that indicate translatable text
+# C++ patterns that indicate translatable text.
+# Patterns that may span adjacent string literals (C++ concatenates "a" "b" → "ab")
+# capture the full run via ADJACENT_LITERALS_GROUP and are post-processed by
+# _join_adjacent_literals().
+ADJACENT_LITERALS_GROUP = r'((?:"(?:[^"\\]|\\.)*"\s*)+)'
 CPP_TRANSLATABLE_PATTERNS = [
-    # lv_tr("text") - explicitly marked for translation (handles escaped quotes)
-    r'lv_tr\s*\(\s*"((?:[^"\\]|\\.)+)"',
+    # lv_tr("text") - explicitly marked for translation (handles escaped quotes
+    # and adjacent literal concatenation across multiple lines)
+    r"lv_tr\s*\(\s*" + ADJACENT_LITERALS_GROUP,
     # lv_label_set_text(label, "text")
-    r'lv_label_set_text\s*\([^,]+,\s*"((?:[^"\\]|\\.)+)"',
-    # return "Status Text"  (for status strings)
+    r"lv_label_set_text\s*\([^,]+,\s*" + ADJACENT_LITERALS_GROUP,
+    # return "Status Text"  (for status strings) — single literal only
     r'return\s+"([A-Z][a-z][^"]{2,30})"',
 ]
+
+# Matches a single "..." C string literal (with escape handling)
+_STRING_LITERAL_RE = re.compile(r'"((?:[^"\\]|\\.)*)"')
+
+
+def _join_adjacent_literals(captured: str) -> str:
+    """Join adjacent C++ string literals into a single string.
+
+    C++ concatenates "foo" "bar" at compile time. The extractor captures the
+    whole run; this pulls each quoted piece out and joins them.
+    """
+    pieces = _STRING_LITERAL_RE.findall(captured)
+    return "".join(pieces)
 
 # C++ patterns to skip (not user-facing)
 CPP_SKIP_PATTERNS = [
@@ -264,8 +282,11 @@ def extract_strings_from_cpp(cpp_path: Path) -> Set[str]:
 
     for pattern in CPP_TRANSLATABLE_PATTERNS:
         is_lv_tr = "lv_tr" in pattern
+        is_adjacent = ADJACENT_LITERALS_GROUP in pattern
         for match in re.finditer(pattern, content):
             text = match.group(1)
+            if is_adjacent:
+                text = _join_adjacent_literals(text)
 
             # lv_tr() strings are explicitly marked - always include them
             if is_lv_tr:

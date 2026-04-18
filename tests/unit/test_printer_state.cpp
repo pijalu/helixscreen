@@ -5,9 +5,12 @@
 #include "../ui_test_utils.h"
 #include "app_globals.h"
 #include "moonraker_client.h"
+#include "printer_discovery.h"
 #include "printer_state.h"
+#include "settings_manager.h"
 
 #include "../catch_amalgamated.hpp"
+#include "hv/json.hpp"
 
 using namespace helix;
 using namespace helix::ui;
@@ -1409,4 +1412,81 @@ TEST_CASE("PrinterState: get_active_extruder_*_subject returns valid subjects",
     // Active extruder subjects should be valid (non-null)
     REQUIRE(state.get_active_extruder_temp_subject() != nullptr);
     REQUIRE(state.get_active_extruder_target_subject() != nullptr);
+}
+
+// ============================================================================
+// set_hardware() — chamber name propagation (regression: use-after-move)
+// ============================================================================
+
+TEST_CASE("PrinterState::set_hardware propagates auto-detected chamber sensor name",
+          "[state][hardware][chamber][regression]") {
+    lv_init_safe();
+    PrinterState& state = get_printer_state();
+    PrinterStateTestAccess::reset(state);
+    state.init_subjects(false);
+
+    auto& settings = helix::SettingsManager::instance();
+    settings.init_subjects();
+    settings.set_chamber_sensor_assignment("auto");
+    settings.set_chamber_heater_assignment("auto");
+
+    PrinterDiscovery hw;
+    nlohmann::json objects = {"temperature_sensor chamber", "extruder", "heater_bed"};
+    hw.parse_objects(objects);
+    REQUIRE(hw.chamber_sensor_name() == "temperature_sensor chamber");
+
+    state.set_hardware(std::move(hw));
+
+    // Regression: `hardware` was read after std::move into discovery_, leaving these empty.
+    REQUIRE(state.temperature_state().chamber_sensor_name() == "temperature_sensor chamber");
+    REQUIRE(state.temperature_state().chamber_heater_name().empty());
+}
+
+TEST_CASE("PrinterState::set_hardware prefers heater over sensor when both exist",
+          "[state][hardware][chamber]") {
+    lv_init_safe();
+    PrinterState& state = get_printer_state();
+    PrinterStateTestAccess::reset(state);
+    state.init_subjects(false);
+
+    auto& settings = helix::SettingsManager::instance();
+    settings.init_subjects();
+    settings.set_chamber_sensor_assignment("auto");
+    settings.set_chamber_heater_assignment("auto");
+
+    PrinterDiscovery hw;
+    nlohmann::json objects = {"heater_generic chamber", "temperature_sensor chamber", "extruder",
+                              "heater_bed"};
+    hw.parse_objects(objects);
+
+    state.set_hardware(std::move(hw));
+
+    REQUIRE(state.temperature_state().chamber_sensor_name() == "temperature_sensor chamber");
+    REQUIRE(state.temperature_state().chamber_heater_name() == "heater_generic chamber");
+}
+
+TEST_CASE("PrinterState::set_hardware respects 'none' override for chamber",
+          "[state][hardware][chamber]") {
+    lv_init_safe();
+    PrinterState& state = get_printer_state();
+    PrinterStateTestAccess::reset(state);
+    state.init_subjects(false);
+
+    auto& settings = helix::SettingsManager::instance();
+    settings.init_subjects();
+    settings.set_chamber_sensor_assignment("none");
+    settings.set_chamber_heater_assignment("none");
+
+    PrinterDiscovery hw;
+    nlohmann::json objects = {"temperature_sensor chamber", "heater_generic chamber", "extruder",
+                              "heater_bed"};
+    hw.parse_objects(objects);
+
+    state.set_hardware(std::move(hw));
+
+    REQUIRE(state.temperature_state().chamber_sensor_name().empty());
+    REQUIRE(state.temperature_state().chamber_heater_name().empty());
+
+    settings.set_chamber_sensor_assignment("auto");
+    settings.set_chamber_heater_assignment("auto");
 }

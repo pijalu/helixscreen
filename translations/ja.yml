@@ -222,7 +222,7 @@ translations:
   Brother QL (Bluetooth): Brother QL (Bluetooth)
   Browse: 参照
   Browse and play recorded timelapses: 録画済みタイムラプスを閲覧・再生
-  'Browse guides, configuration references, and troubleshooting ': 'ガイド、設定リファレンス、トラブルシューティングを参照 '
+  Browse guides, configuration references, and troubleshooting resources for HelixScreen.: HelixScreen のガイド、設定リファレンス、トラブルシューティング資料を参照します。
   Buffer Status: バッファーステータス
   Bundle Uploaded: バンドルをアップロードしました
   Button taps and navigation sounds: ボタンタップとナビゲーション音
@@ -406,7 +406,7 @@ translations:
   Corner roundness: ''
   Corner roundness (0 = sharp, 40 = very round): 角の丸み (0 = 鋭い、40 = 非常に丸い)
   Correction (Ki): 補正 (Ki)
-  'Could not analyze PRINT_START macro. Some print options may be ': PRINT_START マクロを分析できませんでした。一部の印刷オプションが
+  Could not analyze PRINT_START macro. Some print options may be unavailable.: PRINT_START マクロを分析できませんでした。一部の印刷オプションが利用できない場合があります。
   Could not check webcam status.\nCheck printer connection.: ウェブカメラの状態を確認できませんでした。\nプリンター接続を確認してください。
   Could not forget device: ''
   Could not reach Spoolman at: 'Spoolman に接続できません:'
@@ -758,7 +758,7 @@ translations:
   Heating (%d°C below minimum): '"加熱中（最低温度より%d°C低い）"'
   Heating Bed...: ベッド加熱中...
   Heating Nozzle...: ノズル加熱中...
-  Heating to %d\xC2\xB0: '%d\xC2\xB0に加熱中'
+  Heating to %d\xC2\xB0C... %.0f\xC2\xB0C: '%d\xC2\xB0Cに加熱中... %.0f\xC2\xB0C'
   Heating to %d°C...: '"%d°Cまで加熱中..."'
   Heating to target...: 目標温度まで加熱中...
   Heating to {}°C for {}...: '{}°Cに加熱中（{}）...'
@@ -838,7 +838,7 @@ translations:
   Invalid port number: 無効なポート番号
   Issue description: 問題の説明
   Job Queue: ジョブキュー
-  'Join the HelixScreen community on Discord for discussion, ': HelixScreenコミュニティにDiscordで参加して、ディスカッション、
+  Join the HelixScreen community on Discord for discussion, tips, troubleshooting help, and feature requests.: Discord で HelixScreen コミュニティに参加して、ディスカッション、ヒント、トラブルシューティング支援、機能リクエストを共有しましょう。
   Just now: たった今
   KEYBOARD LAYOUT: ''
   KLICKY CONTROLS: KLICKY CONTROLS
@@ -847,9 +847,10 @@ translations:
   Keyboard Test (Gboard-style): キーボードテスト（Gboard風）
   Kinematics: キネマティクス
   Klipper: Klipper
-  'Klipper firmware has disconnected from the host. ': 'Klipper ファームウェアがホストから切断されました。 '
-  'Klipper has entered an error state. This is typically caused by an MCU ': Klipperがエラー状態になりました。これは通常MCU
-  'Klipper has entered shutdown state. This may be due to an emergency stop, ': 'Klipper がシャットダウン状態になりました。緊急停止が原因の可能性があります。 '
+  Klipper firmware has disconnected from the host. Try restarting Klipper or performing a firmware restart.: Klipper ファームウェアがホストから切断されました。Klipper を再起動するか、ファームウェア再起動を実行してみてください。
+  ? Klipper has entered an error state. This is typically caused by an MCU connection failure or configuration error. Try a firmware restart.
+  : Klipper がエラー状態になりました。これは通常、MCU 接続の失敗または設定エラーが原因です。ファームウェア再起動を試してください。
+  Klipper has entered shutdown state. This may be due to an emergency stop, thermal runaway, or configuration error.: Klipper がシャットダウン状態になりました。緊急停止、熱暴走、または設定エラーが原因の可能性があります。
   Klipper will restart to apply changes: 変更を適用するために Klipper が再起動します
   Klipper will restart to apply changes.: 変更を適用するために Klipper が再起動します。
   Klipper will restart to apply new settings.: 新しい設定を適用するためKlipperが再起動します。
@@ -1041,7 +1042,7 @@ translations:
   No Filament Detected: フィラメント未検出
   No History: 履歴なし
   No LED macros detected on your printer.: プリンターで LED マクロが検出されませんでした。
-  'No LED macros detected on your printer. ': 'プリンターで LED マクロが検出されませんでした。 '
+  No LED macros detected on your printer. Add Klipper macros for LED control first.: プリンターで LED マクロが検出されませんでした。先に LED 制御用の Klipper マクロを追加してください。
   No Macros Found: マクロが見つかりません
   No PRINT_START macro found: PRINT_START マクロが見つかりません
   No Power Devices: 電源デバイスなし
@@ -1285,7 +1286,7 @@ translations:
   Printing: 印刷中
   Printing label...: ラベル印刷中...
   Printing test label...: テストラベル印刷中...
-  'Printing with the wrong material can cause clogs, poor adhesion, ': ''
+  Printing with the wrong material can cause clogs, poor adhesion, or failed prints.: 誤った素材で印刷すると、詰まり、密着不良、または印刷失敗の原因となる可能性があります。
   Prints: 印刷
   Prints Trend: 印刷傾向
   'Private:': 'プライベート:'
@@ -1472,6 +1473,10 @@ translations:
   Scan and select a Bluetooth printer first: 先に Bluetooth プリンターをスキャンして選択してください
   Scan for Printers: プリンターをスキャン
   Scanner: ''
+  ? Scanner bonded but didn't attach as a keyboard. Try turning the scanner off and on, then tap Pair again. If that fails, add ClassicBondedOnly=false to /etc/bluetooth/input.conf.
+  : スキャナーはボンディングされましたが、キーボードとして接続されませんでした。スキャナーの電源を入れ直してから、もう一度 Pair をタップしてください。それでも失敗する場合は、/etc/bluetooth/input.conf に ClassicBondedOnly=false を追加してください。
+  ? Scanner paired but can't receive input. Put the scanner in pairing mode (see its manual — usually a setup barcode or a button hold) and tap Pair again.
+  : スキャナーはペアリングされましたが、入力を受信できません。スキャナーをペアリングモードにして（取扱説明書を参照 — 通常は設定用バーコードまたはボタンの長押し）、もう一度 Pair をタップしてください。
   Scanning for networks...: ネットワークをスキャン中...
   Scanning...: スキャン中...
   'Score: 0': 'スコア: 0'
@@ -1592,7 +1597,6 @@ translations:
   Spoolman found! Configuring...: Spoolman を検出しました！設定中...
   Spoolman has no spools configured: Spoolman にスプールが設定されていません
   Spoolman removed.: Spoolman を削除しました。
-  'Spoolman unavailable — filament weights ': Spoolman が利用できません — フィラメント重量が
   Spoolman unavailable — filament weights may be stale: Spoolmanが利用できません — フィラメント重量が古い可能性があります
   Square Corner Velocity: 直角コーナー速度
   Stable: 安定版
@@ -1683,9 +1687,9 @@ translations:
   ? The HelixPrint plugin enables fast G-code modifications directly on your printer—like skipping bed mesh for quick reprints.
   : HelixPrint プラグインは、クイック再印刷のためのベッドメッシュスキップなど、プリンター上で直接高速 G-code 修正を可能にします。
   The heater will cycle on and off several times.: ヒーターは数回オン/オフを繰り返します。
-  'The runout sensor indicates no filament is loaded. ': 'フィラメント切れセンサーがフィラメント未装填を検出しました。 '
-  'The toolhead sensor indicates filament is already loaded. ': 'ツールヘッドセンサーがフィラメント装填済みを検出しました。 '
-  'The toolhead sensor indicates no filament is present. ': 'ツールヘッドセンサーがフィラメント未検出を報告しました。 '
+  The runout sensor indicates no filament is loaded. Start print anyway?: フィラメント切れセンサーがフィラメント未装填を検出しました。それでも印刷を開始しますか？
+  The toolhead sensor indicates filament is already loaded. Proceed with load anyway?: ツールヘッドセンサーがフィラメント装填済みを検出しました。それでも装填を続行しますか？
+  The toolhead sensor indicates no filament is present. Proceed with unload anyway?: ツールヘッドセンサーがフィラメント未検出を報告しました。それでもアンロードを続行しますか？
   Theme: テーマ
   Theme Colors: テーマカラー
   Theme Preset: テーマプリセット
@@ -1703,8 +1707,10 @@ translations:
   ? This plugin lets HelixScreen control print start options like bed mesh and QGL. Once installed, use Configure PRINT_START below to enable optional steps.
   : このプラグインにより、HelixScreen がベッドメッシュや QGL などの印刷開始オプションを制御できます。インストール後、以下の「PRINT_START を設定」を使用してオプションの手順を有効にしてください。
   This tool probes each bed screw and tells you how much to adjust.: このツールは各ベッドネジをプローブし、どのくらい調整が必要かを教えます。
-  'This will apply the Z-offset to your endstop and restart Klipper to save the ': 'Z-offset をエンドストップに適用し、保存のために Klipper を再起動します。 '
-  'This will apply the Z-offset to your probe and restart Klipper to save the ': 'Z-offset をプローブに適用し、保存のために Klipper を再起動します。 '
+  ? This will apply the Z-offset to your endstop and restart Klipper to save the configuration. The printer will briefly disconnect.
+  : Z-offset をエンドストップに適用し、設定を保存するために Klipper を再起動します。プリンターは一時的に切断されます。
+  ? This will apply the Z-offset to your probe and restart Klipper to save the configuration. The printer will briefly disconnect.
+  : Z-offset をプローブに適用し、設定を保存するために Klipper を再起動します。プリンターは一時的に切断されます。
   ? This will collect system info, logs, settings, and printer data to help diagnose issues. No passwords or sensitive data will be included.
   : システム情報、ログ、設定、プリンターデータを収集して問題の診断に役立てます。パスワードや個人情報は含まれません。
   This will immediately halt all printer operations. The printer will require a restart to resume.: これはすべてのプリンター操作を直ちに停止します。再開するにはプリンターの再起動が必要です。
@@ -1844,7 +1850,8 @@ translations:
   : 残りのフィラメントを表示するために、重量データが Spoolman から同期されます。印刷の開始、一時停止、完了時にも変更が同期されます。
   What We Collect: 収集する情報
   When enabled, only the macro runs. When disabled, temperatures are set first, then the macro runs.: 有効時はマクロのみ実行されます。無効時は先に温度を設定してからマクロが実行されます。
-  'When starting a print, you''ll be able to choose whether to run %s. ': '印刷開始時に %s を実行するかどうかを選択できます。 '
+  ? When starting a print, you'll be able to choose whether to run %s. This saves time when you've already done it recently or want more control over your print preparation.
+  : 印刷開始時に %s を実行するかどうかを選択できるようになります。最近すでに実行した場合や、印刷準備をより細かく制御したい場合に時間を節約できます。
   White: ホワイト
   WiFi: WiFi
   WiFi Disabled: WiFi 無効
@@ -1872,7 +1879,8 @@ translations:
   'Y jog failed: {}': 'Y軸移動に失敗しました: {}'
   'Y:': 'Y:'
   Year: 年
-  You can now skip these operations when starting prints.\n\n: 印刷開始時にこれらの操作をスキップできるようになりました。\n\n
+  ? You can now skip these operations when starting prints.\n\nLook for the new options in the print details before starting each print.\n\nA backup of your config was saved automatically.
+  : 印刷開始時にこれらの操作をスキップできるようになりました。\n\n各印刷を開始する前に、印刷の詳細で新しいオプションを確認してください。\n\n設定のバックアップが自動的に保存されました。
   You can skip this and calibrate later in Settings.: スキップして後で設定でキャリブレーションできます。
   You have unsaved changes. Discard them?: 保存されていない変更があります。破棄しますか？
   Your PRINT_START macro will be updated to give you control over:\n\n: PRINT_START マクロが更新され、以下を制御できるようになります:\n\n

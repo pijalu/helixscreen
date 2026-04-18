@@ -148,12 +148,17 @@ void CameraWidget::detach() {
     // because go_back() is deferred and 'this' may be destroyed before it fires.
     destroy_fullscreen();
 
-    // Lightweight detach: release observer and LVGL pointers but preserve
+    // Lightweight detach: release observers and LVGL pointers but preserve
     // the camera stream. lifetime_ is intentionally NOT invalidated here
     // (unlike other widgets) — the stream keeps running during the
     // detach→reattach gap. Frame callbacks check camera_image_ (null
     // after detach) and safely no-op until re-attach.
     webcam_observer_.reset();
+    edit_mode_observer_.reset();
+    if (fps_recheck_timer_) {
+        lv_timer_delete(fps_recheck_timer_);
+        fps_recheck_timer_ = nullptr;
+    }
 
     lv_obj_set_user_data(widget_obj_, nullptr);
     widget_obj_ = nullptr;
@@ -192,6 +197,15 @@ void CameraWidget::on_activate() {
             });
             sleep_cb_registered_ = true;
         }
+    }
+
+    // Observe edit mode changes to throttle camera fps
+    if (!edit_mode_observer_) {
+        lv_subject_t* edit_subj = &get_home_edit_mode_subject();
+        edit_mode_observer_ = helix::ui::observe_int_sync<CameraWidget>(
+            edit_subj, this, [](CameraWidget* self, int /*val*/) {
+                self->update_stream_fps();
+            });
     }
 
     if (!compact_) {
@@ -279,6 +293,11 @@ void CameraWidget::start_stream() {
                                  lv_display_get_vertical_resolution(disp));
     }
 
+    // Read target_fps from printer state and apply initial fps gate
+    target_fps_ = get_printer_state().get_webcam_target_fps();
+    if (target_fps_ <= 0) target_fps_ = 15;
+    update_stream_fps();
+
     set_status_text("Connecting Camera...");
 
     // Unhide the overlay so the user sees "Connecting Camera..." instead of
@@ -298,6 +317,9 @@ void CameraWidget::start_stream() {
                 return;
 
             token.defer("CameraWidget::frame", [this, frame]() {
+                // Re-evaluate fps on the UI thread (overlay/edit state is UI-thread only)
+                update_stream_fps();
+
                 // Deliver frame to fullscreen image if open, otherwise widget image
                 lv_obj_t* target = fullscreen_image_ ? fullscreen_image_ : camera_image_;
                 if (target) {
@@ -425,6 +447,40 @@ void CameraWidget::apply_transform() {
                   "flip_v={} (moon={} ^ user={})",
                   rotation, moonraker_flip_h != user_flip_h, moonraker_flip_h, user_flip_h,
                   moonraker_flip_v != user_flip_v, moonraker_flip_v, user_flip_v);
+}
+
+void CameraWidget::update_stream_fps() {
+    if (!stream_) return;
+
+    // Check if overlays are covering us (but NOT our own fullscreen overlay)
+    if (!fullscreen_overlay_ && NavigationManager::instance().has_open_overlays()) {
+        stream_->set_max_fps(0);  // Paused — overlay covering us
+        // Schedule periodic re-check so we resume when overlay closes.
+        // When paused, no frames deliver → no callback → no re-evaluation.
+        if (!fps_recheck_timer_) {
+            fps_recheck_timer_ = lv_timer_create(
+                [](lv_timer_t* t) {
+                    static_cast<CameraWidget*>(lv_timer_get_user_data(t))->update_stream_fps();
+                },
+                500, this);
+        }
+        return;
+    }
+
+    // Not paused — cancel recheck timer if running
+    if (fps_recheck_timer_) {
+        lv_timer_delete(fps_recheck_timer_);
+        fps_recheck_timer_ = nullptr;
+    }
+
+    // Check edit mode
+    lv_subject_t* edit_subj = &get_home_edit_mode_subject();
+    if (lv_subject_get_int(edit_subj) != 0) {
+        stream_->set_max_fps(2);  // Reduced — edit mode
+        return;
+    }
+
+    stream_->set_max_fps(target_fps_);  // Normal — capped at configured fps
 }
 
 void CameraWidget::set_status_text(const char* text) {

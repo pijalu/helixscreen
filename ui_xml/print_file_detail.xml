@@ -147,7 +147,7 @@
       <!-- RIGHT SECTION: Options and buttons (4/9 width)                    -->
       <!-- ================================================================== -->
       <lv_obj name="options_section"
-              height="100%" flex_grow="4" style_pad_all="#space_sm" style_pad_gap="#space_lg" flex_flow="column">
+              height="100%" flex_grow="4" style_pad_hor="0" style_pad_ver="#space_sm" style_pad_gap="#space_lg" flex_flow="column">
         <!-- Print history status display (hidden by default) -->
         <lv_obj name="history_status_row"
                 width="100%" height="content" flex_flow="row" style_pad_gap="#space_xs" style_flex_cross_place="center"
@@ -175,7 +175,7 @@
         </ui_card>
 
         <!-- Filament mapping card (shown when AMS/toolchanger detected) -->
-        <ui_card name="filament_mapping_card" width="100%" style_pad_all="0" style_border_width="0" flex_flow="column" hidden="true">
+        <ui_card name="filament_mapping_card" width="100%" style_pad_hor="0" style_pad_ver="#space_md" style_border_width="0" flex_flow="column" hidden="true">
           <lv_obj width="100%" height="content" style_pad_all="0" style_pad_gap="#space_xs"
                   flex_flow="row" style_flex_cross_place="center" scrollable="false"
                   clickable="false" event_bubble="true">

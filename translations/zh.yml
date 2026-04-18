@@ -222,7 +222,7 @@ translations:
   Brother QL (Bluetooth): Brother QL（蓝牙）
   Browse: 浏览
   Browse and play recorded timelapses: 浏览和播放录制的延时摄影
-  'Browse guides, configuration references, and troubleshooting ': 浏览指南、配置参考和故障排除
+  Browse guides, configuration references, and troubleshooting resources for HelixScreen.: 浏览 HelixScreen 的指南、配置参考和故障排除资源。
   Buffer Status: 缓冲区状态
   Bundle Uploaded: 捆绑包已上传
   Button taps and navigation sounds: 按钮点击和导航声音
@@ -406,7 +406,7 @@ translations:
   Corner roundness: ''
   Corner roundness (0 = sharp, 40 = very round): 圆角程度（0 = 尖锐，40 = 非常圆润）
   Correction (Ki): 校正 (Ki)
-  'Could not analyze PRINT_START macro. Some print options may be ': 无法分析 PRINT_START 宏。部分打印选项可能
+  Could not analyze PRINT_START macro. Some print options may be unavailable.: 无法分析 PRINT_START 宏。部分打印选项可能不可用。
   Could not check webcam status.\nCheck printer connection.: 无法检查摄像头状态。\n请检查打印机连接。
   Could not forget device: ''
   Could not reach Spoolman at: 无法连接 Spoolman：
@@ -758,7 +758,7 @@ translations:
   Heating (%d°C below minimum): 加热中（低于最低温度 %d°C）
   Heating Bed...: 正在加热热床...
   Heating Nozzle...: 正在加热喷嘴...
-  Heating to %d\xC2\xB0: 加热至 %d\xC2\xB0
+  Heating to %d\xC2\xB0C... %.0f\xC2\xB0C: 加热至 %d\xC2\xB0C... %.0f\xC2\xB0C
   Heating to %d°C...: 正在加热至 %d°C...
   Heating to target...: 正在加热至目标温度...
   Heating to {}°C for {}...: 正在加热至{}°C，持续{}...
@@ -838,7 +838,7 @@ translations:
   Invalid port number: 无效的端口号
   Issue description: 问题描述
   Job Queue: 任务队列
-  'Join the HelixScreen community on Discord for discussion, ': 加入 HelixScreen 的 Discord 社区进行讨论、
+  Join the HelixScreen community on Discord for discussion, tips, troubleshooting help, and feature requests.: 加入 HelixScreen 的 Discord 社区，参与讨论、获取技巧、故障排除帮助和功能请求。
   Just now: 刚刚
   KEYBOARD LAYOUT: ''
   KLICKY CONTROLS: KLICKY 控制
@@ -847,9 +847,10 @@ translations:
   Keyboard Test (Gboard-style): 键盘测试（Gboard 风格）
   Kinematics: 运动学
   Klipper: Klipper
-  'Klipper firmware has disconnected from the host. ': 'Klipper 固件已与主机断开连接。 '
-  'Klipper has entered an error state. This is typically caused by an MCU ': Klipper已进入错误状态。这通常是由MCU
-  'Klipper has entered shutdown state. This may be due to an emergency stop, ': Klipper 已进入关机状态。这可能是由于紧急停止、
+  Klipper firmware has disconnected from the host. Try restarting Klipper or performing a firmware restart.: Klipper 固件已与主机断开连接。请尝试重启 Klipper 或执行固件重启。
+  ? Klipper has entered an error state. This is typically caused by an MCU connection failure or configuration error. Try a firmware restart.
+  : Klipper 已进入错误状态。这通常是由 MCU 连接失败或配置错误引起的。请尝试固件重启。
+  Klipper has entered shutdown state. This may be due to an emergency stop, thermal runaway, or configuration error.: Klipper 已进入关机状态。这可能是由于紧急停止、热失控或配置错误引起的。
   Klipper will restart to apply changes: Klipper 将重启以应用更改
   Klipper will restart to apply changes.: Klipper 将重启以应用更改。
   Klipper will restart to apply new settings.: Klipper 将重启以应用新设置。
@@ -1041,7 +1042,7 @@ translations:
   No Filament Detected: 未检测到耗材
   No History: 无历史记录
   No LED macros detected on your printer.: 未在打印机上检测到 LED 宏。
-  'No LED macros detected on your printer. ': '未在打印机上检测到 LED 宏。 '
+  No LED macros detected on your printer. Add Klipper macros for LED control first.: 未在打印机上检测到 LED 宏。请先添加用于 LED 控制的 Klipper 宏。
   No Macros Found: 未找到宏
   No PRINT_START macro found: 未找到 PRINT_START 宏
   No Power Devices: 无电源设备
@@ -1285,7 +1286,7 @@ translations:
   Printing: 正在打印
   Printing label...: 正在打印标签...
   Printing test label...: 正在打印测试标签...
-  'Printing with the wrong material can cause clogs, poor adhesion, ': ''
+  Printing with the wrong material can cause clogs, poor adhesion, or failed prints.: 使用错误的耗材打印可能导致堵塞、附着力差或打印失败。
   Prints: 打印次数
   Prints Trend: 打印趋势
   'Private:': 私有：
@@ -1472,6 +1473,10 @@ translations:
   Scan and select a Bluetooth printer first: 请先扫描并选择蓝牙打印机
   Scan for Printers: 扫描打印机
   Scanner: ''
+  ? Scanner bonded but didn't attach as a keyboard. Try turning the scanner off and on, then tap Pair again. If that fails, add ClassicBondedOnly=false to /etc/bluetooth/input.conf.
+  : 扫描器已绑定但未作为键盘连接。请尝试关闭再开启扫描器，然后再次点击 Pair。如果仍然失败，请在 /etc/bluetooth/input.conf 中添加 ClassicBondedOnly=false。
+  ? Scanner paired but can't receive input. Put the scanner in pairing mode (see its manual — usually a setup barcode or a button hold) and tap Pair again.
+  : 扫描器已配对但无法接收输入。请将扫描器置于配对模式（参见其手册——通常是设置条码或长按按钮），然后再次点击 Pair。
   Scanning for networks...: 正在扫描网络...
   Scanning...: 正在扫描...
   'Score: 0': '得分: 0'
@@ -1592,7 +1597,6 @@ translations:
   Spoolman found! Configuring...: 已找到 Spoolman！正在配置...
   Spoolman has no spools configured: Spoolman 未配置料盘
   Spoolman removed.: Spoolman 已移除。
-  'Spoolman unavailable — filament weights ': Spoolman 不可用 — 耗材重量
   Spoolman unavailable — filament weights may be stale: Spoolman不可用 — 耗材重量可能已过期
   Square Corner Velocity: 直角转弯速度
   Stable: 稳定版
@@ -1683,9 +1687,9 @@ translations:
   ? The HelixPrint plugin enables fast G-code modifications directly on your printer—like skipping bed mesh for quick reprints.
   : HelixPrint 插件可在打印机上直接进行快速 G-code 修改——例如跳过热床网格以快速重新打印。
   The heater will cycle on and off several times.: 加热器将多次开关循环。
-  'The runout sensor indicates no filament is loaded. ': '断料传感器显示未装载耗材。 '
-  'The toolhead sensor indicates filament is already loaded. ': '工具头传感器显示耗材已装载。 '
-  'The toolhead sensor indicates no filament is present. ': '工具头传感器显示无耗材。 '
+  The runout sensor indicates no filament is loaded. Start print anyway?: 断料传感器显示未装载耗材。仍要开始打印吗？
+  The toolhead sensor indicates filament is already loaded. Proceed with load anyway?: 工具头传感器显示耗材已装载。仍要继续装载吗？
+  The toolhead sensor indicates no filament is present. Proceed with unload anyway?: 工具头传感器显示无耗材。仍要继续卸载吗？
   Theme: 主题
   Theme Colors: 主题颜色
   Theme Preset: 主题预设
@@ -1703,8 +1707,10 @@ translations:
   ? This plugin lets HelixScreen control print start options like bed mesh and QGL. Once installed, use Configure PRINT_START below to enable optional steps.
   : 此插件让 HelixScreen 控制打印启动选项，如热床网格和 QGL。安装后，使用下面的配置 PRINT_START 启用可选步骤。
   This tool probes each bed screw and tells you how much to adjust.: 此工具探测每个热床螺丝并告诉您需要调整多少。
-  'This will apply the Z-offset to your endstop and restart Klipper to save the ': 这将把 Z 偏移应用到限位开关并重启 Klipper 以保存
-  'This will apply the Z-offset to your probe and restart Klipper to save the ': 这将把 Z 偏移应用到探针并重启 Klipper 以保存
+  ? This will apply the Z-offset to your endstop and restart Klipper to save the configuration. The printer will briefly disconnect.
+  : 这将把 Z-offset 应用到限位开关并重启 Klipper 以保存配置。打印机将短暂断开连接。
+  ? This will apply the Z-offset to your probe and restart Klipper to save the configuration. The printer will briefly disconnect.
+  : 这将把 Z-offset 应用到探针并重启 Klipper 以保存配置。打印机将短暂断开连接。
   ? This will collect system info, logs, settings, and printer data to help diagnose issues. No passwords or sensitive data will be included.
   : 将收集系统信息、日志、设置和打印机数据以帮助诊断问题。不会包含密码或敏感数据。
   This will immediately halt all printer operations. The printer will require a restart to resume.: 这将立即停止所有打印机操作。打印机需要重启才能恢复。
@@ -1844,7 +1850,8 @@ translations:
   : 重量数据从 Spoolman 同步以显示剩余耗材。打印开始、暂停或完成时也会同步更改。
   What We Collect: 我们收集的内容
   When enabled, only the macro runs. When disabled, temperatures are set first, then the macro runs.: 启用时仅运行宏。禁用时先设置温度，然后运行宏。
-  'When starting a print, you''ll be able to choose whether to run %s. ': '开始打印时，您可以选择是否运行 %s。 '
+  ? When starting a print, you'll be able to choose whether to run %s. This saves time when you've already done it recently or want more control over your print preparation.
+  : 开始打印时，您可以选择是否运行 %s。如果您最近已经执行过或希望对打印准备过程有更多控制，这样可以节省时间。
   White: 白色
   WiFi: WiFi
   WiFi Disabled: WiFi 已禁用
@@ -1872,7 +1879,8 @@ translations:
   'Y jog failed: {}': 'Y 轴移动失败: {}'
   'Y:': Y：
   Year: 年
-  You can now skip these operations when starting prints.\n\n: 现在开始打印时可以跳过这些操作。\n\n
+  ? You can now skip these operations when starting prints.\n\nLook for the new options in the print details before starting each print.\n\nA backup of your config was saved automatically.
+  : 现在开始打印时可以跳过这些操作。\n\n在每次开始打印前，请在打印详情中查找新的选项。\n\n已自动保存配置备份。
   You can skip this and calibrate later in Settings.: 您可以跳过此步骤，稍后在设置中进行校准。
   You have unsaved changes. Discard them?: 您有未保存的更改。是否丢弃？
   Your PRINT_START macro will be updated to give you control over:\n\n: 您的 PRINT_START 宏将被更新，以便您控制以下内容：\n\n

@@ -34,11 +34,11 @@
          Source updated at runtime by C++ based on theme mode (dark/light) and card size -->
     <lv_image name="gradient_bg"
               width="100%" height="100%" inner_align="stretch"/>
-    <!-- Thumbnail image - pre-scaled to display size via ThumbnailProcessor
-         Source images are now ~160x160 (matching card size) instead of 300x300,
-         so contain scaling is nearly 1:1 with minimal CPU overhead -->
+    <!-- Thumbnail image - pre-scaled to exact display size via ThumbnailProcessor.
+         Widget dimensions set by C++ to match .bin target (e.g. 160x160 for 800px),
+         ensuring 1:1 blit with zero per-frame scaling overhead -->
     <lv_image name="thumbnail"
-              width="100%" height="100%" src="$thumbnail_src" align="center" inner_align="contain"
+              src="$thumbnail_src" align="center"
               style_translate_y="#preview_offset_y"/>
     <!-- No-thumbnail placeholder - shown for files without real thumbnails -->
     <icon name="no_thumbnail_icon" src="cube_outline" size="xl" variant="tertiary"

@@ -62,6 +62,11 @@ static lv_subject_t g_home_edit_mode_subject;
 // Application quit flag (volatile sig_atomic_t for async-signal-safety)
 static volatile sig_atomic_t g_quit_requested = 0;
 
+// When set, main() will execv() the stored argv after normal cleanup runs.
+// Used to implement in-place restart without forking a second instance that
+// would race the parent's cleanup and collide on the .helix-screen.lock file.
+static bool g_restart_after_quit = false;
+
 // Wizard active flag
 static bool g_wizard_active = false;
 static std::function<void()> g_wizard_completion_cb;
@@ -242,38 +247,15 @@ void app_request_restart() {
         return;
     }
 
-#if defined(__unix__) || defined(__APPLE__)
-    // Fork a new process
-    pid_t pid = fork();
-
-    if (pid < 0) {
-        // Fork failed
-        spdlog::error("[App Globals] Fork failed during restart: {}", strerror(errno));
-        g_quit_requested = 1; // Fall back to quit
-        return;
-    }
-
-    if (pid == 0) {
-        // Child process - exec the new instance
-        // Small delay to let parent start cleanup
-        usleep(100000); // 100ms
-
-        execv(g_executable_path.c_str(), g_stored_argv.data());
-
-        // If execv returns, it failed
-        spdlog::error("[App Globals] execv failed during restart: {}", strerror(errno));
-        _exit(1); // Exit child without cleanup
-    }
-
-    // Parent process - signal main loop to exit cleanly
-    spdlog::info("[App Globals] Forked new process (PID {}), parent exiting", pid);
+    // In-place restart: set a flag, request quit, and let main() execv() the
+    // stored argv after normal cleanup runs.  The old fork+exec pattern raced
+    // parent cleanup against child startup — the child execv'd 100 ms later
+    // while the parent still held the .helix-screen.lock file, so the child
+    // aborted ("Another instance is already running") and lingered as a
+    // zombie while the parent's own cleanup sometimes hung.  A single-process
+    // restart avoids the lock collision entirely.
+    g_restart_after_quit = true;
     g_quit_requested = 1;
-
-#else
-    // Unsupported platform - fall back to quit
-    spdlog::warn("[App Globals] Restart not supported on this platform, falling back to quit");
-    g_quit_requested = 1;
-#endif
 }
 
 void app_request_restart_service() {
@@ -295,6 +277,14 @@ char** app_get_stored_argv() {
     if (g_stored_argv.empty())
         return nullptr;
     return g_stored_argv.data();
+}
+
+const char* app_get_executable_path() {
+    return g_executable_path.empty() ? nullptr : g_executable_path.c_str();
+}
+
+bool app_restart_after_quit_requested() {
+    return g_restart_after_quit;
 }
 
 bool app_quit_requested() {

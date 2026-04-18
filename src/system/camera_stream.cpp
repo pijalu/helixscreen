@@ -472,11 +472,26 @@ int CameraStream::process_stream_data() {
             jpeg_len--;
         }
 
-        // Decode and deliver the frame. No backpressure gate — the natural
-        // decode time (~3ms with downscaling) provides pacing, and the UI
-        // thread processes set_src before the next frame is ready.
+        // FPS gate — skip decode entirely when paused or rate-limited.
+        // Checked here (before decode_jpeg) to avoid wasting CPU on frames
+        // that will be discarded anyway.
+        bool skip_frame = false;
+        {
+            int fps = max_fps_.load(std::memory_order_relaxed);
+            if (fps == 0) {
+                // Paused — discard frame, consume data to keep parser in sync
+                skip_frame = true;
+            } else if (fps > 0) {
+                auto now = std::chrono::steady_clock::now();
+                auto min_interval = std::chrono::microseconds(1000000 / fps);
+                if (now - last_frame_time_ < min_interval) {
+                    skip_frame = true;
+                }
+            }
+        }
+
         bool decoded = false;
-        if (jpeg_len > 0) {
+        if (jpeg_len > 0 && !skip_frame) {
             decoded = decode_jpeg(recv_buf_.data() + jpeg_start, jpeg_len);
             if (decoded) {
                 deliver_frame();
@@ -516,6 +531,21 @@ void CameraStream::fetch_snapshot() {
 
     if (snapshot_url_.empty()) {
         return;
+    }
+
+    // FPS gate — skip fetch entirely when paused or rate-limited
+    {
+        int fps = max_fps_.load(std::memory_order_relaxed);
+        if (fps == 0) {
+            return; // Paused — skip snapshot fetch
+        }
+        if (fps > 0) {
+            auto now = std::chrono::steady_clock::now();
+            auto min_interval = std::chrono::microseconds(1000000 / fps);
+            if (now - last_frame_time_ < min_interval) {
+                return; // Too soon — skip this snapshot
+            }
+        }
     }
 
     spdlog::trace("[CameraStream] Fetching snapshot from {}", snapshot_url_);
@@ -897,6 +927,9 @@ void CameraStream::deliver_frame() {
     if (!running_.load()) {
         return;
     }
+
+    // Update frame timestamp for fps gate
+    last_frame_time_ = std::chrono::steady_clock::now();
 
     FrameCallback frame_cb;
     {

@@ -65,6 +65,7 @@ class BarcodeScannerSettingsOverlay : public OverlayBase {
     static void on_bs_refresh_usb(lv_event_t* e);
     static void on_bs_keymap_changed(lv_event_t* e);
     static void on_bs_row_clicked(lv_event_t* e);
+    static void on_bs_row_forget(lv_event_t* e);
     static void on_bs_bt_scanner_selected(lv_event_t* e);
     static void on_bs_bt_pair(lv_event_t* e);
     static void on_bs_bt_forget(lv_event_t* e);

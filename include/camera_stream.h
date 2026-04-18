@@ -10,6 +10,7 @@
 #include "async_lifetime_guard.h"
 
 #include <atomic>
+#include <chrono>
 #include <functional>
 #include <memory>
 #include <mutex>
@@ -89,6 +90,16 @@ class CameraStream {
         target_w_.store(w);
         target_h_.store(h);
     }
+
+    /**
+     * @brief Set maximum frame delivery rate.
+     *
+     * Frames arriving faster than this rate are discarded before decode.
+     * 0 = paused (no frames delivered), -1 = unlimited.
+     * Thread-safe — takes effect on next frame boundary.
+     */
+    void set_max_fps(int fps) { max_fps_.store(fps, std::memory_order_relaxed); }
+    int get_max_fps() const { return max_fps_.load(std::memory_order_relaxed); }
 
     /**
      * @brief Configure stream URLs from printer state.
@@ -194,6 +205,8 @@ class CameraStream {
     std::atomic<int> rotation_{0}; // CameraRotation cast to int
     std::atomic<int> target_w_{0}; // Target display width (0 = no downscaling)
     std::atomic<int> target_h_{0}; // Target display height
+    std::atomic<int> max_fps_{-1}; // -1 = unlimited (default until widget configures)
+    std::chrono::steady_clock::time_point last_frame_time_; // Only accessed from stream thread
 
     // Draw buffer helpers — use system malloc (thread-safe) instead of
     // lv_draw_buf_create which calls lv_malloc (NOT thread-safe)

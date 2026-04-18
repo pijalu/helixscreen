@@ -1301,7 +1301,7 @@ class PrinterState {
      */
     void set_webcam_available(bool available, const std::string& stream_url = "",
                               const std::string& snapshot_url = "", bool flip_h = false,
-                              bool flip_v = false);
+                              bool flip_v = false, int target_fps = 15);
 
     /// True if at least one enabled webcam has been detected
     bool has_webcam() const {
@@ -1324,6 +1324,11 @@ class PrinterState {
     }
     bool get_webcam_flip_vertical() const {
         return capabilities_state_.get_webcam_flip_vertical();
+    }
+
+    /// Configured target FPS from Moonraker webcam config (default 15)
+    int get_webcam_target_fps() const {
+        return capabilities_state_.get_webcam_target_fps();
     }
 
     /**

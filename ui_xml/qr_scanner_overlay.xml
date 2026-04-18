@@ -19,7 +19,7 @@
             align="center"
             style_bg_opa="0"
             style_border_width="3"
-            style_border_color="#accent"
+            style_border_color="#primary"
             style_radius="12"
             clickable="false">
     </lv_obj>

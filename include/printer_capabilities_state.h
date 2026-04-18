@@ -86,7 +86,7 @@ class PrinterCapabilitiesState {
      */
     void set_webcam_available(bool available, const std::string& stream_url = "",
                               const std::string& snapshot_url = "", bool flip_h = false,
-                              bool flip_v = false);
+                              bool flip_v = false, int target_fps = 15);
 
     /**
      * @brief Set timelapse plugin availability (async update)
@@ -276,6 +276,11 @@ class PrinterCapabilitiesState {
         return webcam_flip_v_;
     }
 
+    /// Configured target FPS from Moonraker webcam config (default 15)
+    int get_webcam_target_fps() const {
+        return webcam_target_fps_;
+    }
+
     /// 1 if printer has controllable fans beyond part cooling (generic fans, exhaust, etc.)
     lv_subject_t* get_printer_has_extra_fans_subject() const {
         return const_cast<lv_subject_t*>(&printer_has_extra_fans_);
@@ -340,6 +345,7 @@ class PrinterCapabilitiesState {
     std::string webcam_snapshot_url_;                // snapshot URL
     bool webcam_flip_h_ = false;                     // flip horizontal
     bool webcam_flip_v_ = false;                     // flip vertical
+    int webcam_target_fps_ = 15;                     // configured target FPS
     lv_subject_t printer_has_extra_fans_{};          // extra controllable fans beyond part cooling
     lv_subject_t power_device_count_{};              // number of power devices (0 = none)
     lv_subject_t sensor_count_{};                    // number of Moonraker sensors (0 = none)

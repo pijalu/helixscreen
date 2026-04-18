@@ -113,6 +113,10 @@ int QrDecoder::parse_spoolman_id(const std::string& text)
         if (c == ';') c = ':';
     }
 
+    if (normalized != text) {
+        spdlog::debug("QrDecoder: normalized '{}' -> '{}'", text, normalized);
+    }
+
     // Format: "web+spoolman:s-<id>"
     const std::string prefix_ws = "web+spoolman:s-";
     if (normalized.size() > prefix_ws.size() &&
@@ -152,6 +156,8 @@ int QrDecoder::parse_spoolman_id(const std::string& text)
         if (result >= 0) return result;
     }
 
+    spdlog::debug("QrDecoder: no Spoolman pattern matched for '{}' "
+                  "(tried web+spoolman:, SM:SPOOL=, /spool/ URL)", text);
     return -1;
 }
 

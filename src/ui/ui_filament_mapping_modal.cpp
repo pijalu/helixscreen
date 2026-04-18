@@ -113,173 +113,80 @@ lv_obj_t* FilamentMappingModal::create_tool_row(int tool_index) {
     const auto& mapping = mappings_[static_cast<size_t>(tool_index)];
     const auto& tool = tool_info_[static_cast<size_t>(tool_index)];
 
-    // Responsive spacing from design tokens
-    int32_t row_pad = theme_manager_get_spacing("space_md");
-    int32_t row_gap = theme_manager_get_spacing("space_md");
-    int32_t swatch_sz = theme_manager_get_spacing("space_xl");
-    int32_t row_radius = theme_manager_get_spacing("space_sm");
-
-    // Entire row is tappable — layout: [T0] [gcode_swatch] → [chosen_swatch] [slot_text] [warn?]
-    // [>]
-    lv_obj_t* row = lv_obj_create(tool_list_);
-    lv_obj_remove_style_all(row);
-    lv_obj_set_width(row, LV_PCT(100));
-    lv_obj_set_height(row, LV_SIZE_CONTENT);
-    lv_obj_set_style_pad_all(row, row_pad, 0);
-    lv_obj_set_style_pad_gap(row, row_gap, 0);
-    lv_obj_set_flex_flow(row, LV_FLEX_FLOW_ROW);
-    lv_obj_set_style_flex_cross_place(row, LV_FLEX_ALIGN_CENTER, 0);
-    lv_obj_set_style_radius(row, row_radius, 0);
-    lv_obj_set_style_bg_color(row, theme_manager_get_color("elevated_bg"), 0);
-    lv_obj_set_style_bg_opa(row, LV_OPA_COVER, 0);
-    lv_obj_add_flag(row, LV_OBJ_FLAG_CLICKABLE);
-    lv_obj_remove_flag(row, LV_OBJ_FLAG_SCROLLABLE);
-
-    // Tool label (multi-tool only)
-    if (tool_info_.size() > 1) {
-        lv_obj_t* tool_label = lv_label_create(row);
-        char tool_buf[8];
-        snprintf(tool_buf, sizeof(tool_buf), "T%d", tool_index);
-        lv_label_set_text(tool_label, tool_buf);
-        lv_obj_set_style_text_font(tool_label, theme_manager_get_font("font_body"), 0);
-        lv_obj_set_style_text_color(tool_label, theme_manager_get_color("text_muted"), 0);
-        lv_obj_set_style_min_width(tool_label, TOOL_LABEL_MIN_W, 0);
-        lv_obj_remove_flag(tool_label, LV_OBJ_FLAG_CLICKABLE);
-        lv_obj_add_flag(tool_label, LV_OBJ_FLAG_EVENT_BUBBLE);
+    // Row layout lives in ui_xml/components/filament_mapping_tool_row.xml;
+    // everything visual (sizes, padding, fonts, radii) is editable there
+    // without rebuilding. C++ only sets colors, label text, and show/hide
+    // on the conditional children (Tx label, material label, chosen swatch,
+    // warning, chevron).
+    auto* row = static_cast<lv_obj_t*>(
+        lv_xml_create(tool_list_, "filament_mapping_tool_row", nullptr));
+    if (!row) {
+        return nullptr;
     }
 
-    // Left swatch: G-code expected color
-    lv_obj_t* expected_swatch = lv_obj_create(row);
-    lv_obj_remove_style_all(expected_swatch);
-    lv_obj_set_size(expected_swatch, swatch_sz, swatch_sz);
-    lv_obj_set_style_radius(expected_swatch, LV_RADIUS_CIRCLE, 0);
-    lv_obj_set_style_bg_color(expected_swatch, lv_color_hex(tool.color_rgb), 0);
-    lv_obj_set_style_bg_opa(expected_swatch, LV_OPA_COVER, 0);
-    lv_obj_set_style_border_width(expected_swatch, 1, 0);
-    lv_obj_set_style_border_color(expected_swatch, theme_manager_get_color("text_muted"), 0);
-    lv_obj_set_style_border_opa(expected_swatch, SWATCH_BORDER_OPA, 0);
-    lv_obj_remove_flag(expected_swatch, LV_OBJ_FLAG_SCROLLABLE);
-    lv_obj_remove_flag(expected_swatch, LV_OBJ_FLAG_CLICKABLE);
-    lv_obj_add_flag(expected_swatch, LV_OBJ_FLAG_EVENT_BUBBLE);
-
-    // Gcode material label (after swatch, before arrow)
-    if (!tool.material.empty()) {
-        lv_obj_t* mat_label = lv_label_create(row);
-        lv_label_set_text(mat_label, tool.material.c_str());
-        lv_obj_set_style_text_font(mat_label, theme_manager_get_font("font_body"), 0);
-        lv_obj_set_style_text_color(mat_label, theme_manager_get_color("text_muted"), 0);
-        lv_obj_remove_flag(mat_label, LV_OBJ_FLAG_CLICKABLE);
-        lv_obj_add_flag(mat_label, LV_OBJ_FLAG_EVENT_BUBBLE);
+    lv_color_t gcode_color = lv_color_hex(tool.color_rgb);
+    if (auto* expected_swatch = lv_obj_find_by_name(row, "expected_swatch")) {
+        lv_obj_set_style_bg_color(expected_swatch, gcode_color, 0);
     }
 
-    // Arrow: gcode → chosen
-    lv_obj_t* arrow = lv_label_create(row);
-    lv_label_set_text(arrow, ICON_ARROW_RIGHT);
-    lv_obj_set_style_text_font(arrow, &mdi_icons_24, 0);
-    lv_obj_set_style_text_color(arrow, theme_manager_get_color("text_muted"), 0);
-    lv_obj_remove_flag(arrow, LV_OBJ_FLAG_CLICKABLE);
-    lv_obj_add_flag(arrow, LV_OBJ_FLAG_EVENT_BUBBLE);
+    if (auto* tool_label = lv_obj_find_by_name(row, "tool_label")) {
+        if (tool_info_.size() > 1) {
+            char tool_buf[8];
+            snprintf(tool_buf, sizeof(tool_buf), "T%d", tool_index);
+            lv_label_set_text(tool_label, tool_buf);
+            lv_obj_set_style_text_color(
+                tool_label, theme_manager_get_contrast_color(gcode_color), 0);
+            lv_obj_remove_flag(tool_label, LV_OBJ_FLAG_HIDDEN);
+        }
+    }
 
-    // Look up the mapped slot once for color and warning checks
+    if (auto* mat_label = lv_obj_find_by_name(row, "material_label")) {
+        if (!tool.material.empty()) {
+            lv_label_set_text(mat_label, tool.material.c_str());
+            lv_obj_remove_flag(mat_label, LV_OBJ_FLAG_HIDDEN);
+        }
+    }
+
     const auto* mapped = find_mapped_slot(mapping);
-    uint32_t slot_color = mapped ? mapped->color_rgb : 0x808080;
-
-    // Dropdown trigger container
-    int32_t trigger_radius = theme_manager_get_spacing("space_sm");
-    int32_t trigger_pad_h = theme_manager_get_spacing("space_sm");
-    int32_t trigger_pad_v = theme_manager_get_spacing("space_xs");
-    int32_t trigger_gap = theme_manager_get_spacing("space_sm");
-
-    lv_obj_t* trigger = lv_obj_create(row);
-    lv_obj_remove_style_all(trigger);
-    lv_obj_set_height(trigger, LV_SIZE_CONTENT);
-    lv_obj_set_flex_grow(trigger, 1);
-    lv_obj_set_flex_flow(trigger, LV_FLEX_FLOW_ROW);
-    lv_obj_set_style_flex_cross_place(trigger, LV_FLEX_ALIGN_CENTER, 0);
-    lv_obj_set_style_pad_hor(trigger, trigger_pad_h, 0);
-    lv_obj_set_style_pad_ver(trigger, trigger_pad_v, 0);
-    lv_obj_set_style_pad_gap(trigger, trigger_gap, 0);
-    lv_obj_set_style_radius(trigger, trigger_radius, 0);
-    lv_obj_set_style_bg_color(trigger, theme_manager_get_color("card_bg"), 0);
-    lv_obj_set_style_bg_opa(trigger, LV_OPA_COVER, 0);
-    lv_obj_set_style_border_width(trigger, 1, 0);
-    lv_obj_set_style_border_color(trigger, theme_manager_get_color("text_muted"), 0);
-    lv_obj_set_style_border_opa(trigger, SWATCH_BORDER_OPA, 0);
-    lv_obj_remove_flag(trigger, LV_OBJ_FLAG_SCROLLABLE);
-    lv_obj_remove_flag(trigger, LV_OBJ_FLAG_CLICKABLE);
-    lv_obj_add_flag(trigger, LV_OBJ_FLAG_EVENT_BUBBLE);
-
-    // Store trigger for picker anchoring
+    auto* trigger = lv_obj_find_by_name(row, "trigger");
     trigger_widgets_[static_cast<size_t>(tool_index)] = trigger;
 
-    // Slot color swatch (inside trigger)
-    if (mapped && !mapped->is_empty) {
-        lv_obj_t* chosen_swatch = lv_obj_create(trigger);
-        lv_obj_remove_style_all(chosen_swatch);
-        lv_obj_set_size(chosen_swatch, swatch_sz, swatch_sz);
-        lv_obj_set_style_radius(chosen_swatch, LV_RADIUS_CIRCLE, 0);
-        lv_obj_set_style_bg_color(chosen_swatch, lv_color_hex(slot_color), 0);
-        lv_obj_set_style_bg_opa(chosen_swatch, LV_OPA_COVER, 0);
-        lv_obj_set_style_border_width(chosen_swatch, 1, 0);
-        lv_obj_set_style_border_color(chosen_swatch, theme_manager_get_color("text_muted"), 0);
-        lv_obj_set_style_border_opa(chosen_swatch, SWATCH_BORDER_OPA, 0);
-        lv_obj_remove_flag(chosen_swatch, LV_OBJ_FLAG_SCROLLABLE);
-        lv_obj_remove_flag(chosen_swatch, LV_OBJ_FLAG_CLICKABLE);
-        lv_obj_add_flag(chosen_swatch, LV_OBJ_FLAG_EVENT_BUBBLE);
-    } else if (mapped && mapped->is_empty) {
-        // Empty slot: hollow swatch with warning border
-        lv_obj_t* chosen_swatch = lv_obj_create(trigger);
-        lv_obj_remove_style_all(chosen_swatch);
-        lv_obj_set_size(chosen_swatch, swatch_sz, swatch_sz);
-        lv_obj_set_style_radius(chosen_swatch, LV_RADIUS_CIRCLE, 0);
-        lv_obj_set_style_bg_opa(chosen_swatch, LV_OPA_TRANSP, 0);
-        lv_obj_set_style_border_width(chosen_swatch, 2, 0);
-        lv_obj_set_style_border_color(chosen_swatch, theme_manager_get_color("warning"), 0);
-        lv_obj_set_style_border_opa(chosen_swatch, LV_OPA_COVER, 0);
-        lv_obj_remove_flag(chosen_swatch, LV_OBJ_FLAG_SCROLLABLE);
-        lv_obj_remove_flag(chosen_swatch, LV_OBJ_FLAG_CLICKABLE);
-        lv_obj_add_flag(chosen_swatch, LV_OBJ_FLAG_EVENT_BUBBLE);
+    if (auto* chosen_swatch = lv_obj_find_by_name(row, "chosen_swatch")) {
+        if (mapped && !mapped->is_empty) {
+            lv_obj_set_style_bg_color(chosen_swatch, lv_color_hex(mapped->color_rgb), 0);
+            lv_obj_remove_flag(chosen_swatch, LV_OBJ_FLAG_HIDDEN);
+        } else if (mapped && mapped->is_empty) {
+            lv_obj_set_style_bg_opa(chosen_swatch, LV_OPA_TRANSP, 0);
+            lv_obj_set_style_border_width(chosen_swatch, 2, 0);
+            lv_obj_set_style_border_color(
+                chosen_swatch, theme_manager_get_color("warning"), 0);
+            lv_obj_set_style_border_opa(chosen_swatch, LV_OPA_COVER, 0);
+            lv_obj_remove_flag(chosen_swatch, LV_OBJ_FLAG_HIDDEN);
+        }
+        // Auto/Unmapped (mapped == nullptr) leaves the swatch hidden.
     }
-    // No swatch for Auto/Unmapped (mapped == nullptr)
 
-    // Slot text label (inside trigger, fills remaining space)
-    lv_obj_t* slot_text = lv_label_create(trigger);
-    std::string display = get_slot_display_text(mapping);
-    lv_label_set_text(slot_text, display.c_str());
-    lv_obj_set_style_text_font(slot_text, theme_manager_get_font("font_body"), 0);
-    lv_obj_set_style_text_color(slot_text, theme_manager_get_color("text"), 0);
-    lv_obj_set_flex_grow(slot_text, 1);
-    lv_label_set_long_mode(slot_text, LV_LABEL_LONG_DOT);
-    lv_obj_remove_flag(slot_text, LV_OBJ_FLAG_CLICKABLE);
-    lv_obj_add_flag(slot_text, LV_OBJ_FLAG_EVENT_BUBBLE);
+    if (auto* slot_text = lv_obj_find_by_name(row, "slot_text")) {
+        lv_label_set_text(slot_text, get_slot_display_text(mapping).c_str());
+    }
 
-    // Warning indicator (inside trigger, before chevron)
     bool mapped_to_empty = mapped && mapped->is_empty;
     if (mapping.material_mismatch || mapped_to_empty) {
-        lv_obj_t* warn = lv_label_create(trigger);
-        lv_label_set_text(warn, ICON_TRIANGLE_EXCLAMATION);
-        lv_obj_set_style_text_font(warn, &mdi_icons_16, 0);
-        lv_obj_set_style_text_color(warn, theme_manager_get_color("warning"), 0);
-        lv_obj_remove_flag(warn, LV_OBJ_FLAG_CLICKABLE);
-        lv_obj_add_flag(warn, LV_OBJ_FLAG_EVENT_BUBBLE);
+        if (auto* warn = lv_obj_find_by_name(row, "trigger_warn")) {
+            lv_obj_remove_flag(warn, LV_OBJ_FLAG_HIDDEN);
+        }
     }
 
-    // Chevron (inside trigger, rightmost — hidden in auto-color mode)
     if (!auto_color_map_) {
-        lv_obj_t* chevron = lv_label_create(trigger);
-        lv_label_set_text(chevron, ICON_CHEVRON_DOWN);
-        lv_obj_set_style_text_font(chevron, &mdi_icons_16, 0);
-        lv_obj_set_style_text_color(chevron, theme_manager_get_color("text_muted"), 0);
-        lv_obj_remove_flag(chevron, LV_OBJ_FLAG_CLICKABLE);
-        lv_obj_add_flag(chevron, LV_OBJ_FLAG_EVENT_BUBBLE);
+        if (auto* chevron = lv_obj_find_by_name(row, "trigger_chevron")) {
+            lv_obj_remove_flag(chevron, LV_OBJ_FLAG_HIDDEN);
+        }
     }
 
     if (auto_color_map_) {
-        // Auto color mode: dim rows, mapper handles assignments
         lv_obj_set_style_opa(row, LV_OPA_50, 0);
         lv_obj_remove_flag(row, LV_OBJ_FLAG_CLICKABLE);
     } else {
-        // Manual mode: rows are interactive for reassignment
         lv_obj_add_event_cb(
             row,
             [](lv_event_t* e) {

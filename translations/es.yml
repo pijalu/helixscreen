@@ -222,7 +222,7 @@ translations:
   Brother QL (Bluetooth): Brother QL (Bluetooth)
   Browse: Explorar
   Browse and play recorded timelapses: Explorar y reproducir timelapses grabados
-  'Browse guides, configuration references, and troubleshooting ': 'Consulte guías, referencias de configuración y solución de problemas '
+  Browse guides, configuration references, and troubleshooting resources for HelixScreen.: Consulte guías, referencias de configuración y recursos de solución de problemas para HelixScreen.
   Buffer Status: Estado del búfer
   Bundle Uploaded: Paquete subido
   Button taps and navigation sounds: Sonidos de botones y navegación
@@ -406,7 +406,7 @@ translations:
   Corner roundness: ''
   Corner roundness (0 = sharp, 40 = very round): Redondez de esquinas (0 = agudo, 40 = muy redondeado)
   Correction (Ki): Corrección (Ki)
-  'Could not analyze PRINT_START macro. Some print options may be ': 'No se pudo analizar la macro PRINT_START. Algunas opciones de impresión pueden estar '
+  Could not analyze PRINT_START macro. Some print options may be unavailable.: No se pudo analizar la macro PRINT_START. Algunas opciones de impresión pueden no estar disponibles.
   Could not check webcam status.\nCheck printer connection.: No se pudo verificar la webcam.\nCompruebe la conexión.
   Could not forget device: ''
   Could not reach Spoolman at: No se pudo conectar a Spoolman en
@@ -758,7 +758,7 @@ translations:
   Heating (%d°C below minimum): Calentando (%d°C por debajo del mínimo)
   Heating Bed...: Calentando cama...
   Heating Nozzle...: Calentando boquilla...
-  Heating to %d\xC2\xB0: Calentando a %d\xC2\xB0
+  Heating to %d\xC2\xB0C... %.0f\xC2\xB0C: Calentando a %d\xC2\xB0C... %.0f\xC2\xB0C
   Heating to %d°C...: Calentando a %d°C...
   Heating to target...: Calentando a temperatura objetivo...
   Heating to {}°C for {}...: Calentando a {}°C durante {}...
@@ -838,7 +838,7 @@ translations:
   Invalid port number: Número de puerto inválido
   Issue description: Descripción del problema
   Job Queue: Cola de trabajos
-  'Join the HelixScreen community on Discord for discussion, ': 'Únase a la comunidad de HelixScreen en Discord para discusión, '
+  Join the HelixScreen community on Discord for discussion, tips, troubleshooting help, and feature requests.: Únase a la comunidad de HelixScreen en Discord para discusión, consejos, ayuda con la solución de problemas y solicitudes de funciones.
   Just now: Justo ahora
   KEYBOARD LAYOUT: ''
   KLICKY CONTROLS: CONTROLES KLICKY
@@ -847,9 +847,10 @@ translations:
   Keyboard Test (Gboard-style): Prueba de Teclado (estilo Gboard)
   Kinematics: Cinemática
   Klipper: Klipper
-  'Klipper firmware has disconnected from the host. ': 'El firmware de Klipper se ha desconectado del host. '
-  'Klipper has entered an error state. This is typically caused by an MCU ': Klipper ha entrado en un estado de error. Esto generalmente es causado por un MCU
-  'Klipper has entered shutdown state. This may be due to an emergency stop, ': 'Klipper ha entrado en estado de apagado. Esto puede ser debido a una parada de emergencia, '
+  Klipper firmware has disconnected from the host. Try restarting Klipper or performing a firmware restart.: El firmware de Klipper se ha desconectado del host. Intente reiniciar Klipper o realizar un reinicio de firmware.
+  ? Klipper has entered an error state. This is typically caused by an MCU connection failure or configuration error. Try a firmware restart.
+  : Klipper ha entrado en un estado de error. Esto generalmente es causado por un fallo de conexión del MCU o un error de configuración. Intente un reinicio de firmware.
+  Klipper has entered shutdown state. This may be due to an emergency stop, thermal runaway, or configuration error.: Klipper ha entrado en estado de apagado. Esto puede ser debido a una parada de emergencia, descontrol térmico o error de configuración.
   Klipper will restart to apply changes: Klipper se reiniciará para aplicar los cambios
   Klipper will restart to apply changes.: Klipper se reiniciará para aplicar los cambios.
   Klipper will restart to apply new settings.: Klipper se reiniciará para aplicar la nueva configuración.
@@ -1041,7 +1042,7 @@ translations:
   No Filament Detected: No se Detectó Filamento
   No History: Sin Historial
   No LED macros detected on your printer.: No se detectaron macros de LED en su impresora.
-  'No LED macros detected on your printer. ': 'No se detectaron macros de LED en su impresora. '
+  No LED macros detected on your printer. Add Klipper macros for LED control first.: No se detectaron macros de LED en su impresora. Agregue primero macros de Klipper para el control de LED.
   No Macros Found: No se Encontraron Macros
   No PRINT_START macro found: No se encontró macro PRINT_START
   No Power Devices: Sin Dispositivos de Energía
@@ -1285,7 +1286,7 @@ translations:
   Printing: Imprimiendo
   Printing label...: Imprimiendo etiqueta...
   Printing test label...: Imprimiendo etiqueta de prueba...
-  'Printing with the wrong material can cause clogs, poor adhesion, ': ''
+  Printing with the wrong material can cause clogs, poor adhesion, or failed prints.: Imprimir con el material incorrecto puede causar atascos, mala adhesión o impresiones fallidas.
   Prints: Impresiones
   Prints Trend: Tendencia de Impresiones
   'Private:': 'Privado:'
@@ -1472,6 +1473,10 @@ translations:
   Scan and select a Bluetooth printer first: Escanee y seleccione una impresora Bluetooth primero
   Scan for Printers: Buscar Impresoras
   Scanner: ''
+  ? Scanner bonded but didn't attach as a keyboard. Try turning the scanner off and on, then tap Pair again. If that fails, add ClassicBondedOnly=false to /etc/bluetooth/input.conf.
+  : El escáner está vinculado pero no se conectó como teclado. Intente apagar y encender el escáner, y luego toque Pair de nuevo. Si eso falla, agregue ClassicBondedOnly=false a /etc/bluetooth/input.conf.
+  ? Scanner paired but can't receive input. Put the scanner in pairing mode (see its manual — usually a setup barcode or a button hold) and tap Pair again.
+  : El escáner está emparejado pero no puede recibir entrada. Ponga el escáner en modo de emparejamiento (consulte su manual — normalmente un código de barras de configuración o mantener un botón pulsado) y toque Pair de nuevo.
   Scanning for networks...: Buscando redes...
   Scanning...: Escaneando...
   'Score: 0': 'Puntuación: 0'
@@ -1592,7 +1597,6 @@ translations:
   Spoolman found! Configuring...: ¡Spoolman encontrado! Configurando...
   Spoolman has no spools configured: Spoolman no tiene bobinas configuradas
   Spoolman removed.: Spoolman eliminado.
-  'Spoolman unavailable — filament weights ': 'Spoolman no disponible — pesos de filamento '
   Spoolman unavailable — filament weights may be stale: Spoolman no disponible — los pesos del filamento pueden estar desactualizados
   Square Corner Velocity: Velocidad de Esquina Cuadrada
   Stable: Estable
@@ -1683,9 +1687,9 @@ translations:
   ? The HelixPrint plugin enables fast G-code modifications directly on your printer—like skipping bed mesh for quick reprints.
   : El plugin HelixPrint permite modificaciones rápidas de G-code directamente en su impresora, como omitir la malla de cama para reimpresiones rápidas.
   The heater will cycle on and off several times.: El calentador se encenderá y apagará varias veces.
-  'The runout sensor indicates no filament is loaded. ': 'El sensor de agotamiento indica que no hay filamento cargado. '
-  'The toolhead sensor indicates filament is already loaded. ': 'El sensor del cabezal indica que ya hay filamento cargado. '
-  'The toolhead sensor indicates no filament is present. ': 'El sensor del cabezal indica que no hay filamento presente. '
+  The runout sensor indicates no filament is loaded. Start print anyway?: El sensor de agotamiento indica que no hay filamento cargado. ¿Iniciar la impresión de todos modos?
+  The toolhead sensor indicates filament is already loaded. Proceed with load anyway?: El sensor del cabezal indica que ya hay filamento cargado. ¿Continuar con la carga de todos modos?
+  The toolhead sensor indicates no filament is present. Proceed with unload anyway?: El sensor del cabezal indica que no hay filamento presente. ¿Continuar con la descarga de todos modos?
   Theme: Tema
   Theme Colors: Colores del Tema
   Theme Preset: Preajuste de Tema
@@ -1703,8 +1707,10 @@ translations:
   ? This plugin lets HelixScreen control print start options like bed mesh and QGL. Once installed, use Configure PRINT_START below to enable optional steps.
   : Este plugin permite que HelixScreen controle opciones de inicio de impresión como malla de cama y QGL. Una vez instalado, use Configurar PRINT_START abajo para habilitar pasos opcionales.
   This tool probes each bed screw and tells you how much to adjust.: Esta herramienta sondea cada tornillo de cama y le indica cuánto ajustar.
-  'This will apply the Z-offset to your endstop and restart Klipper to save the ': 'Esto aplicará el Z-offset a su endstop y reiniciará Klipper para guardar el '
-  'This will apply the Z-offset to your probe and restart Klipper to save the ': 'Esto aplicará el Z-offset a su sonda y reiniciará Klipper para guardar el '
+  ? This will apply the Z-offset to your endstop and restart Klipper to save the configuration. The printer will briefly disconnect.
+  : Esto aplicará el Z-offset a su endstop y reiniciará Klipper para guardar la configuración. La impresora se desconectará brevemente.
+  ? This will apply the Z-offset to your probe and restart Klipper to save the configuration. The printer will briefly disconnect.
+  : Esto aplicará el Z-offset a su sonda y reiniciará Klipper para guardar la configuración. La impresora se desconectará brevemente.
   ? This will collect system info, logs, settings, and printer data to help diagnose issues. No passwords or sensitive data will be included.
   : Se recopilarán datos del sistema, registros, ajustes y datos de la impresora. No se incluyen contraseñas ni datos sensibles.
   This will immediately halt all printer operations. The printer will require a restart to resume.: Esto detendrá inmediatamente todas las operaciones de la impresora. La impresora requerirá un reinicio para reanudar.
@@ -1844,7 +1850,8 @@ translations:
   : Los datos de peso se sincronizan desde Spoolman para mostrar el filamento restante. Los cambios también se sincronizan cuando las impresiones inician, pausan o completan.
   What We Collect: Lo que recopilamos
   When enabled, only the macro runs. When disabled, temperatures are set first, then the macro runs.: Cuando está activado, solo se ejecuta el macro. Cuando está desactivado, primero se establecen las temperaturas y luego se ejecuta el macro.
-  'When starting a print, you''ll be able to choose whether to run %s. ': 'Al iniciar una impresión, podrá elegir si ejecutar %s. '
+  ? When starting a print, you'll be able to choose whether to run %s. This saves time when you've already done it recently or want more control over your print preparation.
+  : Al iniciar una impresión, podrá elegir si ejecutar %s. Esto ahorra tiempo cuando ya lo ha hecho recientemente o desea más control sobre la preparación de su impresión.
   White: Blanco
   WiFi: WiFi
   WiFi Disabled: WiFi Desactivado
@@ -1872,7 +1879,8 @@ translations:
   'Y jog failed: {}': 'Error en movimiento Y: {}'
   'Y:': 'Y:'
   Year: Año
-  You can now skip these operations when starting prints.\n\n: Ahora puede omitir estas operaciones al iniciar impresiones.\n\n
+  ? You can now skip these operations when starting prints.\n\nLook for the new options in the print details before starting each print.\n\nA backup of your config was saved automatically.
+  : Ahora puede omitir estas operaciones al iniciar impresiones.\n\nBusque las nuevas opciones en los detalles de impresión antes de iniciar cada impresión.\n\nSe guardó automáticamente una copia de seguridad de su configuración.
   You can skip this and calibrate later in Settings.: Puede omitir esto y calibrar más tarde en Ajustes.
   You have unsaved changes. Discard them?: Tiene cambios sin guardar. ¿Descartarlos?
   Your PRINT_START macro will be updated to give you control over:\n\n: Su macro PRINT_START se actualizará para darle control sobre:\n\n

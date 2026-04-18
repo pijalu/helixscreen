@@ -15,18 +15,21 @@ static void apply_shadow(lv_style_t* s, const ThemePalette& p) {
     }
 }
 
-/// Apply border properties from palette (border_color, border_width, border_opa)
-static void apply_border(lv_style_t* s, const ThemePalette& p) {
-    lv_style_set_border_color(s, p.border);
+/// Apply border properties from palette, pre-blending the border color against
+/// the widget's background so we can render at full opacity (no per-frame blend).
+static void apply_border(lv_style_t* s, const ThemePalette& p, lv_color_t bg_color) {
+    uint8_t mix = static_cast<uint8_t>(p.border_opacity * 255 / 100);
+    lv_color_t blended = lv_color_mix(p.border, bg_color, mix);
+    lv_style_set_border_color(s, blended);
     lv_style_set_border_width(s, p.border_width);
-    lv_style_set_border_opa(s, static_cast<lv_opa_t>(p.border_opacity * 255 / 100));
+    lv_style_set_border_opa(s, LV_OPA_COVER);
 }
 
 // Base styles
 void configure_card(lv_style_t* s, const ThemePalette& p) {
     lv_style_set_bg_color(s, p.card_bg);
     lv_style_set_bg_opa(s, LV_OPA_COVER);
-    apply_border(s, p);
+    apply_border(s, p, p.card_bg);
     lv_style_set_radius(s, p.border_radius);
     apply_shadow(s, p);
 }
@@ -35,7 +38,7 @@ void configure_dialog(lv_style_t* s, const ThemePalette& p) {
     // Use elevated_bg so inputs (overlay_bg) have contrast
     lv_style_set_bg_color(s, p.elevated_bg);
     lv_style_set_bg_opa(s, LV_OPA_COVER);
-    apply_border(s, p);
+    apply_border(s, p, p.elevated_bg);
     lv_style_set_radius(s, p.border_radius);
     apply_shadow(s, p);
 }
@@ -52,7 +55,7 @@ void configure_obj_base(lv_style_t* s, const ThemePalette& p) {
 void configure_input_bg(lv_style_t* s, const ThemePalette& p) {
     lv_style_set_bg_color(s, p.elevated_bg);
     lv_style_set_bg_opa(s, LV_OPA_COVER);
-    apply_border(s, p);
+    apply_border(s, p, p.elevated_bg);
     lv_style_set_radius(s, p.border_radius);
     lv_style_set_text_color(s, p.text);
 }
@@ -128,7 +131,7 @@ void configure_icon_danger(lv_style_t* s, const ThemePalette& p) {
 void configure_button(lv_style_t* s, const ThemePalette& p) {
     lv_style_set_bg_color(s, p.elevated_bg);
     lv_style_set_bg_opa(s, LV_OPA_COVER);
-    apply_border(s, p);
+    apply_border(s, p, p.elevated_bg);
     lv_style_set_radius(s, p.border_radius);
     apply_shadow(s, p);
     // Pivot must be in base style so it doesn't animate during pressed→released transition
@@ -164,8 +167,10 @@ void configure_button_ghost(lv_style_t* s, const ThemePalette& p) {
 }
 
 void configure_button_transparent(lv_style_t* s, const ThemePalette& p) {
-    lv_style_set_bg_color(s, p.text);
-    lv_style_set_bg_opa(s, LV_OPA_50);
+    // Pre-blend text color at 50% over card_bg to avoid per-frame opacity blending
+    lv_color_t blended = lv_color_mix(p.text, p.card_bg, LV_OPA_50);
+    lv_style_set_bg_color(s, blended);
+    lv_style_set_bg_opa(s, LV_OPA_COVER);
     lv_style_set_border_width(s, 0);
     lv_style_set_shadow_opa(s, LV_OPA_0);
 }
@@ -226,7 +231,7 @@ void configure_severity_danger(lv_style_t* s, const ThemePalette& p) {
 void configure_dropdown(lv_style_t* s, const ThemePalette& p) {
     lv_style_set_bg_color(s, p.elevated_bg);
     lv_style_set_bg_opa(s, LV_OPA_COVER);
-    apply_border(s, p);
+    apply_border(s, p, p.elevated_bg);
     lv_style_set_radius(s, p.border_radius);
     lv_style_set_text_color(s, p.text);
     apply_shadow(s, p);

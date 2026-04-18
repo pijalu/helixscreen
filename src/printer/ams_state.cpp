@@ -851,10 +851,10 @@ void AmsState::sync_from_backend() {
     if (lv_subject_get_int(&ams_type_) != new_type) {
         lv_subject_set_int(&ams_type_, new_type);
     }
-    spdlog::debug("[AmsState] sync_from_backend: action={} ({})", static_cast<int>(info.action),
-                  ams_action_to_string(info.action));
     int new_action = static_cast<int>(info.action);
     if (lv_subject_get_int(&ams_action_) != new_action) {
+        spdlog::debug("[AmsState] sync_from_backend: action changed to {} ({})",
+                      new_action, ams_action_to_string(info.action));
         lv_subject_set_int(&ams_action_, new_action);
     }
 
@@ -1223,7 +1223,7 @@ void AmsState::sync_from_backend() {
     // Sync "Currently Loaded" display subjects (pass info to avoid re-fetching)
     sync_current_loaded_from_backend(info);
 
-    spdlog::debug("[AMS State] Synced from backend - type={}, slots={}, action={}, segment={}",
+    spdlog::trace("[AMS State] Synced from backend - type={}, slots={}, action={}, segment={}",
                   ams_type_to_string(info.type), info.total_slots,
                   ams_action_to_string(info.action),
                   path_segment_to_string(backend->get_filament_segment()));

@@ -36,6 +36,7 @@ struct helix_bt_context {
     std::string last_error;
     std::atomic<bool> discovering{false};
     sd_bus_slot* discovery_slot = nullptr;
+    sd_bus_slot* agent_slot = nullptr;
     std::unique_ptr<helix::bluetooth::BusThread> bus_thread;
 
     // RFCOMM fd tracking (for safe disconnect)
@@ -63,3 +64,8 @@ struct helix_bt_context {
     // are non-movable — the vector must store pointers, not the objects.
     std::vector<std::unique_ptr<BleConnection>> ble_connections;
 };
+
+/// Register/unregister the BlueZ Agent1 for "Just Works" pairing.
+/// Called from init/deinit — not part of the dlsym ABI.
+extern "C" int helix_bt_register_agent(helix_bt_context* ctx);
+extern "C" void helix_bt_unregister_agent(helix_bt_context* ctx);

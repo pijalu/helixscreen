@@ -356,6 +356,7 @@ void MoonrakerDiscoverySequence::continue_discovery_objects(uint64_t seq) {
                         std::string snapshot_url;
                         bool flip_h = false;
                         bool flip_v = false;
+                        int target_fps = 15;
                         if (response.contains("result") && response["result"].contains("webcams")) {
                             const auto& cams = response["result"]["webcams"];
 
@@ -384,6 +385,7 @@ void MoonrakerDiscoverySequence::continue_discovery_objects(uint64_t seq) {
                                     snapshot_url = cam.value("snapshot_url", "");
                                     flip_h = cam.value("flip_horizontal", false);
                                     flip_v = cam.value("flip_vertical", false);
+                                    target_fps = cam.value("target_fps", 15);
                                     break;
                                 } else {
                                     spdlog::debug("[Discovery] Skipping webcam '{}' stream_url: "
@@ -411,6 +413,7 @@ void MoonrakerDiscoverySequence::continue_discovery_objects(uint64_t seq) {
                                     snapshot_url = snap;
                                     flip_h = cam.value("flip_horizontal", false);
                                     flip_v = cam.value("flip_vertical", false);
+                                    target_fps = cam.value("target_fps", 15);
                                     spdlog::info(
                                         "[Discovery] No MJPEG webcam found; using snapshot-only "
                                         "fallback for service '{}'",
@@ -427,7 +430,7 @@ void MoonrakerDiscoverySequence::continue_discovery_objects(uint64_t seq) {
                                          stream_url.empty() ? "<none>" : stream_url,
                                          snapshot_url.empty() ? "<none>" : snapshot_url);
                             get_printer_state().set_webcam_available(true, stream_url, snapshot_url,
-                                                                     flip_h, flip_v);
+                                                                     flip_h, flip_v, target_fps);
                         } else {
                             // No Moonraker webcam config — probe local camera endpoints
                             // Run synchronously on the WS callback instead of spawning a

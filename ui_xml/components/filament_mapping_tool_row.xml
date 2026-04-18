@@ -1,0 +1,87 @@
+<?xml version="1.0"?>
+<!-- Copyright (C) 2025-2026 356C LLC -->
+<!-- SPDX-License-Identifier: GPL-3.0-or-later -->
+<component>
+  <!-- One row of the Filament Mapping modal: [expected_swatch (hosting Tx)]
+       [material] [→] [trigger: chosen_swatch | slot_text | warn | chevron].
+       Colors, label texts, visibility of optional children, and the
+       row-level click handler live in C++; everything visual (sizes, fonts,
+       padding, borders, radii) lives here so it can be tuned without
+       rebuilding. -->
+  <view name="tool_row"
+        extends="lv_obj" width="100%" height="content"
+        flex_flow="row" style_flex_cross_place="center"
+        style_pad_hor="#space_md" style_pad_ver="#space_sm"
+        style_pad_gap="#space_md"
+        style_radius="#space_sm"
+        style_bg_color="#elevated_bg" style_bg_opa="255"
+        scrollable="false" clickable="true">
+    <!-- Expected (gcode) color swatch. For multi-tool files the Tx label is
+         centered inside it (mirrors the print-details pill). -->
+    <lv_obj name="expected_swatch"
+            width="#space_2xl" height="#space_2xl"
+            style_radius="9999" style_bg_opa="255"
+            style_bg_color="#text_muted"
+            style_border_width="1"
+            style_border_color="#text_muted" style_border_opa="30"
+            style_pad_all="0"
+            scrollable="false" clickable="false" event_bubble="true">
+      <lv_label name="tool_label"
+                text="" align="center" hidden="true"
+                style_text_font="#font_body" style_text_color="#text"
+                clickable="false" event_bubble="true"/>
+    </lv_obj>
+    <!-- File-declared material ("PLA", "PETG" …). Hidden when the file has
+         no material metadata. -->
+    <lv_label name="material_label"
+              text="" hidden="true"
+              style_text_font="#font_body" style_text_color="#text_muted"
+              clickable="false" event_bubble="true"/>
+    <!-- Gcode → chosen slot arrow. -->
+    <lv_label name="arrow"
+              text="#icon_arrow_right"
+              style_text_font="mdi_icons_24"
+              style_text_color="#text_muted"
+              clickable="false" event_bubble="true"/>
+    <!-- Dropdown trigger — tapping opens the slot picker. -->
+    <lv_obj name="trigger"
+            flex_grow="1" height="content"
+            flex_flow="row" style_flex_cross_place="center"
+            style_pad_hor="#space_md" style_pad_ver="#space_sm"
+            style_pad_gap="#space_sm"
+            style_radius="#space_sm"
+            style_bg_color="#card_bg" style_bg_opa="255"
+            style_border_width="1"
+            style_border_color="#text_muted" style_border_opa="30"
+            scrollable="false" clickable="false" event_bubble="true">
+      <!-- Currently-mapped slot swatch (hidden for Auto/Unmapped). -->
+      <lv_obj name="chosen_swatch"
+              hidden="true"
+              width="#space_2xl" height="#space_2xl"
+              style_radius="9999" style_bg_opa="255"
+              style_bg_color="#text_muted"
+              style_border_width="1"
+              style_border_color="#text_muted" style_border_opa="30"
+              style_pad_all="0"
+              scrollable="false" clickable="false" event_bubble="true"/>
+      <!-- Display text ("Auto", "Unmapped", or the formatted slot label). -->
+      <lv_label name="slot_text"
+                flex_grow="1" text="" long_mode="dots"
+                style_text_font="#font_body" style_text_color="#text"
+                clickable="false" event_bubble="true"/>
+      <!-- Material mismatch / empty-slot warning, shown by C++ when either
+           applies. -->
+      <lv_label name="trigger_warn"
+                hidden="true" text="#icon_triangle_exclamation"
+                style_text_font="mdi_icons_16"
+                style_text_color="#warning"
+                clickable="false" event_bubble="true"/>
+      <!-- Chevron cues the tappable dropdown; hidden in auto-color mode. -->
+      <lv_label name="trigger_chevron"
+                hidden="true" text="#icon_chevron_down"
+                style_text_font="mdi_icons_16"
+                style_text_color="#text_muted"
+                clickable="false" event_bubble="true"/>
+    </lv_obj>
+  </view>
+</component>

@@ -45,13 +45,37 @@ extern "C" int helix_bt_pair(helix_bt_context* ctx, const char* mac) {
     }
 
     std::string path = mac_to_dbus_path(mac);
-    fprintf(stderr, "[bt] pairing with %s (%s)\n", mac, path.c_str());
+    fprintf(stderr, "[bt] pair: starting for %s (dbus=%s)\n", mac, path.c_str());
 
     int r = 0;
     std::string err;
 
     try {
         ctx->bus_thread->run_sync([&](sd_bus* bus) {
+            // Log device properties pre-pair for diagnostics
+            {
+                sd_bus_error pe = SD_BUS_ERROR_NULL;
+                int paired_pre = 0, connected_pre = 0, trusted_pre = 0, bonded_pre = 0;
+                sd_bus_get_property_trivial(bus, "org.bluez", path.c_str(), "org.bluez.Device1",
+                                            "Paired", &pe, 'b', &paired_pre);
+                sd_bus_error_free(&pe);
+                pe = SD_BUS_ERROR_NULL;
+                sd_bus_get_property_trivial(bus, "org.bluez", path.c_str(), "org.bluez.Device1",
+                                            "Connected", &pe, 'b', &connected_pre);
+                sd_bus_error_free(&pe);
+                pe = SD_BUS_ERROR_NULL;
+                sd_bus_get_property_trivial(bus, "org.bluez", path.c_str(), "org.bluez.Device1",
+                                            "Trusted", &pe, 'b', &trusted_pre);
+                sd_bus_error_free(&pe);
+                pe = SD_BUS_ERROR_NULL;
+                sd_bus_get_property_trivial(bus, "org.bluez", path.c_str(), "org.bluez.Device1",
+                                            "Bonded", &pe, 'b', &bonded_pre);
+                sd_bus_error_free(&pe);
+                fprintf(stderr, "[bt] pair: pre-state for %s: paired=%d connected=%d "
+                        "trusted=%d bonded=%d\n", mac, paired_pre, connected_pre,
+                        trusted_pre, bonded_pre);
+            }
+
             // Try Pair() first (Classic SPP devices)
             sd_bus_error error = SD_BUS_ERROR_NULL;
             r = sd_bus_call_method(bus, "org.bluez", path.c_str(), "org.bluez.Device1", "Pair",
@@ -68,45 +92,54 @@ extern "C" int helix_bt_pair(helix_bt_context* ctx, const char* mac) {
                 // DoesNotExist — fall back to bare Connect() for
                 // non-HID devices (label printers etc.).
                 sd_bus_error hidErr = SD_BUS_ERROR_NULL;
+                fprintf(stderr, "[bt] pair: trying ConnectProfile(HID) for %s\n", mac);
                 int hr = sd_bus_call_method(b, "org.bluez", path.c_str(), "org.bluez.Device1",
                                             "ConnectProfile", &hidErr, nullptr, "s", kHidUuid);
                 if (hr >= 0) {
-                    fprintf(stderr, "[bt] post-pair ConnectProfile(HID) succeeded for %s\n", mac);
+                    fprintf(stderr, "[bt] pair: ConnectProfile(HID) succeeded for %s\n", mac);
                     sd_bus_error_free(&hidErr);
                     return;
                 }
                 if (sd_bus_error_has_name(&hidErr, "org.bluez.Error.AlreadyConnected")) {
-                    fprintf(stderr, "[bt] HID profile already connected on %s\n", mac);
+                    fprintf(stderr, "[bt] pair: HID already connected on %s\n", mac);
                     sd_bus_error_free(&hidErr);
                     return;
                 }
                 bool is_no_hid =
                     sd_bus_error_has_name(&hidErr, "org.bluez.Error.NotSupported") ||
                     sd_bus_error_has_name(&hidErr, "org.bluez.Error.DoesNotExist");
-                if (!is_no_hid) {
-                    fprintf(stderr, "[bt] ConnectProfile(HID) failed for %s: %s\n", mac,
-                            hidErr.message ? hidErr.message : strerror(-hr));
-                }
+                fprintf(stderr, "[bt] pair: ConnectProfile(HID) failed for %s: err_name=%s msg=%s "
+                        "(is_no_hid=%d)\n", mac,
+                        hidErr.name ? hidErr.name : "(null)",
+                        hidErr.message ? hidErr.message : strerror(-hr),
+                        is_no_hid);
                 sd_bus_error_free(&hidErr);
 
                 sd_bus_error cerr = SD_BUS_ERROR_NULL;
+                fprintf(stderr, "[bt] pair: falling back to bare Connect() for %s\n", mac);
                 int cr = sd_bus_call_method(b, "org.bluez", path.c_str(), "org.bluez.Device1",
                                             "Connect", &cerr, nullptr, "");
                 if (cr >= 0) {
-                    fprintf(stderr, "[bt] post-pair Connect() succeeded for %s\n", mac);
+                    fprintf(stderr, "[bt] pair: Connect() succeeded for %s\n", mac);
                 } else if (sd_bus_error_has_name(&cerr, "org.bluez.Error.AlreadyConnected")) {
-                    fprintf(stderr, "[bt] device %s already connected\n", mac);
+                    fprintf(stderr, "[bt] pair: device %s already connected\n", mac);
                 } else {
-                    fprintf(stderr, "[bt] post-pair Connect() failed for %s: %s\n", mac,
+                    fprintf(stderr, "[bt] pair: Connect() failed for %s: err_name=%s msg=%s\n", mac,
+                            cerr.name ? cerr.name : "(null)",
                             cerr.message ? cerr.message : strerror(-cr));
                 }
                 sd_bus_error_free(&cerr);
             };
 
+            fprintf(stderr, "[bt] pair: Pair() returned r=%d for %s (err_name=%s msg=%s)\n",
+                    r, mac,
+                    error.name ? error.name : "(none)",
+                    error.message ? error.message : "(none)");
+
             if (r >= 0) {
                 sd_bus_error_free(&error);
                 trust_device(bus, path.c_str());
-                fprintf(stderr, "[bt] paired successfully with %s\n", mac);
+                fprintf(stderr, "[bt] pair: paired successfully with %s\n", mac);
                 // Classic HID devices need Connect() after Pair() to bring up
                 // the HID profile so the kernel creates an evdev node.
                 try_connect_profile(bus);
@@ -128,32 +161,38 @@ extern "C" int helix_bt_pair(helix_bt_context* ctx, const char* mac) {
             // which implicitly bonds on BLE devices. Different BlueZ versions return different
             // errors (UnknownMethod, NotAvailable, BadMessage, ConnectionTimeout), so try
             // Connect() on any Pair() failure.
-            fprintf(stderr, "[bt] Pair() failed for %s (%s), trying Connect() (BLE)\n", mac,
+            fprintf(stderr, "[bt] pair: Pair() failed for %s (err_name=%s msg=%s), "
+                    "trying Connect() (BLE fallback)\n", mac,
+                    error.name ? error.name : "(null)",
                     error.message ? error.message : strerror(-r));
             sd_bus_error_free(&error);
 
             sd_bus_error error2 = SD_BUS_ERROR_NULL;
             r = sd_bus_call_method(bus, "org.bluez", path.c_str(), "org.bluez.Device1", "Connect",
                                    &error2, nullptr, "");
+            fprintf(stderr, "[bt] pair: Connect() returned r=%d for %s (err_name=%s msg=%s)\n",
+                    r, mac,
+                    error2.name ? error2.name : "(none)",
+                    error2.message ? error2.message : "(none)");
+
             if (r >= 0) {
                 sd_bus_error_free(&error2);
                 trust_device(bus, path.c_str());
-                fprintf(stderr, "[bt] connected (BLE) successfully with %s\n", mac);
+                fprintf(stderr, "[bt] pair: connected (BLE) successfully with %s\n", mac);
                 r = 0;
                 return;
             }
 
             // AlreadyConnected is also success for our purposes
             if (sd_bus_error_has_name(&error2, "org.bluez.Error.AlreadyConnected")) {
-                fprintf(stderr, "[bt] device %s already connected\n", mac);
+                fprintf(stderr, "[bt] pair: device %s already connected\n", mac);
                 trust_device(bus, path.c_str());
                 sd_bus_error_free(&error2);
                 r = 0;
                 return;
             }
 
-            fprintf(stderr, "[bt] Connect() also failed for %s: %s\n", mac,
-                    error2.message ? error2.message : strerror(-r));
+            fprintf(stderr, "[bt] pair: both Pair() and Connect() failed for %s\n", mac);
             err = error2.message ? error2.message : "connect failed";
             sd_bus_error_free(&error2);
         });

@@ -26,7 +26,7 @@ Variant parse_variant(const char* str) {
         return Variant::WARNING;
     if (strcmp(str, "info") == 0)
         return Variant::INFO;
-    if (strcmp(str, "primary") == 0)
+    if (strcmp(str, "primary") == 0 || strcmp(str, "accent") == 0)
         return Variant::PRIMARY;
     if (strcmp(str, "secondary") == 0)
         return Variant::SECONDARY;

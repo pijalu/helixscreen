@@ -257,7 +257,15 @@ const std::string& instance_lock_path() {
 
 bool Application::acquire_instance_lock() {
     const std::string lock_path = instance_lock_path();
-    m_lock_fd = open(lock_path.c_str(), O_CREAT | O_RDWR, 0644);
+    // O_CLOEXEC: flock is per-file (not per-fd), so without CLOEXEC the lock
+    // leaks to fork()ed children and survives execve() in those children.
+    // That produced a deadlock during the post-install restart path in
+    // UpdateChecker::do_install(): the parent _exit(0)'d, but the child (forked
+    // before _exit) still held an inherited fd on the lock file, keeping the
+    // lock alive.  When the child execve'd the new helix-screen, its fresh
+    // acquire_instance_lock() failed with EWOULDBLOCK and the new instance
+    // refused to start — leaving the device with a frozen last frame.
+    m_lock_fd = open(lock_path.c_str(), O_CREAT | O_RDWR | O_CLOEXEC, 0644);
     if (m_lock_fd < 0) {
         spdlog::error("[Application] Cannot open lock file {}: {}", lock_path, strerror(errno));
         return false;

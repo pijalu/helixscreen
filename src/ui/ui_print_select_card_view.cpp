@@ -10,6 +10,7 @@
 #include "prerendered_images.h"
 #include "sound_manager.h"
 #include "theme_manager.h"
+#include "thumbnail_processor.h"
 
 #include <spdlog/spdlog.h>
 
@@ -450,6 +451,10 @@ void PrintSelectCardView::configure_card(lv_obj_t* card, size_t pool_index, size
             lv_obj_t* thumb_img = lv_obj_find_by_name(card, "thumbnail");
             if (thumb_img) {
                 lv_image_set_src(thumb_img, file.thumbnail_path.c_str());
+                // Size widget to match pre-scaled .bin target so LVGL uses 1:1 blit
+                // instead of the scaled transform path (avoids per-frame bilinear scaling)
+                static auto target = helix::ThumbnailProcessor::get_target_for_display();
+                lv_obj_set_size(thumb_img, target.width, target.height);
             }
             lv_subject_set_int(&data->thumbnail_state_subject, 0);
         } else {

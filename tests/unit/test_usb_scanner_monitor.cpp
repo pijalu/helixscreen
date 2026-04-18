@@ -186,6 +186,52 @@ TEST_CASE("keycode_to_char: AZERTY end-to-end decode of Spoolman URL ASCII subse
     CHECK(UsbScannerMonitor::check_spoolman_pattern("web+spoolman:s-6") == 6);
 }
 
+TEST_CASE("keycode_to_char: AZERTY scanner through QWERTZ produces garbled output",
+          "[usb_scanner]") {
+    using helix::ScannerKeymap;
+    // Reproduces the exact bug report: an AZERTY-configured scanner was decoded
+    // through QWERTZ layout, producing "yeb+spool;qn.s6!" instead of
+    // "web+spoolman:s-1". This test proves the garbling is deterministic and
+    // that switching to the correct layout (AZERTY) fixes it.
+    //
+    // The AZERTY scanner emits these keycodes for "web+spoolman:s-1":
+    const std::vector<KeyEvent> azerty_keycodes = {
+        {KEY_Z, false},         // 'w' on AZERTY (keycode 44)
+        {KEY_E, false},         // 'e'
+        {KEY_B, false},         // 'b'
+        {KEY_EQUAL, true},      // '+' (Shift+= on QWERTY/QWERTZ)
+        {KEY_S, false},         // 's'
+        {KEY_P, false},         // 'p'
+        {KEY_O, false},         // 'o'
+        {KEY_O, false},         // 'o'
+        {KEY_L, false},         // 'l'
+        {KEY_SEMICOLON, false}, // 'm' on AZERTY (keycode 39)
+        {KEY_Q, false},         // 'a' on AZERTY (keycode 16)
+        {KEY_N, false},         // 'n'
+        {KEY_DOT, false},       // ':' on AZERTY (unshifted keycode 52)
+        {KEY_S, false},         // 's'
+        {KEY_6, false},         // '-' on AZERTY (unshifted 6 key → keycode 7)
+        {KEY_1, true},          // '1' on AZERTY (shifted 1 key → keycode 2)
+    };
+
+    // When decoded through QWERTZ (wrong layout), we get garbled output.
+    // KEY_Z(44) → QWERTZ 'y' (not 'w'), KEY_SEMICOLON(39) → QWERTZ ';' (not 'm'),
+    // KEY_Q(16) → QWERTZ 'q' (not 'a'), KEY_DOT(52) → QWERTZ '.' (not ':'),
+    // KEY_6(7) → QWERTZ '6' (not '-'), KEY_1+shift(2) → QWERTZ '!' (not '1').
+    std::string qwertz_result = decode_sequence(azerty_keycodes, ScannerKeymap::Qwertz);
+    CHECK(qwertz_result == "yeb+spool;qn.s6!");
+
+    // When decoded through AZERTY (correct layout), we get the right output.
+    std::string azerty_result = decode_sequence(azerty_keycodes, ScannerKeymap::Azerty);
+    CHECK(azerty_result == "web+spoolman:s-1");
+
+    // The correctly decoded string should parse as Spoolman spool ID 1.
+    CHECK(UsbScannerMonitor::check_spoolman_pattern(azerty_result) == 1);
+
+    // The garbled string should NOT parse as Spoolman.
+    CHECK(UsbScannerMonitor::check_spoolman_pattern(qwertz_result) == -1);
+}
+
 TEST_CASE("keycode_to_char: AZERTY key positions (individual checks)", "[usb_scanner]") {
     using helix::ScannerKeymap;
     // Letter rearrangement checks — complement to the end-to-end test above.

@@ -134,17 +134,19 @@ void PrinterCapabilitiesState::set_spoolman_available(bool available) {
 
 void PrinterCapabilitiesState::set_webcam_available(bool available, const std::string& stream_url,
                                                     const std::string& snapshot_url, bool flip_h,
-                                                    bool flip_v) {
+                                                    bool flip_v, int target_fps) {
     // Store URLs before queuing (captured by value for thread safety)
-    helix::ui::queue_update([this, available, stream_url, snapshot_url, flip_h, flip_v]() {
+    helix::ui::queue_update([this, available, stream_url, snapshot_url, flip_h, flip_v,
+                             target_fps]() {
         webcam_stream_url_ = available ? stream_url : "";
         webcam_snapshot_url_ = available ? snapshot_url : "";
         webcam_flip_h_ = flip_h;
         webcam_flip_v_ = flip_v;
+        webcam_target_fps_ = target_fps > 0 ? target_fps : 15;
         lv_subject_set_int(&printer_has_webcam_, available ? 1 : 0);
         spdlog::debug("[PrinterCapabilitiesState] Webcam: available={}, stream_url={}, flip_h={}, "
-                      "flip_v={}",
-                      available, stream_url, flip_h, flip_v);
+                      "flip_v={}, target_fps={}",
+                      available, stream_url, flip_h, flip_v, webcam_target_fps_);
     });
 }
 

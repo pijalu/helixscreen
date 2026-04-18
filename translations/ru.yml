@@ -222,7 +222,7 @@ translations:
   Brother QL (Bluetooth): Brother QL (Bluetooth)
   Browse: Обзор
   Browse and play recorded timelapses: Просмотр и воспроизведение записанных таймлапсов
-  'Browse guides, configuration references, and troubleshooting ': 'Руководства, справочники по настройке и устранение неполадок '
+  Browse guides, configuration references, and troubleshooting resources for HelixScreen.: Руководства, справочники по настройке и ресурсы по устранению неполадок для HelixScreen.
   Buffer Status: Статус буфера
   Bundle Uploaded: Пакет отправлен
   Button taps and navigation sounds: Звуки нажатий и навигации
@@ -406,7 +406,7 @@ translations:
   Corner roundness: ''
   Corner roundness (0 = sharp, 40 = very round): Скругление углов (0 = острые, 40 = очень круглые)
   Correction (Ki): Коррекция (Ki)
-  'Could not analyze PRINT_START macro. Some print options may be ': 'Не удалось проанализировать макрос PRINT_START. Некоторые параметры печати могут быть '
+  Could not analyze PRINT_START macro. Some print options may be unavailable.: Не удалось проанализировать макрос PRINT_START. Некоторые параметры печати могут быть недоступны.
   Could not check webcam status.\nCheck printer connection.: Не удалось проверить статус веб-камеры.\nПроверьте подключение принтера.
   Could not forget device: ''
   Could not reach Spoolman at: Не удалось связаться со Spoolman по адресу
@@ -758,7 +758,7 @@ translations:
   Heating (%d°C below minimum): Нагрев (%d°C ниже минимума)
   Heating Bed...: Нагрев стола...
   Heating Nozzle...: Нагрев сопла...
-  Heating to %d\xC2\xB0: Нагрев до %d\xC2\xB0
+  Heating to %d\xC2\xB0C... %.0f\xC2\xB0C: Нагрев до %d\xC2\xB0C... %.0f\xC2\xB0C
   Heating to %d°C...: Нагрев до %d°C...
   Heating to target...: Нагрев до целевой температуры...
   Heating to {}°C for {}...: Нагрев до {}°C в течение {}...
@@ -838,7 +838,7 @@ translations:
   Invalid port number: Неверный номер порта
   Issue description: Описание проблемы
   Job Queue: Очередь заданий
-  'Join the HelixScreen community on Discord for discussion, ': 'Присоединяйтесь к сообществу HelixScreen в Discord для обсуждений, '
+  Join the HelixScreen community on Discord for discussion, tips, troubleshooting help, and feature requests.: Присоединяйтесь к сообществу HelixScreen в Discord для обсуждений, советов, помощи в устранении неполадок и предложений новых функций.
   Just now: Только что
   KEYBOARD LAYOUT: ''
   KLICKY CONTROLS: УПРАВЛЕНИЕ KLICKY
@@ -847,9 +847,10 @@ translations:
   Keyboard Test (Gboard-style): Тест клавиатуры (стиль Gboard)
   Kinematics: Кинематика
   Klipper: Klipper
-  'Klipper firmware has disconnected from the host. ': 'Прошивка Klipper отключилась от хоста. '
-  'Klipper has entered an error state. This is typically caused by an MCU ': 'Klipper перешёл в состояние ошибки. Обычно это вызвано MCU '
-  'Klipper has entered shutdown state. This may be due to an emergency stop, ': 'Klipper перешёл в состояние остановки. Это может быть вызвано аварийной остановкой, '
+  Klipper firmware has disconnected from the host. Try restarting Klipper or performing a firmware restart.: Прошивка Klipper отключилась от хоста. Попробуйте перезапустить Klipper или выполнить перезапуск прошивки.
+  ? Klipper has entered an error state. This is typically caused by an MCU connection failure or configuration error. Try a firmware restart.
+  : Klipper перешёл в состояние ошибки. Обычно это вызвано сбоем соединения MCU или ошибкой конфигурации. Попробуйте перезапустить прошивку.
+  Klipper has entered shutdown state. This may be due to an emergency stop, thermal runaway, or configuration error.: Klipper перешёл в состояние остановки. Это может быть вызвано аварийной остановкой, тепловым разгоном или ошибкой конфигурации.
   Klipper will restart to apply changes: Klipper перезапустится для применения изменений
   Klipper will restart to apply changes.: Klipper перезапустится для применения изменений.
   Klipper will restart to apply new settings.: Klipper перезапустится для применения новых настроек.
@@ -1041,7 +1042,7 @@ translations:
   No Filament Detected: Филамент не обнаружен
   No History: Нет истории
   No LED macros detected on your printer.: На вашем принтере не обнаружены LED-макросы.
-  'No LED macros detected on your printer. ': 'На вашем принтере не обнаружены LED-макросы. '
+  No LED macros detected on your printer. Add Klipper macros for LED control first.: На вашем принтере не обнаружены LED-макросы. Сначала добавьте макросы Klipper для управления LED.
   No Macros Found: Макросы не найдены
   No PRINT_START macro found: Макрос PRINT_START не найден
   No Power Devices: Нет устройств питания
@@ -1285,7 +1286,7 @@ translations:
   Printing: Печать
   Printing label...: Печать этикетки...
   Printing test label...: Печать тестовой этикетки...
-  'Printing with the wrong material can cause clogs, poor adhesion, ': ''
+  Printing with the wrong material can cause clogs, poor adhesion, or failed prints.: Печать неподходящим материалом может привести к засорам, плохой адгезии или неудачным печатям.
   Prints: Печати
   Prints Trend: Тренд печатей
   'Private:': 'Закрытая:'
@@ -1472,6 +1473,10 @@ translations:
   Scan and select a Bluetooth printer first: Сначала найдите и выберите Bluetooth-принтер
   Scan for Printers: Поиск принтеров
   Scanner: ''
+  ? Scanner bonded but didn't attach as a keyboard. Try turning the scanner off and on, then tap Pair again. If that fails, add ClassicBondedOnly=false to /etc/bluetooth/input.conf.
+  : Сканер сопряжён, но не подключился как клавиатура. Попробуйте выключить и включить сканер, затем снова нажмите Pair. Если не поможет, добавьте ClassicBondedOnly=false в /etc/bluetooth/input.conf.
+  ? Scanner paired but can't receive input. Put the scanner in pairing mode (see its manual — usually a setup barcode or a button hold) and tap Pair again.
+  : Сканер сопряжён, но не получает ввод. Переведите сканер в режим сопряжения (см. его руководство — обычно это настроечный штрих-код или удержание кнопки) и снова нажмите Pair.
   Scanning for networks...: Поиск сетей...
   Scanning...: Сканирование...
   'Score: 0': 'Счёт: 0'
@@ -1592,7 +1597,6 @@ translations:
   Spoolman found! Configuring...: Spoolman найден! Настройка...
   Spoolman has no spools configured: В Spoolman нет настроенных катушек
   Spoolman removed.: Spoolman удалён.
-  'Spoolman unavailable — filament weights ': 'Spoolman недоступен — вес филамента '
   Spoolman unavailable — filament weights may be stale: Spoolman недоступен — вес филамента может быть устаревшим
   Square Corner Velocity: Square Corner Velocity
   Stable: Стабильная
@@ -1683,9 +1687,9 @@ translations:
   ? The HelixPrint plugin enables fast G-code modifications directly on your printer—like skipping bed mesh for quick reprints.
   : Плагин HelixPrint позволяет быстро модифицировать G-code прямо на принтере — например, пропускать сетку стола для быстрых перепечаток.
   The heater will cycle on and off several times.: Нагреватель будет несколько раз включаться и выключаться.
-  'The runout sensor indicates no filament is loaded. ': 'Датчик окончания показывает, что филамент не загружен. '
-  'The toolhead sensor indicates filament is already loaded. ': 'Датчик печатающей головки показывает, что филамент уже загружен. '
-  'The toolhead sensor indicates no filament is present. ': 'Датчик печатающей головки показывает, что филамент отсутствует. '
+  The runout sensor indicates no filament is loaded. Start print anyway?: Датчик окончания филамента показывает, что филамент не загружен. Всё равно начать печать?
+  The toolhead sensor indicates filament is already loaded. Proceed with load anyway?: Датчик печатающей головки показывает, что филамент уже загружен. Всё равно продолжить загрузку?
+  The toolhead sensor indicates no filament is present. Proceed with unload anyway?: Датчик печатающей головки показывает, что филамент отсутствует. Всё равно продолжить выгрузку?
   Theme: Тема
   Theme Colors: Цвета темы
   Theme Preset: Пресет темы
@@ -1703,8 +1707,10 @@ translations:
   ? This plugin lets HelixScreen control print start options like bed mesh and QGL. Once installed, use Configure PRINT_START below to enable optional steps.
   : Этот плагин позволяет HelixScreen управлять опциями начала печати, такими как сетка стола и QGL. После установки используйте «Настроить PRINT_START» ниже для включения опциональных шагов.
   This tool probes each bed screw and tells you how much to adjust.: Этот инструмент проверяет каждый винт стола и показывает, насколько его нужно отрегулировать.
-  'This will apply the Z-offset to your endstop and restart Klipper to save the ': 'Z-смещение будет применено к вашему концевику и Klipper перезапустится для сохранения '
-  'This will apply the Z-offset to your probe and restart Klipper to save the ': 'Z-смещение будет применено к вашему зонду и Klipper перезапустится для сохранения '
+  ? This will apply the Z-offset to your endstop and restart Klipper to save the configuration. The printer will briefly disconnect.
+  : Z-offset будет применён к вашему концевику, и Klipper перезапустится для сохранения конфигурации. Принтер ненадолго отключится.
+  ? This will apply the Z-offset to your probe and restart Klipper to save the configuration. The printer will briefly disconnect.
+  : Z-offset будет применён к вашему зонду, и Klipper перезапустится для сохранения конфигурации. Принтер ненадолго отключится.
   ? This will collect system info, logs, settings, and printer data to help diagnose issues. No passwords or sensitive data will be included.
   : Будут собраны системная информация, логи, настройки и данные принтера для диагностики. Пароли и конфиденциальные данные включены не будут.
   This will immediately halt all printer operations. The printer will require a restart to resume.: Это немедленно остановит все операции принтера. Для продолжения потребуется перезапуск.
@@ -1844,7 +1850,8 @@ translations:
   : Данные о весе синхронизируются из Spoolman для отображения оставшегося филамента. Изменения также синхронизируются при начале, паузе или завершении печати.
   What We Collect: Что мы собираем
   When enabled, only the macro runs. When disabled, temperatures are set first, then the macro runs.: Когда включено, запускается только макрос. Когда выключено, сначала задаются температуры, затем запускается макрос.
-  'When starting a print, you''ll be able to choose whether to run %s. ': 'При запуске печати вы сможете выбрать, запускать ли %s. '
+  ? When starting a print, you'll be able to choose whether to run %s. This saves time when you've already done it recently or want more control over your print preparation.
+  : При запуске печати вы сможете выбрать, запускать ли %s. Это экономит время, если вы уже делали это недавно или хотите больше контроля над подготовкой печати.
   White: Белый
   WiFi: WiFi
   WiFi Disabled: WiFi отключён
@@ -1872,7 +1879,8 @@ translations:
   'Y jog failed: {}': 'Ошибка перемещения Y: {}'
   'Y:': 'Y:'
   Year: Год
-  You can now skip these operations when starting prints.\n\n: Теперь вы можете пропускать эти операции при запуске печати.\n\n
+  ? You can now skip these operations when starting prints.\n\nLook for the new options in the print details before starting each print.\n\nA backup of your config was saved automatically.
+  : Теперь вы можете пропускать эти операции при запуске печати.\n\nИщите новые параметры в деталях печати перед началом каждой печати.\n\nРезервная копия вашей конфигурации была сохранена автоматически.
   You can skip this and calibrate later in Settings.: Вы можете пропустить это и откалибровать позже в настройках.
   You have unsaved changes. Discard them?: У вас есть несохранённые изменения. Отменить их?
   Your PRINT_START macro will be updated to give you control over:\n\n: Ваш макрос PRINT_START будет обновлён, чтобы дать вам контроль над:\n\n

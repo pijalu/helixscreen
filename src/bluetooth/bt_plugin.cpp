@@ -75,6 +75,11 @@ extern "C" helix_bt_context* helix_bt_init(void)
     ctx->bus_thread = std::make_unique<helix::bluetooth::BusThread>(ctx->bus);
     ctx->bus_thread->start();
 
+    // Register a BlueZ agent so that Pair() can exchange link keys.
+    // Without an agent, "Just Works" pairing completes at the protocol level
+    // but doesn't bond — the kernel's input plugin then refuses HID.
+    helix_bt_register_agent(ctx);
+
     fprintf(stderr, "[bt] plugin initialized (api_version=%d)\n", HELIX_BT_API_VERSION);
     return ctx;
 }
@@ -82,6 +87,9 @@ extern "C" helix_bt_context* helix_bt_init(void)
 extern "C" void helix_bt_deinit(helix_bt_context* ctx)
 {
     if (!ctx) return;
+
+    // Unregister the pairing agent before tearing down the bus thread.
+    helix_bt_unregister_agent(ctx);
 
     // Route any remaining sd_bus_slot_unref calls through the bus thread
     // BEFORE stopping it — all sd_bus_* calls must happen on the bus thread.

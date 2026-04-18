@@ -184,6 +184,13 @@ class PrinterTemperatureState {
     }
 
     /**
+     * @brief Get the Klipper sensor name for chamber (empty if no sensor configured)
+     */
+    const std::string& chamber_sensor_name() const {
+        return chamber_sensor_name_;
+    }
+
+    /**
      * @brief Set which extruder is active (mirrors its data to active subjects)
      *
      * Validates that the name exists in the extruder map. If unknown, logs a

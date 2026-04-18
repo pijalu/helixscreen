@@ -203,7 +203,7 @@ jobs:
         yes | sudo ${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager --install "ndk;29.0.14206865" || true
 
     - name: Set up ccache
-      uses: hendrikmuhs/ccache-action@v1.2
+      uses: hendrikmuhs/ccache-action@v1.2.22
       with:
         key: android-ndk-${{ runner.os }}
         max-size: 500M
@@ -461,7 +461,7 @@ jobs:
         fi
 
     - name: Create GitHub Release
-      uses: softprops/action-gh-release@v2
+      uses: softprops/action-gh-release@v3
       with:
         name: ${{ steps.version.outputs.version }}
         body_path: release-notes.md

@@ -168,11 +168,21 @@ char UsbScannerMonitor::keycode_to_char(int keycode, bool shift, ScannerKeymap l
     if (letter != 0)
         return letter;
 
-    // Punctuation. AZERTY remaps 39 -> 'm' (handled above) and 50 -> ','.
-    // Everything else mirrors QWERTY punctuation positions.
+    // Punctuation. AZERTY remaps several keys vs QWERTY:
+    //   39 -> 'm' (handled in kAzertyLetters above)
+    //   50 -> ','
+    //   51 -> ';' unshifted, '.' shifted (QWERTY: ',' / '<')
+    //   52 -> ':' unshifted, '/' shifted (QWERTY: '.' / '>')
+    //   53 -> '!' unshifted               (QWERTY: '/' / '?')
     if (layout == ScannerKeymap::Azerty) {
         if (keycode == 50)
             return shift ? '?' : ',';
+        if (keycode == 51)
+            return shift ? '.' : ';';
+        if (keycode == 52)
+            return shift ? '/' : ':';
+        if (keycode == 53)
+            return shift ? 0 : '!'; // '§' shifted — non-ASCII, dropped
         // Keycode 39 on AZERTY is 'm' (handled in kAzertyLetters above).
     } else {
         if (keycode == 39)
@@ -189,12 +199,14 @@ char UsbScannerMonitor::keycode_to_char(int keycode, bool shift, ScannerKeymap l
         return shift ? '{' : '[';
     if (keycode == 27)
         return shift ? '}' : ']';
-    if (keycode == 51)
-        return shift ? '<' : ',';
-    if (keycode == 52)
-        return shift ? '>' : '.';
-    if (keycode == 53)
-        return shift ? '?' : '/';
+    if (layout != ScannerKeymap::Azerty) {
+        if (keycode == 51)
+            return shift ? '<' : ',';
+        if (keycode == 52)
+            return shift ? '>' : '.';
+        if (keycode == 53)
+            return shift ? '?' : '/';
+    }
     if (keycode == 57)
         return ' '; // KEY_SPACE
 
@@ -303,6 +315,7 @@ void UsbScannerMonitor::monitor_thread_func() {
 
     std::vector<int> device_fds;
     std::string accumulator;
+    std::string keycode_trace; // raw keycodes for diagnostics
     bool capslock_on = false;
     bool shift_held = false;
     std::chrono::steady_clock::time_point last_key_time{};
@@ -314,6 +327,7 @@ void UsbScannerMonitor::monitor_thread_func() {
         capslock_on = false;
         shift_held = false;
         accumulator.clear();
+        keycode_trace.clear();
 
         auto sources = find_scanner_devices();
         for (const auto& src : sources) {
@@ -381,6 +395,7 @@ void UsbScannerMonitor::monitor_thread_func() {
                 spdlog::debug("UsbScannerMonitor: clearing stale accumulator ({}s idle)",
                               elapsed.count());
                 accumulator.clear();
+                keycode_trace.clear();
             }
         }
 
@@ -423,17 +438,25 @@ void UsbScannerMonitor::monitor_thread_func() {
 
                 if (ev.code == KEY_ENTER || ev.code == KEY_KPENTER) {
                     if (!accumulator.empty()) {
-                        spdlog::debug("UsbScannerMonitor: scanned text: '{}'", accumulator);
+                        auto layout = layout_.load(std::memory_order_relaxed);
+                        const char* layout_name =
+                            layout == ScannerKeymap::Qwertz  ? "qwertz"
+                            : layout == ScannerKeymap::Azerty ? "azerty"
+                                                              : "qwerty";
+                        spdlog::info("UsbScannerMonitor: scan complete: "
+                                     "text='{}' keycodes=[{}] layout={}",
+                                     accumulator, keycode_trace, layout_name);
                         int spool_id = check_spoolman_pattern(accumulator);
                         if (spool_id >= 0 && callback_) {
                             spdlog::info("UsbScannerMonitor: detected Spoolman spool ID: {}",
                                          spool_id);
                             callback_(spool_id);
                         } else if (spool_id < 0) {
-                            spdlog::debug("UsbScannerMonitor: text '{}' not a Spoolman QR code",
-                                          accumulator);
+                            spdlog::info("UsbScannerMonitor: text '{}' not a Spoolman QR code",
+                                         accumulator);
                         }
                         accumulator.clear();
+                        keycode_trace.clear();
                     }
                     continue;
                 }
@@ -446,6 +469,14 @@ void UsbScannerMonitor::monitor_thread_func() {
                 bool effective_shift = is_letter ? (shift_held ^ capslock_on) : shift_held;
                 char ch =
                     keycode_to_char(code, effective_shift, layout_.load(std::memory_order_relaxed));
+                if (!keycode_trace.empty())
+                    keycode_trace += ' ';
+                keycode_trace += std::to_string(code);
+                if (effective_shift)
+                    keycode_trace += 'S';
+                spdlog::debug("UsbScannerMonitor: keycode={} shift={} caps={} -> '{}'",
+                              code, effective_shift, capslock_on,
+                              ch ? std::string(1, ch) : "(none)");
                 if (ch != 0) {
                     accumulator += ch;
                 }

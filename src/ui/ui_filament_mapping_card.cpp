@@ -17,13 +17,9 @@
 
 namespace helix::ui {
 
-// Layout constants for the compact swatch pair display.
-// Swatches are built in C++ (not XML components) because the number varies
-// per file. lv_obj_add_event_cb and lv_label_set_text are used here
-// as allowed exceptions for dynamic content.
-namespace {
-constexpr lv_opa_t SWATCH_BORDER_OPA = 30;
-} // namespace
+// Pills are instantiated from ui_xml/components/filament_mapping_pill.xml
+// (dynamic count depends on the gcode file). lv_obj_add_event_cb is used on
+// the card itself for the modal-open handler as an allowed exception.
 
 // ============================================================================
 // Setup
@@ -137,76 +133,55 @@ void FilamentMappingCard::rebuild_compact_view() {
     helix::ui::UpdateQueue::instance().drain();
     lv_obj_clean(rows_container_);
 
-    // Responsive spacing from design tokens
-    int32_t swatch_sz = theme_manager_get_spacing("space_md");
-    int32_t inner_gap = theme_manager_get_spacing("space_xxs");
-    int32_t pair_gap = theme_manager_get_spacing("space_xs");
-    int32_t pill_pad_h = theme_manager_get_spacing("space_xs");
-    int32_t pill_pad_v = theme_manager_get_spacing("space_xxs");
-    int32_t pill_radius = theme_manager_get_spacing("space_lg");
-
-    // Configure as a horizontal flex row of swatch pairs (wrapping)
+    // Pill layout, sizing, padding, fonts all live in
+    // ui_xml/components/filament_mapping_pill.xml — tune visuals without
+    // rebuilding. C++ only supplies per-pill dynamic data: colors, Tx label,
+    // and the empty-slot warning variant.
     lv_obj_set_flex_flow(rows_container_, LV_FLEX_FLOW_ROW_WRAP);
     lv_obj_set_style_flex_cross_place(rows_container_, LV_FLEX_ALIGN_CENTER, 0);
-    lv_obj_set_style_pad_gap(rows_container_, pair_gap, 0);
+    lv_obj_set_style_pad_gap(rows_container_, theme_manager_get_spacing("space_xs"), 0);
 
     size_t count = std::min(mappings_.size(), tool_info_.size());
     bool multi_tool = count > 1;
-    for (size_t i = 0; i < count; ++i) {
+    // Cap visible pills so a file with many tools doesn't flood the right
+    // column. Beyond the cap, the remaining tools are summarized in a single
+    // "+N" overflow pill that fills the final grid cell (tap the card to see
+    // and edit the full mapping).
+    constexpr size_t kMaxVisiblePills = 6;
+    size_t visible = count;
+    bool overflow = count > kMaxVisiblePills;
+    if (overflow) {
+        visible = kMaxVisiblePills - 1; // leave space for the overflow pill
+    }
+    for (size_t i = 0; i < visible; ++i) {
         const auto& mapping = mappings_[i];
         const auto& tool = tool_info_[i];
 
-        // Create a pill container: [Tx] [gcode_color] → [slot_color]
-        lv_obj_t* pair = lv_obj_create(rows_container_);
-        lv_obj_remove_style_all(pair);
-        lv_obj_set_size(pair, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
-        lv_obj_set_flex_flow(pair, LV_FLEX_FLOW_ROW);
-        lv_obj_set_style_flex_cross_place(pair, LV_FLEX_ALIGN_CENTER, 0);
-        lv_obj_set_style_pad_gap(pair, inner_gap, 0);
-        lv_obj_set_style_pad_left(pair, pill_pad_h, 0);
-        lv_obj_set_style_pad_right(pair, pill_pad_h, 0);
-        lv_obj_set_style_pad_top(pair, pill_pad_v, 0);
-        lv_obj_set_style_pad_bottom(pair, pill_pad_v, 0);
-        lv_obj_set_style_radius(pair, pill_radius, 0);
-        lv_obj_set_style_bg_color(pair, theme_manager_get_color("elevated_bg"), 0);
-        lv_obj_set_style_bg_opa(pair, LV_OPA_COVER, 0);
-        lv_obj_remove_flag(pair, LV_OBJ_FLAG_SCROLLABLE);
-        lv_obj_remove_flag(pair, LV_OBJ_FLAG_CLICKABLE);
-        lv_obj_add_flag(pair, LV_OBJ_FLAG_EVENT_BUBBLE);
+        auto* pill = static_cast<lv_obj_t*>(
+            lv_xml_create(rows_container_, "filament_mapping_pill", nullptr));
+        if (!pill) {
+            continue;
+        }
+        // Target two pills per row (2x2 grid for four-tool prints). Slightly
+        // under 50% so the inter-pill gap doesn't force wrapping.
+        lv_obj_set_width(pill, lv_pct(48));
 
-        // Tool label (e.g. "T0", "T1") — only for multi-tool files
-        if (multi_tool) {
-            lv_obj_t* tool_lbl = lv_label_create(pair);
-            lv_label_set_text_fmt(tool_lbl, "T%d", tool.tool_index);
-            lv_obj_set_style_text_font(tool_lbl, theme_manager_get_font("font_xs"), 0);
-            lv_obj_set_style_text_color(tool_lbl, theme_manager_get_color("text_muted"), 0);
-            lv_obj_remove_flag(tool_lbl, LV_OBJ_FLAG_CLICKABLE);
-            lv_obj_add_flag(tool_lbl, LV_OBJ_FLAG_EVENT_BUBBLE);
+        // G-code color dot and Tx label (only shown for multi-tool files).
+        lv_color_t gcode_color = lv_color_hex(tool.color_rgb);
+        if (auto* gcode_dot = lv_obj_find_by_name(pill, "gcode_dot")) {
+            lv_obj_set_style_bg_color(gcode_dot, gcode_color, 0);
+        }
+        if (auto* tool_lbl = lv_obj_find_by_name(pill, "tool_label")) {
+            if (multi_tool) {
+                lv_label_set_text_fmt(tool_lbl, "T%d", tool.tool_index);
+                lv_obj_set_style_text_color(
+                    tool_lbl, theme_manager_get_contrast_color(gcode_color), 0);
+                lv_obj_remove_flag(tool_lbl, LV_OBJ_FLAG_HIDDEN);
+            }
         }
 
-        // G-code color swatch
-        lv_obj_t* gcode_sw = lv_obj_create(pair);
-        lv_obj_remove_style_all(gcode_sw);
-        lv_obj_set_size(gcode_sw, swatch_sz, swatch_sz);
-        lv_obj_set_style_radius(gcode_sw, LV_RADIUS_CIRCLE, 0);
-        lv_obj_set_style_bg_color(gcode_sw, lv_color_hex(tool.color_rgb), 0);
-        lv_obj_set_style_bg_opa(gcode_sw, LV_OPA_COVER, 0);
-        lv_obj_set_style_border_width(gcode_sw, 1, 0);
-        lv_obj_set_style_border_color(gcode_sw, theme_manager_get_color("text_muted"), 0);
-        lv_obj_set_style_border_opa(gcode_sw, SWATCH_BORDER_OPA, 0);
-        lv_obj_remove_flag(gcode_sw, LV_OBJ_FLAG_SCROLLABLE);
-        lv_obj_remove_flag(gcode_sw, LV_OBJ_FLAG_CLICKABLE);
-        lv_obj_add_flag(gcode_sw, LV_OBJ_FLAG_EVENT_BUBBLE);
-
-        // Arrow
-        lv_obj_t* arrow = lv_label_create(pair);
-        lv_label_set_text(arrow, ICON_ARROW_RIGHT);
-        lv_obj_set_style_text_font(arrow, theme_manager_get_font("icon_font_xs"), 0);
-        lv_obj_set_style_text_color(arrow, theme_manager_get_color("text_muted"), 0);
-        lv_obj_remove_flag(arrow, LV_OBJ_FLAG_CLICKABLE);
-        lv_obj_add_flag(arrow, LV_OBJ_FLAG_EVENT_BUBBLE);
-
-        // Slot color swatch
+        // Slot color dot — resolve mapped slot; empty slots render as a
+        // transparent circle with a warning-colored border.
         uint32_t slot_color = 0x808080;
         bool slot_empty = false;
         if (!mapping.is_auto && mapping.mapped_slot >= 0) {
@@ -219,26 +194,27 @@ void FilamentMappingCard::rebuild_compact_view() {
                 }
             }
         }
-        lv_obj_t* slot_sw = lv_obj_create(pair);
-        lv_obj_remove_style_all(slot_sw);
-        lv_obj_set_size(slot_sw, swatch_sz, swatch_sz);
-        lv_obj_set_style_radius(slot_sw, LV_RADIUS_CIRCLE, 0);
-        if (slot_empty) {
-            // Empty slot: transparent fill with warning border
-            lv_obj_set_style_bg_opa(slot_sw, LV_OPA_TRANSP, 0);
-            lv_obj_set_style_border_width(slot_sw, 2, 0);
-            lv_obj_set_style_border_color(slot_sw, theme_manager_get_color("warning"), 0);
-            lv_obj_set_style_border_opa(slot_sw, LV_OPA_COVER, 0);
-        } else {
-            lv_obj_set_style_bg_color(slot_sw, lv_color_hex(slot_color), 0);
-            lv_obj_set_style_bg_opa(slot_sw, LV_OPA_COVER, 0);
-            lv_obj_set_style_border_width(slot_sw, 1, 0);
-            lv_obj_set_style_border_color(slot_sw, theme_manager_get_color("text_muted"), 0);
-            lv_obj_set_style_border_opa(slot_sw, SWATCH_BORDER_OPA, 0);
+        if (auto* slot_dot = lv_obj_find_by_name(pill, "slot_dot")) {
+            if (slot_empty) {
+                lv_obj_set_style_bg_opa(slot_dot, LV_OPA_TRANSP, 0);
+                lv_obj_set_style_border_width(slot_dot, 2, 0);
+                lv_obj_set_style_border_color(
+                    slot_dot, theme_manager_get_color("warning"), 0);
+                lv_obj_set_style_border_opa(slot_dot, LV_OPA_COVER, 0);
+            } else {
+                lv_obj_set_style_bg_color(slot_dot, lv_color_hex(slot_color), 0);
+            }
         }
-        lv_obj_remove_flag(slot_sw, LV_OBJ_FLAG_SCROLLABLE);
-        lv_obj_remove_flag(slot_sw, LV_OBJ_FLAG_CLICKABLE);
-        lv_obj_add_flag(slot_sw, LV_OBJ_FLAG_EVENT_BUBBLE);
+    }
+
+    if (overflow) {
+        if (auto* more = static_cast<lv_obj_t*>(
+                lv_xml_create(rows_container_, "filament_mapping_more_pill", nullptr))) {
+            lv_obj_set_width(more, lv_pct(48));
+            if (auto* lbl = lv_obj_find_by_name(more, "count_label")) {
+                lv_label_set_text_fmt(lbl, "+%zu", count - visible);
+            }
+        }
     }
 
     // Warning icon visibility is handled by XML bind_flag_if_eq on "filament_mismatch" subject

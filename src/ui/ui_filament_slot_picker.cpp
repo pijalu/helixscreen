@@ -20,7 +20,7 @@ namespace {
 constexpr lv_opa_t SWATCH_BORDER_OPA = 30;
 constexpr lv_opa_t SELECTED_BG_OPA = 40;
 constexpr lv_opa_t BACKDROP_OPA = 128;
-constexpr int32_t CARD_MIN_WIDTH = 320;
+constexpr int32_t CARD_MIN_WIDTH = 480;
 } // namespace
 
 FilamentSlotPicker::~FilamentSlotPicker() {
@@ -65,9 +65,10 @@ void FilamentSlotPicker::show(lv_obj_t* parent, lv_obj_t* trigger, int tool_inde
         },
         LV_EVENT_CLICKED, this);
 
-    // Card container with scrollable slot list
-    int32_t card_pad = theme_manager_get_spacing("space_sm");
-    int32_t card_gap = theme_manager_get_spacing("space_xxs");
+    // Card container with scrollable slot list. Gap between rows is visible
+    // — don't set it tighter than space_xs or rows appear crammed.
+    int32_t card_pad = theme_manager_get_spacing("space_md");
+    int32_t card_gap = theme_manager_get_spacing("space_xs");
     int32_t card_radius = theme_manager_get_spacing("border_radius");
 
     lv_obj_t* card = lv_obj_create(backdrop_);
@@ -121,28 +122,20 @@ void FilamentSlotPicker::hide() {
 
 void FilamentSlotPicker::create_slot_row(lv_obj_t* list, int index,
                                          const helix::AvailableSlot& slot) {
-    int32_t row_pad = theme_manager_get_spacing("space_sm");
-    int32_t row_gap = theme_manager_get_spacing("space_sm");
-    int32_t swatch_sz = theme_manager_get_spacing("space_xl");
-    int32_t row_radius = theme_manager_get_spacing("space_sm");
+    // Row layout/padding/fonts live in
+    // ui_xml/components/filament_slot_picker_row.xml — tune visuals there
+    // without rebuilding. C++ fills in colors, label text, warn visibility,
+    // and the selected-state highlight.
+    auto* row = static_cast<lv_obj_t*>(
+        lv_xml_create(list, "filament_slot_picker_row", nullptr));
+    if (!row) {
+        return;
+    }
 
-    lv_obj_t* row = lv_obj_create(list);
-    lv_obj_remove_style_all(row);
-    lv_obj_set_size(row, LV_PCT(100), LV_SIZE_CONTENT);
-    lv_obj_set_style_pad_all(row, row_pad, 0);
-    lv_obj_set_style_pad_gap(row, row_gap, 0);
-    lv_obj_set_flex_flow(row, LV_FLEX_FLOW_ROW);
-    lv_obj_set_style_flex_cross_place(row, LV_FLEX_ALIGN_CENTER, 0);
-    lv_obj_set_style_radius(row, row_radius, 0);
-    lv_obj_add_flag(row, LV_OBJ_FLAG_CLICKABLE);
-    lv_obj_remove_flag(row, LV_OBJ_FLAG_SCROLLABLE);
-
-    // Empty slots are selectable but visually dimmed
     if (slot.is_empty) {
         lv_obj_set_style_opa(row, LV_OPA_60, 0);
     }
 
-    // Highlight if currently selected
     bool is_selected = !current_selection_.is_auto &&
                        slot.slot_index == current_selection_.slot_index &&
                        slot.backend_index == current_selection_.backend_index;
@@ -153,46 +146,26 @@ void FilamentSlotPicker::create_slot_row(lv_obj_t* list, int index,
         lv_obj_set_style_border_color(row, theme_manager_get_color("primary"), 0);
     }
 
-    // Color swatch
-    lv_obj_t* swatch = lv_obj_create(row);
-    lv_obj_remove_style_all(swatch);
-    lv_obj_set_size(swatch, swatch_sz, swatch_sz);
-    lv_obj_set_style_radius(swatch, LV_RADIUS_CIRCLE, 0);
-    if (slot.is_empty) {
-        // Empty: transparent fill with warning border
-        lv_obj_set_style_bg_opa(swatch, LV_OPA_TRANSP, 0);
-        lv_obj_set_style_border_width(swatch, 2, 0);
-        lv_obj_set_style_border_color(swatch, theme_manager_get_color("warning"), 0);
-        lv_obj_set_style_border_opa(swatch, LV_OPA_COVER, 0);
-    } else {
-        lv_obj_set_style_bg_color(swatch, lv_color_hex(slot.color_rgb), 0);
-        lv_obj_set_style_bg_opa(swatch, LV_OPA_COVER, 0);
-        lv_obj_set_style_border_width(swatch, 1, 0);
-        lv_obj_set_style_border_color(swatch, theme_manager_get_color("text_muted"), 0);
-        lv_obj_set_style_border_opa(swatch, SWATCH_BORDER_OPA, 0);
+    if (auto* swatch = lv_obj_find_by_name(row, "swatch")) {
+        if (slot.is_empty) {
+            lv_obj_set_style_bg_opa(swatch, LV_OPA_TRANSP, 0);
+            lv_obj_set_style_border_width(swatch, 2, 0);
+            lv_obj_set_style_border_color(swatch, theme_manager_get_color("warning"), 0);
+            lv_obj_set_style_border_opa(swatch, LV_OPA_COVER, 0);
+        } else {
+            lv_obj_set_style_bg_color(swatch, lv_color_hex(slot.color_rgb), 0);
+        }
     }
-    lv_obj_remove_flag(swatch, LV_OBJ_FLAG_SCROLLABLE);
-    lv_obj_remove_flag(swatch, LV_OBJ_FLAG_CLICKABLE);
-    lv_obj_add_flag(swatch, LV_OBJ_FLAG_EVENT_BUBBLE);
 
-    // Slot label (e.g., "Turtle 1 · Slot 2: PLA")
-    lv_obj_t* label = lv_label_create(row);
-    std::string label_text = helix::FilamentMapper::format_slot_label(slot);
-    lv_label_set_text(label, label_text.c_str());
-    lv_obj_set_style_text_font(label, theme_manager_get_font("font_body"), 0);
-    lv_obj_set_style_text_color(label, theme_manager_get_color("text"), 0);
-    lv_obj_remove_flag(label, LV_OBJ_FLAG_CLICKABLE);
-    lv_obj_add_flag(label, LV_OBJ_FLAG_EVENT_BUBBLE);
+    if (auto* label = lv_obj_find_by_name(row, "slot_label")) {
+        lv_label_set_text(label, helix::FilamentMapper::format_slot_label(slot).c_str());
+    }
 
-    // Material mismatch warning
     if (!slot.is_empty && !expected_material_.empty() && !slot.material.empty() &&
         !helix::FilamentMapper::materials_match(expected_material_, slot.material)) {
-        lv_obj_t* warn = lv_label_create(row);
-        lv_label_set_text(warn, ICON_TRIANGLE_EXCLAMATION);
-        lv_obj_set_style_text_font(warn, &mdi_icons_16, 0);
-        lv_obj_set_style_text_color(warn, theme_manager_get_color("warning"), 0);
-        lv_obj_remove_flag(warn, LV_OBJ_FLAG_CLICKABLE);
-        lv_obj_add_flag(warn, LV_OBJ_FLAG_EVENT_BUBBLE);
+        if (auto* warn = lv_obj_find_by_name(row, "warn_icon")) {
+            lv_obj_remove_flag(warn, LV_OBJ_FLAG_HIDDEN);
+        }
     }
 
     // Store slot index for click lookup
