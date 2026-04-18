@@ -319,7 +319,7 @@
     <string name="font_xs_xxlarge" value="noto_sans_light_20"/>
     <!-- NO BASE font_xs - registered at runtime -->
     <!-- font_mono variants (monospace for console/terminal displays) - Source Code Pro -->
-    <string name="font_mono_micro" value="source_code_pro_8"/>
+    <string name="font_mono_micro" value="source_code_pro_10"/>
     <string name="font_mono_tiny" value="source_code_pro_10"/>
     <string name="font_mono_small" value="source_code_pro_12"/>
     <string name="font_mono_medium" value="source_code_pro_14"/>
