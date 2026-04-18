@@ -28,6 +28,21 @@ export interface ResolvedBacktrace {
   stackScan?: { offset: number; raw: string; fileAddr: string; symbol: string }[];
 }
 
+/** Cached heap snapshot captured on the device just before the crash. */
+export interface HeapSnapshot {
+  age_ms?: number;
+  rss_kb?: number;
+  vsz_kb?: number;
+  arena_kb?: number;
+  used_kb?: number;
+  free_kb?: number;
+  mmap_kb?: number;
+  lv_total_kb?: number;
+  lv_used_pct?: number;
+  lv_frag_pct?: number;
+  lv_free_biggest_kb?: number;
+}
+
 /** Crash report fields used by the symbol resolver. */
 export interface CrashReport {
   app_version?: string;
@@ -53,6 +68,20 @@ export interface CrashReport {
   extra_registers?: Record<string, string>;
   memory_map?: string[];
   queue_callback?: string;
+
+  // Richer context the client already captures but the worker historically ignored.
+  breadcrumbs?: string[];
+  heap?: HeapSnapshot;
+  event_target?: string;
+  event_original_target?: string;
+  event_code?: number;
+  exception?: string;
+  bt_source?: string;
+  text_start?: string;
+  text_end?: string;
+
+  // Share code of a debug bundle uploaded alongside this crash report.
+  debug_bundle_share_code?: string;
 }
 
 /**

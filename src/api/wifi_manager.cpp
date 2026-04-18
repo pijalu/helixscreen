@@ -74,8 +74,13 @@ void WiFiManager::register_backend_callbacks(bool silent) {
         "AUTH_FAILED", [this](const std::string& data) { handle_auth_failed(data); });
     backend_->register_event_callback(
         "INIT_FAILED", [this, silent](const std::string& msg) { handle_init_failed(silent, msg); });
-    backend_->register_event_callback("READY", [](const std::string&) {
+    backend_->register_event_callback("READY", [this](const std::string&) {
         spdlog::debug("[WiFiManager] Backend READY event received");
+        // Wake UI consumers that queried status before async init landed —
+        // NetworkWidget in particular attaches synchronously during home-panel
+        // load, races the backend's worker thread, and gets an empty STATUS
+        // response that pins it on 'Disconnected' until this event lands.
+        notify_state_observers();
     });
 }
 
@@ -98,8 +103,7 @@ void WiFiManager::handle_init_failed(bool silent, const std::string& msg) {
         // the main/UI thread via UpdateQueue so the init thread can unwind
         // before stop() joins it. WiFiManager is a process singleton owned by
         // g_shared_wifi_manager, so capturing `this` is safe.
-        helix::ui::queue_update("WiFiManager::fallback_to_wpa_supplicant",
-                                [this, silent]() {
+        helix::ui::queue_update("WiFiManager::fallback_to_wpa_supplicant", [this, silent]() {
             if (!backend_) {
                 return;
             }
@@ -469,6 +473,11 @@ void WiFiManager::handle_connected(const std::string& event_data) {
 
     connecting_in_progress_ = false; // Connection complete
 
+    // Fan out to passive UI observers regardless of whether there's an active
+    // connect() callback — the home-panel network widget depends on this to
+    // learn the initial post-boot connection state.
+    notify_state_observers();
+
     if (!connect_callback_) {
         spdlog::debug(
             "[WiFiManager] Connected event but no callback registered (normal on startup)");
@@ -503,6 +512,9 @@ void WiFiManager::handle_disconnected(const std::string& event_data) {
         spdlog::debug("[WiFiManager] Ignoring DISCONNECTED during connection attempt");
         return;
     }
+
+    // Genuine disconnect — wake passive observers so they can refresh UI state.
+    notify_state_observers();
 
     if (!connect_callback_) {
         spdlog::debug("[WiFiManager] Disconnected event but no callback registered (normal)");
@@ -553,6 +565,37 @@ void WiFiManager::handle_auth_failed(const std::string& event_data) {
                     "[WiFiManager] Manager destroyed before auth_failed callback - safely ignored");
             }
         });
+}
+
+// ============================================================================
+// State Observers
+// ============================================================================
+
+void WiFiManager::add_state_observer(helix::LifetimeToken token, std::function<void()> on_change) {
+    if (!on_change) {
+        return;
+    }
+    std::lock_guard<std::mutex> lock(state_observers_mutex_);
+    state_observers_.push_back({std::move(token), std::move(on_change)});
+}
+
+void WiFiManager::notify_state_observers() {
+    // Snapshot under lock, then invoke outside the lock so defer() — and any
+    // work it kicks off on the UI thread — can't call back into us while we
+    // hold state_observers_mutex_. Drop expired entries as we go; the backend
+    // callback threads are where this runs, so a bit of cleanup here is fine.
+    std::vector<StateObserver> snapshot;
+    {
+        std::lock_guard<std::mutex> lock(state_observers_mutex_);
+        state_observers_.erase(
+            std::remove_if(state_observers_.begin(), state_observers_.end(),
+                           [](const StateObserver& obs) { return obs.token.expired(); }),
+            state_observers_.end());
+        snapshot = state_observers_;
+    }
+    for (const auto& obs : snapshot) {
+        obs.token.defer("WiFiManager::state_observer", obs.callback);
+    }
 }
 
 // ============================================================================

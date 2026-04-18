@@ -54,9 +54,6 @@ class DebugBundleCollector {
     static std::string collect_log_tail_from_paths(const std::vector<std::string>& paths,
                                                    int num_lines);
 
-    /// Read helix-screen entries from syslog (fallback for embedded platforms)
-    static std::string collect_syslog_tail(int num_lines = 2000);
-
     /// Collect Moonraker state via REST (server info, printer state, config)
     static nlohmann::json collect_moonraker_info();
 

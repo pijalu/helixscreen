@@ -12,6 +12,7 @@
 #include "platform_capabilities.h"
 #include "printer_state.h"
 #include "system/crash_history.h"
+#include "system/log_collector.h"
 #include "system/telemetry_manager.h"
 #include "system/update_checker.h"
 
@@ -231,38 +232,11 @@ json DebugBundleCollector::collect_printer_info() {
 }
 
 // =============================================================================
-// Log tail (deque-based, same pattern as CrashReporter)
+// Log tail — cascades file → syslog → journal (see helix::logs for ordering)
 // =============================================================================
 
 std::string DebugBundleCollector::collect_log_tail(int num_lines) {
-    // Build search paths matching logging_init.cpp resolution order:
-    // 1. /var/log/helix-screen.log (legacy)
-    // 2. XDG_DATA_HOME/helix-screen/helix.log
-    // 3. ~/.local/share/helix-screen/helix.log
-    // 4. /tmp/helixscreen.log (settings default)
-    std::vector<std::string> log_paths = {
-        "/var/log/helix-screen.log",
-    };
-
-    const char* xdg = std::getenv("XDG_DATA_HOME");
-    if (xdg && xdg[0] != '\0') {
-        log_paths.push_back(std::string(xdg) + "/helix-screen/helix.log");
-    }
-    const char* home = std::getenv("HOME");
-    if (home && home[0] != '\0') {
-        log_paths.push_back(std::string(home) + "/.local/share/helix-screen/helix.log");
-    }
-    log_paths.push_back("/tmp/helixscreen.log");
-
-    auto result = collect_log_tail_from_paths(log_paths, num_lines);
-    if (!result.empty()) {
-        return result;
-    }
-
-    // Fallback: on embedded platforms (AD5M, AD5X), the app logs to syslog which
-    // goes to /var/log/messages. Filter for our entries since the file contains
-    // all system messages.
-    return collect_syslog_tail(num_lines);
+    return helix::logs::tail_best(num_lines);
 }
 
 // =============================================================================
@@ -286,7 +260,8 @@ std::string DebugBundleCollector::collect_crash_txt() {
     // Try crash.txt first, then rotated files (crash_1.txt, crash_2.txt, crash_3.txt).
     // The crash reporter rotates crash.txt → crash_1.txt after consuming it,
     // so the raw file is usually only available as a rotated copy.
-    static constexpr const char* suffixes[] = {"crash.txt", "crash_1.txt", "crash_2.txt", "crash_3.txt"};
+    static constexpr const char* suffixes[] = {"crash.txt", "crash_1.txt", "crash_2.txt",
+                                               "crash_3.txt"};
 
     for (const auto& suffix : suffixes) {
         for (const auto& dir : config_dirs) {
@@ -850,93 +825,12 @@ std::string DebugBundleCollector::collect_device_id(const std::string& config_di
 }
 
 // =============================================================================
-// Log tail from explicit paths (testable, used by collect_log_tail)
+// Log tail from explicit paths (used by tests to pin path resolution order)
 // =============================================================================
 
 std::string DebugBundleCollector::collect_log_tail_from_paths(const std::vector<std::string>& paths,
                                                               int num_lines) {
-    for (const auto& path : paths) {
-        std::ifstream file(path);
-        if (!file.good()) {
-            continue;
-        }
-
-        std::deque<std::string> lines;
-        std::string line;
-        while (std::getline(file, line)) {
-            lines.push_back(std::move(line));
-            if (static_cast<int>(lines.size()) > num_lines) {
-                lines.pop_front();
-            }
-        }
-
-        if (lines.empty()) {
-            continue;
-        }
-
-        std::ostringstream result;
-        for (size_t i = 0; i < lines.size(); ++i) {
-            if (i > 0) {
-                result << '\n';
-            }
-            result << lines[i];
-        }
-
-        spdlog::debug("[DebugBundle] Read {} log lines from {}", lines.size(), path);
-        return result.str();
-    }
-
-    return {};
-}
-
-// =============================================================================
-// Syslog tail (fallback for embedded platforms using syslog → /var/log/messages)
-// =============================================================================
-
-std::string DebugBundleCollector::collect_syslog_tail(int num_lines) {
-    // On embedded Linux (AD5M, AD5X), the app logs via syslog to /var/log/messages.
-    // Filter for helix-screen entries only.
-    const std::vector<std::string> syslog_paths = {
-        "/var/log/messages",
-        "/var/log/syslog",
-    };
-
-    for (const auto& path : syslog_paths) {
-        std::ifstream file(path);
-        if (!file.good()) {
-            continue;
-        }
-
-        std::deque<std::string> lines;
-        std::string line;
-        while (std::getline(file, line)) {
-            if (line.find("helix-screen") != std::string::npos ||
-                line.find("helix-watchdog") != std::string::npos ||
-                line.find("helix-splash") != std::string::npos) {
-                lines.push_back(std::move(line));
-                if (static_cast<int>(lines.size()) > num_lines) {
-                    lines.pop_front();
-                }
-            }
-        }
-
-        if (lines.empty()) {
-            continue;
-        }
-
-        std::ostringstream result;
-        for (size_t i = 0; i < lines.size(); ++i) {
-            if (i > 0) {
-                result << '\n';
-            }
-            result << lines[i];
-        }
-
-        spdlog::debug("[DebugBundle] Read {} syslog lines from {}", lines.size(), path);
-        return result.str();
-    }
-
-    return {};
+    return helix::logs::tail_file(paths, num_lines);
 }
 
 // =============================================================================

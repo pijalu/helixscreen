@@ -59,6 +59,11 @@ class CrashReportModal : public Modal {
     // Crash report data
     CrashReporter::CrashReport report_;
 
+    // Flipped on first Send click so double-taps don't kick off a second
+    // bundle upload + report POST. Never reset — after a send we either
+    // succeed-and-hide or show the QR fallback (also terminal).
+    bool sending_ = false;
+
     // Subject management
     void init_subjects();
     void deinit_subjects();
@@ -76,7 +81,11 @@ class CrashReportModal : public Modal {
     void handle_send();
     void handle_dismiss();
 
-    // Delivery logic
+    // Delivery logic — two-phase:
+    //   attempt_delivery() kicks off a debug bundle upload (non-blocking).
+    //   send_with_bundle() fires when the bundle lands (or fails), passing
+    //   the share code through to try_auto_send so the issue body links to it.
     void attempt_delivery();
+    void send_with_bundle(const std::string& share_code);
     void show_qr_code(const std::string& url);
 };

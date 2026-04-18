@@ -3,11 +3,13 @@
 
 #pragma once
 
+#include "async_lifetime_guard.h"
 #include "lvgl/lvgl.h"
 #include "wifi_backend.h"
 
 #include <functional>
 #include <memory>
+#include <mutex>
 #include <string>
 #include <vector>
 
@@ -176,6 +178,22 @@ class WiFiManager {
     bool set_enabled(bool enabled);
 
     /**
+     * @brief Subscribe to backend state changes (READY / CONNECTED / DISCONNECTED)
+     *
+     * Fires when the backend's connection state transitions — including the
+     * initial READY event that lands after async init completes. The callback
+     * is marshalled to the UI thread via the caller's LifetimeToken and is
+     * silently skipped if the token has expired by the time it runs.
+     *
+     * Use this to react to state changes without polling (e.g. to unstick UI
+     * queried before async backend init landed).
+     *
+     * @param token   Caller's LifetimeToken — expires with the owning object
+     * @param on_change Callback invoked on the UI thread after state changes
+     */
+    void add_state_observer(helix::LifetimeToken token, std::function<void()> on_change);
+
+    /**
      * @brief Initialize self-reference for async callback safety
      *
      * MUST be called immediately after construction when using shared_ptr.
@@ -218,6 +236,17 @@ class WiFiManager {
     // fallback when NM's INIT_FAILED fires (daemon dead despite nmcli present).
     // This flag prevents infinite loops if wpa_supplicant also fails.
     bool tried_fallback_ = false;
+
+    // Observers of backend state transitions — each entry is a {token, cb} pair.
+    // Fans out READY/CONNECTED/DISCONNECTED so UI consumers (home-panel network
+    // widget) can unstick themselves when they queried before async init landed.
+    struct StateObserver {
+        helix::LifetimeToken token;
+        std::function<void()> callback;
+    };
+    std::mutex state_observers_mutex_;
+    std::vector<StateObserver> state_observers_;
+    void notify_state_observers();
 
     // Timer callbacks (must be static for LVGL)
     static void scan_timer_callback(lv_timer_t* timer);

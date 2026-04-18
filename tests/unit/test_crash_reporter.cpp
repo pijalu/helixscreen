@@ -9,8 +9,8 @@
  * is removed or its interface changes.
  */
 
-#include "system/crash_reporter.h"
 #include "system/crash_history.h"
+#include "system/crash_reporter.h"
 
 #include <chrono>
 #include <filesystem>
@@ -291,6 +291,32 @@ TEST_CASE_METHOD(CrashReporterTestFixture,
 }
 
 TEST_CASE_METHOD(CrashReporterTestFixture,
+                 "CrashReporter: report_to_json round-trips debug_bundle_share_code",
+                 "[crash_reporter][bundle]") {
+    write_crash_file();
+    auto& cr = CrashReporter::instance();
+    auto report = cr.collect_report();
+    report.debug_bundle_share_code = "ZYZCAT4L";
+    json j = cr.report_to_json(report);
+
+    REQUIRE(j.contains("debug_bundle_share_code"));
+    REQUIRE(j["debug_bundle_share_code"] == "ZYZCAT4L");
+}
+
+TEST_CASE_METHOD(CrashReporterTestFixture,
+                 "CrashReporter: report_to_json omits debug_bundle_share_code when empty",
+                 "[crash_reporter][bundle]") {
+    write_crash_file();
+    auto& cr = CrashReporter::instance();
+    auto report = cr.collect_report();
+    // Explicitly leave share_code empty — the worker should then render no
+    // bundle link (and the client must not send a falsy field either).
+    REQUIRE(report.debug_bundle_share_code.empty());
+    json j = cr.report_to_json(report);
+    REQUIRE_FALSE(j.contains("debug_bundle_share_code"));
+}
+
+TEST_CASE_METHOD(CrashReporterTestFixture,
                  "CrashReporter: report_to_json backtrace is array of strings",
                  "[crash_reporter]") {
     write_crash_file(11, "SIGSEGV", "0.9.9", {"0xaaa", "0xbbb"});
@@ -515,8 +541,7 @@ TEST_CASE_METHOD(CrashReporterTestFixture, "CrashReporter: shutdown clears state
 // Fingerprint & Deduplication [crash_reporter]
 // ============================================================================
 
-TEST_CASE_METHOD(CrashReporterTestFixture,
-                 "CrashReporter: fingerprint matches server-side formula",
+TEST_CASE_METHOD(CrashReporterTestFixture, "CrashReporter: fingerprint matches server-side formula",
                  "[crash_reporter]") {
     write_crash_file(11, "SIGSEGV", "0.9.9", {"0x400abc", "0x400def"});
     auto& cr = CrashReporter::instance();

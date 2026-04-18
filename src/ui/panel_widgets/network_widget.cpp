@@ -103,6 +103,21 @@ void NetworkWidget::attach(lv_obj_t* widget_obj, lv_obj_t* parent_screen) {
     // Initialize EthernetManager for Ethernet status detection
     ethernet_manager_ = std::make_unique<EthernetManager>();
 
+    // Subscribe to WiFi backend state changes so the widget refreshes itself
+    // when async init lands (#819 follow-up): NetworkWidget attaches during
+    // home-panel load and races the backend worker thread. Without this, an
+    // initial empty STATUS response pins the widget on 'Disconnected' until
+    // the user navigates away and back.
+    if (wifi_manager_) {
+        wifi_manager_->add_state_observer(lifetime_.token(), [this]() {
+            detect_network_type();
+            if (!signal_poll_timer_ && current_network_ == NetworkType::Wifi) {
+                signal_poll_timer_ =
+                    lv_timer_create(signal_poll_timer_cb, SIGNAL_POLL_INTERVAL_MS, this);
+            }
+        });
+    }
+
     // Detect actual network type (Ethernet vs WiFi vs disconnected)
     detect_network_type();
 
@@ -197,8 +212,10 @@ void NetworkWidget::detect_network_type() {
 
     auto tok = lifetime_.token();
     ethernet_manager_->get_info_async([this, tok](const EthernetInfo& info) {
-        if (tok.expired()) return;
-        if (!info.connected) return; // Wifi/disconnected already reflected
+        if (tok.expired())
+            return;
+        if (!info.connected)
+            return; // Wifi/disconnected already reflected
         EthernetInfo info_copy = info;
         tok.defer("NetworkWidget::apply_ethernet_detection", [this, info_copy]() {
             spdlog::debug("[NetworkWidget] Detected Ethernet connection on {} ({})",

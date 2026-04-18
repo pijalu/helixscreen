@@ -3,12 +3,13 @@
 
 #include "ui_crash_report_modal.h"
 
-#include "display_manager.h"
 #include "ui_toast_manager.h"
 #include "ui_update_queue.h"
 
+#include "display_manager.h"
 #include "lvgl/src/others/translation/lv_translation.h"
 #include "system/crash_reporter.h"
+#include "system/debug_bundle_collector.h"
 
 #include <spdlog/spdlog.h>
 
@@ -188,36 +189,76 @@ void CrashReportModal::handle_dismiss() {
 // =============================================================================
 
 void CrashReportModal::attempt_delivery() {
+    if (sending_) {
+        spdlog::debug("[CrashReportModal] Send already in flight, ignoring double-tap");
+        return;
+    }
+    sending_ = true;
+
+    // Phase 1: collect + upload a debug bundle first. The bundle captures the
+    // pre-crash log tail, sanitized settings, crash history, and Moonraker
+    // state — context the bare crash report doesn't carry. We pass the share
+    // code through to the report so the GitHub issue links to it.
+    //
+    // Bundle upload runs on a detached thread inside upload_async; the
+    // callback is marshaled back to the UI thread. If the bundle fails (no
+    // network, worker down, etc.) the report still goes out — just without a
+    // share code.
+    lv_subject_copy_string(&status_subject_, lv_tr("Collecting debug info..."));
+
+    helix::BundleOptions options;
+    // Don't pull Klipper/Moonraker logs in the crash-boot path — Moonraker
+    // may not be connected yet and the bundle already has our syslog tail.
+
+    auto token = lifetime_.token();
+    helix::DebugBundleCollector::upload_async(
+        options, [this, token](const helix::BundleResult& result) {
+            if (token.expired()) {
+                spdlog::debug("[CrashReportModal] Modal dismissed during bundle upload, dropping");
+                return;
+            }
+            std::string share = result.success ? result.share_code : "";
+            if (result.success) {
+                spdlog::info("[CrashReportModal] Debug bundle attached: {}", share);
+            } else {
+                spdlog::warn("[CrashReportModal] Debug bundle upload failed "
+                             "(continuing without share_code): {}",
+                             result.error_message);
+            }
+            send_with_bundle(share);
+        });
+}
+
+void CrashReportModal::send_with_bundle(const std::string& share_code) {
     auto& cr = CrashReporter::instance();
 
-    // Update status
     lv_subject_copy_string(&status_subject_, lv_tr("Sending..."));
 
-    // Try auto-send first
-    if (cr.try_auto_send(report_)) {
+    // Copy so we don't mutate the original until we know the send happened.
+    CrashReporter::CrashReport report = report_;
+    report.debug_bundle_share_code = share_code;
+
+    if (cr.try_auto_send(report)) {
         spdlog::info("[CrashReportModal] Crash report sent via worker");
-        cr.save_to_file(report_);
+        cr.save_to_file(report);
         cr.consume_crash_file();
         hide();
         ToastManager::instance().show(ToastSeverity::SUCCESS,
                                       lv_tr("Crash report sent — thank you!"), 4000);
         return;
-    } else {
-        // Auto-send failed — try QR code
-        std::string url = cr.generate_github_url(report_);
-        if (!url.empty()) {
-            show_qr_code(url);
-            lv_subject_copy_string(&status_subject_,
-                                   lv_tr("No network. Scan QR code to report on your phone."));
-        } else {
-            lv_subject_copy_string(&status_subject_, lv_tr("Report saved to crash_report.txt"));
-        }
     }
 
-    // Always save to file as fallback
-    cr.save_to_file(report_);
+    // Auto-send failed — fall back to QR code for phone-based submission.
+    std::string url = cr.generate_github_url(report);
+    if (!url.empty()) {
+        show_qr_code(url);
+        lv_subject_copy_string(&status_subject_,
+                               lv_tr("No network. Scan QR code to report on your phone."));
+    } else {
+        lv_subject_copy_string(&status_subject_, lv_tr("Report saved to crash_report.txt"));
+    }
 
-    // Consume crash file after handling
+    cr.save_to_file(report);
     cr.consume_crash_file();
 }
 
@@ -247,15 +288,17 @@ void CrashReportModal::show_qr_code(const std::string& url) {
         int canvas_size = target_px;
         if (qr_modules > 0) {
             int scale = target_px / qr_modules;
-            if (scale < 1) scale = 1;
+            if (scale < 1)
+                scale = 1;
             canvas_size = qr_modules * scale;
         }
         lv_qrcode_set_size(qr, canvas_size);
         lv_qrcode_set_quiet_zone(qr, false);
         lv_qrcode_update(qr, url.c_str(), static_cast<uint32_t>(url.size()));
         lv_obj_center(qr);
-        spdlog::debug("[CrashReportModal] QR code created: {} chars, version={}, modules={}, canvas={}px",
-                       url.size(), qr_version, qr_modules, canvas_size);
+        spdlog::debug(
+            "[CrashReportModal] QR code created: {} chars, version={}, modules={}, canvas={}px",
+            url.size(), qr_version, qr_modules, canvas_size);
     }
 #else
     spdlog::warn("[CrashReportModal] QR code support not compiled in (LV_USE_QRCODE=0)");

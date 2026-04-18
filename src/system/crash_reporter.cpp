@@ -8,6 +8,7 @@
 #include "platform_capabilities.h"
 #include "system/crash_handler.h"
 #include "system/crash_history.h"
+#include "system/log_collector.h"
 #include "system/update_checker.h"
 
 #include <spdlog/spdlog.h>
@@ -237,58 +238,20 @@ CrashReporter::CrashReport CrashReporter::collect_report() {
 // =============================================================================
 
 std::string CrashReporter::get_log_tail(int num_lines) {
-    // Search paths matching logging_init.cpp resolution order
-    std::vector<std::string> log_paths = {
-        "/var/log/helix-screen.log",
-    };
-
-    const char* xdg = std::getenv("XDG_DATA_HOME");
-    if (xdg && xdg[0] != '\0') {
-        log_paths.push_back(std::string(xdg) + "/helix-screen/helix.log");
+    // Build the file-log search list: defaults plus the test-visible config_dir
+    // log (tests redirect config_dir_ to a tmp path and write helix.log there).
+    // Then cascade through syslog + journalctl via helix::logs::tail_best so
+    // embedded platforms (AD5M/AD5X via syslog, pi/pi32 via journald) stop
+    // returning empty when they have no file sink.
+    auto paths = helix::logs::default_file_paths();
+    if (!config_dir_.empty()) {
+        paths.push_back(config_dir_ + "/helix.log");
     }
-    const char* home = std::getenv("HOME");
-    if (home && home[0] != '\0') {
-        log_paths.push_back(std::string(home) + "/.local/share/helix-screen/helix.log");
+    auto result = helix::logs::tail_best(num_lines, paths);
+    if (result.empty()) {
+        spdlog::debug("[CrashReporter] No log source produced content for log tail");
     }
-    log_paths.push_back("/tmp/helixscreen.log");
-
-    // Also check config dir (for tests)
-    log_paths.push_back(config_dir_ + "/helix.log");
-
-    for (const auto& path : log_paths) {
-        std::ifstream file(path);
-        if (!file.good()) {
-            continue;
-        }
-
-        // Read all lines into a deque, keeping only the last N
-        std::deque<std::string> lines;
-        std::string line;
-        while (std::getline(file, line)) {
-            lines.push_back(std::move(line));
-            if (static_cast<int>(lines.size()) > num_lines) {
-                lines.pop_front();
-            }
-        }
-
-        if (lines.empty()) {
-            return {};
-        }
-
-        std::ostringstream result;
-        for (size_t i = 0; i < lines.size(); ++i) {
-            if (i > 0) {
-                result << '\n';
-            }
-            result << lines[i];
-        }
-
-        spdlog::debug("[CrashReporter] Read {} log lines from {}", lines.size(), path);
-        return result.str();
-    }
-
-    spdlog::debug("[CrashReporter] No log file found for log tail");
-    return {};
+    return result;
 }
 
 // =============================================================================
@@ -417,6 +380,12 @@ nlohmann::json CrashReporter::report_to_json(const CrashReport& report) {
             lines.push_back(line);
         }
         j["log_tail"] = lines;
+    }
+
+    // Debug bundle share code (only set when the crash modal auto-attached a
+    // bundle — the worker uses this to link the issue to R2-stored context).
+    if (!report.debug_bundle_share_code.empty()) {
+        j["debug_bundle_share_code"] = report.debug_bundle_share_code;
     }
 
     return j;

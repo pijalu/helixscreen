@@ -1,10 +1,14 @@
 // Copyright (C) 2025-2026 356C LLC
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+#include "../../include/async_lifetime_guard.h"
+#include "../../include/runtime_config.h"
+#include "../../include/ui_update_queue.h"
 #include "../../include/wifi_manager.h"
 #include "../../lvgl/lvgl.h"
 #include "../ui_test_utils.h"
 
+#include <atomic>
 #include <chrono>
 #include <thread>
 
@@ -601,4 +605,135 @@ TEST_CASE_METHOD(WiFiManagerTestFixture, "WiFi network information",
         REQUIRE(has_open);
 #endif
     }
+}
+
+// ============================================================================
+// State Observer Tests (#819 regression)
+// ============================================================================
+//
+// Regression coverage for the NetworkWidget startup race (#819 follow-up):
+// widget attached before the wpa_supplicant backend's async init completed,
+// got an empty STATUS response, and had no wake-up path. Fix added an
+// observer list to WiFiManager that fans out backend state transitions so
+// UI consumers can refresh once the backend is actually ready.
+//
+// These tests use the mock backend's connect flow — slow (2-3s per test
+// because connect_thread_func sleeps 2000+rng()%1000ms), which is why
+// they're tagged [.disabled] alongside the other wifi_manager integration
+// tests. Run locally with './build/bin/helix-tests [observers]'.
+
+namespace {
+
+struct MockWifiGuard {
+    bool prev_test_mode;
+    bool prev_use_real_wifi;
+    MockWifiGuard() {
+        auto* cfg = get_runtime_config();
+        prev_test_mode = cfg->test_mode;
+        prev_use_real_wifi = cfg->use_real_wifi;
+        cfg->test_mode = true;
+        cfg->use_real_wifi = false;
+    }
+    ~MockWifiGuard() {
+        auto* cfg = get_runtime_config();
+        cfg->test_mode = prev_test_mode;
+        cfg->use_real_wifi = prev_use_real_wifi;
+    }
+};
+
+// Pick a secured network with strong signal from the mock backend's seed list.
+// See WifiBackendMock::init_mock_networks — all secured entries share password
+// "12345678", and networks with signal < 20% have a 30% random timeout branch,
+// so we explicitly prefer a strong network to avoid flakiness.
+struct NetworkPick {
+    std::string ssid;
+    std::string password;
+};
+
+NetworkPick pick_strong_secured_network(WiFiManager& wifi) {
+    auto networks = wifi.scan_once();
+    NetworkPick best{"", "12345678"};
+    int best_strength = -1;
+    for (const auto& net : networks) {
+        if (net.is_secured && net.signal_strength >= 50 && net.signal_strength > best_strength) {
+            best.ssid = net.ssid;
+            best_strength = net.signal_strength;
+        }
+    }
+    return best;
+}
+
+} // namespace
+
+TEST_CASE_METHOD(WiFiManagerTestFixture, "State observer fires when backend dispatches CONNECTED",
+                 "[.disabled][macos-wifi][network][observers][slow]") {
+#ifdef HELIX_ENABLE_MOCKS
+    MockWifiGuard mock_guard;
+
+    // Rebuild the manager under the mock-wifi runtime config so it picks up
+    // the mock backend instead of CoreWLAN / wpa_supplicant.
+    wifi_manager.reset();
+    wifi_manager = std::make_shared<WiFiManager>(/*silent=*/true);
+    wifi_manager->init_self_reference(wifi_manager);
+    wifi_manager->set_enabled(true);
+
+    helix::AsyncLifetimeGuard lifetime;
+    std::atomic<int> fires{0};
+    wifi_manager->add_state_observer(lifetime.token(), [&fires]() { fires.fetch_add(1); });
+
+    NetworkPick pick = pick_strong_secured_network(*wifi_manager);
+    REQUIRE_FALSE(pick.ssid.empty());
+
+    wifi_manager->connect(pick.ssid, pick.password, [](bool, const std::string&) {});
+
+    // Connect thread sleeps 2-3s before firing CONNECTED. Drain the UpdateQueue
+    // from the poll loop so deferred observer callbacks actually run.
+    bool got_fire = wait_for_condition(
+        [&fires]() {
+            helix::ui::UpdateQueue::instance().drain();
+            return fires.load() > 0;
+        },
+        5000);
+
+    REQUIRE(got_fire);
+    REQUIRE(fires.load() >= 1);
+#else
+    SUCCEED("Mocks disabled in this build — observer test skipped");
+#endif
+}
+
+TEST_CASE_METHOD(WiFiManagerTestFixture, "State observer with expired token is not invoked",
+                 "[.disabled][macos-wifi][network][observers][slow]") {
+#ifdef HELIX_ENABLE_MOCKS
+    MockWifiGuard mock_guard;
+
+    wifi_manager.reset();
+    wifi_manager = std::make_shared<WiFiManager>(/*silent=*/true);
+    wifi_manager->init_self_reference(wifi_manager);
+    wifi_manager->set_enabled(true);
+
+    helix::AsyncLifetimeGuard lifetime;
+    std::atomic<int> fires{0};
+    wifi_manager->add_state_observer(lifetime.token(), [&fires]() { fires.fetch_add(1); });
+
+    // Simulate owner dismissal before the backend fires CONNECTED.
+    lifetime.invalidate();
+
+    NetworkPick pick = pick_strong_secured_network(*wifi_manager);
+    REQUIRE_FALSE(pick.ssid.empty());
+
+    wifi_manager->connect(pick.ssid, pick.password, [](bool, const std::string&) {});
+
+    // Wait long enough for CONNECTED to have fired, draining all the while.
+    // The deferred observer callback sees an expired token and skips silently.
+    auto start = std::chrono::steady_clock::now();
+    while (std::chrono::steady_clock::now() - start < std::chrono::milliseconds(4500)) {
+        helix::ui::UpdateQueue::instance().drain();
+        std::this_thread::sleep_for(std::chrono::milliseconds(20));
+    }
+
+    REQUIRE(fires.load() == 0);
+#else
+    SUCCEED("Mocks disabled in this build — observer test skipped");
+#endif
 }

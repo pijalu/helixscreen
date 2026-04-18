@@ -87,18 +87,18 @@ class CrashReporter {
 
         // Cached heap snapshot (refreshed every ~10s from main loop)
         struct HeapSnapshot {
-            long age_ms = 0;                 // monotonic-ms timestamp when captured
+            long age_ms = 0; // monotonic-ms timestamp when captured
             long rss_kb = 0;
             long vsz_kb = 0;
-            long arena_kb = 0;               // glibc mallinfo total arena
-            long used_kb = 0;                // glibc uordblks
-            long free_kb = 0;                // glibc fordblks
-            long mmap_kb = 0;                // glibc hblkhd
-            long lv_total_kb = 0;            // LVGL internal heap total
-            int  lv_used_pct = 0;
-            int  lv_frag_pct = 0;
+            long arena_kb = 0;    // glibc mallinfo total arena
+            long used_kb = 0;     // glibc uordblks
+            long free_kb = 0;     // glibc fordblks
+            long mmap_kb = 0;     // glibc hblkhd
+            long lv_total_kb = 0; // LVGL internal heap total
+            int lv_used_pct = 0;
+            int lv_frag_pct = 0;
             long lv_free_biggest_kb = 0;
-            bool present = false;            // true if any heap_* was parsed
+            bool present = false; // true if any heap_* was parsed
         };
         HeapSnapshot heap;
 
@@ -110,9 +110,9 @@ class CrashReporter {
         std::vector<std::string> memory_map;
 
         // Stack-scanned backtrace metadata
-        std::string bt_source;     // "stack_scan" if backtrace includes scanned entries
-        std::string text_start;    // Text segment start address
-        std::string text_end;      // Text segment end address
+        std::string bt_source;  // "stack_scan" if backtrace includes scanned entries
+        std::string text_start; // Text segment start address
+        std::string text_end;   // Text segment end address
 
         // Stack dump (ARM32/MIPS: 128 raw stack words for return-address scanning)
         std::string stack_base;
@@ -130,6 +130,14 @@ class CrashReporter {
         std::string display_info;
         int ram_total_mb = 0;
         int cpu_cores = 0;
+
+        // Share code of a debug bundle uploaded alongside this report. Empty
+        // when no bundle was attached (bundle upload failed, disabled, or the
+        // report is being sent via the QR-code fallback path). The worker
+        // renders this as a "Debug Bundle: CODE" row in the issue body so the
+        // deeper context (sanitized settings, syslog, crash history) is one
+        // click away.
+        std::string debug_bundle_share_code;
     };
 
     /**

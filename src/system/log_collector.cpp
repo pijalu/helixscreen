@@ -1,0 +1,192 @@
+// Copyright (C) 2025-2026 356C LLC
+// SPDX-License-Identifier: GPL-3.0-or-later
+
+#include "system/log_collector.h"
+
+#include <spdlog/spdlog.h>
+
+#include <array>
+#include <cstdio>
+#include <cstdlib>
+#include <deque>
+#include <fstream>
+#include <sstream>
+#include <string>
+#include <string_view>
+
+namespace helix::logs {
+
+namespace {
+
+void push_bounded(std::deque<std::string>& lines, std::string line, int max_lines) {
+    lines.push_back(std::move(line));
+    if (static_cast<int>(lines.size()) > max_lines) {
+        lines.pop_front();
+    }
+}
+
+std::string join_lines(const std::deque<std::string>& lines) {
+    std::ostringstream out;
+    for (size_t i = 0; i < lines.size(); ++i) {
+        if (i > 0)
+            out << '\n';
+        out << lines[i];
+    }
+    return out.str();
+}
+
+std::string read_tail_lines(const std::string& path, int num_lines, std::string_view source_tag) {
+    std::ifstream file(path);
+    if (!file.good()) {
+        return {};
+    }
+
+    std::deque<std::string> lines;
+    std::string line;
+    while (std::getline(file, line)) {
+        push_bounded(lines, std::move(line), num_lines);
+    }
+
+    if (lines.empty()) {
+        return {};
+    }
+
+    spdlog::debug("[Logs] Read {} lines from {} ({})", lines.size(), path, source_tag);
+    return join_lines(lines);
+}
+
+/// Syslog entries look like "Apr 18 03:48:31 host helix-screen[1234]: ...".
+/// Cheap substring match is good enough — our identifier prefixes don't collide
+/// with anything else on these systems.
+bool is_helix_line(const std::string& line) {
+    return line.find("helix-screen") != std::string::npos ||
+           line.find("helix-watchdog") != std::string::npos ||
+           line.find("helix-splash") != std::string::npos;
+}
+
+/// Run a command via popen and return its stdout, capped at `max_lines` lines.
+/// Stderr is silenced by the caller (append "2>/dev/null" to `cmd`).
+std::string run_capture_tail(const std::string& cmd, int max_lines, std::string_view source_tag) {
+    FILE* pipe = ::popen(cmd.c_str(), "r");
+    if (!pipe) {
+        spdlog::debug("[Logs] popen failed for {}: {}", source_tag, cmd);
+        return {};
+    }
+
+    // fgets may return a partial line if a single line exceeds the buffer, so
+    // accumulate across reads and split only on real newlines.
+    std::deque<std::string> lines;
+    std::array<char, 4096> buf{};
+    std::string partial;
+    while (std::fgets(buf.data(), static_cast<int>(buf.size()), pipe) != nullptr) {
+        partial.append(buf.data());
+        size_t nl;
+        while ((nl = partial.find('\n')) != std::string::npos) {
+            push_bounded(lines, partial.substr(0, nl), max_lines);
+            partial.erase(0, nl + 1);
+        }
+    }
+    if (!partial.empty()) {
+        push_bounded(lines, std::move(partial), max_lines);
+    }
+
+    int rc = ::pclose(pipe);
+    if (rc != 0) {
+        spdlog::debug("[Logs] {} exited non-zero (rc={})", source_tag, rc);
+    }
+
+    if (lines.empty())
+        return {};
+    spdlog::debug("[Logs] Captured {} lines from {}", lines.size(), source_tag);
+    return join_lines(lines);
+}
+
+} // namespace
+
+std::vector<std::string> default_file_paths() {
+    // Resolution order mirrors logging_init.cpp::resolve_log_file_path():
+    // /var/log → XDG_DATA_HOME → HOME/.local/share → /tmp. First readable wins.
+    std::vector<std::string> paths = {
+        "/var/log/helix-screen.log",
+    };
+
+    if (const char* xdg = std::getenv("XDG_DATA_HOME"); xdg && xdg[0] != '\0') {
+        paths.push_back(std::string(xdg) + "/helix-screen/helix.log");
+    }
+    if (const char* home = std::getenv("HOME"); home && home[0] != '\0') {
+        paths.push_back(std::string(home) + "/.local/share/helix-screen/helix.log");
+    }
+    paths.emplace_back("/tmp/helixscreen.log");
+    return paths;
+}
+
+std::string tail_file(const std::vector<std::string>& paths, int num_lines) {
+    for (const auto& path : paths) {
+        auto result = read_tail_lines(path, num_lines, "file");
+        if (!result.empty())
+            return result;
+    }
+    return {};
+}
+
+std::string tail_syslog_from(const std::vector<std::string>& paths, int num_lines) {
+    for (const auto& path : paths) {
+        std::ifstream file(path);
+        if (!file.good())
+            continue;
+
+        std::deque<std::string> lines;
+        std::string line;
+        while (std::getline(file, line)) {
+            if (is_helix_line(line)) {
+                push_bounded(lines, std::move(line), num_lines);
+            }
+        }
+
+        if (lines.empty())
+            continue;
+        spdlog::debug("[Logs] Read {} syslog lines from {}", lines.size(), path);
+        return join_lines(lines);
+    }
+
+    return {};
+}
+
+std::string tail_syslog(int num_lines) {
+    // On embedded Linux (AD5M, AD5X, K1) the app logs via syslog to
+    // /var/log/messages. The file holds all system messages, so filter down
+    // to our identifiers.
+    return tail_syslog_from({"/var/log/messages", "/var/log/syslog"}, num_lines);
+}
+
+std::string tail_journal(int num_lines) {
+    // All helix sinks (systemd_sink, syslog_sink) use "helix-screen" as the
+    // SYSLOG_IDENTIFIER — matches entries from both sink types in the journal.
+    // `--no-pager` is critical — without it journalctl tries to invoke less
+    // and hangs on a non-TTY.
+    //
+    // Tradeoff on `-b 0`: when the crash reporter runs at next-boot after a
+    // watchdog-triggered reboot, the pre-crash activity lives in the previous
+    // boot's journal and `-b 0` misses it. The common case (crash while the
+    // service is up, systemd restarts the unit in place) keeps `-b 0` right:
+    // the journal still has the pre-crash tail without days of older noise.
+    // Widen to `-b -1..0` if we start losing context on watchdog reboots.
+    const int lines = num_lines > 0 ? num_lines : 2000;
+    const std::string cmd = "journalctl SYSLOG_IDENTIFIER=helix-screen -b 0 --no-pager -n " +
+                            std::to_string(lines) + " 2>/dev/null";
+    return run_capture_tail(cmd, lines, "journalctl");
+}
+
+std::string tail_best(int num_lines, const std::vector<std::string>& paths) {
+    const auto& search = paths.empty() ? default_file_paths() : paths;
+
+    if (auto result = tail_file(search, num_lines); !result.empty()) {
+        return result;
+    }
+    if (auto result = tail_syslog(num_lines); !result.empty()) {
+        return result;
+    }
+    return tail_journal(num_lines);
+}
+
+} // namespace helix::logs

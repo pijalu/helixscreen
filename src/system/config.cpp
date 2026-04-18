@@ -556,6 +556,39 @@ static void migrate_v11_to_v12(json& config) {
     }
 }
 
+/// Repair stale AD5X display settings from the pre-#431 preset. The original AD5X
+/// preset (#235) set sleep_backlight_off=false under the assumption that backlight
+/// power-off prevented wake-on-touch. #431 corrected this after hardware verification.
+/// Users whose wizard ran between those commits still have the stale combination
+/// (backlight never turns off at sleep).
+static void migrate_v12_to_v13(json& config) {
+    bool is_ad5x = false;
+    if (config.value("preset", "") == "ad5x") {
+        is_ad5x = true;
+    } else if (config.contains("printers") && config["printers"].is_object()) {
+        for (auto& [printer_id, printer] : config["printers"].items()) {
+            if (printer.is_object() && printer.value("type", "") == "FlashForge Adventurer 5X") {
+                is_ad5x = true;
+                break;
+            }
+        }
+    }
+    if (!is_ad5x)
+        return;
+
+    if (!config.contains("display") || !config["display"].is_object())
+        return;
+
+    auto& display = config["display"];
+    if (display.value("sleep_backlight_off", true) == false &&
+        display.value("hardware_blank", -1) == 0) {
+        display["sleep_backlight_off"] = true;
+        display["hardware_blank"] = 1;
+        spdlog::info("[Config] Migration v13: restored AD5X backlight-off sleep "
+                     "(sleep_backlight_off=true, hardware_blank=1)");
+    }
+}
+
 /// Run all versioned migrations in sequence from current version to CURRENT_CONFIG_VERSION
 static void run_versioned_migrations(json& config) {
     int version = 0;
@@ -587,6 +620,8 @@ static void run_versioned_migrations(json& config) {
         migrate_v10_to_v11(config);
     if (version < 12)
         migrate_v11_to_v12(config);
+    if (version < 13)
+        migrate_v12_to_v13(config);
 
     config["config_version"] = CURRENT_CONFIG_VERSION;
 }
@@ -674,8 +709,8 @@ void Config::init(const std::string& config_path) {
             resolved_path = (base / fs::path(config_path).filename()).string();
             spdlog::info("[Config] HELIX_CONFIG_DIR override: using {}", resolved_path);
         } else {
-            spdlog::warn("[Config] HELIX_CONFIG_DIR={} unusable ({}); falling back to {}",
-                         env_dir, ec ? ec.message() : "not a directory", config_path);
+            spdlog::warn("[Config] HELIX_CONFIG_DIR={} unusable ({}); falling back to {}", env_dir,
+                         ec ? ec.message() : "not a directory", config_path);
         }
     }
     path = resolved_path;
@@ -683,8 +718,7 @@ void Config::init(const std::string& config_path) {
 
     // Migration: rename helixconfig.json -> settings.json if old name exists
     fs::path old_config = fs::path(path).parent_path() / "helixconfig.json";
-    if (stat(path.c_str(), &buffer) != 0 && fs::exists(old_config) &&
-        !fs::is_symlink(old_config)) {
+    if (stat(path.c_str(), &buffer) != 0 && fs::exists(old_config) && !fs::is_symlink(old_config)) {
         spdlog::info("[Config] Migrating {} -> {}", old_config.string(), path);
         std::error_code ec;
         fs::rename(old_config, path, ec);
