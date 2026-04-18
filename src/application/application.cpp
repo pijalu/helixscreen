@@ -143,6 +143,7 @@
 #include "action_prompt_manager.h"
 #include "action_prompt_modal.h"
 #include "app_globals.h"
+#include "filament_consumption_tracker.h"
 #include "filament_sensor_manager.h"
 #include "gcode_file_modifier.h"
 #include "helix-xml/src/xml/lv_xml.h"
@@ -533,6 +534,9 @@ int Application::run(int argc, char** argv) {
 
     // Initialize PostOpCooldownManager (unified filament operation cooldown)
     PostOpCooldownManager::instance().init(get_moonraker_api());
+
+    // Begin tracking external-spool consumption across prints.
+    helix::FilamentConsumptionTracker::instance().start();
 
     // Update DisplaySettingsManager with theme mode support (must be after both theme and settings
     // init)
@@ -3628,6 +3632,10 @@ void Application::shutdown() {
     // Must happen while LVGL is still initialized so lv_observer_remove() can
     // properly remove unsubscribe_on_delete_cb from widget event lists.
     StaticPanelRegistry::instance().destroy_all();
+
+    // Stop consumption tracker before subjects are deinitialized so ObserverGuards
+    // can unregister cleanly while subjects are still alive.
+    helix::FilamentConsumptionTracker::instance().stop();
 
     // Deinitialize core singleton subjects (PrinterState, AmsState, SettingsManager, etc.)
     // BEFORE lv_deinit(). lv_subject_deinit() calls lv_observer_remove() for each
