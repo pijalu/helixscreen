@@ -33,24 +33,26 @@ Driver: proactive cleanup, no active failure. This bounds the scope aggressively
 
 ### Interface extraction (the compile-time drift fix)
 
-Five of the six mocked boundaries use the anti-pattern "mock inherits concrete":
+Actual state per inspection (the original audit was partially wrong):
 
-| Backend | Current state | Target |
+| Backend | Current state | Action |
 |---------|--------------|--------|
-| `AmsBackend` | Already a pure virtual interface; `AmsBackendMock : public AmsBackend` is clean | Verify and move on |
-| `EthernetBackend` | Concrete; `EthernetBackendMock : public EthernetBackend` | Extract `IEthernetBackend` |
-| `UsbBackend` | Concrete; `UsbBackendMock : public UsbBackend` | Extract `IUsbBackend` |
-| `WifiBackend` | Concrete; `WifiBackendMock : public WifiBackend` | Extract `IWifiBackend` |
-| `MoonrakerAPI` | Concrete; `MoonrakerAPIMock : public MoonrakerAPI` | Extract `IMoonrakerAPI` |
-| `MoonrakerClient` | `MoonrakerClient : public hv::WebSocketClient`; `MoonrakerClientMock : public MoonrakerClient` | Extract `IMoonrakerClient`; mock drops WebSocket baggage |
+| `AmsBackend` | Pure virtual interface; `AmsBackendMock : public AmsBackend` is clean | **Audit only** — verify and move on |
+| `EthernetBackend` | Pure virtual interface; `EthernetBackendMock` implements `has_interface()`/`get_info()` | **Audit only** — already drift-safe |
+| `UsbBackend` | Pure virtual interface with pure-virtual `start()`/`stop()`/`is_running()` | **Audit only** — already drift-safe |
+| `WifiBackend` | Pure virtual interface with `start()`/etc. pure-virtual (some concrete helpers like `set_silent()` are shared) | **Audit only** — already drift-safe |
+| `MoonrakerAPI` | Concrete class, no virtual interface; `MoonrakerAPIMock : public MoonrakerAPI` | **Extract `IMoonrakerAPI`** |
+| `MoonrakerClient` | Concrete class with `hv::WebSocketClient` base; some methods virtual (`connect`, `disconnect`), most not; `MoonrakerClientMock : public MoonrakerClient` | **Extract `IMoonrakerClient`**; mock drops `hv::WebSocketClient` baggage |
 
-Naming convention: **`I`-prefix** for interfaces (`IEthernetBackend`, etc.). Concrete class names stay. Mock class names stay. This minimizes call-site churn — the `AmsBackend` precedent of naming the interface with no prefix only maps cleanly when multiple real implementations exist (AFC, CFS, HappyHare), which isn't the case for the other five.
+So the real interface-extraction work is **two classes**, not five. The other four are already drift-safe — we just add a compile-only smoke test per backend to formalize the property.
 
-For each extraction:
-1. Define `IXxxBackend` as pure virtual with a default destructor.
-2. Make `XxxBackend` inherit from `IXxxBackend` (in addition to any existing bases, e.g., `hv::WebSocketClient` for `MoonrakerClient`).
-3. Make `XxxBackendMock` inherit from `IXxxBackend` directly — no longer from `XxxBackend`. The mock sheds the real class's accidental baggage.
-4. Update the factory (whether static member or free function — per-backend judgment) to return `std::unique_ptr<IXxxBackend>`. Factory still branches on `should_mock_*()`.
+Naming convention for the two new interfaces: **`I`-prefix** (`IMoonrakerAPI`, `IMoonrakerClient`). Concrete class names stay. Mock class names stay. This minimizes call-site churn.
+
+For each new interface:
+1. Define `IXxx` as pure virtual with a default destructor.
+2. Make real `Xxx` class inherit from `IXxx` (in addition to any existing bases, e.g., `hv::WebSocketClient` for `MoonrakerClient`).
+3. Make `XxxMock` inherit from `IXxx` directly — no longer from `Xxx`. The mock sheds the real class's accidental baggage.
+4. Update the factory to return `std::unique_ptr<IXxx>`. Factory still branches on `should_mock_*()`.
 5. Update call sites to hold interface pointers.
 
 Mocks stay in `include/` under `HELIX_ENABLE_MOCKS`. Production binary shape unchanged.
@@ -106,22 +108,21 @@ Four phases, each independently shippable. `make test-run` must stay green and `
 - Delete `FirstRunTour::reset_for_test()`.
 - Gate: `make test-run` green; `./build/bin/helix-screen --test` launches identically.
 
-### Phase 2 — Easy interfaces
+### Phase 2 — Drift-protection smoke tests (four already-abstract backends)
 
-Three small backends, locks in the pattern before Moonraker:
-- `IEthernetBackend`
-- `IUsbBackend`
-- `IWifiBackend`
+- `AmsBackend`, `EthernetBackend`, `UsbBackend`, `WifiBackend` are already pure virtual interfaces.
+- Add one compile-only smoke test per backend that instantiates the mock through a `unique_ptr<BaseInterface>`. If the mock ever falls behind, compilation fails.
+- Audit each base class for non-virtual methods that *should* be virtual (drift gap).
 
-Order within phase: `IEthernetBackend` first (smallest mock at 39 lines), then the other two.
+### Phase 3 — `IMoonrakerAPI` extraction
 
-### Phase 3 — Moonraker pair
+Smaller of the two real extractions. ~614-line mock today; carve out the minimum interface callers actually use, make real + mock implement it, update callers.
 
-One interface per PR due to size and risk:
-- `IMoonrakerAPI` first (smaller, less framework entanglement).
-- `IMoonrakerClient` second (WebSocket decoupling required — mock drops `hv::WebSocketClient` base).
+### Phase 4 — `IMoonrakerClient` extraction
 
-### Phase 4 — Verification and cleanup
+Hardest work. ~1072-line mock today. WebSocket decoupling required — mock drops `hv::WebSocketClient` base.
+
+### Phase 5 — Verification and cleanup
 
 - Grep for `dynamic_cast<MoonrakerClient*>` and equivalents; resolve any hits.
 - Audit remaining `#ifdef HELIX_ENABLE_MOCKS` — some may compact now that mocks are leaner.
