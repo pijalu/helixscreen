@@ -8,6 +8,7 @@
 #include "helix-xml/src/xml/lv_xml_widget.h"
 #include "helix-xml/src/xml/parsers/lv_xml_obj_parser.h"
 #include "lvgl/lvgl.h"
+#include "ui_utils.h"
 
 #include <spdlog/spdlog.h>
 
@@ -134,11 +135,14 @@ void update_particles(ConfettiData* data) {
         lv_timer_delete(data->timer);
         data->timer = nullptr;
 
-        // Delete the whole container (takes all particle objects with it)
+        // Delete the whole container (takes all particle objects with it).
+        // Reparent-first via safe_delete_deferred_raw: the container's original
+        // parent (an arbitrary panel) may be lv_obj_clean()'d before the async
+        // delete fires, which would otherwise cascade into a freed event list.
         lv_obj_t* container = data->container;
         s_registry.erase(container);
         delete data;
-        lv_obj_delete_async(container);
+        helix::ui::safe_delete_deferred_raw(container);
         spdlog::debug("[Confetti] Animation complete, cleaned up");
     }
 }

@@ -4,6 +4,8 @@
 
 #include "ui_screensaver.h"
 
+#include "ui_utils.h"
+
 #include <draw/lv_image_decoder_private.h>
 #include <spdlog/spdlog.h>
 
@@ -167,12 +169,10 @@ void FlyingToasterScreensaver::stop() {
     m_objects.clear();
 
     // Async delete — stop() runs inside lv_timer_handler (via check_display_sleep),
-    // so synchronous deletion corrupts LVGL's event linked list (#316)
-    if (m_overlay) {
-        lv_obj_add_flag(m_overlay, LV_OBJ_FLAG_HIDDEN);
-        lv_obj_delete_async(m_overlay);
-    }
-    m_overlay = nullptr;
+    // so synchronous deletion corrupts LVGL's event linked list (#316).
+    // safe_delete_deferred also reparents to lv_layer_top() before the async
+    // delete so a racing parent-clean can't free the overlay out from under us.
+    helix::ui::safe_delete_deferred(m_overlay);
 
     free_sprites();
 
