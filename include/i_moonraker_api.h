@@ -21,13 +21,15 @@ struct SensorInfo; // Forward declaration for get_sensors()
  *
  * Production and test consumers that only need polymorphic access to the
  * Moonraker domain layer should depend on this interface rather than the
- * concrete MoonrakerAPI. The concrete class inherits this interface;
- * MoonrakerAPIMock inherits it directly (Task 3.4), shedding the
- * concrete-class base.
+ * concrete MoonrakerAPI.
  *
- * Non-virtual helpers (set_temperature, execute_gcode, exclude_object, etc.)
- * and sub-API accessors (advanced(), files(), ...) remain on the concrete
- * MoonrakerAPI class and are intentionally out of scope for this interface.
+ * The interface is intentionally narrow — it mirrors only the methods
+ * currently marked `virtual` on MoonrakerAPI. Non-virtual helpers
+ * (set_temperature, execute_gcode, exclude_object, etc.) and sub-API
+ * accessors (advanced(), files(), ...) remain on the concrete class.
+ * MoonrakerAPIMock still inherits the concrete MoonrakerAPI so it can
+ * reuse those non-virtual helpers and sub-API composition; drift
+ * protection is still enforced through the inheritance chain.
  */
 class IMoonrakerAPI {
   public:

@@ -239,6 +239,10 @@ See `ui_observer_guard.h` for full documentation of the `SubjectLifetime` patter
 
 **Runtime config** (on device): `~/helixscreen/config/` — settings.json, printer_database.json, helixscreen.env
 
+**Mock-facing interfaces**: `IMoonrakerAPI` (`include/i_moonraker_api.h`) and `helix::IMoonrakerClient` (`include/i_moonraker_client.h`) are narrow pure-virtual interfaces mirroring the currently-virtual methods on `MoonrakerAPI` / `helix::MoonrakerClient`. Concrete classes inherit the interfaces; mocks still inherit concretes. Drift protection in `tests/unit/test_interface_drift_*.cpp` (`[compile][drift]` tag). Callers continue to use the concrete types — interfaces exist to enforce mock-parity at build time, not to drive call-site migration.
+
+**Test isolation**: `HelixTestFixture` (`tests/helix_test_fixture.h`) is the base for every test fixture. Ctor + dtor call `reset_all()` which drains `UpdateQueue`, resets `SystemSettingsManager` language, clears `ModalStack`. `LVGLTestFixture` inherits it. `XMLTestFixture` owns per-instance `PrinterState` / `MoonrakerClient` / `MoonrakerAPI` (no more static test state). XML subjects still register into LVGL's global scope — per-test scopes were blocked by LVGL internals; subjects are refreshed by each test's `init_subjects(true)`.
+
 ---
 
 ## Debugging

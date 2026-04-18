@@ -44,6 +44,8 @@ The Moonraker integration is split into three distinct layers with clean separat
 
 **Abstraction Boundary (enforced Feb 2026):** UI code should ONLY talk to `MoonrakerAPI`, never `MoonrakerClient` directly. The API provides proxy methods for connection state, subscriptions, database operations, and plugin RPCs. The dead `IMoonrakerDomainService` interface has been deleted; shared data types live in `moonraker_types.h`.
 
+**Mock-parity interfaces (Apr 2026):** `IMoonrakerAPI` (`include/i_moonraker_api.h`) and `helix::IMoonrakerClient` (`include/i_moonraker_client.h`) are narrow pure-virtual interfaces that mirror only the currently-virtual methods on each concrete class. The concretes inherit the interfaces; mocks still inherit the concretes. The interfaces exist to catch silent mock drift at build time via `tests/unit/test_interface_drift_moonraker_*.cpp` — they're not a call-site migration target. Callers continue to use `MoonrakerAPI` / `helix::MoonrakerClient` as before.
+
 ## Layer Responsibilities
 
 ### MoonrakerClient (Transport Layer)

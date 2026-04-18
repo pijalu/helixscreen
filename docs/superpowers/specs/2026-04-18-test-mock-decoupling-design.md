@@ -61,11 +61,14 @@ Mocks stay in `include/` under `HELIX_ENABLE_MOCKS`. Production binary shape unc
 
 Root cause: `PrinterState` registers ~100 subjects into LVGL's **global XML scope**. Tearing down `PrinterState` between tests would leave stale subject pointers in the global scope. Current workaround: make `PrinterState` static and never tear it down.
 
-Fix: use LVGL's existing **per-component scope** primitive (confirmed in `lv_xml_component.c`; already used by modal dialogs per MEMORY.md).
+**As-shipped design (simplified from original plan).** The original plan called for a per-test LVGL XML scope via `lv_xml_component_scope_t` so each test owned an isolated subject registry. Implementation surfaced three blockers: (a) `lv_xml_component_unregister` `lv_free`s every subject in the scope, which would heap-corrupt `PrinterState` member subjects; (b) `lv_xml_get_subject(nullptr, name)` only searches globals, so widget lookups would miss scope-registered subjects; (c) ~175 direct `lv_xml_register_subject(nullptr, ...)` call sites in production code bypass the scope-aware helper. The simpler shipped design achieves the real goal (per-test `PrinterState`) without per-test scopes:
 
-1. **`PrinterState::register_xml_subjects(lv_xml_component_scope_t* scope = nullptr)`** — when `scope == nullptr`, register into the global scope (current production behavior). When a scope is provided, register there instead.
-2. **`XMLTestFixture` creates a per-test scope** in its constructor, passes it to `PrinterState` and to `lv_xml_create(scope, ...)` when instantiating components. In the destructor, unregister the component + scope; `PrinterState` is now safe to destruct. Static `s_state`, `s_client`, `s_api` are removed; each test owns its own.
-3. **`LVGLTestFixture::s_display` stays static.** Re-creating a virtual DRM display per test is slow and gains nothing; widgets are cleaned between tests regardless.
+1. **`XMLTestFixture` owns per-instance state** — `PrinterState m_state`, `unique_ptr<MoonrakerClient> m_client`, `unique_ptr<MoonrakerAPI> m_api`. Static `s_state`/`s_client`/`s_api` removed.
+2. **Subjects register into the global LVGL scope** as before. Each test's `m_state.init_subjects(true)` overwrites global entries with fresh pointers; the destructor tears the screen down **before** `m_state`'s subjects are deinitialized so no widget dereferences stale pointers.
+3. **`LVGLTestFixture::s_display` stays static.** Re-creating a virtual DRM display per test is slow and gains nothing.
+4. **Scope infrastructure still shipped** (`helix::xml::ScopedSubjectRegistryOverride` + `register_subject_in_current_scope()`). Production and tests don't currently use it, but it's ready for future per-component work (modals, wizards) where local subject scopes make sense.
+
+**Known latent hazard:** `PrinterState::init_subjects(true)` appends a `[this]{ deinit_subjects(); }` lambda to `StaticSubjectRegistry`. After `XMLTestFixture`'s dtor, that `this` dangles. Not hit today (no process-exit `deinit_all()` path), but would segfault if one is added. Fix when relevant: add `unregister()` on `StaticSubjectRegistry`.
 
 ### Singleton reset (`HelixTestFixture`)
 
@@ -116,11 +119,11 @@ Four phases, each independently shippable. `make test-run` must stay green and `
 
 ### Phase 3 — `IMoonrakerAPI` extraction
 
-Smaller of the two real extractions. ~614-line mock today; carve out the minimum interface callers actually use, make real + mock implement it, update callers.
+**As-shipped (option B, narrow interface).** After reading the 732-line concrete header, the full-surface interface would have forced the 614-line mock to implement ~45 methods (sub-API accessors + non-virtual helpers). Narrower scope instead: `IMoonrakerAPI` contains only the 16 methods currently marked `virtual` on `MoonrakerAPI`. Concrete inherits the interface. Mock stays `public MoonrakerAPI` — it inherits non-virtual helpers and sub-API composition unchanged. Call sites not migrated. Drift protection via the concrete-inheritance chain: adding a pure virtual to `IMoonrakerAPI` breaks concrete's compile, which cascades into the mock.
 
 ### Phase 4 — `IMoonrakerClient` extraction
 
-Hardest work. ~1072-line mock today. WebSocket decoupling required — mock drops `hv::WebSocketClient` base.
+**As-shipped (option B, narrow interface).** Verification showed the 1072-line mock uses zero `hv::WebSocketClient`-specific APIs — its bulk is simulation state. Rebasing to shed the WebSocket base class would have forced reimplementing ~60 non-virtual concrete methods for no real WebSocket-baggage win. So `helix::IMoonrakerClient` contains only the 10 methods currently marked `virtual` on `MoonrakerClient`. Concrete inherits `public hv::WebSocketClient, public IMoonrakerClient`. Mock stays `public helix::MoonrakerClient`. Same drift-protection chain as Phase 3.
 
 ### Phase 5 — Verification and cleanup
 

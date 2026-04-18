@@ -1371,6 +1371,16 @@ if (config.should_mock_wifi()) {
 return std::make_unique<WifiBackendMacOS>();     // Production
 ```
 
+### Mock-facing interfaces and drift protection
+
+Six mock boundaries are protected at compile time against silent drift: `AmsBackend`, `EthernetBackend`, `UsbBackend`, `WifiBackend` (already pure virtual today), plus `IMoonrakerAPI` (`include/i_moonraker_api.h`) and `helix::IMoonrakerClient` (`include/i_moonraker_client.h`) — narrow interfaces that mirror only the currently-virtual methods on the corresponding concrete class. Concrete classes inherit the interfaces; mocks still inherit the concretes (so they continue to reuse non-virtual helpers and sub-API composition). Drift protection is enforced via compile-only tests in `tests/unit/test_interface_drift_*.cpp` (`[compile][drift]` tag) that `static_assert(is_base_of_v<Interface, Mock> && !is_abstract_v<Mock>)`. Adding a pure virtual to an interface breaks the concrete's build first, which cascades into the mock.
+
+Callers continue to use the concrete types. The interfaces exist to enforce mock-parity at build time, not to drive call-site migration.
+
+### Test-fixture isolation
+
+`HelixTestFixture` (`tests/helix_test_fixture.h`) is the base for every test fixture. Its constructor and destructor call `reset_all()` which drains `UpdateQueue`, resets `SystemSettingsManager` language, and clears `ModalStack`. `LVGLTestFixture` inherits it. `XMLTestFixture` owns per-instance `PrinterState`, `MoonrakerClient`, and `MoonrakerAPI` members — the previous `static` state was removed so each test starts with fresh printer state. XML subjects still register into LVGL's global scope; per-test LVGL component scopes were attempted but blocked by LVGL internals (see the design doc at `docs/superpowers/specs/2026-04-18-test-mock-decoupling-design.md`). Each test's `init_subjects(true)` overwrites global entries with fresh pointers, and the destructor tears the screen down before deinitializing subjects so no widget dereferences stale pointers. The `helix::xml::ScopedSubjectRegistryOverride` infrastructure (`include/helix/xml/scoped_subject_registry.h`) is in place for future per-component scope work (modals, wizards).
+
 **For usage and CLI flags:** See [DEVELOPMENT.md § Test Mode Development](DEVELOPMENT.md#test-mode-development).
 
 ## Critical Implementation Patterns
