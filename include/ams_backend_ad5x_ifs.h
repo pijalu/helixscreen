@@ -10,7 +10,10 @@
 #include <array>
 #include <atomic>
 #include <chrono>
+#include <mutex>
+#include <optional>
 #include <string>
+#include <vector>
 
 class Ad5xIfsTestAccess;
 
@@ -115,6 +118,23 @@ class AmsBackendAd5xIfs : public AmsSubscriptionBackend {
         return false;
     }
 
+    // Result of parsing a GET_ZCOLOR SILENT=1 response. Public so tests can
+    // construct instances via Ad5xIfsTestAccess.
+    struct ZColorSlot {
+        std::string material;
+        std::string hex; // Empty for old-format zmod responses (no /HEX).
+    };
+
+    struct ZColorSilentResult {
+        bool is_prompt_fallback = false; // Response was an action:prompt dialog
+        bool is_old_format = false;      // Slot lines had no /HEX segment
+        bool ifs_active = false;         // "IFS: True" in summary line
+        bool saw_valid_response = false; // Matched at least one summary or slot line
+        std::optional<int> current_channel;
+        std::optional<int> extruder_slot; // 0-based, absent when "None"
+        std::array<std::optional<ZColorSlot>, NUM_PORTS> slots;
+    };
+
   protected:
     void on_started() override;
     void handle_status_update(const nlohmann::json& notification) override;
@@ -133,6 +153,16 @@ class AmsBackendAd5xIfs : public AmsSubscriptionBackend {
     void read_adventurer_json();
     void register_zcolor_listener();
     void schedule_json_reread();
+
+    // GET_ZCOLOR SILENT=1 primary-truth query. zmod's Adventurer5M.json
+    // is a stale last-known-colors cache; SILENT=1 emits one line per
+    // physically loaded slot (filtered by live per-port sensors) plus a
+    // summary line. See project_ifs_data_sources.md for rationale.
+    void query_zcolor_silent();
+    void schedule_zcolor_query();
+    void finalize_zcolor_response();
+    void apply_zcolor_result(const ZColorSilentResult& result);
+    static ZColorSilentResult parse_zcolor_silent(const std::vector<std::string>& lines);
 
     std::string build_color_list_value() const;
     std::string build_type_list_value() const;
@@ -182,6 +212,15 @@ class AmsBackendAd5xIfs : public AmsSubscriptionBackend {
     // (read/written via Moonraker HTTP file API).
     bool has_ifs_vars_ = false;
     std::atomic<bool> reread_pending_{false};
+
+    // GET_ZCOLOR SILENT=1 query state.
+    // zcolor_silent_supported_ starts optimistic; a prompt-style response
+    // flips it false for the session (not retried).
+    std::atomic<bool> zcolor_query_active_{false};
+    std::atomic<bool> zcolor_query_pending_{false};
+    std::atomic<bool> zcolor_silent_supported_{true};
+    std::mutex zcolor_buffer_mutex_;
+    std::vector<std::string> zcolor_response_buffer_;
 
     // Action timeout tracking
     static constexpr int ACTION_TIMEOUT_SECONDS = 90;

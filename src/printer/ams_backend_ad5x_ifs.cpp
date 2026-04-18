@@ -4,6 +4,7 @@
 
 #include "ams_backend_ad5x_ifs.h"
 
+#include "http_executor.h"
 #include "moonraker_api.h"
 #include "moonraker_client.h"
 #include "post_op_cooldown_manager.h"
@@ -111,6 +112,10 @@ void AmsBackendAd5xIfs::on_started() {
                              backend_log_tag());
                 read_adventurer_json();
                 register_zcolor_listener();
+                // GET_ZCOLOR SILENT=1 is the only source of live per-port presence
+                // on native ZMOD. Adventurer5M.json persists colors but NOT
+                // load/unload state. See project_ifs_data_sources.md.
+                schedule_zcolor_query();
             }
         });
 }
@@ -540,7 +545,13 @@ AmsError AmsBackendAd5xIfs::unload_filament(int slot_index) {
         spdlog::info("{} Unloading filament from port {}", backend_log_tag(), slot_index + 1);
     }
 
-    return ensure_homed_then(std::move(unload_cmd));
+    auto result = ensure_homed_then(std::move(unload_cmd));
+    // Backup re-query: for inactive-slot unloads on native ZMOD the head
+    // sensor never changes, so detect_load_unload_completion() won't fire.
+    // schedule_zcolor_query() coalesces with any trigger from the gcode
+    // stream listener, so this is cheap when they overlap.
+    schedule_zcolor_query();
+    return result;
 }
 
 std::string AmsBackendAd5xIfs::select_unload_command(int slot_index, int current_slot,
@@ -989,12 +1000,19 @@ void AmsBackendAd5xIfs::register_zcolor_listener() {
                 return;
             }
 
+            if (zcolor_query_active_.load()) {
+                std::lock_guard<std::mutex> lock(zcolor_buffer_mutex_);
+                zcolor_response_buffer_.push_back(line);
+            }
+
             if (line.find("RUN_ZCOLOR") != std::string::npos ||
                 line.find("CHANGE_ZCOLOR") != std::string::npos) {
                 spdlog::debug(
-                    "{} Detected external color change in gcode stream, scheduling re-read",
+                    "{} Detected external color change in gcode stream, "
+                    "scheduling re-read + zcolor query",
                     backend_log_tag());
                 schedule_json_reread();
+                schedule_zcolor_query();
             }
         });
 }
@@ -1005,14 +1023,267 @@ void AmsBackendAd5xIfs::schedule_json_reread() {
 
     auto token = lifetime_.token();
 
-    std::thread([this, token]() {
+    // Bounded worker pool — bare std::thread on AD5M can hit EAGAIN under
+    // thread exhaustion (feedback_no_bare_threads_arm.md).
+    helix::http::HttpExecutor::fast().submit([this, token]() {
         std::this_thread::sleep_for(std::chrono::seconds(2));
         if (token.expired())
             return;
         reread_pending_.store(false);
         spdlog::debug("{} Re-reading Adventurer5M.json after external change", backend_log_tag());
         read_adventurer_json();
-    }).detach();
+    });
+}
+
+void AmsBackendAd5xIfs::schedule_zcolor_query() {
+    if (!zcolor_silent_supported_.load()) {
+        return; // Session flagged unsupported; don't retry.
+    }
+    // Semantics of zcolor_query_pending_: "a refresh is wanted". Set here and
+    // re-set by query_zcolor_silent() when it can't run (active in flight).
+    // Cleared on claim by the first worker to wake OR by finalize_zcolor_response.
+    zcolor_query_pending_.store(true);
+
+    auto token = lifetime_.token();
+    helix::http::HttpExecutor::fast().submit([this, token]() {
+        // Short debounce — coalesce bursts from port-sensor changes, the
+        // gcode stream, and unload-complete triggers. Multiple workers may
+        // wake concurrently; only one claims via exchange.
+        std::this_thread::sleep_for(std::chrono::milliseconds(500));
+        if (token.expired())
+            return;
+        if (!zcolor_query_pending_.exchange(false)) {
+            return; // Another worker (or finalize) already claimed this refresh.
+        }
+        query_zcolor_silent();
+    });
+}
+
+void AmsBackendAd5xIfs::query_zcolor_silent() {
+    if (!api_ || !zcolor_silent_supported_.load())
+        return;
+    if (zcolor_query_active_.exchange(true)) {
+        // Already in flight — mark pending so finalize will re-schedule.
+        zcolor_query_pending_.store(true);
+        spdlog::debug("{} GET_ZCOLOR SILENT=1 already in flight, deferring", backend_log_tag());
+        return;
+    }
+
+    {
+        std::lock_guard<std::mutex> lock(zcolor_buffer_mutex_);
+        zcolor_response_buffer_.clear();
+    }
+
+    spdlog::debug("{} Querying GET_ZCOLOR SILENT=1", backend_log_tag());
+    auto token = lifetime_.token();
+    api_->execute_gcode(
+        "GET_ZCOLOR SILENT=1",
+        [this, token]() {
+            // Response lines arrive via notify_gcode_response listener;
+            // schedule finalization after a short collection window.
+            if (token.expired())
+                return;
+            helix::http::HttpExecutor::fast().submit([this, token]() {
+                std::this_thread::sleep_for(std::chrono::milliseconds(500));
+                if (token.expired())
+                    return;
+                finalize_zcolor_response();
+            });
+        },
+        [this, token](const MoonrakerError& err) {
+            if (token.expired())
+                return;
+            spdlog::warn("{} GET_ZCOLOR SILENT=1 failed: {}", backend_log_tag(), err.message);
+            zcolor_query_active_.store(false);
+        });
+}
+
+void AmsBackendAd5xIfs::finalize_zcolor_response() {
+    std::vector<std::string> lines;
+    {
+        std::lock_guard<std::mutex> lock(zcolor_buffer_mutex_);
+        lines.swap(zcolor_response_buffer_);
+    }
+    zcolor_query_active_.store(false);
+
+    if (!lines.empty()) {
+        auto result = parse_zcolor_silent(lines);
+        apply_zcolor_result(result);
+    } else {
+        spdlog::debug("{} GET_ZCOLOR SILENT=1 returned no lines", backend_log_tag());
+    }
+
+    // If a trigger arrived during the active window, query again directly —
+    // we just finished a query, no need to debounce further.
+    if (zcolor_query_pending_.exchange(false)) {
+        spdlog::debug("{} Re-querying GET_ZCOLOR SILENT=1 (trigger fired during last query)",
+                      backend_log_tag());
+        query_zcolor_silent();
+    }
+}
+
+void AmsBackendAd5xIfs::apply_zcolor_result(const ZColorSilentResult& result) {
+    if (result.is_prompt_fallback) {
+        if (zcolor_silent_supported_.exchange(false)) {
+            spdlog::warn("{} zmod returned a prompt dialog for GET_ZCOLOR SILENT=1 — "
+                         "old zmod, falling back to Adventurer5M.json polling",
+                         backend_log_tag());
+        }
+        return;
+    }
+
+    if (!result.saw_valid_response) {
+        // Response arrived but contained no summary or slot lines we recognise
+        // (transient timing, malformed response, etc.). Don't wipe presence
+        // on what might be incomplete data — wait for the next trigger.
+        spdlog::debug("{} GET_ZCOLOR SILENT=1 yielded no recognisable content, "
+                      "skipping apply",
+                      backend_log_tag());
+        return;
+    }
+
+    if (result.is_old_format) {
+        spdlog::debug("{} GET_ZCOLOR SILENT=1 returned no /HEX segments "
+                      "(pre-ad2802ab zmod) — presence only, colors from JSON",
+                      backend_log_tag());
+    }
+
+    bool changed = false;
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        for (int i = 0; i < NUM_PORTS; ++i) {
+            const auto idx = static_cast<size_t>(i);
+            const auto& parsed = result.slots[idx];
+            const bool loaded = parsed.has_value();
+
+            // Live per-port sensors (lessWaste/bambufy) are authoritative for
+            // presence — don't let zmod's view race against them. Native ZMOD
+            // has no exposed per-port sensor, so we must use zmod's view.
+            if (!has_per_port_sensors_ && port_presence_[idx] != loaded) {
+                port_presence_[idx] = loaded;
+                changed = true;
+            }
+
+            // Fill in color/material if we got them and the slot isn't locally
+            // dirty (unsaved user edit pending).
+            if (!loaded || result.is_old_format || dirty_[idx]) {
+                continue;
+            }
+            if (!parsed->hex.empty() && colors_[idx] != parsed->hex) {
+                colors_[idx] = parsed->hex;
+                changed = true;
+            }
+            if (!parsed->material.empty() && materials_[idx] != parsed->material) {
+                materials_[idx] = parsed->material;
+                changed = true;
+            }
+        }
+
+        if (changed) {
+            for (int i = 0; i < NUM_PORTS; ++i) {
+                update_slot_from_state(i);
+            }
+        }
+    } // release lock before emit_event (which also takes mutex_)
+
+    if (changed) {
+        emit_event(EVENT_STATE_CHANGED);
+    }
+}
+
+AmsBackendAd5xIfs::ZColorSilentResult
+AmsBackendAd5xIfs::parse_zcolor_silent(const std::vector<std::string>& lines) {
+    ZColorSilentResult result;
+
+    // Regexes compiled once per call; parsing is off the hot path.
+    // Summary: "// Extruder: None (N) | IFS: True"
+    //   or:    "// Extruder: N: MATERIAL/HEX | IFS: True"
+    static const std::regex summary_re(
+        R"(^//\s*Extruder:\s*(.+?)\s*\|\s*IFS:\s*(True|False)\s*$)");
+    // Slot: "// N: MATERIAL/HEX" or "// N: MATERIAL/NAME/HEX" or old "// N: MATERIAL"
+    static const std::regex slot_re(R"(^//\s*([1-9])\s*:\s*(.+?)\s*$)");
+    // Extruder detail inside summary text: "N: MATERIAL/..."
+    static const std::regex extruder_slot_re(R"(^([1-9])\s*:)");
+    // current channel: "None (N)" or bare "N" form — look for "(N)" paren form
+    static const std::regex channel_paren_re(R"(\((\d+)\))");
+
+    for (const auto& raw : lines) {
+        if (raw.find("action:prompt_") != std::string::npos) {
+            result.is_prompt_fallback = true;
+            return result;
+        }
+    }
+
+    int slot_lines_seen = 0;
+    int slot_lines_with_hex = 0;
+    std::smatch m;
+
+    for (const auto& line : lines) {
+        if (std::regex_match(line, m, summary_re)) {
+            result.saw_valid_response = true;
+            result.ifs_active = (m[2].str() == "True");
+            const std::string extruder_part = m[1].str();
+
+            std::smatch em;
+            if (std::regex_search(extruder_part, em, extruder_slot_re)) {
+                try {
+                    int n = std::stoi(em[1].str());
+                    if (n >= 1 && n <= NUM_PORTS) {
+                        result.extruder_slot = n - 1; // 0-based
+                    }
+                } catch (...) {
+                }
+            }
+            std::smatch cm;
+            if (std::regex_search(extruder_part, cm, channel_paren_re)) {
+                try {
+                    result.current_channel = std::stoi(cm[1].str());
+                } catch (...) {
+                }
+            }
+            continue;
+        }
+
+        if (std::regex_match(line, m, slot_re)) {
+            int n;
+            try {
+                n = std::stoi(m[1].str());
+            } catch (...) {
+                continue;
+            }
+            if (n < 1 || n > NUM_PORTS) {
+                continue; // slot number out of range — skip (e.g. "// 99: nonsense")
+            }
+
+            result.saw_valid_response = true;
+            slot_lines_seen++;
+
+            // Slot line body is "MATERIAL" or "MATERIAL/HEX" or "MATERIAL/NAME/HEX".
+            // Rule: material is everything before the first '/', hex is everything
+            // after the LAST '/'. Anything between is a COLOR_MAPPING alias we ignore.
+            const std::string rest = m[2].str();
+            const size_t first_slash = rest.find('/');
+            const size_t last_slash = rest.rfind('/');
+
+            ZColorSlot slot;
+            if (first_slash == std::string::npos) {
+                // Old format: just material, no /HEX.
+                slot.material = rest;
+            } else {
+                slot.material = rest.substr(0, first_slash);
+                slot.hex = rest.substr(last_slash + 1);
+                slot_lines_with_hex++;
+            }
+            result.slots[static_cast<size_t>(n - 1)] = std::move(slot);
+        }
+    }
+
+    // Old format detection: we saw slot lines but none had a /HEX segment.
+    if (slot_lines_seen > 0 && slot_lines_with_hex == 0) {
+        result.is_old_format = true;
+    }
+
+    return result;
 }
 
 void AmsBackendAd5xIfs::parse_adventurer_json(const std::string& content) {
@@ -1111,10 +1382,12 @@ void AmsBackendAd5xIfs::detect_load_unload_completion(bool head_detected) {
         system_info_.action = AmsAction::IDLE;
         spdlog::info("{} Load complete (head sensor triggered)", backend_log_tag());
         PostOpCooldownManager::instance().schedule();
+        schedule_zcolor_query();
     } else if (system_info_.action == AmsAction::UNLOADING && !head_detected) {
         system_info_.action = AmsAction::IDLE;
         spdlog::info("{} Unload complete (head sensor cleared)", backend_log_tag());
         PostOpCooldownManager::instance().schedule();
+        schedule_zcolor_query();
     }
 }
 

@@ -85,6 +85,17 @@ class Ad5xIfsTestAccess {
         std::lock_guard<std::mutex> lock(b.mutex_);
         b.dirty_[idx] = val;
     }
+    static AmsBackendAd5xIfs::ZColorSilentResult
+    parse_zcolor_silent(const std::vector<std::string>& lines) {
+        return AmsBackendAd5xIfs::parse_zcolor_silent(lines);
+    }
+    static bool zcolor_silent_supported(const AmsBackendAd5xIfs& b) {
+        return b.zcolor_silent_supported_.load();
+    }
+    static void apply_zcolor_result(AmsBackendAd5xIfs& b,
+                                    const AmsBackendAd5xIfs::ZColorSilentResult& r) {
+        b.apply_zcolor_result(r);
+    }
 };
 
 // Helper to build a full save_variables JSON payload
@@ -1483,5 +1494,305 @@ TEST_CASE("AD5X IFS select_unload_command", "[ams][ad5x_ifs]") {
 
     SECTION("out-of-range slot_index → IFS_REMOVE_PRUTOK fallback") {
         REQUIRE(AmsBackendAd5xIfs::select_unload_command(99, 0, true) == "IFS_REMOVE_PRUTOK");
+    }
+}
+
+// ==========================================================================
+// parse_zcolor_silent — GET_ZCOLOR SILENT=1 response parser
+// ==========================================================================
+//
+// zmod emits one line per LOADED slot plus a summary line, all prefixed "// ":
+//
+//   // Extruder: None (1) | IFS: True
+//   // 1: PLA/FFFFFF
+//   // 2: PLA/2750E0
+//
+// Post-ad2802ab zmod always appends "/<HEX>" to each slot line. Hex is the
+// RIGHTMOST /-segment — transparent/named-color case emits three segments
+// (// 3: PLA/transparent/00000000). Missing slot numbers = physically empty.
+// Old zmod (pre-fix) emits "// 1: PLA" (no /HEX); we fall back to JSON.
+// Very old zmod emits an action:prompt_show dialog; also JSON fallback.
+
+TEST_CASE("AD5X IFS parse_zcolor_silent two-segment lines", "[ams][ad5x_ifs]") {
+    std::vector<std::string> lines = {
+        "// Extruder: None (1) | IFS: True",
+        "// 1: PLA/FFFFFF",
+        "// 2: PETG/2750E0",
+    };
+
+    auto r = Ad5xIfsTestAccess::parse_zcolor_silent(lines);
+
+    REQUIRE_FALSE(r.is_prompt_fallback);
+    REQUIRE_FALSE(r.is_old_format);
+    REQUIRE(r.ifs_active);
+    REQUIRE(r.current_channel == 1);
+    REQUIRE_FALSE(r.extruder_slot.has_value());
+    REQUIRE(r.slots[0].has_value());
+    REQUIRE(r.slots[0]->material == "PLA");
+    REQUIRE(r.slots[0]->hex == "FFFFFF");
+    REQUIRE(r.slots[1].has_value());
+    REQUIRE(r.slots[1]->material == "PETG");
+    REQUIRE(r.slots[1]->hex == "2750E0");
+    REQUIRE_FALSE(r.slots[2].has_value());
+    REQUIRE_FALSE(r.slots[3].has_value());
+}
+
+TEST_CASE("AD5X IFS parse_zcolor_silent named-color three-segment", "[ams][ad5x_ifs]") {
+    // Transparent / any COLOR_MAPPING match produces an extra segment:
+    //   // <N>: <MATERIAL>/<NAME>/<HEX>
+    // Parser rule: hex is always the rightmost /-segment.
+    std::vector<std::string> lines = {
+        "// Extruder: 1: PLA/FFFFFF | IFS: True",
+        "// 1: PLA/FFFFFF",
+        "// 3: PLA/transparent/00000000",
+    };
+
+    auto r = Ad5xIfsTestAccess::parse_zcolor_silent(lines);
+
+    REQUIRE_FALSE(r.is_prompt_fallback);
+    REQUIRE_FALSE(r.is_old_format);
+    REQUIRE(r.ifs_active);
+    REQUIRE(r.extruder_slot == 0); // 0-based (line says slot 1)
+    REQUIRE(r.slots[0].has_value());
+    REQUIRE(r.slots[0]->hex == "FFFFFF");
+    REQUIRE(r.slots[2].has_value());
+    REQUIRE(r.slots[2]->material == "PLA");
+    REQUIRE(r.slots[2]->hex == "00000000");
+}
+
+TEST_CASE("AD5X IFS parse_zcolor_silent empty (all slots unloaded)", "[ams][ad5x_ifs]") {
+    std::vector<std::string> lines = {
+        "// Extruder: None (0) | IFS: True",
+    };
+
+    auto r = Ad5xIfsTestAccess::parse_zcolor_silent(lines);
+
+    REQUIRE_FALSE(r.is_prompt_fallback);
+    REQUIRE_FALSE(r.is_old_format);
+    REQUIRE(r.ifs_active);
+    REQUIRE(r.current_channel == 0);
+    for (int i = 0; i < AmsBackendAd5xIfs::NUM_PORTS; ++i) {
+        REQUIRE_FALSE(r.slots[static_cast<size_t>(i)].has_value());
+    }
+}
+
+TEST_CASE("AD5X IFS parse_zcolor_silent IFS disabled (independent mode)", "[ams][ad5x_ifs]") {
+    std::vector<std::string> lines = {
+        "// Extruder: None (0) | IFS: False",
+    };
+
+    auto r = Ad5xIfsTestAccess::parse_zcolor_silent(lines);
+
+    REQUIRE_FALSE(r.is_prompt_fallback);
+    REQUIRE_FALSE(r.ifs_active);
+}
+
+TEST_CASE("AD5X IFS parse_zcolor_silent old-format (no /HEX)", "[ams][ad5x_ifs]") {
+    // Pre-ad2802ab zmod: silent lines are "// N: MATERIAL" with no /HEX.
+    // Parser must detect this and flag is_old_format so caller falls back to JSON.
+    std::vector<std::string> lines = {
+        "// Extruder: None (1) | IFS: True",
+        "// 1: PLA",
+        "// 2: PETG",
+    };
+
+    auto r = Ad5xIfsTestAccess::parse_zcolor_silent(lines);
+
+    REQUIRE_FALSE(r.is_prompt_fallback);
+    REQUIRE(r.is_old_format);
+    // Presence info is still valid even without color — slot 1 and 2 appear.
+    REQUIRE(r.slots[0].has_value());
+    REQUIRE(r.slots[0]->material == "PLA");
+    REQUIRE(r.slots[0]->hex.empty());
+    REQUIRE(r.slots[1].has_value());
+    REQUIRE(r.slots[1]->material == "PETG");
+    REQUIRE(r.slots[1]->hex.empty());
+}
+
+TEST_CASE("AD5X IFS parse_zcolor_silent prompt fallback", "[ams][ad5x_ifs]") {
+    // Very old zmod: SILENT=1 unsupported, emits full dialog.
+    std::vector<std::string> lines = {
+        "// action:prompt_begin Select filament",
+        "// action:prompt_text Extruder: None",
+        "// action:prompt_button 1: PLA|RUN_ZCOLOR SLOT=1 HEX=FFFFFF TYPE=PLA|primary|FFFFFF",
+        "// action:prompt_show",
+    };
+
+    auto r = Ad5xIfsTestAccess::parse_zcolor_silent(lines);
+
+    REQUIRE(r.is_prompt_fallback);
+}
+
+TEST_CASE("AD5X IFS parse_zcolor_silent malformed lines skipped", "[ams][ad5x_ifs]") {
+    // Unrelated gcode-response lines interleaved with valid silent output must
+    // not confuse the parser — it should pick out the slot lines it recognises.
+    std::vector<std::string> lines = {
+        "// Extruder: None (1) | IFS: True",
+        "// 1: PLA/FFFFFF",
+        "// random gcode echo",
+        "// 99: nonsense",  // slot number out of range
+        "// 2: PETG/00FF00",
+        "echo: hotend temp 205",
+    };
+
+    auto r = Ad5xIfsTestAccess::parse_zcolor_silent(lines);
+
+    REQUIRE_FALSE(r.is_prompt_fallback);
+    REQUIRE_FALSE(r.is_old_format);
+    REQUIRE(r.slots[0].has_value());
+    REQUIRE(r.slots[0]->hex == "FFFFFF");
+    REQUIRE(r.slots[1].has_value());
+    REQUIRE(r.slots[1]->hex == "00FF00");
+    REQUIRE_FALSE(r.slots[2].has_value());
+    REQUIRE_FALSE(r.slots[3].has_value());
+}
+
+TEST_CASE("AD5X IFS apply_zcolor_result updates port_presence", "[ams][ad5x_ifs]") {
+    AmsBackendAd5xIfs backend(nullptr, nullptr);
+
+    AmsBackendAd5xIfs::ZColorSilentResult r;
+    r.saw_valid_response = true;
+    r.ifs_active = true;
+    r.current_channel = 1;
+    r.slots[0] = AmsBackendAd5xIfs::ZColorSlot{"PLA", "FFFFFF"};
+    r.slots[1] = AmsBackendAd5xIfs::ZColorSlot{"PETG", "2750E0"};
+    // slots 2 and 3 left empty — should clear any existing presence
+
+    Ad5xIfsTestAccess::apply_zcolor_result(backend, r);
+
+    REQUIRE(Ad5xIfsTestAccess::port_presence(backend, 0));
+    REQUIRE(Ad5xIfsTestAccess::port_presence(backend, 1));
+    REQUIRE_FALSE(Ad5xIfsTestAccess::port_presence(backend, 2));
+    REQUIRE_FALSE(Ad5xIfsTestAccess::port_presence(backend, 3));
+}
+
+TEST_CASE("AD5X IFS apply_zcolor_result skips on prompt fallback", "[ams][ad5x_ifs]") {
+    AmsBackendAd5xIfs backend(nullptr, nullptr);
+    REQUIRE(Ad5xIfsTestAccess::zcolor_silent_supported(backend));
+
+    AmsBackendAd5xIfs::ZColorSilentResult r;
+    r.is_prompt_fallback = true;
+
+    Ad5xIfsTestAccess::apply_zcolor_result(backend, r);
+
+    // One prompt-style response flips silent_supported to false permanently
+    // for this session; subsequent query_zcolor_silent() becomes a no-op.
+    REQUIRE_FALSE(Ad5xIfsTestAccess::zcolor_silent_supported(backend));
+}
+
+TEST_CASE("AD5X IFS apply_zcolor_result skips when response has no valid content",
+          "[ams][ad5x_ifs]") {
+    // Regression: a transient/malformed response with zero slot lines and no
+    // summary line must NOT wipe port_presence. Pre-fix, an empty ZColorSilentResult
+    // would clear all four slots to "not loaded".
+    AmsBackendAd5xIfs backend(nullptr, nullptr);
+
+    // Seed presence so we can detect an erroneous wipe.
+    AmsBackendAd5xIfs::ZColorSilentResult seed;
+    seed.saw_valid_response = true;
+    seed.slots[0] = AmsBackendAd5xIfs::ZColorSlot{"PLA", "FFFFFF"};
+    Ad5xIfsTestAccess::apply_zcolor_result(backend, seed);
+    REQUIRE(Ad5xIfsTestAccess::port_presence(backend, 0));
+
+    // Empty (junk response) — saw_valid_response stays false.
+    AmsBackendAd5xIfs::ZColorSilentResult empty;
+    Ad5xIfsTestAccess::apply_zcolor_result(backend, empty);
+
+    // Slot 0 must still be present — we didn't get valid data, don't overwrite.
+    REQUIRE(Ad5xIfsTestAccess::port_presence(backend, 0));
+}
+
+TEST_CASE("AD5X IFS apply_zcolor_result updates colors and materials",
+          "[ams][ad5x_ifs]") {
+    AmsBackendAd5xIfs backend(nullptr, nullptr);
+
+    AmsBackendAd5xIfs::ZColorSilentResult r;
+    r.saw_valid_response = true;
+    r.ifs_active = true;
+    r.slots[0] = AmsBackendAd5xIfs::ZColorSlot{"PETG", "00FF00"};
+
+    Ad5xIfsTestAccess::apply_zcolor_result(backend, r);
+
+    // Color and material should be propagated.
+    REQUIRE(Ad5xIfsTestAccess::port_presence(backend, 0));
+    // build_colors returns the comma-separated list used for _IFS_VARS writes;
+    // indirect but the only public window into colors_[] without friend access.
+    auto colors = Ad5xIfsTestAccess::build_colors(backend);
+    auto types = Ad5xIfsTestAccess::build_types(backend);
+    REQUIRE(colors.find("00FF00") != std::string::npos);
+    REQUIRE(types.find("PETG") != std::string::npos);
+}
+
+TEST_CASE("AD5X IFS apply_zcolor_result skips color write on dirty slot",
+          "[ams][ad5x_ifs]") {
+    // Dirty slot means an unsaved user edit is pending — we must NOT overwrite
+    // the local color with zmod's view, or we'd clobber the user's edit.
+    AmsBackendAd5xIfs backend(nullptr, nullptr);
+
+    // Seed slot 0 with a color we want preserved.
+    AmsBackendAd5xIfs::ZColorSilentResult seed;
+    seed.saw_valid_response = true;
+    seed.slots[0] = AmsBackendAd5xIfs::ZColorSlot{"PLA", "FF0000"};
+    Ad5xIfsTestAccess::apply_zcolor_result(backend, seed);
+    REQUIRE(Ad5xIfsTestAccess::build_colors(backend).find("FF0000") != std::string::npos);
+
+    // Mark dirty, then apply a result that would change color.
+    Ad5xIfsTestAccess::set_dirty(backend, 0, true);
+    AmsBackendAd5xIfs::ZColorSilentResult incoming;
+    incoming.saw_valid_response = true;
+    incoming.slots[0] = AmsBackendAd5xIfs::ZColorSlot{"PLA", "0000FF"};
+    Ad5xIfsTestAccess::apply_zcolor_result(backend, incoming);
+
+    // Color must still be FF0000 — dirty-slot guard held.
+    REQUIRE(Ad5xIfsTestAccess::build_colors(backend).find("FF0000") != std::string::npos);
+    REQUIRE(Ad5xIfsTestAccess::build_colors(backend).find("0000FF") == std::string::npos);
+}
+
+TEST_CASE("AD5X IFS apply_zcolor_result old-format preserves colors",
+          "[ams][ad5x_ifs]") {
+    // Pre-ad2802ab zmod: slot lines carry no /HEX. Presence should still
+    // update, but existing colors must NOT be overwritten with empty strings.
+    AmsBackendAd5xIfs backend(nullptr, nullptr);
+
+    AmsBackendAd5xIfs::ZColorSilentResult seed;
+    seed.saw_valid_response = true;
+    seed.slots[0] = AmsBackendAd5xIfs::ZColorSlot{"PLA", "FFAA00"};
+    Ad5xIfsTestAccess::apply_zcolor_result(backend, seed);
+    REQUIRE(Ad5xIfsTestAccess::build_colors(backend).find("FFAA00") != std::string::npos);
+
+    AmsBackendAd5xIfs::ZColorSilentResult old_fmt;
+    old_fmt.saw_valid_response = true;
+    old_fmt.is_old_format = true;
+    // slot present but material only, no hex
+    old_fmt.slots[0] = AmsBackendAd5xIfs::ZColorSlot{"PLA", ""};
+    Ad5xIfsTestAccess::apply_zcolor_result(backend, old_fmt);
+
+    // Color preserved from JSON-seeded state.
+    REQUIRE(Ad5xIfsTestAccess::build_colors(backend).find("FFAA00") != std::string::npos);
+    // Presence still reflects what the old-format response said.
+    REQUIRE(Ad5xIfsTestAccess::port_presence(backend, 0));
+}
+
+TEST_CASE("AD5X IFS parse_zcolor_silent sets saw_valid_response", "[ams][ad5x_ifs]") {
+    SECTION("summary line present") {
+        std::vector<std::string> lines = {"// Extruder: None (0) | IFS: True"};
+        auto r = Ad5xIfsTestAccess::parse_zcolor_silent(lines);
+        REQUIRE(r.saw_valid_response);
+    }
+    SECTION("slot line present") {
+        std::vector<std::string> lines = {"// 1: PLA/FFFFFF"};
+        auto r = Ad5xIfsTestAccess::parse_zcolor_silent(lines);
+        REQUIRE(r.saw_valid_response);
+    }
+    SECTION("only junk lines") {
+        std::vector<std::string> lines = {"echo: random output", "// not a slot line"};
+        auto r = Ad5xIfsTestAccess::parse_zcolor_silent(lines);
+        REQUIRE_FALSE(r.saw_valid_response);
+    }
+    SECTION("slot-number-out-of-range line") {
+        // "// 99: nonsense" is skipped and must NOT count as valid.
+        std::vector<std::string> lines = {"// 99: nonsense"};
+        auto r = Ad5xIfsTestAccess::parse_zcolor_silent(lines);
+        REQUIRE_FALSE(r.saw_valid_response);
     }
 }
