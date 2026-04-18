@@ -29,6 +29,9 @@ void HelixTestFixture::reset_all() {
     // SystemSettingsManager language back to "en" (matches config default).
     // init_subjects() is idempotent — first call creates the subjects, later
     // calls are no-ops. Required because set_language() writes to an LVGL subject.
+    //
+    // Force Config singleton creation — SystemSettingsManager::init_subjects() below
+    // dereferences Config::get_instance() to read defaults.
     helix::Config::get_instance();
     helix::SystemSettingsManager::instance().init_subjects();
     helix::SystemSettingsManager::instance().set_language("en");

@@ -8,22 +8,16 @@
 using namespace helix;
 
 TEST_CASE_METHOD(HelixTestFixture,
-                 "HelixTestFixture resets SystemSettingsManager language",
+                 "HelixTestFixture::reset_all resets SystemSettingsManager language",
                  "[test-fixture][isolation]") {
-    SystemSettingsManager::instance().set_language("fr");
-    // Destructor of prior fixture would have reset; this test confirms entry reset happened.
-    // Since we just changed language mid-test, we expect no assertion here — purpose of the
-    // test is that a *subsequent* fixture instance sees the default, which a later test
-    // case would verify.
-    REQUIRE(SystemSettingsManager::instance().get_language() == "fr");
-}
+    // Ctor reset already ran — default should be visible.
+    REQUIRE(SystemSettingsManager::instance().get_language() == "en");
 
-TEST_CASE_METHOD(HelixTestFixture,
-                 "HelixTestFixture leaves default language after construction",
-                 "[test-fixture][isolation]") {
-    // If the prior test's destructor reset state, we see the default here.
-    // Even when the two tests end up in different Catch2 shards (parallel
-    // processes), HelixTestFixture's own constructor reset brings language
-    // back to "en" before this body runs, so the assertion still holds.
+    // Mutation observable.
+    SystemSettingsManager::instance().set_language("fr");
+    REQUIRE(SystemSettingsManager::instance().get_language() == "fr");
+
+    // Manual reset restores default — proves reset_all() itself resets, not just ctor.
+    HelixTestFixture::reset_all();
     REQUIRE(SystemSettingsManager::instance().get_language() == "en");
 }

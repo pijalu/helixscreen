@@ -9,6 +9,11 @@
 //
 // Derive test-specific fixtures from this (LVGLTestFixture does). Plain
 // non-LVGL unit tests can use it directly via TEST_CASE_METHOD.
+//
+// Note: the first reset_all() call initializes SystemSettingsManager's subjects,
+// which self-register with StaticSubjectRegistry for process-lifetime. Once
+// initialized, they stay initialized — that's intentional and harmless, but
+// worth knowing for future derived fixtures.
 class HelixTestFixture {
   public:
     HelixTestFixture();           // calls reset_all() on entry — idempotent
