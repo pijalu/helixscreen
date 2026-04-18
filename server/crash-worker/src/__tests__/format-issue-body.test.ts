@@ -1,0 +1,191 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Tests for formatIssueBody — the markdown formatter that renders a crash report
+// into a GitHub issue. These tests pin down which fields the worker surfaces so
+// the client-side context (breadcrumbs, heap snapshot, LVGL event, debug bundle
+// share code, etc.) doesn't silently drop on the floor again.
+
+import { describe, it, expect } from "vitest";
+import { formatIssueBody, lvglEventCodeName, mdEscape } from "../index";
+import type { CrashReport } from "../symbol-resolver";
+
+const MIN_REPORT: CrashReport = {
+  signal: 11,
+  signal_name: "SIGSEGV",
+  app_version: "0.99.35",
+};
+
+describe("mdEscape", () => {
+  it("escapes pipe characters so table cells don't break", () => {
+    expect(mdEscape("foo|bar")).toBe("foo\\|bar");
+  });
+  it("replaces newlines with spaces", () => {
+    expect(mdEscape("line1\nline2\r\nline3")).toBe("line1 line2 line3");
+  });
+});
+
+describe("lvglEventCodeName", () => {
+  it("maps common codes to names", () => {
+    expect(lvglEventCodeName(7)).toBe("CLICKED");
+    expect(lvglEventCodeName(38)).toBe("DELETE");
+    expect(lvglEventCodeName(24)).toBe("REFR_EXT_DRAW_SIZE");
+  });
+  it("returns empty for unknown or missing codes", () => {
+    expect(lvglEventCodeName(9999)).toBe("");
+    expect(lvglEventCodeName(undefined)).toBe("");
+  });
+});
+
+describe("formatIssueBody — required summary", () => {
+  it("always emits signal, version, timestamp, uptime", () => {
+    const md = formatIssueBody(MIN_REPORT, "SIGSEGV/0.99.35/0x0", null);
+    expect(md).toContain("**Signal** | 11 (SIGSEGV)");
+    expect(md).toContain("**Version** | 0.99.35");
+    expect(md).toContain("Fingerprint: `SIGSEGV/0.99.35/0x0`");
+  });
+});
+
+describe("formatIssueBody — fields that were historically dropped", () => {
+  it("renders breadcrumbs when present", () => {
+    const md = formatIssueBody(
+      {
+        ...MIN_REPORT,
+        breadcrumbs: [
+          "1000 boot v0.99.35",
+          "5200 nav home",
+          "8300 modal+ confirm_print",
+        ],
+      },
+      "fp",
+      null
+    );
+    expect(md).toContain("## Breadcrumbs (recent activity)");
+    expect(md).toContain("5200 nav home");
+    expect(md).toContain("8300 modal+ confirm_print");
+  });
+
+  it("renders heap snapshot with available fields", () => {
+    const md = formatIssueBody(
+      {
+        ...MIN_REPORT,
+        heap: {
+          age_ms: 8217,
+          rss_kb: 38400,
+          arena_kb: 40960,
+          used_kb: 38912,
+          free_kb: 2048,
+          lv_total_kb: 512,
+          lv_used_pct: 88,
+          lv_frag_pct: 31,
+          lv_free_biggest_kb: 14,
+        },
+      },
+      "fp",
+      null
+    );
+    expect(md).toContain("**Heap**");
+    expect(md).toContain("RSS 38400kB");
+    expect(md).toContain("arena 40960kB (38912 used / 2048 free)");
+    expect(md).toContain("LVGL 88% used, 31% frag, biggest-free 14kB");
+    expect(md).toContain("snapshot age 8217ms");
+  });
+
+  it("skips heap row entirely when no snapshot fields set", () => {
+    const md = formatIssueBody({ ...MIN_REPORT, heap: {} }, "fp", null);
+    expect(md).not.toContain("**Heap**");
+  });
+
+  it("renders LVGL event under dispatch with decoded code name", () => {
+    const md = formatIssueBody(
+      { ...MIN_REPORT, event_target: "0x7fc0d2a8", event_code: 38 },
+      "fp",
+      null
+    );
+    expect(md).toContain("**LVGL Event**");
+    expect(md).toContain("target=`0x7fc0d2a8`");
+    expect(md).toContain("code=38 (DELETE)");
+  });
+
+  it("includes original_target only when it differs from target", () => {
+    const sameTgt = formatIssueBody(
+      { ...MIN_REPORT, event_target: "0x1", event_original_target: "0x1", event_code: 7 },
+      "fp",
+      null
+    );
+    expect(sameTgt).not.toContain("original=");
+
+    const diffTgt = formatIssueBody(
+      { ...MIN_REPORT, event_target: "0x1", event_original_target: "0x2", event_code: 7 },
+      "fp",
+      null
+    );
+    expect(diffTgt).toContain("original=`0x2`");
+  });
+
+  it("renders exception message when EXCEPTION crash", () => {
+    const md = formatIssueBody(
+      { ...MIN_REPORT, exception: "std::bad_alloc: out of memory" },
+      "fp",
+      null
+    );
+    expect(md).toContain("**Exception** | std::bad_alloc: out of memory");
+  });
+
+  it("renders debug bundle link with retrieval command", () => {
+    const md = formatIssueBody(
+      { ...MIN_REPORT, debug_bundle_share_code: "ZYZCAT4L" },
+      "fp",
+      null
+    );
+    expect(md).toContain("**Debug Bundle** | `ZYZCAT4L`");
+    expect(md).toContain("./scripts/debug-bundle.sh ZYZCAT4L");
+  });
+});
+
+describe("formatIssueBody — table-cell escaping", () => {
+  it("escapes pipe characters in client-supplied strings that land in table cells", () => {
+    // A malformed printer_model or queue_callback containing | would break the
+    // markdown table layout. All client-supplied strings that flow into table
+    // cells should pass through mdEscape.
+    const md = formatIssueBody(
+      {
+        ...MIN_REPORT,
+        platform: "pi|malicious",
+        printer_model: "Acme|Bad",
+        queue_callback: "Manager::do|stuff",
+        event_target: "0x1|bad",
+        event_code: 7,
+        debug_bundle_share_code: "AB|CD",
+      },
+      "fp",
+      null
+    );
+    // No unescaped pipes in the cell values we emit
+    expect(md).not.toContain("pi|malicious");
+    expect(md).not.toContain("Acme|Bad");
+    expect(md).not.toContain("Manager::do|stuff");
+    expect(md).toContain("pi\\|malicious");
+    expect(md).toContain("Acme\\|Bad");
+    expect(md).toContain("AB\\|CD");
+  });
+});
+
+describe("formatIssueBody — backtrace stack-scan annotation", () => {
+  it("notes when frames come from stack scan (potentially stale)", () => {
+    const md = formatIssueBody(
+      {
+        ...MIN_REPORT,
+        app_version: "0.99.35",
+        platform: "pi32",
+        bt_source: "stack_scan",
+        backtrace: ["0xab4fe964"],
+      },
+      "fp",
+      {
+        frames: [{ raw: "0xab4fe964", symbol: "crash_signal_handler+0x5a8" }],
+        autoDetectedBase: false,
+        symbolFileFound: true,
+      }
+    );
+    expect(md).toContain("stack-scanned, not live");
+  });
+});

@@ -268,9 +268,51 @@ async function createGitHubIssue(env: Env, report: CrashReport): Promise<IssueRe
 }
 
 /**
+ * Escape characters that break Markdown table cells ({@code |}, newlines).
+ */
+export function mdEscape(s: string): string {
+  return s.replace(/\|/g, "\\|").replace(/[\r\n]+/g, " ");
+}
+
+/**
+ * Map common lv_event_code_t values to their symbolic names so crash issues
+ * show "code=29 (REFR_EXT_DRAW_SIZE)" instead of a bare integer. Unknown codes
+ * fall through to "".
+ *
+ * Source of truth: lib/lvgl/src/core/lv_obj_event.h in the helixscreen repo.
+ * When LVGL's enum changes, update this table — the tests only spot-check a
+ * few codes so drift won't be caught automatically.
+ */
+export function lvglEventCodeName(code: number | undefined): string {
+  if (code == null) return "";
+  const names: Record<number, string> = {
+    0: "ALL", 1: "PRESSED", 2: "PRESSING", 3: "PRESS_LOST",
+    4: "SHORT_CLICKED", 5: "LONG_PRESSED", 6: "LONG_PRESSED_REPEAT",
+    7: "CLICKED", 8: "RELEASED", 9: "SCROLL_BEGIN", 10: "SCROLL_THROW_BEGIN",
+    11: "SCROLL_END", 12: "SCROLL", 13: "GESTURE", 14: "KEY",
+    15: "ROTARY", 16: "FOCUSED", 17: "DEFOCUSED", 18: "LEAVE",
+    19: "HIT_TEST", 20: "INDEV_RESET", 21: "HOVER_OVER", 22: "HOVER_LEAVE",
+    23: "COVER_CHECK", 24: "REFR_EXT_DRAW_SIZE", 25: "DRAW_MAIN_BEGIN",
+    26: "DRAW_MAIN", 27: "DRAW_MAIN_END", 28: "DRAW_POST_BEGIN",
+    29: "DRAW_POST", 30: "DRAW_POST_END", 31: "DRAW_TASK_ADDED",
+    32: "VALUE_CHANGED", 33: "INSERT", 34: "REFRESH", 35: "READY",
+    36: "CANCEL", 37: "CREATE", 38: "DELETE", 39: "CHILD_CHANGED",
+    40: "CHILD_CREATED", 41: "CHILD_DELETED", 42: "SCREEN_UNLOAD_START",
+    43: "SCREEN_LOAD_START", 44: "SCREEN_LOADED", 45: "SCREEN_UNLOADED",
+    46: "SIZE_CHANGED", 47: "STYLE_CHANGED", 48: "LAYOUT_CHANGED",
+    49: "GET_SELF_SIZE", 50: "INVALIDATE_AREA", 51: "RESOLUTION_CHANGED",
+    52: "COLOR_FORMAT_CHANGED", 53: "REFR_REQUEST", 54: "REFR_START",
+    55: "REFR_READY", 56: "RENDER_START", 57: "RENDER_READY",
+    58: "FLUSH_START", 59: "FLUSH_FINISH", 60: "FLUSH_WAIT_START",
+    61: "FLUSH_WAIT_FINISH", 62: "VSYNC",
+  };
+  return names[code] || "";
+}
+
+/**
  * Format the crash report into a structured markdown issue body.
  */
-function formatIssueBody(r: CrashReport, fingerprint: string, resolved: ResolvedBacktrace | null): string {
+export function formatIssueBody(r: CrashReport, fingerprint: string, resolved: ResolvedBacktrace | null): string {
   const timestamp = r.timestamp || new Date().toISOString();
   const uptime = r.uptime_seconds != null ? `${r.uptime_seconds}s` : "unknown";
 
@@ -286,11 +328,47 @@ function formatIssueBody(r: CrashReport, fingerprint: string, resolved: Resolved
 
   // Fault info (Phase 2)
   if (r.fault_code_name && r.fault_addr) {
-    md += `| **Fault** | ${r.fault_code_name} at ${r.fault_addr} |\n`;
+    md += `| **Fault** | ${mdEscape(r.fault_code_name)} at ${mdEscape(r.fault_addr)} |\n`;
+  }
+
+  if (r.exception) {
+    md += `| **Exception** | ${mdEscape(r.exception)} |\n`;
   }
 
   if (r.queue_callback) {
-    md += `| **Queue Callback** | \`${r.queue_callback}\` |\n`;
+    md += `| **Queue Callback** | \`${mdEscape(r.queue_callback)}\` |\n`;
+  }
+
+  // LVGL event under dispatch at crash time (set by event_send_core hook).
+  if (r.event_target) {
+    const codeName = lvglEventCodeName(r.event_code);
+    const codePart = r.event_code != null ? ` code=${r.event_code}${codeName ? ` (${codeName})` : ""}` : "";
+    const origPart = r.event_original_target && r.event_original_target !== r.event_target
+      ? ` original=\`${mdEscape(r.event_original_target)}\``
+      : "";
+    md += `| **LVGL Event** | target=\`${mdEscape(r.event_target)}\`${origPart}${codePart} |\n`;
+  }
+
+  if (r.debug_bundle_share_code) {
+    const code = mdEscape(r.debug_bundle_share_code);
+    md += `| **Debug Bundle** | \`${code}\` (use \`./scripts/debug-bundle.sh ${code}\`) |\n`;
+  }
+
+  // Heap snapshot (cached on-device every ~10s; tells us memory pressure state at crash time).
+  // The device writes glibc fields (arena/used/free) and LVGL fields (lv_*) as groups — if the
+  // group's lead key is set, the rest are guaranteed present.
+  if (r.heap) {
+    const h = r.heap;
+    const parts: string[] = [];
+    if (h.rss_kb != null) parts.push(`RSS ${h.rss_kb}kB`);
+    if (h.arena_kb != null) parts.push(`arena ${h.arena_kb}kB (${h.used_kb} used / ${h.free_kb} free)`);
+    if (h.lv_total_kb != null) {
+      parts.push(`LVGL ${h.lv_used_pct}% used, ${h.lv_frag_pct}% frag, biggest-free ${h.lv_free_biggest_kb}kB`);
+    }
+    if (h.age_ms != null) parts.push(`snapshot age ${h.age_ms}ms`);
+    if (parts.length > 0) {
+      md += `| **Heap** | ${parts.join(" · ")} |\n`;
+    }
   }
 
   // Register state (Phase 2) — with resolved symbols when available
@@ -329,12 +407,12 @@ function formatIssueBody(r: CrashReport, fingerprint: string, resolved: Resolved
 | Field | Value |
 |-------|-------|
 `;
-    if (r.platform) md += `| **Platform** | ${r.platform} |\n`;
-    if (r.display_backend) md += `| **Display** | ${r.display_backend} |\n`;
+    if (r.platform) md += `| **Platform** | ${mdEscape(r.platform)} |\n`;
+    if (r.display_backend) md += `| **Display** | ${mdEscape(r.display_backend)} |\n`;
     if (r.ram_mb) md += `| **RAM** | ${r.ram_mb} MB |\n`;
     if (r.cpu_cores) md += `| **CPU** | ${r.cpu_cores} cores |\n`;
-    if (r.printer_model) md += `| **Printer** | ${r.printer_model} |\n`;
-    if (r.klipper_version) md += `| **Klipper** | ${r.klipper_version} |\n`;
+    if (r.printer_model) md += `| **Printer** | ${mdEscape(r.printer_model)} |\n`;
+    if (r.klipper_version) md += `| **Klipper** | ${mdEscape(r.klipper_version)} |\n`;
   }
 
   // Backtrace section — with resolved symbols when available
@@ -360,6 +438,9 @@ function formatIssueBody(r: CrashReport, fingerprint: string, resolved: Resolved
         );
       }
       parts.push(`symbol file: v${r.app_version}/${r.platform || r.app_platform}.sym`);
+      if (r.bt_source === "stack_scan") {
+        parts.push("frames below crash_signal_handler are stack-scanned, not live (may be stale)");
+      }
       md += `\n<sub>${parts.join(" · ")}</sub>\n`;
     } else {
       // Unresolved: raw addresses in code block (original format)
@@ -378,6 +459,13 @@ function formatIssueBody(r: CrashReport, fingerprint: string, resolved: Resolved
     for (const entry of resolved.stackScan) {
       md += `| SP+0x${entry.offset.toString(16)} | \`${entry.raw}\` | \`${entry.symbol}\` |\n`;
     }
+  }
+
+  // Activity breadcrumbs from the in-process ring buffer. The tail is the most
+  // recent activity — whichever panel/modal/tick was active just before the crash.
+  if (r.breadcrumbs && r.breadcrumbs.length > 0) {
+    md += `\n## Breadcrumbs (recent activity)\n\n`;
+    md += `\`\`\`\n${r.breadcrumbs.join("\n")}\n\`\`\`\n`;
   }
 
   // Memory map (collapsed — helps identify what's at crash addresses)
