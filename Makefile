@@ -811,6 +811,7 @@ TEST_MAIN_OBJ := $(OBJ_DIR)/tests/test_main.o
 CATCH2_OBJ := $(OBJ_DIR)/tests/catch_amalgamated.o
 UI_TEST_UTILS_OBJ := $(OBJ_DIR)/tests/ui_test_utils.o
 LVGL_TEST_FIXTURE_OBJ := $(OBJ_DIR)/tests/lvgl_test_fixture.o
+HELIX_TEST_FIXTURE_OBJ := $(OBJ_DIR)/tests/helix_test_fixture.o
 TEST_FIXTURES_OBJ := $(OBJ_DIR)/tests/test_fixtures.o
 LVGL_UI_TEST_FIXTURE_OBJ := $(OBJ_DIR)/tests/lvgl_ui_test_fixture.o
 

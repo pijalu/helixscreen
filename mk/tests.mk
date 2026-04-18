@@ -91,7 +91,7 @@ endef
 # - All the manual TEST_*_DEPS groups → single TEST_APP_OBJS
 
 # Core test infrastructure (always required)
-TEST_CORE_DEPS := $(TEST_MAIN_OBJ) $(CATCH2_OBJ) $(UI_TEST_UTILS_OBJ) $(LVGL_TEST_FIXTURE_OBJ) $(TEST_FIXTURES_OBJ) $(LVGL_UI_TEST_FIXTURE_OBJ) $(TEST_OBJS) $(TEST_APP_OBJS_EXTRA)
+TEST_CORE_DEPS := $(TEST_MAIN_OBJ) $(CATCH2_OBJ) $(UI_TEST_UTILS_OBJ) $(LVGL_TEST_FIXTURE_OBJ) $(HELIX_TEST_FIXTURE_OBJ) $(TEST_FIXTURES_OBJ) $(LVGL_UI_TEST_FIXTURE_OBJ) $(TEST_OBJS) $(TEST_APP_OBJS_EXTRA)
 
 # LVGL + Graphics stack (required for all UI tests)
 TEST_LVGL_DEPS := $(LVGL_OBJS) $(HELIX_XML_OBJS) $(THORVG_OBJS)
@@ -157,7 +157,7 @@ TEST_APP_OBJS := $(filter-out \
 # Clean test artifacts
 clean-tests:
 	$(ECHO) "$(YELLOW)Cleaning test artifacts...$(RESET)"
-	$(Q)rm -f $(TEST_BIN) $(TEST_MAIN_OBJ) $(CATCH2_OBJ) $(UI_TEST_UTILS_OBJ) $(LVGL_TEST_FIXTURE_OBJ) $(TEST_FIXTURES_OBJ) $(LVGL_UI_TEST_FIXTURE_OBJ) $(TEST_OBJS)
+	$(Q)rm -f $(TEST_BIN) $(TEST_MAIN_OBJ) $(CATCH2_OBJ) $(UI_TEST_UTILS_OBJ) $(LVGL_TEST_FIXTURE_OBJ) $(HELIX_TEST_FIXTURE_OBJ) $(TEST_FIXTURES_OBJ) $(LVGL_UI_TEST_FIXTURE_OBJ) $(TEST_OBJS)
 	$(ECHO) "$(GREEN)✓ Test artifacts cleaned$(RESET)"
 
 # Build tests — delegates to $(TEST_BIN) which handles -j detection via Phase 1
@@ -599,6 +599,13 @@ $(UI_TEST_UTILS_OBJ): $(TEST_DIR)/ui_test_utils.cpp
 $(LVGL_TEST_FIXTURE_OBJ): $(TEST_DIR)/lvgl_test_fixture.cpp
 	$(Q)mkdir -p $(dir $@)
 	$(ECHO) "$(CYAN)[LVGL-FIXTURE]$(RESET) $<"
+	$(Q)$(CXX) $(CXXFLAGS) $(DEPFLAGS) $(PCH_FLAGS) -I$(TEST_DIR) $(INCLUDES) $(LV_CONF) -c $< -o $@
+
+# Compile HelixScreen test fixture (base class that resets process singletons)
+# Uses DEPFLAGS to track header dependencies
+$(HELIX_TEST_FIXTURE_OBJ): $(TEST_DIR)/helix_test_fixture.cpp
+	$(Q)mkdir -p $(dir $@)
+	$(ECHO) "$(CYAN)[HELIX-FIXTURE]$(RESET) $<"
 	$(Q)$(CXX) $(CXXFLAGS) $(DEPFLAGS) $(PCH_FLAGS) -I$(TEST_DIR) $(INCLUDES) $(LV_CONF) -c $< -o $@
 
 # Compile test fixtures (reusable fixtures with mock initialization helpers)
