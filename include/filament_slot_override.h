@@ -19,7 +19,9 @@ struct FilamentSlotOverride {
     uint32_t color_rgb = 0;
     std::string color_name;
     std::string material;
-    // Conflict avoidance for third-party writers
+    // Conflict avoidance for third-party writers.
+    // ISO-8601 UTC on the wire. Second precision only — sub-second fractions
+    // are truncated on format/parse.
     std::chrono::system_clock::time_point updated_at{};
 };
 

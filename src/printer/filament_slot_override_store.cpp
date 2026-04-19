@@ -4,11 +4,14 @@
 #include "i_moonraker_api.h"
 #include "moonraker_error.h"
 
+#include <spdlog/spdlog.h>
+
 #include <chrono>
 #include <condition_variable>
 #include <cstdio>
 #include <ctime>
 #include <iomanip>
+#include <memory>
 #include <mutex>
 #include <optional>
 #include <sstream>
@@ -38,9 +41,14 @@ std::chrono::system_clock::time_point parse_iso8601(const std::string& s) {
 // Convert FilamentSlotOverride + slot_index to the AFC-shaped JSON Orca expects,
 // plus our extension fields (prefixed comment fields are HelixScreen-only, silently
 // ignored by Orca 2.3.2 which only reads the top 5 required fields).
+//
+// NOTE on indexing: the Moonraker DB key is 1-based (AFC convention: lane1,
+// lane2, ...) but the "lane" field inside the record is 0-based (matches Orca's
+// tool-index interpretation). The 1-based key is produced by lane_key() in the
+// header; this function writes the 0-based inner field.
 nlohmann::json to_lane_data_record(int slot_index, const FilamentSlotOverride& o) {
     nlohmann::json j;
-    j["lane"] = std::to_string(slot_index); // REQUIRED by Orca
+    j["lane"] = std::to_string(slot_index); // REQUIRED by Orca (0-based)
     if (o.color_rgb != 0) {
         char buf[8];
         std::snprintf(buf, sizeof(buf), "#%06X", o.color_rgb);
@@ -80,6 +88,9 @@ from_lane_data_record(const nlohmann::json& j) {
     } else {
         return std::nullopt;
     }
+    // Matches OrcaSlicer's MoonrakerPrinterAgent.cpp:796 — negative lane
+    // values are never valid slot indices.
+    if (slot_index < 0) return std::nullopt;
 
     FilamentSlotOverride o;
     if (j.contains("color") && j["color"].is_string()) {
@@ -156,35 +167,48 @@ std::unordered_map<int, FilamentSlotOverride> FilamentSlotOverrideStore::load_bl
     std::unordered_map<int, FilamentSlotOverride> result;
     if (!api_) return result;
 
-    std::mutex m;
-    std::condition_variable cv;
-    bool done = false;
-    bool got = false;
-    nlohmann::json received;
+    // Wrap sync state in shared_ptr so callbacks firing after our 5s local
+    // timeout don't touch a freed stack frame. Moonraker's request tracker has
+    // its own ~60s boundary, so an error callback can fire ~55s after we've
+    // already returned. Captured by value, the shared_ptr keeps the state
+    // alive for the orphaned callback to flip done/got harmlessly.
+    // (Same pattern as AmsBackendAce::poll_info in src/printer/ams_backend_ace.cpp)
+    struct SyncState {
+        std::mutex m;
+        std::condition_variable cv;
+        bool done{false};
+        bool got{false};
+        nlohmann::json received;
+    };
+    auto state = std::make_shared<SyncState>();
+    const std::string backend_id_copy = backend_id_;
+    const std::string namespace_copy = namespace_;
 
     api_->database_get_namespace(
         namespace_,
-        [&](const nlohmann::json& value) {
-            std::lock_guard<std::mutex> lk(m);
-            received = value;
-            got = true;
-            done = true;
-            cv.notify_one();
+        [state](const nlohmann::json& value) {
+            std::lock_guard<std::mutex> lk(state->m);
+            state->received = value;
+            state->got = true;
+            state->done = true;
+            state->cv.notify_one();
         },
-        [&](const MoonrakerError&) {
-            std::lock_guard<std::mutex> lk(m);
-            done = true;
-            cv.notify_one();
+        [state, backend_id_copy, namespace_copy](const MoonrakerError& err) {
+            spdlog::debug("[FilamentSlotOverrideStore:{}] database_get_namespace({}) failed: {}",
+                          backend_id_copy, namespace_copy, err.message);
+            std::lock_guard<std::mutex> lk(state->m);
+            state->done = true;
+            state->cv.notify_one();
         });
 
     {
-        std::unique_lock<std::mutex> lk(m);
-        cv.wait_for(lk, std::chrono::seconds(5), [&] { return done; });
+        std::unique_lock<std::mutex> lk(state->m);
+        state->cv.wait_for(lk, std::chrono::seconds(5), [&] { return state->done; });
     }
 
-    if (!got || !received.is_object()) return result;
+    if (!state->got || !state->received.is_object()) return result;
 
-    for (auto it = received.begin(); it != received.end(); ++it) {
+    for (auto it = state->received.begin(); it != state->received.end(); ++it) {
         const std::string& key = it.key();
         // Only consider lane-prefixed keys (AFC convention). Ignore any
         // unrelated data that may live in the lane_data namespace.

@@ -34,6 +34,13 @@ class FilamentSlotOverrideStore {
     // stored under key "laneN" where N is the 1-based slot index (lane1, lane2,
     // ...). Slot index 0 in HelixScreen maps to "lane1" on disk.
     std::string namespace_ = "lane_data";
+    // Returns the Moonraker DB key for a given slot.
+    //
+    // IMPORTANT: the DB key is 1-based (AFC convention: lane1, lane2, ...) but
+    // the "lane" field *inside* each record is 0-based (matches Orca's
+    // tool-index interpretation, written by to_lane_data_record in the .cpp).
+    // Easy to get wrong — changing one without the other silently breaks
+    // interop with AFC and Orca.
     static std::string lane_key(int slot_index) {
         return "lane" + std::to_string(slot_index + 1);
     }

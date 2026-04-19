@@ -110,3 +110,18 @@ TEST_CASE("FilamentSlotOverrideStore load_blocking skips entries missing lane fi
     auto overrides = store.load_blocking();
     CHECK(overrides.empty());
 }
+
+TEST_CASE("FilamentSlotOverrideStore load_blocking rejects negative lane values",
+          "[filament_slot_override][slow]") {
+    MoonrakerClientMock client(MoonrakerClientMock::PrinterType::VORON_24);
+    helix::PrinterState state;
+    state.init_subjects(false);
+    MoonrakerAPIMock api(client, state);
+
+    json bad = {{"lane", "-1"}, {"material", "PLA"}};
+    api.mock_set_db_value("lane_data", "lane1", bad);
+
+    FilamentSlotOverrideStore store(&api, "ifs");
+    auto overrides = store.load_blocking();
+    CHECK(overrides.empty());
+}
