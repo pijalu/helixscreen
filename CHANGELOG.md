@@ -7,6 +7,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.99.36] - 2026-04-18
+
+### Added
+- Live spool weight tracking without Spoolman: HelixScreen now decrements the locally-stored external spool's weight during a print, persists it on pause/end, re-snapshots when you edit the weight externally, and warns before queuing a print that needs more filament than the spool has left.
+- Per-preset default home layouts — fresh installs get curated layouts per printer preset instead of one generic grid.
+- Default home anchors nozzle + bed temperature widgets stacked next to print status across every breakpoint.
+- Default home swaps the single-slot filament widget for the AMS widget when an AMS is present.
+- Unified crash log collection: reports pull log tails from file, syslog, or journalctl automatically (AD5M/AD5X via syslog, Pi via journald) and auto-attach a debug bundle to the report for triage.
+
+### Fixed
+- GridEditMode: clear cached widget pointers after async rebuild to prevent SIGSEGV when deferred selection-chrome destroy runs on freed objects.
+- Screensaver and confetti teardown routed through safe deferred delete so parent cleanup no longer races with pending async widget deletion.
+- LVGL: disable blur tree walk unconditionally (#820).
+- LVGL: cap `lv_obj_get_screen` parent walk to survive cyclic parent trees.
+- Wi-Fi: NetworkWidget wakes when the backend reports READY after async init (#819).
+- AD5X: backlight-off sleep restored for pre-#431 units via config v13 migration.
+- FlashForge AD5M: Screws Tilt directions corrected (no longer inverted).
+- Bed mesh: calibrate modal sizes to its content.
+- CC1: bed mesh calibration sequence and progress count for load_cell_probe.
+- AD5X IFS: use `GET_ZCOLOR SILENT=1` for live loaded-slot state.
+- Edit mode: widget chrome buttons responsive across breakpoints.
+- Default home: carousel deferred until after the first-run wizard dismisses.
+- Console: gcode console font bumped to 10px on the micro breakpoint.
+- AMS state: `get_external_spool_info` now mutex-locks the in-memory cache.
+
+### Changed
+- Theme: Soft corner radius bumped to 3px on the micro breakpoint (was 2px) — less sharp on 480x272 screens.
+- Crash report worker renders breadcrumbs, heap snapshot, LVGL event log, and debug-bundle link in filed issues (#826).
+
 ## [0.99.35] - 2026-04-17
 
 ### Added
@@ -3037,6 +3066,7 @@ Initial tagged release. Foundation for all subsequent development.
 - Automated GitHub Actions release pipeline
 - One-liner installation script with platform auto-detection
 
+[0.99.36]: https://github.com/prestonbrown/helixscreen/compare/v0.99.35...v0.99.36
 [0.99.35]: https://github.com/prestonbrown/helixscreen/compare/v0.99.34...v0.99.35
 [0.99.34]: https://github.com/prestonbrown/helixscreen/compare/v0.99.33...v0.99.34
 [0.99.33]: https://github.com/prestonbrown/helixscreen/compare/v0.99.32...v0.99.33
