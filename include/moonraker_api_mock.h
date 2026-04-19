@@ -694,10 +694,10 @@ class MoonrakerAPIMock : public MoonrakerAPI {
         std::function<void(const MoonrakerError&)> on_error;
         // Post/delete need the captured write/erase info so fire_*_success can
         // apply the same DB mutation the synchronous path would have applied.
+        // (For delete, `value` is ignored — the erase is unconditional.)
         std::string namespace_name;
         std::string key;
-        nlohmann::json value; // unused for delete
-        bool is_delete = false;
+        nlohmann::json value;
     };
     struct DeferredDbGet {
         std::function<void(const nlohmann::json&)> on_success;

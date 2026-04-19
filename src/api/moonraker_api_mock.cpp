@@ -357,7 +357,6 @@ void MoonrakerAPIMock::database_delete_item(const std::string& namespace_name,
         captured.on_error = std::move(on_error);
         captured.namespace_name = namespace_name;
         captured.key = key;
-        captured.is_delete = true;
         deferred_db_delete_ = std::move(captured);
         return;
     }
