@@ -613,6 +613,8 @@ class MoonrakerAPIMock : public MoonrakerAPI {
     /// rejection is consumed on the first call — subsequent posts succeed
     /// normally unless this is called again. The no-arg overload uses a
     /// generic UNKNOWN error with a descriptive message.
+    /// Not thread-safe: call from the main test thread before the rejection
+    /// is consumed. Catch2 runs tests sequentially so this is safe today.
     void mock_reject_next_db_post();
     void mock_reject_next_db_post(MoonrakerError err);
 

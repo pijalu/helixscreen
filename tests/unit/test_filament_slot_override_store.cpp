@@ -198,6 +198,9 @@ TEST_CASE("FilamentSlotOverrideStore save_async sets updated_at on the stored re
     CHECK(ts.size() >= 20);  // "YYYY-MM-DDTHH:MM:SSZ" = 20 chars
     CHECK(ts.back() == 'Z'); // UTC
     CHECK(ts[10] == 'T');    // ISO-8601 separator
+    // Confirm the stamp is recent, not leaking the epoch sentinel through the
+    // serializer's "only emit when time_since_epoch > 0" guard.
+    CHECK(ts != "1970-01-01T00:00:00Z");
 
     // Caller's override must NOT have been mutated.
     CHECK(ovr.updated_at == std::chrono::system_clock::time_point{});

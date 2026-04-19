@@ -230,6 +230,12 @@ void FilamentSlotOverrideStore::save_async(int slot_index,
         if (cb) cb(false, "no API");
         return;
     }
+    // Reject negative slot indices symmetrically with from_lane_data_record's
+    // rejection on load (matches OrcaSlicer's MoonrakerPrinterAgent.cpp:796).
+    if (slot_index < 0) {
+        if (cb) cb(false, "invalid slot_index");
+        return;
+    }
 
     // Stamp a fresh updated_at on a local copy. The caller's struct is NOT
     // mutated — callers may keep their original value for UI echo, diff checks,
@@ -257,7 +263,7 @@ void FilamentSlotOverrideStore::save_async(int slot_index,
             // Save failures are user-visible (unlike namespace-missing on load,
             // which we swallow at debug). Warn so ops can spot persistent save
             // failures in the logs.
-            spdlog::warn("[FilamentSlotOverrideStore:{}] save_async({}) failed: {}",
+            spdlog::warn("[FilamentSlotOverrideStore:{}] save failed for key {}: {}",
                          backend_id_copy, key, err.message);
             if (cb) cb(false, err.message);
         });
