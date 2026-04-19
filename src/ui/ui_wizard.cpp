@@ -8,6 +8,7 @@
 #include "ui_nav_manager.h"
 #include "ui_panel_home.h"
 #include "ui_subject_registry.h"
+#include "ui_update_queue.h"
 #include "ui_utils.h"
 #include "ui_wizard_ams_identify.h"
 #include "ui_wizard_connection.h"
@@ -758,11 +759,21 @@ static void ui_wizard_load_screen(int step) {
         return;
     }
 
-    // Cleanup previous screen resources BEFORE clearing widgets
-    ui_wizard_cleanup_current_screen();
-
-    // Clear existing content (widgets)
-    lv_obj_clean(content);
+    // Cleanup previous screen resources BEFORE clearing widgets. Freeze the
+    // update queue around cleanup + drain + destroy so background-thread
+    // callbacks (Moonraker WebSocket, HTTP executor) enqueued while the step
+    // was running can't fire after its widgets are gone. Without this the
+    // connection step's post-success burst (subscription notifications, probe/
+    // LED discovery, PrinterNameSync, hardware validator) can race with
+    // lv_obj_clean and corrupt the heap, manifesting as SIGABRT/std::terminate
+    // in the next step's XML/subject init (#793 for WiFi, #827 for the
+    // connection → printer-identify transition).
+    {
+        auto freeze = helix::ui::UpdateQueue::instance().scoped_freeze();
+        ui_wizard_cleanup_current_screen();
+        helix::ui::UpdateQueue::instance().drain();
+        lv_obj_clean(content);
+    }
     spdlog::debug("[Wizard] Cleared wizard_content container");
 
     // Set title and subtitle from XML metadata (no more hardcoded strings!)
