@@ -1,6 +1,17 @@
 diff --git a/src/core/lv_obj_tree.c b/src/core/lv_obj_tree.c
 --- a/src/core/lv_obj_tree.c
 +++ b/src/core/lv_obj_tree.c
+@@ -15,6 +15,10 @@
+ #include "../misc/lv_async.h"
+ #include "../core/lv_global.h"
+ 
++/* Telemetry hook provided by helix_lvgl_anomaly.cpp — reports LVGL anomalies
++ * with backtrace + device context for remote crash diagnostics. */
++extern void helix_lvgl_anomaly(const char * code, const char * context);
++
+ /*********************
+  *      DEFINES
+  *********************/
 @@ -313,10 +313,24 @@ lv_obj_t * lv_obj_get_screen(const lv_obj_t * obj)
 
      const lv_obj_t * par = obj;
