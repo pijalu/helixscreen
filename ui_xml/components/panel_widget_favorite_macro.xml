@@ -24,6 +24,9 @@
     <!-- Macro name label -->
     <text_tiny name="fav_macro_name" text="Configure" translation_tag="Configure" style_text_align="center"
               style_text_color="#text" long_mode="wrap" width="100%"
-              clickable="false" event_bubble="true"/>
+              clickable="false" event_bubble="true">
+      <!-- Hide on micro -->
+      <bind_flag_if_lt subject="ui_breakpoint" flag="hidden" ref_value="1"/>
+    </text_tiny>
   </view>
 </component>
