@@ -386,9 +386,18 @@ std::unordered_map<int, FilamentSlotOverride> FilamentSlotOverrideStore::load_bl
             state->cv.notify_one();
         });
 
+    // Snapshot the shared state under lock: after wait_for returns, a callback
+    // firing from a background thread could still write to state->got /
+    // state->received concurrently with our reads. Take the lock, copy what we
+    // need, release. The shared_ptr keeps the state alive for any late
+    // callback — it just writes to the copy-source without racing us.
+    bool got_copy;
+    nlohmann::json received_copy;
     {
         std::unique_lock<std::mutex> lk(state->m);
         state->cv.wait_for(lk, load_timeout_, [state] { return state->done; });
+        got_copy = state->got;
+        if (got_copy) received_copy = state->received;
     }
 
     // Fall back to local cache ONLY when the MR DB round-trip didn't yield a
@@ -396,12 +405,12 @@ std::unordered_map<int, FilamentSlotOverride> FilamentSlotOverrideStore::load_bl
     // or the cv.wait_for timeout elapsed (got==false, done==false). A
     // successful MR DB response with an empty namespace is authoritative ("no
     // overrides configured") and must NOT be replaced by stale cache data.
-    if (!state->got) {
+    if (!got_copy) {
         return read_cache(cache_path(), backend_id_);
     }
-    if (!state->received.is_object()) return result;
+    if (!received_copy.is_object()) return result;
 
-    for (auto it = state->received.begin(); it != state->received.end(); ++it) {
+    for (auto it = received_copy.begin(); it != received_copy.end(); ++it) {
         const std::string& key = it.key();
         // Only consider lane-prefixed keys (AFC convention). Ignore any
         // unrelated data that may live in the lane_data namespace.
