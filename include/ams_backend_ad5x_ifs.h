@@ -137,6 +137,7 @@ class AmsBackendAd5xIfs : public AmsSubscriptionBackend {
 
   protected:
     void on_started() override;
+    void on_stopping() override;
     void handle_status_update(const nlohmann::json& notification) override;
     const char* backend_log_tag() const override {
         return "[AMS AD5X-IFS]";
@@ -152,6 +153,8 @@ class AmsBackendAd5xIfs : public AmsSubscriptionBackend {
     void parse_adventurer_json(const std::string& content);
     void read_adventurer_json();
     void register_zcolor_listener();
+    void register_klippy_ready_listener();
+    void unregister_moonraker_listeners();
     void schedule_json_reread();
 
     // GET_ZCOLOR SILENT=1 primary-truth query. zmod's Adventurer5M.json

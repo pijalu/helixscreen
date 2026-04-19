@@ -65,7 +65,10 @@ void AmsBackendAd5xIfs::on_started() {
                    // Shared: head switch sensor (both lessWaste and native ZMOD)
                    {"filament_switch_sensor head_switch_sensor", nullptr},
                    // Native ZMOD IFS: single motion sensor (replaces per-port sensors)
-                   {"filament_motion_sensor ifs_motion_sensor", nullptr}}}},
+                   {"filament_motion_sensor ifs_motion_sensor", nullptr},
+                   // Klippy state — GET_ZCOLOR SILENT=1 only works once zmod is
+                   // initialised, so we gate the initial query on webhooks.state == "ready".
+                   {"webhooks", nullptr}}}},
         [this, token](const json& response) {
             if (token.expired())
                 return;
@@ -74,9 +77,14 @@ void AmsBackendAd5xIfs::on_started() {
             // save_variables may contain lessWaste/bambufy data from a partially installed
             // plugin, but the macro itself might not be loaded in Klipper.
             bool macro_exists = false;
+            bool klippy_ready = false;
             if (response.contains("result") && response["result"].contains("status")) {
                 const auto& status = response["result"]["status"];
                 macro_exists = status.contains("gcode_macro _ifs_vars");
+                if (status.contains("webhooks") && status["webhooks"].contains("state") &&
+                    status["webhooks"]["state"].is_string()) {
+                    klippy_ready = status["webhooks"]["state"].get<std::string>() == "ready";
+                }
                 handle_status_update(status);
             }
 
@@ -84,13 +92,13 @@ void AmsBackendAd5xIfs::on_started() {
             {
                 std::lock_guard<std::mutex> lock(mutex_);
                 spdlog::debug("{} Initial query: has_ifs_vars={}, macro_exists={}, "
-                              "has_per_port_sensors={}, head_filament={}, "
+                              "klippy_ready={}, has_per_port_sensors={}, head_filament={}, "
                               "port_presence=[{},{},{},{}], "
                               "colors=[{},{},{},{}]",
-                              backend_log_tag(), has_ifs_vars_, macro_exists, has_per_port_sensors_,
-                              head_filament_, port_presence_[0], port_presence_[1],
-                              port_presence_[2], port_presence_[3], colors_[0], colors_[1],
-                              colors_[2], colors_[3]);
+                              backend_log_tag(), has_ifs_vars_, macro_exists, klippy_ready,
+                              has_per_port_sensors_, head_filament_, port_presence_[0],
+                              port_presence_[1], port_presence_[2], port_presence_[3], colors_[0],
+                              colors_[1], colors_[2], colors_[3]);
             }
 
             // If parse_save_variables set has_ifs_vars_ but the macro doesn't exist,
@@ -115,9 +123,25 @@ void AmsBackendAd5xIfs::on_started() {
                 // GET_ZCOLOR SILENT=1 is the only source of live per-port presence
                 // on native ZMOD. Adventurer5M.json persists colors but NOT
                 // load/unload state. See project_ifs_data_sources.md.
-                schedule_zcolor_query();
+                //
+                // Only fire the query now if klippy is already ready — otherwise zmod
+                // hasn't initialised and GET_ZCOLOR returns an empty response, which
+                // apply_zcolor_result() (rightly) refuses to treat as "no slots loaded".
+                // The notify_klippy_ready handler below catches the startup/ready
+                // transition (and FIRMWARE_RESTART) and fires the query then.
+                register_klippy_ready_listener();
+                if (klippy_ready) {
+                    schedule_zcolor_query();
+                } else {
+                    spdlog::info("{} Deferring GET_ZCOLOR SILENT=1 until klippy ready",
+                                 backend_log_tag());
+                }
             }
         });
+}
+
+void AmsBackendAd5xIfs::on_stopping() {
+    unregister_moonraker_listeners();
 }
 
 // --- Status parsing ---
@@ -1015,6 +1039,38 @@ void AmsBackendAd5xIfs::register_zcolor_listener() {
                 schedule_zcolor_query();
             }
         });
+}
+
+void AmsBackendAd5xIfs::register_klippy_ready_listener() {
+    if (!client_)
+        return;
+
+    // notify_klippy_ready fires on every klippy startup->ready transition (cold
+    // boot once klippy finishes initialising, and after FIRMWARE_RESTART). This
+    // is the point at which zmod has actually come online and GET_ZCOLOR
+    // SILENT=1 can return per-slot state.
+    static const std::string handler_name = "ifs_klippy_ready_watcher";
+    auto token = lifetime_.token();
+
+    client_->register_method_callback(
+        "notify_klippy_ready", handler_name, [this, token](const json& /*msg*/) {
+            if (token.expired())
+                return;
+            spdlog::info("{} notify_klippy_ready — scheduling GET_ZCOLOR SILENT=1",
+                         backend_log_tag());
+            // Re-read the JSON cache too — firmware may have persisted new
+            // colors during boot, and the stream may have missed RUN_ZCOLOR
+            // notifications that happened before we reconnected.
+            schedule_json_reread();
+            schedule_zcolor_query();
+        });
+}
+
+void AmsBackendAd5xIfs::unregister_moonraker_listeners() {
+    if (!client_)
+        return;
+    client_->unregister_method_callback("notify_gcode_response", "ifs_zcolor_watcher");
+    client_->unregister_method_callback("notify_klippy_ready", "ifs_klippy_ready_watcher");
 }
 
 void AmsBackendAd5xIfs::schedule_json_reread() {
