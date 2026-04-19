@@ -15,7 +15,7 @@ namespace {
 // distinguishes between multiple HttpExecutor instances.
 thread_local HttpExecutor* tls_current_executor_ = nullptr;
 
-}  // namespace
+} // namespace
 
 HttpExecutor::HttpExecutor(std::string name, std::size_t worker_count)
     : name_(std::move(name)), worker_count_(std::max<std::size_t>(worker_count, 1)) {}
@@ -25,41 +25,52 @@ HttpExecutor::~HttpExecutor() {
 }
 
 void HttpExecutor::start() {
-    {
-        std::lock_guard<std::mutex> lk(mu_);
-        if (running_) {
-            return;
-        }
-        running_ = true;
-        stopping_ = false;
+    if (running_) {
+        return;
     }
+    // Fresh shared state for this start cycle (a previous stop() may have
+    // transferred ownership to detached workers that are still alive).
+    // std::atomic_store so concurrent submit() calls always read a complete
+    // pointer (shared_ptr copy is not atomic by itself).
+    std::atomic_store(&state_, std::make_shared<SharedState>());
+    running_ = true;
 
     workers_.reserve(worker_count_);
     for (std::size_t i = 0; i < worker_count_; ++i) {
-        auto w = std::make_unique<Worker>();
-        Worker* raw = w.get();
-        w->thread = std::thread([this, raw, i]() {
-            loop(i);
-            raw->done.store(true);
+        auto w = std::make_shared<Worker>();
+        auto state = std::atomic_load(&state_); // shared_ptr copy for the thread to hold
+        auto name = name_;
+        auto* owner = this;
+        w->thread = std::thread([state, w, owner, name, i]() {
+            loop(state, owner, name, i);
+            // Safe even if stop() has already cleared `workers_`: `w` is a
+            // captured shared_ptr, so the Worker object lives until the
+            // thread's lambda returns.
+            w->done.store(true);
         });
         workers_.push_back(std::move(w));
     }
 }
 
 void HttpExecutor::stop(std::chrono::milliseconds join_timeout) {
-    {
-        std::lock_guard<std::mutex> lk(mu_);
-        if (!running_) {
-            return;
-        }
-        running_ = false;
-        stopping_ = true;
+    if (!running_) {
+        return;
     }
-    cv_.notify_all();
+    running_ = false;
+
+    auto state = std::atomic_load(&state_);
+    if (state) {
+        {
+            std::lock_guard<std::mutex> lk(state->mu);
+            state->stopping = true;
+        }
+        state->cv.notify_all();
+    }
 
     // Wait for each worker to finish its in-flight item, up to join_timeout.
-    // Poll a per-worker done flag set at the end of loop() — lets us detach
-    // a worker that's stuck in a long HTTP call without blocking the others.
+    // Poll a per-worker done flag set at the end of the thread lambda — lets
+    // us detach a worker that's stuck in a long HTTP call without blocking
+    // the others.
     constexpr auto kPollInterval = std::chrono::milliseconds(10);
     auto deadline = std::chrono::steady_clock::now() + join_timeout;
     for (auto& w : workers_) {
@@ -80,57 +91,70 @@ void HttpExecutor::stop(std::chrono::milliseconds join_timeout) {
     workers_.clear();
 
     // Break promises on anything still queued. By this point submit() rejects
-    // new work (stopping_ is true under mu_), so the queue is stable.
-    std::deque<std::pair<HttpWork, std::promise<void>>> leftover;
-    {
-        std::lock_guard<std::mutex> lk(mu_);
-        leftover = std::move(queue_);
+    // new work (state->stopping is true under state->mu), so the queue is stable.
+    if (state) {
+        std::deque<std::pair<HttpWork, std::promise<void>>> leftover;
+        {
+            std::lock_guard<std::mutex> lk(state->mu);
+            leftover = std::move(state->queue);
+        }
+        // leftover's promises are dropped as it goes out of scope → broken_promise
+        // surfaces to anyone holding the futures.
     }
-    // leftover's promises are dropped as it goes out of scope → broken_promise
-    // surfaces to anyone holding the futures.
+
+    // Drop our handle to the shared state. Detached workers (if any) still
+    // hold their own shared_ptr and will release it when the thread exits.
+    std::atomic_store(&state_, std::shared_ptr<SharedState>{});
 }
 
 std::future<void> HttpExecutor::submit(HttpWork work) {
     std::promise<void> promise;
     auto fut = promise.get_future();
 
+    auto state = std::atomic_load(&state_);
+    if (!state) {
+        // Not started (or already stopped) — broken promise.
+        return fut;
+    }
+
     {
-        std::lock_guard<std::mutex> lk(mu_);
-        if (!running_ || stopping_) {
+        std::lock_guard<std::mutex> lk(state->mu);
+        if (state->stopping) {
             // Reject: drop the promise → broken_promise on future::get().
             return fut;
         }
-        queue_.emplace_back(std::move(work), std::move(promise));
+        state->queue.emplace_back(std::move(work), std::move(promise));
     }
-    cv_.notify_one();
+    state->cv.notify_one();
     return fut;
 }
 
 void HttpExecutor::run_sync(HttpWork work) {
     auto fut = submit(std::move(work));
-    fut.get();  // Throws std::future_error if stopped before running.
+    fut.get(); // Throws std::future_error if stopped before running.
 }
 
 bool HttpExecutor::on_thread() const noexcept {
     return tls_current_executor_ == this;
 }
 
-void HttpExecutor::loop(std::size_t worker_index) {
-    tls_current_executor_ = this;
-    spdlog::debug("[HttpExecutor:{}] worker {} started", name_, worker_index);
+void HttpExecutor::loop(std::shared_ptr<SharedState> state, HttpExecutor* owner, std::string name,
+                        std::size_t worker_index) {
+    tls_current_executor_ = owner;
+    spdlog::debug("[HttpExecutor:{}] worker {} started", name, worker_index);
 
     while (true) {
         std::pair<HttpWork, std::promise<void>> item;
         {
-            std::unique_lock<std::mutex> lk(mu_);
-            cv_.wait(lk, [this]() { return stopping_ || !queue_.empty(); });
+            std::unique_lock<std::mutex> lk(state->mu);
+            state->cv.wait(lk, [&state]() { return state->stopping || !state->queue.empty(); });
             // On stop, exit immediately regardless of remaining queue.
             // Leftover items have their promises broken by stop() afterward.
-            if (stopping_) {
+            if (state->stopping) {
                 break;
             }
-            item = std::move(queue_.front());
-            queue_.pop_front();
+            item = std::move(state->queue.front());
+            state->queue.pop_front();
         }
 
         try {
@@ -146,8 +170,12 @@ void HttpExecutor::loop(std::size_t worker_index) {
         }
     }
 
+    // NOTE: `owner` may already be destroyed by the time we reach here if
+    // stop() detached us. Clearing the TLS pointer via the stored address
+    // is still well-defined (we're writing to our own thread-local, not
+    // dereferencing `owner`).
     tls_current_executor_ = nullptr;
-    spdlog::debug("[HttpExecutor:{}] worker {} exiting", name_, worker_index);
+    spdlog::debug("[HttpExecutor:{}] worker {} exiting", name, worker_index);
 }
 
 // ---------------------------------------------------------------------------
@@ -180,4 +208,4 @@ void HttpExecutor::stop_all() {
     fast().stop();
 }
 
-}  // namespace helix::http
+} // namespace helix::http

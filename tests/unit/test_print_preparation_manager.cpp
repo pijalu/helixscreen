@@ -1172,6 +1172,13 @@ class MacroAnalysisRetryFixture {
     }
 
     ~MacroAnalysisRetryFixture() {
+        // Freeze the UpdateQueue: any background callbacks still in flight
+        // that try to enqueue new work during teardown are silently dropped.
+        // Closes the race where a late libhv response schedules a deferred
+        // retry just as we're tearing down the manager's state.
+        auto freeze =
+            helix::ui::UpdateQueue::instance().scoped_freeze("MacroAnalysisRetryFixture::~");
+
         // Clear server handlers BEFORE anything else — registered lambdas
         // capture `this`, so a late request arriving during teardown would
         // otherwise reference freed fixture state (SIGSEGV on eventloop CI).
@@ -1187,12 +1194,26 @@ class MacroAnalysisRetryFixture {
         api_.reset();
         client_.reset();
 
-        server_->stop();
-        server_.reset();
+        // Fully quiesce the server (joins libhv's HTTP worker threads) before
+        // we stop the client's event loop. Without the guard below, a libhv
+        // server-side handler callback can occasionally still be in flight on
+        // Linux/glibc when loop_thread_->stop(true) runs, leading to the
+        // thread dying while it holds call_times_mutex_ and later
+        // manifesting as `pthread_mutex_lock: Assertion e != ESRCH || !robust'.
+        if (server_) {
+            server_->stop();
+            server_.reset();
+        }
+        // Give libhv's server-side threads one more scheduler quantum to
+        // fully unwind any handler stack before we kill the client loop.
+        // 50ms is well below any timeout in these tests and harmless on fast
+        // machines; only relevant on slower Linux CI where the race opens up.
+        std::this_thread::sleep_for(std::chrono::milliseconds(50));
 
         loop_thread_->stop(true);
 
-        // Drain pending callbacks
+        // Drain pending callbacks (manager_ is still alive here, so any final
+        // deferred success/error lambda runs against a valid manager).
         UpdateQueueTestAccess::drain(helix::ui::UpdateQueue::instance());
 
         // Shutdown queue
@@ -1200,6 +1221,11 @@ class MacroAnalysisRetryFixture {
 
         // Reset static flag for next test [L053]
         queue_initialized = false;
+
+        // `freeze` goes out of scope here, just before member destructors run.
+        // manager_'s lifetime_ dtor will invalidate all outstanding tokens
+        // before call_times_mutex_ is destroyed — any token.defer() lambdas
+        // still queued (though we drained above) become no-ops.
     }
 
     /**

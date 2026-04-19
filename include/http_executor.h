@@ -31,7 +31,7 @@ using HttpWork = std::function<void()>;
 /// Public API mirrors helix::bluetooth::BusThread for consistency:
 /// submit/run_sync/stop/on_thread.
 class HttpExecutor {
-public:
+  public:
     /// Construct with a logging name and worker count. Worker count is
     /// clamped to >=1. Workers share a FIFO queue.
     HttpExecutor(std::string name, std::size_t worker_count);
@@ -79,27 +79,41 @@ public:
     bool on_thread() const noexcept;
 
     /// Process-wide executors.
-    static HttpExecutor& fast();  ///< REST/API/timelapse/thumbnails (4 workers)
-    static HttpExecutor& slow();  ///< large file transfers (1 worker)
-    static void start_all();      ///< called at app init
-    static void stop_all();       ///< called at app shutdown
+    static HttpExecutor& fast(); ///< REST/API/timelapse/thumbnails (4 workers)
+    static HttpExecutor& slow(); ///< large file transfers (1 worker)
+    static void start_all();     ///< called at app init
+    static void stop_all();      ///< called at app shutdown
 
-private:
+  private:
+    // Shared state held behind a shared_ptr so it survives past HttpExecutor
+    // destruction while any detached worker is still running. Without this,
+    // a worker stuck in a long HTTP call (that stop() gave up on and detached)
+    // would wake up and attempt to re-acquire `mu` on a destroyed mutex
+    // (EINVAL → std::system_error → terminate). See fix notes on the
+    // `HttpExecutor: stop with timeout detaches stuck worker` test.
+    struct SharedState {
+        std::mutex mu;
+        std::condition_variable cv;
+        std::deque<std::pair<HttpWork, std::promise<void>>> queue;
+        bool stopping = false; // guarded by mu
+    };
+
     struct Worker {
         std::thread thread;
         std::atomic<bool> done{false};
     };
 
-    void loop(std::size_t worker_index);
+    static void loop(std::shared_ptr<SharedState> state, HttpExecutor* owner, std::string name,
+                     std::size_t worker_index);
 
     std::string name_;
     std::size_t worker_count_;
-    std::vector<std::unique_ptr<Worker>> workers_;
-    mutable std::mutex mu_;
-    std::condition_variable cv_;
-    std::deque<std::pair<HttpWork, std::promise<void>>> queue_;
-    bool running_ = false;   // guarded by mu_
-    bool stopping_ = false;  // guarded by mu_
+    std::shared_ptr<SharedState> state_;
+    // Workers are shared_ptr so detached threads keep their Worker alive
+    // (the thread's final `done.store(true)` would otherwise UAF the raw
+    // pointer after stop() clears `workers_`).
+    std::vector<std::shared_ptr<Worker>> workers_;
+    bool running_ = false; // main-thread only; guarded by start/stop sequencing
 };
 
-}  // namespace helix::http
+} // namespace helix::http

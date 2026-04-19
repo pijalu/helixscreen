@@ -50,7 +50,7 @@ TEST_CASE("HttpExecutor: run_sync blocks until work completes", "[http_executor]
         std::this_thread::sleep_for(20ms);
         counter.store(42);
     });
-    REQUIRE(counter.load() == 42);  // If run_sync returns before work, this fails.
+    REQUIRE(counter.load() == 42); // If run_sync returns before work, this fails.
 
     ex.stop();
 }
@@ -70,7 +70,8 @@ TEST_CASE("HttpExecutor: concurrent submits run FIFO on single worker", "[http_e
             order.push_back(i);
         }));
     }
-    for (auto& f : futs) f.wait();
+    for (auto& f : futs)
+        f.wait();
 
     REQUIRE(order.size() == 10);
     for (int i = 0; i < 10; ++i) {
@@ -98,10 +99,10 @@ TEST_CASE("HttpExecutor: stop drains in-flight and breaks pending promises",
         pending.push_back(ex.submit([]() { std::this_thread::sleep_for(50ms); }));
     }
 
-    std::this_thread::sleep_for(5ms);  // Let the worker pick up the in-flight one.
+    std::this_thread::sleep_for(5ms); // Let the worker pick up the in-flight one.
     ex.stop();
 
-    REQUIRE(inflight_done.load());  // In-flight item drained.
+    REQUIRE(inflight_done.load()); // In-flight item drained.
 
     // Pending items get a broken promise — future::wait() returns, but ::get()
     // throws std::future_error(broken_promise).
@@ -120,7 +121,7 @@ TEST_CASE("HttpExecutor: on_thread detects worker vs caller", "[http_executor][s
     HttpExecutor ex("test", 1);
     ex.start();
 
-    REQUIRE_FALSE(ex.on_thread());  // Called from test thread.
+    REQUIRE_FALSE(ex.on_thread()); // Called from test thread.
 
     std::atomic<bool> seen{false};
     ex.run_sync([&]() { seen.store(ex.on_thread()); });
@@ -135,12 +136,11 @@ TEST_CASE("HttpExecutor: destructor calls stop automatically", "[http_executor][
         HttpExecutor ex("test", 1);
         ex.start();
         ex.submit([&]() { ran.store(true); }).wait();
-    }  // Destructor must stop/join cleanly.
+    } // Destructor must stop/join cleanly.
     REQUIRE(ran.load());
 }
 
-TEST_CASE("HttpExecutor: submit from inside work item does not deadlock",
-          "[http_executor][slow]") {
+TEST_CASE("HttpExecutor: submit from inside work item does not deadlock", "[http_executor][slow]") {
     HttpExecutor ex("test", 1);
     ex.start();
 
@@ -170,8 +170,7 @@ TEST_CASE("HttpExecutor: submit from inside work item does not deadlock",
     ex.stop();
 }
 
-TEST_CASE("HttpExecutor: multi-worker runs items concurrently",
-          "[http_executor][slow]") {
+TEST_CASE("HttpExecutor: multi-worker runs items concurrently", "[http_executor][slow]") {
     HttpExecutor ex("test", 4);
     ex.start();
 
@@ -183,7 +182,8 @@ TEST_CASE("HttpExecutor: multi-worker runs items concurrently",
     for (int i = 0; i < 4; ++i) {
         futs.push_back(ex.submit([]() { std::this_thread::sleep_for(50ms); }));
     }
-    for (auto& f : futs) f.wait();
+    for (auto& f : futs)
+        f.wait();
     auto elapsed = std::chrono::steady_clock::now() - t0;
 
     REQUIRE(elapsed < 120ms);
@@ -191,8 +191,7 @@ TEST_CASE("HttpExecutor: multi-worker runs items concurrently",
     ex.stop();
 }
 
-TEST_CASE("HttpExecutor: submit from multiple threads is safe",
-          "[http_executor][slow]") {
+TEST_CASE("HttpExecutor: submit from multiple threads is safe", "[http_executor][slow]") {
     HttpExecutor ex("test", 2);
     ex.start();
 
@@ -205,7 +204,8 @@ TEST_CASE("HttpExecutor: submit from multiple threads is safe",
             }
         });
     }
-    for (auto& t : producers) t.join();
+    for (auto& t : producers)
+        t.join();
 
     // Drain with a final run_sync — guarantees all prior submits have run.
     ex.run_sync([]() {});
@@ -241,29 +241,50 @@ TEST_CASE("HttpExecutor: on_thread distinguishes separate executor instances",
     b.stop();
 }
 
-TEST_CASE("HttpExecutor: stop with timeout detaches stuck worker",
-          "[http_executor][slow]") {
+TEST_CASE("HttpExecutor: stop with timeout detaches stuck worker", "[http_executor][slow]") {
+    // Controllable block instead of a raw 30s sleep: the worker waits on a
+    // shared condition_variable we release at the end of the test. A prior
+    // version used `sleep_for(30s)`, which left a detached worker bomb that
+    // fired during a later test's fixture (UAF via shared_ptr<SharedState>
+    // now; previously an EINVAL mutex-lock crash).
+    struct Gate {
+        std::mutex mu;
+        std::condition_variable cv;
+        bool go = false;
+    };
+    auto gate = std::make_shared<Gate>();
+
     HttpExecutor ex("test", 1);
     ex.start();
 
-    // Launch an item that sleeps way longer than the stop timeout.
-    // We don't hold onto the future (it will be dropped as a broken
-    // promise when the worker is detached before reaching set_value).
-    (void)ex.submit([]() { std::this_thread::sleep_for(std::chrono::seconds(30)); });
-    std::this_thread::sleep_for(10ms);  // Let worker pick it up.
+    (void)ex.submit([gate]() {
+        std::unique_lock<std::mutex> lk(gate->mu);
+        gate->cv.wait(lk, [&]() { return gate->go; });
+    });
+    std::this_thread::sleep_for(10ms); // Let worker pick it up.
 
-    // stop() should return quickly via the detach path, not block 30s.
+    // stop() should return quickly via the detach path, not block until the
+    // worker finishes.
     auto t0 = std::chrono::steady_clock::now();
     ex.stop(50ms);
     auto elapsed = std::chrono::steady_clock::now() - t0;
 
-    REQUIRE(elapsed < 500ms);  // Generous: 50ms timeout + poll + detach overhead.
+    REQUIRE(elapsed < 500ms); // Generous: 50ms timeout + poll + detach overhead.
+
+    // Release the detached worker so it exits cleanly instead of lingering
+    // until process teardown. SharedState keeps the mutex/cv alive via the
+    // worker's shared_ptr, so re-entering the loop body after the lambda
+    // returns is safe even though `ex` may have been destroyed by then.
+    {
+        std::lock_guard<std::mutex> lk(gate->mu);
+        gate->go = true;
+    }
+    gate->cv.notify_all();
 }
 
-TEST_CASE("HttpExecutor: singletons are usable and idempotent",
-          "[http_executor][slow]") {
+TEST_CASE("HttpExecutor: singletons are usable and idempotent", "[http_executor][slow]") {
     HttpExecutor::start_all();
-    HttpExecutor::start_all();  // Idempotent.
+    HttpExecutor::start_all(); // Idempotent.
 
     std::atomic<int> fast_runs{0};
     std::atomic<int> slow_runs{0};
@@ -273,15 +294,14 @@ TEST_CASE("HttpExecutor: singletons are usable and idempotent",
     REQUIRE(slow_runs.load() == 1);
 
     HttpExecutor::stop_all();
-    HttpExecutor::stop_all();  // Idempotent.
+    HttpExecutor::stop_all(); // Idempotent.
 
     // After stop_all, submits reject. Restart so we don't poison other tests.
     HttpExecutor::start_all();
     HttpExecutor::stop_all();
 }
 
-TEST_CASE("HttpExecutor: submit after stop breaks promise immediately",
-          "[http_executor][slow]") {
+TEST_CASE("HttpExecutor: submit after stop breaks promise immediately", "[http_executor][slow]") {
     HttpExecutor ex("test", 1);
     ex.start();
     ex.stop();
@@ -300,14 +320,14 @@ TEST_CASE("HttpExecutor: stop is idempotent", "[http_executor][slow]") {
     HttpExecutor ex("test", 1);
     ex.start();
     ex.stop();
-    ex.stop();  // Must not crash or hang.
+    ex.stop(); // Must not crash or hang.
     SUCCEED();
 }
 
 TEST_CASE("HttpExecutor: start is idempotent", "[http_executor][slow]") {
     HttpExecutor ex("test", 1);
     ex.start();
-    ex.start();  // Must not spawn a second worker.
+    ex.start(); // Must not spawn a second worker.
 
     std::atomic<int> calls{0};
     ex.run_sync([&]() { calls.fetch_add(1); });
@@ -316,8 +336,7 @@ TEST_CASE("HttpExecutor: start is idempotent", "[http_executor][slow]") {
     ex.stop();
 }
 
-TEST_CASE("HttpExecutor: exception in work item does not kill worker",
-          "[http_executor][slow]") {
+TEST_CASE("HttpExecutor: exception in work item does not kill worker", "[http_executor][slow]") {
     HttpExecutor ex("test", 1);
     ex.start();
 
