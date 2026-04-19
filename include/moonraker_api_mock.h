@@ -599,6 +599,10 @@ class MoonrakerAPIMock : public MoonrakerAPI {
     void mock_set_db_value(const std::string& namespace_name, const std::string& key,
                            const nlohmann::json& value);
 
+    /// Ensure a namespace/key is absent from the mock database so subsequent
+    /// database_get_item() calls route to on_error.
+    void set_database_empty(const std::string& namespace_name, const std::string& key);
+
   private:
     // Shared mock state for coordination with MoonrakerClientMock
     std::shared_ptr<MockPrinterState> mock_state_;

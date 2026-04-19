@@ -1,9 +1,14 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "../catch_amalgamated.hpp"
 #include "filament_slot_override.h"
+#include "filament_slot_override_store.h"
 #include "hv/json.hpp"
+#include "moonraker_api_mock.h"
+#include "moonraker_client_mock.h"
+#include "printer_state.h"
 
 using helix::ams::FilamentSlotOverride;
+using helix::ams::FilamentSlotOverrideStore;
 using nlohmann::json;
 
 TEST_CASE("FilamentSlotOverride roundtrips through JSON", "[filament_slot_override]") {
@@ -32,4 +37,17 @@ TEST_CASE("FilamentSlotOverride roundtrips through JSON", "[filament_slot_overri
     CHECK(round.color_name == ovr.color_name);
     CHECK(round.material == ovr.material);
     CHECK(round.updated_at == ovr.updated_at);
+}
+
+TEST_CASE("FilamentSlotOverrideStore load returns empty when namespace absent",
+          "[filament_slot_override][slow]") {
+    MoonrakerClientMock client(MoonrakerClientMock::PrinterType::VORON_24);
+    helix::PrinterState state;
+    state.init_subjects(false);
+    MoonrakerAPIMock api(client, state);
+    api.set_database_empty("filament_slots", "ifs:slots");
+    FilamentSlotOverrideStore store(&api, "ifs");
+
+    auto overrides = store.load_blocking();
+    CHECK(overrides.empty());
 }

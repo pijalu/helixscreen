@@ -170,6 +170,11 @@ void MoonrakerAPIMock::mock_set_db_value(const std::string& namespace_name, cons
     mock_db_[namespace_name + ":" + key] = value;
 }
 
+void MoonrakerAPIMock::set_database_empty(const std::string& namespace_name,
+                                          const std::string& key) {
+    mock_db_.erase(namespace_name + ":" + key);
+}
+
 void MoonrakerAPIMock::database_post_item(const std::string& namespace_name, const std::string& key,
                                           const json& value, std::function<void()> on_success,
                                           ErrorCallback /*on_error*/) {

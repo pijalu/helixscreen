@@ -1,9 +1,12 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "filament_slot_override.h"
+#include "filament_slot_override_store.h"
+#include "i_moonraker_api.h"
 
 #include <ctime>
 #include <iomanip>
 #include <sstream>
+#include <utility>
 
 namespace helix::ams {
 
@@ -54,6 +57,33 @@ FilamentSlotOverride from_json(const nlohmann::json& j) {
         o.updated_at = parse_iso8601(j["updated_at"].get<std::string>());
     }
     return o;
+}
+
+// ============================================================================
+// FilamentSlotOverrideStore skeleton (Task 2). Real load/save wiring lands
+// in Tasks 3-5; this skeleton exists so other components can depend on the
+// class shape now.
+// ============================================================================
+
+FilamentSlotOverrideStore::FilamentSlotOverrideStore(IMoonrakerAPI* api, std::string backend_id)
+    : api_(api), backend_id_(std::move(backend_id)) {}
+
+std::unordered_map<int, FilamentSlotOverride> FilamentSlotOverrideStore::load_blocking() {
+    return {};
+}
+
+void FilamentSlotOverrideStore::save_async(int /*slot_index*/,
+                                           const FilamentSlotOverride& /*override*/,
+                                           SaveCallback cb) {
+    if (cb) {
+        cb(false, "not implemented");
+    }
+}
+
+void FilamentSlotOverrideStore::clear_async(int /*slot_index*/, SaveCallback cb) {
+    if (cb) {
+        cb(false, "not implemented");
+    }
 }
 
 }  // namespace helix::ams
