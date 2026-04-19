@@ -638,6 +638,32 @@ class MoonrakerAPIMock : public MoonrakerAPI {
     void mock_reject_next_db_delete();
     void mock_reject_next_db_delete(MoonrakerError err);
 
+    /// Cause the next database_post_item() call to capture its callbacks without
+    /// firing them. The captured callbacks can later be fired via
+    /// fire_deferred_db_post_success() or fire_deferred_db_post_error(err).
+    /// Used to simulate the "callback fires after caller destroyed" window so
+    /// tests can prove the caller's lifetime discipline (value-capture + shared
+    /// state) actually prevents UAF.
+    /// When deferred, the mock also skips writing to the DB until the success
+    /// callback fires — matching real-API semantics (no durable state until ACK).
+    /// If fire_deferred_*() is called with no captured callbacks, it is a no-op.
+    /// Not thread-safe: call from the main test thread.
+    void mock_defer_next_db_post();
+    void fire_deferred_db_post_success();
+    void fire_deferred_db_post_error(MoonrakerError err);
+
+    /// Same mechanism for database_delete_item(). When deferred, the mock also
+    /// skips erasing from the DB until the success callback fires.
+    void mock_defer_next_db_delete();
+    void fire_deferred_db_delete_success();
+    void fire_deferred_db_delete_error(MoonrakerError err);
+
+    /// Same mechanism for database_get_namespace() (NOT database_get_item()).
+    /// Used to exercise load_blocking()'s cv.wait_for timeout path.
+    void mock_defer_next_db_get();
+    void fire_deferred_db_get_success(const nlohmann::json& value);
+    void fire_deferred_db_get_error(MoonrakerError err);
+
     /// Ensure a namespace/key is absent from the mock database so subsequent
     /// database_get_item() calls route to on_error.
     void set_database_empty(const std::string& namespace_name, const std::string& key);
@@ -660,4 +686,28 @@ class MoonrakerAPIMock : public MoonrakerAPI {
 
     /// One-shot rejection for database_delete_item (set by mock_reject_next_db_delete).
     std::optional<MoonrakerError> next_db_delete_rejection_;
+
+    // One-shot deferred captures. Post/delete share the same shape (void()
+    // success, error with MoonrakerError). Get captures a nlohmann::json value.
+    struct DeferredDbPost {
+        std::function<void()> on_success;
+        std::function<void(const MoonrakerError&)> on_error;
+        // Post/delete need the captured write/erase info so fire_*_success can
+        // apply the same DB mutation the synchronous path would have applied.
+        std::string namespace_name;
+        std::string key;
+        nlohmann::json value; // unused for delete
+        bool is_delete = false;
+    };
+    struct DeferredDbGet {
+        std::function<void(const nlohmann::json&)> on_success;
+        std::function<void(const MoonrakerError&)> on_error;
+        std::string namespace_name;
+    };
+    bool defer_next_db_post_ = false;
+    std::optional<DeferredDbPost> deferred_db_post_;
+    bool defer_next_db_delete_ = false;
+    std::optional<DeferredDbPost> deferred_db_delete_;
+    bool defer_next_db_get_ = false;
+    std::optional<DeferredDbGet> deferred_db_get_;
 };

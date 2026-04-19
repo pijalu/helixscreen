@@ -167,11 +167,12 @@ std::unordered_map<int, FilamentSlotOverride> FilamentSlotOverrideStore::load_bl
     std::unordered_map<int, FilamentSlotOverride> result;
     if (!api_) return result;
 
-    // Wrap sync state in shared_ptr so callbacks firing after our 5s local
-    // timeout don't touch a freed stack frame. Moonraker's request tracker has
-    // its own ~60s boundary, so an error callback can fire ~55s after we've
-    // already returned. Captured by value, the shared_ptr keeps the state
-    // alive for the orphaned callback to flip done/got harmlessly.
+    // Wrap sync state in shared_ptr so callbacks firing after our local
+    // cv.wait_for timeout (load_timeout_, default 5s) don't touch a freed
+    // stack frame. Moonraker's request tracker has its own ~60s boundary,
+    // so an error callback can fire well after we've already returned.
+    // Captured by value, the shared_ptr keeps the state alive for the
+    // orphaned callback to flip done/got harmlessly.
     // (Same pattern as AmsBackendAce::poll_info in src/printer/ams_backend_ace.cpp)
     struct SyncState {
         std::mutex m;
@@ -206,7 +207,7 @@ std::unordered_map<int, FilamentSlotOverride> FilamentSlotOverrideStore::load_bl
 
     {
         std::unique_lock<std::mutex> lk(state->m);
-        state->cv.wait_for(lk, std::chrono::seconds(5), [state] { return state->done; });
+        state->cv.wait_for(lk, load_timeout_, [state] { return state->done; });
     }
 
     if (!state->got || !state->received.is_object()) return result;

@@ -7,9 +7,22 @@
 #include "moonraker_client_mock.h"
 #include "printer_state.h"
 
+#include <chrono>
+
 using helix::ams::FilamentSlotOverride;
 using helix::ams::FilamentSlotOverrideStore;
 using nlohmann::json;
+
+// Grants tests access to private tunables on FilamentSlotOverrideStore.
+// Declared friend in the header (per L065: prefer friend-class over test-only
+// public setters on production classes).
+class FilamentSlotOverrideStoreTestAccess {
+  public:
+    static void set_load_timeout(helix::ams::FilamentSlotOverrideStore& store,
+                                 std::chrono::milliseconds ms) {
+        store.load_timeout_ = ms;
+    }
+};
 
 TEST_CASE("FilamentSlotOverride roundtrips through JSON", "[filament_slot_override]") {
     FilamentSlotOverride ovr;
@@ -386,4 +399,172 @@ TEST_CASE("FilamentSlotOverrideStore clear_async maps message-based missing-key 
     });
     REQUIRE(cb_done);
     CHECK(cb_ok); // "not found" substring → treated as success
+}
+
+// ============================================================================
+// Lifetime safety: callback fires after store destroyed (no use-after-free).
+//
+// The store's async paths capture only value-copied strings + the user's
+// callback — never `this`. These tests prove that discipline: a deferred
+// callback is fired AFTER the store has been destroyed. If a future edit
+// accidentally captured `this` (or any ref to a store member), this would
+// UAF under ASan. With the correct discipline, it must be harmless.
+// ============================================================================
+
+TEST_CASE("FilamentSlotOverrideStore save_async callback fires after store destroyed (no UAF)",
+          "[filament_slot_override][slow][lifetime]") {
+    MoonrakerClientMock client(MoonrakerClientMock::PrinterType::VORON_24);
+    helix::PrinterState state;
+    state.init_subjects(false);
+    MoonrakerAPIMock api(client, state);
+
+    api.mock_defer_next_db_post();
+
+    bool cb_fired = false;
+    {
+        FilamentSlotOverrideStore store(&api, "ifs");
+        FilamentSlotOverride ovr;
+        ovr.brand = "Polymaker";
+        store.save_async(0, ovr, [&](bool, std::string) { cb_fired = true; });
+        // Store goes out of scope here; the deferred callback has NOT yet fired.
+    }
+
+    // Now fire the captured success callback. If save_async captured `this` by
+    // reference anywhere, this would UAF under ASan. With value-capture
+    // discipline, it must be harmless.
+    api.fire_deferred_db_post_success();
+    CHECK(cb_fired); // user callback still fires — captured by value into the lambda
+}
+
+TEST_CASE("FilamentSlotOverrideStore clear_async callback fires after store destroyed (no UAF)",
+          "[filament_slot_override][slow][lifetime]") {
+    MoonrakerClientMock client(MoonrakerClientMock::PrinterType::VORON_24);
+    helix::PrinterState state;
+    state.init_subjects(false);
+    MoonrakerAPIMock api(client, state);
+
+    api.mock_defer_next_db_delete();
+
+    bool cb_fired = false;
+    {
+        FilamentSlotOverrideStore store(&api, "ifs");
+        store.clear_async(0, [&](bool, std::string) { cb_fired = true; });
+    }
+
+    api.fire_deferred_db_delete_success();
+    CHECK(cb_fired);
+}
+
+TEST_CASE("FilamentSlotOverrideStore save_async error callback fires after store destroyed (no UAF)",
+          "[filament_slot_override][slow][lifetime]") {
+    MoonrakerClientMock client(MoonrakerClientMock::PrinterType::VORON_24);
+    helix::PrinterState state;
+    state.init_subjects(false);
+    MoonrakerAPIMock api(client, state);
+
+    api.mock_defer_next_db_post();
+
+    bool cb_fired = false;
+    bool cb_ok = true;
+    {
+        FilamentSlotOverrideStore store(&api, "ifs");
+        FilamentSlotOverride ovr;
+        store.save_async(0, ovr, [&](bool ok, std::string) {
+            cb_ok = ok;
+            cb_fired = true;
+        });
+    }
+
+    // Fire the ERROR path after destruction. This is where the spdlog::warn
+    // lambda runs — if it captured `this` or accessed a freed member, we'd
+    // crash here. The backend_id_copy + key value-capture make this harmless.
+    MoonrakerError err;
+    err.code = 500;
+    err.message = "internal";
+    api.fire_deferred_db_post_error(err);
+
+    CHECK(cb_fired);
+    CHECK(!cb_ok);
+}
+
+// ============================================================================
+// load_blocking() cv.wait_for timeout path.
+//
+// Uses mock_defer_next_db_get() so the namespace GET never completes, forcing
+// load_blocking()'s 5s (default) wait to hit its timeout. Overrides the
+// timeout to 50ms via the test-access friend class so the test runs fast.
+// ============================================================================
+
+TEST_CASE("FilamentSlotOverrideStore load_blocking returns empty on timeout",
+          "[filament_slot_override][slow]") {
+    MoonrakerClientMock client(MoonrakerClientMock::PrinterType::VORON_24);
+    helix::PrinterState state;
+    state.init_subjects(false);
+    MoonrakerAPIMock api(client, state);
+
+    api.mock_defer_next_db_get(); // namespace GET never completes
+
+    FilamentSlotOverrideStore store(&api, "ifs");
+    FilamentSlotOverrideStoreTestAccess::set_load_timeout(store, std::chrono::milliseconds(50));
+
+    auto before = std::chrono::steady_clock::now();
+    auto overrides = store.load_blocking();
+    auto elapsed = std::chrono::steady_clock::now() - before;
+
+    CHECK(overrides.empty());
+    CHECK(elapsed >= std::chrono::milliseconds(50));
+    CHECK(elapsed < std::chrono::milliseconds(500)); // didn't hang at 5s default
+
+    // Clean up: fire the deferred callback so the mock's internal state is
+    // tidy before the test exits. The shared_ptr-captured state makes this a
+    // harmless flip-of-flags on a now-orphaned structure — matching what would
+    // happen if a real Moonraker error fired ~55s after we timed out.
+    api.fire_deferred_db_get_error(MoonrakerError{});
+}
+
+// ============================================================================
+// Malformed-data robustness: Moonraker's lane_data namespace could legitimately
+// contain non-lane-prefixed keys (AFC metadata) or even corrupt non-object
+// values (mis-seeded by another tool). The store must not crash, must skip
+// such entries, and must return a clean best-effort result.
+// ============================================================================
+
+TEST_CASE("FilamentSlotOverrideStore load_blocking handles non-object namespace value",
+          "[filament_slot_override][slow]") {
+    MoonrakerClientMock client(MoonrakerClientMock::PrinterType::VORON_24);
+    helix::PrinterState state;
+    state.init_subjects(false);
+    MoonrakerAPIMock api(client, state);
+
+    // Seed the namespace with a non-object (string) value under a lane-prefixed
+    // key — malformed. from_lane_data_record guards on !is_object() and returns
+    // nullopt, so the entry is silently skipped.
+    api.mock_set_db_value("lane_data", "lane1", nlohmann::json("not an object"));
+
+    FilamentSlotOverrideStore store(&api, "ifs");
+    auto overrides = store.load_blocking();
+    CHECK(overrides.empty());
+}
+
+TEST_CASE("FilamentSlotOverrideStore load_blocking skips non-lane-prefixed keys",
+          "[filament_slot_override][slow]") {
+    MoonrakerClientMock client(MoonrakerClientMock::PrinterType::VORON_24);
+    helix::PrinterState state;
+    state.init_subjects(false);
+    MoonrakerAPIMock api(client, state);
+
+    // An AFC printer might store config metadata at non-lane keys alongside our
+    // entries. Verify we ignore them without crashing. The prefix filter in
+    // load_blocking() (key.rfind("lane", 0) != 0) should drop "metadata".
+    api.mock_set_db_value("lane_data", "metadata",
+                          nlohmann::json{{"version", 1}, {"note", "AFC config"}});
+    api.mock_set_db_value("lane_data", "lane1",
+                          nlohmann::json{{"lane", "0"}, {"material", "PLA"}});
+
+    FilamentSlotOverrideStore store(&api, "ifs");
+    auto overrides = store.load_blocking();
+
+    REQUIRE(overrides.count(0) == 1);
+    CHECK(overrides[0].material == "PLA");
+    CHECK(overrides.size() == 1); // metadata key did not leak in
 }
