@@ -30,7 +30,7 @@ Fast, beautiful, and built for every Klipper printer — from a Creality K1 to a
 
 - **Customizable dashboard** — Multi-page grid with drag-to-reposition, edge resize, and 30+ widgets including temperature graphs, fan arcs, and power toggles
 - **Every feature at your fingertips** — 30+ panels, 20+ overlays, 20+ modals, 280+ XML layouts
-- **Runs on anything** — ~15MB RAM, from a Creality K1 to a Raspberry Pi 5
+- **Runs on anything** — ~13MB RAM, from a Creality K1 to a Raspberry Pi 5
 - **70+ printers in the database** — Auto-detects your hardware and configures itself
 - **Multi-material ready** — AFC, Happy Hare, ACE, AD5X IFS, CFS, tool changers, Spoolman
 - **Exclude objects** — Tap-to-exclude overhead map view with object outlines during prints
@@ -45,7 +45,7 @@ Fast, beautiful, and built for every Klipper printer — from a Creality K1 to a
 |---------|-------------|-------------|---------------|
 | UI Framework | LVGL 9 XML | LVGL 8 C | GTK 3 (Python) |
 | Declarative UI | Full XML with reactive bindings | C only | Python only |
-| RAM Usage | ~15MB | ~15-20MB | ~50MB |
+| RAM Usage | ~13MB | ~15-20MB | ~50MB |
 | Disk Size | ~75-115MB | ~60-80MB | ~50MB |
 | Multi-Material | 6 backends | Limited | Basic |
 | Printer Database | 70+ models | — | Manual config |
@@ -187,7 +187,7 @@ See [docs/devel/DEVELOPMENT.md](docs/devel/DEVELOPMENT.md) for detailed setup, c
 ## FAQ
 
 **How is this different from GuppyScreen/KlipperScreen?**
-More features, less resource usage (~15MB RAM vs ~50MB for KlipperScreen), and actively developed. See the [comparison table](#why-helixscreen).
+More features, less resource usage (~13MB RAM vs ~50MB for KlipperScreen), and actively developed. See the [comparison table](#why-helixscreen).
 
 **Which printers are supported?**
 Any Klipper + Moonraker printer. 70+ models in the auto-detection database spanning Voron, Creality, QIDI, Anycubic, Flashforge, Sovol, RatRig, FLSUN, Elegoo, Prusa, and more. The wizard auto-discovers your printer's capabilities even if it's not in the database.

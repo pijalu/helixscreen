@@ -18,7 +18,7 @@ HelixScreen is a touchscreen interface for Klipper 3D printers. It connects to y
 - Theme editor with 17 presets (dark and light), 9 languages
 - Sound system, timelapse integration, label printing, exclude objects
 - Auto-detecting layout system for displays from 480x320 to 1920x480
-- ~15MB RAM — designed for embedded displays, no desktop required
+- ~13MB RAM — designed for embedded displays, no desktop required
 
 ### Which printers are supported?
 
@@ -69,14 +69,14 @@ If you test on hardware not listed above, please let us know your results!
 | **UI Framework** | LVGL 9 XML | GTK 3 (Python) | LVGL 8 (C) |
 | **Declarative UI** | Full XML | Python only | C only |
 | **Disk Size** | ~75-115MB | ~50MB | ~60-80MB |
-| **RAM Usage** | ~15MB | ~50MB | ~15-20MB |
+| **RAM Usage** | ~13MB | ~50MB | ~15-20MB |
 | **Reactive Binding** | Built-in | Manual | Manual |
 | **3D G-code preview** | Yes | 2D layers | No |
 | **3D bed mesh** | Yes | 2D heatmap | 2D heatmap |
 | **Status** | Pre-1.0 (active) | Mature (maintenance) | Unmaintained |
 
 **HelixScreen advantages:**
-- Low memory footprint (~15MB vs ~50MB for KlipperScreen)
+- Low memory footprint (~13MB vs ~50MB for KlipperScreen)
 - Declarative XML layouts (change UI without recompiling)
 - Modern reactive architecture with 6 multi-material backends
 - 3D visualizations (G-code preview, bed mesh)
