@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
+#include "data_root_resolver.h"
 #include "filament_slot_override.h"
 #include "filament_slot_override_store.h"
 #include "i_moonraker_api.h"
@@ -10,11 +11,14 @@
 #include <condition_variable>
 #include <cstdio>
 #include <ctime>
+#include <filesystem>
+#include <fstream>
 #include <iomanip>
 #include <memory>
 #include <mutex>
 #include <optional>
 #include <sstream>
+#include <system_error>
 #include <utility>
 
 namespace helix::ams {
@@ -120,6 +124,87 @@ from_lane_data_record(const nlohmann::json& j) {
     return std::make_pair(slot_index, o);
 }
 
+// Update the on-disk cache file with the current state of one slot.
+//
+// Intentionally a free function, NOT a member — it's called from the success
+// lambdas of save_async / clear_async, which must NOT capture `this`. The
+// store may be destroyed before Moonraker's callback fires (the whole point
+// of the lifetime discipline elsewhere in this file), so the cache write
+// must work from value-captured locals only.
+//
+// Behavior:
+// - Reads the existing cache file (if present). Parse failures are logged at
+//   warn and treated as "start fresh" — a corrupt cache MUST NOT fail the
+//   save call, because the MR DB write already succeeded (source of truth).
+// - Ensures doc["version"] == 1 and doc[backend_id]["slots"] is an object.
+// - If `ovr` is non-null: writes doc[backend_id]["slots"][slot_index] = to_json(*ovr).
+// - If `ovr` is null: erases doc[backend_id]["slots"][slot_index] (clear path).
+// - Writes atomically via tmp file + rename. Any IO failure is logged at warn
+//   but does NOT propagate to the caller.
+void write_cache_slot(const std::filesystem::path& cache_path,
+                      const std::string& backend_id,
+                      int slot_index,
+                      const FilamentSlotOverride* ovr) {
+    nlohmann::json doc = nlohmann::json::object();
+    std::error_code ec;
+    if (std::filesystem::exists(cache_path, ec)) {
+        std::ifstream in(cache_path);
+        if (in) {
+            try {
+                doc = nlohmann::json::parse(in);
+                if (!doc.is_object()) doc = nlohmann::json::object();
+            } catch (const std::exception& e) {
+                spdlog::warn("[FilamentSlotOverrideStore] cache parse failed "
+                             "({}), starting fresh: {}",
+                             cache_path.string(), e.what());
+                doc = nlohmann::json::object();
+            }
+        }
+    }
+
+    doc["version"] = 1;
+    if (!doc.contains(backend_id) || !doc[backend_id].is_object()) {
+        doc[backend_id] = nlohmann::json::object();
+    }
+    if (!doc[backend_id].contains("slots") || !doc[backend_id]["slots"].is_object()) {
+        doc[backend_id]["slots"] = nlohmann::json::object();
+    }
+
+    const std::string key = std::to_string(slot_index);
+    if (ovr != nullptr) {
+        doc[backend_id]["slots"][key] = to_json(*ovr);
+    } else {
+        doc[backend_id]["slots"].erase(key);
+    }
+
+    // Atomic write: tmp file + rename. POSIX rename is atomic within a fs.
+    std::filesystem::path tmp = cache_path;
+    tmp += ".tmp";
+    {
+        std::ofstream out(tmp, std::ios::trunc);
+        if (!out) {
+            spdlog::warn("[FilamentSlotOverrideStore] cache write failed: "
+                         "cannot open {} for writing", tmp.string());
+            return;
+        }
+        out << doc.dump(2);
+        if (!out) {
+            spdlog::warn("[FilamentSlotOverrideStore] cache write failed: "
+                         "error writing to {}", tmp.string());
+            return;
+        }
+    } // ofstream closed here, buffers flushed, before rename
+
+    std::filesystem::rename(tmp, cache_path, ec);
+    if (ec) {
+        spdlog::warn("[FilamentSlotOverrideStore] cache rename failed ({} -> {}): {}",
+                     tmp.string(), cache_path.string(), ec.message());
+        // Best-effort cleanup of the orphan tmp — ignore errors.
+        std::error_code rm_ec;
+        std::filesystem::remove(tmp, rm_ec);
+    }
+}
+
 } // namespace
 
 nlohmann::json to_json(const FilamentSlotOverride& o) {
@@ -162,6 +247,12 @@ FilamentSlotOverride from_json(const nlohmann::json& j) {
 
 FilamentSlotOverrideStore::FilamentSlotOverrideStore(IMoonrakerAPI* api, std::string backend_id)
     : api_(api), backend_id_(std::move(backend_id)) {}
+
+std::filesystem::path FilamentSlotOverrideStore::cache_path() const {
+    std::filesystem::path dir =
+        cache_dir_.empty() ? std::filesystem::path(helix::get_user_config_dir()) : cache_dir_;
+    return dir / "filament_slot_overrides.json";
+}
 
 std::unordered_map<int, FilamentSlotOverride> FilamentSlotOverrideStore::load_blocking() {
     std::unordered_map<int, FilamentSlotOverride> result;
@@ -254,10 +345,18 @@ void FilamentSlotOverrideStore::save_async(int slot_index,
     // well after save_async returns (default ~60s timeout). The store may be
     // destroyed in the meantime (backend swap, reconnect). Do NOT capture
     // `this` — only value-captured copies, which keep the lambda self-contained.
+    // cache_path_copy + stamped are captured into the success lambda so the
+    // cache write (write_cache_slot, a free function) runs with no `this`.
     const std::string backend_id_copy = backend_id_;
+    const std::filesystem::path cache_path_copy = cache_path();
 
     api_->database_post_item(namespace_, key, record,
-        [cb]() {
+        [cb, cache_path_copy, backend_id_copy, slot_index, stamped]() {
+            // MR DB write succeeded — refresh our local read-cache. Errors in
+            // write_cache_slot are logged at warn and do NOT affect the user
+            // callback: the DB is the source of truth, and a cache write
+            // failure must not pretend the save failed.
+            write_cache_slot(cache_path_copy, backend_id_copy, slot_index, &stamped);
             if (cb) cb(true, "");
         },
         [cb, backend_id_copy, key](const MoonrakerError& err) {
@@ -287,10 +386,18 @@ void FilamentSlotOverrideStore::clear_async(int slot_index, SaveCallback cb) {
     // Lifetime safety mirrors save_async: Moonraker's request tracker can fire
     // the error callback ~60s after this returns, well after the store may have
     // been destroyed (backend swap, reconnect). Value-capture only; no `this`.
+    // cache_path_copy is captured into the success lambda so write_cache_slot
+    // (a free function) runs with no `this`.
     const std::string backend_id_copy = backend_id_;
+    const std::filesystem::path cache_path_copy = cache_path();
 
     api_->database_delete_item(namespace_, key,
-        [cb]() {
+        [cb, cache_path_copy, backend_id_copy, slot_index]() {
+            // MR DB delete succeeded — erase the slot from our read-cache too.
+            // Passing nullptr is the documented "erase this slot" signal.
+            // Cache errors are logged at warn but never reported to cb: the DB
+            // is the source of truth and we don't lie about the clear result.
+            write_cache_slot(cache_path_copy, backend_id_copy, slot_index, nullptr);
             if (cb) cb(true, "");
         },
         [cb, backend_id_copy, key](const MoonrakerError& err) {

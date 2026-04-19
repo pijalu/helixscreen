@@ -2,6 +2,7 @@
 #pragma once
 
 #include <chrono>
+#include <filesystem>
 #include <functional>
 #include <string>
 #include <unordered_map>
@@ -45,6 +46,17 @@ class FilamentSlotOverrideStore {
     // Stored as milliseconds (not seconds) because tests need sub-second
     // resolution — a chrono::seconds member would truncate 50ms to 0s.
     std::chrono::milliseconds load_timeout_{5000};
+    // On-disk read-cache directory. Empty = use helix::get_user_config_dir().
+    // Overridable by FilamentSlotOverrideStoreTestAccess so tests write to a
+    // per-PID tmp dir instead of polluting the user's config. The cache is
+    // NEVER authoritative — the Moonraker DB on the printer is the source of
+    // truth. The cache exists only so the UI can show last-known metadata
+    // when Moonraker is unreachable at backend init.
+    std::filesystem::path cache_dir_;
+    // Absolute path to the cache JSON file. Computed from cache_dir_ (or
+    // get_user_config_dir() if empty). One file serves all backends; each
+    // backend's slots live under doc[backend_id]["slots"].
+    std::filesystem::path cache_path() const;
     // Returns the Moonraker DB key for a given slot.
     //
     // IMPORTANT: the DB key is 1-based (AFC convention: lane1, lane2, ...) but
