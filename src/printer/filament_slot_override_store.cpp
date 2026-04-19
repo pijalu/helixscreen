@@ -141,6 +141,12 @@ from_lane_data_record(const nlohmann::json& j) {
 // - If `ovr` is null: erases doc[backend_id]["slots"][slot_index] (clear path).
 // - Writes atomically via tmp file + rename. Any IO failure is logged at warn
 //   but does NOT propagate to the caller.
+//
+// Thread-model assumption: Moonraker's libhv EventLoop serializes all callback
+// dispatch for a given connection on a single thread, so concurrent R-M-W of
+// this cache file across two backends (e.g. IFS + ACE) can't interleave today.
+// If that threading model ever changes (per-request dispatch, multi-connection
+// fan-out), this read-modify-write becomes racy and needs a file lock.
 void write_cache_slot(const std::filesystem::path& cache_path,
                       const std::string& backend_id,
                       int slot_index,

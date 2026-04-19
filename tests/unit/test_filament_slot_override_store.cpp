@@ -634,10 +634,7 @@ TEST_CASE("FilamentSlotOverrideStore load_blocking skips non-lane-prefixed keys"
 
 TEST_CASE("FilamentSlotOverrideStore save_async writes local cache on success",
           "[filament_slot_override][slow]") {
-    auto tmp = std::filesystem::temp_directory_path() /
-               ("filament_slot_cache_save_" + std::to_string(::getpid()));
-    std::filesystem::remove_all(tmp);
-    std::filesystem::create_directories(tmp);
+    TmpCacheDir tmp("task6_save_writes");
 
     MoonrakerClientMock client(MoonrakerClientMock::PrinterType::VORON_24);
     helix::PrinterState state;
@@ -645,7 +642,7 @@ TEST_CASE("FilamentSlotOverrideStore save_async writes local cache on success",
     MoonrakerAPIMock api(client, state);
 
     FilamentSlotOverrideStore store(&api, "ifs");
-    FilamentSlotOverrideStoreTestAccess::set_cache_directory(store, tmp);
+    FilamentSlotOverrideStoreTestAccess::set_cache_directory(store, tmp.path);
 
     FilamentSlotOverride ovr;
     ovr.brand = "Polymaker";
@@ -661,7 +658,7 @@ TEST_CASE("FilamentSlotOverrideStore save_async writes local cache on success",
     REQUIRE(cb_done);
     REQUIRE(cb_ok);
 
-    auto cache = tmp / "filament_slot_overrides.json";
+    auto cache = tmp.path / "filament_slot_overrides.json";
     REQUIRE(std::filesystem::exists(cache));
 
     std::ifstream in(cache);
@@ -672,16 +669,11 @@ TEST_CASE("FilamentSlotOverrideStore save_async writes local cache on success",
     CHECK(doc["ifs"]["slots"]["0"]["brand"] == "Polymaker");
     CHECK(doc["ifs"]["slots"]["0"]["material"] == "PLA");
     CHECK(doc["ifs"]["slots"]["0"]["color_rgb"] == 0xFF5500u);
-
-    std::filesystem::remove_all(tmp);
 }
 
 TEST_CASE("FilamentSlotOverrideStore clear_async erases from local cache on success",
           "[filament_slot_override][slow]") {
-    auto tmp = std::filesystem::temp_directory_path() /
-               ("filament_slot_cache_clear_" + std::to_string(::getpid()));
-    std::filesystem::remove_all(tmp);
-    std::filesystem::create_directories(tmp);
+    TmpCacheDir tmp("task6_clear_erases");
 
     MoonrakerClientMock client(MoonrakerClientMock::PrinterType::VORON_24);
     helix::PrinterState state;
@@ -689,7 +681,7 @@ TEST_CASE("FilamentSlotOverrideStore clear_async erases from local cache on succ
     MoonrakerAPIMock api(client, state);
 
     FilamentSlotOverrideStore store(&api, "ifs");
-    FilamentSlotOverrideStoreTestAccess::set_cache_directory(store, tmp);
+    FilamentSlotOverrideStoreTestAccess::set_cache_directory(store, tmp.path);
 
     FilamentSlotOverride ovr;
     ovr.brand = "Polymaker";
@@ -703,27 +695,22 @@ TEST_CASE("FilamentSlotOverrideStore clear_async erases from local cache on succ
     store.clear_async(0, [&](bool, std::string) { clear_done = true; });
     REQUIRE(clear_done);
 
-    auto cache = tmp / "filament_slot_overrides.json";
+    auto cache = tmp.path / "filament_slot_overrides.json";
     std::ifstream in(cache);
     auto doc = nlohmann::json::parse(in);
     CHECK(!doc["ifs"]["slots"].contains("0"));
-
-    std::filesystem::remove_all(tmp);
 }
 
 TEST_CASE("FilamentSlotOverrideStore save_async preserves other backends in cache",
           "[filament_slot_override][slow]") {
-    auto tmp = std::filesystem::temp_directory_path() /
-               ("filament_slot_cache_multi_" + std::to_string(::getpid()));
-    std::filesystem::remove_all(tmp);
-    std::filesystem::create_directories(tmp);
+    TmpCacheDir tmp("task6_preserves_other");
 
     // Seed the cache with an ACE entry that our IFS save must leave untouched.
     nlohmann::json seeded = {
         {"version", 1},
         {"ace", {{"slots", {{"0", {{"brand", "eSUN"}}}}}}}
     };
-    std::ofstream(tmp / "filament_slot_overrides.json") << seeded.dump(2);
+    std::ofstream(tmp.path / "filament_slot_overrides.json") << seeded.dump(2);
 
     MoonrakerClientMock client(MoonrakerClientMock::PrinterType::VORON_24);
     helix::PrinterState state;
@@ -731,7 +718,7 @@ TEST_CASE("FilamentSlotOverrideStore save_async preserves other backends in cach
     MoonrakerAPIMock api(client, state);
 
     FilamentSlotOverrideStore store(&api, "ifs");
-    FilamentSlotOverrideStoreTestAccess::set_cache_directory(store, tmp);
+    FilamentSlotOverrideStoreTestAccess::set_cache_directory(store, tmp.path);
 
     FilamentSlotOverride ovr;
     ovr.brand = "Polymaker";
@@ -739,23 +726,18 @@ TEST_CASE("FilamentSlotOverrideStore save_async preserves other backends in cach
     store.save_async(0, ovr, [&](bool, std::string) { save_done = true; });
     REQUIRE(save_done);
 
-    std::ifstream in(tmp / "filament_slot_overrides.json");
+    std::ifstream in(tmp.path / "filament_slot_overrides.json");
     auto doc = nlohmann::json::parse(in);
     CHECK(doc["ifs"]["slots"]["0"]["brand"] == "Polymaker");
     CHECK(doc["ace"]["slots"]["0"]["brand"] == "eSUN"); // untouched!
-
-    std::filesystem::remove_all(tmp);
 }
 
 TEST_CASE("FilamentSlotOverrideStore save_async survives corrupt existing cache",
           "[filament_slot_override][slow]") {
-    auto tmp = std::filesystem::temp_directory_path() /
-               ("filament_slot_cache_corrupt_" + std::to_string(::getpid()));
-    std::filesystem::remove_all(tmp);
-    std::filesystem::create_directories(tmp);
+    TmpCacheDir tmp("task6_corrupt");
 
     // Seed with unparseable JSON.
-    std::ofstream(tmp / "filament_slot_overrides.json") << "not json at all {{{ ";
+    std::ofstream(tmp.path / "filament_slot_overrides.json") << "not json at all {{{ ";
 
     MoonrakerClientMock client(MoonrakerClientMock::PrinterType::VORON_24);
     helix::PrinterState state;
@@ -763,7 +745,7 @@ TEST_CASE("FilamentSlotOverrideStore save_async survives corrupt existing cache"
     MoonrakerAPIMock api(client, state);
 
     FilamentSlotOverrideStore store(&api, "ifs");
-    FilamentSlotOverrideStoreTestAccess::set_cache_directory(store, tmp);
+    FilamentSlotOverrideStoreTestAccess::set_cache_directory(store, tmp.path);
 
     FilamentSlotOverride ovr;
     ovr.brand = "Polymaker";
@@ -777,9 +759,7 @@ TEST_CASE("FilamentSlotOverrideStore save_async survives corrupt existing cache"
     CHECK(save_ok); // The MR DB save succeeded; cache corruption is not fatal.
 
     // After save, cache should be reset to a well-formed doc containing our entry.
-    std::ifstream in(tmp / "filament_slot_overrides.json");
+    std::ifstream in(tmp.path / "filament_slot_overrides.json");
     auto doc = nlohmann::json::parse(in);
     CHECK(doc["ifs"]["slots"]["0"]["brand"] == "Polymaker");
-
-    std::filesystem::remove_all(tmp);
 }
