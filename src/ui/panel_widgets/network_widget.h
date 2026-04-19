@@ -44,6 +44,7 @@ class NetworkWidget : public PanelWidget {
     lv_subject_t* network_label_subject_ = nullptr;
 
     NetworkType current_network_ = NetworkType::Unknown;
+    bool backend_ready_ = false; // True after WiFi backend fires READY event
     lv_timer_t* signal_poll_timer_ = nullptr;
     std::shared_ptr<WiFiManager> wifi_manager_;
     std::unique_ptr<EthernetManager> ethernet_manager_;

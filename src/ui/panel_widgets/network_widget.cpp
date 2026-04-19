@@ -110,6 +110,10 @@ void NetworkWidget::attach(lv_obj_t* widget_obj, lv_obj_t* parent_screen) {
     // the user navigates away and back.
     if (wifi_manager_) {
         wifi_manager_->add_state_observer(lifetime_.token(), [this]() {
+            // Mark backend as ready — this fires on READY, CONNECTED, and
+            // DISCONNECTED events. Once true, detect_network_type() will
+            // re-check WiFi status even if current_network_ != Unknown.
+            backend_ready_ = true;
             detect_network_type();
             if (!signal_poll_timer_ && current_network_ == NetworkType::Wifi) {
                 signal_poll_timer_ =
@@ -201,12 +205,20 @@ void NetworkWidget::detect_network_type() {
 
     // Provisional state until the async probe lands.
     //
-    // On re-activation, keep the last-known state instead of blindly
-    // falling back to WiFi/Disconnected — otherwise Ethernet-only hosts
-    // flicker "Disconnected" -> "Ethernet" every time the panel activates
-    // while waiting for the async probe to finish. Only use the fallback
-    // on the very first activation, before any probe has ever landed.
-    if (current_network_ == NetworkType::Unknown) {
+    // On first activation (Unknown), always apply the WiFi fallback so we show
+    // a sensible provisional state while the Ethernet probe runs.
+    //
+    // On re-activation, keep the last-known state instead of blindly falling
+    // back to WiFi/Disconnected — otherwise Ethernet-only hosts flicker
+    // "Disconnected" -> "Ethernet" every time the panel activates while waiting
+    // for the async probe to finish.
+    //
+    // Exception: if the backend has just signaled READY (backend_ready_ == true)
+    // and we're currently Disconnected, re-check WiFi status. This fixes the
+    // race where the widget attached before the backend finished init and got
+    // pinned on Disconnected before the READY event could trigger a refresh.
+    if (current_network_ == NetworkType::Unknown ||
+        (backend_ready_ && current_network_ == NetworkType::Disconnected)) {
         apply_wifi_fallback();
     }
 
